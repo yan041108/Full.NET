@@ -22,6 +22,88 @@ namespace Full.NET.UnitTests.Reporting;
 [TestClass]
 public sealed class ReportingExportTaskRecoveryTests
 {
+    [TestMethod]
+    public async Task Empty_claim_lease_cannot_generate_or_upload_output()
+    {
+        var fixture = CreateFixture(emptyLease: true); var task = SeedQueued(fixture);
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(default));
+        Assert.AreEqual(0, fixture.GenerateCount); Assert.AreEqual(0, fixture.Files.UploadCount);
+        Assert.IsNull(fixture.Store.Tasks[task.Id].OutputFileId);
+    }
+    [TestMethod]
+    [DataRow(false, "expired")]
+    [DataRow(true, "expired")]
+    [DataRow(false, "replaced")]
+    [DataRow(true, "replaced")]
+    [DataRow(false, "missing-expiry")]
+    [DataRow(true, "missing-expiry")]
+    [DataRow(false, "other-tenant")]
+    [DataRow(true, "other-tenant")]
+    [DataRow(false, "terminal")]
+    [DataRow(true, "terminal")]
+    public async Task Lock_return_rechecks_lease_owner_tenant_and_terminal_state(bool failed, string boundary)
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        if (failed) fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ReportingExportGeneratedFile>.Failure(new("fixture.failure", "fixture", ErrorType.BusinessRule)));
+        fixture.Store.OnCompletionLock = () =>
+        {
+            fixture.Store.SuppressClaims = true;
+            if (boundary == "expired") fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(6);
+        };
+        fixture.Store.CompletionSnapshot = row => new ReportingExportTaskRecord
+        {
+            Id = row.Id, TenantId = boundary == "other-tenant" ? Guid.NewGuid() : row.TenantId,
+            StatusKey = boundary == "terminal" ? ReportingExportTaskStatusKeys.Succeeded : row.StatusKey,
+            LeaseId = boundary == "replaced" ? Guid.NewGuid() : row.LeaseId,
+            LeaseExpiresAtUtc = boundary == "missing-expiry" ? null : row.LeaseExpiresAtUtc,
+        };
+        await fixture.Runner.ProcessPendingAsync(default);
+        var stored = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, stored.StatusKey);
+        Assert.IsNull(stored.OutputFileId); Assert.IsNull(stored.ErrorCode); Assert.IsNull(stored.CompletedAtUtc);
+        Assert.AreEqual(2L, stored.Version);
+        if (!failed) Assert.IsFalse(fixture.Files.UploadStream!.CanRead);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Completion_time_comes_from_after_task_lock(bool failed)
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        if (failed) fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ReportingExportGeneratedFile>.Failure(new("fixture.failure", "fixture", ErrorType.BusinessRule)));
+        fixture.Store.OnCompletionLock = () => fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddSeconds(10);
+        await fixture.Runner.ProcessPendingAsync(default);
+        Assert.AreEqual(fixture.Clock.UtcNow, fixture.Store.Tasks[task.Id].CompletedAtUtc);
+        Assert.AreEqual(failed ? ReportingExportTaskStatusKeys.Failed : ReportingExportTaskStatusKeys.Succeeded, fixture.Store.Tasks[task.Id].StatusKey);
+    }
+
+    [TestMethod]
+    public async Task Completion_lock_read_failure_keeps_recoverable_task_and_releases_generated_stream()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Store.OnCompletionLock = () => throw new IOException("fixture lock read failure");
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(default));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.IsNull(fixture.Store.Tasks[task.Id].OutputFileId);
+        Assert.IsFalse(fixture.Files.UploadStream!.CanRead);
+        Assert.IsFalse(fixture.Context.IsAvailable);
+    }
+
+    [TestMethod]
+    public async Task Cancellation_during_completion_lock_cannot_publish_output()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture); using var cancellation = new CancellationTokenSource();
+        fixture.Store.OnCompletionLock = cancellation.Cancel;
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Runner.ProcessPendingAsync(cancellation.Token));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.IsNull(fixture.Store.Tasks[task.Id].OutputFileId);
+        Assert.IsFalse(fixture.Files.UploadStream!.CanRead);
+        Assert.IsFalse(fixture.Context.IsAvailable);
+    }
+
     /// <summary>双库导出创建使用静态命名参数，租户只能由执行器的可信上下文绑定。</summary>
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
@@ -342,7 +424,7 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.IsNull(task.OutputFileId); Assert.IsNull(task.ErrorCode);
     }
 
-    private static Fixture CreateFixture(DatabaseProvider provider = DatabaseProvider.SqlServer)
+    private static Fixture CreateFixture(DatabaseProvider provider = DatabaseProvider.SqlServer, bool emptyLease = false)
     {
         var tenantId = Guid.NewGuid();
         var tenant = new TenantContext(tenantId, "acme", "Acme");
@@ -361,7 +443,7 @@ public sealed class ReportingExportTaskRecoveryTests
         resolver.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>()).Returns(tenant);
         var clock = new MutableClock(new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero));
         var ids = Substitute.For<IIdGenerator>();
-        ids.NewId().Returns(_ => Guid.NewGuid());
+        ids.NewId().Returns(_ => emptyLease ? Guid.Empty : Guid.NewGuid());
         var files = new FakeFileStore();
         var options = new ReportingExportOptions { ExecutionEnabled = true, BatchSize = 20, LeaseSeconds = 300, PollSeconds = 15 };
         var identity = Substitute.For<IBackgroundSessionAuthorization>();
@@ -523,12 +605,19 @@ public sealed class ReportingExportTaskRecoveryTests
         public Action? OnClaim { get; set; }
         public Action<object?>? OnInsert { get; set; }
         public bool SuppressClaims { get; set; }
+        public Action? OnCompletionLock { get; set; }
+        public Func<ReportingExportTaskRecord, ReportingExportTaskRecord>? CompletionSnapshot { get; set; }
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
             CancellationToken cancellationToken = default)
         {
             SqlScopeGuard.Validate(statement, tenant);
             var values = Params(parameters);
+            if (statement.Name == ReportingExportTaskSql.LockCompletionSqlServer.Name || statement.Name == ReportingExportTaskSql.LockCompletionMySql.Name)
+            {
+                OnCompletionLock?.Invoke();
+                return Task.FromResult(Tasks.TryGetValue((Guid)values["Id"]!, out var locked) ? (T?)(object)(CompletionSnapshot?.Invoke(locked) ?? locked) : default);
+            }
             if (statement.Name == "reporting.resolve_granted_version" && Granted)
                 return Task.FromResult((T?)(object)new ReportingDefinitionVersionRecord
                     { DefinitionId = (Guid)values["DefinitionId"]!, VersionNumber = 1 });

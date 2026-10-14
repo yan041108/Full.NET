@@ -17,7 +17,7 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <summary>领取报表导出任务、绑定已上传文件并完成或失败，支持请求内执行与 Worker 崩溃恢复。</summary>
 /// <param name="queryExecutor">受租户守卫保护的读执行器。</param>
 /// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
-/// <param name="transaction">MySQL 领取短事务。</param>
+/// <param name="transaction">领取及锁后完成仲裁的短事务。</param>
 /// <param name="resourceFiles">租户资源文件存储。</param>
 /// <param name="workbookSource">工作簿生成。</param>
 /// <param name="tenantResolver">活动租户解析。</param>
@@ -272,12 +272,11 @@ internal sealed class ReportingExportTaskRunner(
                 "The export authorization changed before file attachment.", cancellationToken).ConfigureAwait(false);
             return true;
         }
-        var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
+        var affected = await WriteCompletionAsync(task,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
                     : ReportingExportTaskSql.CompleteSucceeded,
-                ReportingSqlParameters.Create(
+                now => ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
                     ("StatusKey", ReportingExportTaskStatusKeys.Succeeded),
@@ -317,12 +316,11 @@ internal sealed class ReportingExportTaskRunner(
         CancellationToken cancellationToken)
     {
         EnsureActiveLease(task, cancellationToken);
-        var now = clock.UtcNow;
-        await commandExecutor.ExecuteAsync(
+        await WriteCompletionAsync(task,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteFailedSqlServer
                     : ReportingExportTaskSql.CompleteFailed,
-                ReportingSqlParameters.Create(
+                now => ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
                     ("StatusKey", ReportingExportTaskStatusKeys.Failed),
@@ -338,10 +336,31 @@ internal sealed class ReportingExportTaskRunner(
     /// <summary>即使外部依赖忽略取消令牌，返回后也必须停止到期持有者。</summary>
     /// <param name="task">已领取的租约快照。</param>
     /// <param name="cancellationToken">包含租约期限的执行令牌。</param>
+    /// <summary>所有外部调用已经结束；短事务只锁本模块任务，锁后再取时间并生成写入参数。</summary>
+    private async Task<int> WriteCompletionAsync(ReportingExportTaskRecord task, SqlStatement statement,
+        Func<DateTimeOffset, IReadOnlyDictionary<string, object?>> parameters, CancellationToken cancellationToken)
+    {
+        EnsureActiveLease(task, cancellationToken);
+        var leaseId = task.LeaseId;
+        return await transaction.ExecuteAsync(async token =>
+        {
+            var locked = await queryExecutor.QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? ReportingExportTaskSql.LockCompletionSqlServer : ReportingExportTaskSql.LockCompletionMySql,
+                ReportingSqlParameters.Create(("Id", task.Id)), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            var now = clock.UtcNow;
+            if (locked is null || locked.TenantId != task.TenantId || locked.StatusKey != ReportingExportTaskStatusKeys.Processing
+                || locked.LeaseId != leaseId || locked.LeaseExpiresAtUtc is null || locked.LeaseExpiresAtUtc <= now) return 0;
+            var affected = await commandExecutor.ExecuteAsync(statement, parameters(now), token).ConfigureAwait(false);
+            if (affected > 1) throw new InvalidOperationException("Reporting export completion changed more than one task.");
+            return affected;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     private void EnsureActiveLease(ReportingExportTaskRecord task, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (task.LeaseId is null || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
+        if (task.LeaseId is null || task.LeaseId == Guid.Empty || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
         {
             throw new OperationCanceledException("报表导出任务租约已失效。", cancellationToken);
         }

@@ -21,6 +21,85 @@ namespace Full.NET.UnitTests.ImportExport;
 [TestClass]
 public sealed class ImportExportTaskRecoveryTests
 {
+    [TestMethod]
+    public async Task Empty_claim_lease_cannot_execute_rows_or_upload_receipt()
+    {
+        var fixture = CreateFixture(batchSize: 1, emptyLease: true); var task = SeedQueuedTask(fixture, validRowCount: 1);
+        await fixture.Runner.ProcessPendingAsync(default);
+        await fixture.Handler.DidNotReceive().ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, fixture.Files.UploadCount); Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+    }
+    [TestMethod]
+    [DataRow(false, "expired")]
+    [DataRow(true, "expired")]
+    [DataRow(false, "replaced")]
+    [DataRow(true, "replaced")]
+    [DataRow(false, "missing-expiry")]
+    [DataRow(true, "missing-expiry")]
+    [DataRow(false, "other-tenant")]
+    [DataRow(true, "other-tenant")]
+    [DataRow(false, "terminal")]
+    [DataRow(true, "terminal")]
+    public async Task Lock_return_cannot_overwrite_checkpoint_after_lease_or_owner_change(bool failed, string boundary)
+    {
+        var fixture = CreateFixture(batchSize: 1); var task = SeedQueuedTask(fixture, validRowCount: 1);
+        if (failed) fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<StaticImportBatchExecutionResult>.Failure(new("fixture.failure", "fixture", ErrorType.BusinessRule)));
+        fixture.Store.OnExecutionLock = () => { if (boundary == "expired") fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(3); };
+        fixture.Store.ExecutionSnapshot = row => new ImportExportTaskRecord
+        {
+            Id = row.Id, TenantId = boundary == "other-tenant" ? Guid.NewGuid() : row.TenantId,
+            StatusKey = boundary == "terminal" ? ImportExportTaskStatusKeys.ExecutionSucceeded : row.StatusKey,
+            LeaseId = boundary == "replaced" ? Guid.NewGuid() : row.LeaseId,
+            LeaseExpiresAtUtc = boundary == "missing-expiry" ? null : row.LeaseExpiresAtUtc,
+        };
+        await fixture.Runner.ProcessPendingAsync(default);
+        var stored = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stored.StatusKey);
+        Assert.AreEqual(0, stored.NextLineNumber); Assert.AreEqual(0, stored.ProcessedRowCount);
+        Assert.IsNull(stored.ErrorCode); Assert.IsNull(stored.ExecutionCompletedAtUtc); Assert.AreEqual(2L, stored.Version);
+        Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Checkpoint_completion_time_comes_from_after_task_lock(bool failed)
+    {
+        var fixture = CreateFixture(batchSize: 1); var task = SeedQueuedTask(fixture, validRowCount: 1);
+        if (failed) fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<StaticImportBatchExecutionResult>.Failure(new("fixture.failure", "fixture", ErrorType.BusinessRule)));
+        fixture.Store.OnExecutionLock = () => fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddSeconds(10);
+        await fixture.Runner.ProcessPendingAsync(default);
+        Assert.AreEqual(fixture.Clock.UtcNow, fixture.Store.Tasks[task.Id].ExecutionCompletedAtUtc);
+        Assert.AreEqual(failed ? ImportExportTaskStatusKeys.ExecutionFailed : ImportExportTaskStatusKeys.ExecutionSucceeded, fixture.Store.Tasks[task.Id].StatusKey);
+    }
+
+    [TestMethod]
+    public async Task Checkpoint_lock_failure_keeps_old_progress_for_retry()
+    {
+        var fixture = CreateFixture(batchSize: 1); var task = SeedQueuedTask(fixture, validRowCount: 1);
+        fixture.Store.OnExecutionLock = () => throw new IOException("fixture lock read failure");
+        await fixture.Runner.ProcessPendingAsync(default);
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+        Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+    }
+
+    [TestMethod]
+    public async Task Cancellation_during_checkpoint_lock_keeps_old_progress()
+    {
+        var fixture = CreateFixture(batchSize: 1); var task = SeedQueuedTask(fixture, validRowCount: 1); using var cancellation = new CancellationTokenSource();
+        fixture.Store.OnExecutionLock = cancellation.Cancel;
+        await fixture.Runner.ProcessPendingAsync(cancellation.Token);
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+        Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+    }
+
     /// <summary>异步边界耗尽租约后，不得启动新副作用或覆盖可恢复检查点。</summary>
     [TestMethod]
     [DataRow("authorization", 0, 0)]
@@ -457,7 +536,7 @@ public sealed class ImportExportTaskRecoveryTests
     }
 
     /// <summary>组装使用内存存储的生产 Runner。</summary>
-    private static Fixture CreateFixture(bool legacy = false, int batchSize = 50)
+    private static Fixture CreateFixture(bool legacy = false, int batchSize = 50, bool emptyLease = false)
     {
         var tenantId = Guid.NewGuid();
         var tenant = new TenantContext(tenantId, "acme", "Acme");
@@ -493,7 +572,7 @@ public sealed class ImportExportTaskRecoveryTests
         resolver.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>()).Returns(tenant);
         var clock = new MutableClock(new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero));
         var ids = Substitute.For<IIdGenerator>();
-        ids.NewId().Returns(_ => Guid.NewGuid());
+        ids.NewId().Returns(_ => emptyLease ? Guid.Empty : Guid.NewGuid());
         var files = new FakeFileStore();
         var options = Options.Create(new ImportExportOptions
         {
@@ -690,6 +769,8 @@ public sealed class ImportExportTaskRecoveryTests
     {
         public TimeSpan? ClaimLeaseDuration { get; set; }
         public bool FailProgressCommit { get; set; }
+        public Action? OnExecutionLock { get; set; }
+        public Func<ImportExportTaskRecord, ImportExportTaskRecord>? ExecutionSnapshot { get; set; }
         public Dictionary<Guid, ImportExportTaskRecord> Tasks { get; } = [];
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
@@ -697,6 +778,11 @@ public sealed class ImportExportTaskRecoveryTests
         {
             SqlScopeGuard.Validate(statement, tenant);
             var values = Params(parameters);
+            if (statement.Name == ImportExportTaskSql.LockExecutionSqlServer.Name || statement.Name == ImportExportTaskSql.LockExecutionMySql.Name)
+            {
+                OnExecutionLock?.Invoke();
+                return Task.FromResult(Tasks.TryGetValue((Guid)values["Id"]!, out var locked) ? (T?)(object)(ExecutionSnapshot?.Invoke(locked) ?? locked) : default);
+            }
             if (statement.Name == ImportExportTaskSql.FindById.Name
                 && Tasks.TryGetValue((Guid)values["Id"]!, out var task))
             {

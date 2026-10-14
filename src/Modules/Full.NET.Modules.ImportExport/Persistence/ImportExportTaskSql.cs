@@ -195,6 +195,21 @@ internal static class ImportExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>检查点和失败回写共用本租户任务行锁，不把等待锁前的时间当成仍持有租约。</summary>
+    public static readonly SqlStatement LockExecutionSqlServer = new(
+        "import_export.task.lock_execution.sqlserver",
+        $"""
+        SELECT {SelectColumns} FROM fn_import_export_task WITH (UPDLOCK, ROWLOCK)
+        WHERE TenantId = @TenantId AND Id = @Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement LockExecutionMySql = new(
+        "import_export.task.lock_execution.mysql",
+        $"""
+        SELECT {SelectColumns} FROM fn_import_export_task
+        WHERE TenantId = @TenantId AND Id = @Id FOR UPDATE
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement UpdateExecutionProgress = new(
         "import_export.task.update_execution_progress",
         """

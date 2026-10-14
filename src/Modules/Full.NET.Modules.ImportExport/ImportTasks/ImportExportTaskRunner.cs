@@ -17,7 +17,7 @@ namespace Full.NET.Modules.ImportExport.ImportTasks;
 /// <summary>领取 queued 或租约到期的导入任务，并按检查点调用 Schema 处理器。</summary>
 /// <param name="queryExecutor">受租户守卫保护的读执行器。</param>
 /// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
-/// <param name="transaction">MySQL 领取所需的短事务。</param>
+/// <param name="transaction">领取及锁后检查点/失败仲裁的短事务。</param>
 /// <param name="resourceFiles">租户资源文件存储。</param>
 /// <param name="registry">静态 Schema 处理器目录。</param>
 /// <param name="authorization">后台会话与精确权限复核。</param>
@@ -126,7 +126,6 @@ internal sealed class ImportExportTaskRunner(
                 await MarkExecutionFailedAsync(
                     task,
                     ImportExportErrorCodes.SchemaNotFound,
-                    clock.UtcNow,
                     executionToken).ConfigureAwait(false);
                 return;
             }
@@ -137,7 +136,7 @@ internal sealed class ImportExportTaskRunner(
                     executionState.CapabilityFlags, executionToken).ConfigureAwait(false))
             {
                 // 升级前缺少会话绑定的队列同样拒绝，必须由仍有权限的当前会话显式重试。
-                await MarkExecutionFailedAsync(task, CommonErrorCodes.PermissionDenied, clock.UtcNow, executionToken).ConfigureAwait(false);
+                await MarkExecutionFailedAsync(task, CommonErrorCodes.PermissionDenied, executionToken).ConfigureAwait(false);
                 return;
             }
 
@@ -150,7 +149,6 @@ internal sealed class ImportExportTaskRunner(
                 await MarkExecutionFailedAsync(
                     task,
                     sourceResult.Error!.Code,
-                    clock.UtcNow,
                     executionToken).ConfigureAwait(false);
                 return;
             }
@@ -187,7 +185,6 @@ internal sealed class ImportExportTaskRunner(
                 await MarkExecutionFailedAsync(
                     task,
                     batchResult.Error!.Code,
-                    clock.UtcNow,
                     executionToken).ConfigureAwait(false);
                 return;
             }
@@ -195,7 +192,7 @@ internal sealed class ImportExportTaskRunner(
             if (batchResult.Value!.Rows.Count == 0 && task.NextLineNumber < task.ValidRowCount)
             {
                 // 检查点尚未完成却返回空批是处理器契约失败，不能无进展地反复排队。
-                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, clock.UtcNow, executionToken).ConfigureAwait(false);
+                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, executionToken).ConfigureAwait(false);
                 return;
             }
             await ApplyBatchResultAsync(task, batchResult.Value!, executionToken).ConfigureAwait(false);
@@ -224,7 +221,6 @@ internal sealed class ImportExportTaskRunner(
         CancellationToken cancellationToken)
     {
         EnsureActiveLease(task, cancellationToken);
-        var now = clock.UtcNow;
         var executionState = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
         var mergedRows = ImportExportTaskMapper.MergeExecutionRows(executionState.Rows, batch.Rows);
         var batchSucceeded = batch.Rows.Count(row => row.Succeeded);
@@ -235,13 +231,11 @@ internal sealed class ImportExportTaskRunner(
         var nextLineNumber = task.NextLineNumber + batch.Rows.Count;
         var executionComplete = nextLineNumber >= task.ValidRowCount;
         string statusKey;
-        DateTimeOffset? executionCompletedAtUtc = null;
         Guid? errorReceiptFileId = task.ErrorReceiptFileId;
         string? errorCode = null;
 
         if (executionComplete)
         {
-            executionCompletedAtUtc = now;
             if (executionFailedRowCount == 0)
             {
                 statusKey = ImportExportTaskStatusKeys.ExecutionSucceeded;
@@ -268,12 +262,12 @@ internal sealed class ImportExportTaskRunner(
         }
 
         EnsureActiveLease(task, cancellationToken);
-        var affected = await commandExecutor.ExecuteAsync(
+        var affected = await WriteExecutionAsync(task,
                 ImportExportTaskSql.UpdateExecutionProgress,
-                ImportExportSqlParameters.Create(
+                now => ImportExportSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
-                    ("Now", clock.UtcNow),
+                    ("Now", now),
                     ("StatusKey", statusKey),
                     ("ProcessedRowCount", processedRowCount),
                     ("SucceededRowCount", succeededRowCount),
@@ -282,7 +276,7 @@ internal sealed class ImportExportTaskRunner(
                     ("ExecutionRowsJson", ImportExportTaskMapper.SerializeExecutionState(
                         new ImportExportExecutionStateDocument(executionState.CapabilityFlags, mergedRows, executionState.SessionBinding))),
                     ("ErrorReceiptFileId", errorReceiptFileId),
-                    ("ExecutionCompletedAtUtc", executionCompletedAtUtc),
+                    ("ExecutionCompletedAtUtc", executionComplete ? (DateTimeOffset?)now : null),
                     ("ErrorCode", errorCode)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -347,23 +341,21 @@ internal sealed class ImportExportTaskRunner(
     /// <summary>仅在仍持有当前租约时写入任务级失败。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="errorCode">稳定错误码。</param>
-    /// <param name="completedAtUtc">完成时间。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task MarkExecutionFailedAsync(
         ImportExportTaskRecord task,
         string errorCode,
-        DateTimeOffset completedAtUtc,
         CancellationToken cancellationToken)
     {
         EnsureActiveLease(task, cancellationToken);
-        await commandExecutor.ExecuteAsync(
+        await WriteExecutionAsync(task,
                 ImportExportTaskSql.MarkExecutionFailed,
-                ImportExportSqlParameters.Create(
+                now => ImportExportSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
-                    ("Now", clock.UtcNow),
+                    ("Now", now),
                     ("ErrorCode", errorCode),
-                    ("ExecutionCompletedAtUtc", completedAtUtc)),
+                    ("ExecutionCompletedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -371,10 +363,31 @@ internal sealed class ImportExportTaskRunner(
     /// <summary>取消与期限均失败关闭，缺少期限的遗留快照也不得继续执行。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="cancellationToken">包含租约期限的执行令牌。</param>
+    /// <summary>业务批次和文件端口在事务外；检查点及失败仅在锁后仍持有本次租约时写入。</summary>
+    private async Task<int> WriteExecutionAsync(ImportExportTaskRecord task, SqlStatement statement,
+        Func<DateTimeOffset, IReadOnlyDictionary<string, object?>> parameters, CancellationToken cancellationToken)
+    {
+        EnsureActiveLease(task, cancellationToken);
+        var leaseId = task.LeaseId;
+        return await transaction.ExecuteAsync(async token =>
+        {
+            var locked = await queryExecutor.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? ImportExportTaskSql.LockExecutionSqlServer : ImportExportTaskSql.LockExecutionMySql,
+                ImportExportSqlParameters.Create(("Id", task.Id)), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            var now = clock.UtcNow;
+            if (locked is null || locked.TenantId != task.TenantId || locked.StatusKey != ImportExportTaskStatusKeys.Executing
+                || locked.LeaseId != leaseId || locked.LeaseExpiresAtUtc is null || locked.LeaseExpiresAtUtc <= now) return 0;
+            var affected = await commandExecutor.ExecuteAsync(statement, parameters(now), token).ConfigureAwait(false);
+            if (affected > 1) throw new InvalidOperationException("Import checkpoint changed more than one task.");
+            return affected;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     private void EnsureActiveLease(ImportExportTaskRecord task, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (task.LeaseId is null || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
+        if (task.LeaseId is null || task.LeaseId == Guid.Empty || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
         {
             throw new OperationCanceledException("导入任务租约已失效。", cancellationToken);
         }
