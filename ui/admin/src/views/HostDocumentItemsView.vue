@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import {
   ElButton,
   ElCard,
   ElDrawer,
+  ElDialog,
   ElForm,
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElPagination,
   ElOption,
   ElSelect,
@@ -92,6 +92,17 @@ const selectedTagFilterId = ref<string | null>(null);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const confirmation = ref<{ title: string; message: string; confirmLabel: string }>();
+let settleConfirmation: ((confirmed: boolean) => void) | undefined;
+const confirmationOpen = computed({ get: () => !!confirmation.value, set: open => { if (!open) resolveConfirmation(false); } });
+function resolveConfirmation(confirmed: boolean): void {
+  const settle = settleConfirmation; settleConfirmation = undefined; confirmation.value = undefined; settle?.(confirmed);
+}
+function askConfirmation(title: string, message: string, confirmLabel = t('common.confirm')): Promise<boolean> {
+  // 仅清理本页面的确认，不关闭其它组件的全局消息框；失效时同时结束等待。
+  resolveConfirmation(false);
+  return new Promise(resolve => { settleConfirmation = resolve; confirmation.value = { title, message, confirmLabel }; });
+}
 const versionFile = ref<File | null>(null);
 const versionTargetId = ref<string>();
 const versionHistoryVisible = ref(false);
@@ -99,33 +110,36 @@ const versionHistoryItem = ref<HostDocumentItem>();
 const versionHistory = ref<HostDocumentVersionResponse[]>([]);
 const versionHistoryLoading = ref(false);
 const editingId = ref<string>();
+const editingVersion = ref<number>();
 const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ title: '' });
 const categories = ref<HostDocumentCategoryResponse[]>([]);
 const selectedCategoryId = ref<string | null>(null);
 const ALL_CATEGORIES_NODE_ID = '__all__';
-const canCreate = computed(() => session.can('document.host_documents.create'));
-const canUpdate = computed(() => session.can('document.host_documents.update'));
-const canAddVersion = computed(() => session.can('document.host_documents.add_version'));
-const canDelete = computed(() => session.can('document.host_documents.delete'));
-const canRestore = computed(() => session.can('document.host_documents.restore'));
-const canRollbackVersion = computed(() => session.can('document.host_documents.rollback_version'));
-const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
-const canDownload = computed(() => session.can('document.host_documents.download'));
-const canCreatePreviewTask = computed(() => session.can('document.host_preview_tasks.create'));
+const inHost = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const allowed = (permission: string) => inHost() && session.can(permission);
+const canCreate = computed(() => allowed('document.host_documents.create'));
+const canUpdate = computed(() => allowed('document.host_documents.update'));
+const canAddVersion = computed(() => allowed('document.host_documents.add_version'));
+const canDelete = computed(() => allowed('document.host_documents.delete'));
+const canRestore = computed(() => allowed('document.host_documents.restore'));
+const canRollbackVersion = computed(() => allowed('document.host_documents.rollback_version'));
+const canDeleteVersion = computed(() => allowed('document.host_documents.delete_version'));
+const canDownload = computed(() => allowed('document.host_documents.download'));
+const canCreatePreviewTask = computed(() => allowed('document.host_preview_tasks.create'));
 const canCreateShare = computed(() => session.currentUser?.scope === 'host'
   && session.can('document.host_documents.read') && session.can('document.host_shares.create'));
-const canRead = computed(() => session.can('document.host_documents.read'));
+const canRead = computed(() => allowed('document.host_documents.read'));
 const shareDialogOpen = ref(false);
 const shareTarget = ref<HostDocumentItem | null>(null);
 const shareBatchTargets = ref<HostDocumentItem[]>([]);
 const selectedItems = ref<HostDocumentItem[]>([]);
-// 只管理文档库的分享流程，不扩大到尚未收口的其他文档操作。
+// 分享单独持有代次，切换分享目标不能取消文档库的列表或编辑请求。
 const shareScope = useAuthorizedViewScope(session, () => {
   shareDialogOpen.value = false; shareTarget.value = null; shareBatchTargets.value = []; selectedItems.value = [];
 }, () => {});
-const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
+const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value && entry.version === editingVersion.value));
 
 const editDialogOpen = computed({
   get: () => editingId.value !== undefined,
@@ -212,27 +226,63 @@ watch([filteredItems, page, pageSize], () => {
   void syncTableLayout();
 });
 
-onMounted(() => {
-  void load();
-  void loadCategories();
-  void loadHotTags();
-  void loadAllTags();
-});
+// 整页内容与写入都属于当前 Host 会话；停用或作用域变化后同步清除敏感快照。
+const pageScope = useAuthorizedViewScope(session, () => {
+  resolveConfirmation(false);
+  items.value = []; categories.value = []; hotTags.value = []; allTags.value = []; recentlyDeleted.value = [];
+  selectedCategoryId.value = null; selectedTagFilterId.value = null; appliedFilters.value = { title: '' }; searchForm.value = {};
+  resetPage(); createDialogOpen.value = false; cancelCreate(); cancelEdit(); versionHistoryVisible.value = false;
+  versionHistoryItem.value = undefined; versionHistory.value = []; versionHistoryLoading.value = false;
+  versionFile.value = null; versionTargetId.value = undefined; loading.value = false; changing.value = false; problem.value = undefined;
+}, async () => { await Promise.all([load(), loadCategories(), loadHotTags(), loadAllTags()]); });
+type PageRequest = ReturnType<typeof pageScope.begin>;
+let listRequest: PageRequest; let categoryRequest: PageRequest; let hotTagRequest: PageRequest; let tagRequest: PageRequest;
+let actionRequest: PageRequest; let createRequest: PageRequest; let editRequest: PageRequest;
+let historyRequest: PageRequest; let versionActionRequest: PageRequest; let contentRequest: PageRequest;
+function begin(permission: string): PageRequest { return allowed(permission) ? pageScope.begin(permission) : undefined; }
+function beginAction(permission: string): PageRequest {
+  if (changing.value) return;
+  const request = begin(permission); if (!request) return;
+  actionRequest = request; changing.value = true; problem.value = undefined; return request;
+}
+function finishAction(request: NonNullable<PageRequest>): void {
+  if (request === actionRequest && request.current()) changing.value = false;
+  request.finish();
+}
+function cancelAction(request: PageRequest): void {
+  request?.cancel(); if (request && request === actionRequest) { changing.value = false; actionRequest = undefined; }
+}
+const currentItem = (item: HostDocumentItem) => items.value.some(value => value.id === item.id && value.version === item.version);
+watch(createDialogOpen, open => { if (!open) { cancelAction(createRequest); createRequest = undefined; } }, { flush: 'sync' });
+watch(editingId, (id, previous) => { if (id !== previous) { cancelAction(editRequest); editRequest = undefined; } }, { flush: 'sync' });
+// 列表刷新为新版本时关闭旧表单，不能拿新版本号提交用户基于旧内容填写的字段。
+watch(editingItem, item => { if (!item && editingId.value) cancelEdit(); }, { flush: 'sync' });
+watch(versionHistoryVisible, open => {
+  if (!open) {
+    if (versionActionRequest && versionActionRequest === actionRequest) resolveConfirmation(false);
+    historyRequest?.cancel(); cancelAction(versionActionRequest); cancelAction(contentRequest);
+    versionHistory.value = []; versionHistoryItem.value = undefined; versionHistoryLoading.value = false;
+  }
+}, { flush: 'sync' });
 
 async function loadHotTags(): Promise<void> {
+  if (!canRead.value) return;
+  hotTagRequest?.cancel(); const request = begin('document.tags.read'); if (!request) return; hotTagRequest = request;
   try {
-    hotTags.value = await listDocumentTags({ isHot: true });
+    const values = await listDocumentTags({ isHot: true }, request.signal); if (request.current()) hotTags.value = values;
   } catch {
-    hotTags.value = [];
-  }
+    if (request.current()) hotTags.value = [];
+  } finally { request.finish(); }
 }
 
 async function loadAllTags(): Promise<void> {
+  if (!canRead.value) return;
+  tagRequest?.cancel(); const request = begin('document.tags.read'); if (!request) return; tagRequest = request;
   try {
-    allTags.value = await listDocumentTags();
+    const values = await listDocumentTags({}, request.signal); if (request.current()) allTags.value = values;
   } catch {
-    allTags.value = [];
-  }
+    if (request.current()) allTags.value = [];
+  } finally { request.finish(); }
 }
 
 function toggleTagFilter(tagId: string): void {
@@ -248,11 +298,13 @@ function clearTagFilter(): void {
 }
 
 async function loadCategories(): Promise<void> {
+  if (!canRead.value) return;
+  categoryRequest?.cancel(); const request = begin('document.categories.read'); if (!request) return; categoryRequest = request;
   try {
-    categories.value = await listDocumentCategories();
+    const values = await listDocumentCategories(request.signal); if (request.current()) categories.value = values;
   } catch {
-    categories.value = [];
-  }
+    if (request.current()) categories.value = [];
+  } finally { request.finish(); }
 }
 
 function onCategorySelected(node: CategoryTreeNode): void {
@@ -325,18 +377,18 @@ function deletedRowIndex(index: number): number {
 }
 
 async function load(): Promise<void> {
+  listRequest?.cancel(); const request = begin('document.host_documents.read'); if (!request) return; listRequest = request;
   loading.value = true;
   problem.value = undefined;
   try {
     const pageResult = await listDocumentItems(1, 100, {
       tagId: selectedTagFilterId.value
-    });
-    items.value = pageResult.items;
+    }, request.signal);
+    if (request.current()) items.value = pageResult.items;
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
   }
 }
 
@@ -360,6 +412,7 @@ async function confirmEdit(): Promise<void> {
 }
 
 function openCreate(): void {
+  if (!canCreate.value || changing.value) return;
   createTitle.value = '';
   createDescription.value = '';
   createTitleError.value = '';
@@ -405,16 +458,16 @@ async function confirmCreate(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !canCreate.value || !createTitle.value.trim()) {
+  if (!createDialogOpen.value || !canCreate.value || !createTitle.value.trim()) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.create'); if (!request) return; createRequest = request;
   try {
     await createDocumentItem(createTitle.value.trim(), createDescription.value.trim() || null, {
       categoryId: selectedCategoryId.value,
       tagIds: createTagIds.value
-    });
+    }, request.signal);
+    if (!request.current()) return; createRequest = undefined;
     createDialogOpen.value = false;
     createTitle.value = '';
     createDescription.value = '';
@@ -422,15 +475,17 @@ async function create(): Promise<void> {
     ElMessage.success(t('hostDocumentItems.createSuccess'));
     await load();
   } catch (error: unknown) {
+    if (!request.current()) return;
     if (!applyTitleConflictError(error, 'create') && !applyInvalidTagError(error)) {
       problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
     }
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 function onVersionFileSelected(event: Event, itemId: string): void {
+  if (!canAddVersion.value || changing.value || !items.value.some(item => item.id === itemId)) return;
   const input = event.target as HTMLInputElement;
   versionFile.value = input.files?.[0] ?? null;
   versionTargetId.value = itemId;
@@ -442,36 +497,39 @@ async function uploadVersion(item: HostDocumentItem): Promise<void> {
     || !canAddVersion.value
     || !versionFile.value
     || versionTargetId.value !== item.id
+    || !currentItem(item)
   ) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.add_version'); if (!request) return;
   try {
-    await uploadDocumentVersion(item.id, versionFile.value);
+    await uploadDocumentVersion(item.id, versionFile.value, request.signal);
+    if (!request.current()) return;
     versionFile.value = null;
     versionTargetId.value = undefined;
     ElMessage.success(t('hostDocumentItems.versionSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 async function remove(item: HostDocumentItem): Promise<void> {
-  if (changing.value || !canDelete.value) {
+  if (!canDelete.value || !currentItem(item)) {
     return;
   }
+  const request = beginAction('document.host_documents.delete'); if (!request) return;
   try {
-    await ElMessageBox.confirm(
-      t('hostDocumentItems.confirmDelete', { name: item.title }),
+    if (!await askConfirmation(
       t('hostDocumentItems.delete'),
-      { type: 'warning', confirmButtonText: t('hostDocumentItems.delete'), cancelButtonText: t('status.back') }
-    );
-    changing.value = true;
-    await deleteDocumentItem(item.id, item.version);
+      t('hostDocumentItems.confirmDelete', { name: item.title }), t('hostDocumentItems.delete')
+    )) return;
+    // 确认可能跨过撤权、页面停用或列表版本变化，写入前再次核对原意图。
+    if (!request.current() || !currentItem(item)) return;
+    await deleteDocumentItem(item.id, item.version, request.signal);
+    if (!request.current()) return;
     recentlyDeleted.value = [
       { item, restoreVersion: item.version + 1 },
       ...recentlyDeleted.value.filter(entry => entry.item.id !== item.id)
@@ -479,16 +537,20 @@ async function remove(item: HostDocumentItem): Promise<void> {
     ElMessage.success(t('hostDocumentItems.deleteSuccess'));
     await load();
   } catch (error: unknown) {
+    if (!request.current()) return;
     if (error === 'cancel' || error === 'close') {
       return;
     }
     problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 function startEdit(item: HostDocumentItem): void {
+  if (!canUpdate.value || changing.value || !currentItem(item)) return;
+  cancelEdit();
+  editingVersion.value = item.version;
   editingId.value = item.id;
   editTitle.value = item.title;
   editDescription.value = item.description ?? '';
@@ -498,6 +560,7 @@ function startEdit(item: HostDocumentItem): void {
 
 function cancelEdit(): void {
   editingId.value = undefined;
+  editingVersion.value = undefined;
   editTitle.value = '';
   editDescription.value = '';
   editTitleError.value = '';
@@ -505,15 +568,15 @@ function cancelEdit(): void {
 }
 
 async function saveEdit(item: HostDocumentItem): Promise<void> {
-  if (changing.value || !canUpdate.value || editingId.value !== item.id) {
+  if (!canUpdate.value || editingId.value !== item.id || editingVersion.value !== item.version || !currentItem(item)) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.update'); if (!request) return; editRequest = request;
   try {
     await updateDocumentItem(item, editTitle.value.trim(), editDescription.value.trim() || null, {
       tagIds: editTagIds.value
-    });
+    }, request.signal);
+    if (!request.current()) return; editRequest = undefined;
     editingId.value = undefined;
     editTitle.value = '';
     editDescription.value = '';
@@ -521,67 +584,68 @@ async function saveEdit(item: HostDocumentItem): Promise<void> {
     ElMessage.success(t('hostDocumentItems.updateSuccess'));
     await load();
   } catch (error: unknown) {
+    if (!request.current()) return;
     if (!applyTitleConflictError(error, 'edit') && !applyInvalidTagError(error)) {
       problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
     }
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 async function restoreDeleted(entry: DeletedDocumentEntry): Promise<void> {
-  if (changing.value || !canRestore.value) {
+  if (!canRestore.value || !recentlyDeleted.value.some(value => value.item.id === entry.item.id && value.restoreVersion === entry.restoreVersion)) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.restore'); if (!request) return;
   try {
-    await restoreDocumentItem(entry.item.id, entry.restoreVersion);
+    await restoreDocumentItem(entry.item.id, entry.restoreVersion, request.signal);
+    if (!request.current()) return;
     recentlyDeleted.value = recentlyDeleted.value.filter(
       candidate => candidate.item.id !== entry.item.id
     );
     ElMessage.success(t('hostDocumentItems.restoreSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 async function downloadFile(itemId: string): Promise<void> {
-  if (changing.value || !canDownload.value) {
+  if (!canDownload.value || !items.value.some(item => item.id === itemId)) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.download'); if (!request) return; contentRequest = request;
   try {
-    const blob = await downloadDocumentContent(itemId);
-    openDocumentBlob(blob);
+    const blob = await downloadDocumentContent(itemId, request.signal);
+    if (request.current()) openDocumentBlob(blob);
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 async function previewFile(item: HostDocumentItem, versionId?: string): Promise<void> {
-  if (changing.value || !canRead.value || !item.currentVersion) {
+  if (!canRead.value || !item.currentVersion || !currentItem(item)
+    || versionId && (!versionHistoryVisible.value || versionHistoryItem.value?.id !== item.id || !versionHistory.value.some(value => value.id === versionId))) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_documents.read'); if (!request) return; contentRequest = request;
   try {
-    const blob = await previewDocumentContent(item.id, versionId);
-    openDocumentBlob(blob);
+    const blob = await previewDocumentContent(item.id, versionId, request.signal);
+    if (request.current()) openDocumentBlob(blob);
   } catch (error: unknown) {
+    if (!request.current()) return;
     if (isFullNetProblemDetails(error) && error.code === 'document.host_document.preview_not_supported') {
       ElMessage.warning(t('hostDocumentItems.previewNotSupported'));
       return;
     }
     problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
@@ -590,38 +654,35 @@ function canSubmitOfficePreview(item: HostDocumentItem): boolean {
 }
 
 async function submitOfficePreviewTask(item: HostDocumentItem): Promise<void> {
-  if (changing.value || !canCreatePreviewTask.value || !canSubmitOfficePreview(item)) {
+  if (!canCreatePreviewTask.value || !canSubmitOfficePreview(item) || !currentItem(item)) {
     return;
   }
 
-  changing.value = true;
-  problem.value = undefined;
+  const request = beginAction('document.host_preview_tasks.create'); if (!request) return;
   try {
     await createDocumentPreviewTask({
       documentItemId: item.id,
       versionId: item.currentVersion?.id ?? null
-    });
+    }, request.signal);
+    if (!request.current()) return;
     ElMessage.success(t('hostDocumentItems.officePreviewSubmitted'));
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
-    changing.value = false;
+    finishAction(request);
   }
 }
 
 async function openVersionHistory(item: HostDocumentItem): Promise<void> {
-  versionHistoryItem.value = item;
-  versionHistoryVisible.value = true;
-  versionHistoryLoading.value = true;
-  versionHistory.value = [];
+  if (!canRead.value || changing.value || !currentItem(item)) return;
+  historyRequest?.cancel(); const request = begin('document.host_documents.read'); if (!request) return; historyRequest = request;
+  versionHistoryItem.value = item; versionHistoryVisible.value = true; versionHistoryLoading.value = true; versionHistory.value = [];
   try {
-    versionHistory.value = await listDocumentVersions(item.id);
-  } catch (error: unknown) {
-    versionHistoryVisible.value = false;
-    problem.value = toProblem(error, 'hostDocumentItems.versionHistoryLoadFailed');
-  } finally {
-    versionHistoryLoading.value = false;
-  }
+    const values = await listDocumentVersions(item.id, request.signal);
+    if (request.current() && versionHistoryVisible.value && versionHistoryItem.value?.id === item.id) versionHistory.value = values;
+  } catch (error) {
+    if (request.current()) { versionHistoryVisible.value = false; problem.value = toProblem(error, 'hostDocumentItems.versionHistoryLoadFailed'); }
+  } finally { if (request.current()) versionHistoryLoading.value = false; request.finish(); }
 }
 
 function isCurrentVersion(item: HostDocumentItem, version: unknown): boolean {
@@ -631,68 +692,33 @@ function isCurrentVersion(item: HostDocumentItem, version: unknown): boolean {
     && item.currentVersion?.id === version.id;
 }
 
-async function rollbackVersion(version: HostDocumentVersionResponse): Promise<void> {
-  const item = versionHistoryItem.value;
-  if (!item || changing.value || !canRollbackVersion.value || isCurrentVersion(item, version)) {
-    return;
-  }
-  try {
-    await ElMessageBox.confirm(
-      t('hostDocumentItems.confirmRollback', { version: version.versionNumber }),
-      t('hostDocumentItems.rollbackVersion'),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  changing.value = true;
-  problem.value = undefined;
-  try {
-    const updated = await rollbackDocumentVersion(item.id, version.id, item.version);
-    versionHistoryItem.value = updated;
-    const index = items.value.findIndex(entry => entry.id === item.id);
-    if (index >= 0) {
-      items.value[index] = updated;
-    }
-    versionHistory.value = await listDocumentVersions(item.id);
-    ElMessage.success(t('hostDocumentItems.rollbackSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    changing.value = false;
-  }
-}
+async function rollbackVersion(version: HostDocumentVersionResponse): Promise<void> { await changeVersion(version, 'rollback'); }
+async function deleteVersion(version: HostDocumentVersionResponse): Promise<void> { await changeVersion(version, 'delete'); }
 
-async function deleteVersion(version: HostDocumentVersionResponse): Promise<void> {
+async function changeVersion(version: HostDocumentVersionResponse, kind: 'rollback' | 'delete'): Promise<void> {
   const item = versionHistoryItem.value;
-  if (!item || changing.value || !canDeleteVersion.value || isCurrentVersion(item, version)) {
-    return;
-  }
+  if (!item || !versionHistoryVisible.value || !currentItem(item) || isCurrentVersion(item, version)
+    || !versionHistory.value.some(value => value.id === version.id)) return;
+  const request = beginAction(kind === 'rollback' ? 'document.host_documents.rollback_version' : 'document.host_documents.delete_version');
+  if (!request) return; versionActionRequest = request;
   try {
-    await ElMessageBox.confirm(
-      t('hostDocumentItems.confirmDeleteVersion', { version: version.versionNumber }),
-      t('hostDocumentItems.deleteVersion'),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  changing.value = true;
-  problem.value = undefined;
-  try {
-    const updated = await deleteDocumentVersion(item.id, version.id, item.version);
+    if (!await askConfirmation(t(kind === 'rollback' ? 'hostDocumentItems.rollbackVersion' : 'hostDocumentItems.deleteVersion'),
+      t(kind === 'rollback' ? 'hostDocumentItems.confirmRollback' : 'hostDocumentItems.confirmDeleteVersion', { version: version.versionNumber }))) return;
+    // 确认只属于打开时的文档、版本和权限代次，不能用于随后切换的抽屉。
+    if (!request.current() || !versionHistoryVisible.value || versionHistoryItem.value?.id !== item.id
+      || versionHistoryItem.value.version !== item.version || !currentItem(item) || !versionHistory.value.some(value => value.id === version.id)) return;
+    const updated = kind === 'rollback' ? await rollbackDocumentVersion(item.id, version.id, item.version, request.signal)
+      : await deleteDocumentVersion(item.id, version.id, item.version, request.signal);
+    if (!request.current()) return;
+    if (updated.id.toLowerCase() !== item.id.toLowerCase()) throw new Error('client.invalid_document_item_identity');
     versionHistoryItem.value = updated;
-    const index = items.value.findIndex(entry => entry.id === item.id);
-    if (index >= 0) {
-      items.value[index] = updated;
-    }
-    versionHistory.value = await listDocumentVersions(item.id);
-    ElMessage.success(t('hostDocumentItems.deleteVersionSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    changing.value = false;
-  }
+    const index = items.value.findIndex(entry => entry.id === item.id); if (index >= 0) items.value[index] = updated;
+    const values = await listDocumentVersions(item.id, request.signal);
+    if (!request.current()) return; versionHistory.value = values;
+    ElMessage.success(t(kind === 'rollback' ? 'hostDocumentItems.rollbackSuccess' : 'hostDocumentItems.deleteVersionSuccess'));
+  } catch (error) {
+    if (request.current() && error !== 'cancel' && error !== 'close') problem.value = toProblem(error);
+  } finally { finishAction(request); }
 }
 
 function findDeletedEntry(item: HostDocumentItem): DeletedDocumentEntry | undefined {
@@ -1008,6 +1034,13 @@ function toProblem(
       </div>
     </div>
 
+    <ElDialog v-model="confirmationOpen" :title="confirmation?.title" width="460px" :close-on-click-modal="false">
+      <p data-testid="host-document-confirm-message">{{ confirmation?.message }}</p>
+      <template #footer>
+        <ElButton data-testid="host-document-confirm-dismiss" @click="resolveConfirmation(false)">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="warning" data-testid="host-document-confirm-accept" @click="resolveConfirmation(true)">{{ confirmation?.confirmLabel }}</ElButton>
+      </template>
+    </ElDialog>
     <ArtFormDialog
       v-if="canCreate"
       v-model:open="createDialogOpen"

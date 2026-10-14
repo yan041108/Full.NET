@@ -128,7 +128,7 @@ describe('Vue Host 文档库页', () => {
     await wrapper.get('[data-testid="host-document-item-download"]').trigger('click');
     await flushPromises();
 
-    expect(downloadMock).toHaveBeenCalledWith(item.id);
+    expect(downloadMock).toHaveBeenCalledWith(item.id, expect.any(AbortSignal));
     expect(openBlobMock).toHaveBeenCalledOnce();
   });
 
