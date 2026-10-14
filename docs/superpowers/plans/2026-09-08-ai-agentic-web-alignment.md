@@ -3071,3 +3071,11 @@ R11w 保持原 R11u 源和消费者，只将测试宿主配置为 2 处理器、
 `node artifacts/r12g/run-component.mjs` 在独立冻结输入上完整 21/21 通过，零失败/跳过、退出 0；Vue `vue-tsc --noEmit -p tsconfig.json` 实际退出 0，冻结记录共 841 项，运行前后源码摘要一致。新增浏览器三场景覆盖冲突读取新版本、读取撤权和写入权威拒绝，正式 Vue 配置及实际执行配置均精确发现相同八个 UID，尚未启动浏览器。证据为 artifacts/r12g/component-acceptance.json、typecheck-command.json 和 browser-preparation.json。
 
 旧五项浏览器队列经精确 PID/创建时间、锁和子进程核对后取消，真实监督退出 -1，原源及回执保留，未执行浏览器。新八项队列在所有锁外等待原 AI MySQL98/Native35 及约定缓存整组结束后按正常协议申请资源，不抢阶段间隙，不借用前序结果作为页面通过。MySQL/Native 冻结输入未变，页面整体 Verified、R11/R12 与 Capacity-not-verified 继续开放。
+
+#### R12h：双库集中验收收集完成与 Native 还原闭包修复（2026-10-15）
+
+原源码 MySQL 精确补验 98/98 完整通过，零失败/跳过，用时 53 分 04.287 秒；父进程 67156 的真实监督退出 0，正式收集器退出 0。完整 TRX 与发现 UID 精确对应，原 MySQL 流中的 32 个完整通过记录加补验覆盖 MySQL 130；与 SQL Server 130 及公共项 1 合计 261 个唯一通过 UID。7887 源输入、977 消费文件前后不变。正式回执 artifacts/r12b/acceptance.json，独立复核 artifacts/r12h/db-evidence-check.json；原中断 MySQL 组仍不报告为整组通过。TRX 对两项过大的诊断文本按既有上限截断，完整结果身份、状态及计数仍核对一致。
+
+Native 69396 在双库正式收集后自动启动，首步 API 分析离线 restore 因私有缓存缺少 Microsoft.NET.ILLink.Tasks 和单项目最低依赖版本而失败，真实监督退出 1，未编译、发布或运行 Native。210 包覆盖聚合 Integration 图不能证明每个独立项目/发布图闭合，原日志、终态及源保留。随后按正常工作区/重型锁执行同一 Linux SDK 的六图官方 NuGet 还原：API/Worker 分析、Architecture、Integration、API/Worker linux-x64 Native 发布图，六图及外层均退出 0，7888 输入和原 210 个归档未变；扩展至 258 个精确版本归档，原始 SHA512 与 NuGet 内容摘要分别核对。证据为 artifacts/r12h/state.json 和 private-feed-all-graphs.json；只证明还原及缓存完整性，没有新的漏洞审计、编译、发布或运行通过结论。
+
+旧失败完整保留于 artifacts/r12c/attempt-offline-api-restore。同源 Native35 恢复进程 30388 使用已核对的当前缓存来源及 258 包，正式开始 API/Worker 分析、发布和运行集中批次；源码、断言、2 CPU/12 GiB 容器预算及原发布/测试期限不变，尚无整组通过回执。浏览器旧等待器因前置失败退出 1、未执行测试，原记录保留，按新缓存结果指针恢复八项锁外等待，原八小时排队截止不延长。R11u 双库影响组收集完成，Native、浏览器、生成应用、重建执行、精确输入正向计数、未知外部自动对账与质量/容量门禁仍开放，Capacity-not-verified。
