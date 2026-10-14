@@ -10,7 +10,7 @@ vi.mock('../api/reporting-definitions', () => ({
   listReportingPublishedDefinitions: vi.fn()
 }));
 
-vi.mock('../api/reporting-export-tasks', () => ({
+vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(),
   cancelReportingExportTask: vi.fn(),
   listReportingExportTasks: vi.fn(),
   createReportingExportTask: vi.fn(),

@@ -64,7 +64,7 @@ export async function getReportingExportTask(
     { method: 'GET' },
     signal
   );
-  if (!isReportingExportTaskDetail(value)) {
+  if (!isReportingExportTaskDetail(value) || value.id.toLowerCase() !== taskId.toLowerCase()) {
     throw new Error('client.invalid_reporting_export_task_detail');
   }
   return value;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref, watch } from 'vue';
+import { routeLocationKey, routerKey } from 'vue-router';
 import {
   ElAlert,
   ElButton,
@@ -28,11 +29,16 @@ import { listReportingPublishedDefinitions } from '../api/reporting-definitions'
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { createReportingExportTask } from '../api/reporting-export-tasks';
+import { showSuccess } from '../feedback/fullNetMessage';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
 const { t } = useAdminI18n();
 const session = useSessionStore();
+const router = inject(routerKey, undefined); const route = inject(routeLocationKey, undefined);
+const canExport = computed(() => !!router && route?.name === 'reporting-execute' && session.can('reporting.executions.run')
+  && session.can('reporting.export_tasks.create') && session.can('reporting.export_tasks.read'));
 const definitions = ref<ReportingPublishedDefinition[]>([]);
 const selectedDefinitionVersionKey = ref('');
 const parameterValues = reactive<Record<string, string>>({});
@@ -41,6 +47,7 @@ const page = ref(1);
 const pageSize = ref(50);
 const loading = ref(false);
 const executing = ref(false);
+const exporting = ref(false);
 const problem = ref<FullNetProblemDetails>();
 
 // 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
@@ -65,9 +72,14 @@ const {
 watchLoading(executing);
 const scope = useAuthorizedViewScope(session, () => {
   definitions.value = []; selectedDefinitionVersionKey.value = ''; result.value = undefined; problem.value = undefined;
-  page.value = 1; loading.value = false; executing.value = false; resetParameters();
+  page.value = 1; loading.value = false; executing.value = false; exporting.value = false; resetParameters();
 }, loadDefinitions);
 let executeRequest: ReturnType<typeof scope.begin>;
+let exportRequest: ReturnType<typeof scope.begin>;
+watch(() => route?.name, name => {
+  if (name === 'reporting-execute') return;
+  executeRequest?.cancel(); exportRequest?.cancel(); executing.value = false; exporting.value = false; result.value = undefined;
+}, { flush: 'sync' });
 
 async function loadDefinitions(): Promise<void> {
   const request = scope.begin('reporting.executions.run'); if (!request) return;
@@ -96,6 +108,7 @@ function resetParameters(): void {
 
 function onDefinitionChanged(): void {
   executeRequest?.cancel(); executing.value = false; problem.value = undefined;
+  exportRequest?.cancel(); exporting.value = false;
   resetParameters();
   result.value = undefined;
   page.value = 1;
@@ -103,7 +116,7 @@ function onDefinitionChanged(): void {
 
 async function runExecute(): Promise<void> {
   const definition = selectedDefinition.value;
-  if (!definition || executing.value) {
+  if (!definition || executing.value || exporting.value) {
     return;
   }
   const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request;
@@ -112,10 +125,7 @@ async function runExecute(): Promise<void> {
   // 新查询失败时不得把上一次结果继续呈现为本次输出。
   result.value = undefined;
   try {
-    const parameters: ReportingExecutionParameterValue[] = parameterSchema.value.map(parameter => ({
-      parameterKey: parameter.parameterKey,
-      value: parameterValues[parameter.parameterKey]?.trim() || null
-    }));
+    const parameters = currentParameters();
     const value = await executeReportingDefinition(
       definition.definitionId,
       { versionNumber: definition.versionNumber, parameters },
@@ -136,8 +146,31 @@ async function runExecute(): Promise<void> {
   }
 }
 
+// 两个入口共用参数规范化；导出是完整查询的后台执行，不是当前分页的客户端截图。
+function currentParameters(): ReportingExecutionParameterValue[] {
+  return parameterSchema.value.map(parameter => ({ parameterKey: parameter.parameterKey,
+    value: parameterValues[parameter.parameterKey]?.trim() || null }));
+}
+async function exportCurrent(): Promise<void> {
+  const definition = selectedDefinition.value;
+  if (!definition || !canExport.value || executing.value || exporting.value || loading.value) return;
+  const request = scope.begin('reporting.export_tasks.create'); if (!request) return; exportRequest = request;
+  exporting.value = true; problem.value = undefined;
+  try {
+    const task = await createReportingExportTask({ definitionId: definition.definitionId, versionNumber: definition.versionNumber,
+      formatKey: 'excel', parameters: currentParameters() }, request.signal);
+    if (!request.current() || !canExport.value) return;
+    if (task.definitionId !== definition.definitionId || task.versionNumber !== definition.versionNumber || task.formatKey !== 'excel')
+      throw new Error('client.invalid_reporting_export_task_identity');
+    showSuccess(t('reportingExportTasks.createSuccess'));
+    void router!.push({ name: 'reporting-export-tasks', query: { taskId: task.id } });
+  } catch (error) {
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.createFailed');
+  } finally { if (request.current()) exporting.value = false; request.finish(); }
+}
+
 async function onPageChanged(nextPage: number): Promise<void> {
-  if (executing.value || !session.can('reporting.executions.run')) return;
+  if (executing.value || exporting.value || !session.can('reporting.executions.run')) return;
   page.value = nextPage;
   await runExecute();
 }
@@ -161,11 +194,12 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
     <ElCard v-loading="loading">
       <ArtTableHeader :title="t('reportingExecute.title')" />
       <ElForm label-width="140px" class="execute-form">
-        <ElFormItem :label="t('reportingExecute.fieldDefinition')">
+        <ElFormItem :label="t('reportingExecute.fieldDefinition')" required>
           <ElSelect
             v-model="selectedDefinitionVersionKey"
             filterable
             data-testid="reporting-execute-definition"
+            :disabled="executing || exporting"
             @change="onDefinitionChanged"
           >
             <ElOption
@@ -180,19 +214,22 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           v-for="parameter in parameterSchema"
           :key="parameter.parameterKey"
           :label="parameter.displayName"
+          :required="parameter.isRequired"
         >
-          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="executing" />
+          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="executing || exporting" />
         </ElFormItem>
         <ElFormItem>
           <PermissionGate code="reporting.executions.run"><ElButton
             type="primary"
             data-testid="reporting-execute-run"
             :loading="executing"
-            :disabled="!selectedDefinition"
+            :disabled="!selectedDefinition || exporting"
             @click="runExecute"
           >
             {{ t('reportingExecute.run') }}
           </ElButton></PermissionGate>
+          <ElButton v-if="canExport" data-testid="reporting-execute-export" :loading="exporting"
+            :disabled="!selectedDefinition || executing || loading" @click="exportCurrent">{{ t('reportingExecute.export') }}</ElButton>
         </ElFormItem>
       </ElForm>
     </ElCard>

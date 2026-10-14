@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reportingCancelExportTask } from '@fullnet/client-contracts';
-import { cancelReportingExportTask } from './reporting-export-tasks';
+import { cancelReportingExportTask, getReportingExportTask } from './reporting-export-tasks';
+import { request } from './http';
 import { exportTask } from '../test/data-output-fixtures';
 vi.mock('@fullnet/client-contracts', async importOriginal => ({
   ...await importOriginal<typeof import('@fullnet/client-contracts')>(), reportingCancelExportTask: vi.fn()
@@ -16,7 +17,7 @@ describe('报表取消 SDK 适配', () => {
   });
   it.each(['identity', 'status', 'shape'])('拒绝%s不符的取消结果', async mismatch => {
     const result = mismatch === 'shape' ? {} : { ...exportTask, statusKey: mismatch === 'status' ? 'queued' : 'cancelled',
-      id: mismatch === 'identity' ? '019bc2b1-2a40-7cc3-8992-a80de51bf299' : exportTask.id };
+      id: mismatch === 'identity' ? '01980000-0000-7000-8000-000000000003' : exportTask.id };
     vi.mocked(reportingCancelExportTask).mockResolvedValue(result as typeof exportTask);
     await expect(cancelReportingExportTask(exportTask.id)).rejects.toThrow('client.invalid_reporting_export_task_cancellation');
   });
@@ -28,5 +29,16 @@ describe('报表取消 SDK 适配', () => {
     const conflict = { title: 'claimed', status: 409, code: 'reporting.export_task.status_invalid' };
     vi.mocked(reportingCancelExportTask).mockRejectedValue(conflict);
     await expect(cancelReportingExportTask(exportTask.id)).rejects.toBe(conflict);
+  });
+});
+
+describe('报表导出详情响应归属', () => {
+  it('透传取消信号并接受等价 UUID 的大小写', async () => {
+    vi.mocked(request).mockResolvedValue(exportTask); const signal = new AbortController().signal;
+    expect(await getReportingExportTask(exportTask.id.toUpperCase(), signal)).toEqual(exportTask);
+    expect(request).toHaveBeenCalledWith(`/api/v1/reporting/export-tasks/${exportTask.id.toUpperCase()}`, { method: 'GET' }, signal);
+  });
+  it.each([{}, { ...exportTask, id: '01980000-0000-7000-8000-000000000003' }])('拒绝无效或其它任务的详情 %j', async value => {
+    vi.mocked(request).mockResolvedValue(value); await expect(getReportingExportTask(exportTask.id)).rejects.toThrow('client.invalid_reporting_export_task_detail');
   });
 });

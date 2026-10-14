@@ -7,7 +7,7 @@ import { listReportingPublishedDefinitions } from '../api/reporting-definitions'
 import { cancelReportingExportTask, createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
 import { createOutputSession, deferred, exportTask, publishedReportDefinition } from '../test/data-output-fixtures';
 vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedDefinitions: vi.fn() }));
-vi.mock('../api/reporting-export-tasks', () => ({ cancelReportingExportTask: vi.fn(), createReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), downloadReportingExportTask: vi.fn() }));
+vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(), cancelReportingExportTask: vi.fn(), createReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), downloadReportingExportTask: vi.fn() }));
 let wrapper: VueWrapper | undefined;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([publishedReportDefinition]); vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
@@ -26,7 +26,7 @@ describe('报表导出授权与生命周期', () => {
     expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
   });
   it('其他创建人的排队任务不显示取消入口', async () => {
-    queue({ ...queued, requestedByUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf299' });
+    queue({ ...queued, requestedByUserId: '01980000-0000-7000-8000-000000000003' });
     mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
     expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
   });
@@ -59,7 +59,7 @@ describe('报表导出授权与生命周期', () => {
     const success = vi.spyOn(ElMessage, 'success'); const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
     await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click');
-    session.currentUser!.tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
+    session.currentUser!.tenantId = '01980000-0000-7000-8000-000000000003';
     expect(vi.mocked(cancelReportingExportTask).mock.calls[0]?.[1]?.aborted).toBe(true);
     pending.resolve({ ...exportTask, statusKey: 'cancelled' }); await flushPromises();
     expect(success).not.toHaveBeenCalled();
