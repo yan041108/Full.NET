@@ -69,7 +69,7 @@ internal static class DocumentPreviewTaskSql
         """
         WITH candidates AS (
             SELECT TOP (@BatchSize) Id
-            FROM fn_document_preview_task
+            FROM fn_document_preview_task WITH (UPDLOCK, READPAST, ROWLOCK)
             WHERE StatusKey = 'pending'
             ORDER BY CreatedAtUtc, Id
         )
@@ -83,7 +83,8 @@ internal static class DocumentPreviewTaskSql
                inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.StartedAtUtc,
                inserted.CompletedAtUtc, inserted.Version
         FROM fn_document_preview_task AS task
-        INNER JOIN candidates ON candidates.Id = task.Id;
+        INNER JOIN candidates ON candidates.Id = task.Id
+        WHERE task.StatusKey = 'pending';
         """,
         SqlDataScope.HostOnly);
 
@@ -95,6 +96,7 @@ internal static class DocumentPreviewTaskSql
         WHERE StatusKey = 'pending'
         ORDER BY CreatedAtUtc, Id
         LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED
         """,
         SqlDataScope.HostOnly);
 
@@ -133,6 +135,17 @@ internal static class DocumentPreviewTaskSql
             Version = Version + 1
         WHERE Id = @Id
           AND StatusKey = 'processing'
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>仅取消创建人未领取的任务，按版本与领取竞争，不修改源文件或结果引用。</summary>
+    public static readonly SqlStatement Cancel = new(
+        "document.preview_task.cancel",
+        """
+        UPDATE fn_document_preview_task
+        SET StatusKey = 'cancelled', CompletedAtUtc = @CompletedAtUtc, Version = Version + 1
+        WHERE Id = @Id AND RequestedByUserId = @RequestedByUserId
+          AND StatusKey = 'pending' AND Version = @ExpectedVersion
         """,
         SqlDataScope.HostOnly);
 

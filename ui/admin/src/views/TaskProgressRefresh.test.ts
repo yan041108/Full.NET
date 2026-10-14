@@ -17,7 +17,7 @@ vi.mock('../api/import-export-tasks', () => ({
 }));
 vi.mock('../api/reporting-definitions', () => ({ listReportingDefinitions: vi.fn() }));
 vi.mock('../api/reporting-export-tasks', () => ({ cancelReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), createReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
-vi.mock('../api/document-preview-tasks', () => ({ listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
+vi.mock('../api/document-preview-tasks', () => ({ cancelDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 
 let wrapper: VueWrapper | undefined;
 const cases = [

@@ -51,6 +51,9 @@ public static class DocumentErrorCodes
     /// <summary>预览转换任务尚未完成，无法下载输出。</summary>
     public const string PreviewTaskNotReady = "document.host_preview_task.not_ready";
 
+    /// <summary>预览任务已被领取、已完成或取消竞争失效。</summary>
+    public const string PreviewTaskStatusInvalid = "document.host_preview_task.status_invalid";
+
     /// <summary>Office 预览转换 Provider 未启用或未配置。</summary>
     public const string OfficePreviewProviderDisabled = "document.office_preview.provider_disabled";
 
@@ -208,5 +211,6 @@ public static class DocumentErrorCodes
         PermissionVersionConflict,
         VersionRetentionInvalid,
         VersionRetentionConflict,
+        PreviewTaskStatusInvalid,
     ]);
 }

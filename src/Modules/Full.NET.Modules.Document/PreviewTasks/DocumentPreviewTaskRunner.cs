@@ -195,16 +195,21 @@ internal sealed class DocumentPreviewTaskRunner(
                         return Array.Empty<DocumentPreviewTaskRecord>();
                     }
 
-                    await commandExecutor.ExecuteAsync(
+                    var affected = await commandExecutor.ExecuteAsync(
                             DocumentPreviewTaskSql.ClaimByIdsMySql,
                             DocumentSqlParameters.Create(("Ids", ids.ToArray()), ("Now", now)),
                             token)
                         .ConfigureAwait(false);
-                    return await queryExecutor.QueryAsync<DocumentPreviewTaskRecord>(
+                    // 候选行由同一事务锁住；仲裁不完整时回滚，不能把其他实例的 processing 行当作本实例结果。
+                    if (affected != ids.Count) throw new InvalidOperationException("Document preview claim changed before transition.");
+                    var claimed = await queryExecutor.QueryAsync<DocumentPreviewTaskRecord>(
                             DocumentPreviewTaskSql.SelectByIds,
                             DocumentSqlParameters.Create(("Ids", ids.ToArray())),
                             token)
                         .ConfigureAwait(false);
+                    if (claimed.Count != ids.Count || claimed.Any(task => task.StatusKey != HostDocumentPreviewTaskStatusKeys.Processing))
+                        throw new InvalidOperationException("Document preview claim reload did not preserve ownership.");
+                    return claimed;
                 },
                 cancellationToken)
             .ConfigureAwait(false);

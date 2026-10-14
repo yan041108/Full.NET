@@ -88,6 +88,27 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPreviewTaskPermissions.Read));
 
+        group.MapPost("/{taskId:guid}/cancel", async (
+            Guid taskId,
+            HostDocumentPreviewTaskCancellationService service,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!DocumentPreviewHttpSessionBinding.TryCreate(httpContext, currentTenant, out var binding))
+                return mapper.Map(Result<HostDocumentPreviewTaskResponse>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "A Host interactive session is required.", ErrorType.Forbidden)), httpContext);
+            return mapper.Map(await service.CancelAsync(taskId, binding, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("documentHostCancelDocumentPreviewTask")
+        .Produces<HostDocumentPreviewTaskResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPreviewTaskPermissions.Cancel));
+
         group.MapGet("/{taskId:guid}/content", async (
             Guid taskId,
             HostDocumentPreviewTaskQueryService queries,

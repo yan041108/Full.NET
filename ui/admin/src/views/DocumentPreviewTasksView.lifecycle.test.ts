@@ -8,6 +8,7 @@ import * as api from '../api/document-preview-tasks';
 import { createOutputSession, deferred, outputId } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
 vi.mock('../api/document-preview-tasks', () => ({
+  cancelDocumentPreviewTask: vi.fn(),
   listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn()
 }));
 let wrapper: VueWrapper | undefined;
@@ -27,6 +28,64 @@ const setup = async (permissions = [read, create]) => {
   await flushPromises(); return context.session;
 };
 describe('文档预览请求归属', () => {
+  const pendingTask = { ...task, statusKey: 'pending' };
+  const queue = (value = pendingTask) => vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [value], page: 1, pageSize: 20, total: 1 });
+  it('创建权限不授予取消，独立取消权限无需创建权限', async () => {
+    queue(); const session = await setup();
+    expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
+    session.currentUser!.permissions = [read, 'document.host_preview_tasks.cancel']; await flushPromises();
+    expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(true);
+  });
+  it.each(['processing', 'succeeded', 'failed', 'cancelled'])('状态%s不显示取消入口', async statusKey => {
+    queue({ ...pendingTask, statusKey }); await setup([read, 'document.host_preview_tasks.cancel']);
+    expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
+  });
+  it('其他创建人的排队任务不能取消', async () => {
+    queue({ ...pendingTask, requestedByUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf299' });
+    await setup([read, 'document.host_preview_tasks.cancel']);
+    expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
+  });
+  it('放弃取消确认没有 HTTP 副作用', async () => {
+    queue(); await setup([read, 'document.host_preview_tasks.cancel']);
+    await wrapper!.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
+    expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled();
+    await wrapper!.get('[data-testid="document-preview-cancel-dismiss"]').trigger('click'); await flushPromises();
+    expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled();
+  });
+  it('确认后只提交一次，成功刷新任务目录', async () => {
+    queue(); const pending = deferred<typeof task>(); vi.mocked(api.cancelDocumentPreviewTask).mockReturnValue(pending.promise);
+    await setup([read, 'document.host_preview_tasks.cancel']);
+    await wrapper!.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
+    await wrapper!.get('[data-testid="document-preview-cancel-confirm"]').trigger('click');
+    expect(api.cancelDocumentPreviewTask).toHaveBeenCalledOnce();
+    pending.resolve({ ...task, statusKey: 'cancelled' }); await flushPromises();
+    expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2);
+  });
+  it('确认期间任务版本变化不能沿用旧确认', async () => {
+    const current = { ...pendingTask }; queue(current);
+    const warning = vi.spyOn(ElMessage, 'warning'); await setup([read, 'document.host_preview_tasks.cancel']);
+    await wrapper!.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
+    current.version = 2;
+    await wrapper!.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
+    expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled(); expect(warning).toHaveBeenCalledOnce();
+  });
+  it('确认期间撤权关闭确认，不发送取消', async () => {
+    queue(); const session = await setup([read, 'document.host_preview_tasks.cancel']);
+    await wrapper!.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
+    session.currentUser!.permissions = [read]; await flushPromises();
+    expect(wrapper!.find('[data-testid="document-preview-cancel-confirm"]').exists()).toBe(false);
+    expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled();
+  });
+  it('取消在途切范围中止接入，迟到成功不通知', async () => {
+    queue(); const pending = deferred<typeof task>(); vi.mocked(api.cancelDocumentPreviewTask).mockReturnValue(pending.promise);
+    const success = vi.spyOn(ElMessage, 'success'); const session = await setup([read, 'document.host_preview_tasks.cancel']);
+    await wrapper!.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
+    await wrapper!.get('[data-testid="document-preview-cancel-confirm"]').trigger('click');
+    session.currentUser!.tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
+    expect(vi.mocked(api.cancelDocumentPreviewTask).mock.calls[0]?.[1]?.aborted).toBe(true);
+    pending.resolve({ ...task, statusKey: 'cancelled' }); await flushPromises();
+    expect(success).not.toHaveBeenCalled();
+  });
   it('明确文件404显示不可用，不再重复打开PDF', async () => {
     vi.mocked(api.openDocumentPreviewTaskContent).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
     await setup([read]); await wrapper!.get('[data-testid="document-preview-task-open-pdf"]').trigger('click'); await flushPromises();

@@ -15,6 +15,7 @@ public sealed class HostDocumentPreviewTaskStatusKeysTests
                 HostDocumentPreviewTaskStatusKeys.Processing,
                 HostDocumentPreviewTaskStatusKeys.Succeeded,
                 HostDocumentPreviewTaskStatusKeys.Failed,
+                HostDocumentPreviewTaskStatusKeys.Cancelled,
             },
             HostDocumentPreviewTaskStatusKeys.All.ToArray());
     }

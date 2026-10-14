@@ -1,4 +1,5 @@
 import {
+  documentHostCancelDocumentPreviewTask,
   documentHostCreateDocumentPreviewTask,
   documentHostDownloadDocumentPreviewTaskContent,
   documentHostGetDocumentPreviewTask,
@@ -12,6 +13,14 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 import { openDocumentBlob } from './host-document-items';
+
+/** 取消本人排队预览；必须保留当前任务身份和服务端取消终态。 */
+export async function cancelDocumentPreviewTask(taskId: string, signal?: AbortSignal): Promise<HostDocumentPreviewTaskResponse> {
+  const value = await documentHostCancelDocumentPreviewTask(http, { taskId }, signal);
+  if (!isHostDocumentPreviewTaskResponse(value) || value.id.toLowerCase() !== taskId.toLowerCase() || value.statusKey !== 'cancelled')
+    throw new Error('client.invalid_document_preview_task_cancellation');
+  return value;
+}
 
 /** 分页查询 Office 预览转换任务。 */
 export async function listDocumentPreviewTasks(

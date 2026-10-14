@@ -3220,3 +3220,15 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 编写新增 Unit 29 场景、Architecture 1 场景、双库生产 SQL 6 场景及迁移恢复 2 场景、Vue/API 16 场景；同步发现下限及迁移影响集。只读安全复审未发现实际 P1/P2 或静态接线错误。
 - 状态：**本批未执行编译、单元/组件测试、双库、运行时 OpenAPI、Native 或页面验收**。只登记为待验证开发成果，不关闭 F11/C02、不提升能力状态；与上一批数据输出改动一起留待集中验证。
 <!-- /f11-reporting-cancellation-development-20261014 -->
+
+<!-- c02-document-preview-queue-development-20261014 -->
+## 2026-10-14 C02 文档预览领取与排队取消联合开发（待集中验证）
+
+- 执行依据：继续按“开发任务先全部批量完成”接齐关联实现及用例，测试和独立应用验收后置。本批基线 `804364bcf28ba0342fcef60346de3c08f99eadd1`，快照 `document-preview-queue-development-20261014`。
+- 代码检查发现 MySQL 原领取流程普通读取候选、条件更新后未核对更新数、再按原 ID 读取，可能将其他实例领取或已取消的行送入转换。现于同一事务使用 `FOR UPDATE SKIP LOCKED` 锁定候选，核对更新数及重读的 processing 行；不完整时抛出异常回滚，外部文件读取和转换仍在事务外。SQL Server 补候选更新锁、跳过锁及最终 pending 谓词。
+- 新增 `POST /api/v1/document/host/preview-tasks/{taskId}/cancel`，要求可信 Host 上下文、创建人当前有效交互会话和独立 `document.host_preview_tasks.cancel` 权限；API Key、租户上下文及匿名创建任务不能借此取消。pending 可取消，cancelled 幂等 200，processing/succeeded/failed 返回 409；按创建人、状态及版本仲裁，不删除源/输出引用、不强停在途转换。
+- 双库 `261_DocumentPreviewTaskCancellation.sql` 只展开 CHECK 终态约束，恢复用例冻结 through261 并覆盖旧约束、缺约束和已展开未记账状态。已发布状态键只追加，旧迁移不改写。
+- DI、权限和角色操作目录、中英文错误资源、OpenAPI 候选、确定性 SDK、Vue API 包装及页面确认一并接齐。页面确认冻结当前任务版本，撤权和范围切换撤销接入，创建编辑器或取消确认期间不能打开 PDF。
+- 编写新增 Unit 38 场景、Architecture 1 场景、Vue/API 16 场景，以及双库队列 2 个发现项和迁移恢复 2 个发现项。队列每库复用一次独立建库，通过不同任务集中覆盖双实例单领取、创建人/版本防护、processing 保护、取消/领取单胜者、锁跳过及回滚后重领，不将内部断言数冒充发现数。
+- 最终只读复审未发现剩余 P1/P2 或静态接线错误；审查发现的 Vue 错误文案键类型已在代码中处理。**本批未执行编译、测试、双库运行、运行时 OpenAPI、Native 或页面验收**，与前两批一起待集中验证；不关闭 F11/C02、不提升能力或容量状态。
+<!-- /c02-document-preview-queue-development-20261014 -->

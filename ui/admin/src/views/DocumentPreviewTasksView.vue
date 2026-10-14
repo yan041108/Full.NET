@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
+  ElDialog,
   ElForm,
   ElFormItem,
   ElInput,
@@ -30,6 +31,7 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import {
+  cancelDocumentPreviewTask,
   createDocumentPreviewTask,
   listDocumentPreviewTasks,
   openDocumentPreviewTaskContent
@@ -42,6 +44,8 @@ const { t } = useAdminI18n();
 const items = ref<HostDocumentPreviewTaskResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const cancelConfirmation = ref<HostDocumentPreviewTaskResponse>();
+const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
 const unavailableFiles = useUnavailableResultFiles();
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
@@ -55,6 +59,7 @@ const editorForm = reactive({
   versionId: ''
 });
 const scope = useAuthorizedViewScope(session, () => {
+  cancelConfirmation.value = undefined;
   unavailableFiles.reset();
   items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
   editorOpen.value = false; filterDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
@@ -98,6 +103,7 @@ function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'i
 }
 
 function statusLabel(statusKey: string): string {
+  if (statusKey === 'cancelled') return t('importExportTasks.status.cancelled');
   const key = `documentPreviewTasks.status.${statusKey}` as const;
   const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
@@ -105,7 +111,7 @@ function statusLabel(statusKey: string): string {
 
 useTaskStatusRefresh(() => canRead() && !problem.value
   && items.value.some(task => task.statusKey === 'pending' || task.statusKey === 'processing'), async () => {
-  if (loading.value || changing.value || editorOpen.value) return;
+  if (loading.value || changing.value || editorOpen.value || cancelDialogVisible.value) return;
   await load();
 });
 
@@ -130,7 +136,7 @@ async function load() {
 }
 
 function openCreate() {
-  if (!canCreate() || changing.value) return;
+  if (!canCreate() || changing.value || cancelDialogVisible.value) return;
   editorForm.documentItemId = filterDocumentItemId.value.trim();
   editorForm.versionId = '';
   editorOpen.value = true;
@@ -163,7 +169,7 @@ async function submitCreate() {
 }
 
 async function openPdf(row: HostDocumentPreviewTaskResponse) {
-  if (row.statusKey !== 'succeeded' || changing.value || !canRead() || unavailableFiles.isUnavailable(row.id)) {
+  if (row.statusKey !== 'succeeded' || changing.value || editorOpen.value || cancelDialogVisible.value || !canRead() || unavailableFiles.isUnavailable(row.id)) {
     return;
   }
   const request = scope.begin('document.host_preview_tasks.read'); if (!request) return;
@@ -186,9 +192,38 @@ function refreshResults() {
   unavailableFiles.reset(); void load();
 }
 
+const isCancellable = (task: HostDocumentPreviewTaskResponse) => task.statusKey === 'pending'
+  && task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
+  && session.can('document.host_preview_tasks.cancel');
+
+function requestCancellation(task: HostDocumentPreviewTaskResponse) {
+  if (isCancellable(task) && !changing.value && !editorOpen.value) cancelConfirmation.value = { ...task };
+}
+
+async function confirmCancellation() {
+  const confirmed = cancelConfirmation.value;
+  cancelConfirmation.value = undefined;
+  const current = confirmed && items.value.find(item => item.id === confirmed.id);
+  if (!current || !isCancellable(current) || changing.value || editorOpen.value) return;
+  if (current.version !== confirmed.version) { ElMessage.warning(t('documentPreviewTasks.cancelStateChanged')); return; }
+  const request = scope.begin('document.host_preview_tasks.cancel'); if (!request) return;
+  changing.value = true; problem.value = undefined;
+  try {
+    const result = await cancelDocumentPreviewTask(current.id, request.signal);
+    if (!request.current()) return;
+    items.value = items.value.map(item => item.id === result.id ? result : item);
+    ElMessage.success(t('documentPreviewTasks.cancelSuccess'));
+    await load();
+  } catch (error) {
+    if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.cancelFailed');
+  } finally {
+    if (request.current()) changing.value = false; request.finish();
+  }
+}
+
 function toProblem(
   error: unknown,
-  fallbackKey: 'documentPreviewTasks.loadFailed' | 'documentPreviewTasks.operationFailed' = 'documentPreviewTasks.loadFailed'
+  fallbackKey: 'documentPreviewTasks.loadFailed' | 'documentPreviewTasks.operationFailed' | 'documentPreviewTasks.cancelFailed' = 'documentPreviewTasks.loadFailed'
 ): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
@@ -293,11 +328,14 @@ function toProblem(
                       type="view"
                       test-id="document-preview-task-open-pdf"
                       :title="t('documentPreviewTasks.openPdf')"
-                      :disabled="changing || unavailableFiles.isUnavailable(row.id)"
+                      :disabled="changing || editorOpen || cancelDialogVisible || unavailableFiles.isUnavailable(row.id)"
                       @click="openPdf(row as HostDocumentPreviewTaskResponse)"
                     />
                     <span v-if="unavailableFiles.isUnavailable(row.id)" data-testid="document-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
                   </PermissionGate>
+                  <ElButton v-if="isCancellable(row as HostDocumentPreviewTaskResponse)" link type="warning"
+                    data-testid="document-preview-task-cancel" :data-task-id="row.id" :disabled="changing || editorOpen"
+                    @click="requestCancellation(row as HostDocumentPreviewTaskResponse)">{{ t('common.cancel') }}</ElButton>
                 </ArtTableActionGroup>
               </template>
             </el-table-column>
@@ -338,6 +376,13 @@ function toProblem(
         </el-form-item>
       </el-form>
     </ArtFormDialog>
+    <ElDialog v-model="cancelDialogVisible" :title="t('common.cancel')" width="460px" :close-on-click-modal="false">
+      <p>{{ t('documentPreviewTasks.cancelConfirm') }}</p>
+      <template #footer>
+        <ElButton data-testid="document-preview-cancel-dismiss" @click="cancelConfirmation = undefined">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="warning" data-testid="document-preview-cancel-confirm" @click="confirmCancellation">{{ t('common.confirm') }}</ElButton>
+      </template>
+    </ElDialog>
   </section>
 </template>
 

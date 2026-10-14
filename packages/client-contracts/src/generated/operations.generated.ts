@@ -2588,6 +2588,22 @@ export async function documentHostBatchCreateDocumentShares(
   return readBatchCreateHostDocumentSharesResponse(value);
 }
 
+export interface DocumentHostCancelDocumentPreviewTaskParameters {
+  readonly taskId: string;
+}
+
+export async function documentHostCancelDocumentPreviewTask(
+  http: HttpClient,
+  parameters: DocumentHostCancelDocumentPreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
+}
+
 export interface DocumentHostCreateCategoryParameters {
   readonly body: CreateHostDocumentCategoryRequest;
 }

@@ -3507,6 +3507,12 @@
       "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
       "generatedGroup": "reporting-export-tasks",
       "status": "generated"
+    },
+    {
+      "operationId": "documentHostCancelDocumentPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "generated"
     }
   ]
 }

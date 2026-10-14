@@ -24,6 +24,16 @@ namespace Full.NET.ArchitectureTests;
 public sealed class EndpointAuthorizationTests
 {
     [TestMethod]
+    public void Document_preview_cancel_has_its_own_permission_and_no_anonymous_access()
+    {
+        using var app = BuildApiApplication();
+        var endpoint = CollectApiV1Endpoints(app).Single(item => item.RoutePattern.RawText == "/api/v1/document/host/preview-tasks/{taskId:guid}/cancel");
+        Assert.IsNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        CollectionAssert.AreEquivalent(new[] { FullNetPermissionPolicies.For("document.host_preview_tasks.cancel") },
+            endpoint.Metadata.OfType<IAuthorizeData>().Select(item => item.Policy).ToArray());
+    }
+
+    [TestMethod]
     public void Reporting_cancel_has_its_own_tenant_permission_and_no_anonymous_access()
     {
         using var app = BuildApiApplication();

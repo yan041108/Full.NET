@@ -85,6 +85,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
         services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskCancellationService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IDocumentOfficePreviewConversionProvider,
