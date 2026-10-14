@@ -3037,3 +3037,15 @@ AI + 独立授权原组4857执行为4856通过/1失败，DOCX error-flood清理�
 只读审查发现并关闭专用宿主默认拒绝新运行的 P2，未改变生产默认或共享 critical flow，复核无新的确定 P1/P2；审查不代跑构建或测试。本轮独立消费者构建与发现证据保存在 artifacts/r11v；没有本轮 Native 发布/执行结果，不升级 Verified，R12 集中验收与 Capacity-not-verified 保持开放。
 
 使用与 R11u 已编译生产输入一致的独立快照，复用生产程序集/引用程序集/应用宿主及 NuGet 元数据，仅重新构建 Integration 消费者，退出0、零警告/错误；正式发现 SQL Server/MySQL 两个既有 Native 探针 UID，未增加或删除矩阵用例。初次复用遗漏 ref 程序集和随后遗漏 apphost 的构建失败分别保留，补齐缓存元数据后才记成功；发现输出读取器的字段误用也保留并纠正，不当作产品测试失败或通过。生产源码与原双库失败批消费目录均未改写，命令及绑定见 artifacts/r11v/development-verification.json；文档在构建后补入，不冒充运行前输入。
+
+#### R11w / R12a：双库中断恢复与安全依赖候选（2026-10-15，集中验收仍开放）
+
+R11w 保持原 R11u 源和消费者，只将测试宿主配置为 2 处理器、8 GiB GC 堆限制、单 Worker、各组原 60 分钟限制。公共项 1/1、SQL Server 130/130 完整通过，SQL 原组用时 53 分 48.857 秒；正式 TRX 与预期唯一 UID 精确对应。MySQL 原 130 组中断，恢复时原父 66696、监督 53844、收集器 61644 和 Docker 引擎均不存在，没有原退出码或完整 TRX。Windows LastBootUpTime 仍为 10 月 14 日 19:03:39，不能据此断言第二次系统重启；中断原因未证明。
+
+使用与冻结消费者摘要相同的官方 TrxReport 2.3.2 读取器，只提取结果流的完整记录：MySQL 32 个唯一 UID 全部通过，剩余精确 98 项另行补验，未将原组或 261 项集中验收称为通过。恢复前后核对冻结 7887 输入、完整 977 消费文件摘要一致；原流、完整前缀、读取输出、源绑定与释放审计保存在 artifacts/r11w。按用户既有授权隐藏启动 Docker Desktop，未单独停止或删除三个持久节点；仅归档已消失 PID 66696 且原 token 精确匹配的两把锁，其他窗口锁保留。资源回执为 interruption-release.json，不伪造缺失终态。
+
+官方 10 月 13 日公告新增 [Pkcs 两项拒绝服务修复](https://github.com/dotnet/runtime/security/advisories/GHSA-846f-f764-76mx)和 [SignalR.Common 拒绝服务修复](https://github.com/dotnet/aspnetcore/security/advisories/GHSA-334f-vvp4-7g6p)。旧 Integration .deps 包含 Pkcs 10.0.0，旧 API/Worker .deps 未包含该包，不将测试依赖问题外推为生产直接依赖漏洞。尚未启动的旧源 R11x 等待队列经身份、子进程和锁核对后取消，真实监督退出 -1 保留，没有 AOT 分析或发布结果。
+
+独立 R11z 候选仅投影 Pkcs/SignalR.Common 10.0.13 两项安全固定，离线还原因 SignalR.Common 要求 Options 至少 10.0.13 出现 NU1109，失败源与原日志保留。根据官方包 nuspec，在新的 R12a 候选补齐 Options/DI.Abstractions 10.0.13；7888 输入仅中央依赖文件变化，共享工作区安全更新归原窗口所有，未混入其他模块改动。R12a 离线消费者 restore 退出 0，38 个项目实际解析包含安全固定，Integration 两项安全依赖均为 10.0.13，冻结源前后一致；证据为 artifacts/r12a/dependency-resolution.json。此处只证明还原及解析，没有在线审计、新编译、行为或 Native 运行通过结论。
+
+精确 MySQL 98 项恢复队列 R12b 在全部锁外等待约定缓存修复源的双库 9 项与 Native 40 项整组完成，再按正常资源协议申请；不抢两阶段间隙。保留原断言、源码、消费者和期限，成功后仍须正式 TRX、UID 并集及真实监督终态才能登记。R11 整体、精确输入正向计数、未知外部自动对账及 R12 Native、浏览器、生成应用、运营恢复、真实质量与容量证据继续开放；Capacity-not-verified。
