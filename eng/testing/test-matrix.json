@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6537,
+      "minimum": 6565,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -44,8 +44,8 @@
           "minimum": 53
         },
         "reporting-execution-boundaries": {
-          "filter": "FullyQualifiedName~ReportingExecutionSqlBuilderTests|FullyQualifiedName~ReportingExecutionBoundaryTests|FullyQualifiedName~ExternalDatabaseCellTextTests",
-          "minimum": 45
+          "filter": "FullyQualifiedName~ReportingExecutionSqlBuilderTests|FullyQualifiedName~ReportingExecutionBoundaryTests|FullyQualifiedName~ExternalDatabaseCellTextTests|FullyQualifiedName~ReportingDataSourceConnectionTesterTests",
+          "minimum": 74
         },
         "native-migrator-process": {
           "filter": "FullyQualifiedName~NativeMigratorProcessTests",

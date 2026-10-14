@@ -18,6 +18,7 @@ internal sealed class ReportingDataSourceConnectionTester(IExternalDatabaseConne
         string password,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var request = ReportingExternalConnectionMapper.TryCreate(
             record,
             password,
@@ -28,19 +29,24 @@ internal sealed class ReportingDataSourceConnectionTester(IExternalDatabaseConne
         }
 
         var opened = await connections.OpenAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!opened.Succeeded || opened.Session is null)
+        if (opened?.Session is not { } session)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return (false, "Failed to open reporting data source.");
         }
 
-        await using (opened.Session)
+        // 会话一经交付便承担释放责任，不能在解释失败或晚取消前退出持有范围。
+        await using (session)
         {
-            var probe = await opened.Session.ExecuteScalarAsync(
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!opened.Succeeded) return (false, "Failed to open reporting data source.");
+            var probe = await session.ExecuteScalarAsync(
                     "SELECT 1",
                     ReportingExecutionPolicy.ConnectionTimeoutSeconds,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!probe.Succeeded)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (probe?.Succeeded != true)
             {
                 return (false, "Failed to probe reporting data source.");
             }

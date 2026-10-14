@@ -3333,3 +3333,12 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 新增 Unit 源码场景 44：双提供程序 SQL 大偏移 4、文本截断/空值/既有格式 11、真实执行服务 29（Host/租户同版本授权、撤权/停用、查询期间新版本、晚取消、失败 Open、失败/异常 Query、无效参数及 HasMore）。Unit 下限 6537；集中 reporting-execution-boundaries 选择共 45 个源码场景，后续复用同一 Unit 构建执行。源码计数不是实际发现数或通过数。
 - **本批未执行编译、测试、双库、Native、浏览器或独立生成应用验收，未实测性能或容量**；源码计数/矩阵结构、git diff --check 与外来 WIP 保全是本批验证范围。与此前开发批次集中验收，不关闭 F11/C02，不提升 Capacity-not-verified，未合并发布。
 <!-- /f11-reporting-execution-boundaries-development-20261015 -->
+
+<!-- f11-reporting-connection-probe-boundaries-development-20261015 -->
+## 2026-10-15 F11 数据源探活取消与会话边界联动开发（待集中验证）
+
+- 同轮沿 Reporting 外部连接调用链检查，发现测试连接入口仍在失败 Open 携带会话时提前返回，且驱动忽略取消可继续探活并返回成功。基线 `1a1742e2b8d0866658da588969484507a23a502c`，快照 `reporting-connection-probe-boundaries-development-20261015`；与刚完成的执行入口统一会话所有权语义，不新增抽象或依赖。
+- 探活入口及 Open/SELECT 1 返回后检查取消；已交付会话先进入 await using，再解释失败或取消，所有已持有的成功、失败、异常路径都进入释放范围。空 Open/Probe 载荷沿用固定失败摘要，不把敏感驱动内容拼入对外结果；原非空 SELECT 1 结果成功策略、只读提示和超时配置不变，未知异常仍沿既有传播，不声称清理异常不会替换原异常。
+- 新增双提供程序 Unit 源码场景 28：9 类成功/失败/空载荷/异常各两库共 18，入口/Open/空 Open/Probe/空 Probe 忽略取消共 10；探活和执行选择集中到 reporting-execution-boundaries 共 74 个源码场景，Unit 机器下限 6565。源码计数不是运行发现或通过数；本批没有数据库结构或 SQL 文本变化，不新增逐场景数据库。
+- **本批未执行编译、测试、双库、Native、浏览器或独立生成应用验收**；仅核对源码计数/矩阵结构、git diff --check 和外来 WIP 保全。与同轮全部开发提交集中验收，F11/C02 和 Capacity-not-verified 保持未关闭，未合并发布。
+<!-- /f11-reporting-connection-probe-boundaries-development-20261015 -->
