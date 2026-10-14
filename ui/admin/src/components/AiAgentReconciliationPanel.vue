@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElCheckbox, ElInput, ElMessage, ElSwitch } from 'element-plus';
 import type { AiAgentReconciliationResponse, ReconcileAiAgentRunRequest } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { translateAiReconciliation } from '@fullnet/admin-i18n';
 import { getAiAgentReconciliation, reconcileAiAgentRun } from '../api/ai-agent-runs';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -16,25 +17,29 @@ const usageText = computed(() => text(snapshot.value?.usageStatus === 'known' ? 
   : snapshot.value?.usageStatus === 'reserved' ? 'usageReserved' : 'usageUnknown'));
 const evidence = ref(''); const known = ref(false); const input = ref(''); const output = ref(''); const cached = ref('');
 const reviewed = ref(false); const busy = ref(false); const failure = ref('');
+const refreshRequired = ref(false);
 let controller = new AbortController(); let epoch = 0; let request: ReconcileAiAgentRunRequest | undefined;
 const number = (value: string) => /^\d{1,10}$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) <= 1_000_000_000 ? Number(value) : undefined;
-const ready = computed(() => snapshot.value?.canReconcile && reviewed.value && /^[A-Fa-f0-9]{64}$/.test(evidence.value)
+const ready = computed(() => !refreshRequired.value && snapshot.value?.canReconcile && reviewed.value && /^[A-Fa-f0-9]{64}$/.test(evidence.value)
   && (!known.value || number(input.value) !== undefined && number(output.value) !== undefined
     && (!cached.value || number(cached.value) !== undefined && Number(cached.value) <= Number(input.value))));
 
 watch(() => props.runId, () => {
   ++epoch; controller.abort(); controller = new AbortController(); snapshot.value = undefined; request = undefined;
   evidence.value = ''; input.value = ''; output.value = ''; cached.value = ''; known.value = false; reviewed.value = false; busy.value = false; failure.value = '';
+  refreshRequired.value = false;
 }, { flush: 'sync' });
 watch([evidence, known, input, output, cached], () => { request = undefined; reviewed.value = false; }, { flush: 'sync' });
 
 async function load() {
   const ticket = ++epoch; controller.abort(); controller = new AbortController(); busy.value = true; failure.value = '';
+  // 权威刷新失败时不能沿用旧账本；核证材料保留，成功读取后必须重新确认。
+  snapshot.value = undefined; request = undefined; reviewed.value = false; refreshRequired.value = true;
   try {
     const result = await getAiAgentReconciliation(props.runId, controller.signal);
     if (ticket !== epoch) return;
     if (result.runId.toLowerCase() !== props.runId.toLowerCase()) throw new Error('client.invalid_ai_agent_reconciliation_response');
-    snapshot.value = result; request = undefined; reviewed.value = false;
+    snapshot.value = result; refreshRequired.value = false;
   } catch { if (ticket === epoch) failure.value = text('failed'); }
   finally { if (ticket === epoch) busy.value = false; }
 }
@@ -47,7 +52,16 @@ async function submit() {
     await reconcileAiAgentRun(props.runId, request, controller.signal);
     if (ticket !== epoch) return;
     snapshot.value = undefined; reviewed.value = false; ElMessage.success(text('success')); emit('reconciled');
-  } catch { if (ticket === epoch) failure.value = text('failed'); }
+  } catch (error: unknown) {
+    if (ticket === epoch) {
+      failure.value = text('failed');
+      // 结果不明保留原幂等身份；确定冲突要求读新版本，权威拒绝同时清除旧账本。
+      if (isFullNetProblemDetails(error) && [403, 404, 409].includes(error.status)) {
+        refreshRequired.value = true; request = undefined; reviewed.value = false;
+        if (error.status !== 409) snapshot.value = undefined;
+      }
+    }
+  }
   finally { if (ticket === epoch) busy.value = false; }
 }
 onBeforeUnmount(() => { ++epoch; controller.abort(); });
@@ -61,7 +75,7 @@ onBeforeUnmount(() => { ++epoch; controller.abort(); });
     <ElButton :loading="busy" @click="load">{{ text('load') }}</ElButton>
     <template v-if="snapshot">
       <p>{{ text('usage') }}: {{ usageText }} · {{ text('reserved') }}: {{ snapshot.reservedTokens }} · {{ text('month') }}: {{ snapshot.quotaMonthKey }}</p>
-      <ElAlert v-if="!snapshot.canReconcile" :title="text('unavailable')" type="info" :closable="false" />
+      <ElAlert v-if="!snapshot.canReconcile || refreshRequired" :title="text('unavailable')" type="info" :closable="false" />
       <PermissionGate code="ai.agent_runs.reconcile">
         <template v-if="snapshot.canReconcile">
           <ElInput v-model="evidence" :aria-label="text('evidence')" :placeholder="text('evidence')" :maxlength="64" :disabled="busy" />

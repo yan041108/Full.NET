@@ -7,7 +7,7 @@ const digest = 'a'.repeat(64);
 
 // 真实 Vue/Edge 配合受控 HTTP 验证交互，双库事务和外部核证仍由对应集成验收证明。
 async function setup(page, writable = true) {
-  const writes = []; let retryUnknown = false; let conflict = false; let closed = false;
+  const writes = []; let retryUnknown = false; let conflict = false; let closed = false; let readDenied = false; let writeDenied = false; let version = 8;
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'reconciliation-test', tokenType: 'Bearer', expiresAtUtc: new Date(Date.now() + 3600000).toISOString() }));
@@ -23,10 +23,13 @@ async function setup(page, writable = true) {
   await page.route(`**/api/v1/ai/agent/runs/${secondRunId}`, route => json(route, run(secondRunId)));
   await page.route('**/api/v1/ai/agent/runs/*/events/stream', route => route.fulfill({ status: 200, contentType: 'text/event-stream', body: ': complete\n\n' }));
   await page.route(`**${path}/reconciliation`, async route => {
-    if (route.request().method() === 'GET') return json(route, { runId, version: 8, statusKey: 'reconciliation_required', usageStatus: 'unknown', reservedTokens: 200, quotaMonthKey: '2026-09', inputTokens: null, outputTokens: null, cachedInputTokens: null, canReconcile: !closed });
+    if (route.request().method() === 'GET') return readDenied
+      ? json(route, { type: 'about:blank', title: 'Unavailable', status: 404, code: 'ai.agent_run.not_found' }, 404)
+      : json(route, { runId, version, statusKey: 'reconciliation_required', usageStatus: 'unknown', reservedTokens: 200, quotaMonthKey: '2026-09', inputTokens: null, outputTokens: null, cachedInputTokens: null, canReconcile: !closed });
     writes.push(route.request().postDataJSON());
     if (retryUnknown) { retryUnknown = false; return route.abort('failed'); }
-    if (conflict) { conflict = false; return json(route, { type: 'about:blank', title: 'Version conflict', status: 409, code: 'ai.agent_run.version_conflict' }, 409); }
+    if (writeDenied) return json(route, { type: 'about:blank', title: 'Unavailable', status: 403, code: 'identity.forbidden' }, 403);
+    if (conflict) { conflict = false; version = 9; return json(route, { type: 'about:blank', title: 'Version conflict', status: 409, code: 'ai.agent_run.version_conflict' }, 409); }
     closed = true; return json(route, true);
   });
   await page.goto('/ai/agent-runs');
@@ -34,7 +37,7 @@ async function setup(page, writable = true) {
   await page.getByTestId('ai-agent-runs-load').click();
   const panel = page.getByTestId('ai-reconciliation-panel'); await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: '读取账本', exact: true }).click(); await expect(panel).toContainText('2026-09');
-  return { panel, writes, failNext: () => { retryUnknown = true; }, conflictNext: () => { conflict = true; } };
+  return { panel, writes, failNext: () => { retryUnknown = true; }, conflictNext: () => { conflict = true; }, denyRead: () => { readDenied = true; }, denyWrite: () => { writeDenied = true; } };
 }
 async function confirm(panel) {
   await panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true }).fill(digest);
@@ -74,6 +77,29 @@ test('版本冲突保留材料，切换运行清除旧账本', async ({ page }) 
   const { panel, writes, conflictNext } = await setup(page); conflictNext(); await confirm(panel); await submit(panel).click();
   await expect(panel).toContainText('对账处理失败');
   await expect(panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true })).toHaveValue(digest);
+  await expect(submit(panel)).toBeDisabled();
   await page.getByTestId('ai-agent-runs-id').locator('input').fill(secondRunId); await page.getByTestId('ai-agent-runs-load').click();
   await expect(panel).toHaveCount(0); expect(writes).toHaveLength(1);
+});
+test('版本冲突必须读取新版本及重新核对才可再提交', async ({ page }) => {
+  const { panel, writes, conflictNext } = await setup(page); conflictNext(); await confirm(panel); await submit(panel).click();
+  await expect(panel).toContainText('请重新读取账本'); await expect(submit(panel)).toBeDisabled();
+  await panel.getByRole('checkbox').check(); await expect(submit(panel)).toBeDisabled();
+  await panel.getByRole('button', { name: '读取账本', exact: true }).click();
+  await expect(panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true })).toHaveValue(digest);
+  await expect(panel.getByRole('checkbox')).not.toBeChecked(); await panel.getByRole('checkbox').check();
+  await submit(panel).click(); await expect(panel).toHaveCount(0);
+  expect(writes).toHaveLength(2); expect(writes[1].expectedVersion).toBe(9);
+  expect(writes[1].clientRequestId).not.toBe(writes[0].clientRequestId);
+});
+test('读取撤权后刷新清除旧账本和提交入口', async ({ page }) => {
+  const { panel, writes, denyRead } = await setup(page); await confirm(panel); denyRead();
+  await panel.getByRole('button', { name: '读取账本', exact: true }).click();
+  await expect(panel).toContainText('对账处理失败'); await expect(panel).not.toContainText('2026-09');
+  await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(0);
+});
+test('写入权威拒绝后清除旧账本并停止旧请求重试', async ({ page }) => {
+  const { panel, writes, denyWrite } = await setup(page); await confirm(panel); denyWrite(); await submit(panel).click();
+  await expect(panel).toContainText('对账处理失败'); await expect(panel).not.toContainText('2026-09');
+  await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(1);
 });

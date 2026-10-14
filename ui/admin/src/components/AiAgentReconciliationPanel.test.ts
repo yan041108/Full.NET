@@ -111,3 +111,30 @@ it('卸载取消提交，迟到结果不通知父页面刷新', async () => {
   w.unmount(); finish(true); await flushPromises();
   expect(signal.aborted).toBe(true); expect(w.emitted('reconciled')).toBeUndefined();
 });
+it('重新读取失败清除旧账本和旧提交资格', async () => {
+  const w = render(); await load(w); await evidence(w); await review(w);
+  vi.mocked(api.getAiAgentReconciliation).mockRejectedValueOnce({ status: 403, code: 'identity.forbidden' });
+  await load(w);
+  expect(w.findComponent(ElInput).exists()).toBe(false); expect(w.text()).not.toContain('2026-09');
+  expect(api.reconcileAiAgentRun).not.toHaveBeenCalled();
+});
+it('版本冲突保留材料但要求读新版本并重新核对', async () => {
+  vi.mocked(api.reconcileAiAgentRun).mockRejectedValueOnce({ status: 409, code: 'ai.agent_run.version_conflict' });
+  const w = render(); await load(w); await evidence(w); await review(w);
+  await submit(w).trigger('click'); await flushPromises();
+  const first = vi.mocked(api.reconcileAiAgentRun).mock.calls[0]![1];
+  expect(submit(w).attributes('disabled')).toBeDefined();
+  expect(w.getComponent(ElInput).props('modelValue')).toBe('a'.repeat(64));
+  await review(w); expect(submit(w).attributes('disabled')).toBeDefined();
+  vi.mocked(api.getAiAgentReconciliation).mockResolvedValueOnce({ ...row, version: 9 });
+  await load(w); await review(w); await submit(w).trigger('click'); await flushPromises();
+  const next = vi.mocked(api.reconcileAiAgentRun).mock.calls[1]![1];
+  expect(next.expectedVersion).toBe(9); expect(next.clientRequestId).not.toBe(first.clientRequestId);
+});
+it.each([403, 404])('写入遭 %s 权威拒绝时清除旧账本和核对资格', async status => {
+  vi.mocked(api.reconcileAiAgentRun).mockRejectedValueOnce({ status, code: 'ai.agent_run.not_found' });
+  const w = render(); await load(w); await evidence(w); await review(w);
+  await submit(w).trigger('click'); await flushPromises();
+  expect(w.findComponent(ElInput).exists()).toBe(false); expect(w.text()).not.toContain('2026-09');
+  expect(w.emitted('reconciled')).toBeUndefined();
+});
