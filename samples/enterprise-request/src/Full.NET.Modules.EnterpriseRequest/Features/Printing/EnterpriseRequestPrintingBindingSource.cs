@@ -20,17 +20,23 @@ internal sealed class EnterpriseRequestPrintingBindingSource(
     public async Task<Result<IReadOnlyDictionary<string, string?>>> ResolveAsync(
         Guid recordId, ClaimsPrincipal principal, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!tenant.IsAvailable || tenant.IsHost || tenant.Id is null || recordId == Guid.Empty
             || !Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.Subject), out var userId) || userId == Guid.Empty)
             return Denied();
+        var tenantId = tenant.Id.Value;
         var actor = await authorization.AuthorizeAsync(EnterpriseRequestPermissions.Read, cancellationToken).ConfigureAwait(false);
-        if (actor is null || actor.UserId != userId || actor.TenantId != tenant.Id) return Denied();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (actor is null || actor.UserId != userId || actor.TenantId != tenantId || !IsOriginalTenant(tenantId)) return Denied();
         var superAdministrator = bool.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.SuperAdministrator), out var enabled) && enabled;
         var result = await queries.GetByIdAsync(recordId, actor.UserId, superAdministrator, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Denied();
         if (!result.IsSuccess || result.Value is null)
             return Result<IReadOnlyDictionary<string, string?>>.Failure(result.Error!);
         var finalActor = await authorization.AuthorizeAsync(EnterpriseRequestPermissions.Read, cancellationToken).ConfigureAwait(false);
-        if (finalActor != actor || result.Value.TenantId != tenant.Id) return Denied();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (finalActor != actor || result.Value.TenantId != tenantId || !IsOriginalTenant(tenantId)) return Denied();
         var record = result.Value;
         return Result<IReadOnlyDictionary<string, string?>>.Success(new Dictionary<string, string?>(StringComparer.Ordinal)
         {
@@ -38,6 +44,8 @@ internal sealed class EnterpriseRequestPrintingBindingSource(
             ["totalAmount"] = record.TotalAmount.ToString(CultureInfo.InvariantCulture),
         });
     }
+
+    private bool IsOriginalTenant(Guid tenantId) => tenant.IsAvailable && !tenant.IsHost && tenant.Id == tenantId;
 
     private static Result<IReadOnlyDictionary<string, string?>> Denied() => Result<IReadOnlyDictionary<string, string?>>.Failure(
         new Error(CommonErrorCodes.PermissionDenied, "The current tenant session must be authorized to read this business record.", ErrorType.Forbidden));

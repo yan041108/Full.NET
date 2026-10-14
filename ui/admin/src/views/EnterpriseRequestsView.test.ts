@@ -13,7 +13,8 @@ vi.mock('../api/enterprise-requests', async original => ({
 const request = vi.mocked(enterpriseRequestsHttp.request);
 const route = reactive<{ name: string; query: Record<string, unknown> }>({ name: 'enterprise-requests', query: {} });
 const replace = vi.fn(async (value: { query: Record<string, unknown> }) => { route.query = value.query; });
-vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => ({ replace }) }));
+const push = vi.fn(async () => {});
+vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => ({ replace, push }) }));
 const row = { id: outputId, tenantId: outputId, organizationUnitId: outputId,
   requestNumber: 'REQ-1', title: '旧租户资料', status: 'Draft', totalAmount: 12,
   applicantUserId: outputId, version: 1, createdAtUtc: '2026-10-08T00:00:00Z',
@@ -263,5 +264,42 @@ describe('企业样例对话框归属', () => {
     expect(reopened).toBe(true);
     expect(createDialog(f.wrapper).props('modelValue')).toBe(true);
     stop(); f.wrapper.unmount();
+  });
+});
+
+describe('申请摘要打印入口', () => {
+  const read = 'enterprise_request.enterprise_requests.read';
+  const printingRead = 'printing.published_templates.read';
+  const printingPreview = 'printing.published_templates.preview';
+  beforeEach(() => {
+    route.name = 'enterprise-requests'; route.query = {};
+    push.mockReset(); push.mockResolvedValue(undefined);
+    request.mockReset(); request.mockResolvedValue(list);
+  });
+  it.each([{ extra: [] }, { extra: [printingRead] }, { extra: [printingPreview] }])('缺少完整打印能力不创建入口：%j', async ({ extra }) => {
+    const f = fixture([read, ...extra]);
+    try { await flushPromises(); expect(f.wrapper.find('[data-testid="enterprise-request-print"]').exists()).toBe(false); }
+    finally { f.wrapper.unmount(); }
+  });
+  it('从当前可读行定位已授业务模板，不在列表内请求或触发打印', async () => {
+    const f = fixture([read, printingRead, printingPreview]);
+    try {
+      await flushPromises();
+      await f.wrapper.get('[data-testid="enterprise-request-print"]').trigger('click');
+      expect(push).toHaveBeenCalledExactlyOnceWith({ name: 'printing-published-templates', query: {
+        formSchemaKey: 'enterprise_request.request_summary', recordId: outputId
+      } });
+      expect(request).toHaveBeenCalledOnce();
+    } finally { f.wrapper.unmount(); }
+  });
+  it('撤销打印权限移除入口，旧按钮引用也不能导航', async () => {
+    const f = fixture([read, printingRead, printingPreview]);
+    try {
+      await flushPromises(); const button = f.wrapper.get('[data-testid="enterprise-request-print"]');
+      f.session.currentUser = { ...f.session.currentUser!, permissions: [read, printingRead] };
+      await flushPromises();
+      expect(f.wrapper.find('[data-testid="enterprise-request-print"]').exists()).toBe(false);
+      await button.trigger('click'); expect(push).not.toHaveBeenCalled();
+    } finally { f.wrapper.unmount(); }
   });
 });

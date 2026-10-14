@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({ name: 'EnterpriseRequestsView' });
-import { onActivated, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   ElButton,
@@ -96,6 +96,9 @@ const {
       : { status: 500, code: fallbackCode, title: fallbackCode };
   }
 });
+
+const canPrintSummary = computed(() => canRead.value
+  && session.can('printing.published_templates.read') && session.can('printing.published_templates.preview'));
 
 // 上下文或激活代次改变时，关闭所有旧资料入口并同步清除输入和错误。
 watch(scopeVersion, () => {
@@ -215,6 +218,13 @@ function openAttachments(row: EnterpriseRequestResponse): void {
   if (!canRead.value || !items.value.includes(row)) return;
   attachmentsId.value = row.id;
 }
+function openPrintSummary(row: EnterpriseRequestResponse): void {
+  if (!viewActive || route.name !== 'enterprise-requests' || !canPrintSummary.value || changing.value || !items.value.includes(row)) return;
+  // 只携带业务定位；目标目录和服务端仍独立校验模板授权、记录范围与当前会话。
+  void router.push({ name: 'printing-published-templates', query: {
+    formSchemaKey: 'enterprise_request.request_summary', recordId: row.id
+  } });
+}
 function openSubmit(row: EnterpriseRequestResponse): void {
   if (!canSubmit.value || changing.value || row.status !== 'Draft' || !items.value.includes(row)) return;
   problem.value = undefined; submitting.value = row; submitOpen.value = true;
@@ -279,6 +289,8 @@ async function confirmDelete(): Promise<void> {
           <el-button v-if="canRead" link type="primary" @click="openDetail(row)">{{ t('enterpriseRequests.detail') }}</el-button>
           <el-button v-if="canRead" link type="primary" @click="openLines(row)">{{ t('enterpriseRequests.lines') }}</el-button>
           <el-button v-if="canRead" link type="primary" @click="openAttachments(row)">{{ t('enterpriseRequests.attachments') }}</el-button>
+          <el-button v-if="canPrintSummary" link type="primary" :disabled="changing" data-testid="enterprise-request-print"
+            @click="openPrintSummary(row)">{{ t('enterpriseRequests.printSummary') }}</el-button>
           <el-button v-if="canRead" link type="primary" @click="openProgress(row)">
             {{ t('enterpriseRequests.approvalProgress') }}
           </el-button>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import "../printing/printing.css";
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
 import { Printer, Refresh } from '@element-plus/icons-vue';
 import { isFullNetProblemDetails, type FullNetProblemDetails, type PrintingPublishedTemplateResponse, type PrintingTemplatePreview } from '@fullnet/client-contracts';
@@ -11,9 +12,11 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listPrintingPublishedTemplates, previewPrintingPublishedTemplate } from '../api/printing-templates';
 import { sanitizePrintingHtml } from '../printing/sanitizePrintingHtml';
+import { isPrintingRecordId, resolvePrintingRecordLink } from '../printing/record-print-link';
 
 defineOptions({name:'PrintingPublishedTemplatesView'});
 const session = useSessionStore(); const { t } = useAdminI18n();
+const route = inject(routeLocationKey, undefined);
 const readPermission = 'printing.published_templates.read';
 const previewPermission = 'printing.published_templates.preview';
 // 有效作用域携带规范化租户 UUID；Host 账号切租户仍须匹配当前上下文，不能按 actorScope 判断。
@@ -26,15 +29,18 @@ const templates = ref<PrintingPublishedTemplateResponse[]>([]); const selectedId
 const preview = ref<PrintingTemplatePreview>(); const problem = ref<FullNetProblemDetails>();
 const recordId = ref('');
 const loading = ref(false); const previewing = ref(false);
+let linkBlocked = false; let lastLoadKey: string | undefined;
 // 同一模板可以获授多个版本；选择身份必须同时包含模板和不可变版本。
 const versionKey = (item: PrintingPublishedTemplateResponse) => item.templateId + ':' + item.versionNumber;
 const selected = computed(() => templates.value.find(item => versionKey(item) === selectedId.value));
-const validRecord = computed(() => !selected.value?.requiresRecordId || (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recordId.value.trim()) && recordId.value.trim() !== '00000000-0000-0000-0000-000000000000'));
+const validRecord = computed(() => !selected.value?.requiresRecordId || isPrintingRecordId(recordId.value.trim()));
 const safeHtml = computed(() => sanitizePrintingHtml(preview.value?.html ?? ''));
 const scope = useAuthorizedViewScope(session, () => {
+  // 旧 URL 不能在新账号、租户或激活代次中自动重新解释；显式新路由才重新定位。
+  linkBlocked = true; lastLoadKey = undefined;
   templates.value = []; selectedId.value = ''; recordId.value = ''; preview.value = undefined; problem.value = undefined;
   loading.value = false; previewing.value = false;
-}, load);
+}, () => load(false));
 let listRequest: ReturnType<typeof scope.begin>; let previewRequest: ReturnType<typeof scope.begin>;
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error) ? error : {status:500,code:'client.request_failed',title:t('printingPreview.previewFailed')};
@@ -44,16 +50,37 @@ function clearPreview(): void {
 }
 // 业务编号变化立即取消旧请求，避免迟到内容或旧打印覆盖新选择。
 watch(recordId, clearPreview, {flush:'sync'});
-function changeTemplate(): void { recordId.value = ''; clearPreview(); }
-async function load(): Promise<void> {
+function changeTemplate(): void {
+  const linked = resolvePrintingRecordLink(route?.query ?? {}, templates.value);
+  recordId.value = !linkBlocked && linked.kind === 'bound' && selected.value?.formSchemaKey === linked.templates[0]?.formSchemaKey
+    ? linked.recordId : '';
+  clearPreview();
+}
+watch(() => JSON.stringify([route?.name, route?.query.formSchemaKey, route?.query.recordId]), () => {
+  if (route?.name !== 'printing-published-templates') { clearPreview(); listRequest?.cancel(); return; }
+  linkBlocked = false; void load(false);
+}, { flush: 'sync' });
+async function load(force = true): Promise<void> {
   if (!tenant()) return;
+  const key = JSON.stringify([route?.query.formSchemaKey, route?.query.recordId, linkBlocked]);
+  // 同轮上下文恢复与路由定位只发起一次目录读取；用户刷新仍允许重试失败请求。
+  if (!force && key === lastLoadKey) return;
   clearPreview(); listRequest?.cancel();
   const request = scope.begin(readPermission); if (!request) return; listRequest = request;
+  lastLoadKey = key;
   templates.value = []; selectedId.value = ''; recordId.value = ''; loading.value = true;
   try {
     const result = await listPrintingPublishedTemplates(request.signal);
     if (!request.current()) return;
-    templates.value = result; selectedId.value = result[0] ? versionKey(result[0]) : '';
+    const linked = resolvePrintingRecordLink(route?.query ?? {}, result);
+    if (linked.kind !== 'none' && (linkBlocked || linked.kind === 'invalid')) {
+      templates.value = []; selectedId.value = ''; recordId.value = '';
+      problem.value = {status:400,code:'client.invalid_printing_record_link',title:t('printingPublished.linkUnavailable')};
+    } else {
+      templates.value = linked.kind === 'bound' ? linked.templates : result;
+      selectedId.value = templates.value[0] ? versionKey(templates.value[0]) : '';
+      recordId.value = linked.kind === 'bound' ? linked.recordId : '';
+    }
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { if (request.current()) loading.value = false; request.finish(); }
 }
@@ -82,7 +109,7 @@ async function render(printAfter = false): Promise<void> {
     <ElCard shadow="never" class="no-print">
       <ArtTableHeader>
         <template #left><span>{{ t('printingPublished.hint') }}</span></template>
-        <template #right><PermissionGate :code="readPermission"><ElButton :icon="Refresh" :loading="loading" data-testid="printing-published-refresh" @click="load">{{ t('printingGrants.refresh') }}</ElButton></PermissionGate></template>
+        <template #right><PermissionGate :code="readPermission"><ElButton :icon="Refresh" :loading="loading" data-testid="printing-published-refresh" @click="load(true)">{{ t('printingGrants.refresh') }}</ElButton></PermissionGate></template>
       </ArtTableHeader>
       <ElAlert v-if="problem" type="error" :title="problem.title" :closable="false" show-icon />
       <ElEmpty v-if="!loading && !templates.length && !problem" :description="t('printingPublished.empty')" />

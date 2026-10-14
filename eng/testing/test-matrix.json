@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6811,
+      "minimum": 6823,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -41,7 +41,11 @@
         },
         "printing-rendering": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Printing.",
-          "minimum": 53
+          "minimum": 65
+        },
+        "enterprise-printing-boundaries": {
+          "filter": "FullyQualifiedName~EnterpriseRequestPrintingBoundaryTests|FullyQualifiedName~PrintingBusinessFormTests",
+          "minimum": 22
         },
         "reporting-execution-boundaries": {
           "filter": "FullyQualifiedName~ReportingExecutionSqlBuilderTests|FullyQualifiedName~ReportingExecutionBoundaryTests|FullyQualifiedName~ExternalDatabaseCellTextTests|FullyQualifiedName~ReportingDataSourceConnectionTesterTests",
