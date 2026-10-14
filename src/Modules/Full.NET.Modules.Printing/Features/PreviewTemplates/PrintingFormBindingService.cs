@@ -23,6 +23,7 @@ internal sealed class PrintingFormBindingService(
         CancellationToken cancellationToken = default,
         Guid? recordId = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var schema = catalog.TryGet(formSchemaKey);
         if (schema is null)
         {
@@ -37,7 +38,7 @@ internal sealed class PrintingFormBindingService(
             return BindingFailed("Tenant context is required for printing data binding.");
         }
 
-        Dictionary<string, string?> values;
+        IReadOnlyDictionary<string, string?> values;
         if (schema.RequiresRecordId)
         {
             if (recordId is null || recordId == Guid.Empty)
@@ -46,34 +47,49 @@ internal sealed class PrintingFormBindingService(
             if (sources.Length != 1)
                 return BindingFailed("The printing record binding source is unavailable.");
             var result = await sources[0].ResolveAsync(recordId.Value, principal, cancellationToken).ConfigureAwait(false);
-            if (!result.IsSuccess || result.Value is null)
-                return Result<IReadOnlyDictionary<string, string?>>.Failure(result.Error!);
-            values = new Dictionary<string, string?>(result.Value, StringComparer.Ordinal);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (result is null || !result.IsSuccess || result.Value is null)
+                return result?.Error is { } error ? Result<IReadOnlyDictionary<string, string?>>.Failure(error)
+                    : BindingFailed("The printing record binding source returned no valid values.");
+            // 业务源只提供原值；按 Schema 逐键投影，不复制未声明的额外字段。
+            values = result.Value;
         }
         else
         {
             if (!string.Equals(formSchemaKey, PrintingFormSchemaKeys.TenantProfileCard, StringComparison.Ordinal))
                 return BindingFailed("The printing form schema is not supported yet.");
             var profile = await tenantProfileBindingSource.ResolveAsync(currentTenant.Id.Value, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (profile is null) return BindingFailed("The tenant profile could not be resolved for printing.");
             values = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
                 ["tenantName"] = profile.TenantName, ["tenantCode"] = profile.TenantCode, ["tenantDomain"] = profile.TenantDomain,
             };
         }
-        // 打印人和时间来自可信当前主体与时钟，业务源不能覆盖；只输出 Schema 声明的字段。
-        values["printedByDisplayName"] = ResolveDisplayName(principal);
-        values["printedAtUtc"] = clock.UtcNow.ToString("O");
-
-        foreach (var field in schema.Fields)
+        // 打印人和时间来自可信当前主体与时钟，业务源不能覆盖；只读取 Schema 声明的键。
+        var projected = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var budget = new PrintingRenderingBudget();
+        try
         {
-            if (!values.ContainsKey(field.FieldKey))
+            foreach (var field in schema.Fields)
             {
-                return BindingFailed($"Missing binding value for field '{field.FieldKey}'.");
+                cancellationToken.ThrowIfCancellationRequested();
+                string? value;
+                if (field.FieldKey == "printedByDisplayName") value = ResolveDisplayName(principal);
+                else if (field.FieldKey == "printedAtUtc") value = clock.UtcNow.ToString("O");
+                else if (!values.TryGetValue(field.FieldKey, out value))
+                    return BindingFailed($"Missing binding value for field '{field.FieldKey}'.");
+                budget.AddField(field.FieldKey, value, cancellationToken);
+                if (!projected.TryAdd(field.FieldKey, value)) return BindingFailed("Printing form field keys must be unique.");
             }
         }
-
-        return Result<IReadOnlyDictionary<string, string?>>.Success(schema.Fields.ToDictionary(field => field.FieldKey, field => values[field.FieldKey], StringComparer.Ordinal));
+        catch (PrintingRenderingLimitException)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return BindingFailed("The printing binding exceeds the supported text or field limit.");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return Result<IReadOnlyDictionary<string, string?>>.Success(projected);
     }
 
     private static string ResolveDisplayName(ClaimsPrincipal principal)

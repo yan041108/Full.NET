@@ -19,10 +19,12 @@ internal sealed class PrintingPublishedTemplateService(
     /// <summary>只返回当前可信租户获授且仍启用的版本目录；Host 上下文拒绝读取。</summary>
     public async Task<Result<IReadOnlyList<PrintingPublishedTemplateResponse>>> ListAsync(CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (tenant.IsHost || tenant.Id is null)
             return Denied<IReadOnlyList<PrintingPublishedTemplateResponse>>();
         var rows = await queries.QueryAsync<PrintingPublishedTemplateRecord>(PrintingTenantGrantSql.ListPublished,
             cancellationToken: token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return Result<IReadOnlyList<PrintingPublishedTemplateResponse>>.Success(rows.Select(row =>
             new PrintingPublishedTemplateResponse(row.TemplateId, row.TemplateKey, row.TemplateName,
                 row.FormSchemaKey, row.VersionNumber, catalog.TryGet(row.FormSchemaKey)?.RequiresRecordId ?? false)).ToArray());
@@ -33,19 +35,34 @@ internal sealed class PrintingPublishedTemplateService(
     public async Task<Result<PrintingTemplatePreviewResponse>> PreviewAsync(Guid templateId,
         PreviewPrintingTemplateRequest request, ClaimsPrincipal principal, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (tenant.IsHost || tenant.Id is null || templateId == Guid.Empty || request.VersionNumber is <= 0)
             return Denied<PrintingTemplatePreviewResponse>();
         var row = await ResolveAsync(templateId, request.VersionNumber, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         if (row is null) return Denied<PrintingTemplatePreviewResponse>();
         var binding = await bindings.ResolveAsync(row.FormSchemaKey, principal, token, request.RecordId).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         if (!binding.IsSuccess || binding.Value is null)
             return Result<PrintingTemplatePreviewResponse>.Failure(binding.Error!);
         // 权威源复核精确版本，避免跨模块绑定期间撤权或停用后继续交付内容。
-        if (await ResolveAsync(templateId, row.VersionNumber, token).ConfigureAwait(false) is null)
-            return Denied<PrintingTemplatePreviewResponse>();
+        var stillGranted = await ResolveAsync(templateId, row.VersionNumber, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (stillGranted is null) return Denied<PrintingTemplatePreviewResponse>();
+        string html;
+        try
+        {
+            html = PrintingHtmlRenderer.Render(row.LayoutHtml, binding.Value, token);
+        }
+        catch (PrintingRenderingLimitException exception)
+        {
+            token.ThrowIfCancellationRequested();
+            return Result<PrintingTemplatePreviewResponse>.Failure(new Error(exception.Code,
+                "The printing preview exceeds the supported rendering limits.", ErrorType.Validation));
+        }
         return Result<PrintingTemplatePreviewResponse>.Success(new(row.TemplateId, row.TemplateKey,
             row.TemplateName, row.VersionNumber, row.FormSchemaKey,
-            PrintingHtmlRenderer.Render(row.LayoutHtml, binding.Value), binding.Value, clock.UtcNow));
+            html, binding.Value, clock.UtcNow));
     }
 
     private Task<PrintingGrantedVersionRecord?> ResolveAsync(Guid templateId, int? version, CancellationToken token) =>

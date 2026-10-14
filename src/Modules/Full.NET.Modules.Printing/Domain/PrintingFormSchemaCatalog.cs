@@ -7,6 +7,13 @@ internal static class PrintingLayoutPolicy
 {
     /// <summary>布局 HTML 最大字符数。</summary>
     public const int MaxLayoutHtmlLength = 64 * 1024;
+
+    /// <summary>投影后绑定字段最多 256 个，原始键和值合计最多 1 MiB UTF-16 字节。</summary>
+    public const int MaxBindingFields = 256;
+    public const long MaxBindingTextBytes = 1024 * 1024;
+
+    /// <summary>完整预览 HTML 最多 1 Mi 个 UTF-16 单元，超限拒绝，不截断页面。</summary>
+    public const int MaxRenderedHtmlLength = 1024 * 1024;
 }
 
 /// <summary>内置固定表单 Schema 目录；字段集合由服务端固定，客户端不可扩展。</summary>
