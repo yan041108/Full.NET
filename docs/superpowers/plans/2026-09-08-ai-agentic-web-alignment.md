@@ -3082,4 +3082,6 @@ Native 69396 在双库正式收集后自动启动，首步 API 分析离线 rest
 
 #### R12i：补齐当前宿主依赖图的漏洞查询覆盖（2026-10-15）
 
-六图缓存恢复后，在正在使用的 Linux SDK 中分别对 Host.Api、Host.Worker 和 Integration 执行官方 NuGet 普通包清单与包含传递依赖的漏洞查询，六条命令全部退出 0；三图分别为 103、102、195 个精确包身份，当前查询均未报告已知漏洞。逐图读取对应 project.assets.json，包身份集合与查询清单精确相同；证据为 artifacts/r12i/host-audit.json 和 audit-coverage.json。此处只覆盖三个当前普通资产图的包身份及查询时公告，不覆盖框架运行时、独立发布资产图、全部 258 个归档或业务行为。API/Worker AOT 分析与后续 Native 整组仍运行中，未因此次查询升级 Verified。
+六图缓存恢复后，在正在使用的 Linux SDK 中分别对 Host.Api、Host.Worker 和 Integration 执行官方 NuGet 普通包清单与包含传递依赖的漏洞查询，六条命令全部退出 0；三图分别为 103、102、195 个精确包身份，当前查询均未报告已知漏洞。逐图读取对应 project.assets.json，包身份集合与查询清单精确相同；证据为 artifacts/r12i/host-audit.json 和 audit-coverage.json。此处只覆盖三个当前普通资产图的包身份及查询时公告，不覆盖框架运行时、独立发布资产图、全部 258 个归档或业务行为。
+
+同一 R12a 修复依赖源码的 API/Worker `FullNetAotAnalysis=true` Release 构建分别退出 0，均零警告/错误，用时 8 分 26.16 秒与 24.27 秒；Architecture 构建零警告/错误，完整架构测试 235/235、零失败/跳过，用时 1 分 13.480 秒，完整 TRX 的 235 个唯一 UID 与计数一致，退出 0。阶段证据为 artifacts/r12i/stage-verification.json 与 artifacts/r12c 原日志/报告。当前为 Aot-analysis-clean；Integration 消费者构建、API/Worker 原生发布、35 项运行和整组源/缓存/清理复核继续接续，Native、页面整体及 Capacity-not-verified 不提前关闭。
