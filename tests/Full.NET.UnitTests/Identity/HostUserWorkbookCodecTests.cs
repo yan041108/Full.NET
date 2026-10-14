@@ -10,6 +10,44 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class HostUserWorkbookCodecTests
 {
     [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public async Task Cancellation_after_source_eof_stops_xml_parse_and_keeps_source_owned_by_caller(bool hasData, bool shared)
+    {
+        var rows = new List<string[]> { ["username", "displayName", "password", "accountType"] };
+        if (hasData) rows.Add(["alice", "Alice", "Correct-Horse-2026!", "standard"]);
+        var workbook = CreateImportWorkbook(shared, rows);
+        using var cancellation = new CancellationTokenSource();
+        await using var source = new CancelOnEofStream(workbook, cancellation);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => HostUserWorkbookCodec.ParseImportAsync(source, workbook.LongLength, cancellation.Token));
+        Assert.IsTrue(source.CanRead);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Duplicate_cell_cannot_silently_replace_an_existing_column(bool shared)
+    {
+        var workbook = CreateImportWorkbook(shared, [["username", "displayName", "password", "accountType"], ["alice", "Alice", "Correct-Horse-2026!", "standard"]], overriddenCellReference: "B2");
+        await using var source = new MemoryStream(workbook);
+        await Assert.ThrowsAsync<InvalidDataException>(() => HostUserWorkbookCodec.ParseImportAsync(source, workbook.LongLength, default));
+        Assert.IsTrue(source.CanRead);
+    }
+
+    /// <summary>取消在源流 EOF 返回前发生，避免测试依赖定时或调度竞态。</summary>
+    private sealed class CancelOnEofStream(byte[] bytes, CancellationTokenSource cancellation) : MemoryStream(bytes, writable: false)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await base.ReadAsync(buffer, cancellationToken);
+            if (read == 0) cancellation.Cancel();
+            return read;
+        }
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void Export_preserves_supplementary_display_name_characters(bool malformed)

@@ -22,6 +22,49 @@ namespace Full.NET.UnitTests.ImportExport;
 public sealed class ImportExportTaskRecoveryTests
 {
     [TestMethod]
+    [DataRow("result-null", 2)]
+    [DataRow("error-null", 2)]
+    [DataRow("null", 2)]
+    [DataRow("rows-null", 2)]
+    [DataRow("row-null", 2)]
+    [DataRow("too-many", 1)]
+    [DataRow("remaining", 2)]
+    [DataRow("duplicate", 2)]
+    [DataRow("reverse", 2)]
+    [DataRow("zero-line", 2)]
+    [DataRow("negative-line", 2)]
+    public async Task Invalid_handler_batch_fails_without_receipt_or_checkpoint_progress(string kind, int batchSize)
+    {
+        var fixture = CreateFixture(batchSize: batchSize);
+        var task = SeedQueuedTask(fixture, validRowCount: kind == "remaining" ? 1 : 3);
+        StaticImportBatchExecutionResult? batch = kind switch
+        {
+            "null" => null,
+            "rows-null" => new(null!),
+            "row-null" => new([null!]),
+            "duplicate" => new([new(1, true, null, null, null), new(1, true, null, null, null)]),
+            "reverse" => new([new(2, true, null, null, null), new(1, true, null, null, null)]),
+            "zero-line" => new([new(0, true, null, null, null)]),
+            "negative-line" => new([new(-1, true, null, null, null)]),
+            _ => new([new(1, true, null, null, null), new(2, true, null, null, null)]),
+        };
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(kind == "result-null" ? null! : kind == "error-null"
+                ? Result<StaticImportBatchExecutionResult>.Failure(null!) : Result<StaticImportBatchExecutionResult>.Success(batch!)));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(default));
+        var stored = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, stored.StatusKey);
+        Assert.AreEqual(ImportExportErrorCodes.ExecutionFailed, stored.ErrorCode);
+        Assert.AreEqual(0, stored.NextLineNumber);
+        Assert.AreEqual(0, stored.ProcessedRowCount);
+        Assert.IsNull(stored.ErrorReceiptFileId);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+        Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+        Assert.AreEqual(0, await fixture.Runner.ProcessPendingAsync(default));
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task Oversized_receipt_stops_automatic_processing_without_advancing_checkpoint(bool partial)
@@ -272,7 +315,7 @@ public sealed class ImportExportTaskRecoveryTests
     public async Task Expired_executing_lease_is_reclaimed_from_checkpoint_async()
     {
         var fixture = CreateFixture();
-        var task = SeedExecutingTask(fixture, leaseExpired: true, nextLineNumber: 2, succeededRowCount: 2);
+        var task = SeedExecutingTask(fixture, leaseExpired: true, nextLineNumber: 2, succeededRowCount: 2, validRowCount: 3);
         fixture.Handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<long>(),
@@ -626,7 +669,8 @@ public sealed class ImportExportTaskRecoveryTests
         Fixture fixture,
         bool leaseExpired,
         int nextLineNumber,
-        int succeededRowCount)
+        int succeededRowCount,
+        int validRowCount = 2)
     {
         var leaseId = Guid.NewGuid();
         var expires = leaseExpired ? fixture.Clock.UtcNow.AddMinutes(-1) : fixture.Clock.UtcNow.AddMinutes(5);
@@ -636,7 +680,8 @@ public sealed class ImportExportTaskRecoveryTests
             nextLineNumber,
             succeededRowCount,
             leaseId,
-            expires);
+            expires,
+            validRowCount);
     }
 
     private static ImportExportTaskRecord SeedTask(

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6349,
+      "minimum": 6419,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -33,7 +33,11 @@
         },
         "import-recovery": {
           "filter": "FullyQualifiedName~ImportExportTaskRecoveryTests",
-          "minimum": 46
+          "minimum": 57
+        },
+        "import-boundaries": {
+          "filter": "FullyQualifiedName~ImportExportResultBoundaryTests|FullyQualifiedName~ImportExportTaskPreviewBoundaryTests|FullyQualifiedName~ImportExportTaskRecoveryTests|FullyQualifiedName~HostUserWorkbookCodecTests|FullyQualifiedName~OrganizationPositionWorkbookCodecTests",
+          "minimum": 134
         },
         "native-migrator-process": {
           "filter": "FullyQualifiedName~NativeMigratorProcessTests",

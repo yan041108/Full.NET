@@ -116,11 +116,12 @@ internal static class OrganizationPositionWorkbookCodec
             throw new InvalidDataException("职位导入工作簿实际大小与声明大小不一致。");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         buffered.Position = 0;
         using var archive = new ZipArchive(buffered, ZipArchiveMode.Read, leaveOpen: true);
-        ValidateArchive(archive);
-        var sharedStrings = ReadSharedStrings(archive);
-        var worksheet = ReadXmlEntry(archive, WorksheetPath, required: true);
+        await ValidateArchiveAsync(archive, cancellationToken).ConfigureAwait(false);
+        var sharedStrings = await ReadSharedStringsAsync(archive, cancellationToken).ConfigureAwait(false);
+        var worksheet = await ReadXmlEntryAsync(archive, WorksheetPath, required: true, cancellationToken).ConfigureAwait(false);
         return ParseRows(worksheet, sharedStrings, cancellationToken);
     }
 
@@ -210,7 +211,10 @@ internal static class OrganizationPositionWorkbookCodec
         return output.ToArray();
     }
 
-    private static void ValidateArchive(ZipArchive archive)
+    /// <summary>保持条目、解压声明大小和外部关系限制，逐条核对取消。</summary>
+    /// <param name="archive">已缓冲且只读的工作簿 ZIP。</param>
+    /// <param name="cancellationToken">本次导入取消令牌。</param>
+    private static async Task ValidateArchiveAsync(ZipArchive archive, CancellationToken cancellationToken)
     {
         if (archive.Entries.Count is 0 or > MaximumArchiveEntries)
         {
@@ -220,6 +224,7 @@ internal static class OrganizationPositionWorkbookCodec
         long totalLength = 0;
         foreach (var entry in archive.Entries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (entry.FullName.Contains("..", StringComparison.Ordinal)
                 || entry.FullName.StartsWith("/", StringComparison.Ordinal)
                 || entry.FullName.StartsWith('\\'))
@@ -236,7 +241,7 @@ internal static class OrganizationPositionWorkbookCodec
 
             if (entry.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
             {
-                var relationships = ReadXmlEntry(archive, entry.FullName, required: true);
+                var relationships = await ReadXmlEntryAsync(archive, entry.FullName, required: true, cancellationToken).ConfigureAwait(false);
                 if (relationships
                     .Descendants(PackageRelationshipNamespace + "Relationship")
                     .Any(node => string.Equals(
@@ -250,9 +255,12 @@ internal static class OrganizationPositionWorkbookCodec
         }
     }
 
-    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive)
+    /// <summary>读取有界共享字符串，超出条目数时不继续物化剩余字符串。</summary>
+    /// <param name="archive">工作簿 ZIP。</param>
+    /// <param name="cancellationToken">本次导入取消令牌。</param>
+    private static async Task<IReadOnlyList<string>> ReadSharedStringsAsync(ZipArchive archive, CancellationToken cancellationToken)
     {
-        var document = ReadXmlEntry(archive, SharedStringsPath, required: false);
+        var document = await ReadXmlEntryAsync(archive, SharedStringsPath, required: false, cancellationToken).ConfigureAwait(false);
         if (document.Root is null)
         {
             return [];
@@ -260,6 +268,7 @@ internal static class OrganizationPositionWorkbookCodec
 
         var values = document
             .Descendants(SpreadsheetNamespace + "si")
+            .Take((MaximumDataRows + 1) * ImportHeaders.Length + 1)
             .Select(item => string.Concat(
                 item.Descendants(SpreadsheetNamespace + "t").Select(text => text.Value)))
             .ToArray();
@@ -276,6 +285,7 @@ internal static class OrganizationPositionWorkbookCodec
         IReadOnlyList<string> sharedStrings,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var rows = worksheet
             .Descendants(SpreadsheetNamespace + "row")
             .ToArray();
@@ -284,7 +294,7 @@ internal static class OrganizationPositionWorkbookCodec
             throw new InvalidDataException("职位导入工作簿缺少表头。");
         }
 
-        var headers = ReadRow(rows[0], sharedStrings);
+        var headers = ReadRow(rows[0], sharedStrings, cancellationToken);
         if (headers.Count != ImportHeaders.Length
             || !headers.SequenceEqual(ImportHeaders, StringComparer.Ordinal))
         {
@@ -296,7 +306,7 @@ internal static class OrganizationPositionWorkbookCodec
         foreach (var row in rows.Skip(1))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var cells = ReadRow(row, sharedStrings);
+            var cells = ReadRow(row, sharedStrings, cancellationToken);
             if (cells.All(string.IsNullOrWhiteSpace))
             {
                 continue;
@@ -315,6 +325,7 @@ internal static class OrganizationPositionWorkbookCodec
                 NullIfEmpty(Cell(cells, 4))));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return requests;
     }
 
@@ -337,13 +348,20 @@ internal static class OrganizationPositionWorkbookCodec
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>固定列按原始单元格身份读取，拒绝重复列覆盖。</summary>
+    /// <param name="row">当前原始 XML 行。</param>
+    /// <param name="sharedStrings">已验证的共享字符串。</param>
+    /// <param name="cancellationToken">本次导入取消令牌。</param>
     private static IReadOnlyList<string> ReadRow(
         XElement row,
-        IReadOnlyList<string> sharedStrings)
+        IReadOnlyList<string> sharedStrings,
+        CancellationToken cancellationToken)
     {
         var values = new string[ImportHeaders.Length];
+        var assigned = new bool[ImportHeaders.Length];
         foreach (var cell in row.Elements(SpreadsheetNamespace + "c"))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (cell.Element(SpreadsheetNamespace + "f") is not null)
             {
                 throw new InvalidDataException("职位导入工作簿不得包含公式单元格。");
@@ -362,6 +380,8 @@ internal static class OrganizationPositionWorkbookCodec
                 continue;
             }
 
+            if (assigned[columnIndex]) throw new InvalidDataException("导入工作簿同一行不得包含重复列。");
+            assigned[columnIndex] = true;
             values[columnIndex] = ReadCellValue(cell, sharedStrings);
         }
 
@@ -395,11 +415,18 @@ internal static class OrganizationPositionWorkbookCodec
         return sharedStrings[index];
     }
 
-    private static XDocument ReadXmlEntry(
+    /// <summary>异步加载 XML 时传递取消，DTD、实体和文档字符限制保持启用。</summary>
+    /// <param name="archive">工作簿 ZIP。</param>
+    /// <param name="path">固定工作簿部件路径。</param>
+    /// <param name="required">是否必须存在该部件。</param>
+    /// <param name="cancellationToken">本次导入取消令牌。</param>
+    private static async Task<XDocument> ReadXmlEntryAsync(
         ZipArchive archive,
         string path,
-        bool required)
+        bool required,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var entry = archive.GetEntry(path);
         if (entry is null)
         {
@@ -414,7 +441,7 @@ internal static class OrganizationPositionWorkbookCodec
         using var stream = entry.Open();
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
-            Async = false,
+            Async = true,
             DtdProcessing = DtdProcessing.Prohibit,
             MaxCharactersFromEntities = 0,
             MaxCharactersInDocument = MaximumXmlCharacters,
@@ -422,7 +449,9 @@ internal static class OrganizationPositionWorkbookCodec
         });
         try
         {
-            return XDocument.Load(reader, LoadOptions.None);
+            var document = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return document;
         }
         catch (XmlException exception)
         {

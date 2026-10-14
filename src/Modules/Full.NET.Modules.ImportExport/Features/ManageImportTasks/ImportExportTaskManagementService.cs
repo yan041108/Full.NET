@@ -107,6 +107,22 @@ internal sealed class ImportExportTaskManagementService(
             await probe.Content.DisposeAsync().ConfigureAwait(false);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        previewResult ??= Result<StaticImportPreviewResult>.Failure(
+            new Error(ImportExportErrorCodes.PreviewFailed, "The import preview handler returned no result.", ErrorType.Validation));
+        var maximumRows = options.CurrentValue.MaxPreviewRows;
+        if (previewResult.IsSuccess && previewResult.Value is { } oversized
+            && (oversized.TotalRows > maximumRows || oversized.Rows?.Count > maximumRows))
+        {
+            return Result<ImportExportTaskDetailResponse>.Failure(RowLimitExceededError());
+        }
+        if (previewResult.IsSuccess && !ImportExportResultBoundary.IsValidPreview(previewResult.Value, maximumRows, cancellationToken))
+        {
+            // 处理器汇总不是可信持久化计数；契约失败保留可查询任务，不写入冲突行明细。
+            previewResult = Result<StaticImportPreviewResult>.Failure(
+                new Error(ImportExportErrorCodes.PreviewFailed, "The import preview result is inconsistent or exceeds its text budget.", ErrorType.Validation));
+        }
+
         var now = clock.UtcNow;
         string statusKey;
         int totalRows;
@@ -127,11 +143,6 @@ internal sealed class ImportExportTaskManagementService(
         else
         {
             var preview = previewResult.Value!;
-            if (preview.TotalRows > options.CurrentValue.MaxPreviewRows)
-            {
-                return Result<ImportExportTaskDetailResponse>.Failure(RowLimitExceededError());
-            }
-
             totalRows = preview.TotalRows;
             validRowCount = preview.ValidRowCount;
             invalidRowCount = preview.InvalidRowCount;

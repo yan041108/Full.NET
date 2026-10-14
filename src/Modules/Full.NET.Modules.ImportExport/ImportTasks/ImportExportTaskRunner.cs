@@ -141,6 +141,7 @@ internal sealed class ImportExportTaskRunner(
             }
 
             EnsureActiveLease(task, executionToken);
+            var executionBatchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
             var sourceResult = await resourceFiles
                 .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, executionToken)
                 .ConfigureAwait(false);
@@ -160,7 +161,6 @@ internal sealed class ImportExportTaskRunner(
                 // 读文件完成时可能已经到期；即使拒绝执行，也必须释放刚打开的内容流。
                 EnsureActiveLease(task, executionToken);
                 var contentLength = source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxUploadBytes;
-                var executionBatchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
                 var previewContext = new StaticImportPreviewContext(
                     executionState.SessionBinding!.UserId,
                     ImportExportExecutionAuthorization.FreezeCapabilities(handler, executionState.CapabilityFlags)) { TaskId = task.Id };
@@ -180,19 +180,20 @@ internal sealed class ImportExportTaskRunner(
 
             // 处理器可能忽略取消；返回之后仍须阻断回执与检查点副作用。
             EnsureActiveLease(task, executionToken);
-            if (!batchResult.IsSuccess)
+            if (batchResult is null || !batchResult.IsSuccess)
             {
                 await MarkExecutionFailedAsync(
                     task,
-                    batchResult.Error!.Code,
+                    batchResult?.Error?.Code ?? ImportExportErrorCodes.ExecutionFailed,
                     executionToken).ConfigureAwait(false);
                 return;
             }
 
-            if (batchResult.Value!.Rows.Count == 0 && task.NextLineNumber < task.ValidRowCount)
+            if (!ImportExportResultBoundary.IsValidBatch(task, batchResult.Value, executionState.Rows, executionBatchSize, executionToken, out var textLimitExceeded))
             {
-                // 检查点尚未完成却返回空批是处理器契约失败，不能无进展地反复排队。
-                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, executionToken).ConfigureAwait(false);
+                // 空批、重复行或超出本批上限均是确定性契约失败，不能发布错误进度或无进展重排。
+                await MarkExecutionFailedAsync(task, textLimitExceeded
+                    ? ImportExportErrorCodes.ErrorReceiptLimitExceeded : ImportExportErrorCodes.ExecutionFailed, executionToken).ConfigureAwait(false);
                 return;
             }
             await ApplyBatchResultAsync(task, batchResult.Value!, executionToken).ConfigureAwait(false);
