@@ -16,7 +16,7 @@ vi.mock('../api/import-export-tasks', () => ({
   listStaticImportSchemas: vi.fn(), createImportExportTask: vi.fn(), downloadStaticImportTemplate: vi.fn()
 }));
 vi.mock('../api/reporting-definitions', () => ({ listReportingDefinitions: vi.fn() }));
-vi.mock('../api/reporting-export-tasks', () => ({ listReportingExportTasks: vi.fn(), createReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
+vi.mock('../api/reporting-export-tasks', () => ({ cancelReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), createReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
 vi.mock('../api/document-preview-tasks', () => ({ listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 
 let wrapper: VueWrapper | undefined;

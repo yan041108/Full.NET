@@ -1,18 +1,69 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { ElDialog, ElOption, ElSelect } from 'element-plus';
+import { ElDialog, ElMessage, ElOption, ElSelect } from 'element-plus';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
-import { createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
+import { cancelReportingExportTask, createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
 import { createOutputSession, deferred, exportTask, publishedReportDefinition } from '../test/data-output-fixtures';
 vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedDefinitions: vi.fn() }));
-vi.mock('../api/reporting-export-tasks', () => ({ createReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), downloadReportingExportTask: vi.fn() }));
+vi.mock('../api/reporting-export-tasks', () => ({ cancelReportingExportTask: vi.fn(), createReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), downloadReportingExportTask: vi.fn() }));
 let wrapper: VueWrapper | undefined;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([publishedReportDefinition]); vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 const mountView = (permissions: string[]) => { const context = createOutputSession(permissions); wrapper = mount(ReportingExportTasksView, { global: { plugins: [context.pinia] } }); return context.session; };
 describe('报表导出授权与生命周期', () => {
+  const queued = { ...exportTask, statusKey: 'queued' };
+  const queue = (task = queued) => vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 });
+  it('创建权限不授予取消，取消不要求执行或下载权限', async () => {
+    queue(); const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create']); await flushPromises();
+    expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
+    session.currentUser!.permissions = ['reporting.export_tasks.read', 'reporting.export_tasks.cancel']; await flushPromises();
+    expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(true);
+  });
+  it.each(['processing', 'succeeded', 'failed', 'cancelled'])('状态%s不显示取消入口', async statusKey => {
+    queue({ ...queued, statusKey }); mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
+  });
+  it('其他创建人的排队任务不显示取消入口', async () => {
+    queue({ ...queued, requestedByUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf299' });
+    mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
+  });
+  it('取消须确认，放弃不发送 HTTP', async () => {
+    queue(); mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
+    expect(cancelReportingExportTask).not.toHaveBeenCalled();
+    await wrapper!.get('[data-testid="reporting-cancel-dismiss"]').trigger('click'); await flushPromises();
+    expect(cancelReportingExportTask).not.toHaveBeenCalled();
+  });
+  it('确认后互斥提交，成功关闭确认并刷新列表', async () => {
+    queue(); const pending = deferred<typeof exportTask>(); vi.mocked(cancelReportingExportTask).mockReturnValue(pending.promise);
+    mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click');
+    expect(cancelReportingExportTask).toHaveBeenCalledTimes(1);
+    pending.resolve({ ...exportTask, statusKey: 'cancelled' }); await flushPromises();
+    expect(listReportingExportTasks).toHaveBeenCalledTimes(2);
+    expect(wrapper!.find('[data-testid="reporting-cancel-confirm"]').exists()).toBe(false);
+  });
+  it('确认期间撤权同步关闭确认且不发送取消', async () => {
+    queue(); const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
+    session.currentUser!.permissions = ['reporting.export_tasks.read']; await flushPromises();
+    expect(wrapper!.find('[data-testid="reporting-cancel-confirm"]').exists()).toBe(false);
+    expect(cancelReportingExportTask).not.toHaveBeenCalled();
+  });
+  it('取消在途切租户中止接入，迟到成功不污染新列表或通知', async () => {
+    queue(); const pending = deferred<typeof exportTask>(); vi.mocked(cancelReportingExportTask).mockReturnValue(pending.promise);
+    const success = vi.spyOn(ElMessage, 'success'); const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click');
+    session.currentUser!.tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
+    expect(vi.mocked(cancelReportingExportTask).mock.calls[0]?.[1]?.aborted).toBe(true);
+    pending.resolve({ ...exportTask, statusKey: 'cancelled' }); await flushPromises();
+    expect(success).not.toHaveBeenCalled();
+  });
   it('明确文件404显示不可用并禁用对应下载入口', async () => {
     vi.mocked(downloadReportingExportTask).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
     mountView(['reporting.export_tasks.read','reporting.export_tasks.download']); await flushPromises();

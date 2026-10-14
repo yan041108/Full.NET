@@ -11,6 +11,7 @@ vi.mock('../api/reporting-definitions', () => ({
 }));
 
 vi.mock('../api/reporting-export-tasks', () => ({
+  cancelReportingExportTask: vi.fn(),
   listReportingExportTasks: vi.fn(),
   createReportingExportTask: vi.fn(),
   downloadReportingExportTask: vi.fn()

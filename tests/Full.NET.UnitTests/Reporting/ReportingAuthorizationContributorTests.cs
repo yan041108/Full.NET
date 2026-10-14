@@ -9,11 +9,20 @@ namespace Full.NET.UnitTests.Reporting;
 public sealed class ReportingAuthorizationContributorTests
 {
     [TestMethod]
+    public void Export_actions_belong_to_the_read_page_and_keep_distinct_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
+        CollectionAssert.AreEquivalent(new[] { ReportingExportTaskPermissions.Create, ReportingExportTaskPermissions.Download, ReportingExportTaskPermissions.Cancel },
+            catalog.Actions.Where(action => action.NavigationId == "reporting-export-tasks").Select(action => action.PermissionCode).ToArray());
+    }
+
+    [TestMethod]
     [DataRow("reporting.executions.run", AuthorizationScope.Host | AuthorizationScope.Tenant)]
     [DataRow("reporting.executions.columns.schema_name", AuthorizationScope.Host | AuthorizationScope.Tenant)]
     [DataRow("reporting.export_tasks.create", AuthorizationScope.Tenant)]
     [DataRow("reporting.export_tasks.read", AuthorizationScope.Tenant)]
     [DataRow("reporting.export_tasks.download", AuthorizationScope.Tenant)]
+    [DataRow("reporting.export_tasks.cancel", AuthorizationScope.Tenant)]
     public void Execution_and_outputs_have_explicit_tenant_scope(string code, AuthorizationScope expected)
     {
         var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
@@ -51,6 +60,7 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingExportTaskPermissions.Create,
                 ReportingExportTaskPermissions.Read,
                 ReportingExportTaskPermissions.Download,
+                ReportingExportTaskPermissions.Cancel,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 

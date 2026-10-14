@@ -1,11 +1,20 @@
 import {
+  reportingCancelExportTask,
   isReportingExportTaskDetail,
   isReportingExportTaskPage,
   type CreateReportingExportTaskRequest,
   type ReportingExportTaskDetail,
   type ReportingExportTaskPage
 } from '@fullnet/client-contracts';
-import { request, requestBlob } from './http';
+import { http, request, requestBlob } from './http';
+
+// 取消结果必须属于请求任务，不能把其他任务的终态接入当前页面。
+export async function cancelReportingExportTask(taskId: string, signal?: AbortSignal): Promise<ReportingExportTaskDetail> {
+  const result = await reportingCancelExportTask(http, { taskId }, signal);
+  if (!isReportingExportTaskDetail(result) || result.id.toLowerCase() !== taskId.toLowerCase() || result.statusKey !== 'cancelled')
+    throw new Error('client.invalid_reporting_export_task_cancellation');
+  return result;
+}
 
 export async function createReportingExportTask(
   body: CreateReportingExportTaskRequest,

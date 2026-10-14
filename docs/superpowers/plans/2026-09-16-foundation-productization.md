@@ -3209,3 +3209,14 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 同步 Host 文件下载 404 OpenAPI 候选及中英文提示，编写 63 个新增 C# 场景及 Vue 生命周期回归。只读审查发现的本地 Provider 误分类已在代码中处理；最终只读复审未发现新的 P1/P2。
 - 状态：代码及测试用例已写入，**尚未执行本批编译、测试、双库、运行时 OpenAPI、Native 或页面验收**；当前只能登记为待验证开发成果，不关闭 F11/C02 或提升能力状态。`git diff --check` 通过，外来 WIP 内容保全检查通过；旧批验收不能覆盖本批生产代码变化。
 <!-- /c02-data-output-development-20261014 -->
+
+<!-- f11-reporting-cancellation-development-20261014 -->
+## 2026-10-14 F11 报表排队导出取消联合开发（待集中验证）
+
+- 执行依据：继续按“开发任务先全部批量完成”收口 F11/C02，不分拆接口、SDK、页面和测试用例逐次验收。本批基线 `c59c7f30135b4ad78b55c1fce1eedbbf795e7e2f`，快照 `reporting-export-cancellation-development-20261014`。
+- 新增 `POST /api/v1/reporting/export-tasks/{taskId}/cancel`，只允许当前可信租户内创建人的有效交互会话及独立 `reporting.export_tasks.cancel` 权限；API Key 不能形成交互绑定。`queued` 可取消，`cancelled` 重复请求返回同一终态，`processing/succeeded/failed` 返回 409；不强停在途查询、不删除已有文件、不重新授予已撤销的报表执行或下载能力。
+- 取消 SQL 同时约束租户、创建人、排队状态和版本，和 Worker 领取竞争同一主行；既有领取谓词排除取消终态。新增双库 `260_ReportingExportTaskCancellation.sql` 只展开 CHECK 约束，旧约束、缺约束与已展开未记账阶段可重入，历史任务及结果引用保留。编号避开共享主工作区已有的 254—259；旧迁移不改写。
+- OpenAPI 候选及 SDK 确定性生成、Vue API 包装、页面独立确认和中英文提示一起接齐。取消确认、在途请求和迟到结果归属于当前授权范围；角色目录明确把创建、下载、取消操作挂到导出读取页面。UUID 大小写等价输入不会被误报为响应身份不符。
+- 编写新增 Unit 29 场景、Architecture 1 场景、双库生产 SQL 6 场景及迁移恢复 2 场景、Vue/API 16 场景；同步发现下限及迁移影响集。只读安全复审未发现实际 P1/P2 或静态接线错误。
+- 状态：**本批未执行编译、单元/组件测试、双库、运行时 OpenAPI、Native 或页面验收**。只登记为待验证开发成果，不关闭 F11/C02、不提升能力状态；与上一批数据输出改动一起留待集中验证。
+<!-- /f11-reporting-cancellation-development-20261014 -->

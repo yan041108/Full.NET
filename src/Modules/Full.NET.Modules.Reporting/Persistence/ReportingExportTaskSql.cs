@@ -251,6 +251,18 @@ internal static class ReportingExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>领取与取消通过同一主行仲裁；版本防止旧请求覆盖重新排队或新的状态。</summary>
+    public static readonly SqlStatement Cancel = new(
+        "reporting.export_task.cancel",
+        """
+        UPDATE fn_reporting_export_task
+        SET StatusKey = 'cancelled', CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id AND RequestedByUserId = @RequestedByUserId
+          AND StatusKey = 'queued' AND Version = @ExpectedVersion
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement CompleteSucceededSqlServer = new(
         "reporting.export_task.complete_succeeded.sqlserver",
         """

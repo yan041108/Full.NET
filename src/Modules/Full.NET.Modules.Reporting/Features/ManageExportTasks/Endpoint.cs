@@ -85,6 +85,27 @@ internal static class Endpoint
         .Produces<ReportingExportTaskDetailResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Read));
 
+        group.MapPost("/{taskId:guid}/cancel", async (
+            Guid taskId,
+            ReportingExportTaskCancellationService service,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!ReportingHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<ReportingExportTaskDetailResponse>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
+            return mapper.Map(await service.CancelAsync(taskId, binding, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("reportingCancelExportTask")
+        .Produces<ReportingExportTaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Cancel));
+
         group.MapGet("/{taskId:guid}/download", async (
             Guid taskId,
             ReportingExportTaskManagementService service,

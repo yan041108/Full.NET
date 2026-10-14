@@ -76,6 +76,7 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
         services.TryAddScoped<ReportingExportTaskRunner>();
         services.TryAddScoped<ReportingExportTaskManagementService>();
+        services.TryAddScoped<ReportingExportTaskCancellationService>();
         services.AddOptions<Configuration.ReportingExportOptions>()
             .Bind(configuration.GetSection(Configuration.ReportingExportOptions.SectionName))
             .ValidateOnStart();

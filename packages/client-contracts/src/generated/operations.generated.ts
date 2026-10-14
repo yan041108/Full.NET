@@ -9563,6 +9563,22 @@ export async function regionsUpdateAdministrativeRegion(
   return readAdministrativeRegionResponse(value);
 }
 
+export interface ReportingCancelExportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function reportingCancelExportTask(
+  http: HttpClient,
+  parameters: ReportingCancelExportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingExportTaskDetailResponse> {
+  const path = `/api/v1/reporting/export-tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readReportingExportTaskDetailResponse(value);
+}
+
 export interface ReportingCreateDataSourceParameters {
   readonly body: CreateReportingDataSourceRequest;
 }

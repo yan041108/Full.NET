@@ -37,6 +37,7 @@ import { useUnavailableResultFiles } from '../composables/useUnavailableResultFi
 import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
+  cancelReportingExportTask,
   downloadReportingExportTask,
   listReportingExportTasks
 } from '../api/reporting-export-tasks';
@@ -50,6 +51,9 @@ const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
 const downloading = ref(false);
+const cancelling = ref(false);
+const cancelConfirmation = ref<ReportingExportTask>();
+const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
 const unavailableFiles = useUnavailableResultFiles();
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
@@ -89,6 +93,7 @@ watch(createDialogVisible, visible => {
   if (!visible) { createRequest?.cancel(); creating.value = false; }
 }, {flush:'sync'});
 const scope = useAuthorizedViewScope(session, () => {
+  cancelConfirmation.value = undefined; cancelling.value = false;
   unavailableFiles.reset();
   items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
@@ -108,6 +113,7 @@ function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
 
 function statusLabel(statusKey: string): string {
   if (statusKey === 'queued') return t('importExportTasks.status.queued');
+  if (statusKey === 'cancelled') return t('importExportTasks.status.cancelled');
   const key = `reportingExportTasks.status.${statusKey}` as const;
   const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
@@ -144,7 +150,7 @@ async function loadDefinitions(): Promise<void> {
 
 useTaskStatusRefresh(() => canRead() && !problem.value
   && items.value.some(task => task.statusKey === 'queued' || task.statusKey === 'processing'), async () => {
-  if (loading.value || creating.value || downloading.value || createDialogVisible.value) return;
+  if (loading.value || creating.value || downloading.value || cancelling.value || createDialogVisible.value || cancelDialogVisible.value) return;
   await load();
 });
 
@@ -173,13 +179,14 @@ async function load(): Promise<void> {
 }
 
 function openCreateDialog(): void {
+  if (cancelling.value) return;
   createDialogVisible.value = true;
   resetParameters();
 }
 
 async function submitCreate(): Promise<void> {
   const definition = selectedDefinition.value;
-  if (!definition || creating.value) {
+  if (!definition || creating.value || cancelling.value) {
     return;
   }
   const request = scope.begin('reporting.export_tasks.create'); if (!request) return; createRequest = request;
@@ -212,7 +219,7 @@ async function submitCreate(): Promise<void> {
 }
 
 async function downloadTask(task: ReportingExportTask): Promise<void> {
-  if (!canDownload() || task.statusKey !== 'succeeded' || downloading.value || unavailableFiles.isUnavailable(task.id)) {
+  if (!canDownload() || task.statusKey !== 'succeeded' || downloading.value || cancelling.value || unavailableFiles.isUnavailable(task.id)) {
     return;
   }
   const request = scope.begin('reporting.export_tasks.download'); if (!request) return; downloading.value = true;
@@ -237,8 +244,36 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
 
 // 用户刷新可重新确认恢复后的文件，状态轮询不反复开启已确定缺失的下载入口。
 function refreshResults() {
-  if (downloading.value || creating.value) return;
+  if (downloading.value || creating.value || cancelling.value) return;
   unavailableFiles.reset(); void load();
+}
+
+const isCancellable = (task: ReportingExportTask) => task.statusKey === 'queued'
+  && task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
+  && session.can('reporting.export_tasks.cancel');
+
+function requestCancellation(task: ReportingExportTask) {
+  if (isCancellable(task) && !cancelling.value && !creating.value && !downloading.value) cancelConfirmation.value = { ...task };
+}
+
+async function confirmCancellation() {
+  const confirmed = cancelConfirmation.value;
+  cancelConfirmation.value = undefined;
+  const current = confirmed && items.value.find(item => item.id === confirmed.id);
+  if (!current || !isCancellable(current) || cancelling.value || creating.value || downloading.value) return;
+  const request = scope.begin('reporting.export_tasks.cancel'); if (!request) return;
+  cancelling.value = true; problem.value = undefined;
+  try {
+    const result = await cancelReportingExportTask(current.id, request.signal);
+    if (!request.current()) return;
+    items.value = items.value.map(item => item.id === result.id ? result : item);
+    ElMessage.success(t('reportingExportTasks.cancelSuccess'));
+    await load();
+  } catch (error) {
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.cancelFailed');
+  } finally {
+    if (request.current()) cancelling.value = false; request.finish();
+  }
 }
 
 </script>
@@ -315,13 +350,17 @@ function refreshResults() {
                     type="primary"
                     data-testid="reporting-export-download"
                     :data-task-id="row.id"
-                    :disabled="downloading || unavailableFiles.isUnavailable(row.id)"
+                    :disabled="downloading || cancelling || unavailableFiles.isUnavailable(row.id)"
                     @click="downloadTask(row)"
                   >
                     {{ t('reportingExportTasks.download') }}
                   </ElButton>
                   <span v-if="unavailableFiles.isUnavailable(row.id)" data-testid="reporting-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
                 </PermissionGate>
+                <ElButton v-if="isCancellable(row)" link type="warning" data-testid="reporting-export-cancel"
+                  :data-task-id="row.id" :disabled="cancelling || creating || downloading" @click="requestCancellation(row)">
+                  {{ t('common.cancel') }}
+                </ElButton>
               </ArtTableActionGroup>
             </template>
           </ElTableColumn>
@@ -383,6 +422,13 @@ function refreshResults() {
         >
           {{ t('reportingExportTasks.submitCreate') }}
         </ElButton></PermissionGate>
+      </template>
+    </ElDialog>
+    <ElDialog v-model="cancelDialogVisible" :title="t('common.cancel')" width="460px" :close-on-click-modal="false">
+      <p>{{ t('reportingExportTasks.cancelConfirm') }}</p>
+      <template #footer>
+        <ElButton data-testid="reporting-cancel-dismiss" @click="cancelConfirmation = undefined">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="warning" data-testid="reporting-cancel-confirm" @click="confirmCancellation">{{ t('common.confirm') }}</ElButton>
       </template>
     </ElDialog>
   </div>

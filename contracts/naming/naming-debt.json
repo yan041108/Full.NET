@@ -2591,6 +2591,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/253_ImportExportTaskCancellation.sql",
       "reason": "253 仅按 CHECK 约束存在性选择固定展开 DDL 或 SELECT 1，恢复取消状态约束的未记账中断；无外部输入拼接，双库恢复测试覆盖旧约束、缺约束和已展开结构。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/260_ReportingExportTaskCancellation.sql",
+      "reason": "260 只按固定 CHECK 约束存在性选择展开 DDL 或 SELECT 1，无外部输入拼接；双库恢复用例覆盖旧约束、缺约束和已展开未记账阶段，实际运行待集中验收。",
+      "removalMilestone": "M1.0"
     }
   ]
 }
