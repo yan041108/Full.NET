@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -58,7 +59,7 @@ internal sealed class AiChatGenerationLeaseMonitor(IServiceScopeFactory scopeFac
         catch (OperationCanceledException) when (stopToken.IsCancellationRequested) { }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "AI generation lease renewal failed for {GenerationId}.", generationId);
+            AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.ChatLease, exception, generationId);
             await requestBudget.CancelAsync().ConfigureAwait(false);
         }
     }

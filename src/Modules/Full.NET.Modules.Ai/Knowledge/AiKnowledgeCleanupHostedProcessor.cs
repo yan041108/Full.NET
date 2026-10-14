@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,7 @@ internal sealed class AiKnowledgeCleanupHostedProcessor(IServiceScopeFactory sco
                     .ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception exception) { logger.LogWarning("Knowledge cleanup iteration failed; type {FailureType}.", exception.GetType().Name); }
+            catch (Exception exception) { AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.KnowledgeCleanupIteration, exception); }
             try { await Task.Delay(configuration.PollMilliseconds, stoppingToken).ConfigureAwait(false); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }

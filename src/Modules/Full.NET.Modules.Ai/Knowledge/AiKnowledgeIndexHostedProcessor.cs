@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ internal sealed class AiKnowledgeIndexHostedProcessor(IServiceScopeFactory scope
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)
             {
-                logger.LogWarning("Knowledge worker iteration stopped; type {FailureType}.", exception.GetType().Name);
+                AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.KnowledgeIndexIteration, exception);
             }
             // 满批包含已领取的失败任务，立即继续；竞争未领取的候选仍按间隔退让。
             if (acquired < configuration.BatchSize)

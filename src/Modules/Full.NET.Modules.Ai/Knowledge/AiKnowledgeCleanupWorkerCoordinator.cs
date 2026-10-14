@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -74,7 +75,11 @@ internal sealed class AiKnowledgeCleanupWorkerCoordinator(IQueryExecutor query, 
                 {
                     Guard(token);
                     // 不记录外部异常消息、正文、SQL 或凭据；失败记录保持持久意图，回绕后再试。
-                    logger.LogWarning("Knowledge cleanup {WorkId} failed; kind {WorkKind}, type {FailureType}.", row.Id, row.Kind, exception.GetType().Name);
+                    AiFailureLog.Write(logger, LogLevel.Warning, row.Kind switch
+                    {
+                        0 => AiFailureStage.KnowledgeCleanupIndex, 1 => AiFailureStage.KnowledgeCleanupImport,
+                        _ => AiFailureStage.KnowledgeCleanupRetired,
+                    }, exception, row.Id);
                 }
                 finally
                 {

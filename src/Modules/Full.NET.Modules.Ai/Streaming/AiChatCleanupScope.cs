@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -34,9 +35,9 @@ internal sealed class AiChatCleanupScope(IServiceScopeFactory scopeFactory, ILog
             }
             finally { tenant.Clear(); }
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            logger.LogWarning("AI generation cleanup failed.");
+            AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.ChatCleanup, exception);
             return false;
         }
     }

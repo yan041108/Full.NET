@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -74,9 +75,8 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             {
                 Guard(token, childTransactions);
                 await FailAsync(tasks, binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
-                // 只记录类型与稳定码，不把正文、SQL、连接串或供应商异常消息写入日志。
-                logger.LogWarning("Knowledge task {TaskId} stopped with {FailureCode}; type {FailureType}.", row.TaskId,
-                    "ai.knowledge.index_unavailable", exception.GetType().Name);
+                // 只记录固定类别与稳定码，不把异常类型名、正文、SQL 或凭据写入日志。
+                AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.KnowledgeIndex, exception, row.TaskId);
             }
         }
         return acquired;

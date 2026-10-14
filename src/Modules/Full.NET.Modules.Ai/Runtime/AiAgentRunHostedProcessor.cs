@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,7 @@ internal sealed class AiAgentRunHostedProcessor(
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "AI agent run worker iteration failed.");
+                AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentRunIteration, exception);
             }
 
             if (processed < _options.BatchSize)

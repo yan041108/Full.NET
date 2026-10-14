@@ -323,3 +323,11 @@ Worker 原运行观测保持当前后台父 Trace。在有效领取、读取存�
 先执行双库 259_AiAgentRunTraceContext 迁移，再更新 API/Worker。迁移新增可空列，不回填旧运行，未记账重放恢复说明而保留已有来源、运行版本及租约代次；应用回退保留此列，旧写入可继续使用 null。Trace 链接仅是诊断关联，不代表外部费用已确认或恢复已被授权。
 
 本批实际验收为新增 35/35、完整 AI 4715/4715、SQL Server 49 个唯一通过 UID（原中断组完整记录 34 + 精确补验 15）、MySQL 49/49（AI + Smoke + 259 恢复）、JIT 架构 235/235、AOT 相关架构 88/88 和 API/Worker AOT 分析零警告/错误。完整 Unit 只发现 8198，未执行；Integration 分片发现 1216。正式命令、精确 UID、消费闭包及输入摘要见 artifacts/r11s/acceptance.json。只证明 Aot-analysis-clean，当前 AI 的集中 Native 发布/运行、生成应用、浏览器和运营恢复仍待完成；Capacity-not-verified。
+
+### AI 故障日志分类与失败隔离（R11t）
+
+运行、租约、预算修复、知识索引/清理及聊天收尾统一记录事件 5601 / AiOperationFailed。阶段和类别来自模块内白名单；类别为 cancelled、timeout、authorization、budget、provider、storage、invalid、lease_lost 或 other，不读取异常消息、堆栈、Data、InnerException、ToString 或任意类型名。知识索引仍保留固定 ai.knowledge.index_unavailable。只沿用已有运行、任务或生成标识，未知标识为空，不生成业务身份。
+
+日志分类为 diagnostic / BestEffort / Internal，DiagnosticGroup 为 ai.operations，保留原 Warning/Error 级别。每次调用使用独立只读五字段状态与静态格式器，避免故障 Sink 或重入污染共享线程状态。启用探测、Scope、Sink 和 Scope 释放失败均只隔离诊断调用；原续租取消、清理 false、运行对账和未知预算保护继续执行。日志不替代持久业务状态或费用凭证。
+
+本批新增 39、完整 AI 4754、架构 235/88 通过，SQL Server 以原 40 个官方完整记录和精确剩余 4 项补验覆盖 44 个成功 UID，MySQL 44 项通过；原中断组不报通过；API/Worker AOT 分析零警告/错误。实际范围、原始失败与源码/消费者绑定见 artifacts/r11t/acceptance.json。未执行完整 Unit 或本批 Native 发布/运行；R11 全阶段分类及 R12 集中验收继续开放，Capacity-not-verified。

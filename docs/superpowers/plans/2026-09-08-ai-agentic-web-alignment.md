@@ -2991,3 +2991,16 @@ R11 整体、剩余分类/跨重启 Trace、其他 Provider/Chat 请求前精确
 冻结 7849 输入，源码和完整 Unit 消费闭包前后摘要一致，既有 RAG 输出单列，Agents/AI 生产和消费程序集匹配；覆盖前后核对 Windows/Linux 缓存及双库消费者。首次 JIT Integration 编译缺少 MySqlGuidStorageMode 的命名空间引用失败原样保留；仅补一行 Integration 测试引用，明确冻结旧/新差异并绑定已通过 Unit/AOT 输入，复用通过组，只重建 Integration 后续跑架构和双库。首次 GREEN 编译的 partial TestClass 重复声明失败和 Naming 缺新增列目录/精确固定 MySQL DDL 登记的失败原样保留，分别修正测试声明与配套元数据，未改变生产断言或产品期限。Windows Unit 2 处理器/1GiB GC，Linux 构建 8CPU/4GiB，双库各 2CPU/8GiB；共享重型组按正常锁自然交接，未接管其他资源。AiAgentRunRecord 的外部原 summary 精确排除冻结/暂存并保留工作区；共享矩阵仅暂存 HEAD 加本批，其他窗口增量及保护路径保留。正式证据见 `artifacts/r11s/acceptance.json`；本段验收后补入，文档另行绑定。main 提交，不推送。
 
 本批关闭创建来源与跨 Worker 的持久 Trace 关联；旧无来源记录不伪造历史 Trace，链接不证明业务事务提交或外部计量确认。R11/R12 整体、其余分类、Provider/Chat 请求前精确输入硬限、未知外部动作/费用对账以及集中 Native 发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。
+
+#### R11t：AI 故障日志脱敏、固定分类和诊断故障隔离（2026-10-14，本批受影响本地验收完成）
+
+基线 main 190c77a6c872769531bbbd3f50095ed96d1d14ad，任务 ai-failure-log-privacy-r11t。合批收敛 10 个消费者的异常/续租/预算修复/知识处理/收尾及 fencing 日志；新增内部静态门面，无 SQL、迁移、公共 HTTP 契约或依赖变化。
+
+- [x] 固定阶段与故障类别，原异常只参与类型模式匹配；不记录消息、堆栈、Data、类型名、正文或凭据。固定 Event 5601 / AiOperationFailed、诊断四维与分组，沿用原 severity、已有标识和知识索引失败码。
+- [x] 日志设施异常不跳过续租取消、清理 false、Worker 后续轮次或运行对账，不释放未知预算；独立只读状态保护连续失败及嵌套 Sink。
+- [x] 实际 RED 4 项中 3 失败、1 既有行为通过；最终新增 39/39、完整 AI 4754/4754，零失败/跳过。Unit 仅发现 8237，未执行全 Unit。SQL Server 原组 40 个官方完整通过记录加精确剩余 4/4 补验覆盖 44，MySQL 44/44，88 个成功 UID 与发现精确对应；原 SQL 中断组无完整 TRX/退出码，不报整组通过，原矩阵各 60 分钟、每库 1 Worker 顺序执行。
+- [x] API/Worker AOT 分析零警告/错误、相关架构 88/88、完整架构 235/235，JIT Integration 构建与 1216 分片发现通过；命名 30、矩阵 6、治理 57、工具链 54、保护路径预先排除的 Markdown 检查通过。只读复核四轮无剩余问题，审查不代跑测试。
+
+初始测试编译缺命名空间与泛型日志条目类型冲突的失败保留。中间源生成日志版本 37 项中 22 失败：Microsoft.Gen.Logging 10.8 的线程状态 Clear 位于 logger.Log 正常返回后，Sink 抛错导致后续 null-key/旧状态污染。保留生成源码与原始失败；最终改用每调用独立 readonly 结构化状态和静态格式器，补连续失败/重入验证，没有吞掉失败或降低断言。最初运行器加载残留旧交接模块而失败，未启动 JIT/双库；后续完整架构 234/235 暴露直接 DbException 依赖。原失败及旧冻结通过组保留；去除此依赖、数据库异常回退 other 后重新冻结两文件，并重跑 Unit/AI/AOT/JIT/架构，修正后 Unit/AI/AOT/JIT/架构通过；SQL 原组 40 完整通过后因 Docker Desktop 停止且 Windows 运行器退出中断，保留原始完整记录与缺失整组退出码/TRX的状态。按既有授权恢复引擎、再次核对全源码及消费者，只补验其余 4 项后继续 MySQL 44，最终接受 db-recovery-pipeline.exit0。冻结 7853 输入，源码及 Unit 消费闭包前后一致，已知 RAG 输出单列，生产/消费程序集匹配；Windows/Linux 和双库缓存均先后核对。Windows Unit 2 处理器/1GiB GC，Linux 构建 8CPU/4GiB，双库各 2CPU/8GiB，重型组自然交接。共享矩阵只暂存 HEAD 加 39，其他窗口增量、保护路径和无关改动保留。正式命令、退出码、UID 与摘要见 artifacts/r11t/acceptance.json；文档验收后追加并单独绑定。main 提交，不推送。
+
+本批关闭 AI 运维故障日志切片；R11 全阶段数据分类、Provider/Chat 请求前精确输入硬限、未知外部动作/费用对账，以及 R12 集中 Native 发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。

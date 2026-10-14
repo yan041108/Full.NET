@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Agents.Runtime;
@@ -122,7 +123,7 @@ internal sealed class AiAgentRunLeaseWatch : IAsyncDisposable
         catch (OperationCanceledException) when (_execution.IsCancellationRequested) { }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Agent run {RunId} lease renewal failed.", _lease.RunId);
+            AiFailureLog.Write(_logger, LogLevel.Warning, AiFailureStage.AgentLease, exception, _lease.RunId);
             await _execution.CancelAsync().ConfigureAwait(false);
         }
     }

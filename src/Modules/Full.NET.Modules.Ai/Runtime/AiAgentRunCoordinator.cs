@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -131,7 +132,7 @@ internal sealed class AiAgentRunCoordinator(
             catch (OperationCanceledException) when (callerCancellationToken.IsCancellationRequested) { throw; }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Agent run {RunId} rejection transaction did not succeed.", runId);
+                AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentRejection, exception, runId);
                 return false;
             }
         }
@@ -355,7 +356,7 @@ internal sealed class AiAgentRunCoordinator(
                         """{"reason":"tool_approval_required"}""", null, cancellationToken).ConfigureAwait(false);
                     if (!waiting)
                     {
-                        logger.LogWarning("Agent run {RunId} awaiting_approval commit lost lease fencing.", runId);
+                        AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentApprovalCommit, null, runId);
                         return false;
                     }
 
@@ -369,7 +370,7 @@ internal sealed class AiAgentRunCoordinator(
                         """{"reason":"tool_receipt_unknown"}""", null, cancellationToken).ConfigureAwait(false);
                     if (!reconciling)
                     {
-                        logger.LogWarning("Agent run {RunId} reconciliation_required commit lost lease fencing.", runId);
+                        AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentReconciliationCommit, null, runId);
                         return false;
                     }
 
@@ -405,7 +406,7 @@ internal sealed class AiAgentRunCoordinator(
                     .CommitAsync(completion, new(result.InputTokens, result.OutputTokens), cancellationToken).ConfigureAwait(false);
                 if (!workflowCommitted)
                 {
-                    logger.LogWarning("Agent run {RunId} workflow progress commit lost lease fencing.", runId);
+                    AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentWorkflowCommit, null, runId);
                     return false;
                 }
 
@@ -462,7 +463,7 @@ internal sealed class AiAgentRunCoordinator(
                         cancellationToken).ConfigureAwait(false);
                     if (!waiting)
                     {
-                        logger.LogWarning("Agent run {RunId} awaiting_approval commit lost lease fencing.", runId);
+                        AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentApprovalCommit, null, runId);
                         return false;
                     }
 
@@ -481,7 +482,7 @@ internal sealed class AiAgentRunCoordinator(
                         cancellationToken).ConfigureAwait(false);
                     if (!reconciling)
                     {
-                        logger.LogWarning("Agent run {RunId} reconciliation_required commit lost lease fencing.", runId);
+                        AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentReconciliationCommit, null, runId);
                         return false;
                     }
 
@@ -554,7 +555,7 @@ internal sealed class AiAgentRunCoordinator(
         catch (Exception exception) when (completionPending)
         {
             // 已取得结果后的收尾失败不能改判模型失败；保留原凭证和预算，后续按恢复规则收敛。
-            logger.LogError(exception, "Agent run {RunId} completion transaction did not succeed.", runId);
+            AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentCompletion, exception, runId);
             return false;
         }
         catch (AgentToolLoopBudgetExceededException)
@@ -584,7 +585,7 @@ internal sealed class AiAgentRunCoordinator(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Agent run {RunId} failed.", runId);
+            AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentRun, exception, runId);
             if (modelState is not null)
             {
                 // 完成提交或结算异常不得把已确认结果改成失败；派发后未知异常保留预算待对账。

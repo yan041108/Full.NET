@@ -22,6 +22,7 @@ using Full.NET.Modules.Ai.Serialization;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -251,7 +252,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         int leaseSeconds = 30,
         Action<ICommandExecutor>? configureCommands = null,
         long priorEventSequence = 0,
-        Action<RecordingDbTransactionCoordinator>? transactionCreated = null)
+        Action<RecordingDbTransactionCoordinator>? transactionCreated = null,
+        ILogger<AiAgentRunCoordinator>? logger = null)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -353,7 +355,7 @@ public sealed partial class AiAgentRunCoordinatorTests
             clock,
             ids,
             Options.Create(new AiAgentRuntimeOptions { BatchSize = 4, LeaseSeconds = leaseSeconds }),
-            NullLogger<AiAgentRunCoordinator>.Instance);
+            logger ?? NullLogger<AiAgentRunCoordinator>.Instance);
         await heartbeat.UpsertAsync().ConfigureAwait(false);
         return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor, coordinatorScope.GetRequiredService<IAiModelClientFactory>(), scopeFactory, clock);
     }

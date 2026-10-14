@@ -1,3 +1,4 @@
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -40,7 +41,7 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
                 finally { writer.Clear(); }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-            catch (Exception exception) { logger.LogError(exception, "Agent terminal budget repair failed for run {RunId}.", runId); }
+            catch (Exception exception) { AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentBudgetRepair, exception, runId); }
         }
         return repaired;
     }
