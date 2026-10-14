@@ -36,8 +36,13 @@ internal sealed class ImportExportTaskManagementService(
         StaticImportPreviewContext previewContext,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var tenantId = currentTenant.Id!.Value;
+
+        if (content is null) return Result<ImportExportTaskDetailResponse>.Failure(FileInvalidError());
+        if (requestedByUserId == Guid.Empty || previewContext is null || previewContext.RequestedByUserId != requestedByUserId)
+            return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
 
         if (contentLength <= 0 || contentLength > options.CurrentValue.MaxUploadBytes)
         {
@@ -72,6 +77,8 @@ internal sealed class ImportExportTaskManagementService(
                 contentLength,
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
         if (!upload.IsSuccess)
         {
             return Result<ImportExportTaskDetailResponse>.Failure(upload.Error!);
@@ -83,6 +90,8 @@ internal sealed class ImportExportTaskManagementService(
             .ConfigureAwait(false);
         if (!openContent.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
             return Result<ImportExportTaskDetailResponse>.Failure(openContent.Error!);
         }
 
@@ -90,6 +99,9 @@ internal sealed class ImportExportTaskManagementService(
         Result<StaticImportPreviewResult> previewResult;
         try
         {
+            // 已打开的探针先进入持有范围，再拒绝晚取消或下游改变后的租户上下文。
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
             previewResult = await handler
                 .PreviewAsync(
                     probe.Content,
@@ -108,6 +120,7 @@ internal sealed class ImportExportTaskManagementService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
         previewResult ??= Result<StaticImportPreviewResult>.Failure(
             new Error(ImportExportErrorCodes.PreviewFailed, "The import preview handler returned no result.", ErrorType.Validation));
         var maximumRows = options.CurrentValue.MaxPreviewRows;
@@ -153,6 +166,8 @@ internal sealed class ImportExportTaskManagementService(
                 : ImportExportTaskStatusKeys.PreviewFailed;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
         await commandExecutor.ExecuteAsync(
                 ImportExportTaskSql.Insert,
                 ImportExportSqlParameters.Create(
@@ -188,12 +203,17 @@ internal sealed class ImportExportTaskManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
+
         var created = await queryExecutor
             .QuerySingleOrDefaultAsync<ImportExportTaskRecord>(
                 ImportExportTaskSql.FindById,
                 ImportExportSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
         return created is null
             ? Result<ImportExportTaskDetailResponse>.Failure(TaskNotFoundError())
             : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(created));
@@ -206,6 +226,11 @@ internal sealed class ImportExportTaskManagementService(
             throw new TenantContextMissingException("import_export.tenant_context_required");
         }
     }
+
+    private bool IsOriginalTenant(Guid tenantId) => currentTenant.IsAvailable && !currentTenant.IsHost && currentTenant.Id == tenantId;
+
+    private static Error PermissionDeniedError() =>
+        new(CommonErrorCodes.PermissionDenied, "The import preview actor or tenant scope is no longer valid.", ErrorType.Forbidden);
 
     private static Error SchemaNotFoundError() =>
         new(ImportExportErrorCodes.SchemaNotFound, "The static import schema was not found.", ErrorType.NotFound);

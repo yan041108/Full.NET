@@ -20,29 +20,41 @@ internal sealed class HostDocumentPreviewTaskCancellationService(
     public async Task<Result<HostDocumentPreviewTaskResponse>> CancelAsync(
         Guid taskId, SessionBindingSnapshot binding, CancellationToken cancellationToken = default)
     {
-        if (!tenant.IsAvailable || !tenant.IsHost || tenant.Id is not null
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsHostScope()
             || binding.TenantId is not null || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty
             || string.IsNullOrWhiteSpace(binding.SecurityStamp) || binding.ActorScope != "host" || binding.EffectiveScope != "host") return Forbidden();
         var task = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsHostScope()) return Forbidden();
         if (task is null) return NotFound();
         if (task.RequestedByUserId != binding.UserId) return Forbidden();
         var actor = await authorization.AuthorizeAsync(binding, HostDocumentPreviewTaskPermissions.Cancel, cancellationToken).ConfigureAwait(false);
-        if (actor is null || actor.UserId != binding.UserId || actor.TenantId is not null || actor.SessionId != binding.SessionId
-            || !tenant.IsAvailable || !tenant.IsHost || tenant.Id is not null) return Forbidden();
         cancellationToken.ThrowIfCancellationRequested();
+        if (actor is null || actor.UserId != binding.UserId || actor.TenantId is not null || actor.SessionId != binding.SessionId
+            || !IsHostScope()) return Forbidden();
         if (task.StatusKey == HostDocumentPreviewTaskStatusKeys.Cancelled) return Success(task);
         if (task.StatusKey != HostDocumentPreviewTaskStatusKeys.Pending) return Conflict();
         _ = await command.ExecuteAsync(DocumentPreviewTaskSql.Cancel, DocumentSqlParameters.Create(
             ("Id", taskId), ("RequestedByUserId", binding.UserId), ("ExpectedVersion", task.Version),
             ("CompletedAtUtc", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsHostScope()) return Forbidden();
         var current = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsHostScope()) return Forbidden();
         if (current is null) return NotFound();
-        if (!tenant.IsHost || tenant.Id is not null || current.RequestedByUserId != binding.UserId) return Forbidden();
+        if (current.RequestedByUserId != binding.UserId) return Forbidden();
         return current.StatusKey == HostDocumentPreviewTaskStatusKeys.Cancelled ? Success(current) : Conflict();
     }
 
-    private Task<DocumentPreviewTaskRecord?> LoadAsync(Guid id, CancellationToken token) =>
-        query.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", id)), token);
+    private async Task<DocumentPreviewTaskRecord?> LoadAsync(Guid id, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var task = await query.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById,
+            DocumentSqlParameters.Create(("Id", id)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return task;
+    }
+    private bool IsHostScope() => tenant.IsAvailable && tenant.IsHost && tenant.Id is null;
     private static Result<HostDocumentPreviewTaskResponse> Success(DocumentPreviewTaskRecord task) =>
         Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(task));
     private static Result<HostDocumentPreviewTaskResponse> NotFound() => Result<HostDocumentPreviewTaskResponse>.Failure(

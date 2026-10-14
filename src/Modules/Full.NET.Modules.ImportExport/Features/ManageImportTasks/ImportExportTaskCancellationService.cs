@@ -20,17 +20,22 @@ internal sealed class ImportExportTaskCancellationService(
     public async Task<Result<ImportExportTaskDetailResponse>> CancelAsync(
         Guid taskId, SessionBindingSnapshot binding, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!tenant.IsAvailable || tenant.IsHost || tenant.Id is null)
             throw new TenantContextMissingException("import_export.tenant_context_required");
+        var tenantId = tenant.Id.Value;
         var task = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         if (task is null) return NotFound();
-        if (task.TenantId != tenant.Id || binding.TenantId != tenant.Id || task.RequestedByUserId != binding.UserId
-            || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty)
+        if (task.TenantId != tenantId || binding.TenantId != tenantId || task.RequestedByUserId != binding.UserId
+            || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty || string.IsNullOrWhiteSpace(binding.SecurityStamp))
             return Forbidden();
         // 停止未来写入只要求取消权限；不借此重新授予已撤销的 Schema 执行能力。
         var actor = await authorization.AuthorizeAsync(binding, ImportExportPermissions.ImportTasksCancel, cancellationToken)
             .ConfigureAwait(false);
-        if (actor is null || actor.UserId != binding.UserId || actor.TenantId != tenant.Id || actor.SessionId != binding.SessionId)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (actor is null || actor.UserId != binding.UserId || actor.TenantId != tenantId || actor.SessionId != binding.SessionId
+            || !IsOriginalTenant(tenantId))
             return Forbidden();
         if (task.StatusKey == ImportExportTaskStatusKeys.Cancelled) return Success(task);
         if (task.StatusKey is not (ImportExportTaskStatusKeys.PreviewSucceeded or ImportExportTaskStatusKeys.Queued
@@ -41,17 +46,26 @@ internal sealed class ImportExportTaskCancellationService(
             ("Id", taskId), ("RequestedByUserId", binding.UserId), ("ExpectedVersion", task.Version),
             ("ExpectedStatusKey", task.StatusKey), ("ExecutionCompletedAtUtc", clock.UtcNow)), cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         var current = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         if (current is null) return NotFound();
         // CAS 失败只接受另一请求已取消的同一归属任务，不替换版本重试写入。
-        if (current.TenantId != tenant.Id || current.RequestedByUserId != binding.UserId) return Forbidden();
+        if (current.TenantId != tenantId || current.RequestedByUserId != binding.UserId) return Forbidden();
         return (affected == 1 || current.StatusKey == ImportExportTaskStatusKeys.Cancelled)
             && current.StatusKey == ImportExportTaskStatusKeys.Cancelled ? Success(current) : Conflict();
     }
 
-    private Task<ImportExportTaskRecord?> LoadAsync(Guid id, CancellationToken token) =>
-        query.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById,
-            ImportExportSqlParameters.Create(("Id", id)), token);
+    private async Task<ImportExportTaskRecord?> LoadAsync(Guid id, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var task = await query.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById,
+            ImportExportSqlParameters.Create(("Id", id)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return task;
+    }
+    private bool IsOriginalTenant(Guid tenantId) => tenant.IsAvailable && !tenant.IsHost && tenant.Id == tenantId;
     private static Result<ImportExportTaskDetailResponse> Success(ImportExportTaskRecord task) =>
         Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(task));
     private static Result<ImportExportTaskDetailResponse> NotFound() => Result<ImportExportTaskDetailResponse>.Failure(

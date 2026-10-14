@@ -21,36 +21,47 @@ internal sealed class ReportingExportTaskCancellationService(
     public async Task<Result<ReportingExportTaskDetailResponse>> CancelAsync(
         Guid taskId, SessionBindingSnapshot binding, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!tenant.IsAvailable || tenant.IsHost || tenant.Id is null)
             throw new TenantContextMissingException("reporting.tenant_context_required");
         var tenantId = tenant.Id.Value;
         var task = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         if (task is null) return NotFound();
         if (task.TenantId != tenantId || binding.TenantId != tenantId || task.RequestedByUserId != binding.UserId
             || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty || string.IsNullOrWhiteSpace(binding.SecurityStamp))
             return Forbidden();
         // 停止未来执行只复核独立取消权限，不要求重新授予原报表版本或受保护列权限。
         var actor = await authorization.AuthorizeAsync(binding, ReportingExportTaskPermissions.Cancel, cancellationToken).ConfigureAwait(false);
-        if (actor is null || actor.UserId != binding.UserId || actor.TenantId != tenantId || actor.SessionId != binding.SessionId
-            || tenant.Id != tenantId || tenant.IsHost)
-            return Forbidden();
         cancellationToken.ThrowIfCancellationRequested();
+        if (actor is null || actor.UserId != binding.UserId || actor.TenantId != tenantId || actor.SessionId != binding.SessionId
+            || !IsOriginalTenant(tenantId))
+            return Forbidden();
         if (task.StatusKey == ReportingExportTaskStatusKeys.Cancelled) return Success(task);
         if (task.StatusKey != ReportingExportTaskStatusKeys.Queued) return Conflict();
 
         _ = await command.ExecuteAsync(ReportingExportTaskSql.Cancel, ReportingSqlParameters.Create(
             ("Id", taskId), ("RequestedByUserId", binding.UserId), ("ExpectedVersion", task.Version),
             ("CompletedAtUtc", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         var current = await LoadAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!IsOriginalTenant(tenantId)) return Forbidden();
         if (current is null) return NotFound();
-        if (tenant.Id != tenantId || current.TenantId != tenantId || current.RequestedByUserId != binding.UserId) return Forbidden();
+        if (current.TenantId != tenantId || current.RequestedByUserId != binding.UserId) return Forbidden();
         // CAS 失败只接受同一归属的取消终态，不用新版本再次写入。
         return current.StatusKey == ReportingExportTaskStatusKeys.Cancelled ? Success(current) : Conflict();
     }
 
-    private Task<ReportingExportTaskRecord?> LoadAsync(Guid id, CancellationToken token) =>
-        query.QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(ReportingExportTaskSql.FindByIdFor(database.Value.Provider),
-            ReportingSqlParameters.Create(("Id", id)), token);
+    private async Task<ReportingExportTaskRecord?> LoadAsync(Guid id, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var task = await query.QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(ReportingExportTaskSql.FindByIdFor(database.Value.Provider),
+            ReportingSqlParameters.Create(("Id", id)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return task;
+    }
+    private bool IsOriginalTenant(Guid tenantId) => tenant.IsAvailable && !tenant.IsHost && tenant.Id == tenantId;
     private static Result<ReportingExportTaskDetailResponse> Success(ReportingExportTaskRecord task) =>
         Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(task));
     private static Result<ReportingExportTaskDetailResponse> NotFound() => Result<ReportingExportTaskDetailResponse>.Failure(

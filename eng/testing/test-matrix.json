@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6638,
+      "minimum": 6739,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -37,7 +37,7 @@
         },
         "import-boundaries": {
           "filter": "FullyQualifiedName~ImportExportResultBoundaryTests|FullyQualifiedName~ImportExportTaskPreviewBoundaryTests|FullyQualifiedName~ImportExportTaskRecoveryTests|FullyQualifiedName~HostUserWorkbookCodecTests|FullyQualifiedName~OrganizationPositionWorkbookCodecTests|FullyQualifiedName~EnterpriseRequestImportTests",
-          "minimum": 183
+          "minimum": 203
         },
         "printing-rendering": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Printing.",
@@ -50,6 +50,10 @@
         "output-task-boundaries": {
           "filter": "FullyQualifiedName~OutputTaskBoundaryTests|FullyQualifiedName~ReportingExportDownloadAuthorizationTests|FullyQualifiedName~ReportingExportAuthorizationSnapshotTests|FullyQualifiedName~ImportExportReceiptDownloadAuthorizationTests|FullyQualifiedName~ImportExportExecutionAuthorizationTests|FullyQualifiedName~ImportExportTaskExecutionAuthorizationTests",
           "minimum": 132
+        },
+        "task-handoff-boundaries": {
+          "filter": "FullyQualifiedName~TaskCancellationBoundaryTests|FullyQualifiedName~ReportingExportTaskCancellationTests|FullyQualifiedName~ImportExportTaskCancellationTests|FullyQualifiedName~DocumentPreviewTaskCancellationTests|FullyQualifiedName~ImportExportTaskPreviewBoundaryTests",
+          "minimum": 166
         },
         "native-migrator-process": {
           "filter": "FullyQualifiedName~NativeMigratorProcessTests",

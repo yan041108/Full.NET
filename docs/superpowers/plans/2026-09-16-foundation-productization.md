@@ -3354,3 +3354,14 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 新增 Unit 源码场景 73：下载 40（报表双提供程序配置与导入，取消/晚失败/租户变更/流释放及正常移交）、导出创建 13、导入三种调度的前后写取消及租户变更 18、Worker 直接授权的损坏发布 JSON 与取消 2。集中 output-task-boundaries 选择结合既有授权场景共 132，Unit 机器下限 6638；源码计数不冒充实际发现数或通过数。
 - 最终只读源码复审未发现可证明 P1/P2 或明显编译、夹具预期问题。**本批未执行编译、测试、双库、Native、浏览器或独立生成应用验收，未实测性能/容量**；只核对源码计数/矩阵结构、git diff --check 和外来 WIP 保全。与此前全部开发批次集中验收，F11/C02 和 Capacity-not-verified 不关闭，未合并发布。
 <!-- /f11-output-task-read-write-boundaries-development-20261015 -->
+
+<!-- f11-task-cancellation-preview-boundaries-development-20261015 -->
+## 2026-10-15 F11 三类任务取消与导入创建交接边界联合开发（待集中验证）
+
+- 按“开发任务先全部批量完成”继续同轮关联收口；基线 `53b73047e78eda384efc260fffdbaf089d7fb30e`，快照 `task-cancellation-preview-boundaries-development-20261015`。修改 Reporting 导出取消、ImportExport 取消/预览创建和 Document Host 预览取消，集中编译与独立应用后置；未新增 SQL、迁移或逐场景数据库。
+- 三类取消在入口、任务读取、独立 Cancel 权限返回、CAS 返回及最终回读后核对取消，空授权或 CAS 返回 0 不能覆盖已取消的令牌。租户取消冻结原 TenantId，Host 取消保持 Host 上下文；权威端口返回或写入后作用域变化时拒绝下一次读取或终态交付，不把变化后的租户当作原委托授权。ImportExport 补空 SecurityStamp 提前拒绝；取消仍只复核独立取消权限，不重新授予运行、Schema 或原列权限。
+- 保留现有状态白名单、创建人/版本 CAS、并发取消幂等、Worker 领取胜出冲突以及原文件和导入检查点。请求取消可能发生在已执行写入之后，传播取消不代表回滚，也不以新版本再次尝试写入；本批不新增在途强停或文件删除。
+- 导入预览创建在上传、打开源文件、预览、插入与回读的交接点核对取消和原租户；成功打开的探针先进入 finally 持有范围，再拒绝晚取消或租户变化。框架释放探针，不释放调用方上传流；未知预览异常继续传播。null 源流沿用 FileInvalid，缺失/不一致预览主体及空 UUID 沿用 PermissionDenied，不在上传前接受另一主体的预览能力集合。已上传文件或已提交插入可能保留，本批未新增补偿删除或回滚承诺。
+- 新增 Unit 源码场景 101：跨三种实际取消服务 81（Reporting 双提供程序配置、ImportExport 和 Host Document；晚取消/空返回/CAS 0、上下文变化、正常和并发语义），导入预览交接 20（晚取消、作用域变化、输入/主体和未知异常）。Unit 机器下限 6739；task-handoff-boundaries 集中选择共 166，import-boundaries 源码范围同步到 203；其他集中选择保持。源码计数不是实际发现或通过数，后续复用一次 Unit 构建执行。
+- 最终只读源码复审未发现可证明 P1/P2、明显编译或夹具预期问题。**本批未执行编译、测试、双库、Native、浏览器或独立生成应用验收，未实测性能或容量**；只核对源码计数/矩阵结构、git diff --check 和外来 WIP 保全。与同轮全部开发批次集中验收，F11/C02 和 Capacity-not-verified 不关闭，未合并发布。
+<!-- /f11-task-cancellation-preview-boundaries-development-20261015 -->
