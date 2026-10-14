@@ -3079,3 +3079,7 @@ R11w 保持原 R11u 源和消费者，只将测试宿主配置为 2 处理器、
 Native 69396 在双库正式收集后自动启动，首步 API 分析离线 restore 因私有缓存缺少 Microsoft.NET.ILLink.Tasks 和单项目最低依赖版本而失败，真实监督退出 1，未编译、发布或运行 Native。210 包覆盖聚合 Integration 图不能证明每个独立项目/发布图闭合，原日志、终态及源保留。随后按正常工作区/重型锁执行同一 Linux SDK 的六图官方 NuGet 还原：API/Worker 分析、Architecture、Integration、API/Worker linux-x64 Native 发布图，六图及外层均退出 0，7888 输入和原 210 个归档未变；扩展至 258 个精确版本归档，原始 SHA512 与 NuGet 内容摘要分别核对。证据为 artifacts/r12h/state.json 和 private-feed-all-graphs.json；只证明还原及缓存完整性，没有新的漏洞审计、编译、发布或运行通过结论。
 
 旧失败完整保留于 artifacts/r12c/attempt-offline-api-restore。同源 Native35 恢复进程 30388 使用已核对的当前缓存来源及 258 包，正式开始 API/Worker 分析、发布和运行集中批次；源码、断言、2 CPU/12 GiB 容器预算及原发布/测试期限不变，尚无整组通过回执。浏览器旧等待器因前置失败退出 1、未执行测试，原记录保留，按新缓存结果指针恢复八项锁外等待，原八小时排队截止不延长。R11u 双库影响组收集完成，Native、浏览器、生成应用、重建执行、精确输入正向计数、未知外部自动对账与质量/容量门禁仍开放，Capacity-not-verified。
+
+#### R12i：补齐当前宿主依赖图的漏洞查询覆盖（2026-10-15）
+
+六图缓存恢复后，在正在使用的 Linux SDK 中分别对 Host.Api、Host.Worker 和 Integration 执行官方 NuGet 普通包清单与包含传递依赖的漏洞查询，六条命令全部退出 0；三图分别为 103、102、195 个精确包身份，当前查询均未报告已知漏洞。逐图读取对应 project.assets.json，包身份集合与查询清单精确相同；证据为 artifacts/r12i/host-audit.json 和 audit-coverage.json。此处只覆盖三个当前普通资产图的包身份及查询时公告，不覆盖框架运行时、独立发布资产图、全部 258 个归档或业务行为。API/Worker AOT 分析与后续 Native 整组仍运行中，未因此次查询升级 Verified。
