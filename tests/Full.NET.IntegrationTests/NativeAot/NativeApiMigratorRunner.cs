@@ -38,6 +38,9 @@ internal static class NativeApiMigratorRunner
         startInfo.ArgumentList.Add(migratorProject);
         startInfo.ArgumentList.Add("-c");
         startInfo.ArgumentList.Add("Release");
+        // 集中验收先构建全部宿主；数据库前置仅复用产物，不在每个原生用例中隐式还原或编译。
+        startInfo.ArgumentList.Add("--no-build");
+        startInfo.ArgumentList.Add("--no-restore");
         startInfo.ArgumentList.Add("--no-launch-profile");
         startInfo.ArgumentList.Add("--");
         startInfo.ArgumentList.Add("migrate");

@@ -23,6 +23,8 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Seeding.Dapper\Full.NET.Seeding.Dapper.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Serialization.MemoryPack\Full.NET.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" />
+    <!-- 原生数据库前置复用 JIT Migrator；仅保证构建顺序，不引入测试程序集依赖。 -->
+    <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.LogConsumer\Full.NET.Host.LogConsumer.csproj" Aliases="consumerhost" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" Aliases="workerhost" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
