@@ -1,7 +1,7 @@
 namespace Full.NET.Modules.Reporting.Domain;
 
 /// <summary>限制 ZIP 在写入期间的长度，防止生成完成后才发现文件超限。</summary>
-internal sealed class ReportingExportOutputStream : MemoryStream
+internal sealed class ReportingExportOutputStream(CancellationToken cancellationToken = default) : MemoryStream
 {
     /// <summary>写入指定字节片段前检查输出预算。</summary>
     /// <param name="buffer">待写入缓冲区。</param>
@@ -39,8 +39,9 @@ internal sealed class ReportingExportOutputStream : MemoryStream
 
     /// <summary>超过文件上限时立即停止写入。</summary>
     /// <param name="length">写入后的目标长度。</param>
-    private static void EnsureLength(long length)
+    private void EnsureLength(long length)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (length > ReportingExportPolicy.MaxExportBytes)
             throw new InvalidDataException("The export file size limit was exceeded.");
     }

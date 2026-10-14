@@ -22,6 +22,27 @@ namespace Full.NET.UnitTests.ImportExport;
 public sealed class ImportExportTaskRecoveryTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Oversized_receipt_stops_automatic_processing_without_advancing_checkpoint(bool partial)
+    {
+        var fixture = CreateFixture(batchSize: 2); var task = SeedQueuedTask(fixture, validRowCount: partial ? 2 : 1);
+        var error = new StaticImportRowExecutionResult(partial ? 2 : 1, false, null, "code",
+            new string('x', (int)(ImportExportErrorReceiptBudget.MaxTextBytes / 2) + 1));
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>()).Returns(Result<StaticImportBatchExecutionResult>.Success(
+                new(partial ? [new StaticImportRowExecutionResult(1, true, Guid.NewGuid(), null, null), error] : [error])));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(default));
+        var stored = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, stored.StatusKey);
+        Assert.AreEqual(ImportExportErrorCodes.ErrorReceiptLimitExceeded, stored.ErrorCode);
+        Assert.AreEqual(0, stored.NextLineNumber); Assert.IsNull(stored.ErrorReceiptFileId);
+        Assert.AreEqual(0, fixture.Files.UploadCount); Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+        Assert.AreEqual(0, await fixture.Runner.ProcessPendingAsync(default));
+        await fixture.Handler.Received(1).ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>());
+    }
+    [TestMethod]
     public async Task Empty_claim_lease_cannot_execute_rows_or_upload_receipt()
     {
         var fixture = CreateFixture(batchSize: 1, emptyLease: true); var task = SeedQueuedTask(fixture, validRowCount: 1);

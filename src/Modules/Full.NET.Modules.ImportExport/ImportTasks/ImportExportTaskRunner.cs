@@ -201,6 +201,11 @@ internal sealed class ImportExportTaskRunner(
         {
             // 宿主取消或租约到期都不能写成失败；由其他实例从检查点幂等重领。
         }
+        catch (ImportExportErrorReceiptLimitException)
+        {
+            // 超限是确定性结果故障，保留原检查点供显式幂等重试，不让 Worker 无限重新生成。
+            await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ErrorReceiptLimitExceeded, executionToken).ConfigureAwait(false);
+        }
         catch (Exception)
         {
             // 批次可能已写入业务数据但进度未提交；保留 executing 供租约到期后按同一 NextLineNumber 重试。
@@ -306,7 +311,7 @@ internal sealed class ImportExportTaskRunner(
         CancellationToken cancellationToken)
     {
         var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
-        var fileName = ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, failedRows);
+        var fileName = ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, failedRows, cancellationToken);
         var ready = await resourceFiles.ListReadyAsync("import_export", task.Id, cancellationToken)
             .ConfigureAwait(false);
         EnsureActiveLease(task, cancellationToken);
@@ -318,7 +323,7 @@ internal sealed class ImportExportTaskRunner(
             return existing.FileId;
         }
 
-        var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows);
+        var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows, cancellationToken);
         await using var receiptStream = new MemoryStream(receiptBytes, writable: false);
         EnsureActiveLease(task, cancellationToken);
         var upload = await resourceFiles

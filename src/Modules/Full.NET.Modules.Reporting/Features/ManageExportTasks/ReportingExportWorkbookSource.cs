@@ -59,7 +59,7 @@ internal sealed class ReportingExportWorkbookSource(
         byte[] workbookBytes;
         try
         {
-            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!);
+            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!, cancellationToken);
         }
         catch (InvalidDataException)
         {
@@ -112,12 +112,12 @@ internal sealed class ReportingExportWorkbookSource(
             {
                 if (columns is null)
                 {
-                    budget.AddColumns(pageValue.Columns);
+                    budget.AddColumns(pageValue.Columns, cancellationToken);
                 }
 
                 foreach (var row in pageValue.Rows)
                 {
-                    budget.AddRow(row);
+                    budget.AddRow(row, cancellationToken);
                 }
             }
             catch (InvalidDataException)

@@ -8,10 +8,13 @@ namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 internal static class ImportExportErrorReceiptIdentity
 {
     /// <summary>源生成 JSON 保持结果摘要稳定，不使用含 ZIP 时间戳的工作簿字节作为身份。</summary>
-    public static string BuildStorageFileName(string? sourceFileName, IReadOnlyList<StaticImportRowExecutionResult> failedRows)
+    public static string BuildStorageFileName(string? sourceFileName, IReadOnlyList<StaticImportRowExecutionResult> failedRows, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(failedRows);
+        ImportExportErrorReceiptBudget.Validate(failedRows, cancellationToken);
         var identity = Convert.ToHexString(SHA256.HashData(
             Encoding.UTF8.GetBytes(ImportExportTaskMapper.SerializeExecutionRows(failedRows))));
+        cancellationToken.ThrowIfCancellationRequested();
         return BuildFileName(sourceFileName, $"-errors-{identity}.xlsx");
     }
 

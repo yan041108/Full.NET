@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { importReceiptFailureLabel } from './importReceiptFailureLabel';
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, ref, watch } from 'vue';
 import {
@@ -350,7 +351,9 @@ function refreshResults() {
                 {{ row.validRowCount }}/{{ row.totalRows }}
               </template>
             </el-table-column>
-            <el-table-column :label="t('importExportTasks.errorCode')" prop="errorCode" min-width="180" />
+            <el-table-column :label="t('importExportTasks.failureReason')" min-width="180">
+              <template #default="{ row }">{{ importReceiptFailureLabel(row.errorCode, t) }}</template>
+            </el-table-column>
             <el-table-column :label="t('importExportTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">
@@ -409,8 +412,8 @@ function refreshResults() {
             <el-descriptions-item :label="t('importExportTasks.executionStats')">
               {{ executionStats }}
             </el-descriptions-item>
-            <el-descriptions-item :label="t('importExportTasks.errorCode')">
-              {{ selectedTask.errorCode ?? '-' }}
+            <el-descriptions-item :label="t('importExportTasks.failureReason')">
+              {{ importReceiptFailureLabel(selectedTask.errorCode, t) }}
             </el-descriptions-item>
           </el-descriptions>
           <el-table v-if="selectedTask.previewRows.length" :data="selectedTask.previewRows" data-testid="import-task-preview-rows">
