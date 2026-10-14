@@ -66,6 +66,9 @@ public static class DocumentErrorCodes
     /// <summary>源文件超过 Office 预览转换允许的最大大小。</summary>
     public const string OfficePreviewInputTooLarge = "document.office_preview.input_too_large";
 
+    /// <summary>转换 PDF 实际字节数超过输出预算。</summary>
+    public const string OfficePreviewOutputTooLarge = "document.office_preview.output_too_large";
+
     /// <summary>文档分类基础字段或层级约束校验失败。</summary>
     public const string CategoryInvalid = "document.host_category.invalid";
 
@@ -212,5 +215,6 @@ public static class DocumentErrorCodes
         VersionRetentionInvalid,
         VersionRetentionConflict,
         PreviewTaskStatusInvalid,
+        OfficePreviewOutputTooLarge,
     ]);
 }

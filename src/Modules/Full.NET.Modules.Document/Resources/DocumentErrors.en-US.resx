@@ -32,4 +32,5 @@
   <data name="document.host_preview_task.status_invalid" xml:space="preserve">
     <value>The preview task changed or has already been claimed. Refresh to check its status.</value>
   </data>
+  <data name="document.office_preview.output_too_large" xml:space="preserve"><value>The preview PDF exceeds the configured output size limit.</value></data>
 </root>

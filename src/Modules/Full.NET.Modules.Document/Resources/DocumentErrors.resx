@@ -33,4 +33,5 @@
   <data name="document.host_preview_task.status_invalid" xml:space="preserve">
     <value>预览任务状态已变化或已被领取，请刷新后重新检查。</value>
   </data>
+  <data name="document.office_preview.output_too_large" xml:space="preserve"><value>预览 PDF 超过配置的输出大小限制。</value></data>
 </root>

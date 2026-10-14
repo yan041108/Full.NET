@@ -48,6 +48,7 @@ internal sealed class DocumentPreviewTaskRunner(
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var snapshot = options.CurrentValue;
         string? workingDirectory = null;
         try
         {
@@ -63,7 +64,7 @@ internal sealed class DocumentPreviewTaskRunner(
             var source = sourceResult.Value!;
             try
             {
-                if (source.Content.CanSeek && source.Content.Length > options.CurrentValue.MaxInputBytes)
+                if (source.Content.CanSeek && source.Content.Length > snapshot.MaxInputBytes)
                 {
                     await MarkFailedAsync(
                         task.Id,
@@ -73,15 +74,16 @@ internal sealed class DocumentPreviewTaskRunner(
                     return;
                 }
 
-                workingDirectory = CreateWorkingDirectory(options.CurrentValue);
+                workingDirectory = CreateWorkingDirectory(snapshot);
                 var provider = providerResolver.ResolveCurrent();
+                using var boundedInput = new DocumentPreviewBudgetStream(source.Content, snapshot.MaxInputBytes, DocumentErrorCodes.OfficePreviewInputTooLarge);
                 var conversionResult = await provider
                     .ConvertAsync(
                         new DocumentOfficePreviewConversionInput(
                             source.OriginalFileName,
                             source.ContentType,
-                            source.Content,
-                            source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxInputBytes),
+                            boundedInput,
+                            source.Content.CanSeek ? source.Content.Length : snapshot.MaxInputBytes),
                         workingDirectory,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -95,12 +97,14 @@ internal sealed class DocumentPreviewTaskRunner(
                 var output = conversionResult.Value!;
                 try
                 {
+                    DocumentPreviewContentBudget.CheckDeclaredLength(output.PdfLength, snapshot.MaxOutputBytes, DocumentErrorCodes.OfficePreviewOutputTooLarge);
+                    using var boundedOutput = new DocumentPreviewBudgetStream(output.PdfContent, snapshot.MaxOutputBytes, DocumentErrorCodes.OfficePreviewOutputTooLarge);
                     var uploadResult = await hostFileUploadWriter
                         .UploadAsync(
                             task.RequestedByUserId,
                             BuildOutputFileName(task),
                             "application/pdf",
-                            output.PdfContent,
+                            boundedOutput,
                             output.PdfLength,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -129,6 +133,15 @@ internal sealed class DocumentPreviewTaskRunner(
             {
                 await source.Content.DisposeAsync().ConfigureAwait(false);
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 正常停机保留取消语义，不能用已取消令牌把它改写为转换失败。
+            throw;
+        }
+        catch (DocumentPreviewContentLimitException exception)
+        {
+            await MarkFailedAsync(task.Id, exception.Code, clock.UtcNow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {

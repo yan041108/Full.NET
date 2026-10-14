@@ -1,4 +1,5 @@
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Providers.OfficePreview;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Configuration;
@@ -17,6 +18,9 @@ public sealed class DocumentOfficePreviewConversionOptions
 
     /// <summary>允许提交转换的源文件最大字节数。</summary>
     public long MaxInputBytes { get; set; } = 52_428_800;
+
+    /// <summary>转换 PDF 最大字节数；默认与 Files 的 10 MiB 上传预算一致，仍受 Files 自身限制。</summary>
+    public long MaxOutputBytes { get; set; } = 10_485_760;
 
     /// <summary>单次转换超时秒数。</summary>
     public int TimeoutSeconds { get; set; } = 120;
@@ -50,12 +54,13 @@ public sealed class ExternalHttpProviderOptions
 /// <summary>通过子进程调用运维部署的转换器可执行文件。</summary>
 public sealed class ExternalProcessProviderOptions
 {
-    /// <summary>转换器可执行文件绝对路径。</summary>
+    /// <summary>前台转换器可执行文件绝对路径；退出前须完成输出且回收后代，禁止分离后台任务。</summary>
     public string? ExecutablePath { get; set; }
 
     /// <summary>
     /// 参数模板，必须包含 {inputPath} 与 {outputPath} 占位符；
-    /// 示例：<c>{executable} --convert "{inputPath}" "{outputPath}"</c> 由实现按空格拆分。
+    /// 模板先按引号分词，再替换路径并写入 ArgumentList，路径中的空格或引号不会成为额外参数。
+    /// 双引号支持反斜杠转义；词首单引号支持分组，单词内部的撇号保持字面值。
     /// </summary>
     public string ArgumentTemplate { get; set; } = "\"{inputPath}\" \"{outputPath}\"";
 }
@@ -68,6 +73,8 @@ internal sealed class DocumentOfficePreviewConversionOptionsValidator
     {
         var failures = new List<string>();
         ValidatePositive("Document:OfficePreviewConversion:MaxInputBytes", options.MaxInputBytes, failures);
+        if (options.MaxOutputBytes <= 0 || options.MaxOutputBytes > int.MaxValue)
+            failures.Add("Document:OfficePreviewConversion:MaxOutputBytes must be between 1 and Int32.MaxValue.");
         ValidateRange("Document:OfficePreviewConversion:TimeoutSeconds", options.TimeoutSeconds, 5, 3600, failures);
         ValidateRange("Document:OfficePreviewConversion:PollSeconds", options.PollSeconds, 5, 3600, failures);
         ValidateRange("Document:OfficePreviewConversion:BatchSize", options.BatchSize, 1, 50, failures);
@@ -98,6 +105,11 @@ internal sealed class DocumentOfficePreviewConversionOptionsValidator
             if (string.IsNullOrWhiteSpace(options.ExternalProcess.ExecutablePath))
             {
                 failures.Add("Document:OfficePreviewConversion:ExternalProcess:ExecutablePath is required when provider is external_process.");
+            }
+            try { DocumentPreviewProcessArguments.Build(options.ExternalProcess.ArgumentTemplate, "input", "output"); }
+            catch (InvalidDataException)
+            {
+                failures.Add("Document:OfficePreviewConversion:ExternalProcess:ArgumentTemplate requires both placeholders and balanced quotes.");
             }
         }
 

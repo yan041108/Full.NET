@@ -3232,3 +3232,15 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 编写新增 Unit 38 场景、Architecture 1 场景、Vue/API 16 场景，以及双库队列 2 个发现项和迁移恢复 2 个发现项。队列每库复用一次独立建库，通过不同任务集中覆盖双实例单领取、创建人/版本防护、processing 保护、取消/领取单胜者、锁跳过及回滚后重领，不将内部断言数冒充发现数。
 - 最终只读复审未发现剩余 P1/P2 或静态接线错误；审查发现的 Vue 错误文案键类型已在代码中处理。**本批未执行编译、测试、双库运行、运行时 OpenAPI、Native 或页面验收**，与前两批一起待集中验证；不关闭 F11/C02、不提升能力或容量状态。
 <!-- /c02-document-preview-queue-development-20261014 -->
+
+<!-- c02-document-preview-provider-development-20261014 -->
+## 2026-10-14 C02 Office 预览 Provider 生命周期与实际字节预算联合开发（待集中验证）
+
+- 执行依据：继续按“开发任务先全部批量完成”集中写入关联实现及回归场景，测试、构建及独立应用验收后置。基线 `d4b05b05de1e590102fb5106d1cc232255b310ff`，快照 `document-preview-provider-development-20261014`。
+- 源码定位到 HTTP Provider 在释放响应后返回其内部 seekable 流、非 seekable 输出无界缓冲、ResponseHeadersRead 后正文不受原 HttpClient.Timeout 约束，以及 Multipart 释放借用输入。现返回独立拥有的有界内存流，统一令牌覆盖上传、响应头及正文，借用包装器不关闭原输入；支持带参数 MIME，调用方取消继续传播。
+- 新增 `MaxOutputBytes`，默认 10 MiB，与 Files 默认上传预算一致；启动校验范围 1—Int32.MaxValue。官方 Provider 与 Worker 都核对声明长度并限制实际读取字节，覆盖无长度、低报长度和自定义 Provider；新增稳定输出超限码及中英文资源，Files 自身限制仍独立执行。
+- 进程 Provider 同时排空并丢弃 stdout/stderr，避免管道背压；取消或失败尝试回收本次仍在途的自有进程树。进程回收与管道取消、释放、读取任务观察使用独立 finally，回收故障不覆盖原业务取消。采用先解析可信参数模板、再替换路径的 ArgumentList；支持转义双引号、普通 Windows 路径反斜杠及单词内部撇号，启动校验模板占位符与引号。临时输入名只按 Office MIME 映射，上传文件名不参与本地路径或进程参数。
+- Worker 对自定义 Provider 输入、上传输出执行相同实际字节预算，负责最终源流和输出释放；正常停机取消不改写为普通转换失败。前台转换器必须退出前完成转换和自身后代收尾；分离后台进程、操作系统拒绝回收及 Worker 崩溃后的 processing 自动恢复不计入已交付能力。运维契约见 [Office 预览配置](../../operations/document-office-preview.md)。
+- 写入 Unit 源码场景 57 个：预算 12、参数/配置 18、HTTP 11、进程 11、Worker 5；进程夹具使用真实 Node 子进程，回收只匹配自有回执及启动时间，避免 PID 复用误停其他任务。同步 Unit 发现下限 6261、Document 选择下限 263；源码场景数不冒充测试发现或通过数。只读复审发现的模板转义和回收异常跳过管道清理两个 P2 已在代码中处理，最终静态复审无剩余实际 P1/P2。
+- 状态：**本批未执行编译、单元/组件测试、双库、运行时 OpenAPI、Native 或独立应用验收**。与前三批数据输出、Reporting 排队取消和 Document 领取/取消一起待集中验证；不关闭 F11/C02，不提升能力或容量状态。仅结构差异及外来 WIP 保全检查有本批新鲜证据。
+<!-- /c02-document-preview-provider-development-20261014 -->
