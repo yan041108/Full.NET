@@ -30,7 +30,7 @@ internal static class NativeApiE2EAssertions
 {
     public const string AdminPassword = "FullNet!2026Integration";
 
-    /// <summary>仅验证 AI 工具目录与 MCP 受保护资源元数据在 Native 进程上可达。</summary>
+    /// <summary>集中验证 AI 工具、知识、人工对账和 MCP 受保护资源在 Native 进程上的可达闭包。</summary>
     public static async Task VerifyAiModuleNativeClosureFlowAsync(
         DatabaseProvider provider,
         string connectionString,
@@ -43,11 +43,15 @@ internal static class NativeApiE2EAssertions
                 cancellationToken)
             .ConfigureAwait(false);
 
+        var settings = NativePdfKnowledgeAssertions.Settings(NativeApiArtifactLocator.RequireArtifact().ExecutablePath);
+        // 只为专用原生夹具开启新运行准入；仍校验下方版本一致的新鲜心跳，不启动 Worker。
+        settings["FullNet:Ai:AgentRuntime:AcceptsNewRuns"] = "true";
+        settings["FullNet:Ai:AgentRuntime:RuntimeVersion"] = "1";
         await using var host = await NativeApiProcessHost.StartAsync(
             NativeApiArtifactLocator.RequireArtifact(),
             provider,
             connectionString,
-            NativePdfKnowledgeAssertions.Settings(NativeApiArtifactLocator.RequireArtifact().ExecutablePath),
+            settings,
             NativeAotTestTimeouts.ProcessStartup,
             cancellationToken).ConfigureAwait(false);
 
@@ -55,6 +59,7 @@ internal static class NativeApiE2EAssertions
         var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAiModuleNativeClosureAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await NativeAgentReconciliationAssertions.VerifyAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await NativePdfKnowledgeAssertions.VerifyAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await NativePdfKnowledgeAssertions.VerifyAsync(client, token, provider, connectionString, cancellationToken, docx: true).ConfigureAwait(false);
         // 专用 AI 探针在末尾切租户，避免让共享 critical flow 的旧令牌失效。
