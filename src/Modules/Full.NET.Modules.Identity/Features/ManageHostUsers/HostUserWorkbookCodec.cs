@@ -202,7 +202,7 @@ internal static class HostUserWorkbookCodec
         return output.ToArray();
     }
 
-    /// <summary>保持条目、解压声明大小和外部关系限制，逐条核对取消。</summary>
+    /// <summary>保持条目、唯一部件路径、解压声明大小和外部关系限制，逐条核对取消。</summary>
     /// <param name="archive">已缓冲且只读的工作簿 ZIP。</param>
     /// <param name="cancellationToken">本次导入取消令牌。</param>
     private static async Task ValidateArchiveAsync(ZipArchive archive, CancellationToken cancellationToken)
@@ -213,10 +213,12 @@ internal static class HostUserWorkbookCodec
         }
 
         long totalLength = 0;
+        var paths = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in archive.Entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (entry.FullName.Contains("..", StringComparison.Ordinal)
+            if (!paths.Add(entry.FullName)
+                || entry.FullName.Contains("..", StringComparison.Ordinal)
                 || entry.FullName.StartsWith("/", StringComparison.Ordinal)
                 || entry.FullName.StartsWith('\\'))
             {
@@ -277,9 +279,11 @@ internal static class HostUserWorkbookCodec
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var rows = worksheet
-            .Descendants(SpreadsheetNamespace + "row")
-            .ToArray();
+        // 只解释固定工作表的直接数据行，不能从其他根或嵌套结构提取伪工作簿。
+        if (worksheet.Root?.Name != SpreadsheetNamespace + "worksheet")
+            throw new InvalidDataException("导入工作簿缺少有效工作表根。");
+        var rows = worksheet.Root.Element(SpreadsheetNamespace + "sheetData")?
+            .Elements(SpreadsheetNamespace + "row").ToArray() ?? [];
         if (rows.Length == 0)
         {
             throw new InvalidDataException("用户导入工作簿缺少表头。");
@@ -319,7 +323,7 @@ internal static class HostUserWorkbookCodec
         return requests;
     }
 
-    /// <summary>固定列按原始单元格身份读取，拒绝重复列覆盖。</summary>
+    /// <summary>固定列按原始单元格身份读取，拒绝重复列覆盖和明确的行地址冲突。</summary>
     /// <param name="row">当前原始 XML 行。</param>
     /// <param name="sharedStrings">已验证的共享字符串。</param>
     /// <param name="cancellationToken">本次导入取消令牌。</param>
@@ -328,6 +332,15 @@ internal static class HostUserWorkbookCodec
         IReadOnlyList<string> sharedStrings,
         CancellationToken cancellationToken)
     {
+        // 保留历史允许省略 row.r 的输入；明确给出时必须和单元格地址一致。
+        int? expectedRow = null;
+        if (row.Attribute("r") is { } rowReference)
+        {
+            if (!int.TryParse(rowReference.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var rowNumber)
+                || rowNumber is < 1 or > 1_048_576)
+                throw new InvalidDataException("导入工作簿包含非法行号。");
+            expectedRow = rowNumber;
+        }
         var values = new string[ImportHeaders.Length];
         var assigned = new bool[ImportHeaders.Length];
         foreach (var cell in row.Elements(SpreadsheetNamespace + "c"))
@@ -339,7 +352,9 @@ internal static class HostUserWorkbookCodec
             }
 
             var reference = (string?)cell.Attribute("r") ?? string.Empty;
-            var columnIndex = ColumnIndex(reference);
+            var columnIndex = ColumnIndex(reference, out var cellRow);
+            if (expectedRow is int expected && cellRow != expected)
+                throw new InvalidDataException("导入工作簿单元格地址与所属行不一致。");
             if (columnIndex < 0 || columnIndex >= ImportHeaders.Length)
             {
                 var extraValue = ReadCellValue(cell, sharedStrings);
@@ -359,6 +374,9 @@ internal static class HostUserWorkbookCodec
         return values;
     }
 
+    /// <summary>只解释固定模板支持的文本与数字编码，Excel 错误或未知类型不能被当作业务文本。</summary>
+    /// <param name="cell">当前单元格 XML。</param>
+    /// <param name="sharedStrings">已核对的共享字符串。</param>
     private static string ReadCellValue(
         XElement cell,
         IReadOnlyList<string> sharedStrings)
@@ -371,10 +389,9 @@ internal static class HostUserWorkbookCodec
         }
 
         var value = cell.Element(SpreadsheetNamespace + "v")?.Value ?? string.Empty;
+        if (type is null or "n" or "str") return value;
         if (!string.Equals(type, "s", StringComparison.Ordinal))
-        {
-            return value;
-        }
+            throw new InvalidDataException("导入工作簿包含不支持的单元格类型。");
 
         if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var index)
             || index < 0
@@ -470,7 +487,10 @@ internal static class HostUserWorkbookCodec
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";
 
-    private static int ColumnIndex(string reference)
+    /// <summary>解析固定列及有效单元格行号，供行地址一致性检查。</summary>
+    /// <param name="reference">工作簿单元格地址。</param>
+    /// <param name="rowNumber">解析后的正数 Excel 行号。</param>
+    private static int ColumnIndex(string reference, out int rowNumber)
     {
         var index = 0;
         var column = 0;
@@ -514,8 +534,8 @@ internal static class HostUserWorkbookCodec
                 reference.AsSpan(index),
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
-                out var rowNumber)
-            || rowNumber < 1)
+                out rowNumber)
+            || rowNumber is < 1 or > 1_048_576)
         {
             throw new InvalidDataException("用户导入工作簿包含非法单元格引用。");
         }

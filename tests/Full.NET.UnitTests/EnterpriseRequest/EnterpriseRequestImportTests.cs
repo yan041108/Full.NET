@@ -9,6 +9,35 @@ namespace Full.NET.UnitTests.EnterpriseRequest;
 [TestClass]
 public sealed class EnterpriseRequestImportTests
 {
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task Cancellation_after_eof_precedes_archive_validation_and_preserves_source_ownership(bool execute, bool malformed)
+    {
+        var bytes = malformed ? new byte[] { 1, 2, 3 } : Workbook([]);
+        using var cancellation = new CancellationTokenSource();
+        await using var source = new CancelOnEofStream(bytes, cancellation);
+        var exception = execute
+            ? await Assert.ThrowsAsync<OperationCanceledException>(() => handler.ExecuteBatchAsync(source, bytes.Length, 0, 1,
+                Context with { TaskId = Guid.CreateVersion7() }, cancellation.Token))
+            : await Assert.ThrowsAsync<OperationCanceledException>(() => handler.PreviewAsync(source, bytes.Length, Context, cancellation.Token));
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.IsTrue(source.CanRead);
+    }
+
+    /// <summary>在 EOF 返回前取消，无需依赖时钟或线程调度制造解析竞态。</summary>
+    private sealed class CancelOnEofStream(byte[] bytes, CancellationTokenSource cancellation) : MemoryStream(bytes, writable: false)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await base.ReadAsync(buffer, cancellationToken);
+            if (read == 0) cancellation.Cancel();
+            return read;
+        }
+    }
+
     private static readonly string[] Headers = ["requestNumber", "title", "totalAmount", "applicantUserId", "organizationUnitId"];
     private static readonly StaticImportPreviewContext Context = new(Guid.NewGuid(), new Dictionary<string, bool>());
     private readonly EnterpriseRequestStaticImportSchemaHandler handler = new(null!);

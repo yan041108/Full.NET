@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 
 namespace Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 
@@ -76,11 +77,12 @@ internal static class EnterpriseRequestWorkbookCodec
             throw new InvalidDataException("企业申请导入工作簿实际大小与声明大小不一致。");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         buffered.Position = 0;
         using var archive = new ZipArchive(buffered, ZipArchiveMode.Read, leaveOpen: true);
-        ValidateArchive(archive);
-        var sharedStrings = ReadSharedStrings(archive);
-        var worksheet = ReadXmlEntry(archive, WorksheetPath, required: true);
+        await ValidateArchiveAsync(archive, cancellationToken).ConfigureAwait(false);
+        var sharedStrings = await ReadSharedStringsAsync(archive, cancellationToken).ConfigureAwait(false);
+        var worksheet = await ReadXmlEntryAsync(archive, WorksheetPath, required: true, cancellationToken).ConfigureAwait(false);
         return ParseRows(worksheet, sharedStrings, cancellationToken);
     }
 
@@ -170,7 +172,10 @@ internal static class EnterpriseRequestWorkbookCodec
         return output.ToArray();
     }
 
-    private static void ValidateArchive(ZipArchive archive)
+    /// <summary>保持条目、解压声明大小与关系限制，逐条响应取消。</summary>
+    /// <param name="archive">当前只读工作簿 ZIP。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
+    private static async Task ValidateArchiveAsync(ZipArchive archive, CancellationToken cancellationToken)
     {
         if (archive.Entries.Count is 0 or > MaximumArchiveEntries)
         {
@@ -181,6 +186,7 @@ internal static class EnterpriseRequestWorkbookCodec
         var paths = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in archive.Entries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!paths.Add(entry.FullName)
                 || entry.FullName.Contains("..", StringComparison.Ordinal)
                 || entry.FullName.StartsWith("/", StringComparison.Ordinal)
@@ -198,7 +204,7 @@ internal static class EnterpriseRequestWorkbookCodec
 
             if (entry.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
             {
-                var relationships = ReadXmlEntry(archive, entry.FullName, required: true);
+                var relationships = await ReadXmlEntryAsync(archive, entry.FullName, required: true, cancellationToken).ConfigureAwait(false);
                 if (relationships
                     .Descendants(PackageRelationshipNamespace + "Relationship")
                     .Any(node => string.Equals(
@@ -212,9 +218,12 @@ internal static class EnterpriseRequestWorkbookCodec
         }
     }
 
-    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive)
+    /// <summary>在已有共享字符串上限内物化文本，保留原源行身份。</summary>
+    /// <param name="archive">当前工作簿 ZIP。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
+    private static async Task<IReadOnlyList<string>> ReadSharedStringsAsync(ZipArchive archive, CancellationToken cancellationToken)
     {
-        var document = ReadXmlEntry(archive, SharedStringsPath, required: false);
+        var document = await ReadXmlEntryAsync(archive, SharedStringsPath, required: false, cancellationToken).ConfigureAwait(false);
         if (document.Root is null)
         {
             return [];
@@ -222,6 +231,7 @@ internal static class EnterpriseRequestWorkbookCodec
 
         var values = document
             .Descendants(SpreadsheetNamespace + "si")
+            .Take((MaximumDataRows + 1) * ImportHeaders.Length + 1)
             .Select(item => string.Concat(
                 item.Descendants(SpreadsheetNamespace + "t").Select(text => text.Value)))
             .ToArray();
@@ -238,6 +248,7 @@ internal static class EnterpriseRequestWorkbookCodec
         IReadOnlyList<string> sharedStrings,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (worksheet.Root?.Name != SpreadsheetNamespace + "worksheet")
             throw new InvalidDataException("企业申请工作簿缺少工作表。");
         var rows = worksheet.Root.Element(SpreadsheetNamespace + "sheetData")?.Elements(SpreadsheetNamespace + "row").ToArray() ?? [];
@@ -252,7 +263,7 @@ internal static class EnterpriseRequestWorkbookCodec
                 || line <= previousLine || line > 1_048_576)
                 throw new InvalidDataException("企业申请工作簿行号必须严格递增且有效。");
             previousLine = line;
-            var cells = ReadRow(row, sharedStrings);
+            var cells = ReadRow(row, sharedStrings, cancellationToken);
             if (requests.Count == 0 && ReferenceEquals(row, rows[0]))
             {
                 if (line != 1 || !cells.SequenceEqual(ImportHeaders, StringComparer.Ordinal))
@@ -261,17 +272,24 @@ internal static class EnterpriseRequestWorkbookCodec
             }
             if (!cells.All(string.IsNullOrWhiteSpace)) requests.Add(new(line, cells));
         }
+        cancellationToken.ThrowIfCancellationRequested();
         return requests;
     }
 
+    /// <summary>逐单元格读取固定列，保持既有重复列和源行地址检查。</summary>
+    /// <param name="row">原始工作簿行。</param>
+    /// <param name="sharedStrings">已核对的共享字符串。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
     private static IReadOnlyList<string> ReadRow(
         XElement row,
-        IReadOnlyList<string> sharedStrings)
+        IReadOnlyList<string> sharedStrings,
+        CancellationToken cancellationToken)
     {
         var values = Enumerable.Repeat(string.Empty, ImportHeaders.Length).ToArray();
         var occupied = new HashSet<int>();
         foreach (var cell in row.Elements(SpreadsheetNamespace + "c"))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (cell.Element(SpreadsheetNamespace + "f") is not null)
             {
                 throw new InvalidDataException("企业申请导入工作簿不得包含公式单元格。");
@@ -325,11 +343,18 @@ internal static class EnterpriseRequestWorkbookCodec
         return sharedStrings[index];
     }
 
-    private static XDocument ReadXmlEntry(
+    /// <summary>异步读取 XML 时传递取消，继续拒绝 DTD、外部实体和过大文档。</summary>
+    /// <param name="archive">当前工作簿 ZIP。</param>
+    /// <param name="path">固定部件路径。</param>
+    /// <param name="required">是否必须存在该部件。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
+    private static async Task<XDocument> ReadXmlEntryAsync(
         ZipArchive archive,
         string path,
-        bool required)
+        bool required,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var entry = archive.GetEntry(path);
         if (entry is null)
         {
@@ -344,7 +369,7 @@ internal static class EnterpriseRequestWorkbookCodec
         using var stream = entry.Open();
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
-            Async = false,
+            Async = true,
             DtdProcessing = DtdProcessing.Prohibit,
             MaxCharactersFromEntities = 0,
             MaxCharactersInDocument = MaximumXmlCharacters,
@@ -352,7 +377,9 @@ internal static class EnterpriseRequestWorkbookCodec
         });
         try
         {
-            return XDocument.Load(reader, LoadOptions.None);
+            var document = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return document;
         }
         catch (XmlException exception)
         {
@@ -388,8 +415,9 @@ internal static class EnterpriseRequestWorkbookCodec
         document.Save(writer);
     }
 
+    // 模板文本复用框架 XML 清洗规则，不能按孤立 UTF-16 单元丢弃合法代理对。
     private static string SanitizeXmlText(string? value) =>
-        string.Concat((value ?? string.Empty).Where(XmlConvert.IsXmlChar));
+        XmlTextSanitizer.Sanitize(value ?? string.Empty);
 
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";
