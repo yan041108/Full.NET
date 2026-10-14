@@ -18,15 +18,17 @@ export const apiNativeAotPublishContract = {
   publishLogRelativePath: 'artifacts/native-aot/linux-x64/publish.log',
   executableName: 'Full.NET.Host.Api',
   runtimeIdentifier: 'linux-x64',
-  sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0',
-  publishSdkImage: 'fullnet-native-aot-publish-sdk:10.0',
-  sdkImageLabel: 'fullnet-native-aot-publish-sdk:10.0 (Debian SDK 10.0 + clang/zlib for Native AOT)',
+  minimumSdkVersion: '10.0.402',
+  sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.402',
+  publishSdkImage: 'fullnet-native-aot-publish-sdk:10.0.402',
+  sdkImageLabel: 'fullnet-native-aot-publish-sdk:10.0.402 (Debian SDK 10.0.402 + clang/zlib for Native AOT)',
   minimumExecutableBytes: 8_000_000,
   publishMsBuildProperties: {
     Configuration: 'Release',
     RuntimeIdentifier: 'linux-x64',
     SelfContained: 'true',
     FullNetPublishMode: 'NativeAot',
+    RuntimeFrameworkVersion: '10.0.13',
   },
 };
 

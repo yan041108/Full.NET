@@ -21,6 +21,7 @@ import {
   workerNativeAotPublishContract,
 } from './api-native-aot-publish-contract.mjs';
 import { validatePublishWarnings } from './api-native-aot-publish-warnings.mjs';
+import { probeNativeAotSdk } from './native-aot-sdk-policy.mjs';
 
 const hostIndex = process.argv.indexOf('--host');
 const requestedHost = hostIndex >= 0 ? process.argv[hostIndex + 1] : 'api';
@@ -190,8 +191,13 @@ function ensureDockerPublishImage() {
   return publishImage;
 }
 
-function publishViaDocker() {
-  const publishImage = ensureDockerPublishImage();
+function probeSdkVersion(publishImage) {
+  return probeNativeAotSdk({ run, repositoryRoot: contract.repositoryRoot,
+    dockerArgs: publishImage ? dockerPublishArgs(publishImage) : null,
+    minimumVersion: contract.minimumSdkVersion });
+}
+
+function dockerPublishArgs(publishImage) {
   const repoMount = contract.repositoryRoot.replace(/\\/g, '/');
   const volumeMounts = [
     process.platform === 'win32' && /^[a-zA-Z]:/.test(repoMount)
@@ -203,18 +209,18 @@ function publishViaDocker() {
     volumeMounts.push(nugetMount);
   }
 
-  const dockerArgs = [
+  return [
     'run',
     '--rm',
     ...volumeMounts.flatMap((mount) => ['-v', mount]),
     '-w',
     '/src',
     publishImage,
-    'bash',
-    '-lc',
-    buildPublishShellCommand(),
   ];
+}
 
+function publishViaDocker(publishImage) {
+  const dockerArgs = [...dockerPublishArgs(publishImage), 'bash', '-lc', buildPublishShellCommand()];
   const result = run('docker', dockerArgs, { stdio: 'inherit' });
   return {
     status: result.status,
@@ -275,13 +281,14 @@ function verifyArtifact() {
   return executableStat;
 }
 
-function writeManifest(executableStat, publishDurationMs, publishMode) {
+function writeManifest(executableStat, publishDurationMs, publishMode, sdkVersion) {
   const manifest = {
     generatedAtUtc: new Date().toISOString(),
     runtimeIdentifier: contract.runtimeIdentifier,
     publishMode,
     sdkImage: publishMode === 'docker' ? contract.publishSdkImage : null,
     baseSdkImage: contract.sdkImage,
+    sdkVersion,
     sdkImageLabel: contract.sdkImageLabel,
     outputRelativeDir: contract.outputRelativeDir,
     publishLogRelativePath: contract.publishLogRelativePath,
@@ -304,26 +311,26 @@ function writeManifest(executableStat, publishDurationMs, publishMode) {
 }
 
 function main() {
+  const publishMode = process.platform === 'linux' ? 'linux-host' : 'docker';
+  if (publishMode === 'docker' && !dockerAvailable()) {
+    console.error('当前平台不是 Linux 且 Docker 不可用；无法执行 linux-x64 Native AOT publish。');
+    process.exit(1);
+  }
+  const publishImage = publishMode === 'docker' ? ensureDockerPublishImage() : null;
+  // 在删除旧产物前检查真实 SDK，禁止旧缓存镜像或旧宿主留下假更新证据。
+  const sdkVersion = probeSdkVersion(publishImage);
   clearPreviousPublishEvidence();
   const startedAt = Date.now();
-  let publishMode;
   let result;
 
-  if (process.platform === 'linux') {
-    publishMode = 'linux-host';
+  if (publishMode === 'linux-host') {
     console.log('Publishing Native AOT on Linux host SDK...');
     result = publishOnLinuxHost();
-  } else if (dockerAvailable()) {
-    publishMode = 'docker';
+  } else {
     console.log(
       `Publishing Native AOT via ${contract.publishSdkImage} (repository mounted at /src)...`
     );
-    result = publishViaDocker();
-  } else {
-    console.error(
-      '当前平台不是 Linux 且 Docker 不可用；无法执行 linux-x64 Native AOT publish。'
-    );
-    process.exit(1);
+    result = publishViaDocker(publishImage);
   }
 
   if (result.stdout) {
@@ -340,7 +347,7 @@ function main() {
 
   verifyPublishWarnings(result, publishMode);
   const executableStat = verifyArtifact();
-  writeManifest(executableStat, Date.now() - startedAt, publishMode);
+  writeManifest(executableStat, Date.now() - startedAt, publishMode, sdkVersion);
 }
 
 main();

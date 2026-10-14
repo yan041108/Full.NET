@@ -28,6 +28,14 @@ Native AOT 不是“把 Release build 换一个参数”。它会在发布时把
 | NuGet、native library、RD.XML | AOT/Trim 声明、RID 文件、反射/native binding | analyzer + Linux publish +真实 Provider E2E |
 | 测试容器与原生进程夹具 | readiness、宿主地址、日志泵、TRX | 对应 Linux 原生 E2E |
 
+### 2.1 原生发布的 SDK 与安全更新
+
+API/Worker 的发布契约统一使用 SDK `10.0.402`、带版本身份的 `fullnet-native-aot-publish-sdk:10.0.402` 镜像和自包含运行时 `10.0.13`。SDK 镜像的 Dockerfile、发布脚本及两条工作流必须一起更新。版本依据为微软 [.NET 10.0.13 安全更新](https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.13/10.0.13.md)；更新 NuGet 包不等于更新已嵌入原生可执行文件的框架实现。
+
+发布脚本在清除旧产物前运行实际 `dotnet --version` 探测，只接受不低于 `10.0.402` 的稳定 .NET 10 SDK。Linux 探测使用仓库根目录，Docker 探测复用发布挂载和 `/src` 工作目录，确保 `global.json` 参与同一 SDK 选择；失败、预览版本和旧 SDK 均拒绝，保留原发布证据。manifest 的 `sdkVersion` 记录探测结果，不能仅以镜像标签证明版本。
+
+使用旧 SDK 的冻结验收批次继续保留自己的源码、工具链及结果；不能将其改标为新 SDK 的发布验收。新版契约仍须在正常测试资源边界内重新发布并运行原生产物。普通资产图或发布包的漏洞清单也不能替代框架运行时、安全更新及实际运行验证。
+
 ## 3. JSON：类型必须进入静态元数据闭包
 
 ### 3.1 推荐模式

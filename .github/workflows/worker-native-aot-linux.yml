@@ -51,7 +51,7 @@ jobs:
       - name: Verify Worker Native AOT analyzers
         run: pnpm test:aot:worker:analyzers
       - name: Build Native AOT publish SDK image
-        run: docker build -t fullnet-native-aot-publish-sdk:10.0 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
+        run: docker build -t fullnet-native-aot-publish-sdk:10.0.402 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
       - name: Publish Worker linux-x64 Native AOT artifact
         run: pnpm test:aot:worker:publish:linux
       - name: Verify Native AOT architecture gates

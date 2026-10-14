@@ -3085,3 +3085,15 @@ Native 69396 在双库正式收集后自动启动，首步 API 分析离线 rest
 六图缓存恢复后，在正在使用的 Linux SDK 中分别对 Host.Api、Host.Worker 和 Integration 执行官方 NuGet 普通包清单与包含传递依赖的漏洞查询，六条命令全部退出 0；三图分别为 103、102、195 个精确包身份，当前查询均未报告已知漏洞。逐图读取对应 project.assets.json，包身份集合与查询清单精确相同；证据为 artifacts/r12i/host-audit.json 和 audit-coverage.json。此处只覆盖三个当前普通资产图的包身份及查询时公告，不覆盖框架运行时、独立发布资产图、全部 258 个归档或业务行为。
 
 同一 R12a 修复依赖源码的 API/Worker `FullNetAotAnalysis=true` Release 构建分别退出 0，均零警告/错误，用时 8 分 26.16 秒与 24.27 秒；Architecture 构建零警告/错误，完整架构测试 235/235、零失败/跳过，用时 1 分 13.480 秒，完整 TRX 的 235 个唯一 UID 与计数一致，退出 0。阶段证据为 artifacts/r12i/stage-verification.json 与 artifacts/r12c 原日志/报告。当前为 Aot-analysis-clean；Integration 消费者构建、API/Worker 原生发布、35 项运行和整组源/缓存/清理复核继续接续，Native、页面整体及 Capacity-not-verified 不提前关闭。
+
+独立发布资产图补查 API 105、Worker 104 个精确包身份。CLI 分别只列 104、103 个包，最初精确覆盖检查失败并保留；差集均为 `runtime.linux-x64.microsoft.dotnet.ilcompiler/10.0.11`。以同次官方 NuGet 完整 base/update 公告补查该包，未发现包公告，其他包漏洞查询均退出 0、零 finding，发布资产文件前后 SHA-256 不变。证据为 artifacts/r12i/publish-package-audit.json；只证明查询时的发布包覆盖，仍明确排除框架运行时安全与原生运行。
+
+#### R12j：原生发布工具链版本身份与实际 SDK 准入（2026-10-15，开发及工具验证完成）
+
+main 基线 `e1b6db8897ebaf81d48947a2253ba997ef094d86`，任务快照 `ai-native-sdk-security-r12j`。当前 R12c 镜像实际为 SDK 10.0.400 / 框架 10.0.11，旧浮动标签与“镜像已存在就复用”不能证明安全更新。按官方 10.0.13 版本说明，后续发布契约、专用 Dockerfile 和 API/Worker 工作流统一 SDK 10.0.402、新版本镜像身份及 `RuntimeFrameworkVersion=10.0.13`；不覆盖运行中的旧镜像、冻结输入、私有缓存或 R12c 结果。
+
+发布前核对实际稳定 .NET 10 SDK，旧版本、预览、混合输出和进程失败在清除旧产物前拒绝；manifest 增加实际 sdkVersion。只读审查发现 SDK 探测目录与发布目录不一致的 P2，已统一 Linux 仓库根目录及 Docker 发布挂载 /src，增加模拟仓库选择旧 SDK 的参数行为回归；复审未发现剩余 P1/P2。
+
+新增 SDK 测试先实际 15 项失败；最终 SDK 18/18、指南 4/4，共 22/22、零失败/跳过，脚本语法检查通过。首轮连同原发布治理为 25/27，最终合批为 32/34，两项失败来自共享矩阵新增 NativeWorkerTenantAuthorityE2ETests 与旧固定断言不匹配；以任务基线及未变脏输入的独立副本实际复现相同两项失败，保留外部测试/矩阵并记录原失败，不申报完整治理通过。实际正在运行的旧镜像探测 SDK 10.0.400，按新门禁正确拒绝；没有重新发布或改动原冻结批次。原始日志见 artifacts/r12j。
+
+本批只是工具链准入和发布配置已实现；尚未构建新 SDK 镜像、发布或运行新版原生产物。R12c 原冻结 API 发布实际退出 0，产物 141576192 bytes，SHA-256 与发布记录一致，17 项告警通过既有门禁，阶段证据为 artifacts/r12i/api-publish-stage-verification.json；Worker 发布和 35 项运行继续接续，不能借作 R12j 新 SDK 验收。Native、新版工具链运行、真实页面、自动对账、重建与质量/容量仍按原模块批次推进，Capacity-not-verified。
