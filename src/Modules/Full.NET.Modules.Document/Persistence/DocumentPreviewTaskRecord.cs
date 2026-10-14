@@ -34,4 +34,8 @@ internal sealed class DocumentPreviewTaskRecord
     public DateTimeOffset? CompletedAtUtc { get; init; }
 
     public long Version { get; init; }
+
+    public Guid? LeaseId { get; init; }
+
+    public DateTimeOffset? LeaseExpiresAtUtc { get; init; }
 }

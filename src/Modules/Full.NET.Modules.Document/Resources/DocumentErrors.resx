@@ -34,4 +34,5 @@
     <value>预览任务状态已变化或已被领取，请刷新后重新检查。</value>
   </data>
   <data name="document.office_preview.output_too_large" xml:space="preserve"><value>预览 PDF 超过配置的输出大小限制。</value></data>
+  <data name="document.office_preview.lease_expired" xml:space="preserve"><value>预览任务处理超时或工作进程中断，请重新提交转换。</value></data>
 </root>

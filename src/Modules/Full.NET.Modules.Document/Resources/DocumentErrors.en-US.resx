@@ -33,4 +33,5 @@
     <value>The preview task changed or has already been claimed. Refresh to check its status.</value>
   </data>
   <data name="document.office_preview.output_too_large" xml:space="preserve"><value>The preview PDF exceeds the configured output size limit.</value></data>
+  <data name="document.office_preview.lease_expired" xml:space="preserve"><value>The preview task timed out or its worker stopped. Submit a new conversion.</value></data>
 </root>

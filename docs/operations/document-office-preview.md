@@ -13,6 +13,7 @@ Host 文档预览任务由 Worker 调用可插拔 Provider 转为 PDF；API 负�
       "MaxInputBytes": 52428800,
       "MaxOutputBytes": 10485760,
       "TimeoutSeconds": 120,
+      "LeaseDurationSeconds": 0,
       "PollSeconds": 15,
       "BatchSize": 5,
       "ExternalHttp": {
@@ -33,4 +34,10 @@ Host 文档预览任务由 Worker 调用可插拔 Provider 转为 PDF；API 负�
 
 进程必须以前台方式完成转换，退出前生成最终输出并回收自身后代；禁止父进程提前退出后交给分离的后台进程。Provider 同时排空 stdout/stderr，不保存供应商输出；业务取消或超时尝试回收仍在途的自有进程树，并独立关闭管道及观察读取任务。操作系统拒绝回收或不遵守前台契约的转换器不属于受保证的生命周期范围。
 
-输入流为借用流，Provider 不释放；成功输出由 Worker 释放。调用方取消向上传播，正常 Worker 停机不改写为普通转换失败。当前任务领取和排队取消的生产代码变化、Provider 生命周期与预算变化仍待本地集中编译、测试、双库及独立应用验收；本页描述实现契约，不作为验收通过证据。Worker 崩溃后的 processing 任务自动恢复不属于这些变化的已交付能力。
+`LeaseDurationSeconds=0` 使用 `TimeoutSeconds+120`，保持已有转换超时配置可用；显式配置须在 `TimeoutSeconds+30` 到 7200 秒之间。租约覆盖源读取、转换、上传和完成仲裁，转换器超时仍单独执行。Worker 顺序处理时逐个领取，后续任务不提前进入 processing；成功及失败通过短事务取得任务行锁，再按锁后当前时间、领取身份和期限仲裁，文件/转换调用不进入数据库事务。
+
+启用的 Worker 每轮有界收口到期的 processing 任务，转为 failed，错误码为 `document.office_preview.lease_expired`。旧版没有租约的 processing 行按开始时间判断；没有开始时间时按创建时间判断。正常停机不写普通转换失败，遗留行到期后同样收口。失效任务不自动重排，用户须重新提交转换；没有旧结果被再次发布或任意转换重试的承诺。Provider 及自定义文件适配必须遵守取消令牌；不合作的插件不能靠令牌获得强制终止保证。
+
+升级顺序为：停止并排空旧 Worker、由 Migrator 应用 `262_DocumentPreviewTaskLease.sql`、启动新版本宿主及 Worker。迁移仅增加可空字段和索引，不回填、不删除或重排历史任务，每个部分完成阶段可重入。不能依赖新旧 Worker 混跑时的旧写入路径提供完整租约保证；回退先停用新 Worker，保留展开结构和失效终态数据。Files 上传完成但任务提交失败或租约过期时，可能留下未绑定输出；本批不承诺输出文件自动补偿删除，须由后续文件保留/对账能力处理。
+
+输入流为借用流，Provider 不释放；成功输出由 Worker 释放。调用方取消向上传播。任务领取、排队取消、Provider 生命周期与预算、租约及失效收口的生产代码变化仍待本地集中编译、测试、双库及独立应用验收；本页描述实现契约，不作为验收通过证据。

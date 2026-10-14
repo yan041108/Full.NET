@@ -61,6 +61,8 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DocumentAccessLog', 'Platform'],
   ['DocumentHostAccessLogPermission', 'Platform'],
   ['DocumentPreviewTask', 'Platform'],
+  ['DocumentPreviewTaskCancellation', 'Platform'],
+  ['DocumentPreviewTaskLease', 'Platform'],
   ['DocumentHostPreviewTaskPermission', 'Platform'],
   ['DocumentTagHotRecommended', 'Platform'],
   ['DocumentVersionRetentionSetting', 'Platform'],

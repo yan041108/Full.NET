@@ -25,6 +25,11 @@ public sealed class DocumentOfficePreviewConversionOptions
     /// <summary>单次转换超时秒数。</summary>
     public int TimeoutSeconds { get; set; } = 120;
 
+    /// <summary>领取租约秒数；0 按转换超时加 120 秒生成，显式值须预留至少 30 秒上传及收尾预算。</summary>
+    public int LeaseDurationSeconds { get; set; }
+
+    internal int EffectiveLeaseSeconds => LeaseDurationSeconds == 0 ? TimeoutSeconds + 120 : LeaseDurationSeconds;
+
     /// <summary>Worker 轮询间隔秒数。</summary>
     public int PollSeconds { get; set; } = 15;
 
@@ -76,6 +81,8 @@ internal sealed class DocumentOfficePreviewConversionOptionsValidator
         if (options.MaxOutputBytes <= 0 || options.MaxOutputBytes > int.MaxValue)
             failures.Add("Document:OfficePreviewConversion:MaxOutputBytes must be between 1 and Int32.MaxValue.");
         ValidateRange("Document:OfficePreviewConversion:TimeoutSeconds", options.TimeoutSeconds, 5, 3600, failures);
+        if (options.LeaseDurationSeconds != 0 && (options.LeaseDurationSeconds < options.TimeoutSeconds + 30 || options.LeaseDurationSeconds > 7200))
+            failures.Add("Document:OfficePreviewConversion:LeaseDurationSeconds must be zero or between TimeoutSeconds + 30 and 7200.");
         ValidateRange("Document:OfficePreviewConversion:PollSeconds", options.PollSeconds, 5, 3600, failures);
         ValidateRange("Document:OfficePreviewConversion:BatchSize", options.BatchSize, 1, 50, failures);
 

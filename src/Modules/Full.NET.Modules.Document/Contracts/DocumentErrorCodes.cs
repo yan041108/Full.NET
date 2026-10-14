@@ -69,6 +69,9 @@ public static class DocumentErrorCodes
     /// <summary>转换 PDF 实际字节数超过输出预算。</summary>
     public const string OfficePreviewOutputTooLarge = "document.office_preview.output_too_large";
 
+    /// <summary>预览处理租约已失效，任务不得由旧领取者继续发布结果。</summary>
+    public const string OfficePreviewLeaseExpired = "document.office_preview.lease_expired";
+
     /// <summary>文档分类基础字段或层级约束校验失败。</summary>
     public const string CategoryInvalid = "document.host_category.invalid";
 
@@ -216,5 +219,6 @@ public static class DocumentErrorCodes
         VersionRetentionConflict,
         PreviewTaskStatusInvalid,
         OfficePreviewOutputTooLarge,
+        OfficePreviewLeaseExpired,
     ]);
 }

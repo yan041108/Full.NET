@@ -75,12 +75,28 @@ public sealed class DocumentPreviewWorkerBudgetTests
             var reader = Substitute.For<IHostFileContentReader>();
             var writer = Substitute.For<IHostFileUploadWriter>();
             var options = Substitute.For<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>();
+            var clock = Substitute.For<IClock>();
+            clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             options.CurrentValue.Returns(new DocumentOfficePreviewConversionOptions
             {
                 Enabled = true, ProviderKey = "external_http", MaxInputBytes = 3, MaxOutputBytes = 3, TempRootPath = Root,
             });
+            var claimed = false;
+            DocumentPreviewTaskRecord? ownedTask = null;
             queries.QueryAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.ClaimPendingSqlServer, Arg.Any<object>(), Arg.Any<CancellationToken>())
-                .Returns(new[] { new DocumentPreviewTaskRecord { Id = Guid.NewGuid(), RequestedByUserId = Guid.NewGuid(), SourceFileId = Guid.NewGuid(), StatusKey = "processing" } });
+                .Returns(info =>
+                {
+                    if (claimed) return Array.Empty<DocumentPreviewTaskRecord>();
+                    claimed = true;
+                    var parameters = (Dictionary<string, object?>)info.ArgAt<object>(1);
+                    ownedTask = new DocumentPreviewTaskRecord { Id = Guid.NewGuid(), RequestedByUserId = Guid.NewGuid(), SourceFileId = Guid.NewGuid(), StatusKey = "processing",
+                        LeaseId = (Guid)parameters["LeaseId"]!, LeaseExpiresAtUtc = (DateTimeOffset)parameters["LeaseExpiresAtUtc"]! };
+                    return new[] { ownedTask };
+                });
+            queries.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.LockCompletionSqlServer, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ => ownedTask);
+            var transaction = Substitute.For<ICommandTransaction>();
+            transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(info => info.Arg<Func<CancellationToken, Task<bool>>>()(info.Arg<CancellationToken>()));
             reader.OpenReadyContentAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
                 .Returns(Result<HostFileContent>.Success(new(Source, "application/msword", "source.doc")));
             var provider = new Converter(async (input, token) =>
@@ -101,8 +117,8 @@ public sealed class DocumentPreviewWorkerBudgetTests
                 Errors.Add((string)((Dictionary<string, object?>)info.ArgAt<object>(1))["ErrorCode"]!); return 1;
             });
             commands.ExecuteAsync(DocumentPreviewTaskSql.MarkSucceeded, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ => { Successes++; return 1; });
-            Runner = new(queries, commands, Substitute.For<ICommandTransaction>(), reader, writer,
-                new DocumentOfficePreviewConversionProviderResolver([provider], options), Substitute.For<IClock>(),
+            Runner = new(queries, commands, transaction, reader, writer,
+                new DocumentOfficePreviewConversionProviderResolver([provider], options), clock,
                 Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), options);
         }
 

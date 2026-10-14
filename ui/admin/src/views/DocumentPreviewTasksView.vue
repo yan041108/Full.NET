@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
+import { documentPreviewFailureLabel } from './documentPreviewFailureLabel';
 import { computed, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
@@ -318,7 +319,9 @@ function toProblem(
               </template>
             </el-table-column>
             <el-table-column :label="t('documentPreviewTasks.provider')" prop="providerKey" width="160" />
-            <el-table-column :label="t('documentPreviewTasks.errorCode')" prop="errorCode" min-width="180" />
+            <el-table-column :label="t('documentPreviewTasks.failureReason')" min-width="240">
+              <template #default="{ row }">{{ documentPreviewFailureLabel(row.errorCode, t) }}</template>
+            </el-table-column>
             <el-table-column :label="t('documentPreviewTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">

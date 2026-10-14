@@ -24,7 +24,7 @@ internal static class DocumentPreviewTaskSql
         """
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
-               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
         FROM fn_document_preview_task
         WHERE Id = @Id
         """,
@@ -39,7 +39,7 @@ internal static class DocumentPreviewTaskSql
 
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
-               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
         FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
         ORDER BY CreatedAtUtc DESC, Id DESC
@@ -56,7 +56,7 @@ internal static class DocumentPreviewTaskSql
 
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
-               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
         FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
         ORDER BY CreatedAtUtc DESC, Id DESC
@@ -76,12 +76,14 @@ internal static class DocumentPreviewTaskSql
         UPDATE task
         SET StatusKey = 'processing',
             StartedAtUtc = @Now,
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = task.Version + 1
         OUTPUT inserted.Id, inserted.DocumentItemId, inserted.VersionId, inserted.DocumentTitle,
                inserted.SourceFileId, inserted.SourceFileName, inserted.SourceMimeType,
                inserted.OutputFileId, inserted.StatusKey, inserted.ProviderKey, inserted.ErrorCode,
                inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.StartedAtUtc,
-               inserted.CompletedAtUtc, inserted.Version
+               inserted.CompletedAtUtc, inserted.Version, inserted.LeaseId, inserted.LeaseExpiresAtUtc
         FROM fn_document_preview_task AS task
         INNER JOIN candidates ON candidates.Id = task.Id
         WHERE task.StatusKey = 'pending';
@@ -106,6 +108,8 @@ internal static class DocumentPreviewTaskSql
         UPDATE fn_document_preview_task
         SET StatusKey = 'processing',
             StartedAtUtc = @Now,
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = Version + 1
         WHERE StatusKey = 'pending'
           AND Id IN @Ids
@@ -117,12 +121,32 @@ internal static class DocumentPreviewTaskSql
         """
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
-               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
         FROM fn_document_preview_task
         WHERE Id IN @Ids
         ORDER BY CreatedAtUtc, Id
         """,
         SqlDataScope.HostOnly);
+
+    /// <summary>先锁定完成主行，再由调用方读取当前时间；不能用等待锁之前的时间判断租约。</summary>
+    public static readonly SqlStatement LockCompletionSqlServer = new(
+        "document.preview_task.lock_completion.sqlserver",
+        """
+        SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
+               OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
+        FROM fn_document_preview_task WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @Id
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement LockCompletionMySql = new(
+        "document.preview_task.lock_completion.mysql",
+        """
+        SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
+               OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
+               CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version, LeaseId, LeaseExpiresAtUtc
+        FROM fn_document_preview_task WHERE Id = @Id FOR UPDATE
+        """, SqlDataScope.HostOnly);
 
     public static readonly SqlStatement MarkSucceeded = new(
         "document.preview_task.mark_succeeded",
@@ -132,9 +156,12 @@ internal static class DocumentPreviewTaskSql
             OutputFileId = @OutputFileId,
             ErrorCode = NULL,
             CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE Id = @Id
           AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.HostOnly);
 
@@ -156,9 +183,45 @@ internal static class DocumentPreviewTaskSql
         SET StatusKey = 'failed',
             ErrorCode = @ErrorCode,
             CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE Id = @Id
           AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.HostOnly);
+
+    /// <summary>有界收口失效处理；终态不自动重排，旧版本 Worker 也不能覆盖 failed。</summary>
+    public static readonly SqlStatement ExpireProcessingSqlServer = new(
+        "document.preview_task.expire_processing.sqlserver",
+        """
+        WITH candidates AS (
+            SELECT TOP (@BatchSize) Id
+            FROM fn_document_preview_task WITH (UPDLOCK, READPAST, ROWLOCK)
+            WHERE StatusKey = 'processing'
+              AND ((LeaseExpiresAtUtc IS NOT NULL AND LeaseExpiresAtUtc <= @Now)
+                OR (LeaseExpiresAtUtc IS NULL AND COALESCE(StartedAtUtc, CreatedAtUtc) <= @LegacyCutoff))
+            ORDER BY LeaseExpiresAtUtc, StartedAtUtc, CreatedAtUtc, Id
+        )
+        UPDATE task SET StatusKey = 'failed', ErrorCode = @ErrorCode, CompletedAtUtc = @Now,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = task.Version + 1
+        FROM fn_document_preview_task AS task INNER JOIN candidates ON candidates.Id = task.Id
+        WHERE task.StatusKey = 'processing'
+          AND ((task.LeaseExpiresAtUtc IS NOT NULL AND task.LeaseExpiresAtUtc <= @Now)
+            OR (task.LeaseExpiresAtUtc IS NULL AND COALESCE(task.StartedAtUtc, task.CreatedAtUtc) <= @LegacyCutoff));
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ExpireProcessingMySql = new(
+        "document.preview_task.expire_processing.mysql",
+        """
+        UPDATE fn_document_preview_task
+        SET StatusKey = 'failed', ErrorCode = @ErrorCode, CompletedAtUtc = @Now,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = Version + 1
+        WHERE StatusKey = 'processing'
+          AND ((LeaseExpiresAtUtc IS NOT NULL AND LeaseExpiresAtUtc <= @Now)
+            OR (LeaseExpiresAtUtc IS NULL AND COALESCE(StartedAtUtc, CreatedAtUtc) <= @LegacyCutoff))
+        ORDER BY LeaseExpiresAtUtc, StartedAtUtc, CreatedAtUtc, Id
+        LIMIT @BatchSize;
+        """, SqlDataScope.HostOnly);
 }

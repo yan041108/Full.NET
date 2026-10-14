@@ -202,6 +202,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
         StartedAtUtc = ReadNullableDateTimeOffset(reader, "StartedAtUtc"),
         CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),
         Version = ReadInt64(reader, "Version"),
+        LeaseId = ReadNullableGuid(reader, "LeaseId"),
+        LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
     };
 
     private static DocumentPermissionRecord ReadPermission(DbDataReader reader) => new()

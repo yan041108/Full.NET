@@ -8,6 +8,17 @@ import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
+test('preview cancellation and lease migrations follow their platform table owner', () => {
+  for (const name of ['261_DocumentPreviewTaskCancellation.sql', '262_DocumentPreviewTaskLease.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    for (const preset of ['minimal', 'platform', 'enterprise']) {
+      const selected = buildPresetMigrationInventory(inventory, preset, resolvePresetModules(preset)).scripts;
+      assert.equal(selected.some(script => script.name === name), preset !== 'minimal');
+    }
+  }
+});
+
 test('document write guards follow the platform migration closure', () => {
   for (const name of ['250_DocumentItemWriteGuard.sql', '251_DocumentTaxonomyWriteGuard.sql']) {
     assert.equal(inferMigrationModuleOwner(name), 'Platform');

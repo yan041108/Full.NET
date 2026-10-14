@@ -996,6 +996,7 @@ public sealed class NativeAotStaticBindingRulesTests
                      "DocumentVersionRecord",
                      "DocumentPermissionRecord",
                      "DocumentShareRecord",
+                     "DocumentPreviewTaskRecord",
                      "DocumentStatisticsSummaryRecord",
                      "DocumentStatisticsByTypeRecord",
                      "DocumentStatisticsByCategoryRecord",
@@ -1013,6 +1014,8 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(
             contributorSource,
             "DocumentNo = ReadOptionalString(reader, \"DocumentNo\")");
+        StringAssert.Contains(contributorSource, "LeaseId = ReadNullableGuid(reader, \"LeaseId\")");
+        StringAssert.Contains(contributorSource, "LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, \"LeaseExpiresAtUtc\")");
         StringAssert.Contains(
             contributorSource,
             "ChangeDescription = ReadOptionalNullableString(reader, \"ChangeDescription\")");
