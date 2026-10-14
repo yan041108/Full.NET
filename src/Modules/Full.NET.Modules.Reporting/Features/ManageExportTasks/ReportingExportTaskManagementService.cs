@@ -167,10 +167,23 @@ internal sealed class ReportingExportTaskManagementService(
         }
 
         var file = content.Value!;
-        return Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
-            file.Content,
-            file.ContentType ?? WorkbookContentType,
-            record.OutputFileName ?? file.OriginalFileName));
+        var transferred = false;
+        try
+        {
+            // 打开对象期间撤销会话、报表版本授权或列权限时，不再把旧授权文件交给响应管道。
+            if (!await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false))
+                return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                    "The export download session or permission is no longer valid.", ErrorType.Forbidden));
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
+                file.Content, file.ContentType ?? WorkbookContentType, record.OutputFileName ?? file.OriginalFileName));
+            transferred = true;
+            return result;
+        }
+        finally
+        {
+            if (!transferred) await file.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>把持久化终态映射为创建 API 结果，失败任务仍返回业务错误。</summary>

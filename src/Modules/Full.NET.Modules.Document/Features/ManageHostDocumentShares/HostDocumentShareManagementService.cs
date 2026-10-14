@@ -281,9 +281,10 @@ internal sealed class HostDocumentShareManagementService(
             clientIpFingerprint,
             HostDocumentAccessTypeKeys.Preview,
             HostDocumentAccessSourceKeys.Share);
-        return await documentItemQueries
-            .OpenCurrentVersionContentAsync(share.DocumentId, observation, cancellationToken)
+        var content = await documentItemQueries
+            .OpenCurrentVersionContentAsync(share.DocumentId, null, cancellationToken)
             .ConfigureAwait(false);
+        return await RevalidateContentAsync(shareCode, request, share, content, cancellationToken, observation).ConfigureAwait(false);
     }
 
     /// <summary>匿名分享场景提交 Office 预览转换任务；不额外消耗访问次数，但仍校验口令与有效期。</summary>
@@ -360,7 +361,41 @@ internal sealed class HostDocumentShareManagementService(
             return AccessDeniedContent();
         }
 
-        return await previewTaskQueries.OpenOutputContentAsync(taskId, cancellationToken).ConfigureAwait(false);
+        var content = await previewTaskQueries.OpenOutputContentAsync(taskId, cancellationToken).ConfigureAwait(false);
+        return await RevalidateContentAsync(shareCode, request, share, content, cancellationToken).ConfigureAwait(false);
+    }
+
+    // 对象存储读取可能较慢；响应交付前复核分享，阻断读取期间撤销、过期或口令变更。
+    private async Task<Result<HostFileContent>> RevalidateContentAsync(
+        string shareCode, AccessHostDocumentShareRequest request, DocumentShareRecord original,
+        Result<HostFileContent> content, CancellationToken token, DocumentAccessObservation? observation = null)
+    {
+        if (!content.IsSuccess) return content;
+        var transferred = false;
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var current = await ResolveAnonymousShareAsync(shareCode, request, token).ConfigureAwait(false);
+            if (!current.IsSuccess) return MapShareFailureToContent(current);
+            if (current.Value.Share.Id != original.Id || current.Value.Share.DocumentId != original.DocumentId)
+                return AccessDeniedContent();
+            var document = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindActiveById, DocumentSqlParameters.Create(("Id", original.DocumentId)), token).ConfigureAwait(false);
+            if (document is null) return AccessDeniedContent();
+            if (observation is not null)
+            {
+                // Preview 成功观测只在分享复核通过后写入，拒绝请求不得增加文档成功访问计数。
+                await accessLogRecorder.RecordAsync(document.Id, document.Title, observation.AccessTypeKey,
+                    observation.SourceKey, observation.ActorUserId, observation.ClientIpFingerprint, token).ConfigureAwait(false);
+            }
+            token.ThrowIfCancellationRequested();
+            transferred = true;
+            return content;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task<Result<(DocumentShareRecord Share, bool HasPassword)>> ResolveAnonymousShareAsync(

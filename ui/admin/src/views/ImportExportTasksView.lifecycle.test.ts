@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ElButton, ElDrawer, ElMessage } from 'element-plus';
 import ImportExportTasksView from './ImportExportTasksView.vue';
+import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import * as api from '../api/import-export-tasks';
 import { createOutputSession, deferred } from '../test/data-output-fixtures';
 import { importTask } from '../test/task-lifecycle-fixtures';
@@ -43,10 +44,83 @@ describe('导入任务请求归属', () => {
     const pending = deferred<typeof importTask>(); vi.mocked(api.cancelImportExportTask).mockReturnValue(pending.promise);
     const success = vi.spyOn(ElMessage, 'success'); const session = await setup([read, 'import_export.import_tasks.cancel']); await detail();
     await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click');
+    await flushPromises();
+    await wrapper!.get('[data-testid="import-cancel-confirm"]').trigger('click');
     session.currentUser!.permissions = [read];
     expect(vi.mocked(api.cancelImportExportTask).mock.calls[0]?.[1]?.aborted).toBe(true);
     pending.resolve({ ...importTask, statusKey: 'cancelled' }); await flushPromises();
     expect(success).not.toHaveBeenCalled();
+  });
+  it('取消必须确认，放弃确认不发送请求', async () => {
+    await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    expect(api.cancelImportExportTask).not.toHaveBeenCalled();
+    await wrapper!.get('[data-testid="import-cancel-dismiss"]').trigger('click'); await flushPromises();
+    expect(api.cancelImportExportTask).not.toHaveBeenCalled();
+  });
+  it('确认期间切换任务关闭原确认，不取消新任务', async () => {
+    await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    await detail(1); expect(api.cancelImportExportTask).not.toHaveBeenCalled();
+    expect(wrapper!.find('[data-testid="import-cancel-confirm"]').exists()).toBe(false);
+  });
+  it('确认期间撤权清空确认且没有副作用', async () => {
+    const session = await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    session.currentUser!.permissions = [read]; await flushPromises();
+    expect(api.cancelImportExportTask).not.toHaveBeenCalled();
+    expect(wrapper!.find('[data-testid="import-cancel-confirm"]').exists()).toBe(false);
+  });
+  it('关闭详情抽屉同步清空取消确认', async () => {
+    await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    wrapper!.getComponent(ElDrawer).vm.$emit('update:modelValue', false); await flushPromises();
+    expect(api.cancelImportExportTask).not.toHaveBeenCalled();
+    expect(wrapper!.find('[data-testid="import-cancel-confirm"]').exists()).toBe(false);
+  });
+  it('确认期间版本改变必须重新确认，不能发送旧意图', async () => {
+    const current = { ...importTask }; vi.mocked(api.getImportExportTask).mockResolvedValue(current);
+    const warning = vi.spyOn(ElMessage, 'warning');
+    await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    current.version = 2;
+    await wrapper!.get('[data-testid="import-cancel-confirm"]').trigger('click'); await flushPromises();
+    expect(api.cancelImportExportTask).not.toHaveBeenCalled(); expect(warning).toHaveBeenCalledOnce();
+  });
+  it('文件404显示结果不可用并停止重复下载，其他任务不受影响', async () => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, hasErrorReceipt: true });
+    vi.mocked(api.downloadImportExportTaskErrorReceipt).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
+    await setup(); await detail(); await wrapper!.get('[data-testid="import-export-task-error-receipt"]').trigger('click'); await flushPromises();
+    expect(wrapper!.find('[data-testid="import-result-unavailable"]').exists()).toBe(true);
+    expect(wrapper!.find('[data-testid="import-export-task-error-receipt"]').exists()).toBe(false);
+    expect(api.downloadImportExportTaskErrorReceipt).toHaveBeenCalledOnce();
+  });
+  it('手动刷新允许重新检查不可用回执', async () => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, hasErrorReceipt: true });
+    vi.mocked(api.downloadImportExportTaskErrorReceipt).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
+    await setup(); await detail(); await wrapper!.get('[data-testid="import-export-task-error-receipt"]').trigger('click'); await flushPromises();
+    wrapper!.getComponent(ArtTableHeader).vm.$emit('refresh'); await flushPromises();
+    expect(wrapper!.find('[data-testid="import-result-unavailable"]').exists()).toBe(false);
+    expect(wrapper!.find('[data-testid="import-export-task-error-receipt"]').exists()).toBe(true);
+  });
+  it('撤权前的迟到文件404不能污染恢复后的回执状态', async () => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, hasErrorReceipt: true });
+    const pending = deferred<Blob>(); vi.mocked(api.downloadImportExportTaskErrorReceipt).mockReturnValue(pending.promise);
+    const error = vi.spyOn(ElMessage, 'error'); const session = await setup(); await detail();
+    await wrapper!.get('[data-testid="import-export-task-error-receipt"]').trigger('click');
+    session.currentUser!.permissions = [read]; await flushPromises();
+    session.currentUser!.permissions = [read, execute]; await flushPromises(); await detail();
+    pending.reject({ title: 'missing', status: 404, code: 'files.file.not_found' }); await flushPromises();
+    expect(wrapper!.find('[data-testid="import-result-unavailable"]').exists()).toBe(false);
+    expect(wrapper!.find('[data-testid="import-export-task-error-receipt"]').exists()).toBe(true);
+    expect(error).not.toHaveBeenCalled();
+  });
+  it('回执的403不误标成文件不可用，允许按当前权限重试', async () => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, hasErrorReceipt: true });
+    vi.mocked(api.downloadImportExportTaskErrorReceipt).mockRejectedValue({ title: 'denied', status: 403, code: 'common.permission_denied' });
+    await setup(); await detail(); await wrapper!.get('[data-testid="import-export-task-error-receipt"]').trigger('click'); await flushPromises();
+    expect(wrapper!.find('[data-testid="import-result-unavailable"]').exists()).toBe(false);
+    expect(wrapper!.find('[data-testid="import-export-task-error-receipt"]').exists()).toBe(true);
   });
   it('两个详情交错返回时只保留最后选择', async () => {
     const pending = deferred<typeof importTask>(); vi.mocked(api.getImportExportTask).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(other);

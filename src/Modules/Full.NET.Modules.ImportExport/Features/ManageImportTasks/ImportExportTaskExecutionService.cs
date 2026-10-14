@@ -173,12 +173,26 @@ internal sealed class ImportExportTaskExecutionService(
         var content = await resourceFiles
             .OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, cancellationToken)
             .ConfigureAwait(false);
-        return content.IsSuccess
-            ? Result<TenantResourceFileContent>.Success(content.Value! with
+        if (!content.IsSuccess) return content;
+        var transferred = false;
+        try
+        {
+            // 存储读取可能耗时；交付内容前再次确认创建人的当前会话与原业务能力。
+            if (!await IsAuthorizedAsync(task, new StaticImportPreviewContext(binding.UserId,
+                    new Dictionary<string, bool>()), binding, cancellationToken).ConfigureAwait(false))
+                return Result<TenantResourceFileContent>.Failure(PermissionDeniedError());
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = Result<TenantResourceFileContent>.Success(content.Value! with
             {
                 OriginalFileName = ImportExportErrorReceiptIdentity.BuildDownloadFileName(task.SourceFileName),
-            })
-            : content;
+            });
+            transferred = true;
+            return result;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task RunSynchronouslyIfConfiguredAsync(

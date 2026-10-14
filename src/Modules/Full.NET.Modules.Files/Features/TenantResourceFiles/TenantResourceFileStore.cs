@@ -77,6 +77,13 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         buffered.Position = 0;
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(buffered, cancellationToken).ConfigureAwait(false));
         buffered.Position = 0;
+        // 大文件读取和摘要计算可能跨越停用或上下文切换；进入配额和持久化前重新核对可信租户。
+        if (RequireScope(ownerModuleKey, resourceId) != tenantId
+            || !await activeTenants.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure<TenantResourceFileReference>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
+        }
+
         var fileId = ids.NewId();
         var operationId = fileId.ToString("N");
         var reserveResult = await FilesHostExecutionScope.RunAsync(
@@ -201,9 +208,11 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             return Failure<TenantResourceFileContent>(FilesErrorCodes.FileNotFound, ErrorType.NotFound);
         }
-        var stream = await providers.Resolve(record.ProviderKey).OpenReadAsync(record.StorageKey, cancellationToken)
-            .ConfigureAwait(false);
-        return Result<TenantResourceFileContent>.Success(new(stream, record.ContentType, record.OriginalFileName));
+        var content = await FileStorageContentReader.OpenAsync(
+            providers.Resolve(record.ProviderKey), record.StorageKey, cancellationToken).ConfigureAwait(false);
+        return content.IsSuccess
+            ? Result<TenantResourceFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName))
+            : Result<TenantResourceFileContent>.Failure(content.Error!);
     }
 
     /// <inheritdoc />

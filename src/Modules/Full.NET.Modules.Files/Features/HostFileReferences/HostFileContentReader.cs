@@ -33,9 +33,10 @@ internal sealed class HostFileContentReader(
         }
 
         var storageProvider = storageProviders.Resolve(record.ProviderKey);
-        var stream = await storageProvider.OpenReadAsync(record.StorageKey, cancellationToken)
+        var content = await FileStorageContentReader.OpenAsync(storageProvider, record.StorageKey, cancellationToken)
             .ConfigureAwait(false);
-        return Result<HostFileContent>.Success(
-            new HostFileContent(stream, record.ContentType, record.OriginalFileName));
+        return content.IsSuccess
+            ? Result<HostFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName))
+            : Result<HostFileContent>.Failure(content.Error!);
     }
 }

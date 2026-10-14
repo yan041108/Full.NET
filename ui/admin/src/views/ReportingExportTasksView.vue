@@ -33,6 +33,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
+import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
@@ -49,6 +50,7 @@ const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
 const downloading = ref(false);
+const unavailableFiles = useUnavailableResultFiles();
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
@@ -87,6 +89,7 @@ watch(createDialogVisible, visible => {
   if (!visible) { createRequest?.cancel(); creating.value = false; }
 }, {flush:'sync'});
 const scope = useAuthorizedViewScope(session, () => {
+  unavailableFiles.reset();
   items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
   resetParameters();
@@ -209,24 +212,33 @@ async function submitCreate(): Promise<void> {
 }
 
 async function downloadTask(task: ReportingExportTask): Promise<void> {
-  if (!canDownload() || task.statusKey !== 'succeeded' || downloading.value) {
+  if (!canDownload() || task.statusKey !== 'succeeded' || downloading.value || unavailableFiles.isUnavailable(task.id)) {
     return;
   }
   const request = scope.begin('reporting.export_tasks.download'); if (!request) return; downloading.value = true;
+  const fileRequest = unavailableFiles.begin(task.id);
 
   try {
     const blob = await downloadReportingExportTask(task.id, request.signal);
-    if (!request.current()) return;
+    if (!request.current() || !fileRequest.current()) return;
     const url = URL.createObjectURL(blob);
     try {
       const anchor = document.createElement('a');
       anchor.href = url; anchor.download = task.outputFileName ?? 'reporting-export.xlsx'; anchor.click();
     } finally { URL.revokeObjectURL(url); }
   } catch (error: unknown) {
-    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.downloadFailed');
+    if (request.current() && fileRequest.current()) problem.value = fileRequest.markUnavailable(error)
+      ? { title: t('dataOutput.resultUnavailable'), status: 404, code: 'files.file.not_found' }
+      : toProblem(error, 'reportingExportTasks.downloadFailed');
   } finally {
     if (request.current()) downloading.value = false; request.finish();
   }
+}
+
+// 用户刷新可重新确认恢复后的文件，状态轮询不反复开启已确定缺失的下载入口。
+function refreshResults() {
+  if (downloading.value || creating.value) return;
+  unavailableFiles.reset(); void load();
 }
 
 </script>
@@ -243,7 +255,7 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
           :loading="loading"
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen"
-          @refresh="load"
+          @refresh="refreshResults"
         >
           <template #left>
             <PermissionGate code="reporting.export_tasks.create">
@@ -303,11 +315,12 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
                     type="primary"
                     data-testid="reporting-export-download"
                     :data-task-id="row.id"
-                    :disabled="downloading"
+                    :disabled="downloading || unavailableFiles.isUnavailable(row.id)"
                     @click="downloadTask(row)"
                   >
                     {{ t('reportingExportTasks.download') }}
                   </ElButton>
+                  <span v-if="unavailableFiles.isUnavailable(row.id)" data-testid="reporting-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
                 </PermissionGate>
               </ArtTableActionGroup>
             </template>

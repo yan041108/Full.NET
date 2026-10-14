@@ -22,6 +22,44 @@ public sealed class TenantResourceFileStoreTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public async Task Upload_revalidates_tenant_after_buffering_before_quota_or_object_writes(bool changedScope)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid();
+        tenant.SetTenant(new(tenantId, "a", "A"));
+        var active = Substitute.For<IIdentityActiveTenantDirectory>();
+        active.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(true, false);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>(); var commands = Substitute.For<ICommandExecutor>();
+        var store = Create(Substitute.For<IQueryExecutor>(), commands, tenant, Substitute.For<IDataTransactionState>(), storage, Substitute.For<IIdGenerator>(), quotaPort: quota, activeTenants: active);
+        using var content = new CallbackReadStream(() => { if (changedScope) tenant.SetTenant(new(Guid.NewGuid(), "b", "B")); });
+        var result = await store.UploadAsync("reporting", Guid.NewGuid(), Guid.NewGuid(), "result.xlsx", "application/test", content, 1);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, result.Error!.Code);
+        await quota.DidNotReceive().TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+        await commands.DidNotReceive().ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await storage.DidNotReceive().SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Ready_metadata_with_missing_object_returns_not_found(bool directory)
+    {
+        var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
+        var fileId = Guid.NewGuid(); var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new TenantResourceFileRecord(fileId, "receipt.xlsx", "application/test", 1, "hash", "test", "private-key", "ready"));
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        Exception error = directory ? new DirectoryNotFoundException("private") : new FileNotFoundException("private", "private-key");
+        storage.OpenReadAsync("private-key", Arg.Any<CancellationToken>()).Returns(Task.FromException<Stream>(error));
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(), storage, Substitute.For<IIdGenerator>());
+        var result = await store.OpenReadyContentAsync("import_export", Guid.NewGuid(), fileId);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.FileNotFound, result.Error!.Code);
+        Assert.AreEqual(ErrorType.NotFound, result.Error.Type); Assert.IsFalse(result.Error.Message.Contains("private", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public async Task Upload_owner_intent_is_committed_before_object_access_or_blocks_upload(bool ownerFails)
     {
         var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
@@ -385,11 +423,23 @@ public sealed class TenantResourceFileStoreTests
     /// <param name="ids">标识生成器。</param>
     private static TenantResourceFileStore Create(IQueryExecutor queries, ICommandExecutor commands,
         CurrentTenantAccessor tenant, IDataTransactionState state, IFileStorageProvider storage, IIdGenerator ids,
-        ITenantFileStorageQuotaPort? quotaPort = null, bool tenantActive = true, IEnumerable<ITenantResourceFileOwner>? owners = null) =>
+        ITenantFileStorageQuotaPort? quotaPort = null, bool tenantActive = true, IEnumerable<ITenantResourceFileOwner>? owners = null,
+        IIdentityActiveTenantDirectory? activeTenants = null) =>
         new(queries, commands, tenant, state,
             new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
             owners ?? [], Substitute.For<IClock>(), ids, Options.Create(new LocalFileStorageOptions { MaxUploadBytes = 16 }),
-            quotaPort ?? new NullTenantFileStorageQuotaPort(), CreateActiveTenants(tenantActive));
+            quotaPort ?? new NullTenantFileStorageQuotaPort(), activeTenants ?? CreateActiveTenants(tenantActive));
+
+    /// <summary>在真实读取边界改变租户状态，不伪造配额、数据库或对象上传结果。</summary>
+    private sealed class CallbackReadStream(Action callback) : MemoryStream(new byte[] { 1 })
+    {
+        private bool called;
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!called) { called = true; callback(); }
+            return base.ReadAsync(buffer, cancellationToken);
+        }
+    }
 
     private static IIdentityActiveTenantDirectory CreateActiveTenants(bool active)
     {

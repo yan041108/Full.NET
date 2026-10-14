@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ElDialog, ElOption, ElSelect } from 'element-plus';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
+import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import { createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
 import { createOutputSession, deferred, exportTask, publishedReportDefinition } from '../test/data-output-fixtures';
@@ -12,6 +13,23 @@ beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedDefinitio
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 const mountView = (permissions: string[]) => { const context = createOutputSession(permissions); wrapper = mount(ReportingExportTasksView, { global: { plugins: [context.pinia] } }); return context.session; };
 describe('报表导出授权与生命周期', () => {
+  it('明确文件404显示不可用并禁用对应下载入口', async () => {
+    vi.mocked(downloadReportingExportTask).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
+    mountView(['reporting.export_tasks.read','reporting.export_tasks.download']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-download"]').trigger('click'); await flushPromises();
+    expect(wrapper!.get('[data-testid="reporting-export-download"]').attributes('disabled')).toBeDefined();
+    expect(wrapper!.find('[data-testid="reporting-result-unavailable"]').exists()).toBe(true);
+    wrapper!.getComponent(ArtTableHeader).vm.$emit('refresh'); await flushPromises();
+    expect(wrapper!.get('[data-testid="reporting-export-download"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper!.find('[data-testid="reporting-result-unavailable"]').exists()).toBe(false);
+  });
+  it.each([403,500])('下载%s不误判为文件已清理', async status => {
+    vi.mocked(downloadReportingExportTask).mockRejectedValue({ title: 'failure', status, code: 'files.file.not_found' });
+    mountView(['reporting.export_tasks.read','reporting.export_tasks.download']); await flushPromises();
+    await wrapper!.get('[data-testid="reporting-export-download"]').trigger('click'); await flushPromises();
+    expect(wrapper!.get('[data-testid="reporting-export-download"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper!.find('[data-testid="reporting-result-unavailable"]').exists()).toBe(false);
+  });
   it('关闭等待创建的弹窗立即取消，迟到任务不刷新或写回弹窗', async () => {
     const pending=deferred<typeof exportTask>();vi.mocked(createReportingExportTask).mockReturnValue(pending.promise);
     mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.executions.run']);await flushPromises();

@@ -122,8 +122,7 @@ internal sealed class HostDocumentItemQueryService(
             return contentResult;
         }
 
-        await TryRecordAccessAsync(record, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+        return await RecordAccessAndTransferAsync(record, accessObservation, contentResult, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<IReadOnlyList<HostDocumentVersionResponse>>> ListVersionsAsync(
@@ -186,12 +185,31 @@ internal sealed class HostDocumentItemQueryService(
 
         if (!IsPreviewSupportedMime(contentResult.Value!.ContentType))
         {
-            contentResult.Value.Content.Dispose();
+            await contentResult.Value.Content.DisposeAsync().ConfigureAwait(false);
             return Result<HostFileContent>.Failure(PreviewNotSupportedError());
         }
 
-        await TryRecordAccessAsync(item, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+        return await RecordAccessAndTransferAsync(item, accessObservation, contentResult, cancellationToken).ConfigureAwait(false);
+    }
+
+    // 日志或请求取消失败时，尚未交付给 HTTP 层的文件流仍由本服务负责释放。
+    private async Task<Result<HostFileContent>> RecordAccessAndTransferAsync(
+        DocumentItemDetailRecord item, DocumentAccessObservation? observation,
+        Result<HostFileContent> content, CancellationToken token)
+    {
+        var transferred = false;
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            await TryRecordAccessAsync(item, observation, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            transferred = true;
+            return content;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task<Result<Guid>> ResolvePreviewFileIdAsync(

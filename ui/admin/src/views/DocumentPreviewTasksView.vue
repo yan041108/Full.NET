@@ -28,6 +28,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
+import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import {
   createDocumentPreviewTask,
   listDocumentPreviewTasks,
@@ -41,6 +42,7 @@ const { t } = useAdminI18n();
 const items = ref<HostDocumentPreviewTaskResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const unavailableFiles = useUnavailableResultFiles();
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
@@ -53,6 +55,7 @@ const editorForm = reactive({
   versionId: ''
 });
 const scope = useAuthorizedViewScope(session, () => {
+  unavailableFiles.reset();
   items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
   editorOpen.value = false; filterDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
   loading.value = false; changing.value = false;
@@ -160,19 +163,27 @@ async function submitCreate() {
 }
 
 async function openPdf(row: HostDocumentPreviewTaskResponse) {
-  if (row.statusKey !== 'succeeded' || changing.value || !canRead()) {
+  if (row.statusKey !== 'succeeded' || changing.value || !canRead() || unavailableFiles.isUnavailable(row.id)) {
     return;
   }
   const request = scope.begin('document.host_preview_tasks.read'); if (!request) return;
+  const fileRequest = unavailableFiles.begin(row.id);
 
   changing.value = true;
   try {
     await openDocumentPreviewTaskContent(row.id, request.signal);
   } catch (error) {
-    if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
+    if (request.current() && fileRequest.current()) problem.value = fileRequest.markUnavailable(error)
+      ? { title: t('dataOutput.resultUnavailable'), status: 404, code: 'files.file.not_found' }
+      : toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
     if (request.current()) changing.value = false; request.finish();
   }
+}
+
+function refreshResults() {
+  if (changing.value) return;
+  unavailableFiles.reset(); void load();
 }
 
 function toProblem(
@@ -204,7 +215,7 @@ function toProblem(
       <template #header>
         <div class="document-module-card-header">
           <span>{{ t('documentPreviewTasks.title') }}</span>
-          <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">
+          <el-button type="primary" :icon="Refresh" :loading="loading" @click="refreshResults">
             {{ t('documentPermissions.refresh') }}
           </el-button>
         </div>
@@ -234,7 +245,7 @@ function toProblem(
           :loading="loading"
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen"
-          @refresh="load"
+          @refresh="refreshResults"
         >
           <template #left>
             <PermissionGate code="document.host_preview_tasks.create">
@@ -282,9 +293,10 @@ function toProblem(
                       type="view"
                       test-id="document-preview-task-open-pdf"
                       :title="t('documentPreviewTasks.openPdf')"
-                      :disabled="changing"
+                      :disabled="changing || unavailableFiles.isUnavailable(row.id)"
                       @click="openPdf(row as HostDocumentPreviewTaskResponse)"
                     />
+                    <span v-if="unavailableFiles.isUnavailable(row.id)" data-testid="document-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
                   </PermissionGate>
                 </ArtTableActionGroup>
               </template>

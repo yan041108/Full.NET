@@ -8,6 +8,7 @@ import {
   ElDescriptions,
   ElDescriptionsItem,
   ElDrawer,
+  ElDialog,
   ElMessage,
   ElPagination,
   ElTable,
@@ -27,6 +28,7 @@ import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
+import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import {
   cancelImportExportTask,
   downloadImportExportTaskErrorReceipt,
@@ -52,7 +54,13 @@ const total = ref(0);
 const drawerVisible = ref(false);
 const selectedTask = ref<ImportExportTaskDetailResponse>();
 const createOpen = ref(false);
+const cancelConfirmation = ref<ImportExportTaskDetailResponse>();
+const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
+const unavailableFiles = useUnavailableResultFiles();
+const receiptKey = (task: ImportExportTaskDetailResponse) => task.id + ':' + task.version;
 const scope = useAuthorizedViewScope(session, () => {
+  cancelConfirmation.value = undefined;
+  unavailableFiles.reset();
   items.value = []; selectedTask.value = undefined; problem.value = undefined; drawerVisible.value = false;
   page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
 }, async () => { await load(); });
@@ -62,6 +70,7 @@ let actionRequest: ReturnType<typeof scope.begin>;
 
 // 抽屉关闭或重新选择任务后，旧详情、执行和下载均失去接入资格。
 function cancelDetail(): void {
+  cancelConfirmation.value = undefined;
   detailRequest?.cancel(); actionRequest?.cancel(); selectedTask.value = undefined;
   detailLoading.value = false; actionLoading.value = false;
 }
@@ -215,15 +224,33 @@ async function runAction(kind: 'execute' | 'resume' | 'retry' | 'cancel') {
   }
 }
 
+// 确认属于当前详情及版本；换任务、撤权和关闭抽屉都同步撤销确认，不能在新范围发送旧操作。
+function requestCancellation() {
+  const task = selectedTask.value;
+  if (drawerVisible.value && task && isCancellable(task) && session.can('import_export.import_tasks.cancel') && !actionLoading.value && !detailLoading.value)
+    cancelConfirmation.value = { ...task };
+}
+
+async function confirmCancellation() {
+  const confirmed = cancelConfirmation.value, task = selectedTask.value;
+  cancelConfirmation.value = undefined;
+  if (!confirmed || !task || !drawerVisible.value || !session.can('import_export.import_tasks.cancel')) return;
+  if (confirmed.id !== task.id || confirmed.version !== task.version || !isCancellable(task)) {
+    ElMessage.warning(t('importExportTasks.cancelStateChanged')); return;
+  }
+  await runAction('cancel');
+}
+
 async function downloadErrorReceipt() {
   const task = selectedTask.value;
-  if (!drawerVisible.value || !task?.hasErrorReceipt || actionLoading.value || detailLoading.value) return;
+  if (!drawerVisible.value || !task?.hasErrorReceipt || unavailableFiles.isUnavailable(receiptKey(task)) || actionLoading.value || detailLoading.value) return;
+  const fileRequest = unavailableFiles.begin(receiptKey(task));
   const request = scope.begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
 
   actionLoading.value = true;
   try {
     const blob = await downloadImportExportTaskErrorReceipt(task.id, request.signal);
-    if (!request.current()) return;
+    if (!request.current() || !fileRequest.current()) return;
     const url = URL.createObjectURL(blob);
     try {
       const anchor = document.createElement('a');
@@ -232,7 +259,10 @@ async function downloadErrorReceipt() {
       anchor.click();
     } finally { URL.revokeObjectURL(url); }
   } catch (error) {
-    if (request.current()) ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
+    if (request.current() && fileRequest.current()) {
+      const missing = fileRequest.markUnavailable(error);
+      ElMessage.error(missing ? t('dataOutput.resultUnavailable') : toProblem(error).title || t('importExportTasks.actionFailed'));
+    }
   } finally {
     if (request.current()) actionLoading.value = false; request.finish();
   }
@@ -243,6 +273,11 @@ function toProblem(error: unknown): FullNetProblemDetails {
     return error;
   }
   return { title: t('importExportTasks.loadFailed'), status: 500, code: 'importExportTasks.loadFailed' };
+}
+
+function refreshResults() {
+  if (actionLoading.value || detailLoading.value) return;
+  unavailableFiles.reset(); void load();
 }
 
 </script>
@@ -270,7 +305,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
           :loading="loading"
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen"
-          @refresh="load"
+          @refresh="refreshResults"
         >
           <template #left>
             <PermissionGate code="import_export.import_tasks.create">
@@ -390,7 +425,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
           <div class="art-drawer-actions">
             <PermissionGate code="import_export.import_tasks.cancel">
               <el-button v-if="isCancellable(selectedTask)" data-testid="import-export-task-cancel"
-                :loading="actionLoading" :disabled="detailLoading" @click="runAction('cancel')">
+                :loading="actionLoading" :disabled="detailLoading" @click="requestCancellation">
                 {{ t('importExportTasks.cancel') }}
               </el-button>
             </PermissionGate>
@@ -425,7 +460,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
                 {{ t('importExportTasks.retry') }}
               </el-button>
               <el-button
-                v-if="selectedTask.hasErrorReceipt"
+                v-if="selectedTask.hasErrorReceipt && !unavailableFiles.isUnavailable(receiptKey(selectedTask))"
                 data-testid="import-export-task-error-receipt"
                 :loading="actionLoading"
                 :disabled="!canExecute()"
@@ -435,9 +470,18 @@ function toProblem(error: unknown): FullNetProblemDetails {
               </el-button>
             </PermissionGate>
           </div>
+          <el-alert v-if="unavailableFiles.isUnavailable(receiptKey(selectedTask))" type="warning" :closable="false"
+            data-testid="import-result-unavailable" :title="t('dataOutput.resultUnavailable')" />
         </template>
       </div>
     </el-drawer>
+    <ElDialog v-model="cancelDialogVisible" :title="t('importExportTasks.cancel')" width="460px">
+      <p>{{ t('importExportTasks.cancelConfirm') }}</p>
+      <template #footer>
+        <ElButton data-testid="import-cancel-dismiss" @click="cancelConfirmation = undefined">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="danger" data-testid="import-cancel-confirm" @click="confirmCancellation">{{ t('importExportTasks.cancel') }}</ElButton>
+      </template>
+    </ElDialog>
   </section>
 </template>
 

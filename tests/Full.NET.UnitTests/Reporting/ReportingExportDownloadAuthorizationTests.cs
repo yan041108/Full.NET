@@ -21,6 +21,13 @@ namespace Full.NET.UnitTests.Reporting;
 public sealed class ReportingExportDownloadAuthorizationTests
 {
     [TestMethod]
+    [DataRow("lateSession")]
+    [DataRow("latePermission")]
+    [DataRow("lateFailure")]
+    [DataRow("lateCancel")]
+    [DataRow("lateRequestCancel")]
+    [DataRow("lateVersion")]
+    [DataRow("lateDisabled")]
     [DataRow("actor")]
     [DataRow("tenant")]
     [DataRow("session")]
@@ -39,6 +46,7 @@ public sealed class ReportingExportDownloadAuthorizationTests
     [DataRow("newPermission")]
     public async Task Download_requires_current_owner_session_and_original_columns(string reason)
     {
+        using var cancellation = new CancellationTokenSource();
         var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid();
         tenant.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
         var owner = Guid.NewGuid();
@@ -68,8 +76,7 @@ public sealed class ReportingExportDownloadAuthorizationTests
             query.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(ReportingTenantGrantSql.ResolveVersion(DatabaseProvider.SqlServer),
                 Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ReportingDefinitionVersionRecord?>(null));
         var files = Substitute.For<ITenantResourceFileStore>();
-        files.OpenReadyContentAsync("reporting", task.Id, task.OutputFileId.Value, Arg.Any<CancellationToken>())
-            .Returns(Result<TenantResourceFileContent>.Success(new(new MemoryStream([1]), "application/test", "report.xlsx")));
+        var stream = new MemoryStream([1]);
         var identity = Substitute.For<IBackgroundSessionAuthorization>();
         identity.AuthorizeAsync(binding, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId));
@@ -85,16 +92,43 @@ public sealed class ReportingExportDownloadAuthorizationTests
             identity.AuthorizeAsync(binding, Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(new AuthorizedSessionActor(Guid.NewGuid(), binding.TenantId, binding.SessionId));
         var definitions = new ReportingPublishedDefinitionResolver(query, new ReportingDefinitionQueryService(query, database), tenant, database);
+        files.OpenReadyContentAsync("reporting", task.Id, task.OutputFileId.Value, Arg.Any<CancellationToken>())
+            .Returns(_ => {
+                if (reason == "lateSession") identity.AuthorizeAsync(binding, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<AuthorizedSessionActor?>(null));
+                if (reason == "latePermission") identity.AuthorizeAsync(binding, "protected.column", Arg.Any<CancellationToken>()).Returns(Task.FromResult<AuthorizedSessionActor?>(null));
+                if (reason is "lateFailure" or "lateCancel") identity.AuthorizeAsync(binding, Arg.Any<string>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromException<AuthorizedSessionActor?>(reason == "lateFailure"
+                        ? new InvalidOperationException("authorization-failure") : new OperationCanceledException()));
+                if (reason == "lateRequestCancel") cancellation.Cancel();
+                if (reason == "lateVersion") query.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(
+                    ReportingTenantGrantSql.ResolveVersion(DatabaseProvider.SqlServer), Arg.Any<object>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<ReportingDefinitionVersionRecord?>(null));
+                if (reason == "lateDisabled") query.QuerySingleOrDefaultAsync<ReportingDefinitionRecord>(
+                    ReportingTenantGrantSql.FindDefinition, Arg.Any<object>(), Arg.Any<CancellationToken>())
+                    .Returns(new ReportingDefinitionRecord { Id = task.DefinitionId, IsEnabled = false });
+                return Task.FromResult(Result<TenantResourceFileContent>.Success(new(stream, "application/test", "report.xlsx")));
+            });
         var authorization = new ReportingExportAuthorization(tenant, identity, definitions);
         var service = new ReportingExportTaskManagementService(definitions,
             files, query, Substitute.For<ICommandExecutor>(), null!, tenant,
             Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), database, authorization, Substitute.For<IIdentityPermissionEvaluator>());
-        var result = await service.OpenDownloadAsync(task.Id, binding);
+        if (reason is "lateFailure" or "lateCancel" or "lateRequestCancel")
+        {
+            if (reason == "lateFailure") await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.OpenDownloadAsync(task.Id, binding, cancellation.Token));
+            else await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => service.OpenDownloadAsync(task.Id, binding, cancellation.Token));
+            Assert.IsFalse(stream.CanRead);
+            Assert.AreEqual(1, files.ReceivedCalls().Count());
+            Assert.AreEqual(tenantId, tenant.Id);
+            Assert.IsFalse(tenant.IsHost);
+            return;
+        }
+        var result = await service.OpenDownloadAsync(task.Id, binding, cancellation.Token);
         var allowed = reason is "allowed" or "unrelated" or "newPermission";
         Assert.AreEqual(allowed, result.IsSuccess);
         if (allowed) result.Value!.Content.Dispose();
         else Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Error!.Code);
-        Assert.AreEqual(allowed ? 1 : 0, files.ReceivedCalls().Count());
+        Assert.AreEqual(allowed || reason is "lateSession" or "latePermission" or "lateVersion" or "lateDisabled" ? 1 : 0, files.ReceivedCalls().Count());
+        if (reason is "lateSession" or "latePermission" or "lateVersion" or "lateDisabled") Assert.IsFalse(stream.CanRead);
         Assert.AreEqual(tenantId, tenant.Id); Assert.IsFalse(tenant.IsHost);
     }
 }

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6074,
+      "minimum": 6137,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -25,7 +25,7 @@
         },
         "document-lifecycle": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Document",
-          "minimum": 142
+          "minimum": 168
         },
         "reporting-recovery": {
           "filter": "FullyQualifiedName~ReportingExportTaskRecoveryTests",

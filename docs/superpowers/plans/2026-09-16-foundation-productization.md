@@ -3199,3 +3199,13 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 每库4个Worker、1次仅限自有Worker的强退、2份真实回执；两个provider的completed/cleanupSucceeded/processesClosed均true。门禁node .tmp/f11-cancel-retention-proof.mjs通过，7696份消费者输入及6696份应用文件无漂移，队列/父进程和应用宿主全部退出，正式重型锁自然释放。集中排队31.421秒、实际执行307.735秒；结果、原始日志和final-proof.json保留在本批.tmp与登记的冻结G:/.fullnet-tests/cr-Oz8WuL。
 - 本批关闭JIT独立应用的取消结果保留/执行中拒绝子项，不声称新增生产功能或重新发布Native。原0c013cf的API Native49/49、Worker27/27及主CI成功结论按未变生产输入复用；这四项新增故障场景未在Native进程复验。Vue真实页面、完整F11故障/结果过期/容量仍待，整体保持Build-verified、Capacity-not-verified；保护外来WIP，未合并发布。
 <!-- /f11-import-cancellation-results-20261014 -->
+<!-- c02-data-output-development-20261014 -->
+## 2026-10-14 C02 数据输出与文件读取联合开发（待集中验证）
+
+- 执行依据：项目所有者要求“开发任务先全部批量完成”，同一模块及关联模块先集中实现，再集中测试；本批基线 `78ca7578b9f93d376a58880e313610c2e6769a78`。
+- Files 三个读取入口统一将实际对象缺失映射为 `files.file.not_found/404`，保留真实权限、配置、磁盘故障与取消异常。本地 Provider 直接打开文件，避免 `File.Exists` 吞掉访问故障；大文件缓冲和摘要后、配额及持久化前重新核对可信租户和活动状态。
+- ImportExport 回执和 Reporting 导出在文件打开后复核当前会话、权限及报表发布授权；拒绝、异常和取消释放未交付流。Document 内容在访问日志失败时释放流；匿名原文件及 PDF 输出在交付前复核当前分享、口令、期限、绑定和 Active 文档，成功 Preview 观测在复核后记录，不重复消耗分享配额。
+- Vue 三页展示明确的结果文件不可用状态，手动刷新允许重新检查；迟到旧范围错误不得污染新范围。导入取消使用当前详情及版本的独立确认，关闭抽屉、换任务和撤权撤销确认。此提示不代表已经新增自动结果过期或清理政策。
+- 同步 Host 文件下载 404 OpenAPI 候选及中英文提示，编写 63 个新增 C# 场景及 Vue 生命周期回归。只读审查发现的本地 Provider 误分类已在代码中处理；最终只读复审未发现新的 P1/P2。
+- 状态：代码及测试用例已写入，**尚未执行本批编译、测试、双库、运行时 OpenAPI、Native 或页面验收**；当前只能登记为待验证开发成果，不关闭 F11/C02 或提升能力状态。`git diff --check` 通过，外来 WIP 内容保全检查通过；旧批验收不能覆盖本批生产代码变化。
+<!-- /c02-data-output-development-20261014 -->

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ElButton, ElMessage } from 'element-plus';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import DocumentPreviewTasksView from './DocumentPreviewTasksView.vue';
 import * as api from '../api/document-preview-tasks';
 import { createOutputSession, deferred, outputId } from '../test/data-output-fixtures';
@@ -26,6 +27,23 @@ const setup = async (permissions = [read, create]) => {
   await flushPromises(); return context.session;
 };
 describe('文档预览请求归属', () => {
+  it('明确文件404显示不可用，不再重复打开PDF', async () => {
+    vi.mocked(api.openDocumentPreviewTaskContent).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
+    await setup([read]); await wrapper!.get('[data-testid="document-preview-task-open-pdf"]').trigger('click'); await flushPromises();
+    expect(wrapper!.find('[data-testid="document-result-unavailable"]').exists()).toBe(true);
+    expect(wrapper!.get('[data-testid="document-preview-task-open-pdf"]').attributes('disabled')).toBeDefined();
+    wrapper!.getComponent(ArtTableHeader).vm.$emit('refresh'); await flushPromises();
+    expect(wrapper!.get('[data-testid="document-preview-task-open-pdf"]').attributes('disabled')).toBeUndefined();
+  });
+  it('旧身份迟到的文件404不污染新身份结果状态', async () => {
+    const pending = deferred<void>(); vi.mocked(api.openDocumentPreviewTaskContent).mockReturnValue(pending.promise);
+    const session = await setup([read]); await wrapper!.get('[data-testid="document-preview-task-open-pdf"]').trigger('click');
+    session.currentUser!.permissions = [];
+    pending.reject({ title: 'missing', status: 404, code: 'files.file.not_found' }); await flushPromises();
+    session.currentUser!.permissions = [read]; await flushPromises();
+    expect(wrapper!.find('[data-testid="document-result-unavailable"]').exists()).toBe(false);
+    expect(wrapper!.get('[data-testid="document-preview-task-open-pdf"]').attributes('disabled')).toBeUndefined();
+  });
   it('没有读取权限不加载；授权后加载，注销同步清理列表', async () => {
     const session = await setup([]); expect(api.listDocumentPreviewTasks).not.toHaveBeenCalled();
     session.currentUser!.permissions = [read]; await flushPromises(); expect(wrapper!.text()).toContain('敏感文档');
