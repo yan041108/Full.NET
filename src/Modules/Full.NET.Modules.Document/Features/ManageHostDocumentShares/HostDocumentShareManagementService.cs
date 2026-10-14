@@ -370,17 +370,23 @@ internal sealed class HostDocumentShareManagementService(
         string shareCode, AccessHostDocumentShareRequest request, DocumentShareRecord original,
         Result<HostFileContent> content, CancellationToken token, DocumentAccessObservation? observation = null)
     {
-        if (!content.IsSuccess) return content;
+        if (!content.IsSuccess)
+        {
+            token.ThrowIfCancellationRequested();
+            return content;
+        }
         var transferred = false;
         try
         {
             token.ThrowIfCancellationRequested();
             var current = await ResolveAnonymousShareAsync(shareCode, request, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (!current.IsSuccess) return MapShareFailureToContent(current);
             if (current.Value.Share.Id != original.Id || current.Value.Share.DocumentId != original.DocumentId)
                 return AccessDeniedContent();
             var document = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById, DocumentSqlParameters.Create(("Id", original.DocumentId)), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (document is null) return AccessDeniedContent();
             if (observation is not null)
             {
@@ -403,6 +409,7 @@ internal sealed class HostDocumentShareManagementService(
         AccessHostDocumentShareRequest request,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(shareCode))
         {
             return AccessDeniedTuple();
@@ -414,6 +421,7 @@ internal sealed class HostDocumentShareManagementService(
                 DocumentSqlParameters.Create(("ShareCode", shareCode)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (share is null)
         {
@@ -428,7 +436,9 @@ internal sealed class HostDocumentShareManagementService(
                 return PasswordRequiredTuple();
             }
 
-            if (!passwordHasher.Verify(share.Id, share.PasswordHash!, request.Password!))
+            var passwordMatches = passwordHasher.Verify(share.Id, share.PasswordHash!, request.Password!);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!passwordMatches)
             {
                 return AccessDeniedTuple();
             }

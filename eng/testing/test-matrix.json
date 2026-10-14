@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6739,
+      "minimum": 6811,
       "timeout": "10m",
       "selections": {
         "identity-cookie-control": {
@@ -25,7 +25,7 @@
         },
         "document-lifecycle": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Document",
-          "minimum": 283
+          "minimum": 355
         },
         "reporting-recovery": {
           "filter": "FullyQualifiedName~ReportingExportTaskRecoveryTests",
@@ -54,6 +54,10 @@
         "task-handoff-boundaries": {
           "filter": "FullyQualifiedName~TaskCancellationBoundaryTests|FullyQualifiedName~ReportingExportTaskCancellationTests|FullyQualifiedName~ImportExportTaskCancellationTests|FullyQualifiedName~DocumentPreviewTaskCancellationTests|FullyQualifiedName~ImportExportTaskPreviewBoundaryTests",
           "minimum": 166
+        },
+        "document-content-handoffs": {
+          "filter": "FullyQualifiedName~DocumentContentHandoffBoundaryTests|FullyQualifiedName~DocumentContentTransferTests",
+          "minimum": 98
         },
         "native-migrator-process": {
           "filter": "FullyQualifiedName~NativeMigratorProcessTests",
