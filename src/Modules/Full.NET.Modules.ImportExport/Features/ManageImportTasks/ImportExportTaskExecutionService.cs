@@ -151,6 +151,7 @@ internal sealed class ImportExportTaskExecutionService(
         SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (task is null)
@@ -173,15 +174,21 @@ internal sealed class ImportExportTaskExecutionService(
         var content = await resourceFiles
             .OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, cancellationToken)
             .ConfigureAwait(false);
-        if (!content.IsSuccess) return content;
+        if (!content.IsSuccess)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return content;
+        }
         var transferred = false;
         try
         {
-            // 存储读取可能耗时；交付内容前再次确认创建人的当前会话与原业务能力。
-            if (!await IsAuthorizedAsync(task, new StaticImportPreviewContext(binding.UserId,
-                    new Dictionary<string, bool>()), binding, cancellationToken).ConfigureAwait(false))
-                return Result<TenantResourceFileContent>.Failure(PermissionDeniedError());
             cancellationToken.ThrowIfCancellationRequested();
+            // 存储读取可能耗时；交付内容前再次确认创建人的当前会话与原业务能力。
+            var stillAllowed = await IsAuthorizedAsync(task, new StaticImportPreviewContext(binding.UserId,
+                    new Dictionary<string, bool>()), binding, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!stillAllowed)
+                return Result<TenantResourceFileContent>.Failure(PermissionDeniedError());
             var result = Result<TenantResourceFileContent>.Success(content.Value! with
             {
                 OriginalFileName = ImportExportErrorReceiptIdentity.BuildDownloadFileName(task.SourceFileName),
@@ -234,12 +241,14 @@ internal sealed class ImportExportTaskExecutionService(
         Guid taskId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ImportExportTaskRecord>(
                 ImportExportTaskSql.FindById,
                 ImportExportSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         return record is null
             ? Result<ImportExportTaskDetailResponse>.Failure(TaskNotFoundError())
             : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record));
@@ -254,6 +263,7 @@ internal sealed class ImportExportTaskExecutionService(
         SessionBindingSnapshot sessionBinding,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string? executionRowsJson;
         if (resetExecution)
         {
@@ -272,6 +282,7 @@ internal sealed class ImportExportTaskExecutionService(
                     state.Rows, sessionBinding));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var affected = await commandExecutor.ExecuteAsync(
                 ImportExportTaskSql.QueueExecution,
                 ImportExportSqlParameters.Create(
@@ -289,6 +300,7 @@ internal sealed class ImportExportTaskExecutionService(
                     ("ErrorCode", resetExecution ? null : task.ErrorCode)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (affected == 0)
         {
             return null;
@@ -299,13 +311,18 @@ internal sealed class ImportExportTaskExecutionService(
 
     private async Task<ImportExportTaskRecord?> LoadTaskAsync(
         Guid taskId,
-        CancellationToken cancellationToken) =>
-        await queryExecutor
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var task = await queryExecutor
             .QuerySingleOrDefaultAsync<ImportExportTaskRecord>(
                 ImportExportTaskSql.FindById,
                 ImportExportSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return task;
+    }
 
     private void EnsureTenantContext()
     {
@@ -316,17 +333,20 @@ internal sealed class ImportExportTaskExecutionService(
     }
 
     /// <summary>恢复由原创建人的当前会话授权，保留原预览能力与业务回执身份。</summary>
-    private Task<bool> IsAuthorizedAsync(ImportExportTaskRecord task, StaticImportPreviewContext context,
+    private async Task<bool> IsAuthorizedAsync(ImportExportTaskRecord task, StaticImportPreviewContext context,
         SessionBindingSnapshot binding, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var handler = registry.TryResolve(task.SchemaKey);
         var state = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
-        return handler is null || task.TenantId != currentTenant.Id
+        if (handler is null || task.TenantId != currentTenant.Id
             || context.RequestedByUserId != binding.UserId || task.RequestedByUserId != binding.UserId
             // 旧预览缺少能力集合时不能猜测原有效行；带附加能力的 Schema 必须重新上传预览。
-            || (state.CapabilityFlags is null && handler.ExecutionCapabilityPermissions.Count > 0)
-            ? Task.FromResult(false)
-            : authorization.IsAllowedAsync(binding, task.TenantId, handler, state.CapabilityFlags, cancellationToken);
+            || (state.CapabilityFlags is null && handler.ExecutionCapabilityPermissions.Count > 0)) return false;
+        var allowed = await authorization.IsAllowedAsync(binding, task.TenantId, handler, state.CapabilityFlags, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // 授权端口返回后仍保持原租户，不在变更后的上下文读取文件或排队写入。
+        return allowed && task.TenantId == currentTenant.Id && !currentTenant.IsHost;
     }
 
     private static Error PermissionDeniedError() =>

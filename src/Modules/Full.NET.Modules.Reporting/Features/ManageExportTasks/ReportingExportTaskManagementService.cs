@@ -56,21 +56,26 @@ internal sealed class ReportingExportTaskManagementService(
         SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var tenantId = currentTenant.Id!.Value;
+
+        if (request is null)
+            return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError("Export request is required."));
 
         if (!string.Equals(request.FormatKey, ReportingExportFormatKeys.Excel, StringComparison.Ordinal))
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(UnsupportedFormatError());
         }
 
-        if (request.Parameters.Any(parameter => string.IsNullOrWhiteSpace(parameter.ParameterKey)))
+        if (request.Parameters is null || request.Parameters.Any(parameter => parameter is null || string.IsNullOrWhiteSpace(parameter.ParameterKey)))
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError(
                 "Export parameter keys are required."));
         }
 
         var published = await publishedDefinitions.ResolveAsync(request.DefinitionId, request.VersionNumber, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!published.IsSuccess) return Result<ReportingExportTaskDetailResponse>.Failure(published.Error!);
         var definition = published.Value!.Definition;
         var versionNumber = published.Value.Version.VersionNumber;
@@ -99,7 +104,9 @@ internal sealed class ReportingExportTaskManagementService(
             Version = 1,
         };
 
-        if (!await authorization.CanRunAsync(record, cancellationToken).ConfigureAwait(false))
+        var canRun = await authorization.CanRunAsync(record, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!canRun)
             return Result<ReportingExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied,
                 "The export session or permission is no longer valid.", ErrorType.Forbidden));
 
@@ -120,6 +127,7 @@ internal sealed class ReportingExportTaskManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         await runner.RunOwnedAsync(taskId, cancellationToken).ConfigureAwait(false);
         return await LoadResultAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
@@ -133,6 +141,7 @@ internal sealed class ReportingExportTaskManagementService(
         SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
@@ -140,12 +149,15 @@ internal sealed class ReportingExportTaskManagementService(
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
 
-        if (!await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false))
+        var canDownload = await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!canDownload)
             return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
                 "The export download session or permission is no longer valid.", ErrorType.Forbidden));
 
@@ -163,6 +175,7 @@ internal sealed class ReportingExportTaskManagementService(
             .ConfigureAwait(false);
         if (!content.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return Result<TenantResourceFileContent>.Failure(content.Error!);
         }
 
@@ -170,11 +183,13 @@ internal sealed class ReportingExportTaskManagementService(
         var transferred = false;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // 打开对象期间撤销会话、报表版本授权或列权限时，不再把旧授权文件交给响应管道。
-            if (!await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false))
+            var stillAllowed = await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!stillAllowed)
                 return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
                     "The export download session or permission is no longer valid.", ErrorType.Forbidden));
-            cancellationToken.ThrowIfCancellationRequested();
             var result = Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
                 file.Content, file.ContentType ?? WorkbookContentType, record.OutputFileName ?? file.OriginalFileName));
             transferred = true;
@@ -193,12 +208,14 @@ internal sealed class ReportingExportTaskManagementService(
         Guid taskId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var detail = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
                 ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (detail is null)
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError());

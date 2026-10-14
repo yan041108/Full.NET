@@ -14,6 +14,7 @@ internal sealed class ImportExportExecutionAuthorization(IBackgroundSessionAutho
         IReadOnlyDictionary<string, bool>? capabilityFlags,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (binding is null || binding.TenantId != tenantId || tenantId == Guid.Empty
             || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty)
             return false;
@@ -30,6 +31,7 @@ internal sealed class ImportExportExecutionAuthorization(IBackgroundSessionAutho
         foreach (var permission in required)
         {
             var actor = await authorization.AuthorizeAsync(binding, permission, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (actor is null || actor.UserId != binding.UserId || actor.TenantId != tenantId || actor.SessionId != binding.SessionId)
                 return false;
         }

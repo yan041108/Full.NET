@@ -14,7 +14,9 @@ internal sealed class ReportingExportAuthorization(
     /// <summary>恢复只能使用创建时冻结的交互会话，无委托的旧队列必须重新创建。</summary>
     public Task<bool> CanRunAsync(ReportingExportTaskRecord task, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var snapshot = ReportingExportTaskMapper.DeserializeAuthorization(task.ActorPermissionCodesJson);
+        token.ThrowIfCancellationRequested();
         return snapshot?.Binding is null ? Task.FromResult(false)
             : ValidateAsync(task, snapshot.Binding, ReportingExportTaskPermissions.Create, token);
     }
@@ -26,37 +28,45 @@ internal sealed class ReportingExportAuthorization(
     private async Task<bool> ValidateAsync(ReportingExportTaskRecord task, SessionBindingSnapshot binding,
         string operationPermission, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (tenant.Id is null || binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty
             || binding.UserId != task.RequestedByUserId || task.TenantId != tenant.Id || task.TenantId != binding.TenantId
             || string.IsNullOrWhiteSpace(binding.SecurityStamp)) return false;
         var snapshot = ReportingExportTaskMapper.DeserializeAuthorization(task.ActorPermissionCodesJson);
+        token.ThrowIfCancellationRequested();
         if (snapshot is null) return false;
         foreach (var permission in new[] { operationPermission, ReportingExecutionPermissions.Run })
             if (!await HasPermissionAsync(binding, permission, token).ConfigureAwait(false)) return false;
         try
         {
             var published = await definitions.ResolveAsync(task.DefinitionId, task.VersionNumber, token).ConfigureAwait(false);
-            if (!published.IsSuccess) return false;
+            token.ThrowIfCancellationRequested();
+            if (!published.IsSuccess || tenant.Id != task.TenantId || tenant.Id != binding.TenantId) return false;
             var original = snapshot.PermissionCodes.ToHashSet(StringComparer.Ordinal);
             IReadOnlyList<ReportingLayoutColumnDefinition> columns;
             try { columns = ReportingLayoutConfigParser.ParseColumns(published.Value!.Version.LayoutConfigJson); }
-            catch (InvalidOperationException) { return false; }
+            catch (InvalidOperationException) { token.ThrowIfCancellationRequested(); return false; }
             foreach (var permission in columns.Select(column => column.RequiredPermission)
                 .Where(permission => permission is not null && original.Contains(permission)).Distinct(StringComparer.Ordinal))
                 if (!await HasPermissionAsync(binding, permission!, token).ConfigureAwait(false)) return false;
         }
         catch (System.Text.Json.JsonException)
         {
+            token.ThrowIfCancellationRequested();
             // 损坏发布快照无法证明原列边界，拒绝文件读取；不能按空列权限猜测。
             return false;
         }
-        return true;
+        token.ThrowIfCancellationRequested();
+        return tenant.Id == task.TenantId && tenant.Id == binding.TenantId;
     }
 
     private async Task<bool> HasPermissionAsync(SessionBindingSnapshot binding, string permission, CancellationToken token)
     {
         var actor = await authorization.AuthorizeAsync(binding, permission, token).ConfigureAwait(false);
-        return actor is not null && actor.UserId == binding.UserId && actor.TenantId == tenant.Id && actor.SessionId == binding.SessionId;
+        token.ThrowIfCancellationRequested();
+        // 可信当前租户也可能被下游代码改写，必须同时对照不可变的原会话绑定。
+        return actor is not null && actor.UserId == binding.UserId && actor.TenantId == binding.TenantId
+            && tenant.Id == binding.TenantId && actor.SessionId == binding.SessionId;
     }
 }
 
