@@ -70,6 +70,7 @@ internal static class AiBudgetRowReaders
         row.EffectiveScope = Text(reader, "EffectiveScope");
         row.StatusKey = Text(reader, "StatusKey");
         row.BudgetJson = Text(reader, "BudgetJson");
+        row.TraceParent = Null(reader, "TraceParent") ? null : Text(reader, "TraceParent");
         row.DeadlineAtUtc = Timestamp(reader, "DeadlineAtUtc");
         row.LeaseOwner = Null(reader, "LeaseOwner") ? null : Text(reader, "LeaseOwner");
         row.CreatedAtUtc = Timestamp(reader, "CreatedAtUtc");

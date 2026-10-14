@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/259_AiAgentRunTraceContext.sql",
+      "reason": "259 只按 INFORMATION_SCHEMA 列及说明探测选择固定 DDL 或 SELECT 1；不接受外部名称或业务输入。双库恢复测试覆盖新增可空列、未记账说明恢复及追踪和运行版本保留。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/258_AiKnowledgeAnswerReview.sql",
       "reason": "258 仅依据 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 间选择；无外部对象名和业务输入。恢复测试核验约束与说明恢复、非法审核失败关闭及单调版本保留。",
       "removalMilestone": "M1.0"

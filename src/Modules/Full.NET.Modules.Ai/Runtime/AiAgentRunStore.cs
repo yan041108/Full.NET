@@ -20,6 +20,8 @@ internal sealed class AiAgentRunStore(
     public async ValueTask<Guid> CreateOrGetAsync(AgentRunDraft draft, CancellationToken cancellationToken = default)
     {
         ValidateDraft(draft);
+        // 查询可能异步等待；创建来源只在入口读取一次，幂等重试不得覆盖已存上下文。
+        var traceParent = AiAgentRunTraceContext.Capture();
         var existing = await queries.QuerySingleOrDefaultAsync<Guid>(
             AiAgentRunSql.FindByClientRequest,
             AiSqlParameters.Create(
@@ -55,6 +57,7 @@ internal sealed class AiAgentRunStore(
                     ("EffectiveScope", draft.EffectiveScope),
                     ("BudgetJson", draft.BudgetJson),
                     ("DeadlineAtUtc", draft.DeadlineAtUtc),
+                    ("TraceParent", traceParent),
                     ("Now", now)),
                 cancellationToken).ConfigureAwait(false);
             if (affected != 1)

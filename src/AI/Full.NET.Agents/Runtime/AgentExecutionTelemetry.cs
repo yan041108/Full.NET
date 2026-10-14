@@ -69,6 +69,7 @@ public static class AgentExecutionTelemetry
         private readonly Activity? parent = Activity.Current;
         private readonly Activity? activity;
         private int completed;
+        private int linked;
         /// <summary>固定结果分类；未知值归为failed。结果只描述当前边界，不替代持久账本。</summary>
         public string Outcome { get; set; } = "failed";
 
@@ -101,6 +102,20 @@ public static class AgentExecutionTelemetry
         public void SetOperationId(Guid operationId)
         {
             try { if (operationId != Guid.Empty) activity?.SetTag("ai.operation.id", operationId.ToString("D")); }
+            catch (Exception) { }
+        }
+
+        /// <summary>最多关联一个已有持久上下文；保留当前父跨度，不输出扩展属性，不授予恢复或派发资格。</summary>
+        /// <param name="context">调用方已经确认的来源上下文；空标识忽略，只复制 Trace、Span 与采样标志。</param>
+        public void LinkContext(ActivityContext context)
+        {
+            if (context.TraceId == default || context.SpanId == default || Volatile.Read(ref completed) != 0
+                || Interlocked.CompareExchange(ref linked, 1, 0) != 0) return;
+            try
+            {
+                activity?.AddLink(new ActivityLink(new ActivityContext(context.TraceId, context.SpanId,
+                    context.TraceFlags & ActivityTraceFlags.Recorded, traceState: null, isRemote: true)));
+            }
             catch (Exception) { }
         }
 

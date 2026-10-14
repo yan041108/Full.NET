@@ -85,6 +85,9 @@ internal sealed class AiAgentRunCoordinator(
             return false;
         }
 
+        // 已取得有效租约才关联创建来源；保留当前 Worker 的父跨度，恢复通过链接连接独立 Trace。
+        if (AiAgentRunTraceContext.TryRead(record.TraceParent, out var origin)) observation.LinkContext(origin);
+
         await using var leaseWatch = new AiAgentRunLeaseWatch(scopeFactory, clock, lease,
             record.DeadlineAtUtc, leaseDuration, logger, callerCancellationToken);
         cancellationToken = leaseWatch.Token;

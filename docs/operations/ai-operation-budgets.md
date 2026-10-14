@@ -313,3 +313,13 @@ Agent、普通聊天、管理Embedding、知识检索回答与Text/PDF/DOCX索�
 原聊天历史在预算预留前冻结为私有数组快照，预算和流式派发复用同一份数据。直接传入预算/流式内部入口的外部集合只读取一次 Count 和最多 40 次索引，不执行其枚举器；正文总量最多 64000 个 UTF-16 字符，必须是有效 Unicode，角色限于 system/developer/user/assistant/tool。空历史与有效空正文保持兼容，快照不额外 Trim、截断或归一化，原服务的消息处理行为保留。
 
 工厂等待、迟到枚举以及调用方清空/追加/替换历史不能更改已批准正文；派发给 SDK 的消息从自有快照创建。预取消或复制过程中取消不创建客户端；集合失败使用固定说明，不携带底层异常或私有正文。服务读到非法历史时不预留、不派发，仍清理原生成代次。有效输入的长度前缀 SHA256 和 UTF-8 字节数加每条 64 的估算不变；这是输入规模及一致性边界，不是其他 Provider/Chat 请求前精确 Token 认证。R11r 证据见 `artifacts/r11r/acceptance.json`。
+
+### 运行创建来源与 Worker 恢复追踪（R11s）
+
+运行创建入口只捕获当前可信 Activity 的 W3C Trace/Span/采样标志，在首次查询前冻结为 55 字符 TraceParent。来源与运行同时写入；同一 ClientRequestId 的幂等重试返回原运行，不覆盖原来源。无 W3C 活动时保存 null；不从 Run 请求字段取追踪值，不保存或恢复 TraceState、Baggage、正文或身份。
+
+Worker 原运行观测保持当前后台父 Trace。在有效领取、读取存活运行后，以 ActivityLink 关联创建来源；不同进程、重启或 Worker 的 Trace 不强制共用一个父跨度。链接只复制 Trace/Span/采样标志，最多一次，不成为 Metrics 标签，不触发额外查询或派发；损坏、未知版本及旧 null 来源忽略。无采样或诊断故障不能创建业务追踪凭证，也不能改变会话复核、租约 fencing、取消、预算和事务结果。步骤仍保存本次 Worker 的实际 TraceId，可由运行链接关联创建请求。
+
+先执行双库 259_AiAgentRunTraceContext 迁移，再更新 API/Worker。迁移新增可空列，不回填旧运行，未记账重放恢复说明而保留已有来源、运行版本及租约代次；应用回退保留此列，旧写入可继续使用 null。Trace 链接仅是诊断关联，不代表外部费用已确认或恢复已被授权。
+
+本批实际验收为新增 35/35、完整 AI 4715/4715、SQL Server 49 个唯一通过 UID（原中断组完整记录 34 + 精确补验 15）、MySQL 49/49（AI + Smoke + 259 恢复）、JIT 架构 235/235、AOT 相关架构 88/88 和 API/Worker AOT 分析零警告/错误。完整 Unit 只发现 8198，未执行；Integration 分片发现 1216。正式命令、精确 UID、消费闭包及输入摘要见 artifacts/r11s/acceptance.json。只证明 Aot-analysis-clean，当前 AI 的集中 Native 发布/运行、生成应用、浏览器和运营恢复仍待完成；Capacity-not-verified。

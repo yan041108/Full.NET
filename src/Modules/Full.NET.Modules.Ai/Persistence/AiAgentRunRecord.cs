@@ -16,6 +16,7 @@ internal sealed class AiAgentRunRecord
     public string EffectiveScope { get; set; } = string.Empty;
     public string StatusKey { get; set; } = string.Empty;
     public string BudgetJson { get; set; } = string.Empty;
+    public string? TraceParent { get; set; }
     public DateTimeOffset DeadlineAtUtc { get; set; }
     public long Version { get; set; }
     public string? LeaseOwner { get; set; }

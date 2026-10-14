@@ -7,6 +7,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
+using Full.NET.Modules.Ai.Runtime;
 using Full.NET.IntegrationTests.Api;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,17 +32,20 @@ internal static class AiAgentRunLeasePersistenceAssertions
         await Step_trace_survives_worker_handoff_async(factory).ConfigureAwait(false);
     }
 
-    /// <summary>不同 Worker 的 Trace 不强制续接；通过已存 RunId/StepId 关联，旧租约不能追加步骤。</summary>
+    /// <summary>两个独立作用域读取同一创建来源，链接独立 Worker Trace；旧租约不能追加步骤。</summary>
     private static async Task Step_trace_survives_worker_handoff_async(FullNetApiFactory factory)
     {
-        var runId = await SeedQueuedRunAsync(factory, DateTimeOffset.UtcNow);
+        Guid runId; string originParent;
+        using (var origin = new Activity("trace.create.request").SetIdFormat(ActivityIdFormat.W3C).Start())
+        { originParent = origin.Id!; runId = await SeedQueuedRunAsync(factory, DateTimeOffset.UtcNow); }
         var lease = (await AcquireAsync(factory, runId, "trace-worker-a", DateTimeOffset.UtcNow))!;
         var spans = new ConcurrentQueue<Activity>();
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == AgentExecutionTelemetry.Name,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = activity => { if (Equals(activity.GetTagItem("ai.run.id"), runId.ToString("D"))) spans.Enqueue(activity); }
+            ActivityStopped = activity => { if (Equals(activity.GetTagItem("ai.run.id"), runId.ToString("D"))
+                && Equals(activity.GetTagItem("ai.stage"), "step_write")) spans.Enqueue(activity); }
         };
         ActivitySource.AddActivityListener(listener);
         var first = new AgentStepUpsert(Guid.CreateVersion7(), "trace.first", 1, runId, "committed", 1,
@@ -49,6 +53,7 @@ internal static class AiAgentRunLeasePersistenceAssertions
         string firstTrace;
         using (var root = new Activity("trace.first.worker").SetIdFormat(ActivityIdFormat.W3C).Start())
         {
+            await AssertStoredOriginAsync();
             Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "running", first, null, null))));
             firstTrace = root.TraceId.ToHexString();
         }
@@ -59,6 +64,7 @@ internal static class AiAgentRunLeasePersistenceAssertions
         string secondTrace;
         using (var root = new Activity("trace.second.worker").SetIdFormat(ActivityIdFormat.W3C).Start())
         {
+            await AssertStoredOriginAsync();
             Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(reclaimed, "completed", second, null, null))));
             secondTrace = root.TraceId.ToHexString();
         }
@@ -74,6 +80,20 @@ internal static class AiAgentRunLeasePersistenceAssertions
         }
         Assert.AreNotEqual(firstTrace, secondTrace); Assert.AreEqual(2, spans.Count);
         Assert.AreEqual(2L, await connection.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_agent_step WHERE RunId=@RunId", new { RunId = runId }));
+        Assert.AreEqual(originParent, await connection.QuerySingleAsync<string>("SELECT TraceParent FROM fn_ai_agent_run WHERE Id=@RunId", new { RunId = runId }));
+
+        async Task AssertStoredOriginAsync()
+        {
+            // 每次新建作用域，以真实投影读取创建来源，不能从测试的内存变量冒充持久恢复。
+            await using var scope = factory.Services.CreateAsyncScope();
+            var store = scope.ServiceProvider.GetRequiredService<AiAgentRunStore>();
+            var record = await store.FindByIdAsync(runId); Assert.IsNotNull(record); Assert.AreEqual(originParent, record.TraceParent);
+            Assert.IsTrue(AiAgentRunTraceContext.TryRead(record.TraceParent, out var origin));
+            using var observation = AgentExecutionTelemetry.Start(runId, "run"); observation.LinkContext(origin);
+            var worker = Activity.Current!; var link = worker.Links.Single();
+            Assert.AreEqual(origin.TraceId, link.Context.TraceId); Assert.AreEqual(origin.SpanId, link.Context.SpanId);
+            Assert.AreNotEqual(origin.TraceId, worker.TraceId); Assert.IsNull(link.Context.TraceState);
+        }
     }
 
     private static async Task Concurrent_claim_admits_only_one_owner_async(FullNetApiFactory factory)

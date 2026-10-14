@@ -14,11 +14,11 @@ internal static class AiAgentRunSql
         INSERT INTO fn_ai_agent_run
             (Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, ClientRequestId, RequestHash,
              DefinitionKey, DefinitionVersion, AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope,
-             StatusKey, BudgetJson, DeadlineAtUtc, Version, LeaseEpoch, CreatedAtUtc, UpdatedAtUtc)
+             StatusKey, BudgetJson, DeadlineAtUtc, TraceParent, Version, LeaseEpoch, CreatedAtUtc, UpdatedAtUtc)
         VALUES
             (@Id, @ScopeKey, @TenantId, @ActorUserId, @SessionId, @SessionKind, @ClientRequestId, @RequestHash,
              @DefinitionKey, @DefinitionVersion, @AuthorizationBindingId, @SecurityStamp, @ActorScope, @EffectiveScope,
-             'queued', @BudgetJson, @DeadlineAtUtc, 1, 0, @Now, @Now)
+             'queued', @BudgetJson, @DeadlineAtUtc, @TraceParent, 1, 0, @Now, @Now)
         """, SqlDataScope.Global);
 
     public static readonly SqlStatement AcquireLeaseSqlServer = new("ai.agent_run.acquire_lease.sqlserver", """
@@ -127,7 +127,7 @@ internal static class AiAgentRunSql
 
     public static readonly SqlStatement FindOwned = new("ai.agent_run.find_owned", """
         SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, DefinitionKey, DefinitionVersion,
-               AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson,
+               AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson, TraceParent,
                DeadlineAtUtc, Version, LeaseOwner, LeaseEpoch, LeaseExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc
         FROM fn_ai_agent_run
         WHERE Id = @RunId AND ScopeKey = @ScopeKey AND ActorUserId = @ActorUserId
@@ -217,7 +217,7 @@ internal static class AiAgentRunSql
 
     public static readonly SqlStatement FindById = new("ai.agent_run.find_by_id", """
         SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, DefinitionKey, DefinitionVersion,
-               AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson,
+               AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson, TraceParent,
                DeadlineAtUtc, Version, LeaseOwner, LeaseEpoch, LeaseExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc
         FROM fn_ai_agent_run WHERE Id = @RunId
         """, SqlDataScope.Global);

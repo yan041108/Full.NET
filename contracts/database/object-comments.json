@@ -135,6 +135,7 @@
         "SessionKind": "Session Kind",
         "StatusKey": "状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceParent": "运行创建时的 W3C 上下文；仅作恢复追踪链接",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }
