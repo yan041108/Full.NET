@@ -41,14 +41,16 @@ internal sealed class ReportingDefinitionExecutionService(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, ReportingExecutionPolicy.MaxPageSize);
-        if (request.Parameters.Any(parameter => string.IsNullOrWhiteSpace(parameter.ParameterKey)))
+        if (request?.Parameters is null || request.Parameters.Any(parameter => parameter is null || string.IsNullOrWhiteSpace(parameter.ParameterKey)))
         {
             return InvalidParameters("Execution parameter keys are required.");
         }
 
         var published = await publishedDefinitions.ResolveAsync(definitionId, request.VersionNumber, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!published.IsSuccess) return Result<ReportingExecutionPageResponse>.Failure(published.Error!);
         var definition = published.Value!.Definition;
         var version = published.Value.Version;
@@ -72,6 +74,7 @@ internal sealed class ReportingDefinitionExecutionService(
         }
 
         var dataSource = await publishedDefinitions.FindDataSourceAsync(published.Value, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (dataSource is null || !dataSource.IsEnabled)
         {
             return InvalidParameters("The reporting data source was not found or is disabled.");
@@ -100,14 +103,18 @@ internal sealed class ReportingDefinitionExecutionService(
         var sessionOutcome = await connectionFactory
             .OpenAsync(dataSource, password, cancellationToken)
             .ConfigureAwait(false);
-        if (!sessionOutcome.Succeeded || sessionOutcome.Session is null)
+        if (sessionOutcome?.Session is not { } session)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return ExecutionFailed("Failed to open reporting data source.");
         }
 
-        await using (sessionOutcome.Session)
+        // 交付会话即转移释放责任，失败载荷或打开后的取消也必须在持有范围内清理。
+        await using (session)
         {
-            var queryOutcome = await sessionOutcome.Session
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!sessionOutcome.Succeeded) return ExecutionFailed("Failed to open reporting data source.");
+            var queryOutcome = await session
                 .ExecuteQueryAsync(
                     sql,
                     sqlParameters,
@@ -115,6 +122,7 @@ internal sealed class ReportingDefinitionExecutionService(
                     ReportingExecutionPolicy.MaxCellValueLength,
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!queryOutcome.Succeeded)
             {
                 return ExecutionFailed("Reporting query execution failed.");
@@ -147,11 +155,16 @@ internal sealed class ReportingDefinitionExecutionService(
             var topN = bindOutcome.Values.TryGetValue("topN", out var topNValue) && topNValue is int topNInt
                 ? topNInt
                 : (int?)null;
-            var offset = (page - 1) * pageSize;
+            var offset = ((long)page - 1) * pageSize;
             var hasMore = ReportingQueryPortCatalog.SupportsPagination(version.QueryPortKey)
                 && topN.HasValue
                 && offset + rows.Length < topN.Value
                 && rows.Length == pageSize;
+
+            // 外部查询位于事务外；返回前复核本次实际执行的版本，不能切换到新发布版本。
+            var stillAvailable = await publishedDefinitions.ResolveAsync(definition.Id, versionNumber, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!stillAvailable.IsSuccess) return Result<ReportingExecutionPageResponse>.Failure(stillAvailable.Error!);
 
             return Result<ReportingExecutionPageResponse>.Success(new ReportingExecutionPageResponse(
                 definition.Id,
