@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -16,7 +17,8 @@ internal sealed class IdentityOidcAccessSessionValidator(
     IClock clock,
     ICurrentTenantContextWriter tenantContextWriter,
     IOptions<IdentityOidcOptions> oidcOptions,
-    IOptions<IdentityOptions> identityOptions)
+    IOptions<IdentityOptions> identityOptions,
+    IDatabaseAuthorizationReadScope? authorizationRead = null)
 {
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
@@ -66,6 +68,11 @@ internal sealed class IdentityOidcAccessSessionValidator(
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        // 保留独立授权通道的容量语义；finally 仍负责恢复可信租户上下文。
+        catch (ServiceCapacityExceededException) when (authorizationRead?.IsActive == true)
         {
             throw;
         }

@@ -6322,6 +6322,31 @@
         "b.RunId = @RunId",
         "b.UsageStatus = 'reserved'"
       ]
+    },
+    {
+      "statementName": "ai.agent_run.reconcile_owned",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ReconcileOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "人工对账只允许可信范围内本人未知执行按版本关闭，旧租约不能再次提交。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ActorUserId",
+        "Version = @Version",
+        "StatusKey = 'reconciliation_required'"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.find_reconciliation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindReconciliation",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "证据重放必须绑定原运行、本人与可信范围，不返回其他运行的对账记录。",
+      "requiredSqlFragments": [
+        "r.ScopeKey = @ScopeKey",
+        "r.ActorUserId = @ActorUserId",
+        "e.EventType = 'run.reconciled'"
+      ]
     }
   ]
 }

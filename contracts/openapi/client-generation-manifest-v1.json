@@ -3687,6 +3687,18 @@
       "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
       "generatedGroup": "ai-answer-feedback",
       "status": "generated"
+    },
+    {
+      "operationId": "aiGetAgentReconciliation",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-reconciliation",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReconcileAgentRun",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-reconciliation",
+      "status": "generated"
     }
   ]
 }

@@ -14,3 +14,5 @@ export {
 } from './messages.js';
 
 export { translateKnowledgeDocx } from './knowledge-docx.js';
+
+export { translateAiReconciliation } from './ai-reconciliation.js';

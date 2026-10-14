@@ -150,11 +150,13 @@ public sealed class AiModule : IFullNetModule
         services.TryAddSingleton<AiAgentWorkerHeartbeatService>();
         services.TryAddScoped<AiAgentRunReadiness>();
         services.TryAddScoped<AiAgentRunManagementService>();
+        services.TryAddScoped<AiAgentReconciliationService>();
         services.TryAddScoped<AiAgentRunQueryService>();
         services.TryAddScoped<IAgentRunAgUiReader, AiAgentRunAgUiReader>();
         services.TryAddScoped<AgUiStreamService>();
         services.AddFullNetMcpServer(configuration);
-        services.AddFullNetMcpClient(configuration);
+        services.AddFullNetMcpClient(configuration, services.LastOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(AiDataProcessingPolicy))?.ImplementationInstance as AiDataProcessingPolicy);
         services.TryAddScoped<IMcpToolExposureCatalog, AiMcpToolExposureCatalog>();
         services.TryAddScoped<IMcpSessionSummaryReader, AiMcpSessionSummaryReader>();
         services.TryAddScoped<IMcpRemoteToolCatalog, AiMcpRemoteToolCatalog>();
@@ -165,8 +167,14 @@ public sealed class AiModule : IFullNetModule
                 AiJsonSerializerContext.Default));
     }
 
-    /// <summary>注册 Ai 模块的模型配置、嵌入测试、MCP 连接、租户配额、聊天会话、Agent 工具与运行、MCP 及审批/委派 HTTP 端点。</summary>
-    /// <param name="endpoints">端点路由构建器。</param>
+    /// <inheritdoc />
+    public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
+    {
+        if (stage == ModulePipelineStage.BeforeExceptionHandler)
+            app.UseMiddleware<AiDataObservationMiddleware>();
+    }
+
+    /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
@@ -187,6 +195,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
+        Features.ManageAgentRuns.ReconciliationEndpoint.Map(endpoints);
         Features.RouteTasks.Endpoint.Map(endpoints);
         AgUiEndpoint.Map(endpoints);
         endpoints.MapFullNetMcp();
@@ -251,7 +260,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<IAiOperationBudgetStore, AiOperationBudgetStore>();
         services.TryAddScoped<IAgentRunExecutionContext, AgentRunExecutionContext>();
         RegisterAgentToolExecution(services, forWorker: true);
-        services.AddFullNetMcpClient(configuration);
+        services.AddFullNetMcpClient(configuration, services.LastOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(AiDataProcessingPolicy))?.ImplementationInstance as AiDataProcessingPolicy);
         services.TryAddScoped<AiAgentRunApprovalGate>();
         services.TryAddScoped<AiAgentApprovalConsumption>();
         services.TryAddScoped<AiAgentApprovalService>();

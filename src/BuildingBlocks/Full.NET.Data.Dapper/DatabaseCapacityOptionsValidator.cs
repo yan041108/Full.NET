@@ -63,7 +63,7 @@ internal sealed class DatabaseCapacityOptionsValidator(
             "DatabaseCapacity:ExpectedMaxPoolSize must be greater than zero.");
         AddRangeFailure(
             failures,
-            options.HealthReserve < 0 || options.CriticalWorkerReserve < 0,
+            options.HealthReserve < 0 || options.CriticalWorkerReserve < 0 || options.AuthorizationReadReserve < 0,
             "DatabaseCapacity connection reserves must not be negative.");
         AddRangeFailure(
             failures,
@@ -111,6 +111,9 @@ internal sealed class DatabaseCapacityOptionsValidator(
                 "DatabaseCapacity:PermitLimit + HealthReserve + CriticalWorkerReserve "
                 + "must not exceed ExpectedMaxPoolSize.");
         }
+
+        if (reservedPermits <= options.ExpectedMaxPoolSize && reservedPermits + options.AuthorizationReadReserve > options.ExpectedMaxPoolSize)
+            failures.Add("DatabaseCapacity:PermitLimit + HealthReserve + CriticalWorkerReserve + AuthorizationReadReserve must not exceed ExpectedMaxPoolSize.");
 
         var requiredBudget = checked(
             (long)options.ApiMaxReplicas * options.ApiMaxPoolSize

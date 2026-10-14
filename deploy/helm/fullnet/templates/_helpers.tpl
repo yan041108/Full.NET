@@ -115,7 +115,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- fail (printf "database connection budget exceeded: need %d but total=%d (apiMaxReplicas*apiMaxPoolSize + workerMaxReplicas*workerMaxPoolSize + migrationReserve)." $needed $budget) -}}
 {{- end -}}
 
-{{- $apiProcessNeeded := add (.Values.databaseConnectionBudget.apiPermitLimit | int) (.Values.databaseConnectionBudget.healthReserve | int) -}}
+{{- if lt (.Values.databaseConnectionBudget.apiAuthorizationReadReserve | int) 0 -}}
+  {{- fail "apiAuthorizationReadReserve must not be negative." -}}
+{{- end -}}
+{{- $apiProcessNeeded := add (.Values.databaseConnectionBudget.apiPermitLimit | int) (add (.Values.databaseConnectionBudget.healthReserve | int) (.Values.databaseConnectionBudget.apiAuthorizationReadReserve | int)) -}}
 {{- if gt $apiProcessNeeded (.Values.databaseConnectionBudget.apiMaxPoolSize | int) -}}
   {{- fail (printf "api database admission plus health reserve requires %d connections but apiMaxPoolSize=%d." $apiProcessNeeded (.Values.databaseConnectionBudget.apiMaxPoolSize | int)) -}}
 {{- end -}}

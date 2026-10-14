@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
@@ -16,7 +17,8 @@ internal sealed class AccessSessionValidator(
     IQueryExecutor queryExecutor,
     IClock clock,
     IdentityOidcAccessSessionValidator oidcSessionValidator,
-    IOptions<IdentityOidcOptions> oidcOptions)
+    IOptions<IdentityOidcOptions> oidcOptions,
+    IDatabaseAuthorizationReadScope? authorizationRead = null)
 {
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
 
@@ -60,6 +62,11 @@ internal sealed class AccessSessionValidator(
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        // 独立授权容量不足必须回滚调用方事务并返回可重试拒绝，不能伪装成令牌失效。
+        catch (ServiceCapacityExceededException) when (authorizationRead?.IsActive == true)
         {
             throw;
         }

@@ -36,6 +36,9 @@ public sealed class DatabaseCapacityOptions
     /// <summary>获取或设置为 Worker 续租和终态写入保留的连接数量。</summary>
     public int CriticalWorkerReserve { get; set; }
 
+    /// <summary>独立权威授权读取的专用预留；默认零，不能隐式借用普通或 Worker 许可。</summary>
+    public int AuthorizationReadReserve { get; set; }
+
     /// <summary>获取或设置 API 最大副本数。</summary>
     public int ApiMaxReplicas { get; set; }
 

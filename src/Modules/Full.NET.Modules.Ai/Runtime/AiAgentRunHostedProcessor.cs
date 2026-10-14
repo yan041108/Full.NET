@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Models;
 using Full.NET.Modules.Ai.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,7 +11,7 @@ namespace Full.NET.Modules.Ai.Runtime;
 internal sealed class AiAgentRunHostedProcessor(
     IServiceScopeFactory scopeFactory,
     IOptions<AiAgentRuntimeOptions> options,
-    ILogger<AiAgentRunHostedProcessor> logger) : BackgroundService
+    ILogger<AiAgentRunHostedProcessor> logger, AiDataProcessingPolicy? dataPolicy = null) : BackgroundService
 {
     private readonly AiAgentRuntimeOptions _options = options.Value;
     // 游标属于宿主而非每轮 Scoped 处理器，坏记录不阻断后续，扫到末尾后重试此前失败项。
@@ -20,6 +21,7 @@ internal sealed class AiAgentRunHostedProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            using var observationScope = AiDataObservationScope.Enter(dataPolicy ?? AiDataProcessingPolicy.Default);
             var processed = 0;
             try
             {

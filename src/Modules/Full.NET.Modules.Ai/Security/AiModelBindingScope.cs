@@ -6,23 +6,28 @@ using Full.NET.Modules.Ai.Persistence;
 namespace Full.NET.Modules.Ai.Security;
 
 /// <summary>只在已授权的请求作用域内签发短期凭据引用；不得持久化或跨请求复用。</summary>
-internal sealed class AiModelBindingScope : IProtectedModelCredentialStore, IDisposable
+internal sealed class AiModelBindingScope(AiDataProcessingPolicy? dataPolicy = null, AiChatInputAdmissionPolicy? inputPolicy = null) : IProtectedModelCredentialStore, IDisposable
 {
+    internal AiDataProcessingPolicy Policy { get; } = dataPolicy ?? AiDataProcessingPolicy.Default;
     private readonly object gate = new();
     private readonly Dictionary<Guid, (ModelBinding Binding, string Protected)> credentials = [];
     private bool disposed;
 
     /// <summary>调用方须先按聊天或管理权限查询配置；冻结选项，防止签发后更改凭据用途。</summary>
-    internal ModelBinding Create(AiModelConfigRecord model)
+    internal ModelBinding Create(AiModelConfigRecord model, string dataClassification = "restricted", string stage = "chat")
     {
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
+            if (!AiDataProcessingPolicy.IsKnown(dataClassification))
+                throw new InvalidOperationException("AI model binding requires a known data classification.");
+            Policy.Require(stage, dataClassification);
+            if (stage == "chat") (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
             // 随机值是短期能力引用而非数据库逻辑主键，不从配置 ID 或租户 ID 推导。
             Guid? reference = string.IsNullOrWhiteSpace(model.ApiKeyProtected) ? null : Guid.NewGuid();
             var options = BuildOptions(model);
             var binding = new ModelBinding(model.Id, model.Version, model.ProviderKey, model.ModelId,
-                new Uri(model.EndpointBaseUrl), reference, options);
+                new Uri(model.EndpointBaseUrl), reference, options, dataClassification);
             if (reference.HasValue) credentials.Add(reference.Value, (binding, model.ApiKeyProtected!));
             return binding;
         }

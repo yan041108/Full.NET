@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Models;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
@@ -47,6 +48,7 @@ internal static class AiProviderTelemetry
         private readonly long started = Stopwatch.GetTimestamp();
         private readonly Activity? parent = Activity.Current;
         private readonly Activity? activity;
+        private readonly bool observe = AiDataObservationScope.CanObserve;
         private int completed;
         internal string Outcome { get; set; } = "failed";
 
@@ -54,6 +56,7 @@ internal static class AiProviderTelemetry
         {
             this.provider = provider; this.operation = operation;
             Activity? candidate = null;
+            if (!observe) return;
             try
             {
                 candidate = Source.Value?.CreateActivity("ai.provider.http", ActivityKind.Client);
@@ -71,7 +74,7 @@ internal static class AiProviderTelemetry
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref completed, 1) != 0) return;
+            if (Interlocked.Exchange(ref completed, 1) != 0 || !observe) return;
             var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             var outcome = Outcome is "succeeded" or "redirected" or "rejected" or "rate_limited" or "server_error"
                 or "invalid_status" or "cancelled" or "policy_rejected" or "network_error" ? Outcome : "failed";

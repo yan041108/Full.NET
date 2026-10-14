@@ -120,6 +120,19 @@ export interface AiAgentDelegationResponse {
   readonly version: number;
 }
 
+export interface AiAgentReconciliationResponse {
+  readonly cachedInputTokens: null | number;
+  readonly canReconcile: boolean;
+  readonly inputTokens: null | number;
+  readonly outputTokens: null | number;
+  readonly quotaMonthKey: string;
+  readonly reservedTokens: number;
+  readonly runId: string;
+  readonly statusKey: string;
+  readonly usageStatus: string;
+  readonly version: number;
+}
+
 export interface AiAgentRunResponse {
   readonly createdAtUtc: string;
   readonly deadlineAtUtc: string;
@@ -3857,6 +3870,15 @@ export interface RecipientEndpointResponse {
   readonly providerProfileVersionId: string;
   readonly userId: string;
   readonly verificationStatusKey: string;
+}
+
+export interface ReconcileAiAgentRunRequest {
+  readonly cachedInputTokens?: null | number;
+  readonly clientRequestId: string;
+  readonly evidenceDigest: string;
+  readonly expectedVersion: number;
+  readonly inputTokens?: null | number;
+  readonly outputTokens?: null | number;
 }
 
 export interface ReconcileWorkflowRecoveryTaskRequest {

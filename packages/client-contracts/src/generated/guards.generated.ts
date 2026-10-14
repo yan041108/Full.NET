@@ -13,6 +13,7 @@ import type {
   AdministrativeRegionTreeNodeResponse,
   AiAgentApprovalResponse,
   AiAgentDelegationResponse,
+  AiAgentReconciliationResponse,
   AiAgentRunResponse,
   AiAgentToolCallListItem,
   AiAgentToolCatalogItem,
@@ -454,6 +455,7 @@ import type {
   ReceivedHostAnnouncementDetailResponse,
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
+  ReconcileAiAgentRunRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
@@ -753,6 +755,18 @@ export function readAiAgentDelegationResponse(value: unknown): AiAgentDelegation
 
 function isAiAgentDelegationResponse(value: unknown): value is AiAgentDelegationResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["granteeUserId"] === 'string' && guidPattern.test(value["granteeUserId"])) && (typeof value["grantorUserId"] === 'string' && guidPattern.test(value["grantorUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && ((value["revokedAtUtc"] === null) || (typeof value["revokedAtUtc"] === 'string')) && ((value["toolName"] === null) || (typeof value["toolName"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiAgentReconciliationResponse(value: unknown): AiAgentReconciliationResponse {
+  const normalizedValue = normalizeAiAgentReconciliationResponseIntegerJson(value);
+  if (!(isAiAgentReconciliationResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_agent_reconciliation_response');
+  }
+  return normalizedValue;
+}
+
+function isAiAgentReconciliationResponse(value: unknown): value is AiAgentReconciliationResponse {
+  return isRecord(value) && ((value["cachedInputTokens"] === null) || (typeof value["cachedInputTokens"] === 'number' && Number.isSafeInteger(value["cachedInputTokens"]))) && (typeof value["canReconcile"] === 'boolean') && ((value["inputTokens"] === null) || (typeof value["inputTokens"] === 'number' && Number.isSafeInteger(value["inputTokens"]))) && ((value["outputTokens"] === null) || (typeof value["outputTokens"] === 'number' && Number.isSafeInteger(value["outputTokens"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["reservedTokens"] === 'number' && Number.isSafeInteger(value["reservedTokens"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["statusKey"] === 'string') && (typeof value["usageStatus"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiAgentRunResponse(value: unknown): AiAgentRunResponse {
@@ -5921,6 +5935,18 @@ function isRecipientEndpointResponse(value: unknown): value is RecipientEndpoint
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointKindKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["maskedValue"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["verificationStatusKey"] === 'string');
 }
 
+export function readReconcileAiAgentRunRequest(value: unknown): ReconcileAiAgentRunRequest {
+  const normalizedValue = normalizeReconcileAiAgentRunRequestIntegerJson(value);
+  if (!(isReconcileAiAgentRunRequest(normalizedValue))) {
+    throw new Error('client.invalid_reconcile_ai_agent_run_request');
+  }
+  return normalizedValue;
+}
+
+function isReconcileAiAgentRunRequest(value: unknown): value is ReconcileAiAgentRunRequest {
+  return isRecord(value) && (value["cachedInputTokens"] === undefined || ((value["cachedInputTokens"] === null) || (typeof value["cachedInputTokens"] === 'number' && Number.isSafeInteger(value["cachedInputTokens"])))) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["evidenceDigest"] === 'string') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (value["inputTokens"] === undefined || ((value["inputTokens"] === null) || (typeof value["inputTokens"] === 'number' && Number.isSafeInteger(value["inputTokens"])))) && (value["outputTokens"] === undefined || ((value["outputTokens"] === null) || (typeof value["outputTokens"] === 'number' && Number.isSafeInteger(value["outputTokens"]))));
+}
+
 export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
   const normalizedValue = normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value);
   if (!(isReconcileWorkflowRecoveryTaskRequest(normalizedValue))) {
@@ -7972,6 +7998,13 @@ export function readAiListMcpRemoteToolApprovalsResponse(value: unknown): Array<
   return normalizedValue as Array<AiMcpRemoteToolApprovalItem>;
 }
 
+export function readAiReconcileAgentRunResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_ai_reconcile_agent_run_response');
+  }
+  return value as boolean;
+}
+
 export function readAiResumeAgentRunResponse(value: unknown): boolean {
   if (!(typeof value === 'boolean')) {
     throw new Error('client.invalid_ai_resume_agent_run_response');
@@ -8464,6 +8497,10 @@ function normalizeAiAgentApprovalResponseIntegerJson(value: unknown): unknown {
 
 function normalizeAiAgentDelegationResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiAgentReconciliationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cachedInputTokens") ? { ["cachedInputTokens"]: normalizeWireInteger(value["cachedInputTokens"]) } : {}), ...(Object.hasOwn(value, "inputTokens") ? { ["inputTokens"]: normalizeWireInteger(value["inputTokens"]) } : {}), ...(Object.hasOwn(value, "outputTokens") ? { ["outputTokens"]: normalizeWireInteger(value["outputTokens"]) } : {}), ...(Object.hasOwn(value, "reservedTokens") ? { ["reservedTokens"]: normalizeWireInteger(value["reservedTokens"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeAiAgentRunResponseIntegerJson(value: unknown): unknown {
@@ -9724,6 +9761,10 @@ function normalizePublishWorkflowFormRequestIntegerJson(value: unknown): unknown
 
 function normalizeReassignWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeReconcileAiAgentRunRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cachedInputTokens") ? { ["cachedInputTokens"]: normalizeWireInteger(value["cachedInputTokens"]) } : {}), ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}), ...(Object.hasOwn(value, "inputTokens") ? { ["inputTokens"]: normalizeWireInteger(value["inputTokens"]) } : {}), ...(Object.hasOwn(value, "outputTokens") ? { ["outputTokens"]: normalizeWireInteger(value["outputTokens"]) } : {}) } : value);
 }
 
 function normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value: unknown): unknown {

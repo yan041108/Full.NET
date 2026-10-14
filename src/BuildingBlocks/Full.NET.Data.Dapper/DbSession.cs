@@ -17,11 +17,12 @@ namespace Full.NET.Data.Dapper;
 /// <param name="admissionGate">连接准入预算。</param>
 /// <param name="telemetry">连接指标。</param>
 /// <param name="admissionPriority">当前准入优先级。</param>
+/// <param name="authorizationRead">独立权威读取范围，默认不使用授权预留。</param>
 internal sealed class DbSession(
     IDbConnectionFactory connectionFactory,
     DatabaseAdmissionGate admissionGate,
     DatabaseConnectionTelemetry telemetry,
-    DatabaseAdmissionPriorityScope admissionPriority)
+    DatabaseAdmissionPriorityScope admissionPriority, DatabaseAuthorizationReadScope? authorizationRead = null)
     : IAsyncDisposable, IDbTransactionCoordinator, IDataTransactionState
 {
     private DbTransaction? _transaction;
@@ -169,7 +170,9 @@ internal sealed class DbSession(
         var acquisitionStartedAt = Stopwatch.GetTimestamp();
         try
         {
-            admissionLease = admissionPriority.IsCritical
+            admissionLease = authorizationRead?.IsActive == true
+                ? await admissionGate.AcquireAuthorizationAsync(cancellationToken).ConfigureAwait(false)
+                : admissionPriority.IsCritical
                 ? await admissionGate
                     .AcquireCriticalAsync(cancellationToken)
                     .ConfigureAwait(false)

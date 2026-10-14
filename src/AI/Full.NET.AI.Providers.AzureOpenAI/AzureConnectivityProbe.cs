@@ -15,9 +15,10 @@ internal static class AzureConnectivityProbe
         IDataProtectionProvider protection,
         IProtectedModelCredentialStore credentials,
         ModelBinding binding,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, AiDataProcessingPolicy? dataPolicy = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var clientName = AiProviderHttpClients.NameForData(binding.ProviderKey, "connectivity", binding.DataClassification, dataPolicy);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(TimeSpan.FromSeconds(15));
         try
@@ -30,7 +31,7 @@ internal static class AzureConnectivityProbe
                 return new(false, "API key is required for azure_openai provider.");
 
             var apiVersion = ResolveApiVersion(binding);
-            using var client = http.CreateClient(AiProviderHttpClients.Name(binding.ProviderKey, true));
+            using var client = http.CreateClient(clientName);
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
                 $"{binding.Endpoint.AbsoluteUri.TrimEnd('/')}/openai/models?api-version={apiVersion}");
@@ -74,7 +75,7 @@ internal static class AzureConnectivityProbe
             ? version
             : "2024-10-21";
 
-    private static async Task<ReadOnlyMemory<byte>> ReadBoundedBodyAsync(HttpContent content, CancellationToken cancellationToken)
+    private static async Task<ReadOnlyMemory<byte>> ReadBoundedBodyAsync(HttpContent content, CancellationToken cancellationToken, AiDataProcessingPolicy? dataPolicy = null)
     {
         await using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         var bytes = new byte[65537];

@@ -17,6 +17,7 @@ data:
   DatabaseCapacity__AcquireTimeoutMilliseconds: {{ .Values.databaseConnectionBudget.apiAcquireTimeoutMilliseconds | quote }}
   DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.apiMaxPoolSize | quote }}
   DatabaseCapacity__CriticalWorkerReserve: "0"
+  DatabaseCapacity__AuthorizationReadReserve: {{ .Values.databaseConnectionBudget.apiAuthorizationReadReserve | quote }}
 {{- else if .Values.roles.worker }}
   DatabaseCapacity__Enabled: "true"
   DatabaseCapacity__HostRole: "Worker"
@@ -25,10 +26,12 @@ data:
   DatabaseCapacity__AcquireTimeoutMilliseconds: {{ .Values.databaseConnectionBudget.workerAcquireTimeoutMilliseconds | quote }}
   DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.workerMaxPoolSize | quote }}
   DatabaseCapacity__CriticalWorkerReserve: {{ .Values.databaseConnectionBudget.workerCriticalReserve | quote }}
+  DatabaseCapacity__AuthorizationReadReserve: "0"
 {{- else }}
   DatabaseCapacity__Enabled: "false"
   DatabaseCapacity__HostRole: "Migrator"
   DatabaseCapacity__PermitLimit: "1"
+  DatabaseCapacity__AuthorizationReadReserve: "0"
   DatabaseCapacity__QueueLimit: "0"
   DatabaseCapacity__AcquireTimeoutMilliseconds: "1000"
   DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.migrationReserve | quote }}

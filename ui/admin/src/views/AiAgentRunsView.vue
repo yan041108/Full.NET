@@ -18,6 +18,7 @@ import type { AgUiRunProgressState, AiAgentRunResponse, FullNetProblemDetails } 
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
 import AiPromptPanel from '../components/AiPromptPanel.vue';
+import AiAgentReconciliationPanel from '../components/AiAgentReconciliationPanel.vue';
 import type { AiPromptVersionResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { promptText } from '../i18n/prompts';
@@ -282,6 +283,9 @@ void loadModels();
     </ElCard>
 
     <AiPromptPanel :model-id="createModelId" @select="selectPrompt" />
+    <AiAgentReconciliationPanel v-if="activeRun?.statusKey === 'reconciliation_required'" :key="activeRun.id"
+      :run-id="activeRun.id" @reconciled="loadRun(activeRun.id)" />
+
     <PermissionGate code="ai.agent_runs.create">
       <ElCard shadow="never" class="ai-agent-runs-create-card">
         <template #header>{{ t('aiAgentRuns.createTitle') }}</template>

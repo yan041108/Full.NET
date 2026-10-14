@@ -162,6 +162,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DatabaseConnectionTelemetry>();
         services.AddSingleton<DatabaseAdmissionGate>();
         services.AddScoped<DatabaseAdmissionPriorityScope>();
+        services.AddScoped<DatabaseAuthorizationReadScope>();
+        services.AddScoped<IDatabaseAuthorizationReadScope>(provider => provider.GetRequiredService<DatabaseAuthorizationReadScope>());
         services.AddScoped<IDatabaseAdmissionPriorityScope>(provider =>
             provider.GetRequiredService<DatabaseAdmissionPriorityScope>());
         services.AddSingleton<IDatabaseSessionLock, DapperDatabaseSessionLock>();

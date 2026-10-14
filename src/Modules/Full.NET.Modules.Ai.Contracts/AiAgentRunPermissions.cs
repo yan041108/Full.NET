@@ -14,4 +14,7 @@ public static class AiAgentRunPermissions
 
     /// <summary>在审批后恢复 awaiting_approval 运行。</summary>
     public const string Resume = "ai.agent_runs.resume";
+
+    /// <summary>依据人工核证关闭本人未知执行及补录计量；不授予重放或跨租户访问。</summary>
+    public const string Reconcile = "ai.agent_runs.reconcile";
 }

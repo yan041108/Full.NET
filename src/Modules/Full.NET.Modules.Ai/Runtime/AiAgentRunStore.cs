@@ -212,7 +212,7 @@ internal sealed class AiAgentRunStore(
                         ("OutputTokens", step.OutputTokens),
                         ("Cost", step.Cost),
                         ("Currency", step.Currency),
-                        ("TraceId", step.TraceId ?? observation.TraceId),
+                        ("TraceId", Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve ? step.TraceId ?? observation.TraceId : null),
                         ("ArgumentDigest", step.ArgumentDigest),
                         ("ErrorCode", step.ErrorCode),
                         ("Now", clock.UtcNow)),

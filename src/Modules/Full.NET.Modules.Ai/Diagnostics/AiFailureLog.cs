@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Models;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -31,7 +32,7 @@ internal static class AiFailureLog
     {
         try
         {
-            if (!logger.IsEnabled(level)) return;
+            if (!AiDataObservationScope.CanObserve || !logger.IsEnabled(level)) return;
             using var scope = logger.BeginScope(Classification);
             var state = new FailureState(StageKey(stage), FailureCategory(stage, failure),
                 operationId == Guid.Empty ? null : operationId,

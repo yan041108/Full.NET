@@ -12,8 +12,13 @@ namespace Full.NET.AI.Providers.AzureOpenAI;
 public sealed class AzureOpenAiModelClientFactory(
     IHttpClientFactory httpClientFactory,
     IDataProtectionProvider dataProtection,
-    IProtectedModelCredentialStore credentials) : IAiModelClientFactory, IAiModelConnectivityProbe
+    IProtectedModelCredentialStore credentials, AiDataProcessingPolicy? dataPolicy = null, AiChatInputAdmissionPolicy? inputPolicy = null) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
+    /// <summary>保留旧构造 ABI；新宿主使用完整冻结策略构造。</summary>
+    /// <param name="httpClientFactory">受控工厂。</param><param name="dataProtection">凭据保护。</param>
+    /// <param name="credentials">请求凭据范围。</param>
+    public AzureOpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection,
+        IProtectedModelCredentialStore credentials) : this(httpClientFactory, dataProtection, credentials, null, null) { }
     /// <summary>
     /// Azure OpenAI 提供程序的唯一静态键，固定为 azure_openai，
     /// 用于匹配 ModelBinding 与 HTTP 客户端命名。
@@ -25,11 +30,13 @@ public sealed class AzureOpenAiModelClientFactory(
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
+        (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
+        var clientName = AiProviderHttpClients.NameForData(ProviderKey, "chat", binding.DataClassification, dataPolicy);
         var protectedCredential = await credentials.ReadAsync(binding, cancellationToken).ConfigureAwait(false);
         var key = string.IsNullOrWhiteSpace(protectedCredential) ? null :
             dataProtection.CreateProtector("Full.NET.Ai.ModelConfigApiKey.v1").Unprotect(protectedCredential);
         return new HttpChatClient(
-            httpClientFactory.CreateClient(AiProviderHttpClients.Name(ProviderKey, false)),
+            httpClientFactory.CreateClient(clientName),
             binding,
             key);
     }
@@ -40,10 +47,11 @@ public sealed class AzureOpenAiModelClientFactory(
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
+        var clientName = AiProviderHttpClients.NameForData(ProviderKey, "embedding", binding.DataClassification, dataPolicy);
         var protectedCredential = await credentials.ReadAsync(binding, cancellationToken).ConfigureAwait(false);
         var key = string.IsNullOrWhiteSpace(protectedCredential) ? null :
             dataProtection.CreateProtector("Full.NET.Ai.ModelConfigApiKey.v1").Unprotect(protectedCredential);
-        var client = httpClientFactory.CreateClient(AiProviderHttpClients.Name(ProviderKey, false, embedding: true));
+        var client = httpClientFactory.CreateClient(clientName);
         return new HttpEmbeddingClient(binding, key, new ProviderEmbeddingTransport(client));
     }
 
@@ -52,6 +60,6 @@ public sealed class AzureOpenAiModelClientFactory(
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
-        return AzureConnectivityProbe.TestAsync(httpClientFactory, dataProtection, credentials, binding, cancellationToken);
+        return AzureConnectivityProbe.TestAsync(httpClientFactory, dataProtection, credentials, binding, cancellationToken, dataPolicy);
     }
 }

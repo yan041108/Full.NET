@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Features;
@@ -23,7 +24,7 @@ internal sealed record AiKnowledgeRetrievalSnapshot(Guid Actor, Guid? TenantId, 
 /// <summary>读取当前授权且完整的活动代次；禁止加入外部事务或触发收费模型调用。</summary>
 internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexActivationStore activation,
-    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database, AiKnowledgeIndexDocxActivationStore? docxActivation = null)
+    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database, AiKnowledgeIndexDocxActivationStore? docxActivation = null, AiDataProcessingPolicy? dataPolicy = null)
 {
     private static readonly string[] RequiredPermissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
@@ -77,6 +78,9 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
             }
             BindCapturedReceipts(first.Rows, frozen, work);
             var chunks = await DecodeAsync(initial, first.Rows, frozen, model, input.Length, first.Parameters, work).ConfigureAwait(false);
+            // 用户问题尚无低敏证明，最低按 restricted 约束完整召回来源。
+            (dataPolicy ?? AiDataProcessingPolicy.Default).Require("rerank",
+                AiDataProcessingPolicy.Strongest(first.Rows.Select(row => row.DataClassification), "restricted"));
             var result = initial with { Sources = first.Rows, Chunks = AiKnowledgeVectorRanker.Rank(input, chunks, work) };
             // 载荷读取和解码等待后，复核完整代次及当前读取权；不复用原索引写入人的在线状态。
             await RevalidateCoreAsync(result, work).ConfigureAwait(false); return result;

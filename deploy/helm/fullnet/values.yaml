@@ -85,7 +85,9 @@ databaseConnectionBudget:
   # 普通准入上限必须为健康检查和 Worker 关键续租/终态写入留下静态余量。
   healthReserve: 2
   workerCriticalReserve: 1
-  apiPermitLimit: 38
+  # 从现有 API 池预算内为提交前独立授权留一份，不挤占健康检查或 Worker 续租许可。
+  apiAuthorizationReadReserve: 1
+  apiPermitLimit: 37
   apiQueueLimit: 0
   apiAcquireTimeoutMilliseconds: 250
   workerPermitLimit: 7

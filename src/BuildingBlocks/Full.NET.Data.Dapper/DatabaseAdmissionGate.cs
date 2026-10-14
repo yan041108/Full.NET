@@ -11,6 +11,7 @@ internal sealed class DatabaseAdmissionGate : IDisposable
     private readonly DatabaseConnectionTelemetry _telemetry;
     private readonly SemaphoreSlim? _normalSemaphore;
     private readonly SemaphoreSlim? _criticalSemaphore;
+    private readonly SemaphoreSlim? _authorizationSemaphore;
     private int _inUse;
     private int _queued;
 
@@ -25,6 +26,8 @@ internal sealed class DatabaseAdmissionGate : IDisposable
             _normalSemaphore = new SemaphoreSlim(
                 _options.PermitLimit,
                 _options.PermitLimit);
+            if (_options.AuthorizationReadReserve > 0)
+                _authorizationSemaphore = new(_options.AuthorizationReadReserve, _options.AuthorizationReadReserve);
             if (_options.CriticalWorkerReserve > 0)
             {
                 _criticalSemaphore = new SemaphoreSlim(
@@ -52,9 +55,13 @@ internal sealed class DatabaseAdmissionGate : IDisposable
                 cancellationToken)
             .ConfigureAwait(false);
 
+    /// <summary>独立授权使用自己的有界预留，禁止借用普通或 Worker 配额形成循环等待。</summary>
+    internal ValueTask<DatabaseAdmissionLease> AcquireAuthorizationAsync(CancellationToken cancellationToken) =>
+        AcquireCoreAsync(false, cancellationToken, authorization: true);
+
     private async ValueTask<DatabaseAdmissionLease> AcquireCoreAsync(
         bool critical,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool authorization = false)
     {
         var startedAt = Stopwatch.GetTimestamp();
         if (cancellationToken.IsCancellationRequested)
@@ -65,10 +72,14 @@ internal sealed class DatabaseAdmissionGate : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        var semaphore = critical && _criticalSemaphore is not null
+        if (authorization && _options.Enabled && _authorizationSemaphore is null)
+            throw CreateCapacityException(ServiceCapacityFailureKind.Rejected);
+        var semaphore = authorization && _authorizationSemaphore is not null ? _authorizationSemaphore
+            : critical && _criticalSemaphore is not null
             ? _criticalSemaphore
             : _normalSemaphore;
         var usesCriticalReserve = ReferenceEquals(semaphore, _criticalSemaphore);
+        var usesAuthorizationReserve = authorization && _authorizationSemaphore is not null;
         if (semaphore is null)
         {
             return new DatabaseAdmissionLease(
@@ -78,7 +89,7 @@ internal sealed class DatabaseAdmissionGate : IDisposable
 
         if (semaphore.Wait(0))
         {
-            return CreateLease(usesCriticalReserve);
+            return CreateLease(usesCriticalReserve, usesAuthorizationReserve);
         }
 
         if (_options.QueueLimit == 0
@@ -124,7 +135,7 @@ internal sealed class DatabaseAdmissionGate : IDisposable
                 throw CreateCapacityException(ServiceCapacityFailureKind.Timeout);
             }
 
-            return CreateLease(usesCriticalReserve);
+            return CreateLease(usesCriticalReserve, usesAuthorizationReserve);
         }
         finally
         {
@@ -133,11 +144,11 @@ internal sealed class DatabaseAdmissionGate : IDisposable
         }
     }
 
-    internal void Release(bool usesCriticalReserve)
+    internal void Release(bool usesCriticalReserve, bool usesAuthorizationReserve = false)
     {
         Interlocked.Decrement(ref _inUse);
         _telemetry.PermitReleased();
-        var semaphore = usesCriticalReserve
+        var semaphore = usesAuthorizationReserve ? _authorizationSemaphore : usesCriticalReserve
             ? _criticalSemaphore
             : _normalSemaphore;
         semaphore!.Release();
@@ -147,15 +158,16 @@ internal sealed class DatabaseAdmissionGate : IDisposable
     {
         _normalSemaphore?.Dispose();
         _criticalSemaphore?.Dispose();
+        _authorizationSemaphore?.Dispose();
     }
 
-    private DatabaseAdmissionLease CreateLease(bool usesCriticalReserve)
+    private DatabaseAdmissionLease CreateLease(bool usesCriticalReserve, bool usesAuthorizationReserve = false)
     {
         Interlocked.Increment(ref _inUse);
         _telemetry.PermitAcquired();
         return new DatabaseAdmissionLease(
             this,
-            usesCriticalReserve);
+            usesCriticalReserve, usesAuthorizationReserve);
     }
 
     private ServiceCapacityExceededException CreateCapacityException(
@@ -166,13 +178,13 @@ internal sealed class DatabaseAdmissionGate : IDisposable
 
 internal sealed class DatabaseAdmissionLease(
     DatabaseAdmissionGate? owner,
-    bool usesCriticalReserve) : IAsyncDisposable
+    bool usesCriticalReserve, bool usesAuthorizationReserve = false) : IAsyncDisposable
 {
     private DatabaseAdmissionGate? _owner = owner;
 
     public ValueTask DisposeAsync()
     {
-        Interlocked.Exchange(ref _owner, null)?.Release(usesCriticalReserve);
+        Interlocked.Exchange(ref _owner, null)?.Release(usesCriticalReserve, usesAuthorizationReserve);
         return ValueTask.CompletedTask;
     }
 }

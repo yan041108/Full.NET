@@ -331,3 +331,16 @@ Worker 原运行观测保持当前后台父 Trace。在有效领取、读取存�
 日志分类为 diagnostic / BestEffort / Internal，DiagnosticGroup 为 ai.operations，保留原 Warning/Error 级别。每次调用使用独立只读五字段状态与静态格式器，避免故障 Sink 或重入污染共享线程状态。启用探测、Scope、Sink 和 Scope 释放失败均只隔离诊断调用；原续租取消、清理 false、运行对账和未知预算保护继续执行。日志不替代持久业务状态或费用凭证。
 
 本批新增 39、完整 AI 4754、架构 235/88 通过，SQL Server 以原 40 个官方完整记录和精确剩余 4 项补验覆盖 44 个成功 UID，MySQL 44 项通过；原中断组不报通过；API/Worker AOT 分析零警告/错误。实际范围、原始失败与源码/消费者绑定见 artifacts/r11t/acceptance.json。未执行完整 Unit 或本批 Native 发布/运行；R11 全阶段分类及 R12 集中验收继续开放，Capacity-not-verified。
+
+
+## 未知执行人工对账与精确输入准入（R11u，已实现、待集中验收）
+
+GET /api/v1/ai/agent/runs/{runId}/reconciliation 要求 ai.agent_runs.read；POST 同一路径要求 ai.agent_runs.reconcile。两者均仅访问当前可信主体本人、原租户范围的运行。管理员身份不绕过所有权。只有 reconciliation_required 状态和读取到的 ExpectedVersion 才能首次提交，证据只保存规范大写 SHA-256 摘要，不上传外部正文或地址。
+
+人工核证后运行关闭为 failed，不能重新执行、自动恢复或伪造成功答案。同一 ClientRequestId、版本、摘要和计量的重试返回原处理成功；不同回执、竞争或版本变化返回 409。用量未知时输入、输出及缓存同时省略，继续保留原预留；完整核证时输入/输出各为 0 至 10 亿，缓存不得超过输入。已有官方已知回执不得被人工不同计量覆盖。手工填入计量表示人工核证，不是服务自动取得供应商计量认证。
+
+运行 CAS、原月份/价格账本结算及 run.reconciled/run.failed 证据事件在同一 AI 事务提交；独立 Identity 权威端口在提交前再次读取当前会话与权限，不进入 AI 事务。权限失效回滚并返回 403，独立授权容量不足回滚并返回 503。Data 配置 AuthorizationReadReserve 默认 0；启用准入时必须显式分配，并计入 PermitLimit + HealthReserve + CriticalWorkerReserve + AuthorizationReadReserve 的总连接池预算，实际连接池也至少容纳两个连接。授权预留不回退普通/Worker 许可。Helm API 默认 40 连接分配为普通 37、健康检查 2、独立授权 1，Worker/Migrator 不继承 API 授权预留。
+
+FullNet:Ai:InputAdmission:RequireExactChatTokens 默认为 false；设 true 时，当前 OpenAI/Ollama/Azure Chat 路径均在读取凭据或预留之前以 ai.budget.hard_input_unavailable 拒绝。字符/字节规模检查和事后 usage 不能证明请求前精确输入 Token；本开关是失败关闭门禁，尚未实现供应商/模型协议认证的精确计数。外部动作/费用自动对账仍未实现。
+
+本批后端、Vue 操作面板、双语言及生成客户端已集中实现，JIT/类型检查、客户端269项及面板3项通过，AI/授权原组加补验覆盖4857个官方成功UID。原失败保留；重启中断的Ai+Identity+Smoke双库原组恢复中，不报通过。Native/浏览器、真实计量认证与外部自动对账继续按模块集中推进，Capacity-not-verified。

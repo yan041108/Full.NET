@@ -70,6 +70,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Retention/AuthenticationEventRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/IdentityOidcRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
+        // 独立权威授权仅复制父作用域的可信租户到新数据作用域，结束后清除，不修改请求租户。
+        "src/Modules/Full.NET.Modules.Identity/Security/IndependentCurrentSessionAuthorization.cs",
         // 种子数据在 Host 作用域写入成员关系，租户来自已授权种子上下文而非请求参数。
         "src/Modules/Full.NET.Modules.Identity/Seeding/BootstrapAdminTenantMembershipSeedContributor.cs",
         // 开发 Overlay 仅把可信依赖交给既有种子实现；租户来自 local 目录并由其 finally 恢复。

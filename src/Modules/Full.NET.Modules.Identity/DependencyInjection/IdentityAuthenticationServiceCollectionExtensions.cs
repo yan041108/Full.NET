@@ -1,3 +1,4 @@
+// Identity 认证相关 DI 扩展；Cookie、Bearer 与签名等方案注册。
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Directory;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
@@ -14,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.Modules.Identity.DependencyInjection;
 
+/// <summary>Identity 认证相关 DI 扩展；Cookie、Bearer 与签名等方案注册。</summary>
 internal static class IdentityAuthenticationServiceCollectionExtensions
 {
     internal static IServiceCollection AddIdentityAuthentication(
@@ -33,6 +35,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.TryAddScoped<AccessSessionValidator>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentSessionAuthorization, CurrentSessionAuthorization>();
+        services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IIndependentCurrentSessionAuthorization, IndependentCurrentSessionAuthorization>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();

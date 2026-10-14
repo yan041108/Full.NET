@@ -14,6 +14,7 @@ import type {
   AdministrativeRegionTreeNodeResponse,
   AiAgentApprovalResponse,
   AiAgentDelegationResponse,
+  AiAgentReconciliationResponse,
   AiAgentRunResponse,
   AiAgentToolCallListItem,
   AiAgentToolCatalogItem,
@@ -455,6 +456,7 @@ import type {
   ReceivedHostAnnouncementDetailResponse,
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
+  ReconcileAiAgentRunRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
@@ -631,6 +633,7 @@ import {
   readAdministrativeRegionResponse,
   readAiAgentApprovalResponse,
   readAiAgentDelegationResponse,
+  readAiAgentReconciliationResponse,
   readAiAgentRunResponse,
   readAiAgentToolCatalogItem,
   readAiCancelAgentRunResponse,
@@ -662,6 +665,7 @@ import {
   readAiMcpRemoteToolApprovalItem,
   readAiModelConfigResponse,
   readAiPromptResponse,
+  readAiReconcileAgentRunResponse,
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
   readAskAiKnowledgeResponse,
@@ -1479,6 +1483,24 @@ export async function aiGetAgentApproval(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiAgentApprovalResponse(value);
+}
+
+export interface AiGetAgentReconciliationParameters {
+  readonly runId: string;
+}
+
+export async function aiGetAgentReconciliation(
+  http: HttpClient,
+  parameters: AiGetAgentReconciliationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentReconciliationResponse> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/reconciliation`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentReconciliationResponse(value);
 }
 
 export interface AiGetAgentRunParameters {
@@ -2326,6 +2348,29 @@ export async function aiPublishPromptVersion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiPromptResponse(value);
+}
+
+export interface AiReconcileAgentRunParameters {
+  readonly runId: string;
+  readonly body: ReconcileAiAgentRunRequest;
+}
+
+export async function aiReconcileAgentRun(
+  http: HttpClient,
+  parameters: AiReconcileAgentRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/reconciliation`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiReconcileAgentRunResponse(value);
 }
 
 export interface AiResumeAgentRunParameters {

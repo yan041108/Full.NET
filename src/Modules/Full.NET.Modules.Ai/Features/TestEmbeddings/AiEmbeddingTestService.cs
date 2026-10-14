@@ -106,7 +106,7 @@ internal sealed class AiEmbeddingTestService(
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var binding = bindings.Create(row);
+            var binding = bindings.Create(row, stage: "embedding");
             using (var generator = await factory.CreateEmbeddingGeneratorAsync(binding, cancellationToken).ConfigureAwait(false))
             {
                 if (generator is null) throw new InvalidDataException("AI provider returned no embedding generator.");

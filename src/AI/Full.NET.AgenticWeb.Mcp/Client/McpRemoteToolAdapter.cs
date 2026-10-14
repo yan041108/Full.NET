@@ -14,6 +14,9 @@ public sealed class McpRemoteToolAdapter(
     /// <returns>可注册到本地工具注册表的远端工具定义集合。</returns>
     public async ValueTask<IReadOnlyList<AgentToolDefinition>> BuildDefinitionsAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        // 宿主拒绝的远端能力不读取服务凭据，也不对模型宣告可执行。
+        if (!connections.CanDispatch) return [];
         var approved = await catalog.ListExecutableAsync(cancellationToken).ConfigureAwait(false);
         var definitions = new List<AgentToolDefinition>(approved.Count);
         foreach (var tool in approved)

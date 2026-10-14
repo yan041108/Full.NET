@@ -1707,3 +1707,7 @@ export * from './ai-answer-feedback.js';
 // 审核操作必须经过闭集校验和安全投影，明确覆盖生成入口以避免星号导出的歧义。
 export { aiGetKnowledgeAnswerFeedbackReviews, aiReviewKnowledgeAnswerFeedback, aiExportKnowledgeAnswerFeedbackLabels } from './ai-answer-feedback.js';
 export * from './ai-prompts.js';
+
+// 对账业务守卫在生成形状之上校验原运行和未知计量，明确覆盖同名生成导出。
+export { isAiAgentReconciliationResponse } from './ai-agent-reconciliation.js';
+export type { AiAgentReconciliationResponse, ReconcileAiAgentRunRequest } from './ai-agent-reconciliation.js';

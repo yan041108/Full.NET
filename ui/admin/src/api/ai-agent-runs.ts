@@ -1,4 +1,11 @@
 import {
+  aiGetAgentReconciliation as getGeneratedReconciliation,
+  aiReconcileAgentRun as reconcileGeneratedRun,
+  isAiAgentReconciliationResponse,
+  type AiAgentReconciliationResponse,
+  type ReconcileAiAgentRunRequest
+} from '@fullnet/client-contracts';
+import {
   isAiAgentRunResponse,
   isCreateAiAgentRunResponse,
   type AgUiRunProgressState,
@@ -7,7 +14,7 @@ import {
   type CreateAiAgentRunResponse
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, readProblemDetails } from '@fullnet/client-contracts';
-import { request, requestResponse } from './http';
+import { http, request, requestResponse } from './http';
 
 export type AgUiStreamEvent = {
   eventType: string;
@@ -195,4 +202,17 @@ function readNullableNumber(value: unknown): number | null {
 
 function readNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
+}
+
+/** 读取原运行账本，不将缺失计量当作零用量。 */
+export async function getAiAgentReconciliation(runId: string, signal?: AbortSignal): Promise<AiAgentReconciliationResponse> {
+  const value = await getGeneratedReconciliation(http, { runId }, signal);
+  if (!isAiAgentReconciliationResponse(value)) throw new Error('client.invalid_ai_agent_reconciliation_response');
+  return value;
+}
+/** 只提交人工核证，不触发恢复或重复外部执行。 */
+export async function reconcileAiAgentRun(runId: string, body: ReconcileAiAgentRunRequest, signal?: AbortSignal): Promise<boolean> {
+  const value = await reconcileGeneratedRun(http, { runId, body }, signal);
+  if (value !== true) throw new Error('client.invalid_ai_agent_reconciliation_response');
+  return true;
 }

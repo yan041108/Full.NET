@@ -68,6 +68,7 @@ public sealed class AiAuthorizationContributorTests
                 AiAgentToolPermissions.CatalogRead,
                 AiAgentToolPermissions.CallsRead,
                 AiAgentRunPermissions.Read,
+                AiAgentRunPermissions.Reconcile,
                 AiAgentRunPermissions.Create,
                 AiAgentRunPermissions.Cancel,
                 AiAgentRunPermissions.Resume,

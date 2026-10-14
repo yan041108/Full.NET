@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Models;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
@@ -68,6 +69,7 @@ public static class AgentExecutionTelemetry
         private readonly long started = Stopwatch.GetTimestamp();
         private readonly Activity? parent = Activity.Current;
         private readonly Activity? activity;
+        private readonly bool observe = AiDataObservationScope.CanObserve;
         private int completed;
         private int linked;
         /// <summary>固定结果分类；未知值归为failed。结果只描述当前边界，不替代持久账本。</summary>
@@ -83,6 +85,7 @@ public static class AgentExecutionTelemetry
             Guid? stepId = null, Guid? knowledgeTaskId = null)
         {
             this.stage = stage; this.token = token; Activity? candidate = null;
+            if (!observe) return;
             try
             {
                 candidate = Source.Value?.CreateActivity("ai.execution", ActivityKind.Internal);
@@ -122,7 +125,7 @@ public static class AgentExecutionTelemetry
         /// <summary>独立记录固定标签的计数、耗时并结束 Trace；诊断回调异常不向业务传播。</summary>
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref completed, 1) != 0) return;
+            if (Interlocked.Exchange(ref completed, 1) != 0 || !observe) return;
             var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             var outcome = Outcome is "processed" or "not_processed" or "completed" or "succeeded" or "denied"
                 or "approval_required" or "reconciliation_required" or "budget_rejected" or "authorization_required"

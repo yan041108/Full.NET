@@ -7,6 +7,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
 
     <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
 
     <ProjectReference Include="../Full.NET.Agents/Full.NET.Agents.csproj" />

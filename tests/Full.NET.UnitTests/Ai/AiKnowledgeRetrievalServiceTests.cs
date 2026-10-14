@@ -156,7 +156,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         internal bool Denied; internal string? DeniedPermission; internal int PermissionCalls; internal Action? BeforeAuthorization;
         internal Action<string>? BeforePermission; internal Guid Actor;
         internal Guid[] RoleIds = [], OrganizationIds = [];
-        internal static async Task<RetrievalFixture> Create(bool scoped)
+        internal static async Task<RetrievalFixture> Create(bool scoped, Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy? dataPolicy = null)
         {
             var r = new RetrievalFixture { F = new(scoped) }; var f = r.F; r.Actor = f.Binding.OwnerUserId; Assert.IsTrue(await f.Activate()); f.ReadRow = ReadRow(f);
             r.Model = await f.Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(AiModelConfigSql.FindAvailableForHostChat, new(), default) ?? throw new InvalidOperationException();
@@ -171,7 +171,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             r.Permissions = new(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());
             r.Service = new(r.Query, f.Transactions, f.Tenant, new(roles, orgs, f.Tenant),
                 r.Permissions, null!, f.Store,
-                Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+                Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), dataPolicy: dataPolicy);
             return r;
         }
         internal Task<AiKnowledgeRetrievalSnapshot> Read() => Service.RetrieveAsync([F.Binding.KnowledgeBaseId], Actor, Model, AiKnowledgeRetrievalRuleTests.Vector(1, 0), default);

@@ -74,6 +74,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiAgentRunPermissions.Create, "创建 Agent 运行", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiAgentRunPermissions.Cancel, "取消 Agent 运行", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiAgentRunPermissions.Resume, "恢复 Agent 运行", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiAgentRunPermissions.Reconcile, "人工核证 Agent 对账", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiAgentApprovalPermissions.Read, "读取 Agent 审批", AuthorizationScope.Host),
         new(AiAgentApprovalPermissions.Request, "请求 Agent 审批", AuthorizationScope.Host),
         new(AiAgentApprovalPermissions.Decide, "决定 Agent 审批", AuthorizationScope.Host),
@@ -263,5 +264,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
             "恢复运行",
             "resume",
             30),
+        new AuthorizationActionDefinition("ai.agent_runs.reconcile", "ai-agent-runs",
+            AiAgentRunPermissions.Reconcile, "人工对账", "reconcile", 40),
     ];
 }

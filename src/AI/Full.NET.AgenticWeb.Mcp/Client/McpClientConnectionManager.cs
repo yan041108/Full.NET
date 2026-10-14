@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Full.NET.AI.Abstractions.Models;
 using ModelContextProtocol.Client;
 using Microsoft.Extensions.Options;
 
@@ -15,6 +16,10 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
     private bool disposed;
     private readonly McpEndpointPolicy endpointPolicy;
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly AiDataProcessingPolicy dataPolicy;
+    internal bool CanDispatch => dataPolicy.Allows("mcp", "restricted");
+    internal IDisposable? BeginDiagnosticScope() => dataPolicy.Allows("telemetry", "restricted")
+        ? null : OpenTelemetry.SuppressInstrumentationScope.Begin();
 
     /// <summary>创建作用域拥有的连接管理器。</summary>
     /// <param name="httpClientFactory">提供受控 HTTP 客户端。</param>
@@ -22,6 +27,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
     public McpClientConnectionManager(IHttpClientFactory httpClientFactory, IOptions<McpClientOptions> options)
     {
         this.httpClientFactory = httpClientFactory;
+        dataPolicy = options.Value.DataPolicy;
         endpointPolicy = new McpEndpointPolicy(options.Value.ApprovedOrigins, options.Value.PrivateOnly);
     }
 
@@ -36,8 +42,10 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
         string serviceAccessToken,
         CancellationToken cancellationToken)
     {
-        endpointPolicy.ValidateEndpoint(endpoint);
         cancellationToken.ThrowIfCancellationRequested();
+        dataPolicy.Require("mcp", "restricted");
+        endpointPolicy.ValidateEndpoint(endpoint);
+        using var diagnosticScope = BeginDiagnosticScope();
         Task<OwnedClient> pending;
         lock (sync)
         {
@@ -144,4 +152,7 @@ public sealed class McpClientOptions
 
     /// <summary>由宿主 FullNet:Ai:Network:PrivateOnly 冻结的出站边界；批准源仍只允许私网或环回。</summary>
     public bool PrivateOnly { get; set; }
+
+    // 只由可信装配闭包赋值，不从配置反射绑定或公开请求读取。
+    internal AiDataProcessingPolicy DataPolicy { get; set; } = AiDataProcessingPolicy.Default;
 }

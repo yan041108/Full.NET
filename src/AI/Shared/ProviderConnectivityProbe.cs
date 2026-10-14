@@ -12,9 +12,10 @@ namespace Full.NET.AI.Providers.Internal;
 internal static class ProviderConnectivityProbe
 {
     internal static async Task<ModelConnectivityResult> TestAsync(IHttpClientFactory http,
-        IDataProtectionProvider protection, IProtectedModelCredentialStore credentials, ModelBinding binding, bool openAi, CancellationToken cancellationToken)
+        IDataProtectionProvider protection, IProtectedModelCredentialStore credentials, ModelBinding binding, bool openAi, CancellationToken cancellationToken, AiDataProcessingPolicy? dataPolicy = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var clientName = AiProviderHttpClients.NameForData(binding.ProviderKey, "connectivity", binding.DataClassification, dataPolicy);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(TimeSpan.FromSeconds(15));
         try
@@ -31,7 +32,7 @@ internal static class ProviderConnectivityProbe
                     return new(false, "API key is required for openai_compatible provider.");
             }
 
-            using var client = http.CreateClient(AiProviderHttpClients.Name(binding.ProviderKey, true));
+            using var client = http.CreateClient(clientName);
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 $"{binding.Endpoint.AbsoluteUri.TrimEnd('/')}/{(openAi ? "models" : "api/tags")}");
             if (openAi)

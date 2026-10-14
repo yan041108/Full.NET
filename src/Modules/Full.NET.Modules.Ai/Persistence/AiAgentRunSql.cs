@@ -191,6 +191,23 @@ internal static class AiAgentRunSql
                         AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending')
         """, SqlDataScope.Global);
 
+    /// <summary>只关闭尚未解决的原未知执行；版本更新立即使旧租约失效。</summary>
+    internal static readonly SqlStatement ReconcileOwned = new("ai.agent_run.reconcile_owned", """
+        UPDATE fn_ai_agent_run
+        SET StatusKey = 'failed', LeaseOwner = NULL, LeaseExpiresAtUtc = NULL,
+            Version = Version + 1, UpdatedAtUtc = @Now
+        WHERE Id = @RunId AND ScopeKey = @ScopeKey AND ActorUserId = @ActorUserId
+          AND Version = @Version AND StatusKey = 'reconciliation_required'
+        """, SqlDataScope.Global);
+
+    /// <summary>对账只由原运行条件更新插入一次；读取仍须绑定当前范围及所有者。</summary>
+    internal static readonly SqlStatement FindReconciliation = new("ai.agent_run.find_reconciliation", """
+        SELECT e.Payload FROM fn_ai_agent_event e
+        INNER JOIN fn_ai_agent_run r ON r.Id = e.RunId
+        WHERE r.Id = @RunId AND r.ScopeKey = @ScopeKey AND r.ActorUserId = @ActorUserId
+          AND e.EventType = 'run.reconciled'
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement CancelOwned = new("ai.agent_run.cancel_owned", """
         UPDATE fn_ai_agent_run
         SET StatusKey = 'cancelled', LeaseOwner = NULL, LeaseExpiresAtUtc = NULL,

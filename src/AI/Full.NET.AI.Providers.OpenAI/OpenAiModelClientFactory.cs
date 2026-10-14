@@ -11,8 +11,14 @@ namespace Full.NET.AI.Providers.OpenAI;
 /// <param name="dataProtection">与历史配置兼容的凭据保护服务。</param>
 /// <param name="credentials">请求作用域内的授权凭据读取服务。</param>
 /// <param name="gatewayPolicy">可信宿主的网关能力快照。</param>
-public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials, OpenAiGatewayPolicy gatewayPolicy) : IAiModelClientFactory, IAiModelConnectivityProbe
+public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials, OpenAiGatewayPolicy gatewayPolicy, AiDataProcessingPolicy? dataPolicy = null, AiChatInputAdmissionPolicy? inputPolicy = null) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
+    /// <summary>保留旧构造 ABI；新宿主组合根使用带冻结策略的完整构造。</summary>
+    /// <param name="httpClientFactory">受控客户端工厂。</param><param name="dataProtection">凭据保护。</param>
+    /// <param name="credentials">请求凭据范围。</param><param name="gatewayPolicy">网关批准策略。</param>
+    public OpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection,
+        IProtectedModelCredentialStore credentials, OpenAiGatewayPolicy gatewayPolicy)
+        : this(httpClientFactory, dataProtection, credentials, gatewayPolicy, null, null) { }
     /// <summary>
     /// OpenAI 兼容提供程序的唯一静态键，固定为 openai_compatible，
     /// 用于匹配 ModelBinding 与 HTTP 客户端命名。
@@ -23,12 +29,14 @@ public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
+        (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
+        var clientName = AiProviderHttpClients.NameForData(ProviderKey, "chat", binding.DataClassification, dataPolicy);
         // 保留旧 purpose；明文只在 Provider 内用于当前请求，不能进入业务编排或摘要。
         var protectedCredential = await credentials.ReadAsync(binding, cancellationToken).ConfigureAwait(false);
         var key = string.IsNullOrWhiteSpace(protectedCredential) ? null :
             dataProtection.CreateProtector("Full.NET.Ai.ModelConfigApiKey.v1").Unprotect(protectedCredential);
         return new HttpChatClient(
-            httpClientFactory.CreateClient(AiProviderHttpClients.Name(ProviderKey, false)), binding, key,
+            httpClientFactory.CreateClient(clientName), binding, key,
             gatewayPolicy.SupportsStreamingUsage(binding.Endpoint, binding.ModelId));
     }
     /// <inheritdoc/>
@@ -37,10 +45,11 @@ public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
+        var clientName = AiProviderHttpClients.NameForData(ProviderKey, "embedding", binding.DataClassification, dataPolicy);
         var protectedCredential = await credentials.ReadAsync(binding, cancellationToken).ConfigureAwait(false);
         var key = string.IsNullOrWhiteSpace(protectedCredential) ? null :
             dataProtection.CreateProtector("Full.NET.Ai.ModelConfigApiKey.v1").Unprotect(protectedCredential);
-        var client = httpClientFactory.CreateClient(AiProviderHttpClients.Name(ProviderKey, false, embedding: true));
+        var client = httpClientFactory.CreateClient(clientName);
         return new HttpEmbeddingClient(binding, key, new ProviderEmbeddingTransport(client));
     }
 
@@ -49,6 +58,6 @@ public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
-        return ProviderConnectivityProbe.TestAsync(httpClientFactory, dataProtection, credentials, binding, true, cancellationToken);
+        return ProviderConnectivityProbe.TestAsync(httpClientFactory, dataProtection, credentials, binding, true, cancellationToken, dataPolicy);
     }
 }

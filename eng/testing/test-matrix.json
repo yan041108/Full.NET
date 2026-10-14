@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 8237,
+      "minimum": 8340,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 4754
+          "minimum": 4840
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison|FullyQualifiedName~RagFeedbackAdmission|FullyQualifiedName~RagRetrievalExecution",
@@ -48,12 +48,12 @@
           "minimum": 308
         },
         "ai-runtime": {
-          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AgentRuntimeMetering|FullyQualifiedName~AiMultiAgentBudget|FullyQualifiedName~AiRunOutputLimitClientTests|FullyQualifiedName~AiAgentRunLeaseBoundaryTests|FullyQualifiedName~AiToolDispatchOutcomeTests|FullyQualifiedName~AiApprovalCurrentAdmissionTests|FullyQualifiedName~AiChatRenameTransactionTests|FullyQualifiedName~AiRunOutputBudgetTests|FullyQualifiedName~AiRunInputBudgetTests|FullyQualifiedName~AiAgentRunCancellationTests|FullyQualifiedName~AiBudgetCommitObservationTests|FullyQualifiedName~AiRunInputAdmissionTests|FullyQualifiedName~AiAgentTerminalBudgetRepair|FullyQualifiedName~AiAgentToolCallAdmissionTests|FullyQualifiedName~AgentExecutionTelemetryTests|FullyQualifiedName~AiTaskRoute|FullyQualifiedName~AiAgentRunTraceContextTests|FullyQualifiedName~AiFailureLogTests|FullyQualifiedName~AiFailureLogBoundaryTests",
-          "minimum": 1018
+          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AgentRuntimeMetering|FullyQualifiedName~AiMultiAgentBudget|FullyQualifiedName~AiRunOutputLimitClientTests|FullyQualifiedName~AiAgentRunLeaseBoundaryTests|FullyQualifiedName~AiToolDispatchOutcomeTests|FullyQualifiedName~AiApprovalCurrentAdmissionTests|FullyQualifiedName~AiChatRenameTransactionTests|FullyQualifiedName~AiRunOutputBudgetTests|FullyQualifiedName~AiRunInputBudgetTests|FullyQualifiedName~AiAgentRunCancellationTests|FullyQualifiedName~AiBudgetCommitObservationTests|FullyQualifiedName~AiRunInputAdmissionTests|FullyQualifiedName~AiAgentTerminalBudgetRepair|FullyQualifiedName~AiAgentToolCallAdmissionTests|FullyQualifiedName~AgentExecutionTelemetryTests|FullyQualifiedName~AiTaskRoute|FullyQualifiedName~AiAgentRunTraceContextTests|FullyQualifiedName~AiFailureLogTests|FullyQualifiedName~AiFailureLogBoundaryTests|FullyQualifiedName~AiAgentReconciliationTests|FullyQualifiedName~AiDataObservationScopeTests|FullyQualifiedName~DatabaseAuthorizationReadReserveTests|FullyQualifiedName~IndependentCurrentSessionAuthorizationTests|FullyQualifiedName~IndependentAuthorizationCapacityTests",
+          "minimum": 1061
         },
         "ai-provider": {
-          "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests|FullyQualifiedName~AiProviderOutputLimitTests|FullyQualifiedName~AiProviderPrivateNetworkTests|FullyQualifiedName~AiProviderTelemetryTests|FullyQualifiedName~McpNetworkPolicyTests",
-          "minimum": 269
+          "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests|FullyQualifiedName~AiProviderOutputLimitTests|FullyQualifiedName~AiProviderPrivateNetworkTests|FullyQualifiedName~AiProviderTelemetryTests|FullyQualifiedName~McpNetworkPolicyTests|FullyQualifiedName~AiDataProcessingPolicyTests|FullyQualifiedName~AiDataPolicyProviderTests|FullyQualifiedName~AiProviderInputAdmissionTests|FullyQualifiedName~AiSilentHttpChannelTests|FullyQualifiedName~McpDataProcessingPolicyTests",
+          "minimum": 327
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
@@ -429,14 +429,14 @@
       "256": {
         "filter": "FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.MySql_|FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.SqlServer_"
       },
+      "257": {
+        "filter": "FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.MySql_|FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.SqlServer_"
+      },
       "258": {
         "filter": "FullyQualifiedName~Migration258AiKnowledgeAnswerReviewRecoveryTests.MySql_|FullyQualifiedName~Migration258AiKnowledgeAnswerReviewRecoveryTests.SqlServer_"
       },
       "259": {
         "filter": "FullyQualifiedName~Migration259AiAgentRunTraceContextRecoveryTests.MySql_|FullyQualifiedName~Migration259AiAgentRunTraceContextRecoveryTests.SqlServer_"
-      },
-      "257": {
-        "filter": "FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.MySql_|FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.SqlServer_"
       },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"

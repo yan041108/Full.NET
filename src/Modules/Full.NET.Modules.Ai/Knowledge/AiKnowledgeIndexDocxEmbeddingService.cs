@@ -60,7 +60,7 @@ internal sealed class AiKnowledgeIndexDocxEmbeddingService(AiKnowledgeIndexDocxP
             Check(bounded);
             copied = await ModelAsync(async io =>
             {
-                using var generator = await factory.CreateEmbeddingGeneratorAsync(bindings.Create(model), io).ConfigureAwait(false);
+                using var generator = await factory.CreateEmbeddingGeneratorAsync(bindings.Create(model, prepared.Source.DataClassification, "embedding"), io).ConfigureAwait(false);
                 if (await planning.ReadCurrentModelAsync(binding, taskId, leaseToken, prepared, io).ConfigureAwait(false) is null)
                     return null;
                 Check(io);

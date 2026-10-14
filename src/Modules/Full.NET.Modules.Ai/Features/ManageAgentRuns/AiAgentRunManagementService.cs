@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -33,7 +34,7 @@ internal sealed class AiAgentRunManagementService(
     IClock clock,
     IIdGenerator ids,
     IOptions<AiAgentRuntimeOptions> runtimeOptions,
-    ICommandTransaction transaction)
+    ICommandTransaction transaction, AiChatInputAdmissionPolicy? inputPolicy = null)
 {
     public const string SingleTextDefinitionKey = AgentDefinitionRegistry.SingleTextKey;
     public const string ReadOnlyToolLoopDefinitionKey = AgentDefinitionRegistry.ReadOnlyToolLoopKey;
@@ -104,6 +105,10 @@ internal sealed class AiAgentRunManagementService(
                 "The AI model configuration is not available for agent runs.",
                 ErrorType.BusinessRule));
         }
+
+        try { (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch(); }
+        catch (AiBudgetException ex)
+        { return Result<CreateAiAgentRunResponse>.Failure(new Error(ex.Code, "Exact input metering is unavailable for this Chat transport.", ErrorType.BusinessRule)); }
 
         var runId = ids.NewId();
         var budgetJson = JsonSerializer.Serialize(

@@ -7,6 +7,7 @@ internal static class AiAgentRunTraceContext
 {
     internal static string? Capture()
     {
+        if (!Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve) return null;
         var current = Activity.Current;
         if (current?.IdFormat != ActivityIdFormat.W3C) return null;
         var context = current.Context;

@@ -204,8 +204,11 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 612);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 612);
+  assert.equal(manifest.entries.length, 614);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 614);
+  for (const operationId of ['aiGetAgentReconciliation', 'aiReconcileAgentRun']) {
+    assert.ok(manifest.entries.some(entry => entry.operationId === operationId && entry.generatedGroup === 'ai-agent-reconciliation' && entry.status === 'generated'));
+  }
   for (const operationId of ['aiGetKnowledgeAnswerFeedbackReviews', 'aiReviewKnowledgeAnswerFeedback', 'aiExportKnowledgeAnswerFeedbackLabels']) {
     assert.ok(manifest.entries.some(entry => entry.operationId === operationId && entry.generatedGroup === 'ai-answer-feedback' && entry.status === 'generated'));
   }
@@ -231,6 +234,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
     [
       'ai-agent-approvals',
       'ai-agent-delegations',
+      'ai-agent-reconciliation',
       'ai-agent-runs',
       'ai-agent-tools',
       'ai-answer-feedback',
@@ -334,7 +338,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    612
+    614
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

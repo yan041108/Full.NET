@@ -18,7 +18,8 @@ namespace Full.NET.Modules.Ai.Budgets;
 /// <summary>预算账本归 Ai 所有；同 scope 行锁串行化跨实例计数，外部模型不进入事务。</summary>
 internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExecutor commands, ICommandTransaction transaction,
     ICurrentTenant tenant, IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database,
-    IOptions<AiOperationBudgetOptions> options, AiChatQuotaGuard legacy, ICommandCommitObserver observations) : IAiOperationBudgetStore
+    IOptions<AiOperationBudgetOptions> options, AiChatQuotaGuard legacy, ICommandCommitObserver observations,
+    Full.NET.AI.Abstractions.Models.AiChatInputAdmissionPolicy? inputPolicy = null) : IAiOperationBudgetStore
 {
     internal const string MeterName = "Full.NET.Ai.Budgets";
     private static readonly Meter Meter = new(MeterName);
@@ -81,10 +82,11 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
                 ("ProviderKey", request.ProviderKey), ("ModelId", request.ModelId), ("RequestHash", fingerprint), ("QuotaMonthKey", month), ("ReservedTokens", reserved), ("ReservedCost", cost),
                 ("Currency", price?.Currency), ("PriceVersionId", price?.VersionId), ("InputPerMillion", price?.InputPerMillion),
                 ("OutputPerMillion", price?.OutputPerMillion), ("CachedInputPerMillion", price?.CachedInputPerMillion),
-                ("LegacyTracked", compatibility?.IsTracked ?? false), ("Now", now), ("TraceId", Activity.Current?.TraceId.ToString())), token).ConfigureAwait(false);
+                ("LegacyTracked", compatibility?.IsTracked ?? false), ("Now", now), ("TraceId", Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve ? Activity.Current?.TraceId.ToString() : null)), token).ConfigureAwait(false);
             if (affected != 1) throw new AiBudgetException("ai.budget.persistence_failed");
             // 内层返回不证明最外层已提交；回滚的账本不能成为成功指标。
-            observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", "reserved")));
+            if (Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve)
+                observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", "reserved")));
             return new AiOperationReservation(request.OperationId, true, "reserved", reserved, cost, price?.Currency);
         }, cancellationToken).ConfigureAwait(false);
         return result;
@@ -124,9 +126,10 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
                     checked((int)usage.InputTokens!.Value), checked((int)usage.OutputTokens!.Value), token).ConfigureAwait(false);
             var currency = row.Currency;
             var chargedCost = complete && currency == options.Value.Currency ? cost : null;
-            observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", outcome)));
+            if (Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve)
+                observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", outcome)));
             // 币种只允许配置中单一受控值进入指标；计量监听器异常不应阻止另一项指标。
-            if (chargedCost is { } amount)
+            if (Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve && chargedCost is { } amount)
                 observations.Observe(() => Cost.Add((double)amount, new KeyValuePair<string, object?>("currency", currency)));
             return (Cost: complete ? cost : null, Currency: row.Currency, Changed: true);
         }, cancellationToken).ConfigureAwait(false);
@@ -134,6 +137,7 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
 
     private static void RecordAttempt(string status)
     {
+        if (!Full.NET.AI.Abstractions.Models.AiDataObservationScope.CanObserve) return;
         // 尝试失败不是已提交事实；观测失败仍须保留原业务异常。
         try { Calls.Add(1, new KeyValuePair<string, object?>("status", status)); }
         catch (Exception) { /* 指标为临时观测，不能覆盖预算拒绝或取消原因。 */ }
@@ -144,6 +148,8 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
 
     private void Validate(AiOperationRequest request)
     {
+        if (request.Kind is "chat" or "agent")
+            (inputPolicy ?? Full.NET.AI.Abstractions.Models.AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
         if (string.IsNullOrWhiteSpace(request.ProviderKey) || request.ProviderKey.Length > 32 || string.IsNullOrWhiteSpace(request.ModelId) || request.ModelId.Length > 256
             || request.OperationId == Guid.Empty || request.ModelConfigId == Guid.Empty || request.RunId == Guid.Empty
             || request.Kind is not ("chat" or "agent" or "embedding") || request.RequestHash.Length != 64

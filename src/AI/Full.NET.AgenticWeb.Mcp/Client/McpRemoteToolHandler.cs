@@ -21,6 +21,7 @@ internal sealed class McpRemoteToolHandler(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var diagnosticScope = connections.BeginDiagnosticScope();
         if (!ValidateArguments(invocation.Arguments))
         {
             throw new InvalidOperationException("Invalid tool arguments.");

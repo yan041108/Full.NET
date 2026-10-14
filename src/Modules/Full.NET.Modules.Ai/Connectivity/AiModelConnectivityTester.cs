@@ -15,7 +15,7 @@ internal sealed class AiModelConnectivityTester(IEnumerable<IAiModelConnectivity
         cancellationToken.ThrowIfCancellationRequested();
         var probe = probes.SingleOrDefault(item => item.ProviderKey == record.ProviderKey);
         if (probe is null) return (false, "Unsupported provider key.");
-        var binding = bindings.Create(record);
+        var binding = bindings.Create(record, stage: "connectivity");
         var result = await probe.TestConnectivityAsync(binding, cancellationToken).ConfigureAwait(false);
         return (result.Succeeded, result.Message);
     }

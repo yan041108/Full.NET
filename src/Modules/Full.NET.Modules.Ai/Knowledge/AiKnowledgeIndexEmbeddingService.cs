@@ -95,7 +95,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
             { outcome = "cancelled"; return null; }
             IReadOnlyList<AiKnowledgeEmbeddedChunk> vectors;
             NoTransaction();
-            using (var generator = await factory.CreateEmbeddingGeneratorAsync(bindings.Create(state.Model), bounded).ConfigureAwait(false))
+            using (var generator = await factory.CreateEmbeddingGeneratorAsync(bindings.Create(state.Model, state.Source.DataClassification, "embedding"), bounded).ConfigureAwait(false))
             {
                 // 创建客户端或读取凭据也会等待，最终门禁之后才进入可能计费的调用。
                 if (!await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))
