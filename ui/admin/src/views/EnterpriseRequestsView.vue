@@ -14,7 +14,8 @@ import {
 } from 'element-plus';
 import {
   isFullNetProblemDetails,
-  type FullNetProblemDetails
+  type FullNetProblemDetails,
+  type ImportExportTaskDetailResponse
 } from '@fullnet/client-contracts';
 import { enterpriseRequestsHttp } from '../api/enterprise-requests';
 import { useSessionStore } from '../auth/session';
@@ -26,6 +27,8 @@ import EnterpriseRequestLinesDialog from './enterprise-requests/EnterpriseReques
 import EnterpriseRequestAttachmentsDialog from './enterprise-requests/EnterpriseRequestAttachmentsDialog.vue';
 import { requestStatusLabel } from './enterprise-requests/enterprise-request-presentation';
 import { useAdminI18n } from '../i18n/adminI18n';
+import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
 
 const session = useSessionStore();
 const route = useRoute();
@@ -42,6 +45,7 @@ const submitting = ref<EnterpriseRequestResponse>();
 let submitTicket = 0;
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
+const importOpen = ref(false);
 const editOpen = ref(false);
 const deleteOpen = ref(false);
 const editing = ref<EnterpriseRequestResponse>();
@@ -99,11 +103,16 @@ const {
 
 const canPrintSummary = computed(() => canRead.value
   && session.can('printing.published_templates.read') && session.can('printing.published_templates.preview'));
+const canImportRequests = computed(() => canRead.value && canCreate.value && isTenantSessionContext(session.currentUser)
+  && session.can('import_export.import_tasks.create') && session.can('import_export.static_schemas.read')
+  && session.can('import_export.import_tasks.read'));
+const importSchemaKey = 'demo.enterprise_requests';
 
 // 上下文或激活代次改变时，关闭所有旧资料入口并同步清除输入和错误。
 watch(scopeVersion, () => {
   // 租户、会话或权限改变后，旧 URL 不能自动在新上下文中重新读取。
   linkBlocked = true;
+  importOpen.value = false;
   createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
   editing.value = undefined; deleting.value = undefined; problem.value = undefined;
   progressId.value = undefined;
@@ -134,10 +143,11 @@ onMounted(() => {
   openLinkedDetail();
 });
 watch([() => route.name, () => route.query.requestId], () => {
+  if (route.name !== 'enterprise-requests') importOpen.value = false;
   linkBlocked = false;
   openLinkedDetail();
 }, { flush: 'sync' });
-onDeactivated(() => { viewActive = false; detailId.value = undefined; });
+onDeactivated(() => { viewActive = false; detailId.value = undefined; importOpen.value = false; });
 onActivated(() => {
   if (!viewActive) { viewActive = true; openLinkedDetail(); }
 });
@@ -164,6 +174,17 @@ function openCreate(): void {
   if (!canCreate.value || changing.value) return;
   problem.value = undefined;
   createOpen.value = true;
+}
+
+function openImport(): void {
+  if (viewActive && route.name === 'enterprise-requests' && canImportRequests.value && !changing.value) importOpen.value = true;
+}
+function onImportCreated(task: ImportExportTaskDetailResponse): void {
+  if (!importOpen.value || !viewActive || route.name !== 'enterprise-requests' || !canImportRequests.value
+    || task.tenantId !== session.currentUser?.tenantId || task.schemaKey !== importSchemaKey || task.worksheetKey !== 'requests') return;
+  importOpen.value = false;
+  // 仅导航到标准任务详情；执行、错误回执与恢复继续由任务页和服务端逐项授权。
+  void router.push({ name: 'import-export-tasks', query: { taskId: task.id } });
 }
 
 function openEdit(row: EnterpriseRequestResponse): void {
@@ -257,6 +278,9 @@ async function confirmDelete(): Promise<void> {
       <span>{{problem.title}}</span>
     </div>
     <div class="generated-crud-view__toolbar">
+      <el-button v-if="canImportRequests" :disabled="changing" data-testid="enterprise-request-import" @click="openImport">
+        {{ t('enterpriseRequests.importRequests') }}
+      </el-button>
       <el-button v-if="canRead" :loading="loading" :disabled="changing" @click="load()">{{ t('common.refresh') }}</el-button>
       <el-button
         v-if="canCreate"
@@ -266,6 +290,7 @@ async function confirmDelete(): Promise<void> {
         {{ t('enterpriseRequests.create') }}
       </el-button>
     </div>
+    <ImportTaskCreateDialog v-model:open="importOpen" :schema-key="importSchemaKey" @created="onImportCreated" />
     <el-table
       :data="[...items]"
       :empty-text="t('enterpriseRequests.empty')"

@@ -12,7 +12,7 @@ import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessag
 import { createImportExportTask, downloadStaticImportTemplate, listStaticImportSchemas } from '../api/import-export-tasks';
 
 defineOptions({ name: 'ImportTaskCreateDialog' });
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean; schemaKey?: string }>();
 const emit = defineEmits<{ 'update:open': [value: boolean]; created: [task: ImportExportTaskDetailResponse] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const schemas = ref<StaticImportSchemaDefinition[]>([]); const schemaKey = ref(''); const worksheetKey = ref('');
@@ -36,7 +36,8 @@ function changeOpen(open: boolean): void {
   if (!open) reset();
   emit('update:open', open);
 }
-watch(() => props.open, open => { reset(); if (open) void loadSchemas(); }, { flush: 'sync' });
+// 业务入口切换时同步撤销旧文件、目录、下载和上传，不能把前一业务的完成交给新入口。
+watch(() => [props.open, props.schemaKey], () => { reset(); if (props.open) void loadSchemas(); }, { flush: 'sync' });
 function schemaChanged(): void {
   downloadRequest?.cancel(); downloading.value = false; clearFile();
   worksheetKey.value = selectedSchema.value?.worksheets[0]?.worksheetKey ?? '';
@@ -50,7 +51,8 @@ async function loadSchemas(): Promise<void> {
     const values = await listStaticImportSchemas(request.signal);
     if (!request.current()) return;
     // 目录只是元数据；选择仍须满足可信作用域与该 Schema 的业务权限。
-    schemas.value = values.filter(value => value.scopeKey === 'tenant' && session.can(value.requiredPermission) && value.worksheets.length > 0);
+    schemas.value = values.filter(value => value.scopeKey === 'tenant' && session.can(value.requiredPermission) && value.worksheets.length > 0
+      && (props.schemaKey === undefined || value.schemaKey === props.schemaKey));
     schemaKey.value = schemas.value[0]?.schemaKey ?? ''; schemaChanged();
   } catch (error) {
     if (request.current()) showProblem(error, t('common.loadFailed'));

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { importReceiptFailureLabel } from './importReceiptFailureLabel';
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, ref, watch } from 'vue';
+import { computed, inject, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import {
   ElAlert,
   ElButton,
@@ -18,7 +19,7 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FullNetProblemDetails, ImportExportTaskDetailResponse, ImportExportTaskResponse } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
@@ -43,6 +44,12 @@ import {
 defineOptions({ name: 'ImportExportTasksView' });
 
 const session = useSessionStore();
+const route = inject(routeLocationKey, undefined);
+let linkBlocked = false; let linkedTaskId: string | undefined;
+let pageActive = false;
+// 先登记激活状态，确保作用域恢复读取完成后只在当前可见页面解释链接。
+onMounted(() => { pageActive = true; }); onActivated(() => { pageActive = true; });
+onDeactivated(() => { pageActive = false; }); onBeforeUnmount(() => { pageActive = false; });
 const { t } = useAdminI18n();
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
@@ -60,11 +67,12 @@ const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, se
 const unavailableFiles = useUnavailableResultFiles();
 const receiptKey = (task: ImportExportTaskDetailResponse) => task.id + ':' + task.version;
 const scope = useAuthorizedViewScope(session, () => {
+  linkBlocked = true; linkedTaskId = undefined;
   cancelConfirmation.value = undefined;
   unavailableFiles.reset();
   items.value = []; selectedTask.value = undefined; problem.value = undefined; drawerVisible.value = false;
   page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
-}, async () => { await load(); });
+}, async () => { openLinkedTask(); await load(); });
 let listRequest: ReturnType<typeof scope.begin>;
 let detailRequest: ReturnType<typeof scope.begin>;
 let actionRequest: ReturnType<typeof scope.begin>;
@@ -75,7 +83,23 @@ function cancelDetail(): void {
   detailRequest?.cancel(); actionRequest?.cancel(); selectedTask.value = undefined;
   detailLoading.value = false; actionLoading.value = false;
 }
-watch(drawerVisible, visible => { if (!visible) cancelDetail(); }, { flush: 'sync' });
+watch(drawerVisible, visible => {
+  if (!visible) { cancelDetail(); linkBlocked = true; linkedTaskId = undefined; }
+}, { flush: 'sync' });
+
+// 链接仅提供任务身份，读取仍使用当前可信租户和已有精确权限；不自动执行任务。
+function openLinkedTask(): void {
+  const id = route?.query.taskId;
+  if (!pageActive || linkBlocked || route?.name !== 'import-export-tasks' || !isTenantSessionContext(session.currentUser)
+    || !session.can('import_export.import_tasks.read') || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
+  if (linkedTaskId === id.toLowerCase()) return;
+  linkedTaskId = id.toLowerCase(); void openDetail(linkedTaskId);
+}
+watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
+  cancelDetail(); drawerVisible.value = false; linkedTaskId = undefined;
+  linkBlocked = route?.name !== 'import-export-tasks';
+  if (!linkBlocked) openLinkedTask();
+}, { flush: 'sync' });
 
 const {
   tableMainRef,

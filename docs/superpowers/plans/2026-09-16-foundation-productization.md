@@ -3387,3 +3387,14 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 新增 C# Unit 与 Vue 回归源码，覆盖业务绑定晚取消/租户变化、链接规则、真实路由/目录、KeepAlive 和列表权限入口；数量及集中选择统一维护在 eng/testing/test-matrix.json，源码场景不冒充运行发现或通过数。只读复审未发现可证明 P1/P2 或明显类型/夹具问题。
 - **本批未执行编译、类型检查、测试、双库、Native、浏览器或独立生成应用验收**。仅使用已安装 TypeScript/Vue SFC 解析器做语法解析，核对源码计数、矩阵/双语键结构、git diff --check 与外来 WIP 保全；语法解析不能替代类型检查或行为验收。与同轮开发批次集中验证，F11/C02 与 Capacity-not-verified 不关闭，未合并发布。
 <!-- /f11-enterprise-printing-entry-development-20261015 -->
+
+<!-- f11-enterprise-import-entry-development-20261015 -->
+## 2026-10-15 F11 企业申请导入入口、固定模板与任务详情联动开发（待集中验证）
+
+- 按“开发任务先全部批量完成”补齐真实业务入口；基线 `85178b188ccd9f5a213f634ccc91e443dc6c445a`，快照 `enterprise-import-entry-development-20261015`。企业申请页直接打开共用 Excel 导入弹窗，只选择当前用户获权的 demo.enterprise_requests/requests；预校验完成后导航标准任务详情，由原任务页处理错误、执行、取消、回执和进度，不自动执行任务。
+- 列表入口要求原申请 Read/Create、导入任务 Read/Create、静态目录 Read 与可信租户上下文；Host 身份切入正式租户沿用原协议，Host 作用域不能进入。导航前再次复核激活、路由、弹窗、权限及返回任务的租户/Schema/工作表，参数只作定位，不扩展服务端授权。
+- ImportTaskCreateDialog 增可选 Schema 限定，只筛选已经获权且包含工作表的租户目录；指定项不存在、空键或无业务权限时不回退其它模板。通用入口未指定参数时保持原目录；参数变化同步取消旧目录/下载/上传并清除文件，拒绝迟到 created 与下载。
+- ImportExportTasksView 支持 taskId 详情链接，可直接读取不在列表页的任务，使用既有详情 API 与权限，不等待列表完成且不自动预取模板或执行业务。非法/空 UUID 与数组参数不读取；切换链接、离开路由、关闭详情、撤权、租户变化和 KeepAlive 停用清除旧内容。原链接不在新上下文自动重放，显式新链接可定位，停用期间的新链接在恢复后读取。
+- 新增 Vue 回归源码覆盖上述业务流程与独立生命周期。未新增 Endpoint、公开服务端契约、SQL、迁移、模块依赖或第三方依赖；未改变现有上传/工作簿、数据范围和任务执行授权规则。增量审查发现恢复回调不能直接返回列表加载的 Promise<boolean>，已改为 async/await 丢弃布尔结果，保持 Promise<void> 与详情立即读取；静态复核不替代类型检查。
+- **本批未执行编译、类型检查、测试、双库、Native、浏览器或独立生成应用验收**；仅已安装 TypeScript/Vue SFC 语法解析、双语键结构、git diff --check 与外来 WIP 保全有新鲜检查。与同轮开发批次集中验证，F11/C02 与 Capacity-not-verified 不关闭，未合并发布。
+<!-- /f11-enterprise-import-entry-development-20261015 -->
