@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
@@ -433,8 +434,9 @@ internal static class HostUserWorkbookCodec
             ? $"'{value}"
             : value;
 
+    // 合法代理对属于显示名称原文，XML 清洗不能按独立 UTF-16 单元删除。
     private static string SanitizeXmlText(string? value) =>
-        string.Concat((value ?? string.Empty).Where(XmlConvert.IsXmlChar));
+        XmlTextSanitizer.Sanitize(value ?? string.Empty);
 
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";

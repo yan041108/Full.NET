@@ -10,6 +10,23 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class HostUserWorkbookCodecTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Export_preserves_supplementary_display_name_characters(bool malformed)
+    {
+        // 待测孤立代理项留在方法体，不经特性元数据的 UTF-8 编码。
+        var name = malformed ? " 前\0😀\uD800𠮷\uDC00后 " : " 中文 😀 𠮷 \t";
+        var expected = malformed ? " 前😀𠮷后 " : name;
+        var user = new HostUserResponse(Guid.CreateVersion7(), "unicode-user", name, "standard", true,
+            DateTimeOffset.Parse("2026-10-15T00:00:00Z"), null, 1);
+        using var archive = Open(HostUserWorkbookCodec.Export([user]));
+        var sheet = ReadXml(archive, "xl/worksheets/sheet1.xml");
+        var value = sheet.Descendants(SpreadsheetNamespace + "c").Single(cell => (string?)cell.Attribute("r") == "B2");
+        Assert.AreEqual(expected, value.Descendants(SpreadsheetNamespace + "t").Single().Value);
+        Assert.IsFalse(sheet.Descendants(SpreadsheetNamespace + "f").Any());
+    }
+
+    [TestMethod]
     public void CreateImportTemplate_emits_fixed_users_sheet_and_headers()
     {
         var workbook = HostUserWorkbookCodec.CreateImportTemplate();

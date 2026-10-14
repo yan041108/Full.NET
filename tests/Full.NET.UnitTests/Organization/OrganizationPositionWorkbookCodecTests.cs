@@ -10,6 +10,27 @@ namespace Full.NET.UnitTests.Organization;
 public sealed class OrganizationPositionWorkbookCodecTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Export_preserves_supplementary_position_and_related_names(bool malformed)
+    {
+        // 同时覆盖职位、机构和职级显示名称；孤立代理项不写入特性参数。
+        var name = malformed ? " 前\0😀\uD800𠮷\uDC00后 " : " 中文 😀 𠮷 \t";
+        var expected = malformed ? " 前😀𠮷后 " : name;
+        var position = new OrganizationPositionResponse(Guid.CreateVersion7(), "unicode-position", name,
+            null, "unit", name, null, "level", name, 10, true,
+            DateTimeOffset.Parse("2026-10-15T00:00:00Z"), null, 1);
+        using var archive = Open(OrganizationPositionWorkbookCodec.Export([position]));
+        var sheet = ReadXml(archive, "xl/worksheets/sheet1.xml");
+        foreach (var reference in new[] { "B2", "E2", "G2" })
+        {
+            var value = sheet.Descendants(SpreadsheetNamespace + "c").Single(cell => (string?)cell.Attribute("r") == reference);
+            Assert.AreEqual(expected, value.Descendants(SpreadsheetNamespace + "t").Single().Value);
+        }
+        Assert.IsFalse(sheet.Descendants(SpreadsheetNamespace + "f").Any());
+    }
+
+    [TestMethod]
     public void CreateImportTemplate_emits_fixed_positions_sheet_and_headers()
     {
         var workbook = OrganizationPositionWorkbookCodec.CreateImportTemplate();

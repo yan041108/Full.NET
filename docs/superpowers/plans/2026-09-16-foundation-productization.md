@@ -3278,3 +3278,12 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 写入 C# 场景 28（XML 文本 10、Reporting 渲染 4、回执渲染/身份/预算 12、Runner 超限收口 2），Vue 文案场景 5；孤立代理项在测试方法体生成，避免特性元数据 UTF-8 编码改变待测输入。机器 Unit 下限 6339，ImportExport 恢复选择下限 46；仅源码计数，未冒充实际发现数或通过数。不新增数据库、迁移或逐场景重型验收。
 - 最终只读源码审查未发现可证明 P1/P2 或明显 API/AOT 静态风险。**本批未执行编译、测试、双库、Native、浏览器或独立生成应用验收**；仅源码计数/矩阵结构、`git diff --check` 与外来 WIP 保全检查有新鲜证据。与此前开发批次集中验证，不关闭 F11/C02，保持 Capacity-not-verified，未合并发布。
 <!-- /f11-output-rendering-bounds-development-20261015 -->
+
+<!-- c02-common-workbook-unicode-development-20261015 -->
+## 2026-10-15 C02 审计、用户与职位工作簿 Unicode 联合收口（待集中验证）
+
+- 同轮沿输出实现继续核对，`rg` 发现 Auditing、Identity HostUser 与 Organization TenantPosition 仍按独立 UTF-16 字符过滤 XML，导致合法 Emoji、补充平面汉字丢失。基线 `e077025a34819abdf7bae63eb6e909d4a31aac9a`，快照 `common-workbook-unicode-development-20261015`；三处改为实际共用 `XmlTextSanitizer`，不新增项目、依赖包或另一套通用 Excel 抽象。
+- 审计工作表名先做 XML 文本清洗、再去除既有 Excel 禁用字符，31 个 UTF-16 单元上限避免切断代理对；清洗后空名或纯空白使用固定 Export。审计文本节点补 `xml:space=preserve`，与用户/职位现有行为一致。列布局、公式文本转义、导入压缩/XML/行数限制、HTTP 契约和授权路径保持原实现；本批不声称这些额外三个编码器具备上一批两个渲染器的取消和 ZIP 预算能力。
+- 新增 Unit 源码场景 10（审计 6、Host 用户 2、职位及其机构/职级显示名称 2），覆盖合法 Unicode、非法控制字符/孤立代理项、表名截断边界、清洗为空回退和审计空白保留；孤立代理项仅在方法体生成。机器 Unit 下限 6349；源码计数不作为实际发现或通过证据，不新增双库测试发现项或数据库。
+- 最终只读源码复核未发现可证明 P1/P2 或明显契约、编译与 AOT 风险。**未执行编译、测试、Native、浏览器或独立生成应用验收**，继续与同轮全部开发批次集中验证。本批只核对源码计数、矩阵结构、`git diff --check` 和外来 WIP 保全；F11/C02 与容量状态不关闭，未合并发布。
+<!-- /c02-common-workbook-unicode-development-20261015 -->

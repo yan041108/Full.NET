@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.Modules.Organization.Features.ManageTenantPositions;
@@ -462,8 +463,9 @@ internal static class OrganizationPositionWorkbookCodec
             ? $"'{value}"
             : value;
 
+    // 职位、机构与职级显示名保留合法代理对，只删除 XML 不允许的字符。
     private static string SanitizeXmlText(string? value) =>
-        string.Concat((value ?? string.Empty).Where(XmlConvert.IsXmlChar));
+        XmlTextSanitizer.Sanitize(value ?? string.Empty);
 
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";
