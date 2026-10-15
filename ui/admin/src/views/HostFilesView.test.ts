@@ -126,6 +126,7 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
     } finally { wrapper.unmount(); vi.restoreAllMocks(); }
   });
   it('主动内容不进入文件内嵌预览', async () => {
+    listMock.mockResolvedValueOnce({ items: [{ ...sampleFile, contentType: 'text/html' }], page: 1, pageSize: 20, total: 1 });
     vi.mocked(previewHostFileContent).mockReset(); const wrapper = mountWithPermissions(['files.files.read']);
     try {
       await flushPromises(); const vm = wrapper.vm as unknown as { preview: (file: typeof sampleFile) => Promise<void> };

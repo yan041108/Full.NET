@@ -17,7 +17,6 @@ import {
   ElTree
 } from 'element-plus';
 import type {
-  BatchUploadHostFilesResponse,
   FullNetProblemDetails,
   HostFile,
   HostFileReferenceClaimResponse,
@@ -73,16 +72,21 @@ const items = ref<HostFile[]>([]);
 const folderTree = ref<TreeNode[]>([]);
 const selectedFolder = ref<HostFolderTreeNode | null>(null);
 const selectedFiles = ref<File[]>([]);
-const uploadResults = ref<BatchUploadHostFilesResponse | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const selectedRows = ref<HostFile[]>([]);
-type DeleteOutcome = 'processing' | 'succeeded' | 'failed' | 'unconfirmed';
-const deleteReceipt = ref<{ succeeded: number; total: number; items: { fileId: string; name: string; outcome: DeleteOutcome; errorCode: string | null }[] }>();
+type OperationOutcome = 'processing' | 'succeeded' | 'failed' | 'unconfirmed';
+const deleteReceipt = ref<{ succeeded: number; total: number; items: { fileId: string; name: string; outcome: OperationOutcome; errorCode: string | null }[] }>();
+const uploadReceipt = ref<{ succeeded: number; total: number; items: { fileId: string | null; name: string; outcome: OperationOutcome; errorCode: string | null }[] }>();
+const uploadUnconfirmed = ref(false);
 const unconfirmedFileIds = ref(new Set<string>());
 const fileUnconfirmed = (id: string) => unconfirmedFileIds.value.has(id.toLowerCase());
 const unconfirmedFolderIds = ref(new Set<string>());
 const folderUnconfirmed = (id: string) => unconfirmedFolderIds.value.has(id.toLowerCase());
 const folderCreationUnconfirmed = ref(false);
 const previewDialogVisible = ref(false);
+let readSequence = 0;
+const previewTarget = ref<HostFile>();
+const previewIntent = ref<{ token: number; update: (open: boolean) => void }>();
 const filePreview = useBlobPreview();
 const previewUrl = filePreview.url;
 const previewTitle = ref('');
@@ -96,6 +100,11 @@ let metadataSequence = 0;
 const metadataIntent = ref<{ token: number; close: () => void; update: (open: boolean) => void; save: () => void }>();
 const referencesDrawerVisible = ref(false);
 const references = ref<HostFileReferenceClaimResponse[]>([]);
+const referencesPage = ref(1), referencesTotal = ref(0);
+const referencesProblem = ref<FullNetProblemDetails>();
+const referencesTarget = ref<HostFile>();
+const referencesIntent = ref<{ token: number; update: (open: boolean) => void; updatePage: (page: number) => void; change: (page: number) => void; refresh: () => void }>();
+const downloadTarget = ref<HostFile>();
 const editingFile = ref<HostFile | null>(null);
 const metadataForm = ref({ originalFileName: '', folderId: '' });
 const newFolderName = ref('');
@@ -157,14 +166,15 @@ function askConfirmation(title: string, message: string, value?: string): Promis
 // 文件内容、上传回执、编辑和确认由当前 Host 会话拥有；失效只取消客户端接入，不承诺回滚写入。
 const scope = useAuthorizedViewScope(session, () => {
   finishConfirmation(false); deleteReceipt.value = undefined; unconfirmedFileIds.value = new Set(); unconfirmedFolderIds.value = new Set(); folderCreationUnconfirmed.value = false; items.value = []; folderTree.value = []; selectedFolder.value = null;
-  selectedFiles.value = []; selectedRows.value = []; uploadResults.value = null; page.value = 1; pageSize.value = 20; total.value = 0;
+  selectedFiles.value = []; if (fileInput.value) fileInput.value.value = ''; selectedRows.value = []; uploadReceipt.value = undefined; uploadUnconfirmed.value = false; page.value = 1; pageSize.value = 20; total.value = 0;
   previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
-  metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = [];
+  metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = []; referencesPage.value = 1; referencesTotal.value = 0; referencesProblem.value = undefined;
+  previewTarget.value = undefined; previewIntent.value = undefined; referencesTarget.value = undefined; referencesIntent.value = undefined; downloadTarget.value = undefined;
   searchForm.value = {}; appliedFilters.value = { fileName: '' }; newFolderName.value = ''; problem.value = undefined; loading.value = false; changing.value = false;
 }, refreshAll);
 type ViewRequest = ReturnType<typeof scope.begin>;
 let listRequest: ViewRequest; let foldersRequest: ViewRequest; let actionRequest: ViewRequest;
-let metadataRequest: ViewRequest; let previewRequest: ViewRequest; let referencesRequest: ViewRequest;
+let metadataRequest: ViewRequest; let previewRequest: ViewRequest; let referencesRequest: ViewRequest; let downloadRequest: ViewRequest;
 function begin(permission: string): ViewRequest { return allowed(permission) ? scope.begin(permission) : undefined; }
 function beginAction(permission: string): ViewRequest {
   if (changing.value) return; const request = begin(permission); if (!request) return;
@@ -174,6 +184,13 @@ function finishAction(request: NonNullable<ViewRequest>): void { if (request ===
 function cancelAction(request: ViewRequest): void { request?.cancel(); if (request && request === actionRequest) { changing.value = false; actionRequest = undefined; } }
 const findCurrentFile = (file: HostFile) => items.value.find(item => item.id.toLowerCase() === file.id.toLowerCase() && item.revision === file.revision);
 const currentFile = (file: HostFile) => !!findCurrentFile(file);
+// 内容读取还绑定名称、类型及内容元数据，避免同修订异常变更或伪造行载荷接入旧内容。
+function contentTargetCurrent(target: HostFile): boolean {
+  const current = findCurrentFile(target);
+  return !!current && !fileUnconfirmed(target.id) && current.originalFileName === target.originalFileName && current.contentType === target.contentType
+    && current.contentHash === target.contentHash && current.sizeBytes === target.sizeBytes && current.folderId?.toLowerCase() === target.folderId?.toLowerCase()
+    && current.createdByUserId.toLowerCase() === target.createdByUserId.toLowerCase();
+}
 function removeConfirmedFiles(ids: string[]): void {
   const deleted = new Set(ids.map(id => id.toLowerCase()));
   const previous = items.value.length;
@@ -243,8 +260,16 @@ watch(metadataDialogVisible, open => { if (!open) {
   cancelAction(metadataRequest); metadataRequest = undefined; metadataIntent.value = undefined; editingFile.value = null; metadataForm.value = { originalFileName: '', folderId: '' };
 } }, { flush: 'sync' });
 watch(items, () => { if (editingFile.value && !currentFile(editingFile.value)) metadataDialogVisible.value = false; }, { flush: 'sync', deep: true });
-watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); filePreview.clear(); previewTitle.value = ''; } }, { flush: 'sync' });
-watch(referencesDrawerVisible, open => { if (!open) { cancelAction(referencesRequest); references.value = []; } }, { flush: 'sync' });
+watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); previewRequest = undefined; previewTarget.value = undefined; previewIntent.value = undefined; filePreview.clear(); previewTitle.value = ''; } }, { flush: 'sync' });
+watch(referencesDrawerVisible, open => { if (!open) {
+  cancelAction(referencesRequest); referencesRequest = undefined; referencesTarget.value = undefined; referencesIntent.value = undefined;
+  references.value = []; referencesPage.value = 1; referencesTotal.value = 0; referencesProblem.value = undefined;
+} }, { flush: 'sync' });
+watch([items, unconfirmedFileIds], () => {
+  if (previewTarget.value && !contentTargetCurrent(previewTarget.value)) closePreviewDialog();
+  if (referencesTarget.value && !contentTargetCurrent(referencesTarget.value)) closeReferences();
+  if (downloadTarget.value && !contentTargetCurrent(downloadTarget.value)) { cancelAction(downloadRequest); downloadRequest = undefined; downloadTarget.value = undefined; }
+}, { deep: true, flush: 'sync' });
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -282,7 +307,7 @@ async function load(): Promise<void> {
     const result = await listHostFiles(page.value, pageSize.value, { folderId: selectedFolder.value?.id ?? '', fileNameContains: appliedFilters.value.fileName }, request.signal);
     if (!request.current()) return;
     // 新目录可能使在途编辑失效；先清理旧限制，保留同步失效回调新增的未知提交标记。
-    unconfirmedFileIds.value = new Set(); items.value = result.items; total.value = result.total;
+    unconfirmedFileIds.value = new Set(); uploadUnconfirmed.value = false; items.value = result.items; total.value = result.total;
     await nextTick(() => { if (request.current()) updateTableHeight(); });
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { if (request.current()) loading.value = false; request.finish(); }
@@ -314,18 +339,35 @@ function onFileSelected(event: Event): void {
 }
 
 async function upload(): Promise<void> {
-  if (!selectedFiles.value.length) return; const request = beginAction('files.files.upload'); if (!request) return;
+  if (!selectedFiles.value.length || uploadUnconfirmed.value) return; const request = beginAction('files.files.upload'); if (!request) return;
   const files = [...selectedFiles.value]; const folderId = selectedFolder.value?.id;
+  listRequest?.cancel(); loading.value = false;
+  uploadReceipt.value = { succeeded: 0, total: files.length, items: files.map(file => ({ name: file.name, fileId: null, outcome: 'processing', errorCode: null })) };
   try {
     if (files.length === 1) {
-      await uploadHostFile(files[0]!, folderId, request.signal); if (!request.current()) return;
-      uploadResults.value = null; ElMessage.success(t('hostFiles.uploadSuccess'));
+      const result = await uploadHostFile(files[0]!, folderId, request.signal); if (!request.current()) return;
+      uploadReceipt.value = { succeeded: 1, total: 1, items: [{ name: files[0]!.name, fileId: result.id, outcome: 'succeeded', errorCode: null }] };
+      ElMessage.success(t('hostFiles.uploadSuccess'));
     } else {
       const result = await batchUploadHostFiles(files, folderId, request.signal); if (!request.current()) return;
-      uploadResults.value = result; ElMessage.success(t('hostFiles.batchUploadSummary', { succeeded: result.succeededCount, total: result.results.length }));
+      const ids = new Set<string>();
+      if (result.results.length !== files.length || result.succeededCount !== result.results.filter(item => item.succeeded).length) throw new Error('client.invalid_host_file_upload_batch');
+      for (const [index, item] of result.results.entries()) {
+        if (item.originalFileName !== files[index]!.name || item.succeeded !== (item.file !== null)) throw new Error('client.invalid_host_file_upload_batch');
+        if (item.file) { const id = item.file.id.toLowerCase(); if (ids.has(id)) throw new Error('client.invalid_host_file_upload_batch'); ids.add(id); }
+      }
+      uploadReceipt.value = { succeeded: result.succeededCount, total: files.length, items: result.results.map((item, index) => ({ name: files[index]!.name, fileId: item.file?.id ?? null, outcome: item.succeeded ? 'succeeded' : 'failed', errorCode: item.errorCode })) };
+      const summary = t('hostFiles.batchUploadSummary', { succeeded: result.succeededCount, total: files.length });
+      if (result.succeededCount === files.length) ElMessage.success(summary); else ElMessage.warning(summary);
     }
-    selectedFiles.value = []; if (request.current()) await load();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+    listRequest?.cancel(); loading.value = false;
+    if (selectedFiles.value.length === files.length && selectedFiles.value.every((file, index) => file === files[index])) { selectedFiles.value = []; if (fileInput.value) fileInput.value.value = ''; }
+    await load();
+  } catch (error) { if (request.current()) {
+    listRequest?.cancel(); loading.value = false; uploadUnconfirmed.value = true;
+    uploadReceipt.value = { succeeded: 0, total: files.length, items: files.map(file => ({ name: file.name, fileId: null, outcome: 'unconfirmed', errorCode: null })) };
+    problem.value = toProblem(error, 'hostFiles.operationFailed');
+  } }
   finally { finishAction(request); }
 }
 
@@ -361,13 +403,20 @@ async function removeSelected(): Promise<void> {
 }
 
 async function preview(file: HostFile): Promise<void> {
-  if (!currentFile(file) || !canPreviewFile(file)) return; const request = beginAction('files.files.read'); if (!request) return; previewRequest = request;
-  previewTitle.value = file.originalFileName; previewDialogVisible.value = true;
-  try { const loaded = await filePreview.load(() => previewHostFileContent(file.id, request.signal)); if (!request.current() || !loaded) return; }
+  const current = findCurrentFile(file); if (!current || fileUnconfirmed(current.id) || !canPreviewFile(current)) return;
+  const target = { ...current }, request = beginAction('files.files.read'); if (!request) return; previewRequest = request;
+  const token = ++readSequence; previewIntent.value = { token, update: open => { if (!open) closePreviewDialog(token); } };
+  previewTarget.value = target; previewTitle.value = target.originalFileName; previewDialogVisible.value = true;
+  try { await filePreview.load(async () => {
+    const blob = await previewHostFileContent(target.id, request.signal);
+    if (!request.current() || !contentTargetCurrent(target)) return null;
+    if (!isPassiveContentType(blob.type)) throw new Error('client.invalid_host_file_content_type');
+    return blob;
+  }); }
   catch (error) { if (request.current()) { problem.value = toProblem(error); closePreviewDialog(); } }
   finally { finishAction(request); }
 }
-function closePreviewDialog(): void { previewDialogVisible.value = false; }
+function closePreviewDialog(token = previewIntent.value?.token): void { if (previewIntent.value?.token === token) previewDialogVisible.value = false; }
 
 function canPreviewFile(file: HostFile): boolean {
   return canPreview.value && isPreviewableHostFile(file.contentType) && isPassiveContentType(file.contentType);
@@ -437,10 +486,30 @@ async function saveMetadata(): Promise<void> {
 }
 
 async function openReferences(item: HostFile): Promise<void> {
-  if (!currentFile(item)) return; const request = beginAction('files.file_references.read'); if (!request) return; referencesRequest = request;
-  references.value = []; referencesDrawerVisible.value = true;
-  try { const result = await listHostFileReferences(item.id, 1, 20, request.signal); if (request.current()) references.value = result.items; }
-  catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  const current = findCurrentFile(item);
+  if (!current || fileUnconfirmed(current.id) || changing.value || !allowed('files.file_references.read')) return;
+  const token = ++readSequence;
+  const owned = () => referencesIntent.value?.token === token && !changing.value;
+  referencesIntent.value = { token, update: open => { if (!open) closeReferences(token); },
+    updatePage: page => { if (owned()) referencesPage.value = page; },
+    change: page => { if (owned()) { referencesPage.value = page; void loadReferences(); } },
+    refresh: () => { if (owned()) void loadReferences(); }
+  };
+  referencesTarget.value = { ...current }; referencesPage.value = 1; referencesTotal.value = 0; references.value = []; referencesDrawerVisible.value = true;
+  await loadReferences();
+}
+function closeReferences(token = referencesIntent.value?.token): void { if (referencesIntent.value?.token === token) referencesDrawerVisible.value = false; }
+async function loadReferences(): Promise<void> {
+  const target = referencesTarget.value, page = referencesPage.value;
+  if (!referencesDrawerVisible.value || !target || !contentTargetCurrent(target)) return;
+  const request = beginAction('files.file_references.read'); if (!request) return; referencesRequest?.cancel(); referencesRequest = request;
+  references.value = []; referencesProblem.value = undefined;
+  try {
+    const result = await listHostFileReferences(target.id, page, 20, request.signal);
+    if (!request.current() || !contentTargetCurrent(target)) return;
+    if (result.page !== page || result.pageSize !== 20) throw new Error('client.invalid_host_file_reference_page');
+    references.value = result.items; referencesTotal.value = result.total;
+  } catch (error) { if (request.current()) referencesProblem.value = toProblem(error, 'hostFiles.operationFailed'); }
   finally { finishAction(request); }
 }
 async function remove(item: HostFile): Promise<void> {
@@ -461,10 +530,11 @@ async function remove(item: HostFile): Promise<void> {
 }
 
 async function download(item: HostFile): Promise<void> {
-  if (!currentFile(item)) return; const request = beginAction('files.files.download'); if (!request) return;
-  try { const blob = await downloadHostFileContent(item.id, request.signal); if (request.current()) openHostFileBlob(blob, item.originalFileName); }
+  const current = findCurrentFile(item); if (!current || fileUnconfirmed(current.id)) return;
+  const target = { ...current }, request = beginAction('files.files.download'); if (!request) return; downloadRequest = request; downloadTarget.value = target;
+  try { const blob = await downloadHostFileContent(target.id, request.signal); if (request.current() && contentTargetCurrent(target)) openHostFileBlob(blob, target.originalFileName); }
   catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
-  finally { finishAction(request); }
+  finally { if (downloadRequest === request) { downloadRequest = undefined; downloadTarget.value = undefined; } finishAction(request); }
 }
 
 function toProblem(
@@ -480,7 +550,7 @@ function toProblem(
 <template>
   <section v-if="canRead" class="host-files-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostFiles.title') }}</h1>
-    <p v-if="unconfirmedFileIds.size || unconfirmedFolderIds.size || folderCreationUnconfirmed" role="status">{{ t('hostFiles.mutationRefreshHint') }}</p>
+    <p v-if="unconfirmedFileIds.size || unconfirmedFolderIds.size || folderCreationUnconfirmed || uploadUnconfirmed" role="status">{{ t('hostFiles.mutationRefreshHint') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -538,27 +608,33 @@ function toProblem(
             <div><h2 id="upload-host-file-title">{{ t('hostFiles.uploadTitle') }}</h2></div>
             <label>
               <span>{{ t('hostFiles.chooseFile') }}</span>
-              <input type="file" multiple data-testid="host-files-file-input" @change="onFileSelected" />
+              <input ref="fileInput" type="file" multiple :disabled="changing" data-testid="host-files-file-input" @change="onFileSelected" />
             </label>
             <el-button
               type="primary"
               data-testid="host-files-upload"
               :loading="changing"
-              :disabled="selectedFiles.length === 0"
+              :disabled="selectedFiles.length === 0 || uploadUnconfirmed"
               @click="upload"
             >
               {{ t('hostFiles.upload') }}
             </el-button>
+            <div v-if="uploadReceipt" role="status">
+              <p>{{ t('hostFiles.batchUploadSummary', { succeeded: uploadReceipt.succeeded, total: uploadReceipt.total }) }}</p>
+              <p>{{ t('hostFiles.uploadReceiptHint') }}</p>
+            </div>
             <el-table
-              v-if="uploadResults"
-              :data="uploadResults.results"
+              v-if="uploadReceipt"
+              :data="uploadReceipt.items"
+              :max-height="200"
               size="small"
               class="host-files-upload-results"
             >
-              <el-table-column prop="originalFileName" :label="t('hostFiles.fileName')" />
+              <el-table-column prop="name" :label="t('hostFiles.fileName')" />
+              <el-table-column prop="fileId" :label="t('hostFiles.resultFileId')" />
               <el-table-column :label="t('hostFiles.uploadResult')" width="120">
                 <template #default="{ row }">
-                  {{ row.succeeded ? t('hostFiles.uploadSucceeded') : t('hostFiles.uploadFailed') }}
+                  {{ t(row.outcome === 'succeeded' ? 'hostFiles.uploadSucceeded' : row.outcome === 'failed' ? 'hostFiles.uploadFailed' : row.outcome === 'processing' ? 'hostFiles.deleteProcessing' : 'hostFiles.deleteUnconfirmed') }}
                 </template>
               </el-table-column>
               <el-table-column prop="errorCode" :label="t('hostFiles.errorCode')" />
@@ -656,7 +732,7 @@ function toProblem(
                         </el-button>
                       </PermissionGate>
                       <PermissionGate code="files.file_references.read">
-                        <el-button plain size="small" :disabled="changing" @click="openReferences(row as HostFile)">
+                        <el-button plain size="small" :disabled="changing || fileUnconfirmed(row.id)" @click="openReferences(row as HostFile)">
                           {{ t('hostFiles.references') }}
                         </el-button>
                       </PermissionGate>
@@ -665,7 +741,7 @@ function toProblem(
                           v-if="canPreviewFile(row as HostFile)"
                           plain
                           size="small"
-                          :disabled="changing"
+                          :disabled="changing || fileUnconfirmed(row.id)"
                           @click="preview(row as HostFile)"
                         >
                           {{ t('hostFiles.preview') }}
@@ -676,7 +752,7 @@ function toProblem(
                           plain
                           size="small"
                           data-testid="host-files-download"
-                          :disabled="changing"
+                          :disabled="changing || fileUnconfirmed(row.id)"
                           @click="download(row as HostFile)"
                         >
                           {{ t('hostFiles.download') }}
@@ -747,7 +823,11 @@ function toProblem(
     </el-dialog>
 
     <el-dialog
-      v-model="previewDialogVisible"
+      v-if="previewIntent"
+      :key="previewIntent.token"
+      :model-value="previewDialogVisible"
+      data-testid="host-files-preview"
+      v-on="{ 'update:modelValue': previewIntent.update }"
       :title="previewTitle"
       width="70%"
     >
@@ -755,18 +835,23 @@ function toProblem(
         v-if="previewUrl"
         :src="previewUrl"
         class="host-files-preview-frame"
-        title="preview"
+        :title="previewTitle"
         sandbox=""
         referrerpolicy="no-referrer"
       />
     </el-dialog>
 
-    <el-drawer v-model="referencesDrawerVisible" :title="t('hostFiles.references')" size="40%">
-      <el-table :data="references" size="small">
+    <el-drawer v-if="referencesIntent" :key="referencesIntent.token" :model-value="referencesDrawerVisible" :title="t('hostFiles.references')" size="40%"
+      data-testid="host-files-references" v-on="{ 'update:modelValue': referencesIntent.update }">
+      <div v-if="referencesProblem" class="art-inline-alert" role="alert"><strong translate="no">{{ referencesProblem.code }}</strong> {{ referencesProblem.title }}</div>
+      <el-button plain :disabled="changing" v-on="{ click: referencesIntent.refresh }">{{ t('common.refresh') }}</el-button>
+      <el-table :data="references" :max-height="400" size="small">
         <el-table-column prop="consumerModule" :label="t('hostFiles.referenceModule')" />
         <el-table-column prop="state" :label="t('hostFiles.referenceState')" />
         <el-table-column prop="consumerReferenceId" :label="t('hostFiles.referenceId')" />
       </el-table>
+      <el-pagination :current-page="referencesPage" :page-size="20" :total="referencesTotal" :disabled="changing" layout="total, prev, pager, next"
+        v-on="{ 'update:currentPage': referencesIntent.updatePage, change: referencesIntent.change }" />
     </el-drawer>
   </section>
 </template>

@@ -58,6 +58,7 @@ export async function uploadHostFile(
 ): Promise<HostFile> {
   const value = await filesUploadHostFile(http, { file, folderId }, signal);
   if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  if (value.sizeBytes !== file.size) throw new Error('client.invalid_host_file_upload');
   return value;
 }
 
@@ -67,7 +68,20 @@ export async function batchUploadHostFiles(
   folderId?: string,
   signal?: AbortSignal
 ): Promise<BatchUploadHostFilesResponse> {
-  return filesBatchUploadHostFiles(http, { files, folderId }, signal);
+  const sources = [...files];
+  const result = await filesBatchUploadHostFiles(http, { files: sources, folderId }, signal);
+  // 服务端按输入顺序返回；同名文件也必须保留各自的位置与成功载荷。
+  const ids = new Set<string>();
+  if (result.results.length !== sources.length || result.succeededCount !== result.results.filter(item => item.succeeded).length) throw new Error('client.invalid_host_file_upload_batch');
+  for (const [index, item] of result.results.entries()) {
+    if (item.originalFileName !== sources[index]!.name || item.succeeded !== (item.file !== null)) throw new Error('client.invalid_host_file_upload_batch');
+    if (item.file) {
+      const id = item.file.id.toLowerCase();
+      if (ids.has(id) || item.file.sizeBytes !== sources[index]!.size) throw new Error('client.invalid_host_file_upload_batch');
+      ids.add(id);
+    }
+  }
+  return result;
 }
 
 /** 批量删除 Host 文件并返回逐条结果。 */
@@ -194,7 +208,9 @@ export async function listHostFileReferences(
   pageSize = 20,
   signal?: AbortSignal
 ): Promise<PagedResultOfHostFileReferenceClaimResponse> {
-  return filesListHostFileReferences(http, { fileId, page, pageSize }, signal);
+  const result = await filesListHostFileReferences(http, { fileId, page, pageSize }, signal);
+  if (result.page !== page || result.pageSize !== pageSize) throw new Error('client.invalid_host_file_reference_page');
+  return result;
 }
 
 /** 复用文档/文件一致的内容策略与有界对象 URL 生命周期。 */
