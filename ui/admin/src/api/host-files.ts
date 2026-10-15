@@ -36,17 +36,21 @@ export async function listHostFiles(
   },
   signal?: AbortSignal
 ): Promise<HostFilePage> {
+  const folderId = options?.folderId;
   const value = await filesListHostFiles(
     http,
     {
       page,
       pageSize,
-      folderId: options?.folderId,
+      folderId,
       fileNameContains: options?.fileNameContains
     },
     signal
   );
   if (!isHostFilePage(value)) throw new Error('client.invalid_host_file_page');
+  const ids = new Set(value.items.map(item => item.id.toLowerCase()));
+  if (value.page !== page || value.pageSize !== pageSize || value.total < 0 || value.items.length > pageSize || ids.size !== value.items.length
+    || folderId !== undefined && value.items.some(item => (item.folderId?.toLowerCase() ?? '') !== folderId.toLowerCase())) throw new Error('client.invalid_host_file_page_identity');
   return value;
 }
 

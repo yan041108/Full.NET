@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import { isPassiveContentType } from '../utils/openContentBlob';
 import {
@@ -28,8 +28,8 @@ import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/com
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+  useArtPagedTableInCard
+} from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -124,14 +124,48 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const pagedItems = computed(() => items.value);
+let lastListQueryKey: string | undefined;
+let listingSequence = 0;
+interface ListingControls {
+  token: number;
+  updatePage: (value: number) => void;
+  updateSize: (value: number) => void;
+  change: (page: number, size: number) => void;
+  search: (params: Record<string, string | undefined>) => void;
+  reset: () => void;
+  updateDraft: (form: Record<string, string | undefined>) => void;
+  refresh: () => void;
+  refreshFolders: () => void;
+  selectFolder: (node: TreeNode) => void;
+  selectRows: (rows: HostFile[]) => void;
+}
+const listingControls = ref<ListingControls>(createListingControls());
+function listQueryKey(page: number, size: number, folderId: string, fileName: string): string { return JSON.stringify([page, size, folderId.toLowerCase(), fileName]); }
+function createListingControls(): ListingControls {
+  const token = ++listingSequence, previousSize = pageSize.value;
+  const owned = (): boolean => listingControls.value.token === token && allowed('files.files.read');
+  return { token,
+    updatePage: value => { if (owned()) page.value = value; }, updateSize: value => { if (owned()) pageSize.value = value; },
+    change: (current, size) => {
+      if (!owned()) return;
+      pageSize.value = size; page.value = size === previousSize ? current : 1;
+      // 受控页码回退可能再次触发组件 change；同一已发起查询不重复读取。
+      if (lastListQueryKey !== listQueryKey(page.value, size, selectedFolder.value?.id ?? '', appliedFilters.value.fileName)) void load();
+    },
+    search: params => { if (owned()) handleSearch(params); }, reset: () => { if (owned()) resetSearch(); },
+    updateDraft: form => { if (owned()) searchForm.value = { ...form }; }, refresh: () => { if (owned()) void load(); },
+    refreshFolders: () => { if (owned()) void loadFolders(); },
+    selectFolder: node => { if (owned()) onFolderSelected(node); },
+    selectRows: rows => { if (owned()) selectedRows.value = rows.flatMap(row => { const current = findCurrentFile(row); return current ? [current] : []; }); }
+  };
+}
 
 function resetPage(): void {
   page.value = 1;
@@ -144,8 +178,6 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
     placeholder: t('hostFiles.searchPlaceholder')
   }
 ]);
-
-watchLoading(loading);
 
 let confirmationSequence = 0;
 const confirmation = ref<{ token: number; title: string; message: string; input: boolean; confirm: () => void; dismiss: () => void; update: (open: boolean) => void }>();
@@ -170,7 +202,7 @@ const scope = useAuthorizedViewScope(session, () => {
   previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
   metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = []; referencesPage.value = 1; referencesTotal.value = 0; referencesProblem.value = undefined;
   previewTarget.value = undefined; previewIntent.value = undefined; referencesTarget.value = undefined; referencesIntent.value = undefined; downloadTarget.value = undefined;
-  searchForm.value = {}; appliedFilters.value = { fileName: '' }; newFolderName.value = ''; problem.value = undefined; loading.value = false; changing.value = false;
+  searchForm.value = {}; appliedFilters.value = { fileName: '' }; lastListQueryKey = undefined; listingControls.value = createListingControls(); newFolderName.value = ''; problem.value = undefined; loading.value = false; changing.value = false;
 }, refreshAll);
 type ViewRequest = ReturnType<typeof scope.begin>;
 let listRequest: ViewRequest; let foldersRequest: ViewRequest; let actionRequest: ViewRequest;
@@ -223,7 +255,7 @@ function applyConfirmedFolder(result: HostFolderResponse, deleted = false): void
       if (same(node.folder?.id) && deleted) return [];
       const children = update(node.children ?? []);
       const folder = same(node.folder?.id) ? { ...result, children: children.flatMap(child => child.folder ? [child.folder] : []) } : node.folder;
-      return [{ ...node, label: same(node.folder?.id) ? result.name : node.label, folder: folder ? { ...folder, children: children.flatMap(child => child.folder ? [child.folder] : []) } : null, children }];
+      return [{ ...node, id: same(node.folder?.id) ? result.id : node.id, label: same(node.folder?.id) ? result.name : node.label, folder: folder ? { ...folder, children: children.flatMap(child => child.folder ? [child.folder] : []) } : null, children }];
     });
   }
   let nodes = update(folderTree.value);
@@ -294,40 +326,66 @@ async function loadFolders(): Promise<void> {
     const tree = await listHostFolderTree(request.signal); if (!request.current()) return;
     folderTree.value = [{ id: ROOT_NODE_ID, label: t('hostFiles.rootFolder'), folder: null, children: mapFolderNodes(tree) }];
     unconfirmedFolderIds.value = new Set(); folderCreationUnconfirmed.value = false;
-    if (selectedFolder.value) { const id = selectedFolder.value.id; selectedFolder.value = findFolder(id) ?? null; if (!selectedFolder.value) void load(); }
+    if (selectedFolder.value) {
+      const id = selectedFolder.value.id; selectedFolder.value = findFolder(id) ?? null;
+      if (!selectedFolder.value) { resetPage(); await load(); }
+    }
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { request.finish(); }
 }
 
 async function load(): Promise<void> {
-  listRequest?.cancel(); const request = begin('files.files.read'); if (!request) return; listRequest = request;
+  await readFiles(true);
+}
+async function readFiles(recoverPage: boolean): Promise<void> {
+  listRequest?.cancel(); const request = begin('files.files.read'); if (!request) return;
+  const query = { page: page.value, pageSize: pageSize.value, folderId: selectedFolder.value?.id ?? '', fileName: appliedFilters.value.fileName };
+  const key = listQueryKey(query.page, query.pageSize, query.folderId, query.fileName);
+  if (key !== lastListQueryKey) {
+    // 新查询不能继续展示可操作的旧行；同一查询补读失败仍保留已确认结果。
+    items.value = []; selectedRows.value = []; total.value = 0;
+    lastListQueryKey = key; listingControls.value = createListingControls();
+  }
+  listRequest = request;
   loading.value = true; problem.value = undefined;
   try {
     // 根目录身份不依赖目录树和文件页哪一个先完成。
-    const result = await listHostFiles(page.value, pageSize.value, { folderId: selectedFolder.value?.id ?? '', fileNameContains: appliedFilters.value.fileName }, request.signal);
+    const result = await listHostFiles(query.page, query.pageSize, { folderId: query.folderId, fileNameContains: query.fileName }, request.signal);
     if (!request.current()) return;
+    if (result.page !== query.page || result.pageSize !== query.pageSize) throw new Error('client.invalid_host_file_page_identity');
+    const lastPage = Math.max(1, Math.ceil(result.total / query.pageSize));
+    if (recoverPage && !result.items.length && query.page > lastPage) {
+      // 总数会并发变化，最多恢复一次末页，避免在删除或统计抖动时循环查询。
+      page.value = lastPage; await readFiles(false); return;
+    }
     // 新目录可能使在途编辑失效；先清理旧限制，保留同步失效回调新增的未知提交标记。
     unconfirmedFileIds.value = new Set(); uploadUnconfirmed.value = false; items.value = result.items; total.value = result.total;
-    await nextTick(() => { if (request.current()) updateTableHeight(); });
+    selectedRows.value = selectedRows.value.filter(currentFile);
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
-  finally { if (request.current()) loading.value = false; request.finish(); }
+  finally { if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish(); }
 }
 
 function onFolderSelected(node: TreeNode): void {
-  if (!allowed('files.files.read') || changing.value || node.folder && !currentFolder(node.folder)) return;
-  selectedFolder.value = node.id === ROOT_NODE_ID ? null : node.folder;
+  if (!allowed('files.files.read') || changing.value) return;
+  if (node.id === ROOT_NODE_ID && node.folder === null) selectedFolder.value = null;
+  else {
+    if (!node.folder || node.id.toLowerCase() !== node.folder.id.toLowerCase() || !currentFolder(node.folder)) return;
+    selectedFolder.value = findFolder(node.folder.id)!;
+  }
   resetPage();
   void load();
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
-  appliedFilters.value = { fileName: params.fileName ?? '' };
+  if (!allowed('files.files.read')) return;
+  appliedFilters.value = { fileName: params.fileName?.trim() ?? '' };
   resetPage();
   void load();
 }
 
 function resetSearch(): void {
-  appliedFilters.value = { fileName: '' };
+  if (!allowed('files.files.read')) return;
+  searchForm.value = {}; appliedFilters.value = { fileName: '' };
   resetPage();
   void load();
 }
@@ -558,16 +616,17 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <div class="host-files-layout">
+    <div class="host-files-layout art-split-layout">
       <el-card shadow="never" class="host-files-tree-card">
         <h2>{{ t('hostFiles.folderTreeTitle') }}</h2>
-        <el-button plain size="small" data-testid="host-files-folder-refresh" :disabled="changing" @click="loadFolders">{{ t('common.refresh') }}</el-button>
+        <el-button plain size="small" data-testid="host-files-folder-refresh" :disabled="changing" v-on="{ click: listingControls.refreshFolders }">{{ t('common.refresh') }}</el-button>
         <el-tree
           :data="folderTree"
           node-key="id"
+          :current-node-key="selectedFolder?.id ?? ROOT_NODE_ID"
           default-expand-all
           highlight-current
-          @node-click="onFolderSelected"
+          v-on="{ 'node-click': listingControls.selectFolder }"
         />
         <PermissionGate code="files.folders.create">
           <div class="host-files-folder-create">
@@ -656,14 +715,13 @@ function toProblem(
         </el-card>
 
         <ArtSearchBar
-          v-model="searchForm"
+          :model-value="searchForm"
           :items="searchItems"
           :default-visible-count="1"
           :show-expand="false"
           :search-label="t('hostFiles.query')"
           :reset-label="t('hostFiles.reset')"
-          @search="handleSearch"
-          @reset="resetSearch"
+          v-on="{ 'update:modelValue': listingControls.updateDraft, search: listingControls.search, reset: listingControls.reset }"
         />
 
         <el-card class="art-table-card" shadow="never">
@@ -676,7 +734,7 @@ function toProblem(
               :loading="loading"
               full-class="art-crud-table-main"
               layout="refresh,size,fullscreen,settings"
-              @refresh="load"
+              v-on="{ refresh: listingControls.refresh }"
             >
               <template #left>
                 <PermissionGate code="files.files.delete">
@@ -704,7 +762,7 @@ function toProblem(
                 :header-cell-style="tableHeaderCellStyle"
                 class="art-crud-data-table"
                 :class="{ 'art-table--header-bg': tableHeaderBackground }"
-                @selection-change="rows => { selectedRows = rows as HostFile[]; }"
+                v-on="{ 'selection-change': listingControls.selectRows }"
               >
                 <el-table-column type="selection" width="48" />
                 <el-table-column :label="t('users.columnIndex')" width="72" align="center">
@@ -777,19 +835,18 @@ function toProblem(
                 <template #empty>{{ t('hostFiles.emptyDirectory') }}</template>
               </el-table>
 
-              <div class="art-table__pagination center custom-pagination">
-                <el-pagination
-                  v-model:current-page="page"
-                  v-model:page-size="pageSize"
-                  :total="total"
-                  background
-                  layout="total, sizes, prev, pager, next, jumper"
-                  :page-sizes="[10, 20, 50, 100]"
-                  @current-change="load"
-                  @size-change="load"
-                />
-              </div>
             </div>
+            <el-pagination
+              class="art-table-pagination"
+              data-testid="host-files-pagination"
+              :current-page="page"
+              :page-size="pageSize"
+              :total="total"
+              background
+              layout="total, sizes, prev, pager, next, jumper"
+              :page-sizes="[10, 20, 50, 100]"
+              v-on="{ 'update:currentPage': listingControls.updatePage, 'update:pageSize': listingControls.updateSize, change: listingControls.change }"
+            />
           </div>
         </el-card>
       </div>
