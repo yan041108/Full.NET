@@ -48,6 +48,8 @@ const { t } = useAdminI18n();
 const items = ref<HostDocumentShareResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const unconfirmedShareIds = ref(new Set<string>());
+const statusUnconfirmed = (id: string) => unconfirmedShareIds.value.has(id.toLowerCase());
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
@@ -141,7 +143,7 @@ const canRead = computed(() => viewActive.value && session.currentUser?.scope ==
 const canCreate = () => canRead.value && session.can('document.host_shares.create');
 const canUpdateStatus = () => canRead.value && session.can('document.host_shares.update_status');
 const scope = useAuthorizedViewScope(session, () => {
-  items.value = []; documentLabels.value = new Map(); problem.value = undefined;
+  items.value = []; documentLabels.value = new Map(); problem.value = undefined; unconfirmedShareIds.value = new Set();
   total.value = 0; page.value = 1; pageSize.value = 20; loading.value = false; changing.value = false;
   editorOpen.value = false; batchShareHint.value = null; searchForm.value = {};
   appliedFilters.value = { sortBy: 'createdAtUtc', sortDir: 'desc' };
@@ -237,6 +239,7 @@ async function load() {
     const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value, request.signal);
     if (!request.current() || !canRead.value) return;
     items.value = result.items; page.value = result.page; pageSize.value = result.pageSize; total.value = result.total;
+    unconfirmedShareIds.value = new Set();
   } catch (error) {
     if (request.current()) problem.value = toProblem(error);
   } finally {
@@ -277,21 +280,39 @@ async function copyShareLink(url: string) {
 }
 
 async function toggleStatus(row: HostDocumentShareResponse) {
-  if (changing.value || !canUpdateStatus()) return;
-  const target = { id: row.id, version: row.version, isEnabled: row.isEnabled, documentId: row.documentId };
-  if (!items.value.some(item => item.id === target.id && item.version === target.version && item.isEnabled === target.isEnabled)) return;
+  if (changing.value || !canUpdateStatus() || statusUnconfirmed(row.id)) return;
+  const current = items.value.find(item => item.id.toLowerCase() === row.id.toLowerCase()
+    && item.version === row.version && item.isEnabled === row.isEnabled);
+  if (!current) return;
+  const target = { id: current.id, version: current.version, isEnabled: current.isEnabled, documentId: current.documentId };
   const request = scope.begin('document.host_shares.update_status');
   if (!request) return;
-  changing.value = true;
+  changing.value = true; problem.value = undefined;
+  // 旧列表不能在写入后恢复旧启停值；不宣称取消客户端读取会撤销服务端操作。
+  listRequest?.cancel(); loading.value = false;
   try {
     const result = await updateDocumentShareStatus(target.id, { isEnabled: !target.isEnabled, version: target.version }, request.signal);
     if (!request.current()) return;
     if (result.id.toLowerCase() !== target.id.toLowerCase() || result.documentId.toLowerCase() !== target.documentId.toLowerCase()
-      || result.isEnabled !== !target.isEnabled) throw new Error('client.invalid_document_share_identity');
+      || result.isEnabled !== !target.isEnabled || result.version !== target.version + 1) throw new Error('client.invalid_document_share_identity');
+    listRequest?.cancel(); loading.value = false;
+    // 已确认状态先落到本地，补读失败也不能用旧修订重复写入；已观察到更高修订则保留它。
+    const observed = items.value.find(item => item.id.toLowerCase() === target.id.toLowerCase());
+    if (observed && observed.version <= result.version) {
+      if (typeof appliedFilters.value.isEnabled === 'boolean' && appliedFilters.value.isEnabled !== result.isEnabled) {
+        items.value = items.value.filter(item => item.id.toLowerCase() !== target.id.toLowerCase());
+        total.value = Math.max(0, total.value - 1);
+      } else items.value = items.value.map(item => item.id.toLowerCase() === target.id.toLowerCase() ? result : item);
+    }
     showSuccess(t('documentShares.updateSuccess'));
     await load();
   } catch (error) {
-    if (request.current()) problem.value = toProblem(error, 'documentShares.operationFailed');
+    if (request.current()) {
+      // 拒绝和未知结果都先失效本地写入资格，成功重读后才允许新的显式操作，不自动重放。
+      listRequest?.cancel(); loading.value = false;
+      unconfirmedShareIds.value = new Set([...unconfirmedShareIds.value, target.id.toLowerCase()]);
+      problem.value = { ...toProblem(error, 'documentShares.operationFailed'), detail: t('documentShares.statusNeedsRefresh') };
+    }
   } finally {
     if (request.current()) changing.value = false;
     request.finish();
@@ -451,8 +472,8 @@ function toProblem(
                     <ArtTableActionButton
                       type="edit"
                       test-id="document-share-toggle"
-                      :title="t('documentShares.toggleStatus')"
-                      :disabled="changing"
+                      :title="t(statusUnconfirmed(row.id) ? 'documentShares.statusNeedsRefresh' : 'documentShares.toggleStatus')"
+                      :disabled="changing || statusUnconfirmed(row.id)"
                       @click="toggleStatus(row as HostDocumentShareResponse)"
                     />
                   </PermissionGate>

@@ -97,18 +97,21 @@ export async function updateDocumentShareStatus(
   req: UpdateHostDocumentShareStatusRequest,
   signal?: AbortSignal
 ): Promise<HostDocumentShareResponse> {
-  if (!isUpdateHostDocumentShareStatusRequest(req)) {
+  // 状态与修订同时冻结，响应必须对应原写入；服务端同一事务内将修订递增一次。
+  const snapshot = { ...req };
+  if (!isUpdateHostDocumentShareStatusRequest(snapshot)) {
     throw new Error('client.invalid_update_document_share_status_request');
   }
   const value = await documentHostUpdateDocumentShareStatus(
     http,
-    { id, body: req },
+    { id, body: snapshot },
     signal
   );
   if (!isHostDocumentShareResponse(value)) {
     throw new Error('client.invalid_document_share');
   }
-  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_share_identity');
+  if (value.id.toLowerCase() !== id.toLowerCase() || value.isEnabled !== snapshot.isEnabled || value.version !== snapshot.version + 1)
+    throw new Error('client.invalid_document_share_identity');
   return value;
 }
 
