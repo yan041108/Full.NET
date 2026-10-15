@@ -35,7 +35,7 @@ describe('导入创建弹窗独立关闭边界',()=>{
   const pending=deferred<typeof schema[]>();vi.mocked(api.listStaticImportSchemas).mockReturnValueOnce(pending.promise);
   await setup();close();expect(vi.mocked(api.listStaticImportSchemas).mock.calls[0]![0]!.aborted).toBe(true);
   expect(wrapper!.props('open')).toBe(true);pending.resolve([schema]);await flushPromises();
-  expect(wrapper!.get('[data-testid="import-create-schema"]').text()).not.toContain('租户职位');
+   expect(wrapper!.find('[data-testid="import-create-schema"]').exists()).toBe(false);
  });
  it.each(['resolve','reject'] as const)('关闭后忽略上传%s，不发送created或反馈',async outcome=>{
   const pending=deferred<typeof importTask>();vi.mocked(api.createImportExportTask).mockReturnValueOnce(pending.promise);

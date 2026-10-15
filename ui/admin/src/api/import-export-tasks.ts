@@ -45,6 +45,10 @@ export async function listStaticImportSchemas(
   if (!Array.isArray(value) || !value.every(isStaticImportSchemaDefinition)) {
     throw new Error('client.invalid_static_import_schema_list');
   }
+  if (new Set(value.map(schema => schema.schemaKey)).size !== value.length || value.some(schema => !schema.schemaKey.trim() || !schema.requiredPermission.trim()
+    || !schema.worksheets.every(sheet => sheet !== null && typeof sheet === 'object' && typeof sheet.worksheetKey === 'string' && !!sheet.worksheetKey.trim()
+      && typeof sheet.displayName === 'string' && Array.isArray(sheet.headerColumns) && sheet.headerColumns.every(column => typeof column === 'string'))
+    || new Set(schema.worksheets.map(sheet => sheet.worksheetKey)).size !== schema.worksheets.length)) throw new Error('client.invalid_static_import_schema_list');
   return value;
 }
 
@@ -84,6 +88,7 @@ export async function createImportExportTask(
   file: File,
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
+  if (!(file instanceof File) || !/\.xlsx$/iu.test(file.name) || file.size === 0 || file.size > 1024 * 1024) throw new Error('client.invalid_import_export_file');
   const value = await importExportCreateImportTask(
     http,
     { schemaKey, worksheetKey, file },
@@ -93,7 +98,7 @@ export async function createImportExportTask(
     throw new Error('client.invalid_import_export_task');
   }
   // 服务端创建入口只去除首尾空白，Schema/工作表机器键仍按精确大小写匹配。
-  if (value.schemaKey !== trimImportKey(schemaKey) || value.worksheetKey !== trimImportKey(worksheetKey))
+  if (value.id === '00000000-0000-0000-0000-000000000000' || value.schemaKey !== trimImportKey(schemaKey) || value.worksheetKey !== trimImportKey(worksheetKey))
     throw new Error('client.invalid_import_export_task_identity');
   return value;
 }

@@ -16,7 +16,7 @@ let wrapper: VueWrapper | undefined;
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.listStaticImportSchemas).mockResolvedValue([other, target]);
-  vi.mocked(api.createImportExportTask).mockResolvedValue({ ...importTask, schemaKey: target.schemaKey });
+  vi.mocked(api.createImportExportTask).mockResolvedValue({ ...importTask, schemaKey: target.schemaKey, worksheetKey: 'requests' });
 });
 afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
 async function setup(schemaKey: string | undefined = target.schemaKey, businessPermission = true) {

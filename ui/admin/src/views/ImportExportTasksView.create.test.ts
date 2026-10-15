@@ -85,7 +85,7 @@ describe('导入创建完整入口', () => {
     const submit = wrapper!.findAllComponents(ElButton).find(value => value.attributes('data-testid') === 'import-create-submit')!;
     submit.vm.$emit('click'); submit.vm.$emit('click'); expect(api.createImportExportTask).toHaveBeenCalledTimes(1);
     expect(vi.mocked(api.createImportExportTask).mock.calls[0]?.slice(0, 3)).toEqual([schema.schemaKey, 'positions', selectedFile]);
-    pending.reject(new Error('retryable')); await flushPromises(); await wrapper!.get('[data-testid="import-create-submit"]').trigger('click'); await flushPromises();
+    pending.reject({ status: 409, code: 'import_export.task.rejected', title: 'Rejected' }); await flushPromises(); await wrapper!.get('[data-testid="import-create-submit"]').trigger('click'); await flushPromises();
     expect(api.createImportExportTask).toHaveBeenCalledTimes(2); expect(api.listImportExportTasks).toHaveBeenCalledTimes(2);
     expect(wrapper!.text()).toContain('名称必填'); expect(wrapper!.text()).toContain('fixture.row_invalid');
   });
