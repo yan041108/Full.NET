@@ -6,13 +6,13 @@ const path = `/api/v1/ai/agent/runs/${runId}`;
 const digest = 'a'.repeat(64);
 
 // 真实 Vue/Edge 配合受控 HTTP 验证交互，双库事务和外部核证仍由对应集成验收证明。
-async function setup(page, writable = true, recordedUsage = {}) {
+async function setup(page, writable = true, recordedUsage = {}, creatable = false) {
   const writes = []; let retryUnknown = false; let conflict = false; let closed = false; let readDenied = false; let writeDenied = false; let version = 8;
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'reconciliation-test', tokenType: 'Bearer', expiresAtUtc: new Date(Date.now() + 3600000).toISOString() }));
   await page.route('**/api/v1/me', route => json(route, { id: id(3), username: 'reconciliation-test', displayName: '对账测试', tenantId: null, actorScope: 'host', scope: 'host', isSuperAdministrator: false,
-    permissions: ['identity.navigation.read', 'ai.agent_runs.read', ...(writable ? ['ai.agent_runs.reconcile'] : [])], sessionId: id(4), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
+    permissions: ['identity.navigation.read', 'ai.agent_runs.read', ...(writable ? ['ai.agent_runs.reconcile'] : []), ...(creatable ? ['ai.agent_runs.create'] : [])], sessionId: id(4), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'runs', parentId: null, routeName: 'ai-agent-runs', path: '/ai/agent-runs', componentKey: 'ai-agent-runs', title: 'Agent运行', caption: 'Agent运行', icon: 'chat', order: 1, requiredPermission: 'ai.agent_runs.read', children: [] }]));
   await page.route('**/api/v1/tenancy/available', route => json(route, []));
   await page.route('**/api/v1/platform/host-dashboard-summary', route => json(route, { activeTenantCount: 0, onlineSessionCount: 1, todayRequestCount: 0, todayErrorRate: 0, recentActivities: [], accessTrafficTrend: null, businessEntries: [] }));
@@ -119,4 +119,39 @@ test('只读账本显示已知原用量并区分零值与未提供', async ({ pa
   const { panel, writes } = await setup(page, false, { usageStatus: 'known', inputTokens: 12, outputTokens: 0, cachedInputTokens: null });
   await expect(panel.getByTestId('ai-reconciliation-usage')).toHaveText('原输入 Token: 12 · 原输出 Token: 0 · 原缓存输入 Token: 未提供');
   await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(0);
+});
+
+
+test('创建结果不明沿用请求身份，正文改变后才采用新身份', async ({ page }) => {
+  await setup(page, true, {}, true); const requests = [];
+  await page.route('**/api/v1/ai/agent/runs', async route => {
+    requests.push(route.request().postDataJSON());
+    if (requests.length < 3) return route.abort('failed');
+    return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ runId: secondRunId }) });
+  });
+  await page.locator('.ai-agent-runs-create-form .el-input__inner').fill(id(9));
+  await page.getByTestId('ai-agent-runs-create-prompt').fill('Initial request');
+  const create = page.getByTestId('ai-agent-runs-create');
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    await create.click(); await expect.poll(() => requests.length).toBe(attempt);
+    await expect(page.locator('.ai-agent-runs-view .art-page-alert')).toBeVisible(); await expect(create).toBeEnabled();
+  }
+  expect(requests[1]).toEqual(requests[0]);
+  await page.getByTestId('ai-agent-runs-create-prompt').fill('Changed request'); await create.click();
+  await expect(page.getByText('failed', { exact: true })).toBeVisible(); expect(requests).toHaveLength(3);
+  expect(requests[2].clientRequestId).not.toBe(requests[0].clientRequestId); expect(requests[2].prompt).toBe('Changed request');
+});
+
+test('新运行尚在读取时旧账本和对账入口立即消失', async ({ page }) => {
+  const { panel } = await setup(page); let release; let entered = false;
+  const wait = new Promise(resolve => { release = resolve; });
+  await page.route(`**/api/v1/ai/agent/runs/${secondRunId}`, async route => {
+    entered = true; await wait;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: secondRunId, statusKey: 'failed', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1, deadlineAtUtc: '2026-10-15T00:00:00Z', createdAtUtc: '2026-10-14T00:00:00Z', updatedAtUtc: '2026-10-14T00:00:00Z' }) });
+  });
+  try {
+    await page.getByTestId('ai-agent-runs-id').fill(secondRunId); await page.getByTestId('ai-agent-runs-load').click();
+    await expect.poll(() => entered).toBe(true); await expect(panel).toHaveCount(0);
+  } finally { release(); }
+  await expect(page.getByText('failed', { exact: true })).toBeVisible();
 });

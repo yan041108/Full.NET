@@ -14,7 +14,7 @@ import {
   ElTableColumn,
   ElTag
 } from 'element-plus';
-import type { AgUiRunProgressState, AiAgentRunResponse, FullNetProblemDetails } from '@fullnet/client-contracts';
+import type { AgUiRunProgressState, AiAgentRunResponse, CreateAiAgentRunRequest, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
 import AiPromptPanel from '../components/AiPromptPanel.vue';
@@ -54,6 +54,7 @@ const streamController = ref<AbortController>();
 const createModelId = ref('');
 const createPrompt = ref('');
 const createDefinitionKey = ref('fullnet-single-text-v1');
+let pendingCreate: { fingerprint: string; body: CreateAiAgentRunRequest } | undefined;
 let contextEpoch = 0;
 let loadEpoch = 0;
 let contextController = new AbortController();
@@ -62,7 +63,7 @@ const current = (epoch: number) => epoch === contextEpoch && !contextController.
 watch(() => [session.currentUser, session.currentContextName, session.switching], () => {
   ++contextEpoch; ++loadEpoch; contextController.abort(); contextController = new AbortController(); stopStream();
   selectPrompt(undefined); createPrompt.value = ''; createModelId.value = ''; runIdInput.value = '';
-  activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false;
+  activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false; pendingCreate = undefined;
   if (!session.switching) void loadModels();
 }, { deep: true, flush: 'sync' });
 
@@ -100,6 +101,7 @@ async function loadRun(runId?: string): Promise<void> {
   problem.value = undefined;
   events.value = [];
   progress.value = undefined;
+  activeRun.value = undefined;
   try {
     const result = await getAiAgentRun(targetId, contextController.signal);
     if (!current(epoch) || request !== loadEpoch) return;
@@ -156,6 +158,7 @@ async function refreshRunQuietly(runId: string): Promise<void> {
 }
 
 async function handleCreate(): Promise<void> {
+  if (loading.value || session.switching || !session.can('ai.agent_runs.create')) return;
   const epoch = contextEpoch;
   if (!createModelId.value || !createPrompt.value.trim()) {
     ElMessage.warning(t('aiAgentRuns.createValidation'));
@@ -165,16 +168,21 @@ async function handleCreate(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const created = await createAiAgentRun({
-      clientRequestId: crypto.randomUUID(),
+    const draft: Omit<CreateAiAgentRunRequest, 'clientRequestId'> = {
       definitionKey: createDefinitionKey.value,
       modelConfigId: createModelId.value,
       prompt: createPrompt.value.trim(),
       inputTokenLimit: Math.min(4096, promptVersion.value?.body.inputTokenLimit ?? 4096),
       outputTokenLimit: Math.min(4096, promptVersion.value?.body.outputTokenLimit ?? 4096),
       ...(promptVersion.value ? { promptVersionId: promptVersion.value.id } : {})
-    }, contextController.signal);
+    };
+    // 同一上下文中结果不明的相同载荷沿用原幂等身份；修改载荷或已知接受后才创建新身份。
+    const fingerprint = JSON.stringify(draft);
+    if (pendingCreate?.fingerprint !== fingerprint) pendingCreate = { fingerprint, body: { clientRequestId: crypto.randomUUID(), ...draft } };
+    const attempt = pendingCreate;
+    const created = await createAiAgentRun(attempt.body, contextController.signal);
     if (!current(epoch)) return;
+    if (pendingCreate === attempt) pendingCreate = undefined;
     runIdInput.value = created.runId;
     await loadRun(created.runId);
     if (!current(epoch)) return;
@@ -221,7 +229,7 @@ async function handleResume(): Promise<void> {
 }
 
 onBeforeUnmount(() => {
-  ++contextEpoch; contextController.abort();
+  ++contextEpoch; contextController.abort(); pendingCreate = undefined;
   stopStream();
 });
 
