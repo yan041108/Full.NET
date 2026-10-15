@@ -78,6 +78,10 @@ jobs:
       - name: Publish linux-x64 Native AOT artifact
         run: pnpm test:aot:publish:linux
 
+      # 综合发现集合包含 Worker 恢复用例，必须准备真实 Worker 程序，不能以跳过替代验收。
+      - name: Publish Worker artifact required by core Native E2E
+        run: pnpm test:aot:worker:publish:linux
+
       - name: Verify Native AOT architecture gates
         run: pnpm test:dotnet:architecture --selection api-native-aot
 
@@ -110,6 +114,9 @@ jobs:
           path: |
             artifacts/native-aot/linux-x64/publish-manifest.json
             artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
+            artifacts/native-aot/worker/linux-x64/publish-manifest.json
+            artifacts/native-aot/worker/linux-x64/publish.log
+            artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker
 
       - name: Upload Native AOT test logs
         if: failure()
