@@ -6,19 +6,20 @@ const path = `/api/v1/ai/agent/runs/${runId}`;
 const digest = 'a'.repeat(64);
 
 // 真实 Vue/Edge 配合受控 HTTP 验证交互，双库事务和外部核证仍由对应集成验收证明。
-async function setup(page, writable = true, recordedUsage = {}, creatable = false) {
+async function setup(page, writable = true, recordedUsage = {}, creatable = false, operation) {
+  let operationStatus = operation === 'resume' ? 'awaiting_approval' : 'running';
   const writes = []; let retryUnknown = false; let conflict = false; let closed = false; let readDenied = false; let writeDenied = false; let version = 8;
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'reconciliation-test', tokenType: 'Bearer', expiresAtUtc: new Date(Date.now() + 3600000).toISOString() }));
   await page.route('**/api/v1/me', route => json(route, { id: id(3), username: 'reconciliation-test', displayName: '对账测试', tenantId: null, actorScope: 'host', scope: 'host', isSuperAdministrator: false,
-    permissions: ['identity.navigation.read', 'ai.agent_runs.read', ...(writable ? ['ai.agent_runs.reconcile'] : []), ...(creatable ? ['ai.agent_runs.create'] : [])], sessionId: id(4), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
+    permissions: ['identity.navigation.read', 'ai.agent_runs.read', ...(writable ? ['ai.agent_runs.reconcile'] : []), ...(creatable ? ['ai.agent_runs.create'] : []), ...(operation ? ['ai.agent_runs.cancel', 'ai.agent_runs.resume'] : [])], sessionId: id(4), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'runs', parentId: null, routeName: 'ai-agent-runs', path: '/ai/agent-runs', componentKey: 'ai-agent-runs', title: 'Agent运行', caption: 'Agent运行', icon: 'chat', order: 1, requiredPermission: 'ai.agent_runs.read', children: [] }]));
   await page.route('**/api/v1/tenancy/available', route => json(route, []));
   await page.route('**/api/v1/platform/host-dashboard-summary', route => json(route, { activeTenantCount: 0, onlineSessionCount: 1, todayRequestCount: 0, todayErrorRate: 0, recentActivities: [], accessTrafficTrend: null, businessEntries: [] }));
   await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
   await page.route('**/api/v1/ai/model-configs?*', route => json(route, { items: [], page: 1, pageSize: 100, total: 0 }));
-  const run = target => ({ id: target, statusKey: target === secondRunId || closed ? 'failed' : 'reconciliation_required', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1,
+  const run = target => ({ id: target, statusKey: target === secondRunId || closed ? 'failed' : operation ? operationStatus : 'reconciliation_required', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1,
     deadlineAtUtc: '2026-10-15T00:00:00Z', createdAtUtc: '2026-10-14T00:00:00Z', updatedAtUtc: '2026-10-14T00:00:00Z' });
   await page.route(`**${path}`, route => json(route, run(runId)));
   await page.route(`**/api/v1/ai/agent/runs/${secondRunId}`, route => json(route, run(secondRunId)));
@@ -36,9 +37,13 @@ async function setup(page, writable = true, recordedUsage = {}, creatable = fals
   await page.goto('/#/ai/agent-runs');
   await page.getByTestId('ai-agent-runs-id').fill(runId);
   await page.getByTestId('ai-agent-runs-load').click();
-  const panel = page.getByTestId('ai-reconciliation-panel'); await expect(panel).toBeVisible();
-  await panel.getByRole('button', { name: '读取账本', exact: true }).click(); await expect(panel).toContainText('2026-09');
-  return { panel, writes, failNext: () => { retryUnknown = true; }, conflictNext: () => { conflict = true; }, denyRead: () => { readDenied = true; }, denyWrite: () => { writeDenied = true; } };
+  const panel = page.getByTestId('ai-reconciliation-panel');
+  if (operation) {
+    await expect(page.getByTestId(`ai-agent-runs-${operation}`)).toBeVisible(); await expect(page.getByTestId('ai-agent-runs-load')).toBeEnabled();
+  } else {
+    await expect(panel).toBeVisible(); await panel.getByRole('button', { name: '读取账本', exact: true }).click(); await expect(panel).toContainText('2026-09');
+  }
+  return { panel, writes, setRunStatus: value => { operationStatus = value; }, failNext: () => { retryUnknown = true; }, conflictNext: () => { conflict = true; }, denyRead: () => { readDenied = true; }, denyWrite: () => { writeDenied = true; } };
 }
 // Element Plus 的原生复选框用于状态，真实用户通过可见标签切换；禁止强制操作隐藏输入。
 async function review(panel) {
@@ -154,4 +159,51 @@ test('新运行尚在读取时旧账本和对账入口立即消失', async ({ pa
     await expect.poll(() => entered).toBe(true); await expect(panel).toHaveCount(0);
   } finally { release(); }
   await expect(page.getByText('failed', { exact: true })).toBeVisible();
+});
+
+
+for (const action of ['cancel', 'resume']) {
+  test(`${action} 的迟到成功不能切回已离开的运行`, async ({ page }) => {
+    await setup(page, true, {}, false, action); let release; let calls = 0;
+    const wait = new Promise(resolve => { release = resolve; });
+    await page.route(`**${path}/${action}`, async route => { calls++; await wait; return route.fulfill({ status: 200, contentType: 'application/json', body: 'true' }); });
+    try {
+      await page.getByTestId(`ai-agent-runs-${action}`).click(); await expect.poll(() => calls).toBe(1);
+      await page.getByTestId('ai-agent-runs-id').fill(secondRunId); await page.getByTestId('ai-agent-runs-load').click();
+      await expect(page.getByText('failed', { exact: true })).toBeVisible();
+      const response = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`${path}/${action}`));
+      release(); await (await response).finished(); await expect(page.locator('.ai-agent-runs-view')).toHaveAttribute('aria-busy', 'false');
+      await expect(page.getByTestId('ai-agent-runs-id')).toHaveValue(secondRunId); await expect(page.getByText('failed', { exact: true })).toBeVisible();
+    } finally { release(); }
+  });
+  test(`${action} 等待期间禁用重复派发，明确确认后恢复操作`, async ({ page }) => {
+    const state = await setup(page, true, {}, false, action); let release; let calls = 0;
+    const wait = new Promise(resolve => { release = resolve; });
+    await page.route(`**${path}/${action}`, async route => { calls++; await wait; state.setRunStatus(action === 'cancel' ? 'failed' : 'running'); return route.fulfill({ status: 200, contentType: 'application/json', body: 'true' }); });
+    try {
+      const button = page.getByTestId(`ai-agent-runs-${action}`); await button.click(); await expect(button).toBeDisabled(); await expect.poll(() => calls).toBe(1);
+    } finally { release(); }
+    await expect(page.getByText(action === 'cancel' ? 'failed' : 'running', { exact: true })).toBeVisible();
+    if (action === 'resume') await expect(page.getByTestId('ai-agent-runs-cancel')).toBeEnabled();
+  });
+  test(`${action} 的 false 回执显示失败且不自动重新读取`, async ({ page }) => {
+    const reads = []; page.on('request', request => { if (request.method() === 'GET' && request.url().endsWith(path)) reads.push(request.url()); });
+    await setup(page, true, {}, false, action); const count = reads.length;
+    await page.route(`**${path}/${action}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: 'false' }));
+    await page.getByTestId(`ai-agent-runs-${action}`).click(); await expect(page.locator('.ai-agent-runs-view .art-page-alert')).toBeVisible();
+    await expect(page.getByTestId(`ai-agent-runs-${action}`)).toBeEnabled(); expect(reads).toHaveLength(count);
+  });
+}
+
+test('恢复成功且事件流未结束时，用户仍可取消运行', async ({ page }) => {
+  const state = await setup(page, true, {}, false, 'resume'); let release; let streaming = false;
+  const wait = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/v1/ai/agent/runs/*/events/stream', async route => { streaming = true; await wait; return route.fulfill({ status: 200, contentType: 'text/event-stream', body: ': complete\n\n' }); });
+  await page.route(`**${path}/resume`, route => { state.setRunStatus('running'); return route.fulfill({ status: 200, contentType: 'application/json', body: 'true' }); });
+  await page.route(`**${path}/cancel`, route => route.fulfill({ status: 200, contentType: 'application/json', body: 'false' }));
+  try {
+    await page.getByTestId('ai-agent-runs-resume').click(); await expect.poll(() => streaming).toBe(true);
+    const cancel = page.getByTestId('ai-agent-runs-cancel'); await expect(cancel).toBeEnabled(); await cancel.click();
+    await expect(page.locator('.ai-agent-runs-view .art-page-alert')).toBeVisible();
+  } finally { release(); }
 });

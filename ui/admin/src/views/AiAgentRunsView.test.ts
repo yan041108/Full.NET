@@ -2,7 +2,8 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AiAgentRunsView from './AiAgentRunsView.vue';
-import { createAiAgentRun, getAiAgentRun, streamAiAgentRunEvents } from '../api/ai-agent-runs';
+import { ElMessage } from 'element-plus';
+import { cancelAiAgentRun, resumeAiAgentRun, createAiAgentRun, getAiAgentRun, streamAiAgentRunEvents } from '../api/ai-agent-runs';
 import { listAiModelConfigs } from '../api/ai-model-configs';
 import { useSessionStore } from '../auth/session';
 
@@ -155,5 +156,77 @@ describe('AiAgentRunsView', () => {
     await wrapper.get('[data-testid="ai-agent-runs-id"]').setValue('33333333-3333-3333-3333-333333333333');
     await wrapper.get('[data-testid="ai-agent-runs-load"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="test-reconciliation"]').exists()).toBe(false);
+  });
+
+  const operations = [['cancel', 'running'], ['resume', 'awaiting_approval']] as const;
+  const otherRunId = '55555555-5555-5555-5555-555555555555';
+  async function readRun(wrapper: VueWrapper, id = run.id) {
+    await wrapper.get('[data-testid="ai-agent-runs-id"]').setValue(id);
+    await wrapper.get('[data-testid="ai-agent-runs-load"]').trigger('click'); await flushPromises();
+  }
+  it.each(operations)('%s 的成功响应不能切回已离开的运行', async (action, state) => {
+    let finish!: (value: boolean) => void; const mutation = vi.mocked(action === 'cancel' ? cancelAiAgentRun : resumeAiAgentRun);
+    mutation.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    getRunMock.mockImplementation(async id => ({ ...run, id, statusKey: id === run.id ? state : 'completed' }));
+    const wrapper = mountView(true); await readRun(wrapper); await wrapper.get(`[data-testid="ai-agent-runs-${action}"]`).trigger('click');
+    await readRun(wrapper, otherRunId); const readCount = getRunMock.mock.calls.length;
+    finish(true); await flushPromises();
+    expect(getRunMock).toHaveBeenCalledTimes(readCount);
+    expect(wrapper.get('[data-testid="ai-agent-runs-id"]').element).toHaveProperty('value', otherRunId);
+  });
+  it.each(operations)('%s 的迟到错误不能污染另一个运行', async (action, state) => {
+    let fail!: (value: Error) => void; const mutation = vi.mocked(action === 'cancel' ? cancelAiAgentRun : resumeAiAgentRun);
+    mutation.mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
+    getRunMock.mockImplementation(async id => ({ ...run, id, statusKey: id === run.id ? state : 'completed' }));
+    const wrapper = mountView(true); await readRun(wrapper); await wrapper.get(`[data-testid="ai-agent-runs-${action}"]`).trigger('click');
+    await readRun(wrapper, otherRunId); fail(new Error('late')); await flushPromises();
+    expect(wrapper.find('.art-page-alert').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="ai-agent-runs-id"]').element).toHaveProperty('value', otherRunId);
+  });
+  it.each(operations)('%s 等待期间只允许一次派发', async (action, state) => {
+    const mutation = vi.mocked(action === 'cancel' ? cancelAiAgentRun : resumeAiAgentRun); mutation.mockReturnValue(new Promise(() => {}));
+    getRunMock.mockResolvedValue({ ...run, statusKey: state }); const wrapper = mountView(true); await readRun(wrapper);
+    const button = wrapper.get(`[data-testid="ai-agent-runs-${action}"]`); await button.trigger('click'); await button.trigger('click'); await flushPromises();
+    expect(mutation).toHaveBeenCalledTimes(1); expect(button.attributes('disabled')).toBeDefined();
+  });
+  it.each(operations)('%s 的明确拒绝回执不能提示成功或刷新运行', async (action, state) => {
+    const success = vi.spyOn(ElMessage, 'success'); const mutation = vi.mocked(action === 'cancel' ? cancelAiAgentRun : resumeAiAgentRun); mutation.mockResolvedValue(false);
+    getRunMock.mockResolvedValue({ ...run, statusKey: state }); const wrapper = mountView(true); await readRun(wrapper); const readCount = getRunMock.mock.calls.length;
+    await wrapper.get(`[data-testid="ai-agent-runs-${action}"]`).trigger('click'); await flushPromises();
+    expect(success).not.toHaveBeenCalled(); expect(getRunMock).toHaveBeenCalledTimes(readCount); expect(wrapper.find('.art-page-alert').exists()).toBe(true);
+  });
+  it('旧上下文取消结束时不能释放新上下文的等待状态', async () => {
+    let oldFinish!: (value: boolean) => void; let newFinish!: (value: boolean) => void;
+    vi.mocked(cancelAiAgentRun).mockReturnValueOnce(new Promise(resolve => { oldFinish = resolve; })).mockReturnValueOnce(new Promise(resolve => { newFinish = resolve; }));
+    getRunMock.mockImplementation(async id => ({ ...run, id, statusKey: 'running' })); const wrapper = mountView(true); await readRun(wrapper);
+    await wrapper.get('[data-testid="ai-agent-runs-cancel"]').trigger('click'); const oldSignal = vi.mocked(cancelAiAgentRun).mock.calls[0]![1]!;
+    useSessionStore().currentContextName = 'Tenant B'; await flushPromises(); expect(oldSignal.aborted).toBe(true); await readRun(wrapper, otherRunId);
+    await wrapper.get('[data-testid="ai-agent-runs-cancel"]').trigger('click'); oldFinish(true); await flushPromises();
+    expect(wrapper.get('[data-testid="ai-agent-runs-cancel"]').attributes('disabled')).toBeDefined();
+    expect(vi.mocked(cancelAiAgentRun)).toHaveBeenCalledTimes(2); newFinish(true); await flushPromises();
+    expect(wrapper.get('[data-testid="ai-agent-runs-cancel"]').attributes('disabled')).toBeUndefined();
+  });
+  it('初次读取返回另一运行时拒绝显示和启动事件流', async () => {
+    getRunMock.mockResolvedValue({ ...run, id: otherRunId, statusKey: 'reconciliation_required' }); const wrapper = mountView(); await readRun(wrapper);
+    expect(streamMock).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="test-reconciliation"]').exists()).toBe(false); expect(wrapper.find('.art-page-alert').exists()).toBe(true);
+  });
+  it('事件流结束的错运行刷新不能替换已核对的运行', async () => {
+    getRunMock.mockResolvedValueOnce(run).mockResolvedValueOnce({ ...run, id: otherRunId, statusKey: 'reconciliation_required' });
+    const wrapper = mountView(); await readRun(wrapper); expect(getRunMock).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('[data-testid="test-reconciliation"]').exists()).toBe(false); expect(wrapper.text()).toContain('completed');
+  });
+  it('运行标识仅大小写不同仍可读取和显示', async () => {
+    const target = 'abcdefab-abcd-7abc-8abc-abcdefabcdef'; getRunMock.mockResolvedValue({ ...run, id: target });
+    const wrapper = mountView(); await readRun(wrapper, target.toUpperCase()); expect(streamMock).toHaveBeenCalledWith(target, expect.any(Object), expect.any(AbortSignal)); expect(wrapper.text()).toContain('completed');
+  });
+
+  it('恢复已经确认且事件流持续打开时仍允许取消新运行', async () => {
+    vi.mocked(resumeAiAgentRun).mockResolvedValue(true); getRunMock.mockResolvedValue({ ...run, statusKey: 'awaiting_approval' });
+    const wrapper = mountView(true); await readRun(wrapper);
+    getRunMock.mockResolvedValue({ ...run, statusKey: 'running' }); streamMock.mockReturnValue(new Promise(() => {}));
+    await wrapper.get('[data-testid="ai-agent-runs-resume"]').trigger('click'); await flushPromises();
+    const cancel = wrapper.get('[data-testid="ai-agent-runs-cancel"]'); expect(cancel.attributes('disabled')).toBeUndefined();
+    vi.mocked(cancelAiAgentRun).mockResolvedValue(false); await cancel.trigger('click'); await flushPromises();
+    expect(cancelAiAgentRun).toHaveBeenCalledTimes(1);
   });
 });

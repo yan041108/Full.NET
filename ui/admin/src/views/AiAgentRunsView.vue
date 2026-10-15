@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -55,6 +55,7 @@ const createModelId = ref('');
 const createPrompt = ref('');
 const createDefinitionKey = ref('fullnet-single-text-v1');
 let pendingCreate: { fingerprint: string; body: CreateAiAgentRunRequest } | undefined;
+const pendingAction = shallowRef<{ runId: string; kind: 'cancel' | 'resume' }>();
 let contextEpoch = 0;
 let loadEpoch = 0;
 let contextController = new AbortController();
@@ -63,7 +64,7 @@ const current = (epoch: number) => epoch === contextEpoch && !contextController.
 watch(() => [session.currentUser, session.currentContextName, session.switching], () => {
   ++contextEpoch; ++loadEpoch; contextController.abort(); contextController = new AbortController(); stopStream();
   selectPrompt(undefined); createPrompt.value = ''; createModelId.value = ''; runIdInput.value = '';
-  activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false; pendingCreate = undefined;
+  activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false; pendingCreate = undefined; pendingAction.value = undefined;
   if (!session.switching) void loadModels();
 }, { deep: true, flush: 'sync' });
 
@@ -105,6 +106,7 @@ async function loadRun(runId?: string): Promise<void> {
   try {
     const result = await getAiAgentRun(targetId, contextController.signal);
     if (!current(epoch) || request !== loadEpoch) return;
+    if (result.id.toLowerCase() !== targetId.toLowerCase()) throw new Error('client.invalid_ai_agent_run_response');
     activeRun.value = result;
     runIdInput.value = activeRun.value.id;
     await startEventStream(activeRun.value.id);
@@ -151,7 +153,7 @@ async function refreshRunQuietly(runId: string): Promise<void> {
   const epoch = contextEpoch; const request = loadEpoch;
   try {
     const result = await getAiAgentRun(runId, contextController.signal);
-    if (current(epoch) && request === loadEpoch) activeRun.value = result;
+    if (current(epoch) && request === loadEpoch && result.id.toLowerCase() === runId.toLowerCase()) activeRun.value = result;
   } catch {
     // 流结束后刷新失败不覆盖已有状态。
   }
@@ -194,42 +196,35 @@ async function handleCreate(): Promise<void> {
   }
 }
 
-async function handleCancel(): Promise<void> {
-  const epoch = contextEpoch;
-  if (!activeRun.value) {
-    return;
-  }
-  const runId = activeRun.value.id;
+async function handleAction(kind: 'cancel' | 'resume'): Promise<void> {
+  if (!activeRun.value || pendingAction.value || session.switching || !session.can(`ai.agent_runs.${kind}`)
+    || !(kind === 'cancel' ? canCancel.value : canResume.value)) return;
+  const epoch = contextEpoch; const selection = loadEpoch; const runId = activeRun.value.id;
+  const operation = { runId, kind }; pendingAction.value = operation; problem.value = undefined;
+  // 操作属于派发时的运行和读取代次；切换后旧成功或错误都不能接管当前页面。
+  const selected = () => current(epoch) && selection === loadEpoch && activeRun.value?.id === runId;
   try {
-    await cancelAiAgentRun(runId, contextController.signal);
-    if (!current(epoch)) return;
-    await loadRun(runId);
-    if (!current(epoch)) return;
-    ElMessage.success(t('aiAgentRuns.cancelSucceeded'));
+    const accepted = await (kind === 'cancel' ? cancelAiAgentRun : resumeAiAgentRun)(runId, contextController.signal);
+    if (!selected()) return;
+    if (accepted !== true) throw new Error('client.ai_agent_run_operation_rejected');
+    const refresh = loadRun(runId); const refreshedSelection = loadEpoch;
+    // POST 已获明确回执，读取已清除旧运行；长事件流不能继续占用操作派发锁。
+    if (pendingAction.value === operation) pendingAction.value = undefined;
+    await refresh;
+    if (current(epoch) && refreshedSelection === loadEpoch && activeRun.value?.id === runId)
+      ElMessage.success(t(kind === 'cancel' ? 'aiAgentRuns.cancelSucceeded' : 'aiAgentRuns.resumeSucceeded'));
   } catch (error: unknown) {
-    if (current(epoch)) problem.value = toProblem(error, 'aiAgentRuns.cancelFailed');
+    if (selected()) problem.value = toProblem(error, kind === 'cancel' ? 'aiAgentRuns.cancelFailed' : 'aiAgentRuns.resumeFailed');
+  } finally {
+    // 上下文切换可以开启新操作；旧请求的收尾不能解锁新操作。
+    if (pendingAction.value === operation) pendingAction.value = undefined;
   }
 }
-
-async function handleResume(): Promise<void> {
-  const epoch = contextEpoch;
-  if (!activeRun.value) {
-    return;
-  }
-  const runId = activeRun.value.id;
-  try {
-    await resumeAiAgentRun(runId, contextController.signal);
-    if (!current(epoch)) return;
-    await loadRun(runId);
-    if (!current(epoch)) return;
-    ElMessage.success(t('aiAgentRuns.resumeSucceeded'));
-  } catch (error: unknown) {
-    if (current(epoch)) problem.value = toProblem(error, 'aiAgentRuns.resumeFailed');
-  }
-}
+function handleCancel(): Promise<void> { return handleAction('cancel'); }
+function handleResume(): Promise<void> { return handleAction('resume'); }
 
 onBeforeUnmount(() => {
-  ++contextEpoch; contextController.abort(); pendingCreate = undefined;
+  ++contextEpoch; contextController.abort(); pendingCreate = undefined; pendingAction.value = undefined;
   stopStream();
 });
 
@@ -245,7 +240,7 @@ void loadModels();
 </script>
 
 <template>
-  <section class="ai-agent-runs-view art-page-stack art-full-height" :aria-busy="loading || streaming">
+  <section class="ai-agent-runs-view art-page-stack art-full-height" :aria-busy="loading || streaming || !!pendingAction">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiAgentRuns.title') }}</h1>
 
     <ElAlert
@@ -272,6 +267,8 @@ void loadModels();
             v-if="canCancel"
             type="warning"
             data-testid="ai-agent-runs-cancel"
+            :disabled="!!pendingAction"
+            :loading="pendingAction?.runId === activeRun?.id && pendingAction?.kind === 'cancel'"
             @click="handleCancel"
           >
             {{ t('aiAgentRuns.cancelRun') }}
@@ -282,6 +279,8 @@ void loadModels();
             v-if="canResume"
             type="success"
             data-testid="ai-agent-runs-resume"
+            :disabled="!!pendingAction"
+            :loading="pendingAction?.runId === activeRun?.id && pendingAction?.kind === 'resume'"
             @click="handleResume"
           >
             {{ t('aiAgentRuns.resumeRun') }}
