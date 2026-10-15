@@ -5,6 +5,7 @@ import PrintingPreviewView from './PrintingPreviewView.vue';
 import { useSessionStore } from '../auth/session';
 import { ElSelect } from 'element-plus';
 import { listPrintingTemplates, previewPrintingTemplate } from '../api/printing-templates';
+import { printTemplate } from '../test/data-output-fixtures';
 
 vi.mock('../api/printing-templates', () => ({
   listPrintingTemplates: vi.fn(),
@@ -49,6 +50,7 @@ describe('PrintingPreviewView', () => {
   });
 
   it('removes executable template markup before inserting preview into the admin DOM', async () => {
+    listMock.mockResolvedValue([printTemplate]);
     vi.mocked(previewPrintingTemplate).mockResolvedValue({
       templateId: '019bc2b1-2a40-7cc3-8992-a80de51bf299',
       templateKey: 'review-template',

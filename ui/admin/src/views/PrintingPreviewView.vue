@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import "../printing/printing.css";
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { sanitizePrintingHtml } from '../printing/sanitizePrintingHtml';
 import PrintingTenantGrantsDialog from '../components/printing/PrintingTenantGrantsDialog.vue';
 import { showSuccess, showWarning } from '../feedback/fullNetMessage';
@@ -48,7 +48,13 @@ const preview = ref<PrintingTemplatePreview>();
 // 布局属于可编辑的不可信内容；必须在最终插入 DOM 前净化，覆盖数据库中已经保存的旧模板。
 const safePreviewHtml = computed(() => sanitizePrintingHtml(preview.value?.html ?? ''));
 const grantDialogVisible = ref(false);
-const host = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; });
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
+onBeforeUnmount(() => { viewActive.value = false; });
+const host = () => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const canRead = computed(() => host() && session.can('printing.templates.read'));
 const loading = ref(false);
 const previewing = ref(false);
 const creating = ref(false);
@@ -59,13 +65,43 @@ const createForm = ref({
   name: '租户档案卡片',
   layoutHtml: DEFAULT_LAYOUT_HTML
 });
+function resetCreateForm(): void {
+  createForm.value = { templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML };
+}
 const scope = useAuthorizedViewScope(session, () => {
   templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined;
   grantDialogVisible.value = false; createDialogVisible.value = false; loading.value = false; previewing.value = false; creating.value = false;
-  createForm.value = { templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML };
-}, load);
+  resetCreateForm();
+}, async () => { await load(); });
+type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;
 let previewRequest: ReturnType<typeof scope.begin>;
 let loadRequest: ReturnType<typeof scope.begin>;
+let createRequest: ReturnType<typeof scope.begin>;
+
+/** 创建派生的目录和预览请求随原弹窗关闭而取消，不影响另一轮独立操作。 */
+function begin(permission: string, owner?: ViewRequest): ViewRequest | undefined {
+  if (!canRead.value || (owner && !owner.current())) return;
+  const request = scope.begin(permission); if (!request || !owner) return request;
+  const cancel = () => request.cancel();
+  owner.signal.addEventListener('abort', cancel, { once: true });
+  return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); request.finish(); } };
+}
+
+watch(createDialogVisible, open => {
+  if (!open) {
+    createRequest?.cancel(); createRequest = undefined;
+    // 子请求的取消先同步生效；旧 finally 不能清除新弹窗的状态。
+    if (loadRequest?.signal.aborted) loading.value = false;
+    if (previewRequest?.signal.aborted) { previewing.value = false; preview.value = undefined; }
+    creating.value = false; resetCreateForm();
+  }
+}, { flush: 'sync' });
+watch(selectedTemplateId, onTemplateChanged, { flush: 'sync' });
+
+function openCreate(): void {
+  if (!canRead.value || !session.can('printing.templates.create') || creating.value || previewing.value || loading.value) return;
+  resetCreateForm(); createDialogVisible.value = true;
+}
 
 const selectedTemplate = computed(() =>
   templates.value.find(item => item.id === selectedTemplateId.value));
@@ -80,33 +116,39 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
   return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
-async function load(): Promise<void> {
-  if (!host()) return;
+async function load(owner?: ViewRequest): Promise<boolean> {
+  if (!canRead.value) return false;
   grantDialogVisible.value = false; previewRequest?.cancel(); preview.value = undefined; previewing.value = false;
-  loadRequest?.cancel(); const request = scope.begin('printing.templates.read'); loadRequest = request;
-  if (!request) return;
+  loadRequest?.cancel(); const request = begin('printing.templates.read', owner); loadRequest = request;
+  if (!request) return false;
+  const previousSelection = selectedTemplateId.value;
   loading.value = true;
   problem.value = undefined;
   try {
     const values = await listPrintingTemplates(undefined, request.signal);
-    if (!request.current()) return;
+    if (!request.current()) return false;
     templates.value = values;
-    selectedTemplateId.value = printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
+    selectedTemplateId.value = values.some(item => item.id === previousSelection) ? previousSelection
+      : printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
     preview.value = undefined;
+    return true;
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'printingPreview.loadFailed');
+    return false;
   } finally {
     if (request.current()) loading.value = false; request.finish();
   }
 }
 
-async function runPreview(printAfter = false): Promise<void> {
-  if (!host() || !selectedTemplateId.value || previewing.value || creating.value) {
+async function runPreview(printAfter = false, owner?: ViewRequest): Promise<void> {
+  const template = selectedTemplate.value;
+  if (!canRead.value || !template || loading.value || previewing.value || (creating.value && owner !== createRequest)) {
     return;
   }
-  const request = scope.begin('printing.templates.preview'); if (!request) return; previewRequest = request;
+  if (printAfter && (!preview.value || preview.value.templateId !== template.id)) return;
+  const request = begin('printing.templates.preview', owner); if (!request) return; previewRequest = request;
 
-  const templateId = selectedTemplateId.value;
+  const templateId = template.id;
   const versionNumber = printAfter ? preview.value?.versionNumber : undefined;
   // 打印也重新访问受保护入口；撤权失败不能留下此前已经展示的内容。
   preview.value = undefined;
@@ -114,7 +156,7 @@ async function runPreview(printAfter = false): Promise<void> {
   problem.value = undefined;
   try {
     const value = await previewPrintingTemplate(templateId, versionNumber === undefined ? {} : {versionNumber}, request.signal);
-    if (!request.current()) return;
+    if (!request.current() || selectedTemplateId.value !== templateId) return;
     if (value.templateId !== templateId || (versionNumber !== undefined && value.versionNumber !== versionNumber))
       throw new Error('client.invalid_printing_template_preview');
     preview.value = value;
@@ -136,44 +178,47 @@ function onTemplateChanged(): void {
 }
 
 async function submitCreate(): Promise<void> {
-  if (!host() || creating.value || previewing.value) return;
+  if (!canRead.value || !createDialogVisible.value || creating.value || previewing.value || loading.value) return;
   if (!createForm.value.templateKey.trim() || !createForm.value.name.trim() || !createForm.value.layoutHtml.trim()) {
     showWarning(t('printingPreview.requiredFields')); return;
   }
-  const request = scope.begin('printing.templates.create'); if (!request) return;
+  const request = begin('printing.templates.create'); if (!request) return;
+  createRequest = request;
+  const publish = session.can('printing.templates.publish');
+  const payload = { templateKey: createForm.value.templateKey, name: createForm.value.name,
+    formSchemaKey: 'printing.tenant_profile_card', layoutHtml: createForm.value.layoutHtml, isEnabled: true };
+  let saved = false;
   creating.value = true;
   problem.value = undefined;
   try {
-    const created = await createPrintingTemplate({
-      templateKey: createForm.value.templateKey,
-      name: createForm.value.name,
-      formSchemaKey: 'printing.tenant_profile_card',
-      layoutHtml: createForm.value.layoutHtml,
-      isEnabled: true
-    }, request.signal);
+    const created = await createPrintingTemplate(payload, request.signal);
     if (!request.current()) return;
-    if (session.can('printing.templates.publish')) {
+    if (publish) {
       await publishPrintingTemplate(created.id, { version: created.version }, request.signal);
       if (!request.current()) return;
     }
-    showSuccess(t(session.can('printing.templates.publish') ? 'printingPreview.createSuccess' : 'printingPreview.draftCreated'));
-    createDialogVisible.value = false;
-    await load();
-    if (!request.current()) return;
+    saved = true;
+    showSuccess(t(publish ? 'printingPreview.createSuccess' : 'printingPreview.draftCreated'));
+    const loaded = await load(request);
+    if (!request.current() || !loaded || !templates.value.some(item => item.id === created.id)) return;
     selectedTemplateId.value = created.id;
-    creating.value = false;
-    await runPreview();
+    await runPreview(false, request);
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'printingPreview.createFailed');
   } finally {
-    if (request.current()) creating.value = false; request.finish();
+    if (request.current() && createRequest === request) {
+      creating.value = false;
+      // 写入成功后即使目录刷新失败，也不能留下可重复提交的旧表单。
+      if (saved) createDialogVisible.value = false;
+    }
+    request.finish();
   }
 }
 
 </script>
 
 <template>
-  <div v-if="host()" class="printing-preview-view art-page-stack">
+  <div v-if="canRead" class="printing-preview-view art-page-stack">
     <ElCard shadow="never" class="art-table-card no-print">
       <ArtTableHeader>
         <template #left>
@@ -182,8 +227,9 @@ async function submitCreate(): Promise<void> {
               type="primary"
               plain
               :icon="Plus"
+              :disabled="loading || creating || previewing"
               data-testid="printing-preview-create"
-              @click="createDialogVisible = true"
+              @click="openCreate"
             >
               {{ t('printingPreview.createTemplate') }}
             </ElButton>
@@ -209,8 +255,7 @@ async function submitCreate(): Promise<void> {
             v-model="selectedTemplateId"
             data-testid="printing-preview-template"
             class="w-full"
-            :disabled="creating"
-            @change="onTemplateChanged"
+            :disabled="creating || loading"
           >
             <ElOption
               v-for="template in templates"
@@ -225,7 +270,7 @@ async function submitCreate(): Promise<void> {
             type="primary"
             :icon="Printer"
             :loading="previewing"
-            :disabled="!selectedTemplateId || creating"
+            :disabled="!selectedTemplate || creating || loading"
             data-testid="printing-preview-run"
             @click="runPreview()"
           >
@@ -233,7 +278,7 @@ async function submitCreate(): Promise<void> {
           </ElButton></PermissionGate>
           <ElButton
             v-if="preview && session.can('printing.templates.preview')"
-            :disabled="previewing || creating"
+            :disabled="previewing || creating || loading"
             data-testid="printing-preview-print"
             @click="printPreview"
           >
