@@ -100,6 +100,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
@@ -208,6 +209,10 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmedHandler>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmedHandler>());
         // 后台原会话授权也按目录过滤精确权限，不能依赖 API 入口补齐 AI 权限定义。
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, AiAuthorizationContributor>());
         RegisterKnowledgeFileReferences(services);
@@ -316,6 +321,14 @@ public sealed class AiModule : IFullNetModule
 
     private static void RegisterKnowledgeFileReferences(IServiceCollection services)
     {
+        var sourceTopic = global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition.Create(
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmed.TopicCode,
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmed.EventType, 1,
+            global::Full.NET.Messaging.Abstractions.EventDeliveryOwner.LegacyPolling);
+        if (!services.Any(descriptor => descriptor.ServiceType == typeof(global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition)
+            && descriptor.ImplementationInstance is global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition topic
+            && topic.TopicCode == sourceTopic.TopicCode))
+            services.AddSingleton(sourceTopic);
         // Worker 只注册持久化引用探测，不引入上传、HTTP 或文档管理服务。
         services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Modules.Files.Contracts.IHostFileReferenceClaimProbe,
             Features.ManageKnowledgeVersions.AiKnowledgeFileReferenceProbe>());

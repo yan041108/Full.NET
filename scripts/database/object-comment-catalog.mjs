@@ -788,6 +788,7 @@ const COLUMN_LABELS = {
 };
 
 const TABLE_OVERRIDES = {
+  fn_ai_knowledge_index_change: '最新确认来源的增量索引意图；执行仍需当前会话授权',
   fn_outbox_message: '事务发件箱消息，承载待发布的集成事件',
   fn_messaging_outbox_event: '消息发件箱事件，供 CDC 中继投递',
   fn_messaging_inbox_message: '消息收件箱，记录消费者幂等处理状态',

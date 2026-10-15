@@ -8,7 +8,7 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <param name="ContentType">经校验的内容类型。</param>
 /// <param name="ContentHash">实际字节 SHA-256。</param>
 /// <param name="SizeBytes">实际字节数。</param>
-/// <param name="ProcessingStatus">当前仅允许待处理，不代表索引就绪。</param>
+/// <param name="ProcessingStatus">来源待处理、待确认索引或任务已创建的稳定机器码；均不代表活动索引就绪。</param>
 /// <param name="CreatedAtUtc">创建时间。</param>
 public sealed record AiKnowledgeVersionResponse(Guid Id, Guid DocumentId, int VersionNumber,
     string OriginalFileName, string ContentType, string ContentHash, long SizeBytes,

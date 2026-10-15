@@ -344,6 +344,7 @@ internal static class AiBudgetRowReaders
         SizeBytes = Integer(reader, "SizeBytes"),
         UploadedByUserId = reader.GetGuid(reader.GetOrdinal("UploadedByUserId")),
         CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        ProcessingStatus = Text(reader, "ProcessingStatus"),
     };
 
     internal static AiKnowledgeImportRecord ReadKnowledgeImport(DbDataReader reader) => new()

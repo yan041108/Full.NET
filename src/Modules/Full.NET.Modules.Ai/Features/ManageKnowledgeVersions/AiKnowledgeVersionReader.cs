@@ -31,7 +31,15 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
             : store.IsTenant ? AiKnowledgeVersionSql.ListMySqlTenant : AiKnowledgeVersionSql.ListMySqlHost;
         var count = await query.QuerySingleOrDefaultAsync<long>(AiKnowledgeVersionSql.CountFor(store.Provider, store.IsTenant), parameters, token).ConfigureAwait(false);
         var rows = await query.QueryAsync<AiKnowledgeVersionRecord>(sql, parameters, token).ConfigureAwait(false);
-        return Result<PagedResult<AiKnowledgeVersionResponse>>.Success(new(rows.Select(Map).ToArray(), page, pageSize, count));
+        // 等待分页查询期间可能撤销角色、机构或文档授权，响应前重新取得完整权威关系。
+        var current = await ReadParametersAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
+        if (await query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(AiKnowledgeDocumentSql.ReadFor(store.Provider, store.IsTenant), current, token).ConfigureAwait(false) is null)
+            return NotFound<PagedResult<AiKnowledgeVersionResponse>>();
+        if (!await permissions.IsAuthorizedAsync([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.VersionsRead], actor, token).ConfigureAwait(false))
+            return Failure<PagedResult<AiKnowledgeVersionResponse>>("authorization.permission_denied", "The current session does not have the required permission.", ErrorType.Forbidden);
+        // 索引状态有独立精确权限；查询等待期间撤权后也必须退回原有的中性元数据状态。
+        var canReadIndex = await permissions.IsAuthorizedAsync([AiKnowledgeDocumentPermissions.IndexRead], actor, token).ConfigureAwait(false);
+        return Result<PagedResult<AiKnowledgeVersionResponse>>.Success(new(rows.Select(row => Map(row, canReadIndex)).ToArray(), page, pageSize, count));
     }
 
     internal async Task<Result<AiKnowledgeSourceContent>> OpenAsync(Guid knowledgeBaseId, Guid documentId, Guid versionId,
@@ -69,8 +77,8 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
         catch { await content.Value!.Content.DisposeAsync().ConfigureAwait(false); throw; }
     }
 
-    private static AiKnowledgeVersionResponse Map(AiKnowledgeVersionRecord row) => new(row.Id, row.DocumentId,
-        row.VersionNumber, row.OriginalFileName, row.ContentType, row.ContentHash, row.SizeBytes, "pending_processing", row.CreatedAtUtc);
+    private static AiKnowledgeVersionResponse Map(AiKnowledgeVersionRecord row, bool canReadIndex) => new(row.Id, row.DocumentId,
+        row.VersionNumber, row.OriginalFileName, row.ContentType, row.ContentHash, row.SizeBytes, canReadIndex ? row.ProcessingStatus : "pending_processing", row.CreatedAtUtc);
     private async Task<Dictionary<string, object?>> ReadParametersAsync(Guid knowledgeBaseId, Guid documentId, Guid actor, CancellationToken token)
     {
         var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);

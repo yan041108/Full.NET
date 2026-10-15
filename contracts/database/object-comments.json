@@ -388,6 +388,17 @@
         "RequestHash": "完整预算请求指纹"
       }
     },
+    "fn_ai_knowledge_index_change": {
+      "comment": "最新确认来源的增量索引意图；执行仍需当前会话授权",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "VersionId": "版本标识",
+        "VersionNumber": "版本号"
+      }
+    },
     "fn_ai_knowledge_index_session": {
       "comment": "人工智能knowledge index session表",
       "columns": {

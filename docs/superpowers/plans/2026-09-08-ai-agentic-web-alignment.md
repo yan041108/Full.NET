@@ -3224,3 +3224,16 @@ R08g 扩大验收补记（21:19）：双库影响集实际 50/50、零失败/跳
 R08g 本地专项验收完成（23:12）：SDK402 API/Worker 分析退出 0、架构 235/235；两个新原生产物发布成功，77 资产图确认 compiler/runtime 10.0.13，发布告警 17/15 项通过精确门禁，官方 NuGet 审计 5 范围零发现。当前 Native 集合为 42 项，旧 35 UID 完整保留。首轮 40 通过/2 DOCX 退役夹具失败/0 跳过；修夹具时发现代次检查要求配对请求键及前任务，最终按完整约束修正，仅重编测试消费者并复用两个 ELF，原失败 2/2 复查通过。两轮夹具失败和预检失败均保留，汇总 42 唯一 UID，`singleRunAllPassed=false`，不能称为单次 42/42。真实父 88060 退出 0、源6311最终核对0、新增容器自然清理及正式资源释放已确认，证据 `artifacts/r08h-native-fixture-recheck2/aggregate-acceptance.json` 与 `resource-handoff.json`。
 
 本批覆盖 Native API 的 PDF/DOCX 新代次准入/重放/读取，以及 PDF 原生 Worker 新代次恢复；文件、清单/向量和模型边界使用受控夹具，不外推为真实云模型、Native Worker 文件解析、完整 RAG 或容量验证。双库 50/50、Vue/Edge 7/7 结论保持；AI Unit 首轮 4873/4878 与原 5 项同源复查 26/26 的历史边界保持，不写成单次全量通过。默认重建入口继续关闭，R08 增量可靠事件等独立待办不因本批升级为完成；`Capacity-not-verified` 保持。验收输入为包含既有未提交改动的共享工作区冻结快照。
+
+
+#### R08：来源确认与增量意图本地专项验收（2026-10-16）
+
+同时将SignalR Redis回传层间接引入的MessagePack固定为2.5.303，修复实际官方审计发现的GHSA-qhrr-8q5h-9q3h；两个官方包签名0，旧版本有界回归2失败/1通过，新图全绿。旧图两个ELF发布成功但审计失败、Native未执行的记录保留。
+
+已实现 AI 来源确认和 v1 MemoryPack 事件同事务写 Outbox，LegacyPolling Worker 按可信信封建立独立租户范围，幂等保留每文档最新来源意图。重复、乱序、禁用和墓碑受权威记录约束；删除同事务清理意图。版本分页响应前重查角色、机构、文档与精确权限，只有 IndexRead 可见细分状态，Vue 提供中英文显示；事件不携带正文/会话，不创建有费用索引任务。双库 261 迁移支持恢复重放。部署遵循迁移→全 Worker→API 生产者。
+
+最终 AI/Realtime Unit 186/186、架构 235/235；新依赖图双库11/11，覆盖AI增量4、迁移恢复2、Redis跨节点恢复3与通知Worker修复2，零失败/跳过；旧图14项两轮覆盖不外推为新图结果。命名33、SQL5、多语言7、测试工具49通过；前端同摘要复用 i18n3、Vue60、类型和生产构建0。原编译、Mock、配置与精确边界登记遗漏均保留失败记录，未改写为单次全绿。
+
+SDK402 同源 API/Worker AOT分析零警告/错误，两个全新 Linux x64 ELF 的 compiler/runtime 10.0.13、发布告警 17/15 项通过原精确门禁，官方 NuGet 包审计5范围零发现（不含框架/运行时漏洞评估）。Native专项6/6验证新来源确认→真实Worker Host/Tenant/Host消费及既有AI API和JSON SignalR，未重跑完整44项。输入6383前后核对通过，两个解析工具锁文件仅接受已验证SDK13 ILLink精确转换；共享脏工作区冻结快照的结论不外推为干净完整main。证据 artifacts/ai-incremental-20261016/acceptance17、native-security，详见[本批计划](2026-10-16-ai-incremental-index-intents.md)。
+
+历史回填、禁用期间自动补偿、元数据事件和有费用自动派发仍待后续；不升级整个R08、完整RAG、真实云模型、Native Worker文件解析或生产容量，重建默认关闭，Capacity-not-verified。

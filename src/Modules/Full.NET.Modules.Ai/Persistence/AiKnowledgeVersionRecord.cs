@@ -13,4 +13,5 @@ internal sealed class AiKnowledgeVersionRecord
     public long SizeBytes { get; init; }
     public Guid UploadedByUserId { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
+    public string ProcessingStatus { get; init; } = "pending_processing";
 }

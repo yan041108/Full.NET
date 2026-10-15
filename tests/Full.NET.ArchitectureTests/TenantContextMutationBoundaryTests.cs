@@ -19,6 +19,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
+        // 只从已校验 Outbox 信封建立独立消费范围，不接管会话，也不改变 Relay 外层 Host。
+        "src/Modules/Full.NET.Modules.Ai/Features/IncrementalKnowledgeIndexing/AiKnowledgeSourceConfirmedHandler.cs",
         // 工具审计仅复制可信请求作用域，不从工具参数获取租户，不派发业务操作。
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiBackgroundToolAuditPort.cs",
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiToolAuditPort.cs",

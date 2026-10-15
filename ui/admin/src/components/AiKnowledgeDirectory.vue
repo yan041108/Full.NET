@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { translateKnowledgeDocx } from '@fullnet/admin-i18n';
+import { translateKnowledgeDocx, translateKnowledgeProcessing } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElMessageBox, ElPagination, ElSwitch, ElTable, ElTableColumn, ElTag } from 'element-plus';
@@ -222,7 +222,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
         <el-table :data="versions" max-height="320" :empty-text="t('knowledge.empty')" row-key="id">
           <el-table-column prop="versionNumber" :label="t('knowledge.version')" width="90" />
           <el-table-column prop="originalFileName" :label="t('knowledge.file')" min-width="230" />
-          <el-table-column prop="processingStatus" :label="t('knowledge.state')" width="160" />
+          <el-table-column :label="t('knowledge.state')" width="190"><template #default="{ row }">{{ translateKnowledgeProcessing(locale, row.processingStatus) }}</template></el-table-column>
           <el-table-column v-if="session.can('ai.knowledge_documents.source_read') || session.can('ai.knowledge_documents.index_read')" :label="t('knowledge.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH"><template #default="{ row }"><ArtTableActionGroup>
             <ArtTableActionButton v-if="session.can('ai.knowledge_documents.source_read')" type="view" :title="t('knowledge.source')" test-id="knowledge-source" @click="openSource(row.id)" />
             <ArtTableActionButton v-if="session.can('ai.knowledge_documents.index_read')" type="view" :title="t('knowledge.index')" test-id="knowledge-index" @click="openIndex(row.id)" />

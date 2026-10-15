@@ -135,7 +135,8 @@
     "requiredTestTypes": [
       "NativeApiKafkaLogMySqlE2ETests",
       "NativeWorkerPdfE2ETests",
-      "NativeWorkerKnowledgeRetirementE2ETests"
+      "NativeWorkerKnowledgeRetirementE2ETests",
+      "NativeApiKnowledgeIncrementalIndexE2ETests"
     ],
     "minimum": 10,
     "timeout": "45m"
@@ -440,6 +441,9 @@
       },
       "260": {
         "filter": "FullyQualifiedName~Migration260AiKnowledgeIndexRebuildRecoveryTests.MySql_|FullyQualifiedName~Migration260AiKnowledgeIndexRebuildRecoveryTests.SqlServer_"
+      },
+      "261": {
+        "filter": "FullyQualifiedName~Migration261AiKnowledgeIncrementalIndexRecoveryTests.MySql_|FullyQualifiedName~Migration261AiKnowledgeIncrementalIndexRecoveryTests.SqlServer_"
       },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"

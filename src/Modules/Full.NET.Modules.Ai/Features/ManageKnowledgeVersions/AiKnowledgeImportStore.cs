@@ -6,13 +6,14 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
 
 /// <summary>所有导入写入只覆盖 AI 自有表；提交阶段不调用 Files 或其他模块。</summary>
 internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecutor command,
-    ICommandTransaction transaction, ICurrentTenant tenant, IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database)
+    ICommandTransaction transaction, ICurrentTenant tenant, IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database, IOutboxWriter outbox)
 {
     internal bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
     internal DateTimeOffset Now => clock.UtcNow;
@@ -92,7 +93,19 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
         parameters["StateKey"] = state;
         parameters["FailureCode"] = failure;
         parameters["Now"] = clock.UtcNow;
-        return await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.SetStateTenant : AiKnowledgeImportSql.SetStateHost, parameters, token).ConfigureAwait(false) == 1;
+        if (state != "completed")
+            return await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.SetStateTenant : AiKnowledgeImportSql.SetStateHost, parameters, token).ConfigureAwait(false) == 1;
+        return await transaction.ExecuteAsync(async cancellation =>
+        {
+            if (await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.SetStateTenant : AiKnowledgeImportSql.SetStateHost, parameters, cancellation).ConfigureAwait(false) != 1)
+                return false;
+            var operation = await FindAsync(parameters, cancellation).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("Confirmed import must remain readable in its transaction.");
+            // 只有确认前态真正完成才产生业务事件；Outbox 失败回滚完成状态，重试可安全补发。
+            await outbox.AddAsync(AiKnowledgeSourceConfirmed.EventType, 1,
+                new AiKnowledgeSourceConfirmed((Guid)parameters["KnowledgeBaseId"]!, operation.DocumentId, operation.VersionId, tenant.Id), cancellation).ConfigureAwait(false);
+            return true;
+        }, token).ConfigureAwait(false);
     }
 
     internal async Task ReleaseLeaseAsync(Dictionary<string, object?> parameters, CancellationToken token)

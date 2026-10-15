@@ -35,7 +35,7 @@ the complete license texts.
   https://github.com/ZiggyCreatures/FusionCache
 - MailKit and MimeKit 4.17.0 — MIT
   https://github.com/jstedfast/MailKit
-- MessagePack for C# — MIT
+- MessagePack for C# / MessagePack.Annotations 2.5.303 — MIT
   https://github.com/MessagePack-CSharp/MessagePack-CSharp
 - Serilog, Serilog.AspNetCore and Serilog.Sinks.Async — Apache-2.0
   https://github.com/serilog

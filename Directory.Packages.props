@@ -47,6 +47,8 @@
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <!-- SignalR Redis 回传层间接引入；修复 GHSA-qhrr-8q5h-9q3h，保留官方 NuGet 审计。 -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.10.0" />
     <PackageVersion Include="MySqlConnector" Version="2.6.1" />
     <PackageVersion Include="MSTest" Version="4.3.2" />

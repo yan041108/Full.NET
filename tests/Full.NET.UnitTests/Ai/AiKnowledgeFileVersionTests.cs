@@ -36,7 +36,7 @@ public sealed class AiKnowledgeFileVersionTests
         command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromException<int>(new DataCommandException(DataCommandFailureKind.UniqueConstraint, new IOException("Unique key collision"))));
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.CreateVersion7());
-        var store = new AiKnowledgeImportStore(query, command, Substitute.For<ICommandTransaction>(), tenant, Substitute.For<IClock>(), ids, Options.Create(new DatabaseOptions()));
+        var store = new AiKnowledgeImportStore(query, command, Substitute.For<ICommandTransaction>(), tenant, Substitute.For<IClock>(), ids, Options.Create(new DatabaseOptions()), Substitute.For<IOutboxWriter>());
         var result = await store.StartAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, Guid.NewGuid(), "source.txt", "text/plain", payload, CancellationToken.None);
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(existing.Id, result.Value!.Id);

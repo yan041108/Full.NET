@@ -384,3 +384,15 @@ PDF 来源、规划、授权和模型端口通过进程内专用后台线程进�
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
 验收证据与任务状态统一记录在[活动开发计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。目录、授权、文件引用与导入恢复、共享客户端、检索问答及 Vue 文件入口已接入；R08i 合批扩展 DOCX 上传、Worker、当前读取者证明、逻辑引用与历史、双库恢复和派生数据清理，验收进度见计划。PDF/DOCX 原生 API 用例验证真实 HTTP 入队、重试和已结算代次读取；受控恢复由 JIT Coordinator 执行，不能据此证明 Native Worker 的真实文件解析或云模型整代次派发。完整知识库/RAG、模型质量与容量状态不能由局部验收推导，容量保持 `Capacity-not-verified`。
+
+## 最新来源的增量意图
+
+迁移 `261_AiKnowledgeIncrementalIndex.sql` 增加 AI 自有的 `fn_ai_knowledge_index_change`。导入完成和 `fullnet.ai.knowledge_source.confirmed` v1 事件同事务写入 Outbox，逻辑 Topic 为 `ai.knowledge-source-confirmed.v1`，保持 LegacyPolling 单一投递所有权。Files 文件不可变；本系统替换来源通过 AI 发布新的不可变文件版本。
+
+Worker 从可信事件信封建立独立 Host/Tenant 作用域，重新核对当前文档、知识库和最新已确认来源，只保留每个文档一条单调递增的来源意图。重复、乱序消息不会覆盖较新来源；墓碑及禁用状态仍由权威表控制。文档删除在同一事务移除意图，迟到事件不能重建。该步骤不读取正文、不请求模型、不保存会话，也不产生新的索引费用。
+
+版本列表仅向具备 `ai.knowledge_documents.index_read` 的用户区分 `pending_processing`、`awaiting_index_confirmation`、`index_admitted`，后台分别显示等待处理、待确认索引、索引任务已创建；权限在查询完成后权威核对，其余用户保留原有的中性待处理状态。三者均不证明活动索引 ready；实际读取、对账和恢复仍沿现有索引入口。执行需要当前会话、精确权限、来源和模型批准；显式重建继续要求费用确认，默认开关保持关闭。
+
+部署须先应用所用提供程序的迁移，再完成全部 Worker 升级，最后升级 API 生产者。旧 Worker 不理解新事件，不能与开始发布新事件的 API 混用；误投递须在新 Worker 就绪后沿现有 Outbox 死信恢复入口处理。回退保留新增表与 Outbox 记录，不删除业务来源或重写旧费用、任务、活动指针。
+
+Outbox 写入失败会回滚导入完成状态，沿原上传重试键或导入恢复入口重新确认即可；未知提交先读取权威导入日志。历史已完成导入不自动回填，禁用期间来源变更的自动补偿、文档元数据事件和后台有费用的自动派发不在本批范围；需要处理时仍显式确认现有索引操作。实现与验收范围见[增量意图计划](../superpowers/plans/2026-10-16-ai-incremental-index-intents.md)。

@@ -107,6 +107,8 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
             // 墓碑和文件补偿意图同事务提交；外部 Files 释放由提交后的有界协调器完成。
             parameters["Now"] = clock.UtcNow;
             await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.CleanupTenant : AiKnowledgeImportSql.CleanupHost, parameters, ct).ConfigureAwait(false);
+            // 消费者与删除共用文档锁；墓碑提交时一并移除增量意图，迟到事件不能重建。
+            await command.ExecuteAsync(IsTenant ? AiKnowledgeIncrementalIndexSql.DeleteTenant : AiKnowledgeIncrementalIndexSql.DeleteHost, parameters, ct).ConfigureAwait(false);
             return Result<bool>.Success(true);
         }, token);
 
