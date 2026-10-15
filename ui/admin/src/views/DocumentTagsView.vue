@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onActivated, onDeactivated, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -46,6 +46,9 @@ interface AppliedFilters {
   isRecommended: string;
 }
 
+const viewActive = ref(true);
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const allTags = ref<HostDocumentTag[]>([]);
@@ -56,11 +59,14 @@ const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ name: '', isHot: '', isRecommended: '' });
 const editorOpen = ref(false);
 // 删除确认由本页持有，撤权与离页同步回收，避免独立弹窗泄露旧目录名称。
-const confirmation = ref<{ message: string; resolve: (confirmed: boolean) => void }>();
-function finishConfirmation(confirmed: boolean): void {
+let confirmationSequence = 0;
+const confirmation = ref<{ token: number; id: string; version: number; message: string;
+  resolve: (confirmed: boolean) => void; confirm: () => void; updateOpen: (open: boolean) => void }>();
+function finishConfirmation(confirmed: boolean, token = confirmation.value?.token): void {
   const pending = confirmation.value;
+  if (!pending || pending.token !== token) return;
   confirmation.value = undefined;
-  pending?.resolve(confirmed);
+  pending.resolve(confirmed);
 }
 const editorMode = ref<EditorMode>('create');
 const editingTag = ref<HostDocumentTag | null>(null);
@@ -125,7 +131,9 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.tags.read'));
+// Host 目录要求可信的无租户上下文，停用的缓存页不能继续提供操作入口。
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' &&
+  session.currentUser.tenantId === null && session.can('document.tags.read'));
 const canCreate = computed(() => canRead.value && session.can('document.tags.create'));
 const canUpdate = computed(() => canRead.value && session.can('document.tags.update'));
 const canDelete = computed(() => canRead.value && session.can('document.tags.delete'));
@@ -144,6 +152,15 @@ function closeEditor(): void {
   editorRequest = undefined; editorOpen.value = false; editingTag.value = null;
   Object.assign(editorForm, { name: '', code: null, icon: null, color: null, description: null, isHot: false, isRecommended: false }); clearFieldErrors();
 }
+
+// 编辑使用打开时的快照；刷新只复核目录修订，不把新隐藏字段合并进旧表单。
+function currentTag(target: { id: string; version: number }): HostDocumentTag | undefined {
+  return allTags.value.find(item => item.id.toLowerCase() === target.id.toLowerCase() && item.version === target.version);
+}
+watch(allTags, () => {
+  if (editingTag.value && !currentTag(editingTag.value)) closeEditor();
+  if (confirmation.value && !currentTag(confirmation.value)) finishConfirmation(false);
+}, { flush: 'sync', deep: true });
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -228,18 +245,19 @@ function openCreate(): void {
 }
 
 function openEdit(tag: HostDocumentTag): void {
-  if (changing.value || !canUpdate.value) {
-    return;
-  }
+  if (changing.value || !canUpdate.value) return;
+  const target = currentTag(tag);
+  if (!target) return;
+  closeEditor();
   editorMode.value = 'edit';
-  editingTag.value = tag;
-  editorForm.name = tag.name;
-  editorForm.code = tag.code;
-  editorForm.icon = tag.icon;
-  editorForm.color = tag.color;
-  editorForm.description = tag.description;
-  editorForm.isHot = tag.isHot;
-  editorForm.isRecommended = tag.isRecommended;
+  editingTag.value = { ...target };
+  editorForm.name = target.name;
+  editorForm.code = target.code;
+  editorForm.icon = target.icon;
+  editorForm.color = target.color;
+  editorForm.description = target.description;
+  editorForm.isHot = target.isHot;
+  editorForm.isRecommended = target.isRecommended;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -294,8 +312,11 @@ async function create(): Promise<void> {
 
 async function saveEdit(): Promise<void> {
   const tag = editingTag.value;
-  if (!canUpdate.value || !tag) {
+  if (!canUpdate.value || !editorOpen.value || editorMode.value !== 'edit' || !tag) {
     return;
+  }
+  if (!currentTag(tag)) {
+    closeEditor(); showWarning(t('documentTags.targetChanged')); return;
   }
   const request = scope.begin('document.tags.update');
   if (!request) return;
@@ -320,7 +341,11 @@ async function saveEdit(): Promise<void> {
     showSuccess(t('documentTags.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    if (request.current()) showProblem(toProblem(error, 'documentTags.operationFailed'), t('documentTags.operationFailed'));
+    if (!request.current()) return;
+    const conflict = isFullNetProblemDetails(error) && error.status === 409;
+    if (conflict) closeEditor();
+    showProblem(toProblem(error, 'documentTags.operationFailed'), t('documentTags.operationFailed'));
+    if (conflict) await load();
   } finally {
     if (request.current()) changing.value = false;
     request.finish();
@@ -328,20 +353,29 @@ async function saveEdit(): Promise<void> {
 }
 
 async function remove(tag: HostDocumentTag): Promise<void> {
-  if (changing.value || !canDelete.value) return;
+  if (changing.value || editorOpen.value || !canDelete.value) return;
+  const target = currentTag(tag);
+  if (!target) return;
   const request = scope.begin('document.tags.delete');
   if (!request) return;
   // 确认等待本身也是在途操作，不能再次弹窗或借旧权限进入写入。
   changing.value = true;
-  const id = tag.id; const version = tag.version;
+  const { id, version, name } = target;
   try {
     const confirmed = await new Promise<boolean>(resolve => {
-      confirmation.value = { message: t('documentTags.confirmDelete', { name: tag.name }), resolve };
+      const token = ++confirmationSequence;
+      // 回调绑定本次确认，旧弹窗的迟到事件不能批准后续删除。
+      confirmation.value = { token, id, version, message: t('documentTags.confirmDelete', { name }), resolve,
+        confirm: () => finishConfirmation(true, token),
+        updateOpen: open => { if (!open) finishConfirmation(false, token); } };
     });
     if (!confirmed || !request.current()) return;
+    if (!currentTag({ id, version })) { showWarning(t('documentTags.targetChanged')); return; }
     const removed = await deleteDocumentTag(id, version, request.signal);
     if (!request.current()) return;
     if (!removed) throw new Error('client.document_tag_delete_failed');
+    // 已确认成功的删除立即反映到本地；补读失败不能把已删除行留成可操作目标。
+    allTags.value = allTags.value.filter(item => item.id.toLowerCase() !== id.toLowerCase());
     showSuccess(t('documentTags.deleteSuccess'));
     await load();
   } catch (error: unknown) {
@@ -498,13 +532,13 @@ function toProblem(
 
     <ArtFormDialog
       v-if="confirmation"
+      :key="confirmation.token"
       :open="true"
       :title="t('documentTags.delete')"
       :confirm-label="t('documentTags.delete')"
       :cancel-label="t('users.cancel')"
       confirm-test-id="document-tag-delete-confirm"
-      @confirm="finishConfirmation(true)"
-      @update:open="open => { if (!open) finishConfirmation(false); }"
+      v-on="{ confirm: confirmation.confirm, 'update:open': confirmation.updateOpen }"
     >
       <p>{{ confirmation.message }}</p>
     </ArtFormDialog>

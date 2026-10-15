@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onActivated, onDeactivated, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -43,6 +43,9 @@ interface AppliedFilters {
   name: string;
 }
 
+const viewActive = ref(true);
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const allCategories = ref<HostDocumentCategory[]>([]);
@@ -53,11 +56,14 @@ const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ name: '' });
 const editorOpen = ref(false);
 // 删除确认由本页持有，撤权与离页同步回收，避免独立弹窗泄露旧目录名称。
-const confirmation = ref<{ message: string; resolve: (confirmed: boolean) => void }>();
-function finishConfirmation(confirmed: boolean): void {
+let confirmationSequence = 0;
+const confirmation = ref<{ token: number; id: string; version: number; message: string;
+  resolve: (confirmed: boolean) => void; confirm: () => void; updateOpen: (open: boolean) => void }>();
+function finishConfirmation(confirmed: boolean, token = confirmation.value?.token): void {
   const pending = confirmation.value;
+  if (!pending || pending.token !== token) return;
   confirmation.value = undefined;
-  pending?.resolve(confirmed);
+  pending.resolve(confirmed);
 }
 const editorMode = ref<EditorMode>('create');
 const editingCategory = ref<HostDocumentCategory | null>(null);
@@ -123,7 +129,9 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.categories.read'));
+// Host 目录要求可信的无租户上下文，停用的缓存页不能继续提供操作入口。
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' &&
+  session.currentUser.tenantId === null && session.can('document.categories.read'));
 const canCreate = computed(() => canRead.value && session.can('document.categories.create'));
 const canUpdate = computed(() => canRead.value && session.can('document.categories.update'));
 const canDelete = computed(() => canRead.value && session.can('document.categories.delete'));
@@ -146,6 +154,15 @@ function closeEditor(): void {
 function isColumnVisible(key: CategoryTableColumnKey): boolean {
   return columnVisibility.value[key];
 }
+
+// 编辑使用打开时的快照；刷新只复核目录修订，不把新隐藏字段合并进旧表单。
+function currentCategory(target: { id: string; version: number }): HostDocumentCategory | undefined {
+  return allCategories.value.find(item => item.id.toLowerCase() === target.id.toLowerCase() && item.version === target.version);
+}
+watch(allCategories, () => {
+  if (editingCategory.value && !currentCategory(editingCategory.value)) closeEditor();
+  if (confirmation.value && !currentCategory(confirmation.value)) finishConfirmation(false);
+}, { flush: 'sync', deep: true });
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -230,17 +247,18 @@ function openCreate(): void {
 }
 
 function openEdit(category: HostDocumentCategory): void {
-  if (changing.value || !canUpdate.value) {
-    return;
-  }
+  if (changing.value || !canUpdate.value) return;
+  const target = currentCategory(category);
+  if (!target) return;
+  closeEditor();
   editorMode.value = 'edit';
-  editingCategory.value = category;
-  editorForm.name = category.name;
-  editorForm.sortOrder = String(category.sortOrder);
-  editorForm.code = category.code;
-  editorForm.icon = category.icon;
-  editorForm.color = category.color;
-  editorForm.description = category.description;
+  editingCategory.value = { ...target };
+  editorForm.name = target.name;
+  editorForm.sortOrder = String(target.sortOrder);
+  editorForm.code = target.code;
+  editorForm.icon = target.icon;
+  editorForm.color = target.color;
+  editorForm.description = target.description;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -295,8 +313,11 @@ async function create(): Promise<void> {
 
 async function saveEdit(): Promise<void> {
   const category = editingCategory.value;
-  if (!canUpdate.value || !category) {
+  if (!canUpdate.value || !editorOpen.value || editorMode.value !== 'edit' || !category) {
     return;
+  }
+  if (!currentCategory(category)) {
+    closeEditor(); showWarning(t('documentCategories.targetChanged')); return;
   }
   const request = scope.begin('document.categories.update');
   if (!request) return;
@@ -321,7 +342,11 @@ async function saveEdit(): Promise<void> {
     showSuccess(t('documentCategories.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    if (request.current()) showProblem(toProblem(error, 'documentCategories.operationFailed'), t('documentCategories.operationFailed'));
+    if (!request.current()) return;
+    const conflict = isFullNetProblemDetails(error) && error.status === 409;
+    if (conflict) closeEditor();
+    showProblem(toProblem(error, 'documentCategories.operationFailed'), t('documentCategories.operationFailed'));
+    if (conflict) await load();
   } finally {
     if (request.current()) changing.value = false;
     request.finish();
@@ -329,20 +354,29 @@ async function saveEdit(): Promise<void> {
 }
 
 async function remove(category: HostDocumentCategory): Promise<void> {
-  if (changing.value || !canDelete.value) return;
+  if (changing.value || editorOpen.value || !canDelete.value) return;
+  const target = currentCategory(category);
+  if (!target) return;
   const request = scope.begin('document.categories.delete');
   if (!request) return;
   // 确认等待本身也是在途操作，不能再次弹窗或借旧权限进入写入。
   changing.value = true;
-  const id = category.id; const version = category.version;
+  const { id, version, name } = target;
   try {
     const confirmed = await new Promise<boolean>(resolve => {
-      confirmation.value = { message: t('documentCategories.confirmDelete', { name: category.name }), resolve };
+      const token = ++confirmationSequence;
+      // 回调绑定本次确认，旧弹窗的迟到事件不能批准后续删除。
+      confirmation.value = { token, id, version, message: t('documentCategories.confirmDelete', { name }), resolve,
+        confirm: () => finishConfirmation(true, token),
+        updateOpen: open => { if (!open) finishConfirmation(false, token); } };
     });
     if (!confirmed || !request.current()) return;
+    if (!currentCategory({ id, version })) { showWarning(t('documentCategories.targetChanged')); return; }
     const removed = await deleteDocumentCategory(id, version, request.signal);
     if (!request.current()) return;
     if (!removed) throw new Error('client.document_category_delete_failed');
+    // 已确认成功的删除立即反映到本地；补读失败不能把已删除行留成可操作目标。
+    allCategories.value = allCategories.value.filter(item => item.id.toLowerCase() !== id.toLowerCase());
     showSuccess(t('documentCategories.deleteSuccess'));
     await load();
   } catch (error: unknown) {
@@ -496,13 +530,13 @@ function toProblem(
 
     <ArtFormDialog
       v-if="confirmation"
+      :key="confirmation.token"
       :open="true"
       :title="t('documentCategories.delete')"
       :confirm-label="t('documentCategories.delete')"
       :cancel-label="t('users.cancel')"
       confirm-test-id="document-category-delete-confirm"
-      @confirm="finishConfirmation(true)"
-      @update:open="open => { if (!open) finishConfirmation(false); }"
+      v-on="{ confirm: confirmation.confirm, 'update:open': confirmation.updateOpen }"
     >
       <p>{{ confirmation.message }}</p>
     </ArtFormDialog>
