@@ -128,13 +128,19 @@ export async function previewPrintingPublishedTemplate(templateId: string, body:
 
 /** Host 授权面板只读取真实已发布版本，不能用连续编号猜测历史版本。 */
 export async function listPrintingTemplateVersions(templateId: string, signal?: AbortSignal): Promise<PrintingTemplateVersionResponse[]> {
-  return printingListTemplateVersions(http, {templateId}, signal);
+  const rows = await printingListTemplateVersions(http, {templateId}, signal);
+  if (rows.some(row => row.templateId.toLowerCase() !== templateId.toLowerCase() || row.versionNumber < 1)
+    || new Set(rows.map(row => row.versionNumber)).size !== rows.length || new Set(rows.map(row => row.id.toLowerCase())).size !== rows.length) throw new Error('client.invalid_printing_template_version');
+  return rows;
 }
 
 /** 分页读取精确发布版本的租户授权。 */
 export async function listPrintingTenantVersionGrants(templateId: string, versionNumber: number,
   page = 1, pageSize = 20, signal?: AbortSignal): Promise<PagedResultOfGuid> {
-  return printingListTenantVersionGrants(http, {templateId,versionNumber,page,pageSize}, signal);
+  const result = await printingListTenantVersionGrants(http, {templateId,versionNumber,page,pageSize}, signal);
+  if (result.page !== page || result.pageSize !== pageSize || result.total < 0 || result.items.length > pageSize
+    || new Set(result.items.map(id => id.toLowerCase())).size !== result.items.length || result.items.includes('00000000-0000-0000-0000-000000000000')) throw new Error('client.invalid_printing_tenant_grants_page');
+  return result;
 }
 
 /** 授予或撤销独立版本，拒绝把 false 响应报告为成功。 */
