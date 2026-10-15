@@ -8,6 +8,7 @@ import {
   downloadHostFileContent,
   listHostFiles,
   openHostFileBlob,
+  previewHostFileContent,
   uploadHostFile
 } from '../api/host-files';
 
@@ -17,6 +18,7 @@ vi.mock('../api/host-files', () => ({
   downloadHostFileContent: vi.fn(),
   listHostFiles: vi.fn(),
   openHostFileBlob: vi.fn(),
+  previewHostFileContent: vi.fn(),
   uploadHostFile: vi.fn()
 }));
 
@@ -110,6 +112,24 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
     await flushPromises();
 
     expect(downloadMock).toHaveBeenCalledWith(sampleFile.id);
-    expect(openBlobMock).toHaveBeenCalled();
+    expect(openBlobMock).toHaveBeenCalledWith(expect.any(Blob), sampleFile.originalFileName);
+  });
+  it('内嵌被动文件使用隔离 iframe', async () => {
+    vi.mocked(previewHostFileContent).mockResolvedValue(new Blob(['plain'], { type: 'text/plain' }));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:plain'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const wrapper = mountWithPermissions(['files.files.read']);
+    try {
+      await flushPromises(); const vm = wrapper.vm as unknown as { preview: (file: typeof sampleFile) => Promise<void> };
+      await vm.preview(sampleFile); await flushPromises();
+      const frame = document.querySelector<HTMLIFrameElement>('.host-files-preview-frame'); expect(frame).not.toBeNull();
+      expect(frame!.getAttribute('sandbox')).toBe(''); expect(frame!.getAttribute('referrerpolicy')).toBe('no-referrer');
+    } finally { wrapper.unmount(); vi.restoreAllMocks(); }
+  });
+  it('主动内容不进入文件内嵌预览', async () => {
+    vi.mocked(previewHostFileContent).mockReset(); const wrapper = mountWithPermissions(['files.files.read']);
+    try {
+      await flushPromises(); const vm = wrapper.vm as unknown as { preview: (file: typeof sampleFile) => Promise<void> };
+      await vm.preview({ ...sampleFile, contentType: 'text/html' }); expect(previewHostFileContent).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
   });
 });

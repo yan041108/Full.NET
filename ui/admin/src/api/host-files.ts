@@ -24,6 +24,7 @@ import {
   type PagedResultOfHostFileReferenceClaimResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
+import { openContentBlob } from '../utils/openContentBlob';
 
 /** 分页查询 Host 文件列表。 */
 export async function listHostFiles(
@@ -171,17 +172,8 @@ export async function listHostFileReferences(
   return filesListHostFileReferences(http, { fileId, page, pageSize }, signal);
 }
 
-/** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
-export function openHostFileBlob(blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    URL.revokeObjectURL(url);
-    return;
-  }
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
+/** 复用文档/文件一致的内容策略与有界对象 URL 生命周期。 */
+export function openHostFileBlob(blob: Blob, fileName?: string): void { openContentBlob(blob, fileName); }
 
 export type {
   HostFile,

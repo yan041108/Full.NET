@@ -20,6 +20,7 @@ import {
   type HostDocumentVersionResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
+import { openContentBlob } from '../utils/openContentBlob';
 
 export interface ListDocumentItemsOptions {
   readonly tagId?: string | null;
@@ -166,17 +167,8 @@ export async function previewDocumentContent(
   return documentHostPreviewItemContent(http, { itemId }, signal);
 }
 
-/** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
-export function openDocumentBlob(blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    URL.revokeObjectURL(url);
-    return;
-  }
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
+/** 复用文档/文件一致的内容策略与有界对象 URL 生命周期。 */
+export function openDocumentBlob(blob: Blob, fileName?: string): void { openContentBlob(blob, fileName); }
 
 /** 将已上传文件追加为文档项的新版本。 */
 export async function addDocumentVersion(

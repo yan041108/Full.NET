@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput } from 'element-plus';
 import type { FullNetProblemDetails, HostDocumentShareAccessResponse, HostDocumentPreviewTaskResponse } from '@fullnet/client-contracts';
@@ -14,6 +14,7 @@ import {
 } from '../api/document-shares';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import { openDocumentBlob } from '../api/host-document-items';
+import { isPassiveContentType } from '../utils/openContentBlob';
 
 defineOptions({ name: 'DocumentPublicShareView' });
 
@@ -30,7 +31,7 @@ const contentProblem = ref<FullNetProblemDetails>();
 const passwordRequired = ref(false);
 const { url: previewUrl, load: loadPreview, clear: clearPreview } = useBlobPreview();
 
-const shareCode = computed(() => String(route.params.shareCode ?? '').trim());
+const shareCode = computed(() => typeof route.params.shareCode === 'string' ? route.params.shareCode.trim() : '');
 
 const showPasswordForm = computed(
   () => initialLoaded.value && !access.value && (passwordRequired.value || Boolean(problem.value))
@@ -40,11 +41,7 @@ const mimeType = computed(() => access.value?.mimeType?.split(';', 1)[0]?.trim()
 
 const isImage = computed(() => mimeType.value.startsWith('image/'));
 
-const isPdf = computed(() => mimeType.value === 'application/pdf');
-
-const isText = computed(() => mimeType.value.startsWith('text/'));
-
-const canInlinePreview = computed(() => isImage.value || isPdf.value || isText.value);
+const canInlinePreview = computed(() => isPassiveContentType(mimeType.value));
 
 const needsOfficePreview = computed(() => {
   if (!mimeType.value || canInlinePreview.value) {
@@ -60,13 +57,15 @@ const needsOfficePreview = computed(() => {
 
 type ShareRequest = { code: string; body: { password: string | null }; controller: AbortController };
 let activeRequest: ShareRequest | undefined;
+let active = true;
 let downloadController: AbortController | undefined;
-const current = (request: ShareRequest) => request === activeRequest && !request.controller.signal.aborted;
+const current = (request: ShareRequest) => active && request === activeRequest && !request.controller.signal.aborted;
 const sameId = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
 
 // 分享码、密码及所有异步步骤由同一请求快照拥有，路由切换和卸载同步失效。
 function resetAccess(): void {
   activeRequest?.controller.abort(); downloadController?.abort(); activeRequest = undefined;
+  downloadController = undefined;
   clearPreview(); access.value = undefined; problem.value = undefined; contentProblem.value = undefined;
   loading.value = false; contentLoading.value = false; downloading.value = false; initialLoaded.value = false; passwordRequired.value = false;
 }
@@ -94,7 +93,7 @@ async function loadOfficePreview(request: ShareRequest, documentId: string): Pro
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const status = await getDocumentSharePreviewTaskByCode(request.code, task.id, request.body, signal);
     signal.throwIfAborted(); checkPreviewTask(status, documentId, task);
-    if (status.statusKey === 'failed') throw new Error('document.public_share.preview_task_failed');
+    if (!['pending', 'processing', 'succeeded'].includes(status.statusKey)) throw new Error('document.public_share.preview_task_failed');
     if (status.statusKey === 'succeeded') {
       await loadPreview(() => loadDocumentSharePreviewTaskContentByCode(request.code, task.id, request.body, signal));
       return;
@@ -123,7 +122,7 @@ async function loadContent(request: ShareRequest, document: HostDocumentShareAcc
   contentLoading.value = true; contentProblem.value = undefined;
   try {
     if (needsOfficePreview.value) await loadOfficePreview(request, document.documentId);
-    else await loadPreview(() => loadDocumentShareContentByCode(request.code, request.body, request.controller.signal));
+    else if (canInlinePreview.value) await loadPreview(() => loadDocumentShareContentByCode(request.code, request.body, request.controller.signal));
   } catch (error) {
     if (current(request)) contentProblem.value = contentError(error);
   } finally {
@@ -138,7 +137,7 @@ async function downloadContent() {
   try {
     const blob = await loadDocumentShareContentByCode(request.code, request.body, controller.signal);
     // 下载器即使忽略取消返回Blob，也不能在离页后打开旧内容。
-    if (current(request) && !controller.signal.aborted) openDocumentBlob(blob);
+    if (current(request) && !controller.signal.aborted) openDocumentBlob(blob, access.value?.fileName ?? undefined);
   } catch (error) {
     if (current(request) && !controller.signal.aborted) contentProblem.value = contentError(error);
   } finally {
@@ -147,7 +146,7 @@ async function downloadContent() {
 }
 
 async function submitAccess() {
-  if (!shareCode.value || loading.value) return;
+  if (!active || !shareCode.value || loading.value) return;
   // 同一码输错密码后仍需保留输入入口；只有切换分享或成功访问才清除已知密码要求。
   const requiresPassword = passwordRequired.value;
   resetAccess(); passwordRequired.value = requiresPassword;
@@ -170,9 +169,12 @@ async function submitAccess() {
 
 watch(shareCode, code => {
   resetAccess(); password.value = '';
-  if (code) void submitAccess();
+  if (active && code) void submitAccess();
 }, { immediate: true, flush: 'sync' });
-onBeforeUnmount(resetAccess);
+// 停用清除密码与预览；恢复只重新进行匿名授权，不重放先前密码或在途转换。
+onDeactivated(() => { active = false; resetAccess(); password.value = ''; });
+onActivated(() => { if (!active) { active = true; void submitAccess(); } });
+onBeforeUnmount(() => { active = false; resetAccess(); password.value = ''; });
 </script>
 
 <template>
@@ -249,6 +251,8 @@ onBeforeUnmount(resetAccess);
             :src="previewUrl"
             class="document-public-share-view__frame"
             title="preview"
+            sandbox=""
+            referrerpolicy="no-referrer"
           />
         </div>
 

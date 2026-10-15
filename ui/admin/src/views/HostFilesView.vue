@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
+import { isPassiveContentType } from '../utils/openContentBlob';
 import {
   ElButton,
   ElCard,
@@ -287,7 +288,7 @@ async function removeSelected(): Promise<void> {
 }
 
 async function preview(file: HostFile): Promise<void> {
-  if (changing.value || !canPreview.value || !isPreviewableHostFile(file.contentType)) {
+  if (changing.value || !canPreview.value || !isPreviewableHostFile(file.contentType) || !isPassiveContentType(file.contentType)) {
     return;
   }
 
@@ -311,7 +312,7 @@ function closePreviewDialog(): void {
 }
 
 function canPreviewFile(file: HostFile): boolean {
-  return canPreview.value && isPreviewableHostFile(file.contentType);
+  return canPreview.value && isPreviewableHostFile(file.contentType) && isPassiveContentType(file.contentType);
 }
 
 async function createFolder(): Promise<void> {
@@ -469,7 +470,7 @@ async function download(item: HostFile): Promise<void> {
   problem.value = undefined;
   try {
     const blob = await downloadHostFileContent(item.id);
-    openHostFileBlob(blob);
+    openHostFileBlob(blob, item.originalFileName);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'hostFiles.operationFailed');
   } finally {
@@ -740,6 +741,8 @@ function toProblem(
         :src="previewUrl"
         class="host-files-preview-frame"
         title="preview"
+        sandbox=""
+        referrerpolicy="no-referrer"
       />
     </el-dialog>
 
