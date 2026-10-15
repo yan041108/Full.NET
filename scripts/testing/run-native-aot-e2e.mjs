@@ -3,6 +3,8 @@
  * 运行 Native AOT 外部进程集成测试（需先完成 linux-x64 publish）。
  */
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { validateNativeAotRuntimeResults } from './native-aot-runtime-results.mjs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -41,7 +43,9 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-if (process.platform !== 'linux' || nativeGate.requiredTestTypes?.length) {
+let expectedUids;
+// 所有平台都保留发现门禁；Linux 还需将完整结果绑定到同一次发现。
+{
   const discovery = spawnSync(
     'dotnet',
     [
@@ -64,6 +68,7 @@ if (process.platform !== 'linux' || nativeGate.requiredTestTypes?.length) {
   }
 
   const discoveryPayload = JSON.parse(discovery.stdout);
+  expectedUids = discoveryPayload.tests?.map(item => item.uid);
   const discoveredTests = discoveryPayload.tests?.length ?? 0;
   if (discoveredTests < nativeGate.minimum) {
     console.error(
@@ -87,6 +92,9 @@ const executionPolicyArgs = process.platform === 'linux'
   ? ['--minimum-expected-tests', String(nativeGate.minimum)]
   : ['--zero-tests-policy', 'allow-skipped'];
 
+// 每轮使用独立文件名，不能用前次成功 TRX 填补本轮缺失结果。
+const reportFilename = `Full.NET.IntegrationTests-native-aot-${randomUUID()}.trx`;
+
 const tests = spawnSync(
   'dotnet',
   [
@@ -102,7 +110,7 @@ const tests = spawnSync(
     resultsDirectory,
     '--report-trx',
     '--report-trx-filename',
-    'Full.NET.IntegrationTests-native-aot.trx',
+    reportFilename,
     ...executionPolicyArgs,
   ],
   {
@@ -113,4 +121,14 @@ const tests = spawnSync(
   }
 );
 
-process.exit(tests.status ?? 1);
+if (tests.error || tests.status !== 0) process.exit(tests.status || 1);
+if (process.platform === 'linux') {
+  try {
+    const result = validateNativeAotRuntimeResults(readFileSync(path.join(resultsDirectory, reportFilename), 'utf8'), expectedUids);
+    console.log(`Native AOT 完整 TRX 核对：${result.passed} 项，零失败/跳过。`);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+process.exit(0);

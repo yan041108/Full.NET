@@ -38,6 +38,10 @@ API/Worker 的发布契约统一使用 SDK `10.0.402`、带版本身份的 `full
 
 原生测试的数据库前置使用 JIT Migrator。Release Integration 构建通过仅构建的项目引用预先准备 Migrator，夹具以 `dotnet run --no-build --no-restore` 复用同一产物；迁移、Development 种子和数据库权限仍完整执行。直接运行已构建 Integration DLL 时也必须保留同一源码对应的 Migrator 输出，缺失时应补齐前置构建，不能在每个用例内自动重新构建。该复用配置需要新产物的实际原生运行证据，不能仅凭参数检查宣称性能提升。
 
+### 2.2 API / Worker 主入口的运行结果
+
+`test:aot:native:e2e` 与 `test:aot:worker:native:e2e` 每轮写入独立名称的 TRX，保留前轮结果。Linux 只有在实际进程退出 0、完整报告零失败/跳过、计数一致且测试 UID 精确覆盖本轮发现集合后才返回成功；缺失、截断、重复或不匹配的报告均拒绝。Windows 保持发现及允许跳过的本地检查行为，不能据此声明原生运行已验收。专项 Provider 入口仍按自己的范围验收。
+
 ## 3. JSON：类型必须进入静态元数据闭包
 
 ### 3.1 推荐模式
