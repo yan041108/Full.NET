@@ -40,9 +40,15 @@ async function setup(page, writable = true) {
   await panel.getByRole('button', { name: '读取账本', exact: true }).click(); await expect(panel).toContainText('2026-09');
   return { panel, writes, failNext: () => { retryUnknown = true; }, conflictNext: () => { conflict = true; }, denyRead: () => { readDenied = true; }, denyWrite: () => { writeDenied = true; } };
 }
+// Element Plus 的原生复选框用于状态，真实用户通过可见标签切换；禁止强制操作隐藏输入。
+async function review(panel) {
+  const name = '我已核对外部执行结果及证据，确认关闭此运行';
+  await panel.getByText(name, { exact: true }).click();
+  await expect(panel.getByRole('checkbox', { name, exact: true })).toBeChecked();
+}
 async function confirm(panel) {
   await panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true }).fill(digest);
-  await panel.getByRole('checkbox').check();
+  await review(panel);
 }
 const submit = panel => panel.getByRole('button', { name: '关闭并记录对账', exact: true });
 
@@ -68,10 +74,10 @@ test('计量边界和材料修改都要求重新确认，零用量保留数值',
   await panel.getByRole('textbox', { name: '输入 Token', exact: true }).fill('1');
   await panel.getByRole('textbox', { name: '输出 Token', exact: true }).fill('0');
   await panel.getByRole('textbox', { name: '缓存输入 Token（可选）', exact: true }).fill('2');
-  await panel.getByRole('checkbox').check(); await expect(submit(panel)).toBeDisabled();
+  await review(panel); await expect(submit(panel)).toBeDisabled();
   await panel.getByRole('textbox', { name: '缓存输入 Token（可选）', exact: true }).fill('0');
   await expect(panel.getByRole('checkbox')).not.toBeChecked(); await expect(submit(panel)).toBeDisabled();
-  await panel.getByRole('checkbox').check(); await submit(panel).click(); await expect(panel).toHaveCount(0);
+  await review(panel); await submit(panel).click(); await expect(panel).toHaveCount(0);
   expect(writes[0]).toMatchObject({ inputTokens: 1, outputTokens: 0, cachedInputTokens: 0 });
 });
 test('版本冲突保留材料，切换运行清除旧账本', async ({ page }) => {
@@ -85,10 +91,10 @@ test('版本冲突保留材料，切换运行清除旧账本', async ({ page }) 
 test('版本冲突必须读取新版本及重新核对才可再提交', async ({ page }) => {
   const { panel, writes, conflictNext } = await setup(page); conflictNext(); await confirm(panel); await submit(panel).click();
   await expect(panel).toContainText('请重新读取账本'); await expect(submit(panel)).toBeDisabled();
-  await panel.getByRole('checkbox').check(); await expect(submit(panel)).toBeDisabled();
+  await review(panel); await expect(submit(panel)).toBeDisabled();
   await panel.getByRole('button', { name: '读取账本', exact: true }).click();
   await expect(panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true })).toHaveValue(digest);
-  await expect(panel.getByRole('checkbox')).not.toBeChecked(); await panel.getByRole('checkbox').check();
+  await expect(panel.getByRole('checkbox')).not.toBeChecked(); await review(panel);
   await submit(panel).click(); await expect(panel).toHaveCount(0);
   expect(writes).toHaveLength(2); expect(writes[1].expectedVersion).toBe(9);
   expect(writes[1].clientRequestId).not.toBe(writes[0].clientRequestId);
