@@ -3,6 +3,7 @@ import { http } from './http';
 import { createDocumentPreviewTask, getDocumentPreviewTask } from './document-preview-tasks';
 import { getDocumentSharePreviewTaskByCode } from './document-shares';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
+import { deferred } from '../test/data-output-fixtures';
 vi.mock('./http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 const request = vi.mocked(http.request);
 const other = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
@@ -36,5 +37,18 @@ describe('文档预览任务响应归属', () => {
     request.mockResolvedValue(task);
     await expect(createDocumentPreviewTask({ documentItemId: task.documentItemId })).resolves.toEqual(task);
     await expect(createDocumentPreviewTask({ documentItemId: task.documentItemId, versionId: null })).resolves.toEqual(task);
+  });
+  it.each(['documentItemId', 'versionId'] as const)('调用方在途修改%s不改变原创建回包归属', async field => {
+    const pending = deferred<typeof task>(); request.mockReturnValueOnce(pending.promise);
+    const body = { documentItemId: task.documentItemId, versionId: null as string | null };
+    const result = createDocumentPreviewTask(body); body[field] = other; pending.resolve(task);
+    await expect(result).resolves.toEqual(task);
+    expect(JSON.parse(request.mock.calls[0]?.[1]?.body as string)).toEqual({ documentItemId: task.documentItemId, versionId: null });
+  });
+  it.each(['documentItemId', 'versionId'] as const)('不能用在途修改后的%s为其他创建结果背书', async field => {
+    const pending = deferred<typeof task>(); request.mockReturnValueOnce(pending.promise);
+    const body = { documentItemId: task.documentItemId, versionId: null as string | null };
+    const result = createDocumentPreviewTask(body); body[field] = other; pending.resolve({ ...task, [field]: other });
+    await expect(result).rejects.toThrow(/^client\.invalid_document_preview_task_identity$/u);
   });
 });

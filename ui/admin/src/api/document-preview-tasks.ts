@@ -49,18 +49,20 @@ export async function createDocumentPreviewTask(
   req: CreateHostDocumentPreviewTaskRequest,
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskResponse> {
-  if (!isCreateHostDocumentPreviewTaskRequest(req)) {
+  // 发送与响应复核共用固定副本，不能在等待期间借用调用方后改的文档或版本。
+  const snapshot = { ...req, versionId: req.versionId ?? null };
+  if (!isCreateHostDocumentPreviewTaskRequest(snapshot)) {
     throw new Error('client.invalid_create_document_preview_task_request');
   }
   const value = await documentHostCreateDocumentPreviewTask(http, {
-    body: { ...req, versionId: req.versionId ?? null }
+    body: snapshot
   }, signal);
   if (!isHostDocumentPreviewTaskResponse(value)) {
     throw new Error('client.invalid_document_preview_task');
   }
   // 当前文件用null表示；显式历史版本必须与创建请求相同，UUID文本大小写不改变身份。
-  if (value.documentItemId.toLowerCase() !== req.documentItemId.toLowerCase()
-    || (value.versionId?.toLowerCase() ?? null) !== (req.versionId?.toLowerCase() ?? null))
+  if (value.documentItemId.toLowerCase() !== snapshot.documentItemId.toLowerCase()
+    || (value.versionId?.toLowerCase() ?? null) !== (snapshot.versionId?.toLowerCase() ?? null))
     throw new Error('client.invalid_document_preview_task_identity');
   return value;
 }

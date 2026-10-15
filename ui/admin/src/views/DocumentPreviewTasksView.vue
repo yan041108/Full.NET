@@ -55,6 +55,8 @@ const items = ref<HostDocumentPreviewTaskResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
 const cancelConfirmation = ref<HostDocumentPreviewTaskResponse>();
+let cancelSequence = 0;
+const cancelHandlers = ref<{ confirm: () => void; dismiss: () => void; update: (open: boolean) => void }>();
 const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
 const unavailableFiles = useUnavailableResultFiles();
 const problem = ref<FullNetProblemDetails>();
@@ -62,6 +64,7 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const filterDocumentItemId = ref('');
+const appliedDocumentItemId = ref('');
 const editorOpen = ref(false);
 const detailVisible = ref(false); const detailLoading = ref(false);
 const selectedTask = ref<HostDocumentPreviewTaskResponse>();
@@ -75,7 +78,7 @@ const scope = useAuthorizedViewScope(session, () => {
   cancelConfirmation.value = undefined;
   unavailableFiles.reset();
   items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
-  editorOpen.value = false; filterDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
+  editorOpen.value = false; filterDocumentItemId.value = ''; appliedDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
   loading.value = false; changing.value = false;
 }, async () => { openLinkedTask(); await load(); });
 let listRequest: ReturnType<typeof scope.begin>;
@@ -83,6 +86,8 @@ let createRequest: ReturnType<typeof scope.begin>;
 let detailRequest: ReturnType<typeof scope.begin>;
 let actionRequest: ReturnType<typeof scope.begin>;
 let detailActionRequest: ReturnType<typeof scope.begin>;
+let pdfRequest: ReturnType<typeof scope.begin>;
+let pdfTarget: HostDocumentPreviewTaskResponse | undefined;
 const host = () => pageActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
 const canRead = () => host() && (!route || route.name === 'document-preview-tasks') && session.can('document.host_preview_tasks.read');
 const canCreate = () => canRead() && session.can('document.host_preview_tasks.create');
@@ -122,10 +127,15 @@ function openLinkedTask(): void {
 }
 // 链接只定位任务；作用域恢复不重放旧链接，停用期间显式变化的链接在恢复后才读取。
 watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
+  const wasBlocked = linkBlocked;
   cancelAction(actionRequest);
   clearDetail(); detailVisible.value = false; linkedTaskId = undefined; editorOpen.value = false;
   linkBlocked = route?.name !== 'document-preview-tasks';
-  if (linkBlocked) listRequest?.cancel(); else openLinkedTask();
+  if (linkBlocked) {
+    listRequest?.cancel(); items.value = []; total.value = 0; loading.value = false;
+  } else {
+    openLinkedTask(); if (wasBlocked && pageActive.value) void load();
+  }
 }, { flush: 'sync' });
 async function openDetail(id: string): Promise<void> {
   if (!canRead() || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
@@ -143,10 +153,23 @@ async function refreshDetail(id: string, open = false): Promise<void> {
     if (request.current()) { problem.value = toProblem(error); detailVisible.value = false; }
   } finally { if (request.current()) detailLoading.value = false; request.finish(); }
 }
-function currentTask(row: HostDocumentPreviewTaskResponse): HostDocumentPreviewTaskResponse | undefined {
-  const current = detailVisible.value && selectedTask.value?.id === row.id ? selectedTask.value : items.value.find(item => item.id === row.id);
-  return current?.version === row.version ? current : undefined;
+const sameId = (left: string | null | undefined, right: string | null | undefined) => (left?.toLowerCase() ?? null) === (right?.toLowerCase() ?? null);
+function findTask(id: string): HostDocumentPreviewTaskResponse | undefined {
+  return detailVisible.value && sameId(selectedTask.value?.id, id) ? selectedTask.value : items.value.find(item => sameId(item.id, id));
 }
+function currentTask(row: HostDocumentPreviewTaskResponse): HostDocumentPreviewTaskResponse | undefined {
+  const current = findTask(row.id);
+  return current && current.version === row.version && current.statusKey === row.statusKey
+    && sameId(current.documentItemId, row.documentItemId) && sameId(current.versionId, row.versionId)
+    && sameId(current.sourceFileId, row.sourceFileId) && sameId(current.outputFileId, row.outputFileId)
+    && sameId(current.requestedByUserId, row.requestedByUserId) ? current : undefined;
+}
+// PDF 由适配器执行最终打开；目录/详情变更必须先同步取消信号，阻止迟到 Blob 打开。
+watch([items, selectedTask, detailVisible], () => {
+  if (pdfTarget && !currentTask(pdfTarget)) {
+    cancelAction(pdfRequest); pdfRequest = undefined; pdfTarget = undefined;
+  }
+}, { flush: 'sync', deep: true });
 
 const {
   tableMainRef,
@@ -194,7 +217,7 @@ async function load() {
   loading.value = true;
   problem.value = undefined;
   try {
-    const documentItemId = filterDocumentItemId.value.trim() || undefined;
+    const documentItemId = appliedDocumentItemId.value || undefined;
     const result = await listDocumentPreviewTasks(page.value, pageSize.value, documentItemId, request.signal);
     if (!request.current()) return;
     items.value = result.items;
@@ -208,10 +231,18 @@ async function load() {
   }
 }
 
+async function applyFilter(): Promise<void> {
+  if (!canRead()) return;
+  // 输入是草稿，分页、轮询与刷新只能复用已明确应用的查询。
+  cancelAction(pdfRequest); pdfRequest = undefined; pdfTarget = undefined;
+  appliedDocumentItemId.value = filterDocumentItemId.value.trim(); page.value = 1;
+  await load();
+}
+
 function openCreate() {
   if (!canCreate() || changing.value || cancelDialogVisible.value) return;
   detailVisible.value = false;
-  editorForm.documentItemId = filterDocumentItemId.value.trim();
+  editorForm.documentItemId = appliedDocumentItemId.value;
   editorForm.versionId = '';
   editorOpen.value = true;
 }
@@ -241,20 +272,23 @@ async function submitCreate() {
 }
 
 async function openPdf(row: HostDocumentPreviewTaskResponse) {
-  const task = currentTask(row);
-  if (task?.statusKey !== 'succeeded' || changing.value || editorOpen.value || cancelDialogVisible.value || !canRead() || unavailableFiles.isUnavailable(task.id)) {
+  const current = currentTask(row);
+  const task = current ? { ...current } : undefined;
+  if (task?.statusKey !== 'succeeded' || detailLoading.value || changing.value || editorOpen.value || cancelDialogVisible.value || !canRead() || unavailableFiles.isUnavailable(task.id)) {
     return;
   }
   const request = beginAction('document.host_preview_tasks.read'); if (!request) return;
-  if (detailVisible.value && selectedTask.value?.id === task.id) detailActionRequest = request;
+  pdfRequest = request; pdfTarget = task;
+  if (detailVisible.value && sameId(selectedTask.value?.id, task.id)) detailActionRequest = request;
   const fileRequest = unavailableFiles.begin(task.id);
   try {
     await openDocumentPreviewTaskContent(task.id, request.signal);
   } catch (error) {
-    if (request.current() && fileRequest.current()) problem.value = fileRequest.markUnavailable(error)
+    if (request.current() && fileRequest.current() && currentTask(task)) problem.value = fileRequest.markUnavailable(error)
       ? { title: t('dataOutput.resultUnavailable'), status: 404, code: 'files.file.not_found' }
       : toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
+    if (pdfRequest === request) { pdfRequest = undefined; pdfTarget = undefined; }
     finishAction(request);
   }
 }
@@ -271,24 +305,30 @@ const isCancellable = (task: HostDocumentPreviewTaskResponse) => canRead() && ta
 
 function requestCancellation(task: HostDocumentPreviewTaskResponse) {
   const current = currentTask(task);
-  if (current && isCancellable(current) && !changing.value && !editorOpen.value) cancelConfirmation.value = { ...current };
+  if (!current || !isCancellable(current) || detailLoading.value || changing.value || editorOpen.value || cancelDialogVisible.value) return;
+  const token = ++cancelSequence; cancelConfirmation.value = { ...current };
+  // 捕获本次令牌，旧弹窗的确认/关闭事件不能接入下一次确认。
+  const dismiss = () => { if (token === cancelSequence) cancelConfirmation.value = undefined; };
+  cancelHandlers.value = { confirm: () => { void confirmCancellation(token); }, dismiss, update: open => { if (!open) dismiss(); } };
 }
 
-async function confirmCancellation() {
+async function confirmCancellation(token = cancelSequence) {
+  if (token !== cancelSequence) return;
   const confirmed = cancelConfirmation.value;
   cancelConfirmation.value = undefined;
-  const current = confirmed && (detailVisible.value && selectedTask.value?.id === confirmed.id ? selectedTask.value : items.value.find(item => item.id === confirmed.id));
-  if (!current || !isCancellable(current) || changing.value || editorOpen.value) return;
-  if (current.version !== confirmed.version) { ElMessage.warning(t('documentPreviewTasks.cancelStateChanged')); return; }
+  const row = confirmed && findTask(confirmed.id);
+  const current = row ? { ...row } : undefined;
+  if (!confirmed || !current || !isCancellable(current) || detailLoading.value || changing.value || editorOpen.value) return;
+  if (!currentTask(confirmed)) { ElMessage.warning(t('documentPreviewTasks.cancelStateChanged')); return; }
   const request = beginAction('document.host_preview_tasks.cancel'); if (!request) return;
   const taskId = current.id;
-  if (detailVisible.value && selectedTask.value?.id === taskId) detailActionRequest = request;
+  if (detailVisible.value && sameId(selectedTask.value?.id, taskId)) detailActionRequest = request;
   try {
     const result = await cancelDocumentPreviewTask(taskId, request.signal);
     if (!request.current()) return;
     if (result.id.toLowerCase() !== taskId.toLowerCase() || result.statusKey !== 'cancelled') throw new Error('client.invalid_document_preview_task_cancellation');
-    items.value = items.value.map(item => item.id === taskId ? result : item);
-    if (detailVisible.value && selectedTask.value?.id === taskId) selectedTask.value = result;
+    items.value = items.value.map(item => sameId(item.id, taskId) ? result : item);
+    if (detailVisible.value && sameId(selectedTask.value?.id, taskId)) selectedTask.value = result;
     ElMessage.success(t('documentPreviewTasks.cancelSuccess'));
     await load();
   } catch (error) {
@@ -333,7 +373,7 @@ function toProblem(
         </div>
       </template>
       <div ref="tableMainRef" class="art-crud-table-main">
-        <el-form class="document-module-inline-query" :inline="true" @submit.prevent="load">
+        <el-form class="document-module-inline-query" :inline="true" @submit.prevent="applyFilter">
           <el-form-item :label="t('documentPreviewTasks.documentItemId')">
             <el-input
               v-model="filterDocumentItemId"
@@ -341,12 +381,12 @@ function toProblem(
               :placeholder="t('documentPreviewTasks.filterDocumentItemId')"
               clearable
               data-testid="document-preview-task-filter"
-              @keyup.enter="load"
-              @clear="load"
+              @keydown.enter.prevent="applyFilter"
+              @clear="applyFilter"
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :icon="Search" @click="load">{{ t('documentPermissions.query') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="applyFilter">{{ t('documentPermissions.query') }}</el-button>
           </el-form-item>
         </el-form>
         <ArtTableHeader
@@ -432,8 +472,7 @@ function toProblem(
           background
           layout="total, sizes, prev, pager, next"
           :page-sizes="[10, 20, 50]"
-          @current-change="load"
-          @size-change="load"
+          @change="load"
         />
       </div>
     </el-card>
@@ -477,11 +516,13 @@ function toProblem(
         </el-form-item>
       </el-form>
     </ArtFormDialog>
-    <ElDialog v-model="cancelDialogVisible" :title="t('common.cancel')" width="460px" :close-on-click-modal="false">
+    <ElDialog v-if="cancelConfirmation && cancelHandlers" :key="cancelSequence" :model-value="true"
+      :title="t('common.cancel')" width="460px" :close-on-click-modal="false"
+      v-on="{ 'update:modelValue': cancelHandlers.update }">
       <p>{{ t('documentPreviewTasks.cancelConfirm') }}</p>
       <template #footer>
-        <ElButton data-testid="document-preview-cancel-dismiss" @click="cancelConfirmation = undefined">{{ t('common.cancel') }}</ElButton>
-        <ElButton type="warning" data-testid="document-preview-cancel-confirm" @click="confirmCancellation">{{ t('common.confirm') }}</ElButton>
+        <ElButton data-testid="document-preview-cancel-dismiss" v-on="{ click: cancelHandlers.dismiss }">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="warning" data-testid="document-preview-cancel-confirm" v-on="{ click: cancelHandlers.confirm }">{{ t('common.confirm') }}</ElButton>
       </template>
     </ElDialog>
   </section>
