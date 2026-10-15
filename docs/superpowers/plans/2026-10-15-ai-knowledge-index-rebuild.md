@@ -1,0 +1,84 @@
+# AI 知识索引独立重建批次实施计划
+
+**Goal:** 将 R08 的 `rebuild` 恢复提示交付为所有者显式确认、可幂等重放且不覆盖旧凭据的完整操作。
+
+**Architecture:** 保持 AI 模块、现有 TXT/PDF/DOCX Worker、Dapper 和 AI 本地事务。新任务采用独立应用端 UUID v7；来源版本不变，以单调代次区分同一来源的重建。旧活动指针仅在新任务经过既有完整清单、向量与结算证明后原子切换。
+
+**Tech Stack:** .NET 10、SQL Server/MySQL、System.Text.Json 源生成、Vue 3、生成式 TypeScript 客户端、MSTest、Vitest、Playwright。
+
+## 执行约束
+
+- 用户已授权在 main 连续开发，关联功能集中实现、集中测试、完成后提交，不推送。
+- 按仓库 AGENTS.md 直接执行本批，不自动创建工作树、子代理或额外会话。
+- 起始 HEAD 为 `e241102465d09a95eda8e3c67e07776f46de5104`；复用任务快照 `ai-native-sdk-security-r12j`，另外保存本批目标文件的修改前摘要。不得将其他对话的脏文件纳入提交。
+- R12x 的 7894 项冻结后端输入及 R12aa 的 18 项冻结浏览器输入保持不变；本批新代码不借用其验收结论。
+- 重型验收保持现有顺序：R12x SDK402 → 缓存夹具双库 2 项 → R12aa 浏览器 18 项。新批次在该队列之后验收；独立轻量编译和纯单元测试使用独立输出及普通锁。
+- 身份与 Files Contract 调用不进入 AI 事务；不得查询其他模块的表，事务中不得调用模型。
+- `reserved`、未结算或 `unknown` 外部费用保持阻断，不通过新任务绕过未知副作用。
+- SQL Server 与 MySQL 的迁移、幂等、并发、半完成迁移恢复和租户行为必须成对验证。
+
+## 已确认的调用链与设计
+
+1. `246_AiKnowledgeIndexTask.sql` 的来源唯一约束目前为 `(VersionId,DocumentVersion,KnowledgeBaseVersion)`。不得删除旧任务、覆盖账本、伪造文件新版本或修改文档并发版本来获得重建空间。
+2. 新增 `Generation`（既有任务为 0）、`RebuildRequestId` 和 `RebuildPreviousTaskId`。新唯一约束保留来源维度并追加代次；请求键按文档隔离。新任务仍由 `IIdGenerator` 分配主键。
+3. 新请求携带 `clientRequestId`、`expectedTaskId`、`expectedDocumentVersion`、`expectedKnowledgeBaseVersion`、`confirmAdditionalCost`。租户、用户、来源、模型和预算由服务端推导。
+4. 所有者必须具备现有页面/来源/入队权限、索引读取权限及独立 `ai.knowledge_documents.index_rebuild`。新交互会话可创建新代次，不能接管旧任务的冻结会话。
+5. AI 短事务先锁定文档及当前来源，核对预期版本、最后任务和终态，再原子创建新任务与冻结会话。同键同载荷同会话复用已创建任务；同键不同载荷、其他会话及过期快照返回冲突。
+6. `queued`/`running` 不允许重建；失败、取消或完成任务仍须通过当前来源、格式、模型批准、未知费用门禁。拒绝时不得写入任务、会话或账本。
+7. 新代次入队后，旧代次不能再领取、恢复或写入派生数据；单独保留活动代次的读取证明，不能把“最新可写任务”作为“活动可读代次”。
+8. `AiKnowledgeRetrievalSql` 已读取活动指针，但 TXT/PDF/DOCX 的激活证明最终仍使用 `AiKnowledgeIndexStatusSql.For`（最新任务）。重建必须同时增加活动代次查询并更新这三处证明；历史答案的批量来源复核也须绑定活动代次。
+9. 就绪状态和重建任务状态分别表达：管理页可显示排队/失败的新任务；检索和已有答案在旧代次仍满足当前来源及模型批准时继续使用完整旧代次。新任务损坏、崩溃或取消不改活动指针。
+10. Vue 使用对账得到的精确版本和任务，明确确认可能新增费用；同一请求未知结果后的重试保留请求键，切换文档/会话后清除。禁止自动重建、自动重发或跨资源处理迟到响应。
+11. 默认关闭重建写入口。迁移兼容旧数据，但产生同源多代任务后，旧程序的单行绑定查询不再兼容；启用前必须完成 API/Worker 全实例升级。回退先关闭入口并停止新代次派发，保留兼容读取程序与历史数据；禁止直接回退到旧单任务二进制或删除新代次。
+12. 新代次序号的分配及“最新任务”判定不得依赖时间戳或 UUID 排序。MySQL 目标表更新与子查询的限制必须用真实语句验证，不能只凭 SQL 文本守卫通过；涉及自引用更新时使用可证明物化的静态查询形状或同文档锁内的条件写入。
+
+## 任务 1：独立代次重建纵向切片
+
+**Files:**
+
+- 新增：`src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/260_AiKnowledgeIndexRebuild.sql` 及 MySql 对等文件。
+- 新增：`src/Modules/Full.NET.Modules.Ai.Contracts/AiKnowledgeIndexRebuildRequest.cs`。
+- 新增：`src/Modules/Full.NET.Modules.Ai/Features/ManageKnowledgeIndexing/AiKnowledgeIndexRebuildService.cs`。
+- 新增：`src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexRebuildSql.cs`。
+- 新增：`src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeIndexRebuildOptions.cs`，默认 `Enabled=false`，注册强类型配置及启动校验。
+- 修改：同目录 `Endpoint.cs`、`AiModule.cs`、`AiAuthorizationContributor.cs`、`AiKnowledgeDocumentPermissions.cs`、`AiJsonSerializerContext.cs`。
+- 修改：`AiKnowledgeIndexTaskSql.cs`、`AiKnowledgeIndexSessionSql.cs`、`AiKnowledgeIndexWorkerSql.cs`、`AiKnowledgeIndexRetrySql.cs`、`AiKnowledgeIndexActivationSql.cs`，所有恢复/派发/完成写入都拒绝已被接替的任务。
+- 修改：`AiKnowledgeIndexStatusSql.cs`、`AiKnowledgeIndexActivationStore.cs`、`AiKnowledgeIndexPdfActivationStore.cs`、`AiKnowledgeIndexDocxActivationStore.cs`、`AiKnowledgeAnswerHistoryGuard.cs` 的读取证明选择，保留完整权限与范围复核。
+- 修改：`ui/admin/src/components/AiKnowledgeIndexDialog.vue`、`ui/admin/src/api/ai-knowledge.ts`、中英文词条、生成式 OpenAPI/SDK 契约及精确权限目录。
+- 测试：新增 `tests/Full.NET.UnitTests/Ai/AiKnowledgeIndexRebuildTests.cs`；扩展三种格式的活动证明、历史答案、恢复/租约、SQL 物化器/守卫以及 Vue 对话框测试。
+- 集成：在现有 AI SQL Server/MySQL 测试类中增加同一组真实场景，复用现有 Factory，不增加新业务项目。
+
+**Interfaces:**
+
+- 新请求：`AiKnowledgeIndexRebuildRequest(Guid ClientRequestId, Guid ExpectedTaskId, int ExpectedDocumentVersion, int ExpectedKnowledgeBaseVersion, bool ConfirmAdditionalCost)`，未知 JSON 字段拒绝。
+- 新服务：`Task<Result<AiKnowledgeIndexEnqueueResponse>> RebuildAsync(Guid knowledgeBaseId, Guid documentId, Guid versionId, AiKnowledgeIndexRebuildRequest request, SessionBindingSnapshot original, CancellationToken token)`。
+- 新操作：`POST /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/rebuild`，成功 202；使用既有标准 ProblemDetails 与 `ai.knowledge.index_conflict`。
+- 成功响应继续为已存在的 `AiKnowledgeIndexEnqueueResponse`；202 仅确认稳定入队，不代表 ready 或收费完成。
+
+- [ ] 先写行为测试：Host/租户、两种交互会话、新登录创建独立代次、全部权限拒绝、同键重放、载荷/会话冲突、源变更、并发竞争、未知费用阻断、第二笔失败回滚、取消与授权等待后漂移。
+- [ ] 实现成对可恢复迁移。列、默认值、检查和索引分别探测；新唯一约束创建后再移除旧约束，半完成重放不能丢失来源唯一性。既有任务、批次、结算与活动指针不回填改写。
+- [ ] 实现短事务重建与精确 Endpoint/源生成/权限目录。对同文档竞争进行串行化；所有跨模块授权在事务外，并在提交后响应之前再次复核。
+- [ ] 实现代次写入防护与活动代次读取。先覆盖“新任务排队/失败期间旧索引仍可检索及核对历史答案”的回归，再完成原子切换与旧代次回收的整链验证。
+- [ ] 贯通生成客户端及 Vue 显式确认流程，覆盖权限撤销、重复点击、未知结果保留幂等键、资源切换及迟到成功/错误。
+- [ ] 集中执行 AI Unit、Vue AI Unit、类型检查/构建、命名/SQL/契约/相关架构；记录实际发现和结果，未执行项保持待验收。
+- [ ] 资源窗口释放后执行本批双库影响集及新 AOT 路径，不复用未覆盖本批输入的旧 R12x 成功记录。
+- [ ] 按 `requesting-code-review` 只读复审资金、隔离、幂等、代次读取和迁移恢复；修复重要发现后再集中验证受影响场景。
+- [ ] `git diff --check`、分支和精确文件状态检查后提交完整功能批次；更新 AI 总计划，区分实现与验收。
+
+## 必须取得的证据
+
+| 场景 | 必须验证的结果 |
+| --- | --- |
+| 同一来源重建 | 新 UUID/代次、独立批次键和新冻结会话；来源文件版本、旧任务与账本逐字段不变 |
+| 相同请求重放与并发 | 只创建一个新任务/会话；同键不同载荷拒绝，无第二次收费派发 |
+| 新旧任务竞争 | 新代次创建后旧失败任务不可重试；迟到旧租约不可写入或切换指针 |
+| 未知费用 | 任一相关未结算/未知操作均阻断新代次，不释放旧预留、不篡改费用 |
+| 旧代次继续读取 | 新代次 queued/running/failed 时，TXT/PDF/DOCX 检索和历史答案均使用完整活动证明 |
+| 原子切换 | 全部新载荷及已结算凭据有效才切换；损坏、取消、异常、崩溃保持旧指针 |
+| 权限及租户 | 新权限独立控制；撤权、Host/租户转换及来源/模型变化均失败关闭 |
+| 半完成迁移 | 旧结构升级、每一步部分完成后未记账重放，双库均收敛且保留历史数据 |
+| Vue 交互 | 明确确认费用、未知结果同键重试、禁止重复点击、切换后不污染其他文档 |
+
+## 状态
+
+2026-10-15：调用链核对及实施设计已完成；本计划中的生产实现、双库迁移和测试尚未完成，不将本文件计入 R08 能力交付。
