@@ -227,6 +227,7 @@ export async function restoreDocumentItem(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
@@ -249,6 +250,7 @@ export async function rollbackDocumentVersion(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
@@ -271,6 +273,7 @@ export async function deleteDocumentVersion(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
