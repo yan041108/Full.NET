@@ -660,12 +660,15 @@ async function submitOfficePreviewTask(item: HostDocumentItem): Promise<void> {
 
   const request = beginAction('document.host_preview_tasks.create'); if (!request) return;
   try {
-    await createDocumentPreviewTask({
+    const task = await createDocumentPreviewTask({
       documentItemId: item.id,
       versionId: item.currentVersion?.id ?? null
     }, request.signal);
     if (!request.current()) return;
     ElMessage.success(t('hostDocumentItems.officePreviewSubmitted'));
+    // 创建权限不隐式授予任务读取；有独立 Read 才定位详情，由任务页重新读取授权结果。
+    if (request.current() && allowed('document.host_preview_tasks.read'))
+      await router.push({ name: 'document-preview-tasks', query: { taskId: task.id } });
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {

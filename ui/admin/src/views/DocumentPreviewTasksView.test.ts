@@ -7,6 +7,7 @@ import { listDocumentPreviewTasks } from '../api/document-preview-tasks';
 
 vi.mock('../api/document-preview-tasks', () => ({
   cancelDocumentPreviewTask: vi.fn(),
+  getDocumentPreviewTask: vi.fn(),
   listDocumentPreviewTasks: vi.fn(),
   createDocumentPreviewTask: vi.fn(),
   openDocumentPreviewTaskContent: vi.fn()

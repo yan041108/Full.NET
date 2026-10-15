@@ -18,7 +18,7 @@ describe('PDF 预览最终打开边界', () => {
   });
   it.each(['identity', 'status', 'shape'])('取消响应%s不符不能作为成功', async mismatch => {
     const result = mismatch === 'shape' ? {} : { ...task, statusKey: mismatch === 'status' ? 'pending' : 'cancelled',
-      id: mismatch === 'identity' ? '019bc2b1-2a40-7cc3-8992-a80de51bf299' : task.id };
+      id: mismatch === 'identity' ? '01980000-0000-7000-8000-000000000003' : task.id };
     vi.mocked(documentHostCancelDocumentPreviewTask).mockResolvedValue(result as typeof task);
     await expect(cancelDocumentPreviewTask(task.id)).rejects.toThrow('client.invalid_document_preview_task_cancellation');
   });

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { documentPreviewFailureLabel } from './documentPreviewFailureLabel';
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, inject, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import {
   ElAlert,
   ElButton,
   ElCard,
   ElDialog,
+  ElDrawer,
+  ElDescriptions,
+  ElDescriptionsItem,
   ElForm,
   ElFormItem,
   ElInput,
@@ -19,7 +23,7 @@ import {
 import { Plus, Refresh, Search } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import type { FullNetProblemDetails, HostDocumentPreviewTaskResponse } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
@@ -34,6 +38,7 @@ import { useUnavailableResultFiles } from '../composables/useUnavailableResultFi
 import {
   cancelDocumentPreviewTask,
   createDocumentPreviewTask,
+  getDocumentPreviewTask,
   listDocumentPreviewTasks,
   openDocumentPreviewTaskContent
 } from '../api/document-preview-tasks';
@@ -41,6 +46,10 @@ import {
 defineOptions({ name: 'DocumentPreviewTasksView' });
 
 const session = useSessionStore();
+const route = inject(routeLocationKey, undefined);
+const pageActive = ref(false); let linkBlocked = false; let linkedTaskId: string | undefined;
+onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
+onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
 const { t } = useAdminI18n();
 const items = ref<HostDocumentPreviewTaskResponse[]>([]);
 const loading = ref(false);
@@ -54,27 +63,90 @@ const pageSize = ref(20);
 const total = ref(0);
 const filterDocumentItemId = ref('');
 const editorOpen = ref(false);
+const detailVisible = ref(false); const detailLoading = ref(false);
+const selectedTask = ref<HostDocumentPreviewTaskResponse>();
 const editorFormRef = ref<FormInstance>();
 const editorForm = reactive({
   documentItemId: '',
   versionId: ''
 });
 const scope = useAuthorizedViewScope(session, () => {
+  linkBlocked = true; linkedTaskId = undefined; detailVisible.value = false; clearDetail();
   cancelConfirmation.value = undefined;
   unavailableFiles.reset();
   items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
   editorOpen.value = false; filterDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
   loading.value = false; changing.value = false;
-}, load);
+}, async () => { openLinkedTask(); await load(); });
 let listRequest: ReturnType<typeof scope.begin>;
 let createRequest: ReturnType<typeof scope.begin>;
+let detailRequest: ReturnType<typeof scope.begin>;
+let actionRequest: ReturnType<typeof scope.begin>;
+let detailActionRequest: ReturnType<typeof scope.begin>;
+const host = () => pageActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const canRead = () => host() && (!route || route.name === 'document-preview-tasks') && session.can('document.host_preview_tasks.read');
+const canCreate = () => canRead() && session.can('document.host_preview_tasks.create');
+const begin = (permission: string) => canRead() ? scope.begin(permission) : undefined;
+function beginAction(permission: string) {
+  if (changing.value) return;
+  const request = begin(permission); if (!request) return;
+  actionRequest = request; changing.value = true; problem.value = undefined; return request;
+}
+function cancelAction(request: typeof actionRequest): void {
+  request?.cancel(); if (request && actionRequest === request) { actionRequest = undefined; changing.value = false; }
+}
+function finishAction(request: NonNullable<typeof actionRequest>): void {
+  if (request.current() && actionRequest === request) { actionRequest = undefined; changing.value = false; }
+  request.finish();
+}
 // 关闭同步撤销本弹窗创建的接入资格；已到服务端的写入仍由服务端完成。
 watch(editorOpen, open => {
   if (!open) {
-    createRequest?.cancel(); changing.value = false;
+    cancelAction(createRequest); createRequest = undefined;
     editorForm.documentItemId = ''; editorForm.versionId = '';
   }
 }, { flush: 'sync' });
+
+function clearDetail(): void {
+  detailRequest?.cancel(); detailRequest = undefined; cancelAction(detailActionRequest); detailActionRequest = undefined;
+  selectedTask.value = undefined; detailLoading.value = false; cancelConfirmation.value = undefined;
+}
+watch(detailVisible, open => {
+  if (!open) { clearDetail(); linkBlocked = true; linkedTaskId = undefined; }
+}, { flush: 'sync' });
+function openLinkedTask(): void {
+  const id = route?.query.taskId;
+  if (linkBlocked || !canRead() || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000'
+    || linkedTaskId === id.toLowerCase()) return;
+  linkedTaskId = id.toLowerCase(); void openDetail(id);
+}
+// 链接只定位任务；作用域恢复不重放旧链接，停用期间显式变化的链接在恢复后才读取。
+watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
+  cancelAction(actionRequest);
+  clearDetail(); detailVisible.value = false; linkedTaskId = undefined; editorOpen.value = false;
+  linkBlocked = route?.name !== 'document-preview-tasks';
+  if (linkBlocked) listRequest?.cancel(); else openLinkedTask();
+}, { flush: 'sync' });
+async function openDetail(id: string): Promise<void> {
+  if (!canRead() || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
+  clearDetail(); editorOpen.value = false; await refreshDetail(id, true);
+}
+async function refreshDetail(id: string, open = false): Promise<void> {
+  detailRequest?.cancel(); const request = begin('document.host_preview_tasks.read'); if (!request) return;
+  detailRequest = request; if (open) detailVisible.value = true; detailLoading.value = true;
+  try {
+    const task = await getDocumentPreviewTask(id, request.signal);
+    if (!request.current()) return;
+    if (task.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
+    selectedTask.value = task;
+  } catch (error) {
+    if (request.current()) { problem.value = toProblem(error); detailVisible.value = false; }
+  } finally { if (request.current()) detailLoading.value = false; request.finish(); }
+}
+function currentTask(row: HostDocumentPreviewTaskResponse): HostDocumentPreviewTaskResponse | undefined {
+  const current = detailVisible.value && selectedTask.value?.id === row.id ? selectedTask.value : items.value.find(item => item.id === row.id);
+  return current?.version === row.version ? current : undefined;
+}
 
 const {
   tableMainRef,
@@ -86,9 +158,6 @@ const {
   tableHeaderCellStyle,
   syncTableLayout
 } = useArtPagedTableInCard(loading);
-
-const canCreate = () => session.can('document.host_preview_tasks.create');
-const canRead = () => session.can('document.host_preview_tasks.read');
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
   if (statusKey === 'succeeded') {
@@ -110,14 +179,17 @@ function statusLabel(statusKey: string): string {
   return translated === key ? statusKey : translated;
 }
 
+const isRunning = (task?: HostDocumentPreviewTaskResponse) => task?.statusKey === 'pending' || task?.statusKey === 'processing';
 useTaskStatusRefresh(() => canRead() && !problem.value
-  && items.value.some(task => task.statusKey === 'pending' || task.statusKey === 'processing'), async () => {
-  if (loading.value || changing.value || editorOpen.value || cancelDialogVisible.value) return;
+  && (items.value.some(isRunning) || detailVisible.value && isRunning(selectedTask.value)), async current => {
+  if (loading.value || detailLoading.value || changing.value || editorOpen.value || cancelDialogVisible.value) return;
   await load();
+  const task = selectedTask.value;
+  if (current() && !problem.value && detailVisible.value && task && isRunning(task) && !detailLoading.value) await refreshDetail(task.id);
 });
 
 async function load() {
-  listRequest?.cancel(); const request = scope.begin('document.host_preview_tasks.read'); listRequest = request;
+  listRequest?.cancel(); const request = begin('document.host_preview_tasks.read'); listRequest = request;
   if (!request) return;
   loading.value = true;
   problem.value = undefined;
@@ -138,87 +210,91 @@ async function load() {
 
 function openCreate() {
   if (!canCreate() || changing.value || cancelDialogVisible.value) return;
+  detailVisible.value = false;
   editorForm.documentItemId = filterDocumentItemId.value.trim();
   editorForm.versionId = '';
   editorOpen.value = true;
 }
 
 async function submitCreate() {
-  if (changing.value) return;
+  if (changing.value || !editorOpen.value || !canCreate()) return;
   const documentItemId = editorForm.documentItemId.trim();
   const versionId = editorForm.versionId.trim();
   if (!documentItemId) {
     return;
   }
-  const request = scope.begin('document.host_preview_tasks.create'); if (!request) return; createRequest = request;
-
-  changing.value = true;
+  const request = beginAction('document.host_preview_tasks.create'); if (!request) return; createRequest = request;
   try {
-    await createDocumentPreviewTask({
+    const created = await createDocumentPreviewTask({
       documentItemId,
       versionId: versionId || null
     }, request.signal);
     if (!request.current()) return;
     editorOpen.value = false;
     ElMessage.success(t('documentPreviewTasks.createSuccess'));
-    await load();
+    await Promise.all([load(), openDetail(created.id)]);
   } catch (error) {
     if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
-    if (request.current()) changing.value = false; request.finish();
+    finishAction(request);
   }
 }
 
 async function openPdf(row: HostDocumentPreviewTaskResponse) {
-  if (row.statusKey !== 'succeeded' || changing.value || editorOpen.value || cancelDialogVisible.value || !canRead() || unavailableFiles.isUnavailable(row.id)) {
+  const task = currentTask(row);
+  if (task?.statusKey !== 'succeeded' || changing.value || editorOpen.value || cancelDialogVisible.value || !canRead() || unavailableFiles.isUnavailable(task.id)) {
     return;
   }
-  const request = scope.begin('document.host_preview_tasks.read'); if (!request) return;
-  const fileRequest = unavailableFiles.begin(row.id);
-
-  changing.value = true;
+  const request = beginAction('document.host_preview_tasks.read'); if (!request) return;
+  if (detailVisible.value && selectedTask.value?.id === task.id) detailActionRequest = request;
+  const fileRequest = unavailableFiles.begin(task.id);
   try {
-    await openDocumentPreviewTaskContent(row.id, request.signal);
+    await openDocumentPreviewTaskContent(task.id, request.signal);
   } catch (error) {
     if (request.current() && fileRequest.current()) problem.value = fileRequest.markUnavailable(error)
       ? { title: t('dataOutput.resultUnavailable'), status: 404, code: 'files.file.not_found' }
       : toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
-    if (request.current()) changing.value = false; request.finish();
+    finishAction(request);
   }
 }
 
-function refreshResults() {
+async function refreshResults(): Promise<void> {
   if (changing.value) return;
-  unavailableFiles.reset(); void load();
+  unavailableFiles.reset();
+  await Promise.all([load(), detailVisible.value && selectedTask.value && !detailLoading.value ? refreshDetail(selectedTask.value.id) : Promise.resolve()]);
 }
 
-const isCancellable = (task: HostDocumentPreviewTaskResponse) => task.statusKey === 'pending'
+const isCancellable = (task: HostDocumentPreviewTaskResponse) => canRead() && task.statusKey === 'pending'
   && task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
   && session.can('document.host_preview_tasks.cancel');
 
 function requestCancellation(task: HostDocumentPreviewTaskResponse) {
-  if (isCancellable(task) && !changing.value && !editorOpen.value) cancelConfirmation.value = { ...task };
+  const current = currentTask(task);
+  if (current && isCancellable(current) && !changing.value && !editorOpen.value) cancelConfirmation.value = { ...current };
 }
 
 async function confirmCancellation() {
   const confirmed = cancelConfirmation.value;
   cancelConfirmation.value = undefined;
-  const current = confirmed && items.value.find(item => item.id === confirmed.id);
+  const current = confirmed && (detailVisible.value && selectedTask.value?.id === confirmed.id ? selectedTask.value : items.value.find(item => item.id === confirmed.id));
   if (!current || !isCancellable(current) || changing.value || editorOpen.value) return;
   if (current.version !== confirmed.version) { ElMessage.warning(t('documentPreviewTasks.cancelStateChanged')); return; }
-  const request = scope.begin('document.host_preview_tasks.cancel'); if (!request) return;
-  changing.value = true; problem.value = undefined;
+  const request = beginAction('document.host_preview_tasks.cancel'); if (!request) return;
+  const taskId = current.id;
+  if (detailVisible.value && selectedTask.value?.id === taskId) detailActionRequest = request;
   try {
-    const result = await cancelDocumentPreviewTask(current.id, request.signal);
+    const result = await cancelDocumentPreviewTask(taskId, request.signal);
     if (!request.current()) return;
-    items.value = items.value.map(item => item.id === result.id ? result : item);
+    if (result.id.toLowerCase() !== taskId.toLowerCase() || result.statusKey !== 'cancelled') throw new Error('client.invalid_document_preview_task_cancellation');
+    items.value = items.value.map(item => item.id === taskId ? result : item);
+    if (detailVisible.value && selectedTask.value?.id === taskId) selectedTask.value = result;
     ElMessage.success(t('documentPreviewTasks.cancelSuccess'));
     await load();
   } catch (error) {
     if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.cancelFailed');
   } finally {
-    if (request.current()) changing.value = false; request.finish();
+    finishAction(request);
   }
 }
 
@@ -235,7 +311,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="document-preview-tasks-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead()" class="document-preview-tasks-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentPreviewTasks.title') }}</h1>
 
     <el-alert
@@ -323,9 +399,11 @@ function toProblem(
               <template #default="{ row }">{{ documentPreviewFailureLabel(row.errorCode, t) }}</template>
             </el-table-column>
             <el-table-column :label="t('documentPreviewTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
-            <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" width="180" fixed="right" align="center">
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <ArtTableActionButton type="view" test-id="document-preview-task-detail"
+                    :title="t('documentPreviewTasks.details')" @click="openDetail(row.id)" />
                   <PermissionGate v-if="row.statusKey === 'succeeded'" code="document.host_preview_tasks.read">
                     <ArtTableActionButton
                       type="view"
@@ -360,6 +438,26 @@ function toProblem(
       </div>
     </el-card>
 
+    <ElDrawer v-model="detailVisible" :title="t('documentPreviewTasks.detailTitle')" size="560px">
+      <div v-loading="detailLoading" data-testid="document-preview-detail">
+        <ElDescriptions v-if="selectedTask" :column="1" border>
+          <ElDescriptionsItem :label="t('documentPreviewTasks.documentTitle')">{{ selectedTask.documentTitle }}</ElDescriptionsItem>
+          <ElDescriptionsItem :label="t('documentPreviewTasks.documentItemId')">{{ selectedTask.documentItemId }}</ElDescriptionsItem>
+          <ElDescriptionsItem :label="t('documentPreviewTasks.status')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
+          <ElDescriptionsItem :label="t('documentPreviewTasks.provider')">{{ selectedTask.providerKey }}</ElDescriptionsItem>
+          <ElDescriptionsItem :label="t('documentPreviewTasks.createdAtUtc')">{{ selectedTask.createdAtUtc }}</ElDescriptionsItem>
+          <ElDescriptionsItem v-if="selectedTask.errorCode" :label="t('documentPreviewTasks.failureReason')">{{ documentPreviewFailureLabel(selectedTask.errorCode, t) }}</ElDescriptionsItem>
+        </ElDescriptions>
+        <template v-if="selectedTask">
+          <ElButton v-if="selectedTask.statusKey === 'succeeded'" data-testid="document-preview-detail-open-pdf"
+            :disabled="detailLoading || changing || editorOpen || cancelDialogVisible || unavailableFiles.isUnavailable(selectedTask.id)"
+            @click="openPdf(selectedTask)">{{ t('documentPreviewTasks.openPdf') }}</ElButton>
+          <span v-if="unavailableFiles.isUnavailable(selectedTask.id)" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
+          <ElButton v-if="isCancellable(selectedTask)" data-testid="document-preview-detail-cancel"
+            :disabled="detailLoading || changing || editorOpen" @click="requestCancellation(selectedTask)">{{ t('common.cancel') }}</ElButton>
+        </template>
+      </div>
+    </ElDrawer>
     <ArtFormDialog
       v-model:open="editorOpen"
       :title="t('documentPreviewTasks.createDialogTitle')"

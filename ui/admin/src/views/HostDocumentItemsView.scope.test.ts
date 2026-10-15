@@ -7,6 +7,7 @@ import * as api from '../api/host-document-items';
 import { listDocumentCategories } from '../api/host-document-categories';
 import { listDocumentTags } from '../api/host-document-tags';
 import { createDocumentPreviewTask } from '../api/document-preview-tasks';
+import { documentPreviewTask } from '../test/task-lifecycle-fixtures';
 import { createShareSession, shareDocument } from '../test/document-share-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 vi.mock('../api/host-document-items', () => ({ listDocumentItems: vi.fn(), createDocumentItem: vi.fn(), updateDocumentItem: vi.fn(),
@@ -15,7 +16,8 @@ vi.mock('../api/host-document-items', () => ({ listDocumentItems: vi.fn(), creat
 vi.mock('../api/host-document-categories', () => ({ listDocumentCategories: vi.fn() }));
 vi.mock('../api/host-document-tags', () => ({ listDocumentTags: vi.fn() }));
 vi.mock('../api/document-preview-tasks', () => ({ createDocumentPreviewTask: vi.fn() }));
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }));
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }));
 const doc = { ...shareDocument, categoryIcon: null, categoryCode: null, shareCode: null, hasPassword: false, permissionLevel: null, permissions: [] };
 const oldVersion = { ...doc.currentVersion, id: '01980000-0000-7000-8000-000000000003', versionNumber: 0, changeDescription: '旧版本敏感内容' };
 const permissions = ['read', 'create', 'update', 'delete', 'restore', 'download', 'add_version', 'rollback_version', 'delete_version']
@@ -51,6 +53,22 @@ async function confirmed(name: string, ...args: unknown[]) {
   await wrapper!.get('[data-testid="host-document-confirm-accept"]').trigger('click'); await action;
 }
 describe('Host 文档库整页请求归属', () => {
+  it('预览转换提交后有任务 Read 才定位到新任务详情，不自动打开PDF', async () => {
+    vi.mocked(createDocumentPreviewTask).mockResolvedValueOnce({ ...documentPreviewTask, documentItemId: doc.id, versionId: doc.currentVersion.id });
+    await setup([...permissions, 'document.host_preview_tasks.read']); await call('submitOfficePreviewTask', doc);
+    expect(createDocumentPreviewTask).toHaveBeenCalledWith({ documentItemId: doc.id, versionId: doc.currentVersion.id }, expect.any(AbortSignal));
+    expect(routerPush).toHaveBeenCalledExactlyOnceWith({ name: 'document-preview-tasks', query: { taskId: documentPreviewTask.id } });
+    expect(api.previewDocumentContent).not.toHaveBeenCalled();
+  });
+  it('只有转换 Create 没有任务 Read 时保留原创建能力，不导航详情', async () => {
+    vi.mocked(createDocumentPreviewTask).mockResolvedValueOnce({ ...documentPreviewTask, documentItemId: doc.id, versionId: doc.currentVersion.id });
+    await setup(); await call('submitOfficePreviewTask', doc); expect(createDocumentPreviewTask).toHaveBeenCalledOnce(); expect(routerPush).not.toHaveBeenCalled();
+  });
+  it('创建转换等待时撤权，迟到结果不能导航任务详情', async () => {
+    const pending = deferred<typeof documentPreviewTask>(); vi.mocked(createDocumentPreviewTask).mockReturnValueOnce(pending.promise);
+    const session = await setup([...permissions, 'document.host_preview_tasks.read']); const action = call('submitOfficePreviewTask', doc);
+    session.currentUser!.permissions = []; pending.resolve(documentPreviewTask); await action; expect(routerPush).not.toHaveBeenCalled();
+  });
   it('无文档读取权限不读取列表或附属目录', async () => {
     await setup([]); expect(api.listDocumentItems).not.toHaveBeenCalled(); expect(listDocumentTags).not.toHaveBeenCalled(); expect(listDocumentCategories).not.toHaveBeenCalled();
   });

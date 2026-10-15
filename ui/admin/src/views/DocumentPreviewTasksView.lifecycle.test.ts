@@ -5,10 +5,12 @@ import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue'
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import DocumentPreviewTasksView from './DocumentPreviewTasksView.vue';
 import * as api from '../api/document-preview-tasks';
-import { createOutputSession, deferred, outputId } from '../test/data-output-fixtures';
+import { deferred, outputId } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
+import { createShareSession } from '../test/document-share-fixtures';
 vi.mock('../api/document-preview-tasks', () => ({
   cancelDocumentPreviewTask: vi.fn(),
+  getDocumentPreviewTask: vi.fn(),
   listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn()
 }));
 let wrapper: VueWrapper | undefined;
@@ -17,10 +19,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   for (const operation of Object.values(api)) if (vi.isMockFunction(operation)) operation.mockReset();
   vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 });
+  vi.mocked(api.getDocumentPreviewTask).mockResolvedValue(task);
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 const setup = async (permissions = [read, create]) => {
-  const context = createOutputSession(permissions); wrapper = mount(DocumentPreviewTasksView, {
+  const context = createShareSession(permissions); wrapper = mount(DocumentPreviewTasksView, {
     global: { plugins: [context.pinia], directives: { loading: {} }, stubs: {
       ElDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /><slot name="footer" /></div>' }
     } }
@@ -41,7 +44,7 @@ describe('文档预览请求归属', () => {
     expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
   it('其他创建人的排队任务不能取消', async () => {
-    queue({ ...pendingTask, requestedByUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf299' });
+    queue({ ...pendingTask, requestedByUserId: '01980000-0000-7000-8000-000000000003' });
     await setup([read, 'document.host_preview_tasks.cancel']);
     expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
