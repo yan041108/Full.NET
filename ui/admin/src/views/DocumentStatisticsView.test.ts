@@ -27,7 +27,7 @@ describe('Vue 文档统计页', () => {
       id: '01912345-6789-7abc-8def-0123456789ae',
       username: 'doc-admin',
       displayName: '文档管理员',
-      tenantId: '01912345-6789-7abc-8def-0123456789aa',
+      tenantId: null,
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: false,

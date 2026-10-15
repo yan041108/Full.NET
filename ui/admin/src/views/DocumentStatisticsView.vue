@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   ElAlert,
@@ -41,6 +41,9 @@ import {
 
 defineOptions({ name: 'DocumentStatisticsView' });
 
+const viewActive = ref(true);
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
 const { t } = useAdminI18n();
 const session = useSessionStore();
 const activeTab = ref<'statistics' | 'accessLogs' | 'retention'>('statistics');
@@ -60,6 +63,8 @@ const accessLogFilters = ref<DocumentAccessLogListFilters>({
   accessTypeKey: '',
   sourceKey: ''
 });
+// 输入框是草稿，翻页与刷新只复用用户显式应用的查询快照。
+const appliedAccessLogFilters = ref<DocumentAccessLogListFilters>({});
 const retentionSettings = ref<Awaited<ReturnType<typeof getDocumentVersionRetentionSettings>> | null>(null);
 const retentionSaving = ref(false);
 const defaultRetentionForm = () => ({
@@ -71,11 +76,12 @@ const defaultRetentionForm = () => ({
 });
 const retentionForm = ref(defaultRetentionForm());
 
-const canReadPage = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_statistics.read'));
+const canReadPage = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null && session.can('document.host_statistics.read'));
 const canReadAccessLogs = computed(() => canReadPage.value && session.can('document.host_access_logs.read'));
 const canReadRetention = computed(() => canReadPage.value && session.can('document.host_documents.read'));
 const canUpdateRetention = computed(() => canReadRetention.value && session.can('document.host_documents.update'));
-const validRetentionForm = computed(() => isDocumentVersionRetentionInput(retentionForm.value));
+// 修订凭据来自最近一次权威读取，表单只负责策略值，不能替换该并发边界。
+const validRetentionForm = computed(() => isDocumentVersionRetentionInput({ ...retentionForm.value, version: retentionSettings.value?.version ?? 0 }));
 
 const scope = useAuthorizedViewScope(session, resetPage, () => {
   if (!canReadPage.value) return;
@@ -98,7 +104,7 @@ function clearTabData() {
 }
 
 function resetPage() {
-  clearTabData(); accessLogsPage.value = 1; accessLogsPageSize.value = 20;
+  clearTabData(); accessLogsPage.value = 1; accessLogsPageSize.value = 20; appliedAccessLogFilters.value = {};
   accessLogFilters.value = { documentItemId: '', accessTypeKey: '', sourceKey: '' };
 }
 
@@ -163,7 +169,7 @@ async function loadAccessLogs() {
     const result = await listDocumentAccessLogs(
       accessLogsPage.value,
       accessLogsPageSize.value,
-      buildAccessLogFilters(),
+      { ...appliedAccessLogFilters.value },
       request.signal
     );
     if (!request.current()) return;
@@ -202,11 +208,14 @@ function buildAccessLogFilters(): DocumentAccessLogListFilters {
 }
 
 function applyAccessLogFilters(): void {
+  if (!canReadAccessLogs.value || activeTab.value !== 'accessLogs') return;
+  appliedAccessLogFilters.value = buildAccessLogFilters();
   accessLogsPage.value = 1;
   void loadAccessLogs();
 }
 
 function resetAccessLogFilters(): void {
+  appliedAccessLogFilters.value = {};
   accessLogFilters.value = { documentItemId: '', accessTypeKey: '', sourceKey: '' };
   accessLogsPage.value = 1;
   void loadAccessLogs();
@@ -238,7 +247,7 @@ async function saveRetentionSettings() {
     return;
   }
   const request = scope.begin('document.host_documents.update'); if (!request) return;
-  saveRequest = request; const snapshot = { ...retentionForm.value };
+  saveRequest = request; const snapshot = { ...retentionForm.value, version: retentionSettings.value.version };
   retentionSaving.value = true;
   retentionProblem.value = undefined;
   try {
