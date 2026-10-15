@@ -5,7 +5,7 @@ import Dialog from './AiKnowledgeIndexDialog.vue';
 import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-knowledge';
 import { showProblem, showSuccess } from '../feedback/fullNetMessage';
-vi.mock('../api/ai-knowledge', () => ({ getKnowledgeIndexStatus: vi.fn(), getKnowledgeIndexReconciliation: vi.fn(), enqueueKnowledgeIndex: vi.fn(), retryKnowledgeIndex: vi.fn() }));
+vi.mock('../api/ai-knowledge', () => ({ getKnowledgeIndexStatus: vi.fn(), getKnowledgeIndexReconciliation: vi.fn(), enqueueKnowledgeIndex: vi.fn(), retryKnowledgeIndex: vi.fn(), rebuildKnowledgeIndex: vi.fn() }));
 vi.mock('../feedback/fullNetMessage', () => ({ showProblem: vi.fn(), showSuccess: vi.fn() }));
 const id = '01900000-0000-7000-8000-000000000001'; const doc = '01900000-0000-7000-8000-000000000002'; const version = '01900000-0000-7000-8000-000000000003'; const task = '01900000-0000-7000-8000-000000000004';
 const parameters = { knowledgeBaseId: id, documentId: doc, versionId: version };
@@ -17,7 +17,7 @@ async function render(allow: (code: string) => boolean = () => true) {
   const wrapper = mount(Dialog, { props: { open: true, ...parameters }, global: { plugins: [pinia], stubs: { ArtFormDialog: { props: ['open'], template: '<section v-if="open"><slot/></section>' } } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.getKnowledgeIndexStatus).mockResolvedValue(status); vi.mocked(api.enqueueKnowledgeIndex).mockResolvedValue({ taskId: task, versionId: version }); vi.mocked(api.retryKnowledgeIndex).mockResolvedValue({ taskId: task, versionId: version }); });
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.getKnowledgeIndexStatus).mockResolvedValue(status); vi.mocked(api.enqueueKnowledgeIndex).mockResolvedValue({ taskId: task, versionId: version }); vi.mocked(api.retryKnowledgeIndex).mockResolvedValue({ taskId: task, versionId: version }); vi.mocked(api.rebuildKnowledgeIndex).mockResolvedValue({ taskId: task, versionId: version }); });
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; vi.restoreAllMocks(); });
 it('所有者显式对账绑定精确版本并展示恢复建议，不自动请求或执行', async () => {
   vi.mocked(api.getKnowledgeIndexReconciliation).mockResolvedValue(reconciliation);
@@ -29,10 +29,10 @@ it('所有者显式对账绑定精确版本并展示恢复建议，不自动请�
   expect(wrapper.find('[data-testid="knowledge-index-retry"]').exists()).toBe(false);
   expect(api.retryKnowledgeIndex).not.toHaveBeenCalled();
 });
-it.each(['generation_unavailable', 'task_cancelled'])('重建建议 %s 只展示待交付说明，不复用入队或重试', async reason => {
+it.each(['generation_unavailable', 'task_cancelled'])('重建建议 %s 展示独立重建确认，不复用入队或重试', async reason => {
   vi.mocked(api.getKnowledgeIndexReconciliation).mockResolvedValue({ ...reconciliation, reason, recoveryAction: 'rebuild' });
   const wrapper = await render(); await wrapper.get('[data-testid="knowledge-index-reconcile"]').trigger('click'); await flushPromises();
-  expect(wrapper.get('[data-testid="knowledge-index-reconciliation"]').text()).toContain('重建执行尚未交付');
+  expect(wrapper.get('[data-testid="knowledge-index-reconciliation"]').text()).toContain('需要创建独立索引代次');
   expect(wrapper.find('[data-testid="knowledge-index-enqueue"]').exists()).toBe(false); expect(wrapper.find('[data-testid="knowledge-index-retry"]').exists()).toBe(false);
 });
 it('对账重试仅绑定最新 taskId，显式提交后清除恢复建议', async () => {
@@ -133,4 +133,58 @@ it('关闭或资源切换丢弃迟到状态', async () => {
 it('会话切换后的迟到入队成功不反馈到新作用域', async () => {
   let finish!: (value: { taskId: string; versionId: string }) => void; vi.mocked(api.enqueueKnowledgeIndex).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const wrapper = await render(); await wrapper.get('[data-testid="knowledge-index-enqueue"]').trigger('click'); useSessionStore().switching = true; await flushPromises(); finish({ taskId: task, versionId: version }); await flushPromises(); expect(showSuccess).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="knowledge-index-accepted"]').exists()).toBe(false);
+});
+
+async function prepareRebuild(allow: (code: string) => boolean = () => true) {
+  vi.mocked(api.getKnowledgeIndexReconciliation).mockResolvedValue({ ...reconciliation, reason: 'generation_unavailable', recoveryAction: 'rebuild' });
+  const wrapper = await render(allow); await wrapper.get('[data-testid="knowledge-index-reconcile"]').trigger('click'); await flushPromises(); return wrapper;
+}
+async function confirmRebuild(wrapper: VueWrapper) {
+  await wrapper.get('[data-testid="knowledge-index-rebuild-confirm"] input').setValue(true); await flushPromises();
+}
+it('重建需独立权限及显式费用确认，提交当前对账快照', async () => {
+  const denied = await prepareRebuild(code => code !== 'ai.knowledge_documents.index_rebuild');
+  expect(denied.find('[data-testid="knowledge-index-rebuild"]').exists()).toBe(false);
+  const wrapper = await prepareRebuild(); const button = wrapper.get('[data-testid="knowledge-index-rebuild"]');
+  expect(button.attributes('disabled')).toBeDefined(); expect(api.rebuildKnowledgeIndex).not.toHaveBeenCalled();
+  await confirmRebuild(wrapper); await button.trigger('click'); await flushPromises();
+  expect(api.rebuildKnowledgeIndex).toHaveBeenCalledExactlyOnceWith({ ...parameters, body: {
+    clientRequestId: expect.any(String), expectedTaskId: task, expectedDocumentVersion: 3, expectedKnowledgeBaseVersion: 4, confirmAdditionalCost: true,
+  } }); expect(wrapper.find('[data-testid="knowledge-index-rebuild"]').exists()).toBe(false);
+});
+it('未知重建结果保留同一请求键，显式再次确认不生成新请求', async () => {
+  vi.mocked(api.rebuildKnowledgeIndex).mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await prepareRebuild(); await confirmRebuild(wrapper);
+  await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click'); await flushPromises();
+  const first = vi.mocked(api.rebuildKnowledgeIndex).mock.calls[0]![0];
+  expect(wrapper.get('[data-testid="knowledge-index-rebuild-pending"]').text()).toContain('相同请求键');
+  await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click'); await flushPromises();
+  expect(vi.mocked(api.rebuildKnowledgeIndex).mock.calls[1]![0]).toEqual(first); expect(api.rebuildKnowledgeIndex).toHaveBeenCalledTimes(2);
+});
+it('重建等待期间重复点击不产生第二次请求', async () => {
+  let finish!: (value: { taskId: string; versionId: string }) => void;
+  vi.mocked(api.rebuildKnowledgeIndex).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const wrapper = await prepareRebuild(); await confirmRebuild(wrapper);
+  await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click');
+  expect(wrapper.get('[data-testid="knowledge-index-rebuild"]').attributes('disabled')).toBeDefined();
+  await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click'); expect(api.rebuildKnowledgeIndex).toHaveBeenCalledTimes(1);
+  finish({ taskId: task, versionId: version }); await flushPromises();
+});
+it.each([false, true])('切换来源后丢弃迟到重建%s并清除旧确认', async failure => {
+  let finish!: (value: { taskId: string; versionId: string }) => void; let fail!: (error: Error) => void;
+  vi.mocked(api.rebuildKnowledgeIndex).mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; fail = reject; }));
+  const wrapper = await prepareRebuild(); await confirmRebuild(wrapper); await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click');
+  await wrapper.setProps({ versionId: doc }); await flushPromises(); vi.mocked(showProblem).mockClear(); vi.mocked(showSuccess).mockClear();
+  if (failure) fail(new Error('late failure')); else finish({ taskId: task, versionId: version }); await flushPromises();
+  expect(showProblem).not.toHaveBeenCalled(); expect(showSuccess).not.toHaveBeenCalled();
+  expect(wrapper.find('[data-testid="knowledge-index-rebuild-pending"]').exists()).toBe(false);
+  expect(wrapper.find('[data-testid="knowledge-index-accepted"]').exists()).toBe(false);
+});
+it('刷新发现新的权威任务后清除旧请求及费用确认', async () => {
+  vi.mocked(api.rebuildKnowledgeIndex).mockRejectedValueOnce(new Error('unknown result'));
+  const wrapper = await prepareRebuild(); await confirmRebuild(wrapper); await wrapper.get('[data-testid="knowledge-index-rebuild"]').trigger('click'); await flushPromises();
+  vi.mocked(api.getKnowledgeIndexReconciliation).mockResolvedValue({ ...reconciliation, taskId: doc, reason: 'task_cancelled', recoveryAction: 'rebuild' });
+  await wrapper.get('[data-testid="knowledge-index-refresh"]').trigger('click'); await flushPromises();
+  expect(wrapper.find('[data-testid="knowledge-index-rebuild-pending"]').exists()).toBe(false);
+  expect(wrapper.get('[data-testid="knowledge-index-rebuild"]').attributes('disabled')).toBeDefined();
 });

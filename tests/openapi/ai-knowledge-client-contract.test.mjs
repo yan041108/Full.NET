@@ -9,14 +9,14 @@ const operationIds = [
   'aiUpdateKnowledgeDocument', 'aiDeleteKnowledgeDocument', 'aiGetKnowledgeDocumentMembers',
   'aiSetKnowledgeDocumentMembers', 'aiUploadKnowledgeVersion', 'aiListKnowledgeVersions',
   'aiDownloadKnowledgeSource', 'aiGetKnowledgeImport', 'aiRetryKnowledgeImport', 'aiCleanupKnowledgeImports',
-  'aiGetKnowledgeIndexStatus', 'aiGetKnowledgeIndexReconciliation', 'aiEnqueueKnowledgeIndex', 'aiRetryKnowledgeIndex',
+  'aiGetKnowledgeIndexStatus', 'aiGetKnowledgeIndexReconciliation', 'aiEnqueueKnowledgeIndex', 'aiRetryKnowledgeIndex', 'aiRebuildKnowledgeIndex',
   'aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates',
   'aiListKnowledgeOrganizationCandidates', 'aiListKnowledgeDocumentOrganizationCandidates',
   'aiGetKnowledgeRoles', 'aiSetKnowledgeRoles', 'aiGetKnowledgeDocumentRoles', 'aiSetKnowledgeDocumentRoles',
   'aiGetKnowledgeOrganizations', 'aiSetKnowledgeOrganizations', 'aiGetKnowledgeDocumentOrganizations', 'aiSetKnowledgeDocumentOrganizations'
 ];
 
-test('知识库 36 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
+test('知识库 37 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
   const manifest = JSON.parse(await readFile(new URL('../../contracts/openapi/client-generation-manifest-v1.json', import.meta.url), 'utf8'));
   const entries = manifest.entries.filter(entry => entry.generatedGroup === 'ai-knowledge');
   assert.deepEqual(entries.map(entry => entry.operationId).sort(), [...operationIds].sort());
@@ -24,7 +24,7 @@ test('知识库 36 个受保护 Operation 从标准快照进入共享生成客�
   const snapshot = JSON.parse(await readFile(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
   const operations = new Map(Object.values(snapshot.paths).flatMap(item => Object.values(item))
     .filter(item => operationIds.includes(item.operationId)).map(item => [item.operationId, item]));
-  assert.equal(operations.size, 36);
+  assert.equal(operations.size, 37);
   for (const id of operationIds) {
     const operation = operations.get(id);
     assert.equal(operation.tags.length, 1);
@@ -32,6 +32,14 @@ test('知识库 36 个受保护 Operation 从标准快照进入共享生成客�
     assert.ok(operation.responses['401'] && operation.responses['403']);
     assert.ok(!manifest.publicOperationIds.includes(id));
   }
+  const rebuild = operations.get('aiRebuildKnowledgeIndex');
+  assert.deepEqual(rebuild.tags, ['AiKnowledgeIndexing']);
+  assert.equal(rebuild.requestBody.required, true);
+  assert.equal(rebuild.requestBody.content['application/json'].schema.$ref, '#/components/schemas/AiKnowledgeIndexRebuildRequest');
+  const rebuildSchema = snapshot.components.schemas.AiKnowledgeIndexRebuildRequest;
+  assert.equal(rebuildSchema.additionalProperties, false);
+  assert.deepEqual([...rebuildSchema.required].sort(), ['clientRequestId', 'confirmAdditionalCost', 'expectedDocumentVersion', 'expectedKnowledgeBaseVersion', 'expectedTaskId']);
+  assert.equal(rebuild.responses['202'].content['application/json'].schema.$ref, '#/components/schemas/AiKnowledgeIndexEnqueueResponse');
   const upload = operations.get('aiUploadKnowledgeVersion');
   assert.equal(upload.requestBody.required, true);
   assert.deepEqual(Object.keys(upload.requestBody.content).sort(), ['application/pdf',

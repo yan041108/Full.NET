@@ -16,6 +16,20 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexActivationTests
 {
+    [TestMethod] [DataRow("ai.knowledge_documents.index_read")] [DataRow("ai.knowledge_documents.index_rebuild")]
+    public async Task Rebuild_activation_requires_its_additional_permission_after_enqueue(string permission)
+    {
+        var f = new Fixture(false); f.SessionRow = f.SessionRow with { Generation = 1 };
+        f.DeniedPermission = permission;
+        Assert.IsFalse(await f.Activate()); Assert.AreEqual(0, f.Writes);
+        f.DeniedPermission = null;
+        Assert.IsTrue(await f.Activate());
+        f.DeniedPermission = permission;
+        Assert.IsFalse(await f.Store.IsActiveAsync(f.Binding, f.TaskId, f.Lease, default));
+        // 已激活数据的读取继续使用当前读取者授权，不依赖已撤权的写入会话。
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, [], default));
+    }
+
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Public_read_proof_survives_writer_logout_but_original_retry_still_denies(bool tenant)
     {

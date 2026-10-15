@@ -16,6 +16,14 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed partial class AiKnowledgeIndexPdfActivationTests
 {
+    [TestMethod] [DataRow("ai.knowledge_documents.index_read")] [DataRow("ai.knowledge_documents.index_rebuild")]
+    public async Task Rebuild_activation_stops_after_additional_permission_revocation(string permission)
+    {
+        var f = new Fixture(false); f.SessionRow = f.SessionRow with { Generation = 1 }; f.DeniedPermission = permission;
+        Assert.IsFalse(await f.Activate()); Assert.AreEqual(0, f.Writes);
+        f.DeniedPermission = null; Assert.IsTrue(await f.Activate());
+    }
+
     [TestMethod]
     public async Task Index_permission_revocation_stops_activation()
     {

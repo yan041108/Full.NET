@@ -33,6 +33,7 @@ import type {
   AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
@@ -992,6 +993,17 @@ export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledge
 
 function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledgeIndexEnqueueResponse {
   return isRecord(value) && (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeIndexRebuildRequest(value: unknown): AiKnowledgeIndexRebuildRequest {
+  if (!(isAiKnowledgeIndexRebuildRequest(value))) {
+    throw new Error('client.invalid_ai_knowledge_index_rebuild_request');
+  }
+  return value;
+}
+
+function isAiKnowledgeIndexRebuildRequest(value: unknown): value is AiKnowledgeIndexRebuildRequest {
+  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["confirmAdditionalCost"] === 'boolean') && (typeof value["expectedDocumentVersion"] === 'number' && Number.isSafeInteger(value["expectedDocumentVersion"])) && (typeof value["expectedKnowledgeBaseVersion"] === 'number' && Number.isSafeInteger(value["expectedKnowledgeBaseVersion"])) && (typeof value["expectedTaskId"] === 'string' && guidPattern.test(value["expectedTaskId"]));
 }
 
 export function readAiKnowledgeIndexReconciliationResponse(value: unknown): AiKnowledgeIndexReconciliationResponse {

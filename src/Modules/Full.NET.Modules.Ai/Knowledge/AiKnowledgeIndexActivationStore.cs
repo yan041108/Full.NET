@@ -71,7 +71,7 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
         var manifest = DecodeManifest(manifestRow, token);
         if (manifest is null || manifest.Summary.PlanHash != pointer.PlanHash || !ValidManifest(binding, manifest)
             || receipts!.Length != manifest.Batches.Count
-            || (expected is null && !await AuthorizedAsync(binding, session, token).ConfigureAwait(false))) return false;
+            || (expected is null && !await AuthorizedAsync(binding, taskId, leaseToken, session, token).ConfigureAwait(false))) return false;
         Fill(p, session, manifest, receipts);
         p["Completed"] = 1;
         return await transaction.ExecuteAsync(async cancellation =>
@@ -85,7 +85,7 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
             // 同一短事务最后复核读取者的资源可见性与版本快照；事务内不调用 Identity/Organization。
             if (expected is null) return true;
             var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
-                AiKnowledgeIndexStatusSql.For(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
+                AiKnowledgeIndexStatusSql.ForActive(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
             return visible == expected && (cleanup is null || await cleanup(cancellation).ConfigureAwait(false));
         }, token).ConfigureAwait(false);
@@ -100,7 +100,7 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
         var receipts = proof.Receipts.ToArray();
         if (proof.Source.TaskId != taskId || proof.Source.LeaseToken != leaseToken || proof.Source.DocumentId != binding.DocumentId
             || proof.Source.VersionId != binding.VersionId || !ValidReceipts(receipts) || !ValidManifest(binding, manifest.Manifest)
-            || receipts.Length != manifest.Manifest.Batches.Count || !await AuthorizedAsync(binding, proof.Session, token).ConfigureAwait(false)) return false;
+            || receipts.Length != manifest.Manifest.Batches.Count || !await AuthorizedAsync(binding, taskId, leaseToken, proof.Session, token).ConfigureAwait(false)) return false;
         Fill(p, proof.Session, manifest.Manifest, receipts); p["Completed"] = 0;
         p["Id"] = ids.NewId(); p["ManifestHash"] = manifest.PayloadHash;
         try
@@ -172,11 +172,18 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
         manifest.Identity.KnowledgeBaseId == binding.KnowledgeBaseId && manifest.Identity.KnowledgeBaseVersion == binding.KnowledgeBaseVersion
         && manifest.Identity.TenantId == tenant.Id && manifest.Identity.ProviderKey == "openai_compatible"
         && manifest.Identity.ModelId is "text-embedding-3-small" or "text-embedding-3-large";
-    private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
+    private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot session, CancellationToken token)
     {
         if (session.UserId != binding.OwnerUserId || session.TenantId != tenant.Id || session.SessionId == Guid.Empty
             || session.SessionKind is not (SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication)) return false;
-        foreach (var permission in Permissions)
+        NoTransaction();
+        var frozen = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Choose(AiKnowledgeIndexActivationSql.SessionHost,
+            AiKnowledgeIndexActivationSql.SessionTenant), tasks.HeldParameters(binding, taskId, leaseToken, token), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (frozen is null || frozen.Generation < 0 || frozen.IndexTaskId != taskId || Snapshot(frozen) != session) return false;
+        // 读取历史活动代次另走读取者授权；写入或恢复重建必须继续保有原重建权限。
+        string[] required = frozen.Generation > 0 ? [.. Permissions, AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild] : Permissions;
+        foreach (var permission in required)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
             var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);

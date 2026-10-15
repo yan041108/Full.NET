@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>文档管理精确权限；目录读取权不自动授予文档读取。</summary>
 public static class AiKnowledgeDocumentPermissions
 {
+    /// <summary>所有者显式确认新增费用并创建独立索引代次。</summary>
+    public const string IndexRebuild = "ai.knowledge_documents.index_rebuild";
     /// <summary>所有者使用被冻结的原交互会话恢复失败索引任务。</summary>
     public const string IndexRetry = "ai.knowledge_documents.index_retry";
     /// <summary>读取获授权文档的当前索引状态，不授予上传或派发权限。</summary>

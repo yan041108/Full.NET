@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>部署尚未启用兼容多代次的重建入口。</summary>
+    public const string IndexRebuildDisabled = Prefix + "index_rebuild_disabled";
     /// <summary>反馈输入或实际引用绑定无效。</summary>
     public const string FeedbackInvalid = Prefix + "feedback_invalid";
     /// <summary>反馈或其当前来源资格不可用。</summary>

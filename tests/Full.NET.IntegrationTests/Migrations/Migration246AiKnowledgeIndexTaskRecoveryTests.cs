@@ -40,6 +40,7 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
         _ = new ServiceCollection().AddFullNetDapper(new ConfigurationBuilder().Build(), Environments.Development);
         var connectionString = await DatabaseAsync(sqlServer);
         Replay(sqlServer, connectionString);
+        ReplayGenerationCompatibility(sqlServer, connectionString);
         await using var first = Connection(sqlServer, connectionString);
         await using var second = Connection(sqlServer, connectionString);
         await first.OpenAsync(); await second.OpenAsync();
@@ -133,6 +134,7 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
     {
         var connectionString = await DatabaseAsync(sqlServer);
         Replay(sqlServer, connectionString);
+        ReplayGenerationCompatibility(sqlServer, connectionString);
         await using var first = Connection(sqlServer, connectionString);
         await using var second = Connection(sqlServer, connectionString);
         await first.OpenAsync();
@@ -278,6 +280,15 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
         .GetField(operation + (tenant ? "Tenant" : "Host"), BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).Text;
     internal static Task<string> DatabaseAsync(bool sqlServer) => sqlServer ? SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : SharedDatabaseFixture.CreateMySqlDatabaseAsync();
     internal static DbConnection Connection(bool sqlServer, string connectionString) => sqlServer ? new SqlConnection(connectionString) : ReviewFixMigrationRecoverySupport.MySqlConnection(connectionString);
+
+    // 当前租约 SQL 识别多代次；恢复测试仍冻结 246 上界，执行行为场景显式追加兼容列。
+    internal static void ReplayGenerationCompatibility(bool sqlServer, string connectionString)
+    {
+        var builder = sqlServer ? DeployChanges.To.SqlDatabase(connectionString) : DeployChanges.To.MySqlDatabase(MySqlConnectionStringPolicy.Create(connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: true));
+        var result = builder.WithScriptsEmbeddedInAssembly(typeof(DbUpMigrationRunner).Assembly, name => name.Contains(sqlServer ? ".Migrations.SqlServer." : ".Migrations.MySql.", StringComparison.Ordinal) && name.EndsWith("260_AiKnowledgeIndexRebuild.sql", StringComparison.Ordinal))
+            .JournalTo(new NullJournal()).WithExecutionTimeout(TimeSpan.FromSeconds(300)).Build().PerformUpgrade();
+        Assert.IsTrue(result.Successful, result.Error?.ToString()); Assert.HasCount(1, result.Scripts);
+    }
 
     private static void Replay(bool sqlServer, string connectionString)
     {

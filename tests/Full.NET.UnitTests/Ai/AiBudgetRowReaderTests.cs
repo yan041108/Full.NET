@@ -178,14 +178,16 @@ public sealed class AiBudgetRowReaderTests
     public void Index_session_maps_frozen_identity_and_nullable_lease(bool tenant)
     {
         using var table = new DataTable();
+        table.Columns.Add("Generation", typeof(int));
         foreach (var name in new[] { "Id", "IndexTaskId", "ActorUserId", "TenantId", "SessionId" }) table.Columns.Add(name, typeof(Guid));
         foreach (var name in new[] { "SessionKind", "SecurityStamp", "ActorScope", "EffectiveScope" }) table.Columns.Add(name, typeof(string));
         foreach (var name in new[] { "CreatedAtUtc", "LeaseExpiresAtUtc" }) table.Columns.Add(name, typeof(DateTime));
         var id = Guid.CreateVersion7(); var task = Guid.CreateVersion7(); var user = Guid.CreateVersion7(); var session = Guid.CreateVersion7(); var tenantId = Guid.CreateVersion7();
         var now = new DateTime(2026, 10, 4, 0, 0, 0, DateTimeKind.Unspecified);
-        table.Rows.Add(id, task, user, tenant ? tenantId : DBNull.Value, session, "oidc-application", "戳", "host", "effective", now, tenant ? now : DBNull.Value);
+        table.Rows.Add(tenant ? 3 : 0, id, task, user, tenant ? tenantId : DBNull.Value, session, "oidc-application", "戳", "host", "effective", now, tenant ? now : DBNull.Value);
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeIndexSession(reader);
+        Assert.AreEqual(tenant ? 3 : 0, row.Generation);
         Assert.AreEqual(id, row.Id); Assert.AreEqual(task, row.IndexTaskId); Assert.AreEqual(user, row.ActorUserId); Assert.AreEqual(session, row.SessionId);
         Assert.AreEqual(tenant ? tenantId : (Guid?)null, row.TenantId); Assert.AreEqual("oidc-application", row.SessionKind);
         Assert.AreEqual("戳", row.SecurityStamp); Assert.AreEqual("host", row.ActorScope); Assert.AreEqual("effective", row.EffectiveScope);

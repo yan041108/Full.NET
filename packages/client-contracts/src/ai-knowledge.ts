@@ -22,6 +22,7 @@ export {
   aiCleanupKnowledgeImports,
   aiGetKnowledgeIndexStatus,
   aiGetKnowledgeIndexReconciliation,
+  aiRebuildKnowledgeIndex,
   aiEnqueueKnowledgeIndex,
   aiRetryKnowledgeIndex,
   aiListKnowledgeOrganizationCandidates,
@@ -47,6 +48,7 @@ export type {
   AiKnowledgeImportResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeIndexReconciliationResponse,
+  AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeOrganizationCandidateResponse,
@@ -88,6 +90,7 @@ export {
 export type {
   AiGetKnowledgeIndexStatusParameters,
   AiGetKnowledgeIndexReconciliationParameters,
+  AiRebuildKnowledgeIndexParameters,
   AiEnqueueKnowledgeIndexParameters,
   AiRetryKnowledgeIndexParameters,
   AiGetKnowledgeMembersParameters,

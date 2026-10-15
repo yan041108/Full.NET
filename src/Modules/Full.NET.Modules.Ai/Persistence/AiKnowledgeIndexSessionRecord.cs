@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Ai.Persistence;
 /// <summary>索引任务冻结的后台会话；租约时间仅来自关联任务，不保存访问令牌。</summary>
 internal sealed record AiKnowledgeIndexSessionRecord
 {
+    /// <summary>正代次必须在后台继续复核显式重建权限。</summary>
+    public int Generation { get; init; }
     public Guid Id { get; init; }
     public Guid IndexTaskId { get; init; }
     public Guid ActorUserId { get; init; }

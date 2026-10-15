@@ -1,6 +1,7 @@
 import {
   aiGetKnowledgeIndexReconciliation, type AiGetKnowledgeIndexReconciliationParameters,
   aiGetKnowledgeIndexStatus, type AiGetKnowledgeIndexStatusParameters,
+  aiRebuildKnowledgeIndex, type AiRebuildKnowledgeIndexParameters,
   aiEnqueueKnowledgeIndex, type AiEnqueueKnowledgeIndexParameters,
   aiRetryKnowledgeIndex, type AiRetryKnowledgeIndexParameters,
   aiListKnowledgeBases, type AiListKnowledgeBasesParameters,
@@ -43,6 +44,10 @@ export function getKnowledgeIndexReconciliation(parameters: AiGetKnowledgeIndexR
 
 export function getKnowledgeIndexStatus(parameters: AiGetKnowledgeIndexStatusParameters, signal?: AbortSignal) {
   return aiGetKnowledgeIndexStatus(http, parameters, signal);
+}
+
+export function rebuildKnowledgeIndex(parameters: AiRebuildKnowledgeIndexParameters, signal?: AbortSignal) {
+  return aiRebuildKnowledgeIndex(http, parameters, signal);
 }
 
 export function enqueueKnowledgeIndex(parameters: AiEnqueueKnowledgeIndexParameters, signal?: AbortSignal) {

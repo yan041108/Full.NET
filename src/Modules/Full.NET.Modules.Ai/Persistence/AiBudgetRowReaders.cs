@@ -248,6 +248,7 @@ internal static class AiBudgetRowReaders
     // 原会话在恢复时保持冻结；可空租约只由关联任务投影，不物化令牌。
     internal static AiKnowledgeIndexSessionRecord ReadKnowledgeIndexSession(DbDataReader reader) => new()
     {
+        Generation = checked((int)Integer(reader, "Generation")),
         Id = reader.GetGuid(reader.GetOrdinal("Id")), IndexTaskId = reader.GetGuid(reader.GetOrdinal("IndexTaskId")),
         ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),
         TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),

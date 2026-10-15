@@ -24,6 +24,7 @@ public sealed class Migration251AiKnowledgeActivationRecoveryTests
         Migration249AiKnowledgeIndexVectorRecoveryTests.Replay(sqlServer, connectionString);
         Migration250AiKnowledgeTextManifestRecoveryTests.Replay(sqlServer, connectionString);
         Replay(sqlServer, connectionString);
+        Migration246AiKnowledgeIndexTaskRecoveryTests.ReplayGenerationCompatibility(sqlServer, connectionString);
         var builder = sqlServer ? DeployChanges.To.SqlDatabase(connectionString) : DeployChanges.To.MySqlDatabase(MySqlConnectionStringPolicy.Create(connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: true));
         var migration = builder.WithScriptsEmbeddedInAssembly(typeof(DbUpMigrationRunner).Assembly,
             name => name.Contains(sqlServer ? ".Migrations.SqlServer." : ".Migrations.MySql.", StringComparison.Ordinal) && name.EndsWith("211_AiOperationBudget.sql", StringComparison.Ordinal))

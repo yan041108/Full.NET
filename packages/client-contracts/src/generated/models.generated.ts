@@ -326,6 +326,14 @@ export interface AiKnowledgeIndexEnqueueResponse {
   readonly versionId: string;
 }
 
+export interface AiKnowledgeIndexRebuildRequest {
+  readonly clientRequestId: string;
+  readonly confirmAdditionalCost: boolean;
+  readonly expectedDocumentVersion: number;
+  readonly expectedKnowledgeBaseVersion: number;
+  readonly expectedTaskId: string;
+}
+
 export interface AiKnowledgeIndexReconciliationResponse {
   readonly documentVersion: number;
   readonly knowledgeBaseVersion: number;

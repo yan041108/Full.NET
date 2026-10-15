@@ -61,7 +61,21 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
             tasks.HeldParameters(binding, taskId, leaseToken, token), token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested(); NoTransaction();
         if (row is null || row.Id == Guid.Empty || row.IndexTaskId != taskId || row.LeaseExpiresAtUtc is not { } expiry || expiry <= clock.UtcNow) return null;
-        var session = Snapshot(row); return Valid(binding, session) ? session : null;
+        var session = Snapshot(row);
+        if (!Valid(binding, session) || row.Generation < 0) return null;
+        if (row.Generation > 0)
+        {
+            // 代次来自持久化任务；新增重建权限撤销后，所有文件、模型与续租阶段都必须停止。
+            foreach (var permission in new[] { AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild })
+            {
+                token.ThrowIfCancellationRequested(); NoTransaction(); if (!Valid(binding, session)) return null;
+                var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested(); NoTransaction();
+                if (!Valid(binding, session) || actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
+            }
+            if (expiry <= clock.UtcNow) return null;
+        }
+        return session;
     }
 
     /// <summary>整代次消费者的阶段门禁；续租只绑定原会话，授权不进入事务。</summary>

@@ -16,6 +16,21 @@ internal static class Endpoint
 {
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost("/api/v1/ai/knowledge-bases/{knowledgeBaseId:guid}/documents/{documentId:guid}/versions/{versionId:guid}/index/rebuild",
+            async (Guid knowledgeBaseId, Guid documentId, Guid versionId, AiKnowledgeIndexRebuildRequest request,
+                AiKnowledgeIndexRebuildService service, ICurrentTenant tenant, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            {
+                if (!AiKnowledgeIndexHttpBinding.TryCreate(context, tenant.Id, out var original))
+                    return mapper.Map(AiKnowledgeImportStore.Failure<bool>("authorization.permission_denied", "An interactive original session is required.", ErrorType.Forbidden), context);
+                if (context.Request.Query.Count != 0)
+                    return mapper.Map(AiKnowledgeImportStore.Failure<bool>(AiKnowledgeErrorCodes.InputInvalid, "Index rebuild does not accept query fields.", ErrorType.Validation), context);
+                var result = await service.RebuildAsync(knowledgeBaseId, documentId, versionId, request, original, token).ConfigureAwait(false);
+                return result.IsSuccess ? Results.Accepted(value: result.Value) : mapper.Map(result, context);
+            }).WithName("aiRebuildKnowledgeIndex").WithTags("AiKnowledgeIndexing")
+            .RequireAuthorization(AiKnowledgeIndexRebuildService.Permissions.Select(FullNetPermissionPolicies.For).ToArray())
+            .Produces<AiKnowledgeIndexEnqueueResponse>(StatusCodes.Status202Accepted)
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422);
+
         endpoints.MapGet("/api/v1/ai/knowledge-bases/{knowledgeBaseId:guid}/documents/{documentId:guid}/versions/{versionId:guid}/index/reconciliation",
             async (Guid knowledgeBaseId, Guid documentId, Guid versionId, AiKnowledgeIndexReconciliationService service,
                 IApiResultMapper mapper, HttpContext context, CancellationToken token) =>

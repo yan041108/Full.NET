@@ -24,9 +24,10 @@
   <data name="ai.knowledge.organization_unavailable" xml:space="preserve"><value>An organization is inactive, missing, or outside the current tenant. Host resources cannot grant tenant organizations.</value></data>
   <data name="ai.knowledge.role_grants_invalid" xml:space="preserve"><value>The role grant collection or version is invalid.</value></data>
   <data name="ai.knowledge.role_unavailable" xml:space="preserve"><value>A role is inactive, missing, or outside the current scope.</value></data>
-  <data name="ai.knowledge.index_format_unsupported" xml:space="preserve"><value>Indexing currently supports TXT and Markdown only.</value></data>
+  <data name="ai.knowledge.index_format_unsupported" xml:space="preserve"><value>Indexing is not enabled for the current source format.</value></data>
   <data name="ai.knowledge.index_conflict" xml:space="preserve"><value>The source or original session binding has changed; index takeover and automatic retry are not allowed.</value></data>
   <data name="ai.knowledge.feedback_invalid" xml:space="preserve"><value>The answer feedback rating, reason, citations or version is invalid.</value></data>
   <data name="ai.knowledge.feedback_not_found" xml:space="preserve"><value>The answer feedback is unavailable in the current scope.</value></data>
   <data name="ai.knowledge.feedback_conflict" xml:space="preserve"><value>The answer feedback was changed by another request. Refresh before retrying.</value></data>
+  <data name="ai.knowledge.index_rebuild_disabled" xml:space="preserve"><value>Independent index rebuilding is not enabled.</value></data>
 </root>

@@ -22,6 +22,7 @@ public sealed class Migration247AiKnowledgeIndexBatchRecoveryTests
     {
         var connectionString = await Migration246AiKnowledgeIndexTaskRecoveryTests.DatabaseAsync(sqlServer);
         Replay(sqlServer, connectionString);
+        Migration246AiKnowledgeIndexTaskRecoveryTests.ReplayGenerationCompatibility(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         foreach (var tenant in new[] { false, true })
         foreach (var mutation in new[]

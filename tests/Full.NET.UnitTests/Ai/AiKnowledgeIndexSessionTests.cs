@@ -14,6 +14,18 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexSessionTests
 {
+    [TestMethod] [DataRow("ai.knowledge_documents.index_read")] [DataRow("ai.knowledge_documents.index_rebuild")]
+    public async Task Rebuild_session_stops_when_its_additional_permission_is_revoked(string permission)
+    {
+        var f = new Fixture(false); f.Row = f.NewRow() with { Generation = 1 };
+        Assert.AreEqual(f.Session, await f.Service.ReadHeldAsync(f.Binding, f.TaskId, f.Lease, default));
+        f.DeniedPermission = permission;
+        Assert.IsNull(await f.Service.ReadHeldAsync(f.Binding, f.TaskId, f.Lease, default));
+        // 原入队任务仍按原权限判定，不能让新增功能扩大旧任务的权限要求。
+        f.Row = f.Row with { Generation = 0 };
+        Assert.AreEqual(f.Session, await f.Service.ReadHeldAsync(f.Binding, f.TaskId, f.Lease, default));
+    }
+
     [TestMethod] [DataRow(false, "refresh")] [DataRow(true, "refresh")]
     [DataRow(false, "oidc-application")] [DataRow(true, "oidc-application")]
     public async Task Creation_freezes_trusted_session_in_one_transaction(bool tenant, string kind)

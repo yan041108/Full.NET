@@ -38,6 +38,7 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiKnowledgeDocumentResponse))]
 [JsonSerializable(typeof(AiKnowledgeVersionResponse))]
 [JsonSerializable(typeof(AiKnowledgeIndexEnqueueResponse))]
+[JsonSerializable(typeof(AiKnowledgeIndexRebuildRequest))]
 [JsonSerializable(typeof(AiKnowledgeIndexStatusResponse))]
 [JsonSerializable(typeof(AiKnowledgeIndexReconciliationResponse))]
 [JsonSerializable(typeof(AiKnowledgeImportResponse))]

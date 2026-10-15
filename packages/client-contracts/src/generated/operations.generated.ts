@@ -34,6 +34,7 @@ import type {
   AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
@@ -2348,6 +2349,31 @@ export async function aiPublishPromptVersion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiPromptResponse(value);
+}
+
+export interface AiRebuildKnowledgeIndexParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly body: AiKnowledgeIndexRebuildRequest;
+}
+
+export async function aiRebuildKnowledgeIndex(
+  http: HttpClient,
+  parameters: AiRebuildKnowledgeIndexParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexEnqueueResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/index/rebuild`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexEnqueueResponse(value);
 }
 
 export interface AiReconcileAgentRunParameters {

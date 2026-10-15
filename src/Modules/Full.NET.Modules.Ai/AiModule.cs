@@ -103,6 +103,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
+        services.AddOptions<Knowledge.AiKnowledgeIndexRebuildOptions>().BindConfiguration(Knowledge.AiKnowledgeIndexRebuildOptions.SectionName).ValidateOnStart();
+        services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexRebuildService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexRetryService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexStatusService>();
