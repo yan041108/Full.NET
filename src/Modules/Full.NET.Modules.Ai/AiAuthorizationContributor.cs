@@ -40,6 +40,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiKnowledgeDocumentPermissions.Upload, "上传本人文档文件版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexEnqueue, "启动本人文档文本索引", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRead, "读取文档索引状态", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeDocumentPermissions.IndexRecover, "恢复本人知识库增量意图", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRebuild, "重建本人文档独立索引代次", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRetry, "重试本人文档失败索引", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.VersionsRead, "读取获授权文档版本", AuthorizationScope.Host | AuthorizationScope.Tenant),

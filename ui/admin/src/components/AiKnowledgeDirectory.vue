@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { translateKnowledgeDocx, translateKnowledgeProcessing } from '@fullnet/admin-i18n';
+import { translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElMessageBox, ElPagination, ElSwitch, ElTable, ElTableColumn, ElTag } from 'element-plus';
@@ -35,6 +35,8 @@ const prefix = computed(() => props.documents ? 'ai.knowledge_documents' : 'ai.k
 const canRead = computed(() => !session.switching && session.can('ai.knowledge_bases.read') && (!props.documents || session.can('ai.knowledge_documents.read')));
 const can = (action: string) => canRead.value && session.can(`${prefix.value}.${action}`);
 const canVersion = computed(() => canRead.value && session.can('ai.knowledge_documents.versions_read'));
+const canRecover = computed(() => props.documents && canVersion.value && session.can('ai.knowledge_documents.index_read') && session.can('ai.knowledge_documents.index_recover'));
+const recoveryCursor = ref<string>(); const recoveryReceipt = ref(''); let recoveryController: AbortController | undefined;
 const canGrants = computed(() => ['members_read', 'roles_read', 'organizations_read'].some(action => can(action)));
 function openAccess(id: string, policy = false) {
   const row = rows.value.find(item => item.id === id);
@@ -161,8 +163,28 @@ function openIndex(id: string) {
   if (!row || busy.value || !canRead.value || !session.can('ai.knowledge_documents.index_read')) return;
   indexVersion.value = row; indexOpen.value = true;
 }
+async function recoverSources() {
+  if (!canRecover.value || !guid.test(baseId.value) || busy.value) return;
+  const scope = epoch; const selectedBase = baseId.value; busy.value = true;
+  recoveryController = new AbortController();
+  try {
+    const receipt = await api.recoverKnowledgeIndexChanges({ knowledgeBaseId: selectedBase,
+      body: { afterDocumentId: recoveryCursor.value ?? null, pageSize: 50 } }, recoveryController.signal);
+    if (scope !== epoch || selectedBase !== baseId.value || !canRecover.value) return;
+    recoveryCursor.value = receipt.nextDocumentId ?? undefined;
+    recoveryReceipt.value = recoveryCursor.value ? 'recoveryPageDone' : 'recoveryDone';
+    showSuccess(translateKnowledgeRecovery(locale.value, recoveryReceipt.value));
+  } catch (error) {
+    if (scope === epoch && canRecover.value) {
+      // 部分页可能已经提交；失败后从头幂等重扫，不能凭旧游标假定整页成功。
+      recoveryCursor.value = undefined;
+      showProblem(error, t('common.loadFailed'));
+    }
+  } finally { if (scope === epoch) busy.value = false; }
+}
 function reset() {
   ++epoch; ++listEpoch; ++versionEpoch; controller?.abort(); versionController?.abort(); rows.value = []; versions.value = [];
+  recoveryController?.abort(); recoveryCursor.value = undefined; recoveryReceipt.value = '';
   editorOpen.value = false; versionOpen.value = false; sourceOpen.value = false; editing.value = undefined; documentRow.value = undefined;
   policyOpen.value = false; grantsOpen.value = false; accessRow.value = undefined;
   indexOpen.value = false; indexVersion.value = undefined;
@@ -184,8 +206,10 @@ onMounted(() => void load(1)); onUnmounted(reset);
         <div class="knowledge-toolbar">
           <AiKnowledgeBaseSelect v-if="documents" v-model="baseId" :disabled="busy" />
           <el-button :disabled="loading || busy" @click="load()">{{ t('common.refresh') }}</el-button>
+          <el-button v-if="canRecover" data-testid="knowledge-recover" :disabled="busy || !baseId" @click="recoverSources">{{ translateKnowledgeRecovery(locale, recoveryCursor ? 'continueRecovery' : 'recover') }}</el-button>
           <el-button v-if="can('create')" type="primary" data-testid="knowledge-create" :disabled="busy || (documents && !baseId)" @click="openEditor()">{{ t('knowledge.create') }}</el-button>
         </div>
+        <el-alert v-if="canRecover" :title="translateKnowledgeRecovery(locale, recoveryReceipt || 'recoveryHint')" type="info" :closable="false" />
         <el-table :data="rows" :height="tableHeight" :header-cell-style="tableHeaderCellStyle" :empty-text="t('knowledge.empty')" row-key="id" border stripe>
           <el-table-column :prop="documents ? 'title' : 'name'" :label="t('knowledge.name')" min-width="220" />
           <el-table-column prop="description" :label="t('knowledge.description')" min-width="260" show-overflow-tooltip />

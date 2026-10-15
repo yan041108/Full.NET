@@ -321,6 +321,17 @@ export interface AiKnowledgeImportResponse {
   readonly versionId: string;
 }
 
+export interface AiKnowledgeIncrementalRecoveryRequest {
+  readonly afterDocumentId?: null | string;
+  readonly pageSize?: number;
+}
+
+export interface AiKnowledgeIncrementalRecoveryResponse {
+  readonly nextDocumentId: null | string;
+  readonly scanned: number;
+  readonly updated: number;
+}
+
 export interface AiKnowledgeIndexEnqueueResponse {
   readonly taskId: string;
   readonly versionId: string;

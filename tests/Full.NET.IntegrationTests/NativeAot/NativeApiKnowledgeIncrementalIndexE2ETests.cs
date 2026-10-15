@@ -80,6 +80,16 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
                 await Task.Delay(100, deadline.Token);
             }
             Assert.AreEqual(1, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+            // 事件已经确认消费后移除派生投影，验证同一原生产物可恢复历史来源并准确报告幂等计数。
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
+            var recoveryPath = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/index-changes/recover";
+            using var recovered = await client.PostAsJsonAsync(recoveryPath, new AiKnowledgeIncrementalRecoveryRequest());
+            Assert.AreEqual(HttpStatusCode.OK, recovered.StatusCode, await recovered.Content.ReadAsStringAsync());
+            var receipt = (await recovered.Content.ReadFromJsonAsync<AiKnowledgeIncrementalRecoveryResponse>())!;
+            Assert.AreEqual(1, receipt.Scanned); Assert.AreEqual(1, receipt.Updated); Assert.IsNull(receipt.NextDocumentId);
+            using var repeated = await client.PostAsJsonAsync(recoveryPath, new AiKnowledgeIncrementalRecoveryRequest());
+            Assert.AreEqual(HttpStatusCode.OK, repeated.StatusCode);
+            Assert.AreEqual(0, (await repeated.Content.ReadFromJsonAsync<AiKnowledgeIncrementalRecoveryResponse>())!.Updated);
             Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@Id", new { Id = document.Id }));
             var versions = (await client.GetFromJsonAsync<PagedResult<AiKnowledgeVersionResponse>>(path + "/versions"))!;
             Assert.AreEqual("awaiting_index_confirmation", versions.Items.Single(item => item.Id == versionId).ProcessingStatus);

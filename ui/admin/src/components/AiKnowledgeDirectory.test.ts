@@ -6,7 +6,7 @@ import AiKnowledgeDirectory from './AiKnowledgeDirectory.vue';
 import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-knowledge';
 import { showProblem, showWarning } from '../feedback/fullNetMessage';
-vi.mock('../api/ai-knowledge', () => ({ listKnowledgeBases: vi.fn(), createKnowledgeBase: vi.fn(), updateKnowledgeBase: vi.fn(), listKnowledgeDocuments: vi.fn(), getKnowledgeDocument: vi.fn(), createKnowledgeDocument: vi.fn(), updateKnowledgeDocument: vi.fn(), deleteKnowledgeDocument: vi.fn(), listKnowledgeVersions: vi.fn(), uploadKnowledgeVersion: vi.fn(), getKnowledgeImport: vi.fn(), retryKnowledgeImport: vi.fn() }));
+vi.mock('../api/ai-knowledge', () => ({ recoverKnowledgeIndexChanges: vi.fn(), listKnowledgeBases: vi.fn(), createKnowledgeBase: vi.fn(), updateKnowledgeBase: vi.fn(), listKnowledgeDocuments: vi.fn(), getKnowledgeDocument: vi.fn(), createKnowledgeDocument: vi.fn(), updateKnowledgeDocument: vi.fn(), deleteKnowledgeDocument: vi.fn(), listKnowledgeVersions: vi.fn(), uploadKnowledgeVersion: vi.fn(), getKnowledgeImport: vi.fn(), retryKnowledgeImport: vi.fn() }));
 vi.mock('../feedback/fullNetMessage', () => ({ showProblem: vi.fn(), showSuccess: vi.fn(), showWarning: vi.fn() }));
 const baseId = '01900000-0000-7000-8000-000000000001'; const docId = '01900000-0000-7000-8000-000000000002';
 const base = { id: baseId, name: '获授权目录', description: null, isEnabled: true, dataClassification: 'internal', embeddingModelConfigId: null, embeddingModelVersion: null, generationModelConfigId: null, generationModelVersion: null, createdAtUtc: 'now', updatedAtUtc: null, version: 7 };
@@ -33,6 +33,40 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it('恢复必须具备独立操作和索引读取权限', async () => {
+    const wrapper = await render(true, code => code !== 'ai.knowledge_documents.index_recover');
+    expect(wrapper.find('[data-testid="knowledge-recover"]').exists()).toBe(false);
+    expect(api.recoverKnowledgeIndexChanges).not.toHaveBeenCalled();
+  });
+  it('恢复一次只请求一页，下一批使用服务端返回游标', async () => {
+    vi.mocked(api.recoverKnowledgeIndexChanges).mockResolvedValueOnce({ scanned: 50, updated: 3, nextDocumentId: docId })
+      .mockResolvedValueOnce({ scanned: 1, updated: 0, nextDocumentId: null });
+    const wrapper = await render(true);
+    await wrapper.get('[data-testid="knowledge-recover"]').trigger('click'); await flushPromises();
+    expect(api.recoverKnowledgeIndexChanges).toHaveBeenCalledTimes(1);
+    expect(wrapper.get('[data-testid="knowledge-recover"]').text()).toContain('继续');
+    await wrapper.get('[data-testid="knowledge-recover"]').trigger('click'); await flushPromises();
+    expect(api.recoverKnowledgeIndexChanges).toHaveBeenLastCalledWith({ knowledgeBaseId: baseId, body: { afterDocumentId: docId, pageSize: 50 } }, expect.any(AbortSignal));
+    expect(wrapper.get('[data-testid="knowledge-recover"]').text()).toContain('恢复增量意图');
+  });
+  it('恢复失败后清空游标，从头幂等重扫', async () => {
+    vi.mocked(api.recoverKnowledgeIndexChanges).mockResolvedValueOnce({ scanned: 50, updated: 3, nextDocumentId: docId })
+      .mockRejectedValueOnce(new Error('failed')).mockResolvedValueOnce({ scanned: 1, updated: 0, nextDocumentId: null });
+    const wrapper = await render(true);
+    for (let i = 0; i < 3; i++) { await wrapper.get('[data-testid="knowledge-recover"]').trigger('click'); await flushPromises(); }
+    expect(api.recoverKnowledgeIndexChanges).toHaveBeenLastCalledWith({ knowledgeBaseId: baseId, body: { afterDocumentId: null, pageSize: 50 } }, expect.any(AbortSignal));
+    expect(showProblem).toHaveBeenCalledTimes(1);
+  });
+  it('切换知识库后忽略旧恢复响应并清空游标', async () => {
+    let finish!: (value: { scanned: number; updated: number; nextDocumentId: string | null }) => void;
+    vi.mocked(api.recoverKnowledgeIndexChanges).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const wrapper = await render(true);
+    await wrapper.get('[data-testid="knowledge-recover"]').trigger('click');
+    await wrapper.vm.$router.push({ path: '/', query: { knowledgeBaseId: docId } }); await flushPromises();
+    finish({ scanned: 50, updated: 50, nextDocumentId: baseId }); await flushPromises();
+    expect(wrapper.get('[data-testid="knowledge-recover"]').text()).toContain('恢复增量意图');
+    expect(wrapper.text()).not.toContain('本批来源意图已复核');
+  });
   it('DOCX 在 5 MiB 边界使用规范 MIME 上传', async () => {
     vi.mocked(api.uploadKnowledgeVersion).mockRejectedValue(new Error('network'));
     const wrapper = await render(true);

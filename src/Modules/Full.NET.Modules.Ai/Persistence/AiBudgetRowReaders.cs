@@ -2,6 +2,7 @@
 using System.Data.Common;
 using System.Globalization;
 using Full.NET.Agents.Runtime;
+using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 
 namespace Full.NET.Modules.Ai.Persistence;
 
@@ -24,6 +25,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
+        registrar.Register<AiKnowledgeSourceConfirmed>(ReadKnowledgeSourceConfirmed);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiKnowledgeIndexEnqueueRecord>(ReadKnowledgeIndexEnqueue);
         registrar.Register<AiKnowledgeIndexStatusRecord>(ReadKnowledgeIndexStatus);
@@ -332,6 +334,11 @@ internal static class AiBudgetRowReaders
     };
 
     // 文件版本及恢复日志使用固定投影，原生路径禁止反射物化。
+    /// <summary>恢复候选使用同一具体事件字段，不依赖反射构造或动态租户物化。</summary>
+    internal static AiKnowledgeSourceConfirmed ReadKnowledgeSourceConfirmed(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        reader.GetGuid(reader.GetOrdinal("VersionId")), reader.IsDBNull(reader.GetOrdinal("TenantId")) ? null : reader.GetGuid(reader.GetOrdinal("TenantId")));
+
     internal static AiKnowledgeVersionRecord ReadKnowledgeVersion(DbDataReader reader) => new()
     {
         Id = reader.GetGuid(reader.GetOrdinal("Id")),

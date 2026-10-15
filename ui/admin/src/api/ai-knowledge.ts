@@ -1,4 +1,5 @@
 import {
+  aiRecoverKnowledgeIndexChanges, type AiRecoverKnowledgeIndexChangesParameters,
   aiGetKnowledgeIndexReconciliation, type AiGetKnowledgeIndexReconciliationParameters,
   aiGetKnowledgeIndexStatus, type AiGetKnowledgeIndexStatusParameters,
   aiRebuildKnowledgeIndex, type AiRebuildKnowledgeIndexParameters,
@@ -37,6 +38,10 @@ import {
   aiListKnowledgeDocumentOrganizationCandidates, type AiListKnowledgeDocumentOrganizationCandidatesParameters,
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+export function recoverKnowledgeIndexChanges(parameters: AiRecoverKnowledgeIndexChangesParameters, signal?: AbortSignal) {
+  return aiRecoverKnowledgeIndexChanges(http, parameters, signal);
+}
 
 export function getKnowledgeIndexReconciliation(parameters: AiGetKnowledgeIndexReconciliationParameters, signal?: AbortSignal) {
   return aiGetKnowledgeIndexReconciliation(http, parameters, signal);

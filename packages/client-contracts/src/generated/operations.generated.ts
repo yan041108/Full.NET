@@ -33,6 +33,8 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
+  AiKnowledgeIncrementalRecoveryRequest,
+  AiKnowledgeIncrementalRecoveryResponse,
   AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
@@ -652,6 +654,7 @@ import {
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeDocumentResponse,
   readAiKnowledgeImportResponse,
+  readAiKnowledgeIncrementalRecoveryResponse,
   readAiKnowledgeIndexEnqueueResponse,
   readAiKnowledgeIndexReconciliationResponse,
   readAiKnowledgeIndexStatusResponse,
@@ -2397,6 +2400,29 @@ export async function aiReconcileAgentRun(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiReconcileAgentRunResponse(value);
+}
+
+export interface AiRecoverKnowledgeIndexChangesParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: AiKnowledgeIncrementalRecoveryRequest;
+}
+
+export async function aiRecoverKnowledgeIndexChanges(
+  http: HttpClient,
+  parameters: AiRecoverKnowledgeIndexChangesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIncrementalRecoveryResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-changes/recover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIncrementalRecoveryResponse(value);
 }
 
 export interface AiResumeAgentRunParameters {

@@ -12,7 +12,7 @@ namespace Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 internal sealed class AiKnowledgeIncrementalIndexWriter(IQueryExecutor query, ICommandExecutor command,
     ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids)
 {
-    internal Task ApplyAsync(AiKnowledgeSourceConfirmed source, CancellationToken token)
+    internal Task<bool> ApplyAsync(AiKnowledgeSourceConfirmed source, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         if (source.KnowledgeBaseId == Guid.Empty || source.DocumentId == Guid.Empty || source.VersionId == Guid.Empty
@@ -29,11 +29,22 @@ internal sealed class AiKnowledgeIncrementalIndexWriter(IQueryExecutor query, IC
         {
             // 在本地短事务中重新读取来源；旧事件、禁用与墓碑均不能复活待处理工作。
             var number = await query.QuerySingleOrDefaultAsync<int>(AiKnowledgeIncrementalIndexSql.LockFor(database.Value.Provider, scoped), parameters, cancellation).ConfigureAwait(false);
+            CheckScope();
             if (number <= 0) return false;
             parameters["VersionNumber"] = number;
-            _ = await command.ExecuteAsync(scoped ? AiKnowledgeIncrementalIndexSql.UpdateTenant : AiKnowledgeIncrementalIndexSql.UpdateHost, parameters, cancellation).ConfigureAwait(false);
-            _ = await command.ExecuteAsync(scoped ? AiKnowledgeIncrementalIndexSql.InsertTenant : AiKnowledgeIncrementalIndexSql.InsertHost, parameters, cancellation).ConfigureAwait(false);
-            return true;
+            var updated = await command.ExecuteAsync(scoped ? AiKnowledgeIncrementalIndexSql.UpdateTenant : AiKnowledgeIncrementalIndexSql.UpdateHost, parameters, cancellation).ConfigureAwait(false);
+            CheckScope();
+            var inserted = await command.ExecuteAsync(scoped ? AiKnowledgeIncrementalIndexSql.InsertTenant : AiKnowledgeIncrementalIndexSql.InsertHost, parameters, cancellation).ConfigureAwait(false);
+            CheckScope();
+            return updated + inserted > 0;
         }, token);
+
+        // 交互恢复也复用该写入器；任何等待后的范围变化都必须回滚单文档事务。
+        void CheckScope()
+        {
+            token.ThrowIfCancellationRequested();
+            if (source.TenantId != tenant.Id || AiKnowledgeScope.IsTenant(tenant) != scoped)
+                throw new InvalidOperationException("Knowledge source scope changed while applying the intent.");
+        }
     }
 }

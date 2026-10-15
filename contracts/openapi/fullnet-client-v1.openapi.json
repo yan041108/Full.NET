@@ -47004,6 +47004,95 @@
           "AiKnowledgeIndexing"
         ]
       }
+    },
+    "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/index-changes/recover": {
+      "post": {
+        "operationId": "aiRecoverKnowledgeIndexChanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "knowledgeBaseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiKnowledgeIncrementalRecoveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiKnowledgeIncrementalRecoveryResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeIndexing"
+        ]
+      }
     }
   },
   "components": {
@@ -72737,6 +72826,61 @@
           "expectedDocumentVersion",
           "expectedKnowledgeBaseVersion",
           "confirmAdditionalCost"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeIncrementalRecoveryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "afterDocumentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "default": 50,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "AiKnowledgeIncrementalRecoveryResponse": {
+        "properties": {
+          "nextDocumentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scanned": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "updated": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "scanned",
+          "updated",
+          "nextDocumentId"
         ],
         "type": "object"
       }

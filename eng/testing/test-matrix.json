@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 8374,
+      "minimum": 8394,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -70,6 +70,10 @@
         "ai-retrieval-comparison": {
           "filter": "FullyQualifiedName~RagRetrievalComparison",
           "minimum": 54
+        },
+        "ai-incremental-recovery": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.AiKnowledgeIncrementalRecoveryTests",
+          "minimum": 20
         }
       }
     },
@@ -680,7 +684,7 @@
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests",
-        "minimum": 190,
+        "minimum": 194,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -708,7 +712,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1220,
+        "minimum": 1224,
         "timeout": "90m"
       },
       "logging-route-comparison": {

@@ -101,6 +101,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
@@ -189,6 +190,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
         Features.ManageKnowledgeIndexing.Endpoint.Map(endpoints);
+        Features.IncrementalKnowledgeIndexing.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);

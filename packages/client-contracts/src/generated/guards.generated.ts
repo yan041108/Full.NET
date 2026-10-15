@@ -32,6 +32,8 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
+  AiKnowledgeIncrementalRecoveryRequest,
+  AiKnowledgeIncrementalRecoveryResponse,
   AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
@@ -982,6 +984,30 @@ export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImport
 
 function isAiKnowledgeImportResponse(value: unknown): value is AiKnowledgeImportResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["state"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeIncrementalRecoveryRequest(value: unknown): AiKnowledgeIncrementalRecoveryRequest {
+  const normalizedValue = normalizeAiKnowledgeIncrementalRecoveryRequestIntegerJson(value);
+  if (!(isAiKnowledgeIncrementalRecoveryRequest(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_incremental_recovery_request');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIncrementalRecoveryRequest(value: unknown): value is AiKnowledgeIncrementalRecoveryRequest {
+  return isRecord(value) && (value["afterDocumentId"] === undefined || ((value["afterDocumentId"] === null) || (typeof value["afterDocumentId"] === 'string' && guidPattern.test(value["afterDocumentId"])))) && (value["pageSize"] === undefined || (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])));
+}
+
+export function readAiKnowledgeIncrementalRecoveryResponse(value: unknown): AiKnowledgeIncrementalRecoveryResponse {
+  const normalizedValue = normalizeAiKnowledgeIncrementalRecoveryResponseIntegerJson(value);
+  if (!(isAiKnowledgeIncrementalRecoveryResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_incremental_recovery_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIncrementalRecoveryResponse(value: unknown): value is AiKnowledgeIncrementalRecoveryResponse {
+  return isRecord(value) && ((value["nextDocumentId"] === null) || (typeof value["nextDocumentId"] === 'string' && guidPattern.test(value["nextDocumentId"]))) && (typeof value["scanned"] === 'number' && Number.isSafeInteger(value["scanned"])) && (typeof value["updated"] === 'number' && Number.isSafeInteger(value["updated"]));
 }
 
 export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledgeIndexEnqueueResponse {
@@ -8577,6 +8603,14 @@ function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknow
 
 function normalizeAiKnowledgeDocxLocationResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "blockSequence") ? { ["blockSequence"]: normalizeWireInteger(value["blockSequence"]) } : {}), ...(Object.hasOwn(value, "cellNumber") ? { ["cellNumber"]: normalizeWireInteger(value["cellNumber"]) } : {}), ...(Object.hasOwn(value, "paragraphNumber") ? { ["paragraphNumber"]: normalizeWireInteger(value["paragraphNumber"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIncrementalRecoveryRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIncrementalRecoveryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "scanned") ? { ["scanned"]: normalizeWireInteger(value["scanned"]) } : {}), ...(Object.hasOwn(value, "updated") ? { ["updated"]: normalizeWireInteger(value["updated"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value: unknown): unknown {

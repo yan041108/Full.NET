@@ -3527,6 +3527,12 @@
       "status": "generated"
     },
     {
+      "operationId": "aiRecoverKnowledgeIndexChanges",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
       "operationId": "aiRebuildKnowledgeIndex",
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { translateKnowledgeProcessing } from '../src/knowledge-processing.js';
+import { translateKnowledgeProcessing, translateKnowledgeRecovery } from '../src/knowledge-processing.js';
 
 describe('knowledge processing state', () => {
+  it('recovery copy describes intent recovery without paid task admission', () => {
+    expect(translateKnowledgeRecovery('zh-CN', 'recoveryHint')).toContain('不创建收费');
+    expect(translateKnowledgeRecovery('en-US', 'recoveryHint')).toContain('without creating paid');
+    expect(translateKnowledgeRecovery('en-US', 'continueRecovery')).toContain('next batch');
+    expect(translateKnowledgeProcessing('en-US', 'recover')).toBe('Refresh status');
+  });
   it.each(['zh-CN', 'en-US'] as const)('translates pending signal, consent and admission in %s', locale => {
     const states = ['pending_processing', 'awaiting_index_confirmation', 'index_admitted'];
     const labels = states.map(state => translateKnowledgeProcessing(locale, state));
