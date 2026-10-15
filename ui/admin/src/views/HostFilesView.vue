@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import { isPassiveContentType } from '../utils/openContentBlob';
 import {
@@ -11,14 +11,12 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn,
   ElTree
 } from 'element-plus';
 import type {
-  BatchDeleteHostFilesResponse,
   BatchUploadHostFilesResponse,
   FullNetProblemDetails,
   HostFile,
@@ -34,6 +32,7 @@ import {
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   batchDeleteHostFiles,
@@ -90,15 +89,12 @@ const references = ref<HostFileReferenceClaimResponse[]>([]);
 const editingFile = ref<HostFile | null>(null);
 const metadataForm = ref({ originalFileName: '', folderId: '' });
 const newFolderName = ref('');
-const canUpload = computed(() => session.can('files.files.upload'));
-const canDownload = computed(() => session.can('files.files.download'));
-const canDelete = computed(() => session.can('files.files.delete'));
-const canUpdate = computed(() => session.can('files.files.update'));
-const canReadReferences = computed(() => session.can('files.file_references.read'));
-const canCreateFolder = computed(() => session.can('files.folders.create'));
-const canUpdateFolder = computed(() => session.can('files.folders.update'));
-const canDeleteFolder = computed(() => session.can('files.folders.delete'));
-const canPreview = computed(() => session.can('files.files.read'));
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const allowed = (permission: string) => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null && session.can(permission);
+const canRead = computed(() => allowed('files.files.read'));
+const canPreview = computed(() => allowed('files.files.read'));
 const hasSelectedRows = computed(() => selectedRows.value.length > 0);
 
 const {
@@ -132,9 +128,46 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 
 watchLoading(loading);
 
-onMounted(() => {
-  void refreshAll();
-});
+const confirmation = ref<{ title: string; message: string; input: boolean }>();
+const confirmationInput = ref(''); let settleConfirmation: ((result: { confirmed: boolean; value: string }) => void) | undefined;
+const confirmationOpen = computed({ get: () => !!confirmation.value, set: open => { if (!open) finishConfirmation(false); } });
+function finishConfirmation(confirmed: boolean): void {
+  if (confirmed && confirmation.value?.input && !confirmationInput.value.trim()) return;
+  const settle = settleConfirmation; const value = confirmationInput.value.trim(); settleConfirmation = undefined;
+  confirmation.value = undefined; confirmationInput.value = ''; settle?.({ confirmed, value });
+}
+function askConfirmation(title: string, message: string, value?: string): Promise<{ confirmed: boolean; value: string }> {
+  finishConfirmation(false); confirmationInput.value = value ?? '';
+  return new Promise(resolve => { settleConfirmation = resolve; confirmation.value = { title, message, input: value !== undefined }; });
+}
+// 文件内容、上传回执、编辑和确认由当前 Host 会话拥有；失效只取消客户端接入，不承诺回滚写入。
+const scope = useAuthorizedViewScope(session, () => {
+  finishConfirmation(false); items.value = []; folderTree.value = []; selectedFolder.value = null;
+  selectedFiles.value = []; selectedRows.value = []; uploadResults.value = null; page.value = 1; pageSize.value = 20; total.value = 0;
+  previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
+  metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = [];
+  searchForm.value = {}; appliedFilters.value = { fileName: '' }; newFolderName.value = ''; problem.value = undefined; loading.value = false; changing.value = false;
+}, refreshAll);
+type ViewRequest = ReturnType<typeof scope.begin>;
+let listRequest: ViewRequest; let foldersRequest: ViewRequest; let actionRequest: ViewRequest;
+let metadataRequest: ViewRequest; let previewRequest: ViewRequest; let referencesRequest: ViewRequest;
+function begin(permission: string): ViewRequest { return allowed(permission) ? scope.begin(permission) : undefined; }
+function beginAction(permission: string): ViewRequest {
+  if (changing.value) return; const request = begin(permission); if (!request) return;
+  actionRequest = request; changing.value = true; problem.value = undefined; return request;
+}
+function finishAction(request: NonNullable<ViewRequest>): void { if (request === actionRequest && request.current()) changing.value = false; request.finish(); }
+function cancelAction(request: ViewRequest): void { request?.cancel(); if (request && request === actionRequest) { changing.value = false; actionRequest = undefined; } }
+const currentFile = (file: HostFile) => items.value.some(item => item.id === file.id && item.revision === file.revision);
+function findFolder(id: string, nodes = folderTree.value): HostFolderTreeNode | undefined {
+  for (const node of nodes) { if (node.folder?.id === id) return node.folder; const nested = findFolder(id, node.children ?? []); if (nested) return nested; }
+  return undefined;
+}
+const currentFolder = (folder: HostFolderTreeNode) => findFolder(folder.id)?.revision === folder.revision;
+watch(metadataDialogVisible, open => { if (!open) { cancelAction(metadataRequest); metadataRequest = undefined; editingFile.value = null; metadataForm.value = { originalFileName: '', folderId: '' }; } }, { flush: 'sync' });
+watch(items, () => { if (editingFile.value && !currentFile(editingFile.value)) metadataDialogVisible.value = false; }, { flush: 'sync' });
+watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); filePreview.clear(); previewTitle.value = ''; } }, { flush: 'sync' });
+watch(referencesDrawerVisible, open => { if (!open) { cancelAction(referencesRequest); references.value = []; } }, { flush: 'sync' });
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -154,45 +187,29 @@ async function refreshAll(): Promise<void> {
 }
 
 async function loadFolders(): Promise<void> {
+  foldersRequest?.cancel(); const request = begin('files.files.read'); if (!request) return; foldersRequest = request;
   try {
-    const tree = await listHostFolderTree();
-    folderTree.value = [
-      {
-        id: ROOT_NODE_ID,
-        label: t('hostFiles.rootFolder'),
-        folder: null,
-        children: mapFolderNodes(tree)
-      }
-    ];
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  }
+    const tree = await listHostFolderTree(request.signal); if (!request.current()) return;
+    folderTree.value = [{ id: ROOT_NODE_ID, label: t('hostFiles.rootFolder'), folder: null, children: mapFolderNodes(tree) }];
+    if (selectedFolder.value) { const id = selectedFolder.value.id; selectedFolder.value = findFolder(id) ?? null; if (!selectedFolder.value) void load(); }
+  } catch (error) { if (request.current()) problem.value = toProblem(error); }
+  finally { request.finish(); }
 }
 
 async function load(): Promise<void> {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel(); const request = begin('files.files.read'); if (!request) return; listRequest = request;
+  loading.value = true; problem.value = undefined;
   try {
-    const folderId = selectedFolder.value
-      ? selectedFolder.value.id
-      : selectedFolder.value === null && folderTree.value.length > 0
-        ? ''
-        : undefined;
-    const pageResult = await listHostFiles(page.value, pageSize.value, {
-      folderId,
-      fileNameContains: appliedFilters.value.fileName
-    });
-    items.value = pageResult.items;
-    total.value = pageResult.total;
-    await nextTick(updateTableHeight);
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    loading.value = false;
-  }
+    // 根目录身份不依赖目录树和文件页哪一个先完成。
+    const result = await listHostFiles(page.value, pageSize.value, { folderId: selectedFolder.value?.id ?? '', fileNameContains: appliedFilters.value.fileName }, request.signal);
+    if (!request.current()) return; items.value = result.items; total.value = result.total;
+    await nextTick(() => { if (request.current()) updateTableHeight(); });
+  } catch (error) { if (request.current()) problem.value = toProblem(error); }
+  finally { if (request.current()) loading.value = false; request.finish(); }
 }
 
 function onFolderSelected(node: TreeNode): void {
+  if (!allowed('files.files.read') || changing.value || node.folder && !currentFolder(node.folder)) return;
   selectedFolder.value = node.id === ROOT_NODE_ID ? null : node.folder;
   resetPage();
   void load();
@@ -211,271 +228,118 @@ function resetSearch(): void {
 }
 
 function onFileSelected(event: Event): void {
+  if (!allowed('files.files.upload') || changing.value) return;
   const input = event.target as HTMLInputElement;
   selectedFiles.value = input.files ? Array.from(input.files) : [];
 }
 
 async function upload(): Promise<void> {
-  if (changing.value || selectedFiles.value.length === 0 || !canUpload.value) {
-    return;
-  }
-  changing.value = true;
-  problem.value = undefined;
+  if (!selectedFiles.value.length) return; const request = beginAction('files.files.upload'); if (!request) return;
+  const files = [...selectedFiles.value]; const folderId = selectedFolder.value?.id;
   try {
-    const folderId = selectedFolder.value?.id;
-    if (selectedFiles.value.length === 1) {
-      await uploadHostFile(selectedFiles.value[0], folderId);
-      uploadResults.value = null;
-      ElMessage.success(t('hostFiles.uploadSuccess'));
+    if (files.length === 1) {
+      await uploadHostFile(files[0]!, folderId, request.signal); if (!request.current()) return;
+      uploadResults.value = null; ElMessage.success(t('hostFiles.uploadSuccess'));
     } else {
-      const result = await batchUploadHostFiles(selectedFiles.value, folderId);
-      uploadResults.value = result;
-      ElMessage.success(
-        t('hostFiles.batchUploadSummary', {
-          succeeded: result.succeededCount,
-          total: result.results.length
-        })
-      );
+      const result = await batchUploadHostFiles(files, folderId, request.signal); if (!request.current()) return;
+      uploadResults.value = result; ElMessage.success(t('hostFiles.batchUploadSummary', { succeeded: result.succeededCount, total: result.results.length }));
     }
-    selectedFiles.value = [];
-    await load();
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-    ElMessage.error(t('hostFiles.operationFailed'));
-  } finally {
-    changing.value = false;
-  }
+    selectedFiles.value = []; if (request.current()) await load();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
 
 async function removeSelected(): Promise<void> {
-  if (changing.value || !canDelete.value || selectedRows.value.length === 0) {
-    return;
-  }
-
+  const targets = selectedRows.value.map(file => ({ ...file }));
+  if (!targets.length || !targets.every(currentFile)) return; const request = beginAction('files.files.delete'); if (!request) return;
   try {
-    await ElMessageBox.confirm(
-      t('hostFiles.confirmBatchDelete', { count: selectedRows.value.length }),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-
-  changing.value = true;
-  problem.value = undefined;
-  try {
-    const result = await batchDeleteHostFiles(selectedRows.value.map(row => row.id));
-    ElMessage.success(
-      t('hostFiles.batchDeleteSummary', {
-        succeeded: result.succeededCount,
-        total: result.results.length
-      })
-    );
-    if (result.succeededCount < result.results.length) {
-      const failed = result.results.filter(item => !item.succeeded);
-      ElMessage.warning(
-        failed.map(item => `${item.fileId}: ${item.errorCode ?? item.message ?? ''}`).join('\n')
-      );
-    }
-    selectedRows.value = [];
-    await load();
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-    ElMessage.error(t('hostFiles.operationFailed'));
-  } finally {
-    changing.value = false;
-  }
+    const answer = await askConfirmation(t('hostFiles.delete'), t('hostFiles.confirmBatchDelete', { count: targets.length }));
+    if (!answer.confirmed || !request.current() || !targets.every(currentFile)) return;
+    const result = await batchDeleteHostFiles(targets.map(file => file.id), request.signal); if (!request.current()) return;
+    ElMessage.success(t('hostFiles.batchDeleteSummary', { succeeded: result.succeededCount, total: result.results.length }));
+    if (result.succeededCount < result.results.length) ElMessage.warning(result.results.filter(item => !item.succeeded).map(item => item.errorCode ?? item.message ?? '').join('\n'));
+    selectedRows.value = []; if (request.current()) await load();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
 
 async function preview(file: HostFile): Promise<void> {
-  if (changing.value || !canPreview.value || !isPreviewableHostFile(file.contentType) || !isPassiveContentType(file.contentType)) {
-    return;
-  }
-
-  changing.value = true;
-  problem.value = undefined;
-  try {
-    if (!await filePreview.load(() => previewHostFileContent(file.id))) return;
-    previewTitle.value = file.originalFileName;
-    previewDialogVisible.value = true;
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-    ElMessage.error(t('hostFiles.previewFailed'));
-  } finally {
-    changing.value = false;
-  }
+  if (!currentFile(file) || !canPreviewFile(file)) return; const request = beginAction('files.files.read'); if (!request) return; previewRequest = request;
+  previewTitle.value = file.originalFileName; previewDialogVisible.value = true;
+  try { const loaded = await filePreview.load(() => previewHostFileContent(file.id, request.signal)); if (!request.current() || !loaded) return; }
+  catch (error) { if (request.current()) { problem.value = toProblem(error); closePreviewDialog(); } }
+  finally { finishAction(request); }
 }
-
-function closePreviewDialog(): void {
-  previewDialogVisible.value = false;
-  filePreview.clear();
-}
+function closePreviewDialog(): void { previewDialogVisible.value = false; }
 
 function canPreviewFile(file: HostFile): boolean {
   return canPreview.value && isPreviewableHostFile(file.contentType) && isPassiveContentType(file.contentType);
 }
 
 async function createFolder(): Promise<void> {
-  if (!canCreateFolder.value || !newFolderName.value.trim()) {
-    return;
-  }
-  changing.value = true;
+  const name = newFolderName.value.trim(); if (!name) return; const request = beginAction('files.folders.create'); if (!request) return;
+  const parentId = selectedFolder.value?.id ?? null;
   try {
-    await createHostFolder({
-      parentId: selectedFolder.value?.id ?? null,
-      name: newFolderName.value.trim()
-    });
-    newFolderName.value = '';
-    ElMessage.success(t('hostFiles.folderCreateSuccess'));
-    await refreshAll();
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+    await createHostFolder({ parentId, name }, request.signal); if (!request.current()) return;
+    newFolderName.value = ''; ElMessage.success(t('hostFiles.folderCreateSuccess')); if (request.current()) await refreshAll();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
-
-async function renameFolder(node: TreeNode): Promise<void> {
-  if (!canUpdateFolder.value || !node.folder) {
-    return;
-  }
+async function renameFolder(node: TreeNode): Promise<void> { await changeFolder(node, 'rename'); }
+async function removeFolder(node: TreeNode): Promise<void> { await changeFolder(node, 'delete'); }
+async function changeFolder(node: TreeNode, kind: 'rename' | 'delete'): Promise<void> {
+  if (!node.folder || !currentFolder(node.folder)) return; const folder = { ...node.folder };
+  const request = beginAction(kind === 'rename' ? 'files.folders.update' : 'files.folders.delete'); if (!request) return;
   try {
-    const { value } = await ElMessageBox.prompt(
-      t('hostFiles.folderName'),
-      t('hostFiles.renameFolder'),
-      { inputValue: node.folder.name }
-    );
-    changing.value = true;
-    await updateHostFolder(node.folder.id, {
-      expectedRevision: node.folder.revision,
-      name: value.trim(),
-      displayOrder: node.folder.displayOrder
-    });
-    ElMessage.success(t('hostFiles.folderUpdateSuccess'));
-    await refreshAll();
-  } catch (error: unknown) {
-    if (error !== 'cancel' && error !== 'close') {
-      problem.value = toProblem(error, 'hostFiles.operationFailed');
-    }
-  } finally {
-    changing.value = false;
-  }
-}
-
-async function removeFolder(node: TreeNode): Promise<void> {
-  if (!canDeleteFolder.value || !node.folder) {
-    return;
-  }
-  try {
-    await ElMessageBox.confirm(
-      t('hostFiles.confirmDeleteFolder', { name: node.folder.name }),
-      t('hostFiles.deleteFolder'),
-      { type: 'warning' }
-    );
-    changing.value = true;
-    await deleteHostFolder(node.folder.id, { expectedRevision: node.folder.revision });
-    if (selectedFolder.value?.id === node.folder.id) {
-      selectedFolder.value = null;
-    }
-    ElMessage.success(t('hostFiles.folderDeleteSuccess'));
-    await refreshAll();
-  } catch (error: unknown) {
-    if (error !== 'cancel' && error !== 'close') {
-      problem.value = toProblem(error, 'hostFiles.operationFailed');
-    }
-  } finally {
-    changing.value = false;
-  }
+    const answer = await askConfirmation(t(kind === 'rename' ? 'hostFiles.renameFolder' : 'hostFiles.deleteFolder'),
+      kind === 'rename' ? t('hostFiles.folderName') : t('hostFiles.confirmDeleteFolder', { name: folder.name }), kind === 'rename' ? folder.name : undefined);
+    if (!answer.confirmed || !request.current() || !currentFolder(folder)) return;
+    if (kind === 'rename') await updateHostFolder(folder.id, { expectedRevision: folder.revision, name: answer.value, displayOrder: folder.displayOrder }, request.signal);
+    else await deleteHostFolder(folder.id, { expectedRevision: folder.revision }, request.signal);
+    if (!request.current()) return;
+    if (kind === 'delete' && selectedFolder.value?.id === folder.id) selectedFolder.value = null;
+    ElMessage.success(t(kind === 'rename' ? 'hostFiles.folderUpdateSuccess' : 'hostFiles.folderDeleteSuccess')); if (request.current()) await refreshAll();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
 
 function openMetadataDialog(item: HostFile): void {
-  editingFile.value = item;
-  metadataForm.value = {
-    originalFileName: item.originalFileName,
-    folderId: item.folderId ?? ''
-  };
-  metadataDialogVisible.value = true;
+  if (!allowed('files.files.update') || changing.value || !currentFile(item)) return;
+  editingFile.value = { ...item }; metadataForm.value = { originalFileName: item.originalFileName, folderId: item.folderId ?? '' }; metadataDialogVisible.value = true;
 }
-
 async function saveMetadata(): Promise<void> {
-  if (!editingFile.value || !canUpdate.value) {
-    return;
-  }
-  changing.value = true;
+  const file = editingFile.value; if (!metadataDialogVisible.value || !file || !currentFile(file) || !metadataForm.value.originalFileName.trim()) return;
+  const request = beginAction('files.files.update'); if (!request) return; metadataRequest = request;
+  const body = { expectedRevision: file.revision, originalFileName: metadataForm.value.originalFileName.trim(), folderId: metadataForm.value.folderId || null };
   try {
-    await updateHostFileMetadata(editingFile.value.id, {
-      expectedRevision: editingFile.value.revision,
-      originalFileName: metadataForm.value.originalFileName.trim(),
-      folderId: metadataForm.value.folderId ? metadataForm.value.folderId : null
-    });
-    metadataDialogVisible.value = false;
-    ElMessage.success(t('hostFiles.metadataUpdateSuccess'));
-    await load();
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+    await updateHostFileMetadata(file.id, body, request.signal); if (!request.current()) return; metadataRequest = undefined;
+    metadataDialogVisible.value = false; ElMessage.success(t('hostFiles.metadataUpdateSuccess')); if (request.current()) await load();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
 
 async function openReferences(item: HostFile): Promise<void> {
-  if (!canReadReferences.value) {
-    return;
-  }
-  changing.value = true;
-  try {
-    const pageResult = await listHostFileReferences(item.id);
-    references.value = pageResult.items;
-    referencesDrawerVisible.value = true;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+  if (!currentFile(item)) return; const request = beginAction('files.file_references.read'); if (!request) return; referencesRequest = request;
+  references.value = []; referencesDrawerVisible.value = true;
+  try { const result = await listHostFileReferences(item.id, 1, 20, request.signal); if (request.current()) references.value = result.items; }
+  catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
-
 async function remove(item: HostFile): Promise<void> {
-  if (changing.value || !canDelete.value) {
-    return;
-  }
+  if (!currentFile(item)) return; const target = { ...item }; const request = beginAction('files.files.delete'); if (!request) return;
   try {
-    await ElMessageBox.confirm(
-      t('hostFiles.confirmDelete', { name: item.originalFileName }),
-      t('hostFiles.delete'),
-      {
-        type: 'warning',
-        confirmButtonText: t('hostFiles.delete'),
-        cancelButtonText: t('status.back')
-      }
-    );
-    changing.value = true;
-    await deleteHostFile(item.id);
-    ElMessage.success(t('hostFiles.deleteSuccess'));
-    await load();
-  } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') {
-      return;
-    }
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+    const answer = await askConfirmation(t('hostFiles.delete'), t('hostFiles.confirmDelete', { name: target.originalFileName }));
+    if (!answer.confirmed || !request.current() || !currentFile(target)) return;
+    await deleteHostFile(target.id, request.signal); if (!request.current()) return;
+    ElMessage.success(t('hostFiles.deleteSuccess')); if (request.current()) await load();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
-
 async function download(item: HostFile): Promise<void> {
-  if (changing.value || !canDownload.value) {
-    return;
-  }
-  changing.value = true;
-  problem.value = undefined;
-  try {
-    const blob = await downloadHostFileContent(item.id);
-    openHostFileBlob(blob, item.originalFileName);
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+  if (!currentFile(item)) return; const request = beginAction('files.files.download'); if (!request) return;
+  try { const blob = await downloadHostFileContent(item.id, request.signal); if (request.current()) openHostFileBlob(blob, item.originalFileName); }
+  catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+  finally { finishAction(request); }
 }
 
 function toProblem(
@@ -489,7 +353,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="host-files-view art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="host-files-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostFiles.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -715,9 +579,19 @@ function toProblem(
       </div>
     </div>
 
+    <el-dialog v-model="confirmationOpen" :title="confirmation?.title" width="460px" :close-on-click-modal="false">
+      <p data-testid="host-files-confirm-message">{{ confirmation?.message }}</p>
+      <el-form v-if="confirmation?.input"><el-form-item :label="t('hostFiles.folderName')" required>
+        <el-input v-model="confirmationInput" data-testid="host-files-confirm-input" />
+      </el-form-item></el-form>
+      <template #footer>
+        <el-button data-testid="host-files-confirm-dismiss" @click="finishConfirmation(false)">{{ t('common.cancel') }}</el-button>
+        <el-button type="warning" data-testid="host-files-confirm-accept" :disabled="confirmation?.input && !confirmationInput.trim()" @click="finishConfirmation(true)">{{ t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
     <el-dialog v-model="metadataDialogVisible" :title="t('hostFiles.editMetadata')" width="480px">
       <el-form label-position="top">
-        <el-form-item :label="t('hostFiles.fileName')">
+        <el-form-item :label="t('hostFiles.fileName')" required>
           <el-input v-model="metadataForm.originalFileName" />
         </el-form-item>
         <el-form-item :label="t('hostFiles.folderId')">
@@ -734,7 +608,6 @@ function toProblem(
       v-model="previewDialogVisible"
       :title="previewTitle"
       width="70%"
-      @closed="closePreviewDialog"
     >
       <iframe
         v-if="previewUrl"

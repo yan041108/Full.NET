@@ -111,7 +111,7 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
     await wrapper.get('[data-testid="host-files-download"]').trigger('click');
     await flushPromises();
 
-    expect(downloadMock).toHaveBeenCalledWith(sampleFile.id);
+    expect(downloadMock).toHaveBeenCalledWith(sampleFile.id, expect.any(AbortSignal));
     expect(openBlobMock).toHaveBeenCalledWith(expect.any(Blob), sampleFile.originalFileName);
   });
   it('内嵌被动文件使用隔离 iframe', async () => {
