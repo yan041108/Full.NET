@@ -27,6 +27,7 @@ internal static class NativePdfKnowledgeAssertions
 {
     internal static Dictionary<string, string?> Settings(string executable) => new()
     {
+        ["FullNet:Ai:KnowledgeIndexRebuild:Enabled"] = "true",
         ["FullNet:Ai:KnowledgePdf:Enabled"] = "true",
         ["FullNet:Ai:KnowledgePdf:NodeExecutablePath"] = executable,
         ["FullNet:Ai:KnowledgePdf:CliScriptPath"] = executable,
@@ -50,10 +51,11 @@ internal static class NativePdfKnowledgeAssertions
         { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); if (docx) docxControls.Register(services); else controls.Register(services); });
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         var historyChecked = false;
+        var admittedTasks = new Dictionary<Guid, Guid>();
         static string PathFor(AiKnowledgeIndexTaskBinding b) => $"/api/v1/ai/knowledge-bases/{b.KnowledgeBaseId}/documents/{b.DocumentId}/versions/{b.VersionId}/index";
-        async Task<HttpResponseMessage> Send(HttpMethod method, string path)
+        async Task<HttpResponseMessage> Send(HttpMethod method, string path, HttpContent? content = null)
         {
-            using var request = new HttpRequestMessage(method, path); request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var request = new HttpRequestMessage(method, path) { Content = content }; request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             return await client.SendAsync(request, cancellation);
         }
         async Task Require(HttpResponseMessage response, HttpStatusCode expected)
@@ -163,6 +165,32 @@ internal static class NativePdfKnowledgeAssertions
         {
             using var response = await Send(HttpMethod.Post, PathFor(b)); await Require(response, HttpStatusCode.Accepted);
             var queued = await response.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation); Assert.IsNotNull(queued);
+            // 在产生任何费用前终止首代，再经真实 Native HTTP 创建独立代次；后续完整证明和恢复都绑定新任务。
+            var previous = queued.TaskId;
+            var previousSession = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_index_session WHERE IndexTaskId=@Id", new { Id = previous });
+            Assert.AreEqual(1, await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='failed',FailureCode='ai.knowledge.index_unavailable' WHERE Id=@Id AND StateKey='queued'", new { Id = previous }));
+            var rebuild = new AiKnowledgeIndexRebuildRequest(Guid.CreateVersion7(), previous, b.DocumentVersion, b.KnowledgeBaseVersion, true);
+            using (var denied = await Send(HttpMethod.Post, PathFor(b) + "/rebuild", JsonContent.Create(rebuild with { ConfirmAdditionalCost = false })))
+                await Require(denied, HttpStatusCode.BadRequest);
+            using (var unknown = await Send(HttpMethod.Post, PathFor(b) + "/rebuild", new StringContent(
+                JsonSerializer.Serialize(rebuild, JsonSerializerOptions.Web).TrimEnd('}') + ",\"tenantId\":null}", System.Text.Encoding.UTF8, "application/json")))
+                await Require(unknown, HttpStatusCode.BadRequest);
+            using (var accepted = await Send(HttpMethod.Post, PathFor(b) + "/rebuild", JsonContent.Create(rebuild)))
+            {
+                await Require(accepted, HttpStatusCode.Accepted);
+                queued = await accepted.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation); Assert.IsNotNull(queued);
+            }
+            Assert.AreNotEqual(previous, queued.TaskId); Assert.AreEqual(b.VersionId, queued.VersionId);
+            using (var replay = await Send(HttpMethod.Post, PathFor(b) + "/rebuild", JsonContent.Create(rebuild)))
+            {
+                await Require(replay, HttpStatusCode.Accepted);
+                Assert.AreEqual(queued, await replay.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation));
+            }
+            Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE Id=@Id AND Generation=1 AND RebuildPreviousTaskId=@Previous AND RebuildRequestId=@Request", new { Id = queued.TaskId, Previous = previous, Request = rebuild.ClientRequestId }));
+            Assert.AreEqual(2L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE VersionId=@Id", new { Id = b.VersionId }));
+            Assert.AreEqual(previousSession, await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_index_session WHERE IndexTaskId=@Id", new { Id = previous }));
+            Assert.AreEqual("failed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id AND Generation=0", new { Id = previous }));
+            admittedTasks.Add(b.VersionId, queued.TaskId);
             if (!nativeWorker)
             {
                 // 原生读取到失效冻结身份时，只建议独立新代次；对账不接管、续租或派发旧任务。
@@ -181,7 +209,7 @@ internal static class NativePdfKnowledgeAssertions
         async Task Recover(AiKnowledgeIndexTaskBinding b)
         {
             // 人工重试沿原会话冻结绑定运行，保留已结算清单和向量；Worker 不接触假 Node/CLI 路径。
-            var task = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_index_task WHERE VersionId=@Id", new { Id = b.VersionId });
+            var task = admittedTasks[b.VersionId];
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='failed',FailureCode='ai.knowledge.index_unavailable' WHERE Id=@Id", new { Id = task });
             using var retry = await Send(HttpMethod.Post, PathFor(b) + $"/{task}/retry"); await Require(retry, HttpStatusCode.Accepted);
             if (!nativeWorker)
