@@ -75,6 +75,7 @@ onBeforeUnmount(() => { ++epoch; controller.abort(); });
     <ElButton :loading="busy" @click="load">{{ text('load') }}</ElButton>
     <template v-if="snapshot">
       <p>{{ text('usage') }}: {{ usageText }} · {{ text('reserved') }}: {{ snapshot.reservedTokens }} · {{ text('month') }}: {{ snapshot.quotaMonthKey }}</p>
+      <p data-testid="ai-reconciliation-usage">{{ text('recordedInput') }}: {{ snapshot.inputTokens ?? text('notProvided') }} · {{ text('recordedOutput') }}: {{ snapshot.outputTokens ?? text('notProvided') }} · {{ text('recordedCached') }}: {{ snapshot.cachedInputTokens ?? text('notProvided') }}</p>
       <ElAlert v-if="!snapshot.canReconcile || refreshRequired" :title="text('unavailable')" type="info" :closable="false" />
       <PermissionGate code="ai.agent_runs.reconcile">
         <template v-if="snapshot.canReconcile">

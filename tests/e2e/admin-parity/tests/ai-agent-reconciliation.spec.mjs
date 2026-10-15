@@ -6,7 +6,7 @@ const path = `/api/v1/ai/agent/runs/${runId}`;
 const digest = 'a'.repeat(64);
 
 // 真实 Vue/Edge 配合受控 HTTP 验证交互，双库事务和外部核证仍由对应集成验收证明。
-async function setup(page, writable = true) {
+async function setup(page, writable = true, recordedUsage = {}) {
   const writes = []; let retryUnknown = false; let conflict = false; let closed = false; let readDenied = false; let writeDenied = false; let version = 8;
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
@@ -26,7 +26,7 @@ async function setup(page, writable = true) {
   await page.route(`**${path}/reconciliation`, async route => {
     if (route.request().method() === 'GET') return readDenied
       ? json(route, { type: 'about:blank', title: 'Unavailable', status: 404, code: 'ai.agent_run.not_found' }, 404)
-      : json(route, { runId, version, statusKey: 'reconciliation_required', usageStatus: 'unknown', reservedTokens: 200, quotaMonthKey: '2026-09', inputTokens: null, outputTokens: null, cachedInputTokens: null, canReconcile: !closed });
+      : json(route, { runId, version, statusKey: 'reconciliation_required', usageStatus: 'unknown', reservedTokens: 200, quotaMonthKey: '2026-09', inputTokens: null, outputTokens: null, cachedInputTokens: null, canReconcile: !closed, ...recordedUsage });
     writes.push(route.request().postDataJSON());
     if (retryUnknown) { retryUnknown = false; return route.abort('failed'); }
     if (writeDenied) return json(route, { type: 'about:blank', title: 'Unavailable', status: 403, code: 'identity.forbidden' }, 403);
@@ -54,7 +54,9 @@ const submit = panel => panel.getByRole('button', { name: '关闭并记录对账
 
 test('只有读取权限时显示原账本并隐藏人工写入入口', async ({ page }) => {
   const { panel, writes } = await setup(page, false);
-  await expect(panel).toContainText('计量状态: 未知'); await expect(submit(panel)).toHaveCount(0);
+  await expect(panel).toContainText('计量状态: 未知');
+  await expect(panel.getByTestId('ai-reconciliation-usage')).toHaveText('原输入 Token: 未提供 · 原输出 Token: 未提供 · 原缓存输入 Token: 未提供');
+  await expect(submit(panel)).toHaveCount(0);
   await expect(panel.getByRole('textbox')).toHaveCount(0); expect(writes).toHaveLength(0);
 });
 test('未知计量关闭须核对材料，成功后刷新真实运行状态', async ({ page }) => {
@@ -103,10 +105,18 @@ test('读取撤权后刷新清除旧账本和提交入口', async ({ page }) => 
   const { panel, writes, denyRead } = await setup(page); await confirm(panel); denyRead();
   await panel.getByRole('button', { name: '读取账本', exact: true }).click();
   await expect(panel).toContainText('对账处理失败'); await expect(panel).not.toContainText('2026-09');
+  await expect(panel.getByTestId('ai-reconciliation-usage')).toHaveCount(0);
   await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(0);
 });
 test('写入权威拒绝后清除旧账本并停止旧请求重试', async ({ page }) => {
   const { panel, writes, denyWrite } = await setup(page); await confirm(panel); denyWrite(); await submit(panel).click();
   await expect(panel).toContainText('对账处理失败'); await expect(panel).not.toContainText('2026-09');
+  await expect(panel.getByTestId('ai-reconciliation-usage')).toHaveCount(0);
   await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(1);
+});
+
+test('只读账本显示已知原用量并区分零值与未提供', async ({ page }) => {
+  const { panel, writes } = await setup(page, false, { usageStatus: 'known', inputTokens: 12, outputTokens: 0, cachedInputTokens: null });
+  await expect(panel.getByTestId('ai-reconciliation-usage')).toHaveText('原输入 Token: 12 · 原输出 Token: 0 · 原缓存输入 Token: 未提供');
+  await expect(submit(panel)).toHaveCount(0); expect(writes).toHaveLength(0);
 });

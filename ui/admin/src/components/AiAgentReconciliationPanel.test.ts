@@ -5,6 +5,7 @@ import { ElCheckbox, ElInput, ElSwitch } from 'element-plus';
 import Panel from './AiAgentReconciliationPanel.vue';
 import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-agent-runs';
+import { useAdminI18n } from '../i18n/adminI18n';
 vi.mock('../api/ai-agent-runs');
 const id = '00000000-0000-0000-0000-000000000001';
 const row = { runId: id, version: 8, statusKey: 'reconciliation_required', usageStatus: 'unknown', reservedTokens: 200,
@@ -15,7 +16,7 @@ function render(allow = true) {
   const wrapper = mount(Panel, { props: { runId: id }, global: { plugins: [pinia] } }); wrappers.push(wrapper); return wrapper;
 }
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.getAiAgentReconciliation).mockResolvedValue(row); vi.mocked(api.reconcileAiAgentRun).mockResolvedValue(true); });
-afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); });
+afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); useAdminI18n().setLocale('zh-CN'); });
 it('仅有读取权限时不展示人工提交入口', async () => {
   const w = render(false); await w.get('button').trigger('click'); await flushPromises();
   expect(w.findComponent(ElInput).exists()).toBe(false); expect(w.text()).toContain('计量状态: 未知');
@@ -137,4 +138,33 @@ it.each([403, 404])('写入遭 %s 权威拒绝时清除旧账本和核对资格'
   await submit(w).trigger('click'); await flushPromises();
   expect(w.findComponent(ElInput).exists()).toBe(false); expect(w.text()).not.toContain('2026-09');
   expect(w.emitted('reconciled')).toBeUndefined();
+});
+
+it.each([
+  { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+  { inputTokens: 900, outputTokens: 31, cachedInputTokens: 700 }
+])('只读账本展示已知原计量并保留零值：%j', async usage => {
+  vi.mocked(api.getAiAgentReconciliation).mockResolvedValueOnce({ ...row, usageStatus: 'known', ...usage });
+  const w = render(false); await load(w);
+  const summary = w.get('[data-testid="ai-reconciliation-usage"]');
+  expect(summary.text()).toContain(`原输入 Token: ${usage.inputTokens}`);
+  expect(summary.text()).toContain(`原输出 Token: ${usage.outputTokens}`);
+  expect(summary.text()).toContain(`原缓存输入 Token: ${usage.cachedInputTokens}`);
+  expect(w.findComponent(ElInput).exists()).toBe(false);
+  expect(api.reconcileAiAgentRun).not.toHaveBeenCalled();
+});
+it('未知值和已知计量未提供缓存数值均不得显示为零', async () => {
+  const w = render(false); await load(w);
+  expect(w.get('[data-testid="ai-reconciliation-usage"]').text()).toBe('原输入 Token: 未提供 · 原输出 Token: 未提供 · 原缓存输入 Token: 未提供');
+  vi.mocked(api.getAiAgentReconciliation).mockResolvedValueOnce({ ...row, usageStatus: 'known', inputTokens: 18, outputTokens: 0 });
+  await load(w);
+  expect(w.get('[data-testid="ai-reconciliation-usage"]').text()).toBe('原输入 Token: 18 · 原输出 Token: 0 · 原缓存输入 Token: 未提供');
+});
+it('计量摘要随语言切换，撤权刷新清除全部旧计量', async () => {
+  vi.mocked(api.getAiAgentReconciliation).mockResolvedValueOnce({ ...row, usageStatus: 'known', inputTokens: 18, outputTokens: 0, cachedInputTokens: 2 });
+  const w = render(false); await load(w); useAdminI18n().setLocale('en-US'); await flushPromises();
+  expect(w.get('[data-testid="ai-reconciliation-usage"]').text()).toBe('Recorded input tokens: 18 · Recorded output tokens: 0 · Recorded cached input tokens: 2');
+  vi.mocked(api.getAiAgentReconciliation).mockRejectedValueOnce({ status: 403, code: 'identity.forbidden' });
+  await load(w); expect(w.find('[data-testid="ai-reconciliation-usage"]').exists()).toBe(false);
+  expect(api.reconcileAiAgentRun).not.toHaveBeenCalled();
 });

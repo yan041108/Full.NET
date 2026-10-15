@@ -8,7 +8,8 @@ const messages = {
     cached: '缓存输入 Token（可选）', reviewed: '我已核对外部执行结果及证据，确认关闭此运行',
     submit: '关闭并记录对账', success: '对账已记录，运行已关闭', failed: '对账处理失败', reserved: '原预留 Token',
     usage: '计量状态', month: '原预留月份', unavailable: '当前运行已变化，请重新读取账本',
-    usageKnown: '已知', usageReserved: '已预留', usageUnknown: '未知'
+    usageKnown: '已知', usageReserved: '已预留', usageUnknown: '未知',
+    recordedInput: '原输入 Token', recordedOutput: '原输出 Token', recordedCached: '原缓存输入 Token', notProvided: '未提供'
   },
   'en-US': {
     title: 'Reconcile unknown execution', notice: 'Close the run after checking its external result. It will not execute again. Incomplete usage keeps the original reservation.',
@@ -16,7 +17,8 @@ const messages = {
     cached: 'Cached input tokens (optional)', reviewed: 'I checked the external result and evidence and confirm closing this run',
     submit: 'Close and record reconciliation', success: 'Reconciliation recorded and run closed', failed: 'Reconciliation failed', reserved: 'Originally reserved tokens',
     usage: 'Usage status', month: 'Original reservation month', unavailable: 'The run has changed. Read the ledger again.',
-    usageKnown: 'Known', usageReserved: 'Reserved', usageUnknown: 'Unknown'
+    usageKnown: 'Known', usageReserved: 'Reserved', usageUnknown: 'Unknown',
+    recordedInput: 'Recorded input tokens', recordedOutput: 'Recorded output tokens', recordedCached: 'Recorded cached input tokens', notProvided: 'Not provided'
   }
 } as const;
 
