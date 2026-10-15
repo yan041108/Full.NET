@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue';
 import { RefreshLeft, Search } from '@element-plus/icons-vue';
 import {
   ElAlert,
@@ -42,6 +42,9 @@ const total = ref(0);
 const searchKeyword = ref('');
 const appliedKeyword = ref('');
 const selectedRows = ref<HostRecycleBinItemResponse[]>([]);
+type BatchOutcome = 'processing' | 'succeeded' | 'unconfirmed' | 'not_sent';
+const batchReceipt = ref<{ action: 'restore' | 'purge'; succeeded: number; total: number;
+  items: { id: string; title: string; outcome: BatchOutcome; errorCode?: string }[] }>();
 
 const {
   tableMainRef,
@@ -54,7 +57,11 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_recycle_bin.read'));
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null
+  && session.can('document.host_recycle_bin.read'));
 const confirmation = ref<{ message: string; resolve: (confirmed: boolean) => void }>();
 function finishConfirmation(confirmed: boolean): void {
   const pending = confirmation.value; confirmation.value = undefined; pending?.resolve(confirmed);
@@ -62,7 +69,7 @@ function finishConfirmation(confirmed: boolean): void {
 const scope = useAuthorizedViewScope(session, () => {
   finishConfirmation(false); items.value = []; selectedRows.value = []; total.value = 0;
   page.value = 1; pageSize.value = 20; searchKeyword.value = ''; appliedKeyword.value = '';
-  loading.value = false; changing.value = false; problem.value = undefined;
+  loading.value = false; changing.value = false; problem.value = undefined; batchReceipt.value = undefined;
 }, () => { if (canRead.value) void load(); });
 let listRequest: ReturnType<typeof scope.begin>;
 
@@ -102,11 +109,21 @@ function onSelectionChange(rows: HostRecycleBinItemResponse[]) {
   selectedRows.value = rows;
 }
 
-/** 批次在确认前冻结标识和版本，逐项等待后复核归属；取消不能撤回已完成的服务端写入。 */
+function currentTarget(target: Pick<HostRecycleBinItemResponse, 'id' | 'version'>): boolean {
+  return items.value.some(item => item.id.toLowerCase() === target.id.toLowerCase() && item.version === target.version);
+}
+function outcomeLabel(outcome: BatchOutcome): string {
+  return t(outcome === 'processing' ? 'documentRecycleBin.itemProcessing' : outcome === 'succeeded' ? 'documentRecycleBin.itemSucceeded'
+    : outcome === 'unconfirmed' ? 'documentRecycleBin.itemUnconfirmed' : 'documentRecycleBin.itemNotSent');
+}
+
+/** 批次冻结标识与修订，首个异常后停止；未知结果不自动重试，也不宣称跨项原子提交。 */
 async function runBatch(rows: readonly HostRecycleBinItemResponse[], action: 'restore' | 'purge', batch = false) {
   if (!canRead.value || changing.value || rows.length === 0) return;
+  if (!rows.every(currentTarget)) return;
   const request = scope.begin('document.host_recycle_bin.' + action); if (!request) return;
-  const targets = rows.map(item => ({ id: item.id, version: item.version, title: item.title }));
+  const targets = [...new Map(rows.map(item => [item.id.toLowerCase(), { id: item.id, version: item.version, title: item.title }])).values()];
+  let index = 0; let succeeded = 0; let readAfterFailure = false;
   changing.value = true; problem.value = undefined;
   try {
     if (action === 'purge') {
@@ -115,15 +132,41 @@ async function runBatch(rows: readonly HostRecycleBinItemResponse[], action: 're
       }; });
       if (!confirmed || !request.current()) return;
     }
-    for (const item of targets) {
+    batchReceipt.value = { action, succeeded: 0, total: targets.length,
+      items: targets.map(item => ({ id: item.id, title: item.title, outcome: 'not_sent' })) };
+    for (; index < targets.length; index++) {
+      const item = targets[index]!;
       if (!request.current()) return;
+      readAfterFailure = false;
+      if (!currentTarget(item)) throw { status: 409, code: 'client.recycle_target_changed', title: t('documentRecycleBin.targetChanged') };
+      readAfterFailure = true;
+      batchReceipt.value.items[index]!.outcome = 'processing';
       if (action === 'restore') await restoreRecycleBinItem(item.id, { version: item.version }, request.signal);
-      else if (!await purgeRecycleBinItem(item.id, request.signal)) throw new Error('client.document_purge_failed');
+      else if (!await purgeRecycleBinItem(item.id, request.signal)) {
+        readAfterFailure = false;
+        throw { status: 409, code: 'client.document_purge_failed', title: t('documentRecycleBin.operationFailed') };
+      }
       if (!request.current()) return;
+      succeeded++; batchReceipt.value.succeeded = succeeded; batchReceipt.value.items[index]!.outcome = 'succeeded';
+      // 已确认成功项立即移除，补读失败时也不把它们留在旧选择中再次提交。
+      const previousCount = items.value.length;
+      items.value = items.value.filter(row => row.id.toLowerCase() !== item.id.toLowerCase());
+      total.value = Math.max(0, total.value - (previousCount - items.value.length));
+      selectedRows.value = selectedRows.value.filter(row => row.id.toLowerCase() !== item.id.toLowerCase());
     }
     showSuccess(t(action === 'restore' ? 'documentRecycleBin.restoreSuccess' : 'documentRecycleBin.purgeSuccess'));
     await load();
-  } catch (error) { if (request.current()) showProblem(toProblem(error, 'documentRecycleBin.operationFailed'), t('documentRecycleBin.operationFailed')); }
+  } catch (error) {
+    if (request.current()) {
+      const failure = toProblem(error, 'documentRecycleBin.operationFailed');
+      const entry = batchReceipt.value?.items[index];
+      if (entry) { entry.outcome = 'unconfirmed'; entry.errorCode = failure.code; }
+      selectedRows.value = [];
+      showProblem(failure, t('documentRecycleBin.operationFailed'));
+      // 写入可能成功但响应丢失，只补读权威状态，不自动重发该项或后续项目。
+      if (succeeded > 0 || readAfterFailure) await load();
+    }
+  }
   finally { if (request.current()) changing.value = false; request.finish(); }
 }
 
@@ -156,6 +199,18 @@ function toProblem(
       show-icon
       class="art-page-alert"
     />
+
+    <el-card v-if="batchReceipt" data-testid="document-recycle-receipt" shadow="never">
+      <template #header>{{ t(batchReceipt.action === 'restore' ? 'documentRecycleBin.batchRestore' : 'documentRecycleBin.batchPurge') }}</template>
+      <el-alert :title="t('documentRecycleBin.batchSummary', { succeeded: batchReceipt.succeeded, total: batchReceipt.total })"
+        :description="t('documentRecycleBin.receiptHint')" :type="batchReceipt.succeeded === batchReceipt.total ? 'success' : 'info'" :closable="false" />
+      <el-table :data="batchReceipt.items" max-height="240">
+        <el-table-column prop="title" :label="t('documentRecycleBin.titleColumn')" min-width="180" />
+        <el-table-column :label="t('documentRecycleBin.itemResult')" min-width="180">
+          <template #default="{ row }">{{ outcomeLabel(row.outcome) }} <code v-if="row.errorCode" translate="no">{{ row.errorCode }}</code></template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-card class="document-module-toolbar-card" shadow="never">
       <div class="document-module-toolbar">
