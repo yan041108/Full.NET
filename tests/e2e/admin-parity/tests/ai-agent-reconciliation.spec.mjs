@@ -15,6 +15,7 @@ async function setup(page, writable = true) {
     permissions: ['identity.navigation.read', 'ai.agent_runs.read', ...(writable ? ['ai.agent_runs.reconcile'] : [])], sessionId: id(4), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'runs', parentId: null, routeName: 'ai-agent-runs', path: '/ai/agent-runs', componentKey: 'ai-agent-runs', title: 'Agent运行', caption: 'Agent运行', icon: 'chat', order: 1, requiredPermission: 'ai.agent_runs.read', children: [] }]));
   await page.route('**/api/v1/tenancy/available', route => json(route, []));
+  await page.route('**/api/v1/platform/host-dashboard-summary', route => json(route, { activeTenantCount: 0, onlineSessionCount: 1, todayRequestCount: 0, todayErrorRate: 0, recentActivities: [], accessTrafficTrend: null, businessEntries: [] }));
   await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
   await page.route('**/api/v1/ai/model-configs?*', route => json(route, { items: [], page: 1, pageSize: 100, total: 0 }));
   const run = target => ({ id: target, statusKey: target === secondRunId || closed ? 'failed' : 'reconciliation_required', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1,
@@ -32,8 +33,8 @@ async function setup(page, writable = true) {
     if (conflict) { conflict = false; version = 9; return json(route, { type: 'about:blank', title: 'Version conflict', status: 409, code: 'ai.agent_run.version_conflict' }, 409); }
     closed = true; return json(route, true);
   });
-  await page.goto('/ai/agent-runs');
-  await page.getByTestId('ai-agent-runs-id').locator('input').fill(runId);
+  await page.goto('/#/ai/agent-runs');
+  await page.getByTestId('ai-agent-runs-id').fill(runId);
   await page.getByTestId('ai-agent-runs-load').click();
   const panel = page.getByTestId('ai-reconciliation-panel'); await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: '读取账本', exact: true }).click(); await expect(panel).toContainText('2026-09');
@@ -78,7 +79,7 @@ test('版本冲突保留材料，切换运行清除旧账本', async ({ page }) 
   await expect(panel).toContainText('对账处理失败');
   await expect(panel.getByRole('textbox', { name: '核证材料 SHA-256 摘要', exact: true })).toHaveValue(digest);
   await expect(submit(panel)).toBeDisabled();
-  await page.getByTestId('ai-agent-runs-id').locator('input').fill(secondRunId); await page.getByTestId('ai-agent-runs-load').click();
+  await page.getByTestId('ai-agent-runs-id').fill(secondRunId); await page.getByTestId('ai-agent-runs-load').click();
   await expect(panel).toHaveCount(0); expect(writes).toHaveLength(1);
 });
 test('版本冲突必须读取新版本及重新核对才可再提交', async ({ page }) => {
