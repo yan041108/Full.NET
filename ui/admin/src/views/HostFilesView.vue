@@ -74,6 +74,10 @@ const selectedFolder = ref<HostFolderTreeNode | null>(null);
 const selectedFiles = ref<File[]>([]);
 const uploadResults = ref<BatchUploadHostFilesResponse | null>(null);
 const selectedRows = ref<HostFile[]>([]);
+type DeleteOutcome = 'processing' | 'succeeded' | 'failed' | 'unconfirmed';
+const deleteReceipt = ref<{ succeeded: number; total: number; items: { fileId: string; name: string; outcome: DeleteOutcome; errorCode: string | null }[] }>();
+const unconfirmedFileIds = ref(new Set<string>());
+const fileUnconfirmed = (id: string) => unconfirmedFileIds.value.has(id.toLowerCase());
 const previewDialogVisible = ref(false);
 const filePreview = useBlobPreview();
 const previewUrl = filePreview.url;
@@ -92,7 +96,7 @@ const newFolderName = ref('');
 const viewActive = ref(false);
 onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
 onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
-const allowed = (permission: string) => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null && session.can(permission);
+const allowed = (permission: string) => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null && session.can('files.files.read') && session.can(permission);
 const canRead = computed(() => allowed('files.files.read'));
 const canPreview = computed(() => allowed('files.files.read'));
 const hasSelectedRows = computed(() => selectedRows.value.length > 0);
@@ -128,21 +132,25 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 
 watchLoading(loading);
 
-const confirmation = ref<{ title: string; message: string; input: boolean }>();
+let confirmationSequence = 0;
+const confirmation = ref<{ token: number; title: string; message: string; input: boolean; confirm: () => void; dismiss: () => void; update: (open: boolean) => void }>();
 const confirmationInput = ref(''); let settleConfirmation: ((result: { confirmed: boolean; value: string }) => void) | undefined;
-const confirmationOpen = computed({ get: () => !!confirmation.value, set: open => { if (!open) finishConfirmation(false); } });
-function finishConfirmation(confirmed: boolean): void {
+function finishConfirmation(confirmed: boolean, token = confirmation.value?.token): void {
+  if (!confirmation.value || token !== confirmation.value.token) return;
   if (confirmed && confirmation.value?.input && !confirmationInput.value.trim()) return;
   const settle = settleConfirmation; const value = confirmationInput.value.trim(); settleConfirmation = undefined;
   confirmation.value = undefined; confirmationInput.value = ''; settle?.({ confirmed, value });
 }
 function askConfirmation(title: string, message: string, value?: string): Promise<{ confirmed: boolean; value: string }> {
   finishConfirmation(false); confirmationInput.value = value ?? '';
-  return new Promise(resolve => { settleConfirmation = resolve; confirmation.value = { title, message, input: value !== undefined }; });
+  return new Promise(resolve => {
+    const token = ++confirmationSequence; settleConfirmation = resolve; const dismiss = () => finishConfirmation(false, token);
+    confirmation.value = { token, title, message, input: value !== undefined, confirm: () => finishConfirmation(true, token), dismiss, update: open => { if (!open) dismiss(); } };
+  });
 }
 // 文件内容、上传回执、编辑和确认由当前 Host 会话拥有；失效只取消客户端接入，不承诺回滚写入。
 const scope = useAuthorizedViewScope(session, () => {
-  finishConfirmation(false); items.value = []; folderTree.value = []; selectedFolder.value = null;
+  finishConfirmation(false); deleteReceipt.value = undefined; unconfirmedFileIds.value = new Set(); items.value = []; folderTree.value = []; selectedFolder.value = null;
   selectedFiles.value = []; selectedRows.value = []; uploadResults.value = null; page.value = 1; pageSize.value = 20; total.value = 0;
   previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
   metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = [];
@@ -158,7 +166,19 @@ function beginAction(permission: string): ViewRequest {
 }
 function finishAction(request: NonNullable<ViewRequest>): void { if (request === actionRequest && request.current()) changing.value = false; request.finish(); }
 function cancelAction(request: ViewRequest): void { request?.cancel(); if (request && request === actionRequest) { changing.value = false; actionRequest = undefined; } }
-const currentFile = (file: HostFile) => items.value.some(item => item.id === file.id && item.revision === file.revision);
+const findCurrentFile = (file: HostFile) => items.value.find(item => item.id.toLowerCase() === file.id.toLowerCase() && item.revision === file.revision);
+const currentFile = (file: HostFile) => !!findCurrentFile(file);
+function removeConfirmedFiles(ids: string[]): void {
+  const deleted = new Set(ids.map(id => id.toLowerCase()));
+  const previous = items.value.length;
+  items.value = items.value.filter(item => !deleted.has(item.id.toLowerCase()));
+  total.value = Math.max(0, total.value - (previous - items.value.length));
+  selectedRows.value = selectedRows.value.filter(item => !deleted.has(item.id.toLowerCase()));
+}
+function markUnconfirmed(ids: string[]): void {
+  listRequest?.cancel(); loading.value = false;
+  unconfirmedFileIds.value = new Set([...unconfirmedFileIds.value, ...ids.map(id => id.toLowerCase())]);
+}
 function findFolder(id: string, nodes = folderTree.value): HostFolderTreeNode | undefined {
   for (const node of nodes) { if (node.folder?.id === id) return node.folder; const nested = findFolder(id, node.children ?? []); if (nested) return nested; }
   return undefined;
@@ -202,7 +222,7 @@ async function load(): Promise<void> {
   try {
     // 根目录身份不依赖目录树和文件页哪一个先完成。
     const result = await listHostFiles(page.value, pageSize.value, { folderId: selectedFolder.value?.id ?? '', fileNameContains: appliedFilters.value.fileName }, request.signal);
-    if (!request.current()) return; items.value = result.items; total.value = result.total;
+    if (!request.current()) return; items.value = result.items; total.value = result.total; unconfirmedFileIds.value = new Set();
     await nextTick(() => { if (request.current()) updateTableHeight(); });
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { if (request.current()) loading.value = false; request.finish(); }
@@ -250,17 +270,34 @@ async function upload(): Promise<void> {
 }
 
 async function removeSelected(): Promise<void> {
-  const targets = selectedRows.value.map(file => ({ ...file }));
-  if (!targets.length || !targets.every(currentFile)) return; const request = beginAction('files.files.delete'); if (!request) return;
+  if (!selectedRows.value.length || !selectedRows.value.every(row => currentFile(row) && !fileUnconfirmed(row.id))) return;
+  const targets = [...new Map(selectedRows.value.map(row => { const file = findCurrentFile(row)!; return [file.id.toLowerCase(), { ...file }] as const; })).values()];
+  const request = beginAction('files.files.delete'); if (!request) return; let dispatched = false;
   try {
     const answer = await askConfirmation(t('hostFiles.delete'), t('hostFiles.confirmBatchDelete', { count: targets.length }));
     if (!answer.confirmed || !request.current() || !targets.every(currentFile)) return;
+    listRequest?.cancel(); loading.value = false; dispatched = true;
+    deleteReceipt.value = { succeeded: 0, total: targets.length, items: targets.map(file => ({ fileId: file.id, name: file.originalFileName, outcome: 'processing', errorCode: null })) };
     const result = await batchDeleteHostFiles(targets.map(file => file.id), request.signal); if (!request.current()) return;
-    ElMessage.success(t('hostFiles.batchDeleteSummary', { succeeded: result.succeededCount, total: result.results.length }));
-    if (result.succeededCount < result.results.length) ElMessage.warning(result.results.filter(item => !item.succeeded).map(item => item.errorCode ?? item.message ?? '').join('\n'));
-    selectedRows.value = []; if (request.current()) await load();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
-  finally { finishAction(request); }
+    // 回执按目标重排，不把未知服务端 message 当作用户可展示文本。
+    const outcomes = new Map(result.results.map(item => [item.fileId.toLowerCase(), item]));
+    if (result.results.length !== targets.length || outcomes.size !== targets.length || targets.some(file => !outcomes.has(file.id.toLowerCase()))
+      || result.results.filter(item => item.succeeded).length !== result.succeededCount) throw new Error('client.invalid_host_file_delete_batch');
+    deleteReceipt.value = { succeeded: result.succeededCount, total: targets.length, items: targets.map(file => { const item = outcomes.get(file.id.toLowerCase())!;
+      return { fileId: file.id, name: file.originalFileName, outcome: item.succeeded ? 'succeeded' : 'failed', errorCode: item.errorCode }; }) };
+    listRequest?.cancel(); loading.value = false; removeConfirmedFiles(result.results.filter(item => item.succeeded).map(item => item.fileId));
+    const summary = t('hostFiles.batchDeleteSummary', { succeeded: result.succeededCount, total: targets.length });
+    if (result.succeededCount === targets.length) ElMessage.success(summary); else ElMessage.warning(summary);
+    selectedRows.value = []; await load();
+  } catch (error) {
+    if (request.current()) {
+      if (dispatched) {
+        markUnconfirmed(targets.map(file => file.id));
+        deleteReceipt.value = { succeeded: 0, total: targets.length, items: targets.map(file => ({ fileId: file.id, name: file.originalFileName, outcome: 'unconfirmed', errorCode: null })) };
+      }
+      problem.value = toProblem(error, 'hostFiles.operationFailed');
+    }
+  } finally { finishAction(request); }
 }
 
 async function preview(file: HostFile): Promise<void> {
@@ -326,15 +363,22 @@ async function openReferences(item: HostFile): Promise<void> {
   finally { finishAction(request); }
 }
 async function remove(item: HostFile): Promise<void> {
-  if (!currentFile(item)) return; const target = { ...item }; const request = beginAction('files.files.delete'); if (!request) return;
+  const current = findCurrentFile(item); if (!current || fileUnconfirmed(current.id)) return;
+  const target = { ...current }; const request = beginAction('files.files.delete'); if (!request) return; let dispatched = false;
   try {
     const answer = await askConfirmation(t('hostFiles.delete'), t('hostFiles.confirmDelete', { name: target.originalFileName }));
     if (!answer.confirmed || !request.current() || !currentFile(target)) return;
-    await deleteHostFile(target.id, request.signal); if (!request.current()) return;
-    ElMessage.success(t('hostFiles.deleteSuccess')); if (request.current()) await load();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
-  finally { finishAction(request); }
+    listRequest?.cancel(); loading.value = false; dispatched = true;
+    const deleted = await deleteHostFile(target.id, request.signal); if (!request.current()) return;
+    if (deleted.id.toLowerCase() !== target.id.toLowerCase()) throw new Error('client.invalid_host_file_identity');
+    listRequest?.cancel(); loading.value = false; removeConfirmedFiles([target.id]);
+    ElMessage.success(t('hostFiles.deleteSuccess')); await load();
+  } catch (error) { if (request.current()) {
+    if (dispatched) markUnconfirmed([target.id]);
+    problem.value = { ...toProblem(error, 'hostFiles.operationFailed'), detail: t('hostFiles.deleteReceiptHint') };
+  } } finally { finishAction(request); }
 }
+
 async function download(item: HostFile): Promise<void> {
   if (!currentFile(item)) return; const request = beginAction('files.files.download'); if (!request) return;
   try { const blob = await downloadHostFileContent(item.id, request.signal); if (request.current()) openHostFileBlob(blob, item.originalFileName); }
@@ -355,6 +399,7 @@ function toProblem(
 <template>
   <section v-if="canRead" class="host-files-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostFiles.title') }}</h1>
+    <p v-if="unconfirmedFileIds.size && !deleteReceipt" role="status">{{ t('hostFiles.deleteReceiptHint') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -439,6 +484,19 @@ function toProblem(
           </el-card>
         </PermissionGate>
 
+        <el-card v-if="deleteReceipt" shadow="never" data-testid="host-files-delete-receipt">
+          <h2>{{ t('hostFiles.deleteReceiptTitle') }}</h2>
+          <p>{{ t('hostFiles.batchDeleteSummary', { succeeded: deleteReceipt.succeeded, total: deleteReceipt.total }) }}</p>
+          <p>{{ t('hostFiles.deleteReceiptHint') }}</p>
+          <el-table :data="deleteReceipt.items" :max-height="200" size="small">
+            <el-table-column prop="name" :label="t('hostFiles.fileName')" />
+            <el-table-column :label="t('hostFiles.deleteResult')"><template #default="{ row }">
+              {{ t(row.outcome === 'succeeded' ? 'hostFiles.deleteSucceeded' : row.outcome === 'failed' ? 'hostFiles.deleteFailed' : row.outcome === 'processing' ? 'hostFiles.deleteProcessing' : 'hostFiles.deleteUnconfirmed') }}
+            </template></el-table-column>
+            <el-table-column prop="errorCode" :label="t('hostFiles.errorCode')" />
+          </el-table>
+        </el-card>
+
         <ArtSearchBar
           v-model="searchForm"
           :items="searchItems"
@@ -467,7 +525,7 @@ function toProblem(
                   <el-button
                     type="danger"
                     plain
-                    :disabled="!hasSelectedRows || changing"
+                    :disabled="!hasSelectedRows || changing || selectedRows.some(row => fileUnconfirmed(row.id))"
                     data-testid="host-files-batch-delete"
                     @click="removeSelected"
                   >
@@ -548,7 +606,7 @@ function toProblem(
                           plain
                           size="small"
                           data-testid="host-files-delete"
-                          :disabled="changing"
+                          :disabled="changing || fileUnconfirmed(row.id)"
                           @click="remove(row as HostFile)"
                         >
                           {{ t('hostFiles.delete') }}
@@ -579,14 +637,15 @@ function toProblem(
       </div>
     </div>
 
-    <el-dialog v-model="confirmationOpen" :title="confirmation?.title" width="460px" :close-on-click-modal="false">
+    <el-dialog v-if="confirmation" :key="confirmation.token" :model-value="true" :title="confirmation.title" width="460px" :close-on-click-modal="false"
+      v-on="{ 'update:modelValue': confirmation.update }">
       <p data-testid="host-files-confirm-message">{{ confirmation?.message }}</p>
       <el-form v-if="confirmation?.input"><el-form-item :label="t('hostFiles.folderName')" required>
         <el-input v-model="confirmationInput" data-testid="host-files-confirm-input" />
       </el-form-item></el-form>
       <template #footer>
-        <el-button data-testid="host-files-confirm-dismiss" @click="finishConfirmation(false)">{{ t('common.cancel') }}</el-button>
-        <el-button type="warning" data-testid="host-files-confirm-accept" :disabled="confirmation?.input && !confirmationInput.trim()" @click="finishConfirmation(true)">{{ t('common.confirm') }}</el-button>
+        <el-button data-testid="host-files-confirm-dismiss" v-on="{ click: confirmation.dismiss }">{{ t('common.cancel') }}</el-button>
+        <el-button type="warning" data-testid="host-files-confirm-accept" :disabled="confirmation?.input && !confirmationInput.trim()" v-on="{ click: confirmation.confirm }">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
     <el-dialog v-model="metadataDialogVisible" :title="t('hostFiles.editMetadata')" width="480px">

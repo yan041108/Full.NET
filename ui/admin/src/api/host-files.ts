@@ -75,7 +75,20 @@ export async function batchDeleteHostFiles(
   fileIds: string[],
   signal?: AbortSignal
 ): Promise<BatchDeleteHostFilesResponse> {
-  return filesBatchDeleteHostFiles(http, { body: { fileIds } }, signal);
+  const ids = [...fileIds];
+  const result = await filesBatchDeleteHostFiles(http, { body: { fileIds: ids } }, signal);
+  // 服务端逐请求项返回；按多重集合核对身份，合法乱序与 UUID 大小写差异不改变归属。
+  const remaining = new Map<string, number>();
+  for (const id of ids) remaining.set(id.toLowerCase(), (remaining.get(id.toLowerCase()) ?? 0) + 1);
+  let succeeded = 0;
+  if (result.results.length !== ids.length) throw new Error('client.invalid_host_file_delete_batch');
+  for (const item of result.results) {
+    const id = item.fileId.toLowerCase(), count = remaining.get(id) ?? 0;
+    if (!count) throw new Error('client.invalid_host_file_delete_batch');
+    remaining.set(id, count - 1); if (item.succeeded) succeeded++;
+  }
+  if (succeeded !== result.succeededCount) throw new Error('client.invalid_host_file_delete_batch');
+  return result;
 }
 
 /** 拉取可安全预览的文件内容。 */
@@ -108,6 +121,7 @@ export async function deleteHostFile(
 ): Promise<HostFile> {
   const value = await filesDeleteHostFile(http, { fileId: id }, signal);
   if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_host_file_identity');
   return value;
 }
 
