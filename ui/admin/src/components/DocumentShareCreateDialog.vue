@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
-import { ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
+import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import type { HostDocumentItemResponse, HostDocumentShareResponse } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
-import { showError, showWarning } from '../feedback/fullNetMessage';
+import { showError, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentItems } from '../api/host-document-items';
 import { batchCreateDocumentShares, createDocumentShare } from '../api/document-shares';
@@ -27,11 +27,15 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   created: [share: HostDocumentShareResponse, shareUrl: string];
   batchCreated: [succeededCount: number, total: number];
+  viewShares: [];
 }>();
 
 const { t } = useAdminI18n();
 const session = useSessionStore();
-const canCreate = computed(() => session.currentUser?.scope === 'host'
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const canCreate = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null
   && session.can(props.parentReadPermission ?? 'document.host_shares.read')
   && session.can('document.host_shares.create'));
 const accepting = ref(false);
@@ -39,6 +43,8 @@ let initialized = false;
 const saving = ref(false);
 const documentOptions = ref<HostDocumentItemResponse[]>([]);
 const optionsLoading = ref(false);
+interface BatchReceiptItem { documentId: string; title: string; succeeded: boolean; errorCode: string | null; url: string | null; }
+const batchReceipt = ref<{ succeeded: number; total: number; items: BatchReceiptItem[] }>();
 const editorForm = reactive({
   documentId: '',
   validDays: '7',
@@ -55,6 +61,7 @@ const documentSelectDisabled = computed(
 
 function resetEditor(): void {
   accepting.value = false; saving.value = false; optionsLoading.value = false; documentOptions.value = [];
+  batchReceipt.value = undefined;
   Object.assign(editorForm, { documentId: '', validDays: '7', password: '', maxAccessCount: '' });
 }
 const scope = useAuthorizedViewScope(session, () => {
@@ -72,6 +79,7 @@ const dialogOpen = computed({
   }
 });
 function initializeEditor(): void {
+  if (!viewActive.value) return;
   initialized = true;
   resetEditor();
   if (!canCreate.value) return;
@@ -112,7 +120,7 @@ function documentOptionLabel(item: HostDocumentItemResponse): string {
 }
 
 async function submitCreate() {
-  if (saving.value || !props.open || !accepting.value || !canCreate.value) return;
+  if (saving.value || batchReceipt.value || !props.open || !accepting.value || !canCreate.value) return;
   const documentIds = isBatchPreset.value
     ? lockedDocuments.value.map(item => item.id)
     : [(lockedDocument.value?.id ?? editorForm.documentId).trim()].filter(Boolean);
@@ -133,6 +141,7 @@ async function submitCreate() {
     return;
   }
   const password = editorForm.password.trim() || null;
+  const titles = new Map(lockedDocuments.value.map(item => [item.id.toLowerCase(), item.title]));
   const request = scope.begin('document.host_shares.create');
   if (!request) return;
   saving.value = true;
@@ -145,8 +154,14 @@ async function submitCreate() {
         maxAccessCount
       }, request.signal);
       if (!request.current() || !props.open || !canCreate.value) return;
+      // 保留逐文档结果供用户核对；不自动重交整批，避免成功项重复创建。
+      batchReceipt.value = { succeeded: batch.succeededCount, total: documentIds.length, items: batch.results.map(item => ({
+        documentId: item.documentId, title: titles.get(item.documentId.toLowerCase()) ?? item.documentId,
+        succeeded: item.succeeded, errorCode: item.errorCode,
+        url: item.succeeded && item.share ? buildDocumentShareUrl(item.share.shareCode) : null
+      })) };
+      editorForm.password = '';
       emit('batchCreated', batch.succeededCount, documentIds.length);
-      dialogOpen.value = false;
       return;
     }
     const share = await createDocumentShare({
@@ -166,20 +181,51 @@ async function submitCreate() {
     request.finish();
   }
 }
+
+async function copyReceiptLink(url: string): Promise<void> {
+  if (!props.open || !accepting.value || !canCreate.value || !batchReceipt.value?.items.some(item => item.succeeded && item.url === url)) return;
+  const request = scope.begin('document.host_shares.create'); if (!request) return;
+  try { await navigator.clipboard.writeText(url); if (request.current()) showSuccess(t('documentShares.copyLinkSuccess')); }
+  catch { if (request.current()) showError(t('documentShares.operationFailed')); }
+  finally { request.finish(); }
+}
+function viewShares(): void {
+  if (!batchReceipt.value || !props.open || !accepting.value || !canCreate.value || !session.can('document.host_shares.read')) return;
+  emit('viewShares'); dialogOpen.value = false;
+}
 </script>
 
 <template>
   <ArtFormDialog
     v-model:open="dialogOpen"
-    :title="t('documentShares.createDialogTitle')"
+    :title="t(batchReceipt ? 'documentShares.batchResultsTitle' : 'documentShares.createDialogTitle')"
     :saving="saving"
     :confirm-label="t('users.confirm')"
-    :cancel-label="t('users.cancel')"
+    :cancel-label="t(batchReceipt ? 'documentShares.closeReceipt' : 'users.cancel')"
     confirm-test-id="document-share-editor-submit"
-    :show-confirm="canCreate"
+    :show-confirm="canCreate && !batchReceipt"
     @confirm="submitCreate"
   >
-    <el-form :disabled="saving" data-testid="document-share-editor-form" label-width="120px">
+    <section v-if="batchReceipt" data-testid="document-share-batch-receipt">
+      <ElAlert :title="t('documentShares.batchCreateResult', { succeeded: batchReceipt.succeeded, total: batchReceipt.total })" :type="batchReceipt.succeeded === batchReceipt.total ? 'success' : 'warning'" :closable="false" />
+      <ElTable :data="batchReceipt.items" max-height="320">
+        <ElTableColumn prop="title" :label="t('documentShares.documentTitle')" min-width="160" />
+        <ElTableColumn :label="t('documentShares.batchItemResult')" min-width="180">
+          <template #default="{ row }">
+            <span>{{ t(row.succeeded ? 'documentShares.batchItemCreated' : 'documentShares.batchItemFailed') }}</span>
+            <code v-if="!row.succeeded && row.errorCode" translate="no"> {{ row.errorCode }}</code>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn :label="t('documentShares.shareLink')" min-width="240">
+          <template #default="{ row }"><template v-if="row.url">
+            <ElInput :model-value="row.url" readonly />
+            <ElButton data-testid="document-share-receipt-copy" @click="copyReceiptLink(row.url)">{{ t('documentShares.copyLink') }}</ElButton>
+          </template></template>
+        </ElTableColumn>
+      </ElTable>
+      <ElButton v-if="session.can('document.host_shares.read')" data-testid="document-share-receipt-view" @click="viewShares">{{ t('documentShares.viewShares') }}</ElButton>
+    </section>
+    <el-form v-else :disabled="saving" data-testid="document-share-editor-form" label-width="120px">
       <el-form-item v-if="isBatchPreset" :label="t('documentShares.documentLabel')">
         <ul class="document-share-create-dialog__batch-list">
           <li v-for="item in lockedDocuments" :key="item.id" translate="no">

@@ -128,7 +128,7 @@ const canRollbackVersion = computed(() => allowed('document.host_documents.rollb
 const canDeleteVersion = computed(() => allowed('document.host_documents.delete_version'));
 const canDownload = computed(() => allowed('document.host_documents.download'));
 const canCreatePreviewTask = computed(() => allowed('document.host_preview_tasks.create'));
-const canCreateShare = computed(() => session.currentUser?.scope === 'host'
+const canCreateShare = computed(() => inHost()
   && session.can('document.host_documents.read') && session.can('document.host_shares.create'));
 const canRead = computed(() => allowed('document.host_documents.read'));
 const shareDialogOpen = ref(false);
@@ -344,14 +344,20 @@ function onShareBatchCreated(succeeded: number, total: number): void {
   try {
     sessionStorage.setItem(
       DOCUMENT_SHARE_BATCH_HINT_KEY,
-      JSON.stringify({ succeeded, total })
+      JSON.stringify({ succeeded, total, userId: session.currentUser?.id, sessionId: session.currentUser?.sessionId })
     );
   } catch {
     // 忽略 sessionStorage 不可用场景
   }
-  shareBatchTargets.value = [];
   selectedItems.value = [];
-  if (session.can('document.host_shares.read')) void router.push({ name: 'document-shares' });
+  // 逐文档回执仍在创建弹窗内展示，保持预设不变，不在结果到达时自动跳页。
+}
+
+function viewCreatedShares(): void {
+  if (!canCreateShare.value || !session.can('document.host_shares.read')) return;
+  const request = shareScope.begin('document.host_shares.read'); if (!request) return;
+  request.finish(); shareDialogOpen.value = false;
+  void router.push({ name: 'document-shares' });
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrl: string): Promise<void> {
@@ -1230,6 +1236,7 @@ function toProblem(
       :preset-documents="shareBatchTargets.length > 0 ? shareBatchTargets : null"
       @created="onShareCreated"
       @batch-created="onShareBatchCreated"
+      @view-shares="viewCreatedShares"
     />
   </section>
 </template>

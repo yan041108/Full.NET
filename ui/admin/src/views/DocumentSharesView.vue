@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -69,12 +69,16 @@ function consumeBatchShareHint(): void {
       return;
     }
     sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
-    const parsed = JSON.parse(raw) as { succeeded?: number; total?: number };
-    if (typeof parsed.succeeded === 'number' && typeof parsed.total === 'number') {
+    const parsed = JSON.parse(raw) as { succeeded?: number; total?: number; userId?: string; sessionId?: string };
+    // 提示属于创建时账号和会话，旧格式、旧会话或畸形计数不能带入当前页面。
+    if (parsed && parsed.userId === session.currentUser?.id && parsed.sessionId === session.currentUser?.sessionId
+      && typeof parsed.succeeded === 'number' && typeof parsed.total === 'number'
+      && Number.isSafeInteger(parsed.succeeded) && Number.isSafeInteger(parsed.total)
+      && parsed.succeeded >= 0 && parsed.total > 0 && parsed.succeeded <= parsed.total) {
       batchShareHint.value = { succeeded: parsed.succeeded, total: parsed.total };
     }
   } catch {
-    sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
+    // 存储不可用只放弃临时提示，不能阻断当前会话的列表与目录读取。
   }
 }
 
@@ -129,7 +133,11 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_shares.read'));
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null
+  && session.can('document.host_shares.read'));
 const canCreate = () => canRead.value && session.can('document.host_shares.create');
 const canUpdateStatus = () => canRead.value && session.can('document.host_shares.update_status');
 const scope = useAuthorizedViewScope(session, () => {
@@ -257,7 +265,7 @@ async function onShareCreated(_share: HostDocumentShareResponse, shareUrlValue: 
 }
 
 async function copyShareLink(url: string) {
-  if (!canRead.value) return;
+  if (!canRead.value || !items.value.some(row => shareUrl(row) === url)) return;
   const request = scope.begin('document.host_shares.read');
   if (!request) return;
   try {
@@ -270,12 +278,16 @@ async function copyShareLink(url: string) {
 
 async function toggleStatus(row: HostDocumentShareResponse) {
   if (changing.value || !canUpdateStatus()) return;
+  const target = { id: row.id, version: row.version, isEnabled: row.isEnabled, documentId: row.documentId };
+  if (!items.value.some(item => item.id === target.id && item.version === target.version && item.isEnabled === target.isEnabled)) return;
   const request = scope.begin('document.host_shares.update_status');
   if (!request) return;
   changing.value = true;
   try {
-    await updateDocumentShareStatus(row.id, { isEnabled: !row.isEnabled, version: row.version }, request.signal);
+    const result = await updateDocumentShareStatus(target.id, { isEnabled: !target.isEnabled, version: target.version }, request.signal);
     if (!request.current()) return;
+    if (result.id.toLowerCase() !== target.id.toLowerCase() || result.documentId.toLowerCase() !== target.documentId.toLowerCase()
+      || result.isEnabled !== !target.isEnabled) throw new Error('client.invalid_document_share_identity');
     showSuccess(t('documentShares.updateSuccess'));
     await load();
   } catch (error) {
