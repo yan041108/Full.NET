@@ -47,7 +47,7 @@ describe('ReportingDataSourcesView', () => {
     wrapper.unmount();
   });
   it('opens the create dialog with the exact permission through the real header', async () => {
-    const wrapper = mountView(['reporting.data_sources.create']);
+    const wrapper = mountView(['reporting.data_sources.read', 'reporting.data_sources.create']);
     await flushPromises();
     await wrapper.get('[data-testid="reporting-data-source-create"]').trigger('click');
     expect(wrapper.getComponent({ name: 'ArtFormDialog' }).props('open')).toBe(true);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -63,9 +63,8 @@ const ReportingTenantGrantsDialog = defineAsyncComponent(() => import('../compon
 const grantDefinition = ref<ReportingDefinition>();
 
 function openGrants(definition: ReportingDefinition): void {
-  if (session.currentUser?.scope !== 'host' || session.currentUser.tenantId !== null
-    || !session.can('reporting.definitions.read') || !session.can('reporting.definitions.grant_tenants')) return;
-  grantDefinition.value = definition;
+  if (!canRead.value || !currentDefinition(definition) || acting.value || !session.can('reporting.definitions.grant_tenants')) return;
+  grantDefinition.value = { ...definition };
 }
 const groups = ref<ReportingGroup[]>([]);
 const definitions = ref<ReportingDefinition[]>([]);
@@ -103,6 +102,8 @@ const definitionForm = reactive({
 });
 const publishNote = ref('');
 const versionsDrawerOpen = ref(false);
+const definitionGroupId = ref<string>();
+const versionTarget = ref<ReportingDefinition>();
 
 const {
   tableMainRef,
@@ -148,6 +149,7 @@ const compatibleDataSources = computed(() => {
     port.supportedProviderKeys.includes(option.providerKey));
 });
 
+// 端口默认值必须同步写入，避免打开已有定义后异步覆盖随后恢复的自定义参数。
 watch(() => definitionForm.queryPortKey, queryPortKey => {
   const port = queryPorts.value.find(item => item.queryPortKey === queryPortKey);
   if (!port) {
@@ -161,7 +163,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
     isRequired: parameter.isRequired,
     defaultValue: parameter.defaultValue
   }));
-});
+}, { flush: 'sync' });
 
 
 
@@ -170,12 +172,18 @@ const confirmation = ref<{ title: string; message: string; resolve: (confirmed: 
 function finishConfirmation(confirmed: boolean): void {
   const pending = confirmation.value; confirmation.value = undefined; pending?.resolve(confirmed);
 }
-const host = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; });
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
+onBeforeUnmount(() => { viewActive.value = false; });
+const host = () => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const canRead = computed(() => host() && session.can('reporting.definitions.read'));
 const scope = useAuthorizedViewScope(session, () => {
   // 确认提示与编辑凭据属于当前会话，失效时立即清除并解除等待。
   finishConfirmation(false);
   groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = [];
-  selectedGroupId.value = undefined; versions.value = []; grantDefinition.value = undefined;
+  selectedGroupId.value = undefined; versions.value = []; grantDefinition.value = undefined; versionTarget.value = undefined; definitionGroupId.value = undefined;
   groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false;
   editingGroup.value = null; editingDefinition.value = null; groupForm.name = ''; groupForm.sortOrder = '0'; groupForm.isEnabled = true;
   Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '',
@@ -184,7 +192,7 @@ const scope = useAuthorizedViewScope(session, () => {
   loading.value = false; acting.value = false; problem.value = undefined;
 }, loadPage);
 type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;
-const begin = (permission: string) => host() ? scope.begin(permission) : undefined;
+const begin = (permission: string) => canRead.value ? scope.begin(permission) : undefined;
 function canEnter(permission: string): boolean {
   const request = begin(permission); request?.finish(); return !!request;
 }
@@ -193,12 +201,30 @@ let listRequest: ReturnType<typeof scope.begin>;
 let groupRequest: ReturnType<typeof scope.begin>;
 let definitionRequest: ReturnType<typeof scope.begin>;
 let versionRequest: ReturnType<typeof scope.begin>;
-watch(groupEditorOpen, open => { if (!open) { groupRequest?.cancel(); editingGroup.value = null;
-  groupForm.name = ''; groupForm.sortOrder = '0'; acting.value = false; } }, { flush: 'sync' });
-watch(definitionEditorOpen, open => { if (!open) { definitionRequest?.cancel(); editingDefinition.value = null;
+let actionRequest: ReturnType<typeof scope.begin>;
+function cancelAction(request: typeof actionRequest): void {
+  request?.cancel(); if (request && actionRequest === request) { actionRequest = undefined; acting.value = false; }
+}
+function currentGroup(target: Pick<ReportingGroup, 'id' | 'version'>): boolean {
+  return groups.value.some(row => row.id === target.id && row.version === target.version);
+}
+function currentDefinition(target: Pick<ReportingDefinition, 'id' | 'version'>): boolean {
+  return definitions.value.some(row => row.id === target.id && row.version === target.version);
+}
+watch(groupEditorOpen, open => { if (!open) { cancelAction(groupRequest); groupRequest = undefined; editingGroup.value = null;
+  groupForm.name = ''; groupForm.sortOrder = '0'; groupForm.isEnabled = true; } }, { flush: 'sync' });
+watch(definitionEditorOpen, open => { if (!open) { cancelAction(definitionRequest); definitionRequest = undefined; editingDefinition.value = null; definitionGroupId.value = undefined;
   Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '',
-    layoutConfigJson: '{}', parameterSchema: [] }); publishNote.value = ''; acting.value = false; } }, { flush: 'sync' });
-watch(versionsDrawerOpen, open => { if (!open) { versionRequest?.cancel(); versions.value = []; acting.value = false; } }, { flush: 'sync' });
+    layoutConfigJson: '{}', isEnabled: true, parameterSchema: [] }); publishNote.value = ''; } }, { flush: 'sync' });
+watch(versionsDrawerOpen, open => { if (!open) { cancelAction(versionRequest); versionRequest = undefined; versions.value = []; versionTarget.value = undefined; } }, { flush: 'sync' });
+// 分组只负责导航，不能把已经打开的编辑意图静默搬到另一分组。
+watch(selectedGroupId, () => { definitionEditorOpen.value = false; versionsDrawerOpen.value = false; grantDefinition.value = undefined; }, { flush: 'sync' });
+watch(groups, () => { if (editingGroup.value && !currentGroup(editingGroup.value)) groupEditorOpen.value = false; }, { flush: 'sync', deep: true });
+watch(definitions, () => {
+  if (editingDefinition.value && !currentDefinition(editingDefinition.value)) definitionEditorOpen.value = false;
+  if (versionTarget.value && !currentDefinition(versionTarget.value)) versionsDrawerOpen.value = false;
+  if (grantDefinition.value && !currentDefinition(grantDefinition.value)) grantDefinition.value = undefined;
+}, { flush: 'sync', deep: true });
 async function withAction(permission: string, action: (request: ViewRequest) => Promise<void>,
   editor?: 'group' | 'definition' | 'versions', fallback: Parameters<typeof t>[0] = 'reportingDefinitions.saveFailed'): Promise<void> {
   if (acting.value) return;
@@ -206,7 +232,7 @@ async function withAction(permission: string, action: (request: ViewRequest) => 
   if (editor === 'group') groupRequest = request;
   if (editor === 'definition') definitionRequest = request;
   if (editor === 'versions') versionRequest = request;
-  acting.value = true; problem.value = undefined;
+  actionRequest = request; acting.value = true; problem.value = undefined;
   try { await action(request); }
   catch (error) {
     if (request.current()) {
@@ -215,7 +241,7 @@ async function withAction(permission: string, action: (request: ViewRequest) => 
       if (editor === 'versions') versionsDrawerOpen.value = false;
     }
   }
-  finally { if (request.current()) acting.value = false; request.finish(); }
+  finally { if (request.current() && actionRequest === request) { acting.value = false; actionRequest = undefined; } request.finish(); }
 }
 
 async function loadPage(): Promise<void> {
@@ -236,7 +262,7 @@ async function loadPage(): Promise<void> {
     if (!request.current()) return;
     groups.value = groupRows; definitions.value = definitionRows; queryPorts.value = portRows;
     dataSourceOptions.value = dataSourcePage.items.map(item => ({ value: item.id, label: item.name, providerKey: item.providerKey }));
-    if (!selectedGroupId.value && groups.value.length > 0) selectedGroupId.value = groups.value[0]?.id;
+    if (!groups.value.some(row => row.id === selectedGroupId.value)) selectedGroupId.value = groups.value[0]?.id;
     await updateTableHeight();
   } catch (error) { if (request.current()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
   finally { if (request.current()) loading.value = false; request.finish(); }
@@ -256,6 +282,7 @@ function resetSearch(): void {
 
 function openCreateGroup(): void {
   if (acting.value || !canEnter('reporting.groups.create')) return;
+  definitionEditorOpen.value = false; versionsDrawerOpen.value = false; groupEditorOpen.value = false;
   groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
@@ -265,9 +292,10 @@ function openCreateGroup(): void {
 }
 
 function openEditGroup(group: ReportingGroup): void {
-  if (acting.value || !canEnter('reporting.groups.update')) return;
+  if (acting.value || !currentGroup(group) || !canEnter('reporting.groups.update')) return;
+  definitionEditorOpen.value = false; versionsDrawerOpen.value = false; groupEditorOpen.value = false;
   groupEditorMode.value = 'edit';
-  editingGroup.value = group;
+  editingGroup.value = { ...group };
   groupForm.name = group.name;
   groupForm.sortOrder = String(group.sortOrder);
   groupForm.isEnabled = group.isEnabled;
@@ -276,16 +304,20 @@ function openEditGroup(group: ReportingGroup): void {
 
 async function submitGroup(): Promise<void> {
   if (!groupEditorOpen.value || !groupFormRef.value) return;
-  await withAction(groupEditorMode.value === 'create' ? 'reporting.groups.create' : 'reporting.groups.update', async request => {
+  const mode = groupEditorMode.value; const target = editingGroup.value ? { ...editingGroup.value } : undefined;
+  if (mode === 'edit' && (!target || !currentGroup(target))) return;
+  await withAction(mode === 'create' ? 'reporting.groups.create' : 'reporting.groups.update', async request => {
     const valid = await groupFormRef.value!.validate().catch(() => false); if (!valid || !request.current()) return;
     const payload = { name: groupForm.name.trim(), sortOrder: Number.parseInt(groupForm.sortOrder, 10) || 0, isEnabled: groupForm.isEnabled };
-    if (groupEditorMode.value === 'create') {
+    if (mode === 'create') {
       const created = await createReportingGroup(payload, request.signal); if (!request.current()) return;
       groups.value = [...groups.value, created]; selectedGroupId.value = created.id;
       ElMessage.success(t('reportingDefinitions.groupCreateSuccess'));
-    } else if (editingGroup.value) {
-      const updated = await updateReportingGroup(editingGroup.value.id, { ...payload, version: editingGroup.value.version }, request.signal);
+    } else if (target && currentGroup(target)) {
+      const updated = await updateReportingGroup(target.id, { ...payload, version: target.version }, request.signal);
       if (!request.current()) return;
+      if (updated.id !== target.id) throw new Error('client.invalid_reporting_group');
+      groupEditorOpen.value = false;
       groups.value = groups.value.map(item => item.id === updated.id ? updated : item); ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
     } else return;
     groupEditorOpen.value = false;
@@ -293,14 +325,16 @@ async function submitGroup(): Promise<void> {
 }
 
 async function confirmDeleteGroup(row: ReportingGroup): Promise<void> {
+  const target = { ...row }; if (!currentGroup(target)) return;
   await withAction('reporting.groups.delete', async request => {
     const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
-      title: t('reportingDefinitions.fieldGroupName'), message: t('reportingDefinitions.confirmDeleteGroup', { name: row.name }), resolve }; });
-    if (!confirmed || !request.current()) return;
-    await deleteReportingGroup(row.id, request.signal); if (!request.current()) return;
-    groups.value = groups.value.filter(item => item.id !== row.id);
-    definitions.value = definitions.value.filter(item => item.groupId !== row.id);
-    if (selectedGroupId.value === row.id) selectedGroupId.value = groups.value[0]?.id;
+      title: t('reportingDefinitions.fieldGroupName'), message: t('reportingDefinitions.confirmDeleteGroup', { name: target.name }), resolve }; });
+    if (!confirmed || !request.current() || !currentGroup(target)) return;
+    if (!await deleteReportingGroup(target.id, request.signal)) throw new Error('client.reporting_group_delete_failed');
+    if (!request.current()) return;
+    groups.value = groups.value.filter(item => item.id !== target.id);
+    definitions.value = definitions.value.filter(item => item.groupId !== target.id);
+    if (selectedGroupId.value === target.id) selectedGroupId.value = groups.value[0]?.id;
     ElMessage.success(t('reportingDefinitions.groupDeleteSuccess'));
   });
 }
@@ -311,22 +345,26 @@ function openCreateDefinition(): void {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
   }
+  groupEditorOpen.value = false; versionsDrawerOpen.value = false; definitionEditorOpen.value = false;
+  definitionGroupId.value = selectedGroupId.value;
   definitionEditorMode.value = 'create';
   editingDefinition.value = null;
   definitionForm.definitionKey = '';
   definitionForm.name = '';
   definitionForm.description = '';
-  definitionForm.dataSourceId = compatibleDataSources.value[0]?.value ?? '';
   definitionForm.queryPortKey = queryPorts.value[0]?.queryPortKey ?? '';
+  definitionForm.dataSourceId = compatibleDataSources.value[0]?.value ?? '';
   definitionForm.layoutConfigJson = '{}';
   definitionForm.isEnabled = true;
   definitionEditorOpen.value = true;
 }
 
 function openEditDefinition(definition: ReportingDefinition): void {
-  if (acting.value || !canEnter('reporting.definitions.update')) return;
+  if (acting.value || !currentDefinition(definition) || !canEnter('reporting.definitions.update')) return;
+  groupEditorOpen.value = false; versionsDrawerOpen.value = false; definitionEditorOpen.value = false;
+  definitionGroupId.value = definition.groupId;
   definitionEditorMode.value = 'edit';
-  editingDefinition.value = definition;
+  editingDefinition.value = { ...definition, parameterSchema: definition.parameterSchema.map(item => ({ ...item })) };
   definitionForm.definitionKey = definition.definitionKey;
   definitionForm.name = definition.name;
   definitionForm.description = definition.description ?? '';
@@ -339,19 +377,24 @@ function openEditDefinition(definition: ReportingDefinition): void {
 }
 
 async function submitDefinition(): Promise<void> {
-  if (!definitionEditorOpen.value || !definitionFormRef.value || !selectedGroupId.value) return;
-  await withAction(definitionEditorMode.value === 'create' ? 'reporting.definitions.create' : 'reporting.definitions.update', async request => {
+  if (!definitionEditorOpen.value || !definitionFormRef.value || !definitionGroupId.value) return;
+  const mode = definitionEditorMode.value; const groupId = definitionGroupId.value;
+  const target = editingDefinition.value ? { ...editingDefinition.value } : undefined;
+  if (mode === 'edit' && (!target || !currentDefinition(target))) return;
+  await withAction(mode === 'create' ? 'reporting.definitions.create' : 'reporting.definitions.update', async request => {
     const valid = await definitionFormRef.value!.validate().catch(() => false); if (!valid || !request.current()) return;
-    const payload = { groupId: selectedGroupId.value!, dataSourceId: definitionForm.dataSourceId, name: definitionForm.name.trim(),
+    const payload = { groupId, dataSourceId: definitionForm.dataSourceId, name: definitionForm.name.trim(),
       description: definitionForm.description.trim() || null, queryPortKey: definitionForm.queryPortKey,
       parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })), layoutConfigJson: definitionForm.layoutConfigJson, isEnabled: definitionForm.isEnabled };
-    if (definitionEditorMode.value === 'create') {
+    if (mode === 'create') {
       const created = await createReportingDefinition({ ...payload, definitionKey: definitionForm.definitionKey.trim() }, request.signal);
       if (!request.current()) return;
       definitions.value = [...definitions.value, created]; ElMessage.success(t('reportingDefinitions.createSuccess'));
-    } else if (editingDefinition.value) {
-      const updated = await updateReportingDefinition(editingDefinition.value.id, { ...payload, version: editingDefinition.value.version }, request.signal);
+    } else if (target && currentDefinition(target)) {
+      const updated = await updateReportingDefinition(target.id, { ...payload, version: target.version }, request.signal);
       if (!request.current()) return;
+      if (updated.id !== target.id) throw new Error('client.invalid_reporting_definition');
+      definitionEditorOpen.value = false;
       definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item); ElMessage.success(t('reportingDefinitions.updateSuccess'));
     } else return;
     definitionEditorOpen.value = false;
@@ -359,23 +402,27 @@ async function submitDefinition(): Promise<void> {
 }
 
 async function confirmDeleteDefinition(row: ReportingDefinition): Promise<void> {
+  const target = { ...row }; if (!currentDefinition(target)) return;
   await withAction('reporting.definitions.delete', async request => {
     const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
-      title: t('reportingDefinitions.actionDelete'), message: t('reportingDefinitions.confirmDeleteDefinition', { name: row.name }), resolve }; });
-    if (!confirmed || !request.current()) return;
-    await deleteReportingDefinition(row.id, request.signal); if (!request.current()) return;
-    definitions.value = definitions.value.filter(item => item.id !== row.id);
+      title: t('reportingDefinitions.actionDelete'), message: t('reportingDefinitions.confirmDeleteDefinition', { name: target.name }), resolve }; });
+    if (!confirmed || !request.current() || !currentDefinition(target)) return;
+    if (!await deleteReportingDefinition(target.id, request.signal)) throw new Error('client.reporting_definition_delete_failed');
+    if (!request.current()) return;
+    definitions.value = definitions.value.filter(item => item.id !== target.id);
     ElMessage.success(t('reportingDefinitions.deleteSuccess'));
   });
 }
 
 async function publishCurrentDefinition(definition: ReportingDefinition): Promise<void> {
+  const target = { ...definition }; if (!currentDefinition(target)) return;
+  const changeNote = publishNote.value.trim() || null;
   await withAction('reporting.definitions.publish', async request => {
-    await publishReportingDefinition(definition.id, { changeNote: publishNote.value.trim() || null, version: definition.version }, request.signal);
+    await publishReportingDefinition(target.id, { changeNote, version: target.version }, request.signal);
     // 发布后的目录补读也需要仍然有效的独立读取权限。
     if (!request.current()) return;
     if (session.can('reporting.definitions.read')) {
-      const refreshed = await listReportingDefinitions({ groupId: definition.groupId }, request.signal); if (!request.current()) return;
+      const refreshed = await listReportingDefinitions({ groupId: target.groupId }, request.signal); if (!request.current()) return;
       definitions.value = definitions.value.map(item => refreshed.find(row => row.id === item.id) ?? item);
     }
     ElMessage.success(t('reportingDefinitions.publishSuccess')); publishNote.value = '';
@@ -383,9 +430,13 @@ async function publishCurrentDefinition(definition: ReportingDefinition): Promis
 }
 
 async function openVersions(definition: ReportingDefinition): Promise<void> {
+  if (acting.value || !currentDefinition(definition) || !canRead.value) return;
+  const target = { ...definition };
+  groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false;
   await withAction('reporting.definitions.read', async request => {
-    versions.value = []; editingDefinition.value = definition; versionsDrawerOpen.value = true;
-    const rows = await listReportingDefinitionVersions(definition.id, request.signal); if (!request.current()) return;
+    versions.value = []; versionTarget.value = target; versionsDrawerOpen.value = true;
+    const rows = await listReportingDefinitionVersions(target.id, request.signal); if (!request.current()) return;
+    if (rows.some(row => row.definitionId !== target.id)) throw new Error('client.invalid_reporting_definition_version');
     versions.value = rows;
   }, 'versions', 'reportingDefinitions.loadFailed');
 }
@@ -399,7 +450,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 </script>
 
 <template>
-  <div class="reporting-definitions-view">
+  <div v-if="canRead" class="reporting-definitions-view">
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />
 
     <div class="layout-grid">

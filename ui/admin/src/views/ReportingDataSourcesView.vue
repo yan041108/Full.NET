@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -63,6 +63,7 @@ const appliedFilters = ref({ name: '' });
 const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editing = ref<ReportingDataSource | null>(null);
+const editingListTarget = ref<Pick<ReportingDataSourceListItem, 'id' | 'version'>>();
 const editorFormRef = ref<FormInstance>();
 const testResult = ref<TestReportingDataSourceResult | null>(null);
 const editorForm = reactive({
@@ -83,34 +84,55 @@ const confirmation = ref<{ title: string; message: string; resolve: (confirmed: 
 function finishConfirmation(confirmed: boolean): void {
   const pending = confirmation.value; confirmation.value = undefined; pending?.resolve(confirmed);
 }
-const host = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; });
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
+onBeforeUnmount(() => { viewActive.value = false; });
+const host = () => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const canRead = computed(() => host() && session.can('reporting.data_sources.read'));
 const scope = useAuthorizedViewScope(session, () => {
   // 确认提示与编辑凭据属于当前会话，失效时立即清除并解除等待。
   finishConfirmation(false);
   items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
   searchForm.value = {}; appliedFilters.value = { name: '' }; editorOpen.value = false;
-  editing.value = null; resetEditor(); loading.value = false; changing.value = false;
+  editing.value = null; editingListTarget.value = undefined; resetEditor(); loading.value = false; changing.value = false;
 }, load);
 type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;
-const begin = (permission: string) => host() ? scope.begin(permission) : undefined;
+const begin = (permission: string) => canRead.value ? scope.begin(permission) : undefined;
 function canEnter(permission: string): boolean {
   const request = begin(permission); request?.finish(); return !!request;
 }
 
 let listRequest: ReturnType<typeof scope.begin>;
 let editorRequest: ReturnType<typeof scope.begin>;
+let actionRequest: ReturnType<typeof scope.begin>;
+function currentRow(target: Pick<ReportingDataSourceListItem, 'id' | 'version'>): boolean {
+  return items.value.some(item => item.id === target.id && item.version === target.version);
+}
 watch(editorOpen, open => {
-  if (!open) { editorRequest?.cancel(); editing.value = null; resetEditor(); changing.value = false; }
+  if (!open) {
+    editorRequest?.cancel();
+    if (editorRequest && actionRequest === editorRequest) { actionRequest = undefined; changing.value = false; }
+    editorRequest = undefined; editing.value = null; editingListTarget.value = undefined; resetEditor();
+  }
 }, { flush: 'sync' });
+// 只比较打开时目录修订；详情可能已比列表更新，不能因此覆盖用户已打开的表单。
+watch(items, () => { if (editingListTarget.value && !currentRow(editingListTarget.value)) editorOpen.value = false; }, { flush: 'sync', deep: true });
 async function withAction(permission: string, fallback: Parameters<typeof t>[0],
   action: (request: ViewRequest) => Promise<void>, editor = false): Promise<void> {
   if (changing.value) return;
   const request = begin(permission); if (!request) return;
   if (editor) editorRequest = request;
-  changing.value = true;
+  actionRequest = request; changing.value = true;
   try { await action(request); }
-  catch (error) { if (request.current()) ElMessage.error(toProblem(error, fallback).title); }
-  finally { if (request.current()) changing.value = false; request.finish(); }
+  catch (error) {
+    if (request.current()) {
+      ElMessage.error(toProblem(error, fallback).title);
+      if (editor && editorMode.value === 'edit' && !editing.value) editorOpen.value = false;
+    }
+  }
+  finally { if (request.current() && actionRequest === request) { changing.value = false; actionRequest = undefined; } request.finish(); }
 }
 
 const {
@@ -192,15 +214,20 @@ function resetEditor() {
 
 function openCreate() {
   if (changing.value || !canEnter('reporting.data_sources.create')) return;
+  editorOpen.value = false;
   editorMode.value = 'create'; editing.value = null; resetEditor(); editorOpen.value = true;
 }
 
 async function openEdit(row: ReportingDataSourceListItem) {
-  if (!session.can('reporting.data_sources.read')) return;
+  const target = { id: row.id, version: row.version };
+  if (changing.value || !currentRow(target) || !canEnter('reporting.data_sources.update')) return;
+  editorOpen.value = false; resetEditor(); editing.value = null;
+  editorMode.value = 'edit'; editingListTarget.value = target; editorOpen.value = true;
   await withAction('reporting.data_sources.update', 'reportingDataSources.loadFailed', async request => {
-    const detail = await getReportingDataSource(row.id, request.signal);
+    const detail = await getReportingDataSource(target.id, request.signal);
     if (!request.current()) return;
-    editorMode.value = 'edit'; editing.value = detail;
+    if (detail.id !== target.id) throw new Error('client.invalid_reporting_data_source');
+    editing.value = { ...detail };
     editorForm.tenantId = detail.tenantId ?? ''; editorForm.name = detail.name; editorForm.providerKey = detail.providerKey;
     editorForm.serverHost = detail.serverHost; editorForm.port = String(detail.port); editorForm.databaseName = detail.databaseName;
     editorForm.username = detail.username; editorForm.password = ''; editorForm.trustServerCertificate = detail.trustServerCertificate;
@@ -210,7 +237,9 @@ async function openEdit(row: ReportingDataSourceListItem) {
 
 async function submitEditor() {
   if (!editorOpen.value || !editorFormRef.value) return;
-  await withAction(editorMode.value === 'create' ? 'reporting.data_sources.create' : 'reporting.data_sources.update',
+  const mode = editorMode.value; const target = editing.value ? { ...editing.value } : undefined;
+  if (mode === 'edit' && (!target || !editingListTarget.value || !currentRow(editingListTarget.value))) return;
+  await withAction(mode === 'create' ? 'reporting.data_sources.create' : 'reporting.data_sources.update',
     'reportingDataSources.saveFailed', async request => {
       // 校验开始前取得租约并锁定提交，关闭或撤权后不能继续写入。
       const valid = await editorFormRef.value!.validate().catch(() => false);
@@ -218,23 +247,26 @@ async function submitEditor() {
       const payload = { name: editorForm.name.trim(), providerKey: editorForm.providerKey,
         serverHost: editorForm.serverHost.trim(), port: Number(editorForm.port), databaseName: editorForm.databaseName.trim(),
         username: editorForm.username.trim(), trustServerCertificate: editorForm.trustServerCertificate, isEnabled: editorForm.isEnabled };
-      if (editorMode.value === 'create') {
+      if (mode === 'create') {
         await createReportingDataSource({ ...payload, tenantId: editorForm.tenantId.trim() || null,
           password: editorForm.password }, request.signal);
-      } else if (editing.value) {
-        await updateReportingDataSource(editing.value.id, { ...payload, password: editorForm.password.trim() ? editorForm.password : null,
-          version: editing.value.version }, request.signal);
+      } else if (target) {
+        const updated = await updateReportingDataSource(target.id, { ...payload, password: editorForm.password.trim() ? editorForm.password : null,
+          version: target.version }, request.signal);
+        if (!request.current()) return;
+        if (updated.id !== target.id) throw new Error('client.invalid_reporting_data_source');
       } else return;
       if (!request.current()) return;
-      ElMessage.success(t(editorMode.value === 'create' ? 'reportingDataSources.createSuccess' : 'reportingDataSources.updateSuccess'));
+      ElMessage.success(t(mode === 'create' ? 'reportingDataSources.createSuccess' : 'reportingDataSources.updateSuccess'));
       editorOpen.value = false; await load();
     }, true);
 }
 
 async function runTest(row: ReportingDataSourceListItem) {
+  const target = { id: row.id, version: row.version }; if (!currentRow(target)) return;
   await withAction('reporting.data_sources.test', 'reportingDataSources.testFailed', async request => {
     testResult.value = null;
-    const result = await testReportingDataSource(row.id, request.signal);
+    const result = await testReportingDataSource(target.id, request.signal);
     if (!request.current()) return;
     testResult.value = result;
     if (result.succeeded) ElMessage.success(result.message); else ElMessage.error(result.message);
@@ -243,22 +275,25 @@ async function runTest(row: ReportingDataSourceListItem) {
 }
 
 async function runDisable(row: ReportingDataSourceListItem) {
+  const target = { id: row.id, version: row.version, name: row.name }; if (!currentRow(target)) return;
   await withAction('reporting.data_sources.update', 'reportingDataSources.saveFailed', async request => {
     const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
-      title: t('reportingDataSources.actionDisable'), message: t('reportingDataSources.confirmDisable', { name: row.name }), resolve }; });
-    if (!confirmed || !request.current()) return;
-    await disableReportingDataSource(row.id, request.signal);
+      title: t('reportingDataSources.actionDisable'), message: t('reportingDataSources.confirmDisable', { name: target.name }), resolve }; });
+    if (!confirmed || !request.current() || !currentRow(target)) return;
+    const updated = await disableReportingDataSource(target.id, request.signal);
     if (!request.current()) return;
+    if (updated.id !== target.id) throw new Error('client.invalid_reporting_data_source');
     ElMessage.success(t('reportingDataSources.disableSuccess')); await load();
   });
 }
 
 async function runDelete(row: ReportingDataSourceListItem) {
+  const target = { id: row.id, version: row.version, name: row.name }; if (!currentRow(target)) return;
   await withAction('reporting.data_sources.delete', 'reportingDataSources.saveFailed', async request => {
     const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
-      title: t('reportingDataSources.actionDelete'), message: t('reportingDataSources.confirmDelete', { name: row.name }), resolve }; });
-    if (!confirmed || !request.current()) return;
-    await deleteReportingDataSource(row.id, request.signal);
+      title: t('reportingDataSources.actionDelete'), message: t('reportingDataSources.confirmDelete', { name: target.name }), resolve }; });
+    if (!confirmed || !request.current() || !currentRow(target)) return;
+    if (!await deleteReportingDataSource(target.id, request.signal)) throw new Error('client.reporting_data_source_delete_failed');
     if (!request.current()) return;
     ElMessage.success(t('reportingDataSources.deleteSuccess')); await load();
   });
@@ -275,7 +310,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 </script>
 
 <template>
-  <section class="reporting-data-sources-view art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="reporting-data-sources-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('reportingDataSources.title') }}</h1>
 
     <el-alert

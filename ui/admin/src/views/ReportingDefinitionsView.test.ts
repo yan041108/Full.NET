@@ -85,7 +85,7 @@ describe('ReportingDefinitionsView', () => {
     groupsMock.mockResolvedValueOnce([{ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298',
       parentId: null, name: '报表组', sortOrder: 0, isEnabled: true,
       createdAtUtc: '2026-10-07T00:00:00Z', updatedAtUtc: null, version: 1 }]);
-    const wrapper = mountView(['reporting.definitions.create','reporting.groups.read']);
+    const wrapper = mountView(['reporting.definitions.read','reporting.definitions.create','reporting.groups.read']);
     await flushPromises();
     await wrapper.get('[data-testid="reporting-definition-create"]').trigger('click');
     expect(wrapper.findAllComponents({ name: 'ArtFormDialog' }).some(dialog => dialog.props('open'))).toBe(true);
