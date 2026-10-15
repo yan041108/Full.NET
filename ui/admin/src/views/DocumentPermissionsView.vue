@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { Refresh, Search } from '@element-plus/icons-vue';
 import {
   ElAlert,
@@ -15,7 +15,8 @@ import {
 import type {
   FullNetProblemDetails,
   HostDocumentItemResponse,
-  HostDocumentPermissionResponse
+  HostDocumentPermissionResponse,
+  SetHostDocumentPermissionsRequest
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isSetHostDocumentPermissionsRequest } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
@@ -65,10 +66,18 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canReadDocuments = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_documents.read') && session.can('document.host_permissions.read'));
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const canReadDocuments = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null
+  && session.can('document.host_documents.read') && session.can('document.host_permissions.read'));
 const canReadPermissions = () => canReadDocuments.value && session.can('document.host_permissions.read');
 const canSet = () => canReadPermissions() && session.can('document.host_permissions.set');
 const permissionsReady = ref(false);
+const removalConfirmation = ref<{ userId: string; documentTitle: string; resolve: (confirmed: boolean) => void }>();
+function finishRemoval(confirmed: boolean): void {
+  const pending = removalConfirmation.value; removalConfirmation.value = undefined; pending?.resolve(confirmed);
+}
 const dialogModel = computed({ get: () => permissionDialogOpen.value, set: open => { if (!open) closePermissionDialog(); } });
 const scope = useAuthorizedViewScope(session, () => {
   closePermissionDialog(); items.value = []; total.value = 0; loading.value = false;
@@ -77,6 +86,11 @@ const scope = useAuthorizedViewScope(session, () => {
 let listRequest: ReturnType<typeof scope.begin>;
 let permissionRequest: ReturnType<typeof scope.begin>;
 let saveRequest: ReturnType<typeof scope.begin>;
+function currentDocument(row: Pick<HostDocumentItemResponse, 'id' | 'version'>): boolean {
+  return items.value.some(item => item.id === row.id && item.version === row.version);
+}
+// 编辑持有打开时目录身份；新目录修订不能静默更新旧表单的保存依据。
+watch(items, () => { if (activeDocument.value && !currentDocument(activeDocument.value)) closePermissionDialog(); }, { flush: 'sync', deep: true });
 
 const displayItems = computed(() => {
   const keyword = appliedKeyword.value.trim().toLowerCase();
@@ -119,21 +133,23 @@ function resetQuery() {
 }
 
 async function openPermissionDialog(row: HostDocumentItemResponse) {
-  if (!canReadPermissions()) return;
+  if (!canReadPermissions() || !currentDocument(row)) return;
   closePermissionDialog();
   const request = scope.begin('document.host_permissions.read'); if (!request) return;
-  permissionRequest = request; activeDocument.value = row; permissionDialogOpen.value = true;
+  const target = { ...row };
+  permissionRequest = request; activeDocument.value = target; permissionDialogOpen.value = true;
   permissionsLoading.value = true; problem.value = undefined;
   try {
-    const result = await getDocumentPermissionSnapshot(row.id, request.signal);
+    const result = await getDocumentPermissionSnapshot(target.id, request.signal);
     if (!request.current()) return;
-    permissions.value = result.permissions; permissionVersion.value = result.version; permissionsReady.value = true;
+    permissions.value = result.permissions.map(entry => ({ ...entry })); permissionVersion.value = result.version; permissionsReady.value = true;
   } catch (error) {
     if (request.current()) { permissions.value = []; permissionsReady.value = false; problem.value = toProblem(error); }
   } finally { if (request.current()) permissionsLoading.value = false; request.finish(); }
 }
 
 function closePermissionDialog() {
+  finishRemoval(false);
   permissionRequest?.cancel(); saveRequest?.cancel(); permissionRequest = undefined; saveRequest = undefined;
   permissionDialogOpen.value = false; activeDocument.value = null; permissions.value = [];
   permissionsReady.value = false; permissionVersion.value = 0; permissionsLoading.value = false; saving.value = false;
@@ -152,6 +168,40 @@ async function savePermission() {
   if (!level || !isSetHostDocumentPermissionsRequest(payload)) { showWarning(t('documentPermissions.operationFailed')); return; }
   const request = scope.begin('document.host_permissions.set'); if (!request) return;
   saveRequest = request; saving.value = true; problem.value = undefined;
+  try { await persistPermissions(payload, request); }
+  finally { finishSave(request); }
+}
+
+/** 移除仍使用权威快照的整份替换，不能借单行操作覆盖未读取或冲突后的其他配置。 */
+async function removePermission(row: HostDocumentPermissionResponse): Promise<void> {
+  const document = activeDocument.value;
+  if (!canSet() || !permissionDialogOpen.value || !permissionsReady.value || permissionsLoading.value || saving.value || !document) return;
+  const sameId = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+  const target = permissions.value.find(entry => sameId(entry.id, row.id) && sameId(entry.userId, row.userId)
+    && sameId(entry.documentId, document.id) && entry.permissionLevel === row.permissionLevel);
+  if (!target) return;
+  // 在确认前冻结用户、修订及完整剩余集合，确认期间输入和调用者对象不改变意图。
+  const targetUser = target.userId;
+  const payload = { documentId: document.id, version: permissionVersion.value,
+    permissions: permissions.value.filter(entry => !sameId(entry.userId, targetUser))
+      .map(entry => ({ userId: entry.userId, permissionLevel: entry.permissionLevel })) };
+  if (!isSetHostDocumentPermissionsRequest(payload)) return;
+  const request = scope.begin('document.host_permissions.set'); if (!request) return;
+  saveRequest = request; saving.value = true; problem.value = undefined;
+  try {
+    const confirmed = await new Promise<boolean>(resolve => { removalConfirmation.value = { userId: targetUser, documentTitle: document.title, resolve }; });
+    if (!confirmed || !request.current() || !canSet() || !permissionDialogOpen.value || activeDocument.value?.id !== payload.documentId
+      || !permissionsReady.value || permissionVersion.value !== payload.version) return;
+    await persistPermissions(payload, request);
+  } finally { finishSave(request); }
+}
+
+function finishSave(request: NonNullable<ReturnType<typeof scope.begin>>): void {
+  if (request.current() && saveRequest === request) { saving.value = false; saveRequest = undefined; }
+  request.finish();
+}
+
+async function persistPermissions(payload: SetHostDocumentPermissionsRequest, request: NonNullable<ReturnType<typeof scope.begin>>): Promise<void> {
   try {
     const result = await setDocumentPermissions(payload, request.signal);
     if (!request.current()) return;
@@ -165,7 +215,6 @@ async function savePermission() {
       showProblem(toProblem(error, 'documentPermissions.operationFailed'), t('documentPermissions.operationFailed'));
     }
   }
-  finally { if (request.current()) saving.value = false; request.finish(); }
 }
 
 function toProblem(
@@ -294,6 +343,14 @@ function toProblem(
       >
         <el-table-column :label="t('documentPermissions.userId')" prop="userId" min-width="240" />
         <el-table-column :label="t('documentPermissions.permissionLevel')" prop="permissionLevel" min-width="120" />
+        <el-table-column v-if="canSet()" :label="t('users.columnActions')" width="100" align="center">
+          <template #default="{ row }">
+            <ArtTableActionGroup>
+              <ArtTableActionButton type="delete" test-id="document-permissions-remove" :title="t('documentPermissions.remove')"
+                :disabled="saving || permissionsLoading || !permissionsReady" @click="removePermission(row as HostDocumentPermissionResponse)" />
+            </ArtTableActionGroup>
+          </template>
+        </el-table-column>
         <template #empty>{{ t('documentPermissions.emptyDirectory') }}</template>
       </el-table>
       <el-form
@@ -322,6 +379,12 @@ function toProblem(
           {{ t('documentPermissions.load') }}
         </el-button>
       </PermissionGate>
+    </ArtFormDialog>
+    <ArtFormDialog v-if="removalConfirmation && canSet()" :open="true" :title="t('documentPermissions.remove')"
+      :confirm-label="t('documentPermissions.remove')" :cancel-label="t('users.cancel')"
+      confirm-test-id="document-permissions-remove-confirm" @confirm="finishRemoval(true)"
+      @update:open="open => { if (!open) finishRemoval(false); }">
+      <p>{{ t('documentPermissions.removeConfirm', { user: removalConfirmation.userId, document: removalConfirmation.documentTitle }) }}</p>
     </ArtFormDialog>
   </section>
 </template>
