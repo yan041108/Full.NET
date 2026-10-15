@@ -20,7 +20,7 @@ let wrapper: VueWrapper | undefined; let visible = ref(true);
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(api.listHostFiles).mockResolvedValue({ items: [file, other], page: 1, pageSize: 20, total: 2 });
   vi.mocked(api.listHostFolderTree).mockResolvedValue([folder]); vi.mocked(api.uploadHostFile).mockResolvedValue(file);
-  vi.mocked(api.updateHostFileMetadata).mockResolvedValue(file); vi.mocked(api.deleteHostFile).mockResolvedValue(file);
+  vi.mocked(api.updateHostFileMetadata).mockResolvedValue({ ...file, revision: 2 }); vi.mocked(api.deleteHostFile).mockResolvedValue(file);
   vi.mocked(api.batchDeleteHostFiles).mockResolvedValue({ succeededCount: 1, results: [{ fileId: file.id, succeeded: true, errorCode: null, message: null }] });
   vi.mocked(api.listHostFileReferences).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:file'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
@@ -119,7 +119,7 @@ describe('Host 文件整页请求与意图归属', () => {
     expect(api.listHostFiles).toHaveBeenCalledTimes(2);
   });
   it('稳定目录重命名使用确认输入与原修订', async () => {
-    vi.mocked(api.updateHostFolder).mockResolvedValue({ ...folder, createdAtUtc: file.createdAtUtc, createdByUserId: file.createdByUserId, updatedAtUtc: null, updatedByUserId: null });
+    vi.mocked(api.updateHostFolder).mockResolvedValue({ ...folder, revision: 2, createdAtUtc: file.createdAtUtc, createdByUserId: file.createdByUserId, updatedAtUtc: null, updatedByUserId: null });
     await setup(); const action = call('renameFolder', node); await flushPromises();
     await wrapper!.get('[data-testid="host-files-confirm-input"]').setValue(' Renamed '); await call('finishConfirmation', true); await action;
     expect(api.updateHostFolder).toHaveBeenCalledWith(folder.id, { expectedRevision: 1, name: 'Renamed', displayOrder: 0 }, expect.any(AbortSignal));

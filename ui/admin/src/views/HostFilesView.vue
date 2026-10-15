@@ -21,6 +21,7 @@ import type {
   FullNetProblemDetails,
   HostFile,
   HostFileReferenceClaimResponse,
+  HostFolderResponse,
   HostFolderTreeNode
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
@@ -78,6 +79,9 @@ type DeleteOutcome = 'processing' | 'succeeded' | 'failed' | 'unconfirmed';
 const deleteReceipt = ref<{ succeeded: number; total: number; items: { fileId: string; name: string; outcome: DeleteOutcome; errorCode: string | null }[] }>();
 const unconfirmedFileIds = ref(new Set<string>());
 const fileUnconfirmed = (id: string) => unconfirmedFileIds.value.has(id.toLowerCase());
+const unconfirmedFolderIds = ref(new Set<string>());
+const folderUnconfirmed = (id: string) => unconfirmedFolderIds.value.has(id.toLowerCase());
+const folderCreationUnconfirmed = ref(false);
 const previewDialogVisible = ref(false);
 const filePreview = useBlobPreview();
 const previewUrl = filePreview.url;
@@ -88,6 +92,8 @@ const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ fileName: '' });
 const metadataDialogVisible = ref(false);
+let metadataSequence = 0;
+const metadataIntent = ref<{ token: number; close: () => void; update: (open: boolean) => void; save: () => void }>();
 const referencesDrawerVisible = ref(false);
 const references = ref<HostFileReferenceClaimResponse[]>([]);
 const editingFile = ref<HostFile | null>(null);
@@ -150,7 +156,7 @@ function askConfirmation(title: string, message: string, value?: string): Promis
 }
 // 文件内容、上传回执、编辑和确认由当前 Host 会话拥有；失效只取消客户端接入，不承诺回滚写入。
 const scope = useAuthorizedViewScope(session, () => {
-  finishConfirmation(false); deleteReceipt.value = undefined; unconfirmedFileIds.value = new Set(); items.value = []; folderTree.value = []; selectedFolder.value = null;
+  finishConfirmation(false); deleteReceipt.value = undefined; unconfirmedFileIds.value = new Set(); unconfirmedFolderIds.value = new Set(); folderCreationUnconfirmed.value = false; items.value = []; folderTree.value = []; selectedFolder.value = null;
   selectedFiles.value = []; selectedRows.value = []; uploadResults.value = null; page.value = 1; pageSize.value = 20; total.value = 0;
   previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
   metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = [];
@@ -180,12 +186,63 @@ function markUnconfirmed(ids: string[]): void {
   unconfirmedFileIds.value = new Set([...unconfirmedFileIds.value, ...ids.map(id => id.toLowerCase())]);
 }
 function findFolder(id: string, nodes = folderTree.value): HostFolderTreeNode | undefined {
-  for (const node of nodes) { if (node.folder?.id === id) return node.folder; const nested = findFolder(id, node.children ?? []); if (nested) return nested; }
+  for (const node of nodes) { if (node.folder?.id.toLowerCase() === id.toLowerCase()) return node.folder; const nested = findFolder(id, node.children ?? []); if (nested) return nested; }
   return undefined;
 }
 const currentFolder = (folder: HostFolderTreeNode) => findFolder(folder.id)?.revision === folder.revision;
-watch(metadataDialogVisible, open => { if (!open) { cancelAction(metadataRequest); metadataRequest = undefined; editingFile.value = null; metadataForm.value = { originalFileName: '', folderId: '' }; } }, { flush: 'sync' });
-watch(items, () => { if (editingFile.value && !currentFile(editingFile.value)) metadataDialogVisible.value = false; }, { flush: 'sync' });
+function markFolderUnconfirmed(id?: string): void {
+  foldersRequest?.cancel();
+  // 创建结果未知时没有可信的新标识，单独等待目录树重读，避免重复创建。
+  if (id) unconfirmedFolderIds.value = new Set([...unconfirmedFolderIds.value, id.toLowerCase()]);
+  else folderCreationUnconfirmed.value = true;
+}
+function applyConfirmedFolder(result: HostFolderResponse, deleted = false): void {
+  // 先维护确认结果与本地选择，补读失败仍可恢复操作；更高观察修订保持权威。
+  const existing = findFolder(result.id);
+  if (existing && existing.revision > result.revision) return;
+  const same = (id: string | undefined) => id?.toLowerCase() === result.id.toLowerCase();
+  function update(nodes: TreeNode[]): TreeNode[] {
+    return nodes.flatMap(node => {
+      if (same(node.folder?.id) && deleted) return [];
+      const children = update(node.children ?? []);
+      const folder = same(node.folder?.id) ? { ...result, children: children.flatMap(child => child.folder ? [child.folder] : []) } : node.folder;
+      return [{ ...node, label: same(node.folder?.id) ? result.name : node.label, folder: folder ? { ...folder, children: children.flatMap(child => child.folder ? [child.folder] : []) } : null, children }];
+    });
+  }
+  let nodes = update(folderTree.value);
+  if (!deleted && !existing) {
+    if (!nodes.length && result.parentId === null) nodes = [{ id: ROOT_NODE_ID, label: t('hostFiles.rootFolder'), folder: null, children: [] }];
+    function insert(entries: TreeNode[]): void {
+      for (const node of entries) {
+        if (result.parentId === null ? node.id === ROOT_NODE_ID : node.folder?.id.toLowerCase() === result.parentId.toLowerCase()) {
+          node.children = [...(node.children ?? []), { id: result.id, label: result.name, folder: { ...result, children: [] }, children: [] }];
+          node.children.sort((a, b) => (a.folder!.displayOrder - b.folder!.displayOrder) || (a.label < b.label ? -1 : a.label > b.label ? 1 : a.id.toLowerCase().localeCompare(b.id.toLowerCase())));
+          return;
+        }
+        insert(node.children ?? []);
+      }
+    }
+    insert(nodes); nodes = update(nodes);
+  }
+  folderTree.value = nodes;
+  if (selectedFolder.value) {
+    selectedFolder.value = findFolder(selectedFolder.value.id) ?? null;
+    if (!selectedFolder.value) { listRequest?.cancel(); loading.value = false; items.value = []; selectedRows.value = []; total.value = 0; page.value = 1; }
+  }
+}
+function applyConfirmedMetadata(result: HostFile): void {
+  const current = items.value.find(item => item.id.toLowerCase() === result.id.toLowerCase());
+  if (!current || current.revision > result.revision) return;
+  if (result.folderId?.toLowerCase() !== selectedFolder.value?.id.toLowerCase()) { removeConfirmedFiles([result.id]); return; }
+  // 文件名 LIKE 的通配及排序规则由数据库决定，本地只更新确认内容，不伪造筛选结果。
+  items.value = items.value.map(item => item.id.toLowerCase() === result.id.toLowerCase() ? result : item);
+  selectedRows.value = selectedRows.value.map(item => item.id.toLowerCase() === result.id.toLowerCase() ? result : item);
+}
+watch(metadataDialogVisible, open => { if (!open) {
+  if (metadataRequest?.current() && editingFile.value) markUnconfirmed([editingFile.value.id]);
+  cancelAction(metadataRequest); metadataRequest = undefined; metadataIntent.value = undefined; editingFile.value = null; metadataForm.value = { originalFileName: '', folderId: '' };
+} }, { flush: 'sync' });
+watch(items, () => { if (editingFile.value && !currentFile(editingFile.value)) metadataDialogVisible.value = false; }, { flush: 'sync', deep: true });
 watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); filePreview.clear(); previewTitle.value = ''; } }, { flush: 'sync' });
 watch(referencesDrawerVisible, open => { if (!open) { cancelAction(referencesRequest); references.value = []; } }, { flush: 'sync' });
 
@@ -211,6 +268,7 @@ async function loadFolders(): Promise<void> {
   try {
     const tree = await listHostFolderTree(request.signal); if (!request.current()) return;
     folderTree.value = [{ id: ROOT_NODE_ID, label: t('hostFiles.rootFolder'), folder: null, children: mapFolderNodes(tree) }];
+    unconfirmedFolderIds.value = new Set(); folderCreationUnconfirmed.value = false;
     if (selectedFolder.value) { const id = selectedFolder.value.id; selectedFolder.value = findFolder(id) ?? null; if (!selectedFolder.value) void load(); }
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { request.finish(); }
@@ -222,7 +280,9 @@ async function load(): Promise<void> {
   try {
     // 根目录身份不依赖目录树和文件页哪一个先完成。
     const result = await listHostFiles(page.value, pageSize.value, { folderId: selectedFolder.value?.id ?? '', fileNameContains: appliedFilters.value.fileName }, request.signal);
-    if (!request.current()) return; items.value = result.items; total.value = result.total; unconfirmedFileIds.value = new Set();
+    if (!request.current()) return;
+    // 新目录可能使在途编辑失效；先清理旧限制，保留同步失效回调新增的未知提交标记。
+    unconfirmedFileIds.value = new Set(); items.value = result.items; total.value = result.total;
     await nextTick(() => { if (request.current()) updateTableHeight(); });
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { if (request.current()) loading.value = false; request.finish(); }
@@ -314,45 +374,66 @@ function canPreviewFile(file: HostFile): boolean {
 }
 
 async function createFolder(): Promise<void> {
-  const name = newFolderName.value.trim(); if (!name) return; const request = beginAction('files.folders.create'); if (!request) return;
+  const draft = newFolderName.value, name = draft.trim();
+  if (!name || folderCreationUnconfirmed.value || selectedFolder.value && (!currentFolder(selectedFolder.value) || folderUnconfirmed(selectedFolder.value.id))) return;
+  const request = beginAction('files.folders.create'); if (!request) return;
   const parentId = selectedFolder.value?.id ?? null;
+  foldersRequest?.cancel();
   try {
-    await createHostFolder({ parentId, name }, request.signal); if (!request.current()) return;
-    newFolderName.value = ''; ElMessage.success(t('hostFiles.folderCreateSuccess')); if (request.current()) await refreshAll();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+    const result = await createHostFolder({ parentId, name }, request.signal); if (!request.current()) return;
+    if (result.parentId?.toLowerCase() !== parentId?.toLowerCase()) throw new Error('client.invalid_host_folder_parent');
+    foldersRequest?.cancel(); applyConfirmedFolder(result);
+    if (newFolderName.value === draft) newFolderName.value = '';
+    ElMessage.success(t('hostFiles.folderCreateSuccess')); await refreshAll();
+  } catch (error) { if (request.current()) { markFolderUnconfirmed(); problem.value = toProblem(error, 'hostFiles.operationFailed'); } }
   finally { finishAction(request); }
 }
 async function renameFolder(node: TreeNode): Promise<void> { await changeFolder(node, 'rename'); }
 async function removeFolder(node: TreeNode): Promise<void> { await changeFolder(node, 'delete'); }
 async function changeFolder(node: TreeNode, kind: 'rename' | 'delete'): Promise<void> {
-  if (!node.folder || !currentFolder(node.folder)) return; const folder = { ...node.folder };
+  if (!node.folder || !currentFolder(node.folder) || folderUnconfirmed(node.folder.id)) return;
+  const folder = { ...findFolder(node.folder.id)! };
   const request = beginAction(kind === 'rename' ? 'files.folders.update' : 'files.folders.delete'); if (!request) return;
+  let dispatched = false;
   try {
     const answer = await askConfirmation(t(kind === 'rename' ? 'hostFiles.renameFolder' : 'hostFiles.deleteFolder'),
       kind === 'rename' ? t('hostFiles.folderName') : t('hostFiles.confirmDeleteFolder', { name: folder.name }), kind === 'rename' ? folder.name : undefined);
     if (!answer.confirmed || !request.current() || !currentFolder(folder)) return;
-    if (kind === 'rename') await updateHostFolder(folder.id, { expectedRevision: folder.revision, name: answer.value, displayOrder: folder.displayOrder }, request.signal);
-    else await deleteHostFolder(folder.id, { expectedRevision: folder.revision }, request.signal);
+    foldersRequest?.cancel(); dispatched = true;
+    const result = kind === 'rename'
+      ? await updateHostFolder(folder.id, { expectedRevision: folder.revision, name: answer.value, displayOrder: folder.displayOrder }, request.signal)
+      : await deleteHostFolder(folder.id, { expectedRevision: folder.revision }, request.signal);
     if (!request.current()) return;
-    if (kind === 'delete' && selectedFolder.value?.id === folder.id) selectedFolder.value = null;
-    ElMessage.success(t(kind === 'rename' ? 'hostFiles.folderUpdateSuccess' : 'hostFiles.folderDeleteSuccess')); if (request.current()) await refreshAll();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
+    if (result.id.toLowerCase() !== folder.id.toLowerCase() || (kind === 'rename' ? result.revision <= folder.revision : result.revision !== folder.revision)) throw new Error('client.invalid_host_folder_mutation');
+    foldersRequest?.cancel(); applyConfirmedFolder(result, kind === 'delete');
+    ElMessage.success(t(kind === 'rename' ? 'hostFiles.folderUpdateSuccess' : 'hostFiles.folderDeleteSuccess')); await refreshAll();
+  } catch (error) { if (request.current()) { if (dispatched) markFolderUnconfirmed(folder.id); problem.value = toProblem(error, 'hostFiles.operationFailed'); } }
   finally { finishAction(request); }
 }
 
 function openMetadataDialog(item: HostFile): void {
-  if (!allowed('files.files.update') || changing.value || !currentFile(item)) return;
-  editingFile.value = { ...item }; metadataForm.value = { originalFileName: item.originalFileName, folderId: item.folderId ?? '' }; metadataDialogVisible.value = true;
+  const current = findCurrentFile(item);
+  if (!allowed('files.files.update') || changing.value || !current || fileUnconfirmed(current.id)) return;
+  editingFile.value = { ...current }; metadataForm.value = { originalFileName: current.originalFileName, folderId: current.folderId ?? '' };
+  const token = ++metadataSequence, close = () => { if (metadataIntent.value?.token === token) metadataDialogVisible.value = false; };
+  metadataIntent.value = { token, close, update: open => { if (!open) close(); }, save: () => { if (metadataIntent.value?.token === token) void saveMetadata(); } };
+  metadataDialogVisible.value = true;
 }
 async function saveMetadata(): Promise<void> {
-  const file = editingFile.value; if (!metadataDialogVisible.value || !file || !currentFile(file) || !metadataForm.value.originalFileName.trim()) return;
+  const editing = editingFile.value; if (!metadataDialogVisible.value || !editing || !currentFile(editing) || fileUnconfirmed(editing.id) || !metadataForm.value.originalFileName.trim()) return;
+  const file = { ...editing };
   const request = beginAction('files.files.update'); if (!request) return; metadataRequest = request;
   const body = { expectedRevision: file.revision, originalFileName: metadataForm.value.originalFileName.trim(), folderId: metadataForm.value.folderId || null };
+  listRequest?.cancel(); loading.value = false;
   try {
-    await updateHostFileMetadata(file.id, body, request.signal); if (!request.current()) return; metadataRequest = undefined;
-    metadataDialogVisible.value = false; ElMessage.success(t('hostFiles.metadataUpdateSuccess')); if (request.current()) await load();
-  } catch (error) { if (request.current()) problem.value = toProblem(error, 'hostFiles.operationFailed'); }
-  finally { finishAction(request); }
+    const result = await updateHostFileMetadata(file.id, body, request.signal); if (!request.current()) return;
+    if (result.id.toLowerCase() !== file.id.toLowerCase() || result.revision <= file.revision) throw new Error('client.invalid_host_file_mutation');
+    metadataRequest = undefined; listRequest?.cancel(); loading.value = false;
+    applyConfirmedMetadata(result); metadataDialogVisible.value = false;
+    ElMessage.success(t('hostFiles.metadataUpdateSuccess')); await load();
+  } catch (error) { if (request.current()) {
+    metadataRequest = undefined; markUnconfirmed([file.id]); metadataDialogVisible.value = false; problem.value = toProblem(error, 'hostFiles.operationFailed');
+  } } finally { if (metadataRequest === request) metadataRequest = undefined; finishAction(request); }
 }
 
 async function openReferences(item: HostFile): Promise<void> {
@@ -399,7 +480,7 @@ function toProblem(
 <template>
   <section v-if="canRead" class="host-files-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostFiles.title') }}</h1>
-    <p v-if="unconfirmedFileIds.size && !deleteReceipt" role="status">{{ t('hostFiles.deleteReceiptHint') }}</p>
+    <p v-if="unconfirmedFileIds.size || unconfirmedFolderIds.size || folderCreationUnconfirmed" role="status">{{ t('hostFiles.mutationRefreshHint') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -410,6 +491,7 @@ function toProblem(
     <div class="host-files-layout">
       <el-card shadow="never" class="host-files-tree-card">
         <h2>{{ t('hostFiles.folderTreeTitle') }}</h2>
+        <el-button plain size="small" data-testid="host-files-folder-refresh" :disabled="changing" @click="loadFolders">{{ t('common.refresh') }}</el-button>
         <el-tree
           :data="folderTree"
           node-key="id"
@@ -420,7 +502,7 @@ function toProblem(
         <PermissionGate code="files.folders.create">
           <div class="host-files-folder-create">
             <el-input v-model="newFolderName" :placeholder="t('hostFiles.newFolderPlaceholder')" />
-            <el-button type="primary" :loading="changing" @click="createFolder">
+            <el-button type="primary" :loading="changing" :disabled="folderCreationUnconfirmed || !!selectedFolder && folderUnconfirmed(selectedFolder.id)" @click="createFolder">
               {{ t('hostFiles.createFolder') }}
             </el-button>
           </div>
@@ -430,7 +512,7 @@ function toProblem(
             v-if="selectedFolder"
             plain
             size="small"
-            :disabled="changing"
+            :disabled="changing || folderUnconfirmed(selectedFolder.id)"
             @click="renameFolder({ id: selectedFolder.id, label: selectedFolder.name, folder: selectedFolder })"
           >
             {{ t('hostFiles.renameFolder') }}
@@ -442,7 +524,7 @@ function toProblem(
             type="danger"
             plain
             size="small"
-            :disabled="changing"
+            :disabled="changing || folderUnconfirmed(selectedFolder.id)"
             @click="removeFolder({ id: selectedFolder.id, label: selectedFolder.name, folder: selectedFolder })"
           >
             {{ t('hostFiles.deleteFolder') }}
@@ -569,7 +651,7 @@ function toProblem(
                   <template #default="{ row }">
                     <ArtTableActionGroup>
                       <PermissionGate code="files.files.update">
-                        <el-button plain size="small" :disabled="changing" @click="openMetadataDialog(row as HostFile)">
+                        <el-button plain size="small" :disabled="changing || fileUnconfirmed(row.id)" @click="openMetadataDialog(row as HostFile)">
                           {{ t('hostFiles.editMetadata') }}
                         </el-button>
                       </PermissionGate>
@@ -648,7 +730,8 @@ function toProblem(
         <el-button type="warning" data-testid="host-files-confirm-accept" :disabled="confirmation?.input && !confirmationInput.trim()" v-on="{ click: confirmation.confirm }">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="metadataDialogVisible" :title="t('hostFiles.editMetadata')" width="480px">
+    <el-dialog v-if="metadataIntent" :key="metadataIntent.token" :model-value="metadataDialogVisible" :title="t('hostFiles.editMetadata')" width="480px"
+      v-on="{ 'update:modelValue': metadataIntent.update }">
       <el-form label-position="top">
         <el-form-item :label="t('hostFiles.fileName')" required>
           <el-input v-model="metadataForm.originalFileName" />
@@ -658,8 +741,8 @@ function toProblem(
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="metadataDialogVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="saveMetadata">{{ t('hostFiles.saveMetadata') }}</el-button>
+        <el-button data-testid="host-files-metadata-back" v-on="{ click: metadataIntent.close }">{{ t('status.back') }}</el-button>
+        <el-button data-testid="host-files-metadata-save" type="primary" :loading="changing" v-on="{ click: metadataIntent.save }">{{ t('hostFiles.saveMetadata') }}</el-button>
       </template>
     </el-dialog>
 

@@ -109,8 +109,11 @@ export async function updateHostFileMetadata(
   },
   signal?: AbortSignal
 ): Promise<HostFile> {
-  const value = await filesUpdateHostFileMetadata(http, { fileId, body }, signal);
+  const request = { ...body };
+  const value = await filesUpdateHostFileMetadata(http, { fileId, body: request }, signal);
   if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  // 写后查询可能观察到后续提交，因此允许更高修订，不要求恰好递增一次。
+  if (value.id.toLowerCase() !== fileId.toLowerCase() || value.revision <= request.expectedRevision) throw new Error('client.invalid_host_file_mutation');
   return value;
 }
 
@@ -149,9 +152,10 @@ export async function createHostFolder(
   },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
-  return filesCreateHostFolder(http, {
-    body: { ...body, parentId: body.parentId ?? null, displayOrder: body.displayOrder ?? 0 }
-  }, signal);
+  const request = { ...body, parentId: body.parentId ?? null, displayOrder: body.displayOrder ?? 0 };
+  const value = await filesCreateHostFolder(http, { body: request }, signal);
+  if (value.parentId?.toLowerCase() !== request.parentId?.toLowerCase()) throw new Error('client.invalid_host_folder_parent');
+  return value;
 }
 
 /** 更新 Host 虚拟目录。 */
@@ -164,7 +168,10 @@ export async function updateHostFolder(
   },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
-  return filesUpdateHostFolder(http, { folderId, body }, signal);
+  const request = { ...body };
+  const value = await filesUpdateHostFolder(http, { folderId, body: request }, signal);
+  if (value.id.toLowerCase() !== folderId.toLowerCase() || value.revision <= request.expectedRevision) throw new Error('client.invalid_host_folder_mutation');
+  return value;
 }
 
 /** 删除 Host 虚拟目录。 */
@@ -173,7 +180,11 @@ export async function deleteHostFolder(
   body: { expectedRevision: number },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
-  return filesDeleteHostFolder(http, { folderId, body }, signal);
+  const request = { ...body };
+  const value = await filesDeleteHostFolder(http, { folderId, body: request }, signal);
+  // 删除返回删除前的快照，不是软删除后的递增修订。
+  if (value.id.toLowerCase() !== folderId.toLowerCase() || value.revision !== request.expectedRevision) throw new Error('client.invalid_host_folder_mutation');
+  return value;
 }
 
 /** 分页查询文件引用声明。 */
