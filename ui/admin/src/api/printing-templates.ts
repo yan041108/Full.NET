@@ -82,12 +82,14 @@ export async function previewPrintingTemplate(
   body: PreviewPrintingTemplateRequest = {},
   signal?: AbortSignal
 ): Promise<PrintingTemplatePreview> {
+  const payload = { ...body };
   const value = await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}/preview`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
     signal
   );
-  if (!isPrintingTemplatePreview(value)) {
+  if (!isPrintingTemplatePreview(value) || value.templateId.toLowerCase() !== templateId.toLowerCase()
+    || payload.versionNumber != null && value.versionNumber !== payload.versionNumber) {
     throw new Error('client.invalid_printing_template_preview');
   }
   return value;
@@ -116,8 +118,10 @@ export async function listPrintingPublishedTemplates(signal?: AbortSignal): Prom
 /** 通过生成操作发送精确版本，不传入可伪造的租户标识。 */
 export async function previewPrintingPublishedTemplate(templateId: string, body: PreviewPrintingTemplateRequest = {},
   signal?: AbortSignal): Promise<PrintingTemplatePreview> {
-  const value = await printingPreviewPublishedTemplate(http, {templateId,body:{versionNumber:body.versionNumber ?? null,recordId:body.recordId ?? null}}, signal);
-  if (!isPrintingTemplatePreview(value) || Object.values(value.boundFields).some(field => field !== null && typeof field !== 'string'))
+  const payload = { versionNumber: body.versionNumber ?? null, recordId: body.recordId ?? null };
+  const value = await printingPreviewPublishedTemplate(http, { templateId, body: payload }, signal);
+  if (!isPrintingTemplatePreview(value) || Object.values(value.boundFields).some(field => field !== null && typeof field !== 'string')
+    || value.templateId.toLowerCase() !== templateId.toLowerCase() || payload.versionNumber !== null && value.versionNumber !== payload.versionNumber)
     throw new Error('client.invalid_printing_template_preview');
   return value;
 }

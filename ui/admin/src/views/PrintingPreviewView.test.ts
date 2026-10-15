@@ -56,7 +56,7 @@ describe('PrintingPreviewView', () => {
       templateKey: 'review-template',
       templateName: '测试模板',
       versionNumber: 1,
-      formSchemaKey: 'tenant-profile',
+      formSchemaKey: printTemplate.formSchemaKey,
       boundFields: {},
       html: '<div style="color:red">安全正文</div><img src="x" onerror="alert(1)"><svg onload="alert(2)"></svg><a href="javascript:alert(3)">链接</a>',
       generatedAtUtc: '2026-09-07T00:00:00Z'
