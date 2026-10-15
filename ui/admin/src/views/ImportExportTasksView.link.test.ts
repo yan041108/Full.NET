@@ -12,15 +12,16 @@ vi.mock('../api/import-export-tasks', () => ({ listImportExportTasks: vi.fn(), g
   executeImportExportTask: vi.fn(), resumeImportExportTask: vi.fn(), retryImportExportTask: vi.fn(), downloadImportExportTaskErrorReceipt: vi.fn(),
   listStaticImportSchemas: vi.fn(), createImportExportTask: vi.fn(), downloadStaticImportTemplate: vi.fn() }));
 let wrapper: VueWrapper | undefined; let router: Router; let visible = ref(true);
+let activeSession: ReturnType<typeof createOutputSession>['session'] | undefined;
 const otherId = '01980000-0000-7000-8000-000000000003';
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.listImportExportTasks).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
-  vi.mocked(api.getImportExportTask).mockImplementation(async id => ({ ...importTask, id, schemaDisplayName: id === otherId ? '新任务' : '链接任务' }));
+  vi.mocked(api.getImportExportTask).mockImplementation(async id => ({ ...importTask, id, tenantId: activeSession?.currentUser?.tenantId ?? importTask.tenantId, schemaDisplayName: id === otherId ? '新任务' : '链接任务' }));
 });
-afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
+afterEach(() => { wrapper?.unmount(); activeSession = undefined; vi.restoreAllMocks(); });
 async function setup(query: LocationQueryRaw = { taskId: outputId }, permissions = ['import_export.import_tasks.read'], keepAlive = false) {
-  const context = createOutputSession(permissions); visible = ref(true);
+  const context = createOutputSession(permissions); activeSession = context.session; visible = ref(true);
   router = createRouter({ history: createMemoryHistory(), routes: [
     { name: 'import-export-tasks', path: '/tasks', component: { render: () => null } },
     { name: 'elsewhere', path: '/elsewhere', component: { render: () => null } }

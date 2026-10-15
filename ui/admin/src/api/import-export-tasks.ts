@@ -60,7 +60,9 @@ export async function listImportExportTasks(
     { page, pageSize, schemaKey },
     signal
   );
-  if (!isImportExportTaskPage(value)) {
+  if (!isImportExportTaskPage(value) || value.page !== page || value.pageSize !== pageSize
+    || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000')) {
     throw new Error('client.invalid_import_export_task_page');
   }
   return value;

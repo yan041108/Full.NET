@@ -157,7 +157,7 @@ describe('导入任务请求归属', () => {
     buttons.find(button => button.attributes('data-testid') === 'import-export-task-resume')!.vm.$emit('click');
     buttons.find(button => button.attributes('data-testid') === 'import-export-task-retry')!.vm.$emit('click');
     expect(api.resumeImportExportTask).toHaveBeenCalledTimes(1); expect(api.retryImportExportTask).not.toHaveBeenCalled();
-    pending.reject(new Error('retryable')); await flushPromises();
+    pending.reject({ status: 409, code: 'import_export.task.state_conflict', title: 'Rejected' }); await flushPromises();
     await wrapper!.get('[data-testid="import-export-task-retry"]').trigger('click'); await flushPromises();
     expect(api.retryImportExportTask).toHaveBeenCalledTimes(1);
   });
