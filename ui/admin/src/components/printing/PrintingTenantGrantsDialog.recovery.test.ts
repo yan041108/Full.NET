@@ -80,6 +80,11 @@ describe('打印授权结果与恢复', () => {
     const { wrapper } = create(); await flushPromises(); setGrant.mockRejectedValueOnce({ status: 403, code: 'authorization.permission_denied', title: 'Denied' }); await state(wrapper).changeGrant(tenant, true);
     expect(state(wrapper).receipt?.outcome).toBe('failed'); await state(wrapper).changeGrant(tenant, true); expect(setGrant).toHaveBeenCalledTimes(2);
   });
+  it.each([0, 302])('非错误 HTTP 状态 %s 不能作为明确拒绝解除重发门槛', async status => {
+    const { wrapper } = create(); await flushPromises(); setGrant.mockRejectedValueOnce({ status, code: 'gateway.invalid_status' });
+    await state(wrapper).changeGrant(tenant, true); await state(wrapper).changeGrant(tenant, true);
+    expect(setGrant).toHaveBeenCalledOnce(); expect(state(wrapper).receipt?.outcome).toBe('unconfirmed');
+  });
   it('版本目录失败后可以用可见入口重试', async () => {
     versions.mockRejectedValueOnce(new Error('offline')); const { wrapper } = create(); await flushPromises(); expect(grants).not.toHaveBeenCalled();
     await body.get('[data-testid="printing-grant-versions-refresh"]').trigger('click'); await flushPromises(); expect(versions).toHaveBeenCalledTimes(2); expect(grants).toHaveBeenCalledOnce();

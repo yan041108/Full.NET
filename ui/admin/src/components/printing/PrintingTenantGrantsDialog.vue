@@ -150,7 +150,8 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
     await loadGrants(grant ? 1 : page.value);
   } catch (error) { if (request.current()) {
     const failure = toProblem(error);
-    const unknown = !isFullNetProblemDetails(error) || failure.status >= 500 || failure.status === 408;
+    // 只有明确的客户端拒绝可以直接重试；协议异常和超时仍可能已经提交。
+    const unknown = !isFullNetProblemDetails(error) || failure.status < 400 || failure.status >= 500 || failure.status === 408;
     receipt.value = { target, version, grant, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code };
     if (unknown) markUnconfirmed(version, target);
     showProblem(failure, t('printingPreview.loadFailed'));

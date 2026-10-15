@@ -200,6 +200,10 @@ export async function listReportingDefinitionVersions(
   if (!isReportingDefinitionVersionList(value)) {
     throw new Error('client.invalid_reporting_definition_version_list');
   }
+  if (value.some(row => row.definitionId.toLowerCase() !== id.toLowerCase() || !Number.isSafeInteger(row.versionNumber) || row.versionNumber < 1)
+    || new Set(value.map(row => row.versionNumber)).size !== value.length || new Set(value.map(row => row.id.toLowerCase())).size !== value.length) {
+    throw new Error('client.invalid_reporting_definition_version');
+  }
   return value;
 }
 
@@ -225,6 +229,7 @@ export async function setReportingTenantVersionGrant(definitionId: string, versi
 export async function listReportingTenantVersionGrants(definitionId: string, versionNumber: number,
   page = 1, pageSize = 20, signal?: AbortSignal): Promise<import('@fullnet/client-contracts').ReportingTenantVersionGrantPage> {
   const value = await reportingListTenantVersionGrants(http, {definitionId, versionNumber, page, pageSize}, signal);
-  if (!isReportingTenantVersionGrantPage(value)) throw new Error('client.invalid_reporting_tenant_grants');
+  if (!isReportingTenantVersionGrantPage(value) || value.page !== page || value.pageSize !== pageSize
+    || new Set(value.items.map(id => id.toLowerCase())).size !== value.items.length || value.items.includes('00000000-0000-0000-0000-000000000000')) throw new Error('client.invalid_reporting_tenant_grants');
   return value;
 }
