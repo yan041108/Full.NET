@@ -33,7 +33,7 @@ test('子页签按独立read隐藏，update不能代替read', async ({ page }) =
 test('只读设置允许刷新，操作权限缺失无保存入口', async ({ page }) => {
   await boot(page, ['document.host_statistics.read', 'document.host_documents.read']); await retentionTab(page);
   await expect(page.getByTestId('document-version-retention-panel')).toContainText('50'); await expect(saveButton(page)).toHaveCount(0);
-  let reads = 0; await page.route('**/api/v1/document/host/version-retention', route => { reads++; return json(route, { ...settings, batchSize: 77 }); });
+  let reads = 0; await page.route('**/api/v1/document/host/version-retention', route => { reads++; return json(route, { ...settings, batchSize: 77, version: 8 }); });
   await refresh(page); await expect(page.getByTestId('document-version-retention-panel')).toContainText('77'); expect(reads).toBe(1);
 });
 
@@ -84,7 +84,7 @@ test('离开页签取消保存且不显示迟到成功，返回重新读取', as
   const pending = new Promise(resolve => { release = resolve; });
   page.on('requestfailed', request => { if (request.method() === 'PUT' && request.url().endsWith('/version-retention')) cancelled = true; });
   await page.route('**/api/v1/document/host/version-retention', async route => {
-    if (route.request().method() === 'GET') { reads++; return json(route, reads === 1 ? settings : { ...settings, batchSize: 77 }); }
+    if (route.request().method() === 'GET') { reads++; return json(route, reads === 1 ? settings : { ...settings, batchSize: 77, version: 8 }); }
     started = true; await pending; await json(route, settings).catch(() => {}); finished = true;
   });
   await retentionTab(page); await expect(saveButton(page)).toBeEnabled(); await saveButton(page).click(); await expect.poll(() => started).toBe(true);
@@ -102,7 +102,10 @@ test('日志替换取消旧请求，失败清空行和分页', async ({ page }) 
     if (++calls === 1) { started = true; await pending; await json(route, pageResult).catch(() => {}); finished = true; return; }
     return route.fulfill({ status: 500, contentType: 'application/problem+json', body: JSON.stringify({ title: '新筛选失败', status: 500, code: 'fixture.failed' }) });
   });
-  await page.getByRole('button', { name: '筛选', exact: true }).click(); await expect.poll(() => started).toBe(true); await page.getByRole('button', { name: '筛选', exact: true }).click();
+  await page.getByRole('button', { name: '筛选', exact: true }).click(); await expect.poll(() => started).toBe(true);
+  // 改变查询后才应清除旧数据；相同查询刷新失败会保留已确认内容。
+  await page.getByRole('textbox').fill(id);
+  await page.getByRole('button', { name: '筛选', exact: true }).click();
   await expect(page.locator('.el-alert--error')).toContainText('新筛选失败'); release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true);
   await expect(page.getByTestId('document-access-logs-table')).toHaveCount(0); await expect(page.locator('.el-pagination')).toHaveCount(0); await expect(page.getByTestId('document-access-logs-empty')).toBeVisible();
 });

@@ -59,14 +59,15 @@ test('打印切换模板取消旧预览，新预览在真实 DOM 中净化', asy
   expect(await page.evaluate(() => window.__unsafePreview)).toBeUndefined();
 });
 
-test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({ page }) => {
+test('执行期间禁止切换，离页取消旧查询后只展示新报表结果', async ({ page }) => {
   await boot(page, 'reporting-execute', '/reporting/execute', 'reporting.executions.run',
     ['reporting.definitions.read', 'reporting.executions.run']);
   // 执行入口只能使用获授的不可变发布目录，不能用 Host 草稿冒充租户授权。
   const published = { definitionId: id, definitionKey: definition.definitionKey, name: definition.name,
     versionNumber: 1, queryPortKey: definition.queryPortKey, parameterSchema: [], layoutConfigJson: '{}' };
   await page.route('**/api/v1/reporting/published-definitions', route => json(route, [published, { ...published, definitionId: nextId, name: '新报表夹具' }]));
-  let release; let pending = false;
+  let release; let pending = false; let finished = false; let cancelled = false;
+  page.on('requestfailed', request => { if (request.url().includes(`/reporting/definitions/${id}/execute?`)) cancelled = true; });
   const waiting = new Promise(resolve => { release = resolve; });
   const result = (definitionId, value) => ({ definitionId, definitionKey: 'fixture', definitionName: '报表夹具',
     versionNumber: 1, queryPortKey: 'fixture', columns: [{ columnKey: 'value', displayName: '结果' }],
@@ -74,7 +75,7 @@ test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({
     commandTimeoutSeconds: 30, executedAtUtc: createdAtUtc });
   await page.route(`**/api/v1/reporting/definitions/${id}/execute?*`, async route => {
     expect(route.request().postDataJSON().versionNumber).toBe(1);
-    pending = true; await waiting; await json(route, result(id, '旧敏感查询')).catch(() => {});
+    pending = true; await waiting; await json(route, result(id, '旧敏感查询')).catch(() => {}); finished = true;
   });
   await page.route(`**/api/v1/reporting/definitions/${nextId}/execute?*`, route => {
     expect(route.request().postDataJSON().versionNumber).toBe(1);
@@ -83,12 +84,18 @@ test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({
   await page.goto('/#/reporting/execute');
   await page.getByTestId('reporting-execute-run').click();
   await expect.poll(() => pending).toBe(true);
+  await expect(page.getByTestId('reporting-execute-definition').getByRole('combobox')).toBeDisabled();
+  // 真实控件在查询期间禁用；通过离页取消，不能强制操作或替换组件内部状态。
+  await page.goto('/#/document/share/PUBLIC');
+  await expect(page.getByTestId('reporting-execute-definition')).toHaveCount(0);
+  await expect.poll(() => cancelled).toBe(true);
+  await page.goto('/#/reporting/execute');
   await page.getByTestId('reporting-execute-definition').click();
   await page.getByRole('option', { name: '新报表夹具 (fixture) · v1', exact: true }).click();
-  release();
   await expect(page.getByTestId('reporting-execute-run')).toBeEnabled();
   await page.getByTestId('reporting-execute-run').click();
   await expect(page.locator('.result-card')).toContainText('新查询内容');
+  release(); await expect.poll(() => finished).toBe(true);
   await expect(page.locator('.result-card')).not.toContainText('旧敏感查询');
 });
 
@@ -234,7 +241,9 @@ test('离开文档预览页取消待返回 PDF，不调用打开窗口', async (
   await page.evaluate(() => { window.__pdfOpens = 0; window.open = () => { window.__pdfOpens++; return null; }; });
   await page.getByTestId('document-preview-task-open-pdf').click(); await expect.poll(() => pending).toBe(true);
   await page.evaluate(() => { window.location.hash = '/import-export/tasks'; });
-  await expect(page.getByRole('heading', { name: '导入任务', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/import-export\/tasks$/u);
+  await expect(page.locator('main [data-route-heading]')).toBeVisible();
+  await expect(page.getByTestId('document-preview-task-open-pdf')).toHaveCount(0);
   release(); await expect.poll(() => finished).toBe(true);
   expect(await page.evaluate(() => window.__pdfOpens)).toBe(0);
 });

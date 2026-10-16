@@ -30,7 +30,7 @@ async function boot(page, item) {
   await page.route(`**/api/v1/${item.module}/${item.entity}`, route => json(route, [item.value]));
   await page.route(`**/api/v1/${item.module}/${item.entity}?*`, route => json(route, [item.value]));
   await page.route(`**/api/v1/${item.module}/${item.entity}/${id}/versions`, route => json(route, [1, 2].map(versionNumber => ({
-    id, [item.objectKey]: id, versionNumber, ...item.version, changeNote: null, publishedByUserId: id, publishedAtUtc: date }))));
+    id: versionNumber === 1 ? id : tenant, [item.objectKey]: id, versionNumber, ...item.version, changeNote: null, publishedByUserId: id, publishedAtUtc: date }))));
   await page.route(`**/api/v1/${item.module}/${item.entity}/${id}/versions/*/tenant-grants?*`, route => json(route, {
     items: [tenant], page: 1, pageSize: 20, total: 1 }));
   await page.goto(`/#${item.path}`);

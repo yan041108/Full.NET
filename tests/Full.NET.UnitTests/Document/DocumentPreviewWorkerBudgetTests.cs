@@ -96,7 +96,12 @@ public sealed class DocumentPreviewWorkerBudgetTests
             queries.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.LockCompletionSqlServer, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ => ownedTask);
             var transaction = Substitute.For<ICommandTransaction>();
             transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<bool>>>(), Arg.Any<CancellationToken>())
-                .Returns(info => info.Arg<Func<CancellationToken, Task<bool>>>()(info.Arg<CancellationToken>()));
+                .Returns(info =>
+                {
+                    var action = info.Arg<Func<CancellationToken, Task<bool>>>();
+                    Assert.IsNotNull(action);
+                    return action(info.Arg<CancellationToken>());
+                });
             reader.OpenReadyContentAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
                 .Returns(Result<HostFileContent>.Success(new(Source, "application/msword", "source.doc")));
             var provider = new Converter(async (input, token) =>
@@ -109,7 +114,9 @@ public sealed class DocumentPreviewWorkerBudgetTests
                 .Returns(async info =>
                 {
                     Uploads++;
-                    await info.Arg<Stream>().CopyToAsync(Stream.Null, info.Arg<CancellationToken>());
+                    var content = info.Arg<Stream>();
+                    Assert.IsNotNull(content);
+                    await content.CopyToAsync(Stream.Null, info.Arg<CancellationToken>());
                     return Result<HostFileUploadResult>.Success(new(Guid.NewGuid(), 3, null));
                 });
             commands.ExecuteAsync(DocumentPreviewTaskSql.MarkFailed, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(info =>

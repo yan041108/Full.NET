@@ -85,7 +85,7 @@ public sealed class OrganizationPositionWorkbookCodecTests
     [DataRow(true, true)]
     public async Task Cancellation_after_source_eof_stops_xml_parse_and_keeps_source_owned_by_caller(bool hasData, bool shared)
     {
-        var rows = new List<string[]> { ["code", "name", "displayOrder", "unitCode", "positionLevelCode"] };
+        var rows = new List<string[]> { new[] { "code", "name", "displayOrder", "unitCode", "positionLevelCode" } };
         if (hasData) rows.Add(["engineer", "Engineer", "10", "", ""]);
         var workbook = CreateImportWorkbook(shared, rows);
         using var cancellation = new CancellationTokenSource();

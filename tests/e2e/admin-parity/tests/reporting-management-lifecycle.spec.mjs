@@ -6,7 +6,8 @@ const source = { id, tenantId: null, name: '管理数据源', providerKey: 'sql_
   port: 1433, databaseName: 'private-database', username: 'private-user', hasPassword: true,
   trustServerCertificate: false, isEnabled: true, lastTestedAtUtc: null, lastTestStatusKey: null,
   lastTestMessage: null, createdAtUtc: date, updatedAtUtc: null, version: 1 };
-const directory = { items: [{ ...source, maskedDatabaseName: 'private-***', maskedServerEndpoint: 'private-***',
+const { serverHost, port, databaseName, username, ...sourceSummary } = source;
+const directory = { items: [{ ...sourceSummary, maskedDatabaseName: 'private-***', maskedServerEndpoint: 'private-***',
   maskedUsername: 'private-***' }], page: 1, pageSize: 20, total: 1 };
 const definition = { id, groupId: id, dataSourceId: id, definitionKey: 'fixture', name: '管理报表',
   description: null, queryPortKey: 'fixture', parameterSchema: [], layoutConfigJson: '{}',
@@ -39,7 +40,8 @@ test('数据源真实表单校验、重复提交、确认取消和重试', async
   const waiting = new Promise(resolve => { release = resolve; });
   await page.route('**/api/v1/reporting/data-sources', async route => {
     creates++; expect(route.request().postDataJSON().password).toBe('not-a-real-secret');
-    await waiting; await json(route, source);
+    const { password, ...input } = route.request().postDataJSON();
+    await waiting; await json(route, { ...source, ...input });
   });
   await page.route(`**/api/v1/reporting/data-sources/${id}`, route => { deletes++; return json(route, true); });
   await page.goto('/#/reporting/data-sources'); await page.getByTestId('reporting-data-source-create').click();
@@ -58,7 +60,8 @@ test('数据源真实表单校验、重复提交、确认取消和重试', async
 });
 
 test('离开数据源页取消详情读取，迟到凭据不能弹出；再次进入仍可编辑', async ({ page }) => {
-  await boot(page); let reads = 0; let release; let finished = false;
+  await boot(page); let reads = 0; let release; let finished = false; let cancelled = false;
+  page.on('requestfailed', request => { if (request.url().endsWith(`/reporting/data-sources/${id}`)) cancelled = true; });
   const waiting = new Promise(resolve => { release = resolve; });
   await page.route(`**/api/v1/reporting/data-sources/${id}`, async route => {
     reads++; if (reads === 1) await waiting;
@@ -66,8 +69,10 @@ test('离开数据源页取消详情读取，迟到凭据不能弹出；再次�
   });
   await page.goto('/#/reporting/data-sources'); await page.getByTestId('reporting-data-source-edit').click();
   await expect.poll(() => reads).toBe(1);
-  await page.getByRole('menuitem', { name: '报表定义', exact: true }).click();
-  await expect(page).toHaveURL(/reporting\/definitions/u); release(); await expect.poll(() => finished).toBe(true);
+  // 详情加载框是模态窗口，真实地址导航可以离页，不能穿透遮罩点击菜单。
+  await page.goto('/#/reporting/definitions');
+  await expect(page).toHaveURL(/reporting\/definitions/u); await expect.poll(() => cancelled).toBe(true);
+  await expect(page.getByRole('dialog')).toHaveCount(0); release(); await expect.poll(() => finished).toBe(true);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('menuitem', { name: '报表数据源', exact: true }).click();
   await page.getByTestId('reporting-data-source-edit').click(); await expect(page.getByRole('dialog')).toBeVisible();
@@ -98,6 +103,8 @@ test('报表发布防重、版本错误可见、关闭编辑清除发布备注',
   await page.getByTestId('reporting-definition-publish').evaluate(button => { button.click(); button.click(); });
   await expect.poll(() => publishes).toBe(1); release(); await expect(page.locator('.el-message--success')).toBeVisible();
   await page.getByTestId('reporting-definition-versions').click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('.reporting-definitions-view > .el-alert')).toContainText('版本服务不可用');
+  const versions = page.getByRole('dialog').filter({ has: page.getByTestId('reporting-versions-retry') });
+  await expect(versions).toBeVisible();
+  await expect(versions.locator('.el-alert--error')).toContainText('版本服务不可用');
+  await expect(versions.locator('.el-table__body-wrapper tbody tr')).toHaveCount(0);
 });

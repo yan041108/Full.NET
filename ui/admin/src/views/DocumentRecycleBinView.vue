@@ -338,11 +338,21 @@ const rowControls = computed(() => { const owner = catalogOwner.value; return ne
 </template>
 
 <style scoped>
+.document-recycle-bin-view {
+  /* 回执和告警增加页面高度后保留可滚动出口，避免分页覆盖恢复按钮。 */
+  overflow-y: auto;
+}
+
+.document-recycle-bin-view > :deep(.el-card),
+.document-recycle-bin-view > :deep(.el-alert) {
+  flex-shrink: 0;
+}
+
 .document-recycle-bin-view :deep(.art-table-card) {
-  flex: 1;
+  flex: 1 0 320px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 320px;
 }
 
 .document-recycle-bin-view :deep(.art-table-card .el-card__body) {

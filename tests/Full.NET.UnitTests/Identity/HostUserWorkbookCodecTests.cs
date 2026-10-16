@@ -85,7 +85,7 @@ public sealed class HostUserWorkbookCodecTests
     [DataRow(true, true)]
     public async Task Cancellation_after_source_eof_stops_xml_parse_and_keeps_source_owned_by_caller(bool hasData, bool shared)
     {
-        var rows = new List<string[]> { ["username", "displayName", "password", "accountType"] };
+        var rows = new List<string[]> { new[] { "username", "displayName", "password", "accountType" } };
         if (hasData) rows.Add(["alice", "Alice", "Correct-Horse-2026!", "standard"]);
         var workbook = CreateImportWorkbook(shared, rows);
         using var cancellation = new CancellationTokenSource();

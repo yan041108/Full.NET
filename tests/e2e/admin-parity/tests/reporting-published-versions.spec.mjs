@@ -40,10 +40,13 @@ test('浏览器创建指定旧版导出，错任务不关弹窗，下载定位�
  await page.route('**/api/v1/reporting/export-tasks/*/download',route=>route.fulfill({status:200,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',body:'owned mock workbook'}));
  await page.goto('/#/reporting/export-tasks');await page.getByTestId('reporting-export-create').click();await page.getByTestId('reporting-export-definition').click();
  await expect(page.getByRole('option',{name:'版本报表 · v2',exact:true})).toBeVisible();await page.getByRole('option',{name:'版本报表 · v1',exact:true}).click();
- await page.getByTestId('reporting-export-submit').click();await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByTestId('reporting-export-submit')).toBeVisible();
+ await page.getByTestId('reporting-export-submit').click();await expect(page.locator('.el-alert--error')).toBeVisible();await expect(page.getByTestId('reporting-export-submit')).toBeDisabled();
+ await page.getByTestId('reporting-export-recovery').click(); await page.getByTestId('reporting-export-recovery-confirm').click(); expect(versions).toEqual([1]);
  mismatch=false;
  const [createdResponse]=await Promise.all([page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/reporting/export-tasks'&&response.request().method()==='POST'),page.getByTestId('reporting-export-submit').click()]);
  expect((await createdResponse.json()).id).toBe(id);await expect(page.getByTestId('reporting-export-submit')).toBeHidden();
+ const detail=page.getByRole('dialog').filter({has:page.getByTestId('reporting-export-detail-refresh')});
+ await expect(detail).toContainText(task.definitionName); await detail.getByRole('button',{name:'关闭此对话框',exact:true}).click(); await expect(detail).toHaveCount(0);
  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-testid="reporting-export-download"][data-task-id="'+id+'"]').click()]);
  expect(download.suggestedFilename()).toBe('version-1.xlsx');expect(versions).toEqual([1,1]);
 });

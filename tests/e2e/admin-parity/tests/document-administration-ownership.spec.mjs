@@ -7,7 +7,7 @@ const second = { ...doc, id: other, documentNo: 'DOC-2', title: '第二文档' }
 const permission = { id, documentId: id, userId: id, permissionLevel: 'read', createdAtUtc: '2026-10-10T00:00:00Z' };
 const added = { ...permission, id: other, userId: other, permissionLevel: 'write' };
 const json = (route, value) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(value) });
-async function boot(page, recycle = false) {
+async function boot(page, recycle = false, recycleRows = () => [doc, second]) {
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
@@ -17,7 +17,8 @@ async function boot(page, recycle = false) {
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'fixture', parentId: null, routeName, path, componentKey: routeName, title: '文档管理', caption: '', icon: 'document', order: 1, requiredPermission: recycle ? 'document.host_recycle_bin.read' : 'document.host_permissions.read', children: [] }]));
   let lists = 0;
   await page.route('**/api/v1/document/host/' + (recycle ? 'recycle-bin' : 'items') + '?*', route => {
-    lists++; return json(route, { items: recycle ? [doc, second].map(item => ({ ...item, status: 4, deletedAtUtc: '2026-10-10T00:00:00Z', deletedByUserId: id })) : [doc, second], page: 1, pageSize: 20, total: 2 });
+    const rows = recycle ? recycleRows() : [doc, second];
+    lists++; return json(route, { items: recycle ? rows.map(item => ({ ...item, deletedAtUtc: '2026-10-10T00:00:00Z', deletedByUserId: id })) : rows, page: 1, pageSize: 20, total: rows.length });
   });
   await page.route('**/api/v1/document/host/permissions/snapshot/*', route => json(route, { documentId: id, version: 7, permissions: [permission] }));
   await page.goto('/#' + path);
@@ -57,14 +58,19 @@ test('保存结果不确定时禁止旧快照重试，重读保留已提交用�
 });
 
 test('关闭在途权限保存中止请求，重开清空输入', async ({ page }) => {
-  await boot(page); let release, started = false, finished = false, cancelled = false;
+  await boot(page); let release, started = false, finished = false, cancelled = false, writes = 0;
   const pending = new Promise(resolve => { release = resolve; });
   page.on('requestfailed', request => { if (request.url().endsWith('/host/permissions') && request.method() === 'POST') cancelled = true; });
-  await page.route('**/api/v1/document/host/permissions', async route => { started = true; await pending; await json(route, [permission, added]).catch(() => {}); finished = true; });
+  await page.route('**/api/v1/document/host/permissions', async route => { writes++; started = true; await pending; await json(route, [permission, added]).catch(() => {}); finished = true; });
   await openAcl(page); await inputAcl(page); await page.getByTestId('document-permissions-save').click(); await expect.poll(() => started).toBe(true);
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
   release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true); await expect(page.locator('.el-message--success,.el-message--error')).toHaveCount(0);
-  await openAcl(page); await expect(page.getByTestId('document-permissions-user-id')).toHaveValue('');
+  await page.getByTestId('document-permissions-set').first().click();
+  await expect(page.getByTestId('document-permissions-user-id')).toHaveValue('');
+  await expect(page.getByTestId('document-permissions-save')).toHaveCount(0);
+  await page.getByTestId('document-permissions-recover').click();
+  await page.getByTestId('document-permissions-recovery-confirm').click();
+  await expect(page.getByTestId('document-permissions-save')).toBeEnabled(); expect(writes).toBe(1);
 });
 
 test('授权连续保存使用提交修订号，不使用文档列表旧版本', async ({ page }) => {
@@ -102,28 +108,34 @@ test('授权冲突阻止旧快照提交，重读后保留另一管理员的授�
   await expect(page.getByTestId('document-permissions-user-id')).toHaveValue(''); expect(writes).toBe(2);
 });
 
-test('恢复拒绝其他条目响应，重试合法身份才刷新', async ({ page }) => {
-  const lists = await boot(page, true); let restores = 0;
-  await page.route('**/api/v1/document/host/recycle-bin/' + id + '/restore', route => { expect(route.request().postDataJSON()).toEqual({ version: 2 }); return json(route, ++restores === 1 ? { ...doc, id: other } : doc); });
-  await page.getByTestId('document-recycle-restore').first().click(); await expect(page.locator('.el-message--error')).toBeVisible(); expect(lists()).toBe(1);
-  await page.getByTestId('document-recycle-restore').first().click(); await expect.poll(lists).toBe(2); expect(restores).toBe(2);
+test('恢复拒绝其他条目响应，刷新核实后才能人工重试', async ({ page }) => {
+  let restored = false; const lists = await boot(page, true, () => restored ? [second] : [doc, second]); let restores = 0;
+  await page.route('**/api/v1/document/host/recycle-bin/' + id + '/restore', route => { expect(route.request().postDataJSON()).toEqual({ version: 2 }); restored = ++restores === 2; return json(route, { ...doc, id: restored ? id : other, version: 3 }); });
+  await page.getByTestId('document-recycle-restore').first().click();
+  await expect(page.locator('.el-alert--error')).toBeVisible(); await expect.poll(lists).toBe(2);
+  await expect(page.getByTestId('document-recycle-restore').first()).toBeDisabled(); expect(restores).toBe(1);
+  await page.getByTestId('document-recycle-recover').first().click(); await page.getByTestId('document-recycle-confirm').click();
+  expect(restores).toBe(1);
+  await page.getByTestId('document-recycle-restore').first().click(); await expect.poll(lists).toBe(3); expect(restores).toBe(2);
+  await expect(page.getByTestId('document-recycle-receipt')).toContainText('1/1');
 });
 
 test('永久清除false不报成功，确认重试后刷新', async ({ page }) => {
-  const lists = await boot(page, true); let purges = 0;
+  let purges = 0; const lists = await boot(page, true, () => purges === 2 ? [second] : [doc, second]);
   await page.route('**/api/v1/document/host/recycle-bin/' + id + '/purge', route => json(route, ++purges !== 1));
   await page.getByTestId('document-recycle-purge').first().click(); await page.getByTestId('document-recycle-confirm').click();
-  await expect(page.locator('.el-message--error')).toBeVisible(); expect(lists()).toBe(1); await expect(page.locator('.el-message--success')).toHaveCount(0);
+  await expect(page.locator('.el-alert--error')).toContainText('client.document_purge_failed');
+  await expect(page.locator('.el-message--warning')).toBeVisible(); expect(lists()).toBe(1); await expect(page.locator('.el-message--success')).toHaveCount(0);
   await page.getByTestId('document-recycle-purge').first().click(); await page.getByTestId('document-recycle-confirm').click();
   await expect.poll(lists).toBe(2); expect(purges).toBe(2);
 });
 
 test('批量恢复冻结选择，在途取消勾选不改变剩余目标', async ({ page }) => {
-  const lists = await boot(page, true); const restored = []; let release;
+  const completed = new Set(); const lists = await boot(page, true, () => [doc, second].filter(row => !completed.has(row.id))); const restored = []; let release;
   const pending = new Promise(resolve => { release = resolve; });
   await page.route('**/api/v1/document/host/recycle-bin/*/restore', async route => {
     const target = route.request().url().split('/').at(-2); restored.push(target); expect(route.request().postDataJSON()).toEqual({ version: 2 });
-    if (restored.length === 1) await pending; await json(route, target === id ? doc : second);
+    if (restored.length === 1) await pending; completed.add(target); await json(route, { ...(target === id ? doc : second), version: 3 });
   });
   const selectAll = page.locator('.el-table__header-wrapper .el-checkbox').first();
   await selectAll.click(); await page.getByTestId('document-recycle-batch-restore').click(); await expect.poll(() => restored.length).toBe(1);

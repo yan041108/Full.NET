@@ -38,9 +38,12 @@ for(const field of ['schemaKey','worksheetKey']){
    uploads++;return json(route,uploads===1?{...task,[field]:'another'}:task);
   });
   await openAndUpload(page);await page.getByTestId('import-create-submit').click();
-  await expect(page.locator('.el-message--error')).toBeVisible();await expect(page.getByTestId('import-create-submit')).toBeEnabled();
+   await expect(page.locator('.el-message--error')).toBeVisible();await expect(page.getByTestId('import-create-submit')).toHaveCount(0);
+   await expect(page.getByTestId('import-create-receipt')).toBeVisible(); expect(uploads).toBe(1);
   await expect(page.getByTestId('import-export-task-execute')).toHaveCount(0);await expect(page.locator('.el-message--success')).toHaveCount(0);
-  expect(counters.lists).toBe(1);await page.getByTestId('import-create-submit').click();
+   expect(counters.lists).toBe(1);
+   await page.getByTestId('import-create-recovery').click(); await page.getByTestId('import-create-recovery-confirm').click(); expect(uploads).toBe(1);
+   await page.getByTestId('import-create-submit').click();
   await expect(page.getByTestId('import-export-task-execute')).toBeVisible();expect(uploads).toBe(2);await expect.poll(()=>counters.lists).toBe(2);
  });
 }
@@ -48,9 +51,10 @@ for(const field of ['schemaKey','worksheetKey']){
 test('详情拒绝其他任务ID，原任务重新读取后仍可操作',async({page})=>{
  await boot(page,true);let reads=0;
  await page.route(`**/api/v1/import-export/tasks/${id}`,route=>{reads++;return json(route,reads===1?{...task,id:otherId,schemaDisplayName:'不应显示的新任务'}:task);});
- await page.getByTestId('import-export-task-detail').click();await expect(page.locator('.el-message--error')).toBeVisible();
- await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByText('不应显示的新任务')).toHaveCount(0);
- await page.getByTestId('import-export-task-detail').click();await expect(page.getByTestId('import-export-task-execute')).toBeVisible();expect(reads).toBe(2);
+ await page.getByTestId('import-export-task-detail').click();await expect(page.getByTestId('import-task-detail-problem')).toBeVisible();
+ await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByText('不应显示的新任务')).toHaveCount(0);
+ await expect(page.getByTestId('import-export-task-execute')).toHaveCount(0);
+ await page.getByTestId('import-export-task-detail-refresh').click();await expect(page.getByTestId('import-export-task-execute')).toBeVisible();expect(reads).toBe(2);
 });
 
 test('执行拒绝其他任务ID，不刷新或显示成功，重试接入原任务',async({page})=>{
@@ -60,8 +64,9 @@ test('执行拒绝其他任务ID，不刷新或显示成功，重试接入原任
   executes++;return json(route,executes===1?{...task,id:otherId,schemaDisplayName:'不应显示的新任务'}:{...task,statusKey:'execution_succeeded',version:2});
  });
  await page.getByTestId('import-export-task-detail').click();await page.getByTestId('import-export-task-execute').click();
- await expect(page.locator('.el-message--error')).toBeVisible();await expect(page.getByTestId('import-export-task-execute')).toBeEnabled();
+ await expect(page.locator('.el-message--error')).toBeVisible();await expect(page.getByTestId('import-export-task-execute')).toBeDisabled();
  await expect(page.getByText('不应显示的新任务')).toHaveCount(0);await expect(page.locator('.el-message--success')).toHaveCount(0);expect(counters.lists).toBe(1);
+ await page.getByTestId('import-export-task-detail-refresh').click(); await expect(page.getByTestId('import-export-task-execute')).toBeEnabled(); expect(executes).toBe(1);
  await page.getByTestId('import-export-task-execute').click();await expect(page.locator('.el-message--success')).toBeVisible();
  await expect(page.getByTestId('import-export-task-execute')).toHaveCount(0);expect(executes).toBe(2);await expect.poll(()=>counters.lists).toBe(2);
 });

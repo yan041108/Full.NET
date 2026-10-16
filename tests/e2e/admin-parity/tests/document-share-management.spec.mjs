@@ -51,11 +51,14 @@ test('关闭在途创建取消请求，迟到结果不刷新，重开清空密�
  await page.getByTestId('document-share-create').click();await expect(page.getByTestId('document-share-editor-form').locator('input').nth(2)).toHaveValue('');
 });
 
-test('状态更新拒绝其他分享响应，重试合法身份后刷新',async({page})=>{
+test('状态更新拒绝其他分享响应，先刷新核实再人工重试',async({page})=>{
  const lists=await boot(page);let updates=0;
  await page.route('**/api/v1/document/host/shares/'+id+'/status',route=>json(route,++updates===1?{...share,id:other}:{...share,isEnabled:false,version:2}));
  await page.getByTestId('document-share-toggle').click();await expect(page.locator('.el-alert--error')).toBeVisible();expect(lists()).toBe(1);
- await page.getByTestId('document-share-toggle').click();await expect.poll(lists).toBe(2);await expect(page.locator('.el-message--success')).toBeVisible();expect(updates).toBe(2);
+  await expect(page.getByTestId('document-share-toggle')).toBeDisabled(); expect(updates).toBe(1);
+  await page.getByRole('button',{name:'刷新',exact:true}).first().click(); await expect.poll(lists).toBe(2);
+  await expect(page.getByTestId('document-share-toggle')).toBeEnabled(); expect(updates).toBe(1);
+  await page.getByTestId('document-share-toggle').click();await expect.poll(lists).toBe(3);await expect(page.locator('.el-message--success')).toBeVisible();expect(updates).toBe(2);
 });
 
 test('离开分享页取消在途状态更新，旧成功不反馈',async({page})=>{
@@ -77,5 +80,11 @@ test('文档库批量拒绝错配计数，正常部分成功按实际数量反�
  const results=[{documentId:id,succeeded:true,share,errorCode:null,message:null},{documentId:other,succeeded:false,share:null,errorCode:'denied',message:'拒绝'}];
  await page.route('**/api/v1/document/host/shares/batch',route=>{expect(route.request().postDataJSON().documentIds).toEqual([id,other]);return json(route,{succeededCount:++creates===1?2:1,results});});
  await page.locator('.el-table__header-wrapper .el-checkbox').first().click();await page.getByTestId('host-document-item-batch-share').click();await page.getByTestId('document-share-editor-submit').click();await expect(page.locator('.el-message--error')).toBeVisible();await expect(page.getByTestId('document-share-editor-submit')).toBeEnabled();
- await page.getByTestId('document-share-editor-submit').click();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.el-message--success')).toContainText('1');await expect(page.locator('.el-message--success')).toContainText('2');expect(creates).toBe(2);await expect(page).toHaveURL(/document\/host-items$/);
+  await page.getByTestId('document-share-editor-submit').click();
+  const receipt=page.getByTestId('document-share-batch-receipt');
+  await expect(receipt).toBeVisible(); await expect(receipt.locator('.el-alert')).toContainText('1'); await expect(receipt.locator('.el-alert')).toContainText('2');
+  await expect(receipt).toContainText('denied'); await expect(receipt.locator('input')).toHaveValue(/SHARE-OLD$/u);
+  await expect(page.getByTestId('document-share-editor-submit')).toHaveCount(0); expect(creates).toBe(2);
+  await page.getByRole('dialog').getByRole('button',{name:'关闭回执',exact:true}).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).toHaveURL(/document\/host-items$/);
 });

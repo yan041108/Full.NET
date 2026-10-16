@@ -45,9 +45,13 @@ async function openCreate(page){await page.getByTestId('document-preview-task-cr
 test('后台创建拒绝错配文档，不误报成功或刷新，重试仍可提交',async({page})=>{
  const lists=await hostBoot(page);let creates=0;
  await page.route('**/api/v1/document/host/preview-tasks',route=>{creates++;return json(route,creates===1?{...task,documentItemId:other}:task);});
- await openCreate(page);await page.getByTestId('document-preview-task-editor-submit').click();await expect(page.locator('.el-alert')).toBeVisible();
- await expect(page.getByTestId('document-preview-task-editor-submit')).toBeEnabled();expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);
- await page.getByTestId('document-preview-task-editor-submit').click();await expect(page.getByRole('dialog')).toHaveCount(0);await expect.poll(lists).toBe(2);await expect(page.locator('.el-message--success')).toBeVisible();
+ await page.route('**/api/v1/document/host/preview-tasks/'+id,route=>json(route,task));
+ await openCreate(page);await page.getByTestId('document-preview-task-editor-submit').click();await expect(page.locator('.el-alert--error')).toBeVisible();
+ await expect(page.getByTestId('document-preview-task-editor-submit')).toHaveCount(0);expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);
+ await page.getByTestId('document-preview-recovery').click(); await page.getByTestId('document-preview-recovery-confirm').click(); expect(creates).toBe(1);
+ await page.getByTestId('document-preview-task-editor-submit').click();await expect(page.getByTestId('document-preview-task-editor-submit')).toHaveCount(0);
+ await expect(page.getByTestId('document-preview-detail')).toContainText(task.documentTitle); await expect(page.getByTestId('document-preview-detail-problem')).toHaveCount(0);
+ await expect.poll(lists).toBe(2);await expect(page.locator('.el-message--success')).toBeVisible();expect(creates).toBe(2);
 });
 test('后台关闭在途创建不刷新或反馈，重开不残留文档和版本',async({page})=>{
  const lists=await hostBoot(page);let release,started=false,finished=false;const pending=new Promise(resolve=>{release=resolve;});

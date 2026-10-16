@@ -13,6 +13,7 @@ using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Errors = Full.NET.Modules.Document.Contracts.DocumentErrorCodes;
 
 namespace Full.NET.UnitTests.Document;
 
@@ -112,7 +113,7 @@ public sealed class DocumentContentHandoffBoundaryTests
             Assert.AreEqual(0, fixture.Stream.DisposeCalls);
             await result.Value!.Content.DisposeAsync();
         }
-        else Assert.AreEqual(DocumentErrorCodes.PreviewNotSupported, result.Error!.Code);
+        else Assert.AreEqual(Errors.PreviewNotSupported, result.Error!.Code);
         Assert.AreEqual(1, fixture.Stream.DisposeCalls);
         Assert.AreEqual(0, fixture.Transaction.ReceivedCalls().Count());
     }

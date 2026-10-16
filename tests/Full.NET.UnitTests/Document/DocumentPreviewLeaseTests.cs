@@ -171,7 +171,10 @@ public sealed class DocumentPreviewLeaseTests
             });
             writer.UploadAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(async info =>
             {
-                Uploads++; await info.Arg<Stream>().CopyToAsync(Stream.Null, info.Arg<CancellationToken>());
+                Uploads++;
+                var content = info.Arg<Stream>();
+                Assert.IsNotNull(content);
+                await content.CopyToAsync(Stream.Null, info.Arg<CancellationToken>());
                 if (stage == "upload") Now = Now.AddSeconds(241);
                 return Result<HostFileUploadResult>.Success(new(Guid.CreateVersion7(), 1, null));
             });
@@ -186,7 +189,12 @@ public sealed class DocumentPreviewLeaseTests
             });
             var transaction = Substitute.For<ICommandTransaction>();
             transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<bool>>>(), Arg.Any<CancellationToken>())
-                .Returns(info => info.Arg<Func<CancellationToken, Task<bool>>>()(info.Arg<CancellationToken>()));
+                .Returns(info =>
+                {
+                    var action = info.Arg<Func<CancellationToken, Task<bool>>>();
+                    Assert.IsNotNull(action);
+                    return action(info.Arg<CancellationToken>());
+                });
             Runner = new(queries, commands, transaction, reader, writer,
                 new DocumentOfficePreviewConversionProviderResolver([converter], monitor), clock,
                 Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), monitor);

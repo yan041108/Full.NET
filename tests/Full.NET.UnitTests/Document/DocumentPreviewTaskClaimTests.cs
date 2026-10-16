@@ -65,7 +65,12 @@ public sealed class DocumentPreviewTaskClaimTests
             clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             Queries.QueryAsync<Guid>(DocumentPreviewTaskSql.SelectClaimableIdsMySql, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(Ids);
             transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<IReadOnlyList<DocumentPreviewTaskRecord>>>>(), Arg.Any<CancellationToken>())
-                .Returns(info => info.Arg<Func<CancellationToken, Task<IReadOnlyList<DocumentPreviewTaskRecord>>>>()(info.Arg<CancellationToken>()));
+                .Returns(info =>
+                {
+                    var action = info.Arg<Func<CancellationToken, Task<IReadOnlyList<DocumentPreviewTaskRecord>>>>();
+                    Assert.IsNotNull(action);
+                    return action(info.Arg<CancellationToken>());
+                });
         }
 
         internal DocumentPreviewTaskRunner Runner() => new(Queries, Commands, transaction, Files, Substitute.For<IHostFileUploadWriter>(),
