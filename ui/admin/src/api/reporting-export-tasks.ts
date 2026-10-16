@@ -1,5 +1,6 @@
 import {
   reportingCancelExportTask,
+  isGuid,
   isReportingExportTaskDetail,
   isReportingExportTaskPage,
   type CreateReportingExportTaskRequest,
@@ -20,14 +21,24 @@ export async function createReportingExportTask(
   body: CreateReportingExportTaskRequest,
   signal?: AbortSignal
 ): Promise<ReportingExportTaskDetail> {
+  if (!Array.isArray(body.parameters) || !body.parameters.every(parameter => parameter && typeof parameter.parameterKey === 'string' && !!parameter.parameterKey.trim()
+    && (parameter.value === null || typeof parameter.value === 'string'))) throw new Error('client.invalid_create_reporting_export_task');
+  const snapshot = { ...body, parameters: body.parameters.map(parameter => ({ ...parameter })) };
+  if (!isGuid(snapshot.definitionId) || snapshot.definitionId === '00000000-0000-0000-0000-000000000000'
+    || snapshot.versionNumber != null && (!Number.isSafeInteger(snapshot.versionNumber) || snapshot.versionNumber < 1)
+    || new Set(snapshot.parameters.map(parameter => parameter.parameterKey)).size !== snapshot.parameters.length) throw new Error('client.invalid_create_reporting_export_task');
   const value = await request<unknown>(
     '/api/v1/reporting/export-tasks',
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(snapshot) },
     signal
   );
   if (!isReportingExportTaskDetail(value)) {
     throw new Error('client.invalid_reporting_export_task_detail');
   }
+  const parameters = (items: typeof snapshot.parameters) => JSON.stringify(items.map(item => JSON.stringify([item.parameterKey, item.value])).sort());
+  if (value.id === '00000000-0000-0000-0000-000000000000' || value.definitionId.toLowerCase() !== snapshot.definitionId.toLowerCase()
+    || snapshot.versionNumber != null && value.versionNumber !== snapshot.versionNumber || value.formatKey !== snapshot.formatKey
+    || parameters(value.parameters) !== parameters(snapshot.parameters)) throw new Error('client.invalid_reporting_export_task_identity');
   return value;
 }
 
@@ -49,7 +60,9 @@ export async function listReportingExportTasks(
     { method: 'GET' },
     signal
   );
-  if (!isReportingExportTaskPage(value)) {
+  if (!isReportingExportTaskPage(value) || value.page !== page || value.pageSize !== pageSize || !Number.isSafeInteger(value.total) || value.total < 0 || value.items.length > pageSize
+    || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || definitionId !== undefined && row.definitionId.toLowerCase() !== definitionId.toLowerCase())) {
     throw new Error('client.invalid_reporting_export_task_page');
   }
   return value;

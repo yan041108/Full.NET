@@ -69,7 +69,7 @@ describe('报表导出详情与结果入口', () => {
     await vi.advanceTimersByTimeAsync(10000); await flushPromises(); expect(api.getReportingExportTask).toHaveBeenCalledTimes(2);
   });
   it('租户变化与 KeepAlive 恢复不重放旧链接，显式新链接可读取', async () => {
-    const session = await setup(undefined, undefined, true); session.currentUser!.tenantId = otherId; await flushPromises();
+    const session = await setup(undefined, undefined, true); session.currentUser = { ...session.currentUser!, tenantId: otherId, scope: `tenant:${otherId.replaceAll('-', '')}` }; await flushPromises();
     visible.value = false; await flushPromises(); visible.value = true; await flushPromises();
     expect(api.getReportingExportTask).toHaveBeenCalledOnce(); expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(false);
     await router.replace({ query: { taskId: otherId } }); await flushPromises(); expect(wrapper!.text()).toContain('新导出');

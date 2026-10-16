@@ -124,7 +124,7 @@ describe('报表导出授权与生命周期', () => {
     mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.executions.run']); await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click'); await flushPromises(); const button = wrapper!.get('[data-testid="reporting-export-submit"]');
     await button.trigger('click'); await button.trigger('click'); expect(createReportingExportTask).toHaveBeenCalledTimes(1);
-    pending.reject(new Error('failed')); await flushPromises(); await button.trigger('click'); await flushPromises();
+    pending.reject({ status: 409, code: 'reporting.export.rejected', title: 'Rejected' }); await flushPromises(); await button.trigger('click'); await flushPromises();
     expect(createReportingExportTask).toHaveBeenCalledTimes(2); expect(listReportingExportTasks).toHaveBeenCalledTimes(2);
   });
   it('只读列表不请求创建专用定义目录', async () => { mountView(['reporting.export_tasks.read']); await flushPromises(); expect(listReportingPublishedDefinitions).not.toHaveBeenCalled(); expect(listReportingExportTasks).toHaveBeenCalledTimes(1); });
