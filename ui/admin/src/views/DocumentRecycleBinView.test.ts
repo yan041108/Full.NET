@@ -1,3 +1,4 @@
+import { recycleItem } from '../test/document-recycle-fixtures';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
@@ -39,6 +40,7 @@ describe('Vue 文档回收站页', () => {
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue({
       items: [{
+        ...recycleItem,
         id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
         title: 'Deleted doc',
         version: 2

@@ -1,10 +1,11 @@
+import { recycleItem as doc, restoredRecycleItem } from '../test/document-recycle-fixtures';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h, KeepAlive, ref } from 'vue';
 import View from './DocumentRecycleBinView.vue';
 import * as api from '../api/document-recycle-bin';
 import * as feedback from '../feedback/fullNetMessage';
-import { createShareSession, shareDocument as doc, otherShareId } from '../test/document-share-fixtures';
+import { createShareSession, otherShareId } from '../test/document-share-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 vi.mock('../api/document-recycle-bin', () => ({ listRecycleBinItems: vi.fn(), restoreRecycleBinItem: vi.fn(), purgeRecycleBinItem: vi.fn() }));
 const first = { ...doc, title: '第一项' }, second = { ...doc, id: otherShareId, title: '第二项' }, third = { ...doc, id: '01980000-0000-7000-8000-000000000003', title: '第三项' };
@@ -13,7 +14,7 @@ const all = [read, restore, purge]; const page = { items: [first, second, third]
 let wrapper: VueWrapper | undefined; let visible = ref(true);
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(api.listRecycleBinItems).mockResolvedValue(page);
-  vi.mocked(api.restoreRecycleBinItem).mockImplementation(async id => ({ ...first, id })); vi.mocked(api.purgeRecycleBinItem).mockResolvedValue(true);
+  vi.mocked(api.restoreRecycleBinItem).mockImplementation(async id => restoredRecycleItem(id === first.id ? first : id === second.id ? second : third)); vi.mocked(api.purgeRecycleBinItem).mockResolvedValue(true);
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 async function setup(permissions = all, keepAlive = false, tenantId: string | null = null) {
@@ -39,7 +40,7 @@ describe('回收站批量结果及中断回执', () => {
     const pending = deferred<typeof first>(); vi.mocked(api.restoreRecycleBinItem).mockReturnValueOnce(pending.promise);
     await setup(); vm().selectedRows = [first, second]; const action = vm().batchRestore();
     expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['processing', 'not_sent']);
-    pending.resolve(first); await action;
+    pending.resolve(restoredRecycleItem(first)); await action;
   });
   it.each(['restore', 'purge'] as const)('健康 %s 显示逐项成功并只补读一次', async kind => {
     await setup(); await run(kind); expect(vm().batchReceipt?.succeeded).toBe(3);
@@ -47,20 +48,20 @@ describe('回收站批量结果及中断回执', () => {
     expect(api.listRecycleBinItems).toHaveBeenCalledTimes(2); expect(vm().selectedRows).toHaveLength(0);
   });
   it('恢复中途失败保留已成功与未发送项目，不自动重试', async () => {
-    vi.mocked(api.restoreRecycleBinItem).mockResolvedValueOnce(first).mockRejectedValueOnce({ status: 409, code: 'document.version_conflict', title: 'conflict' });
+    vi.mocked(api.restoreRecycleBinItem).mockResolvedValueOnce(restoredRecycleItem(first)).mockRejectedValueOnce({ status: 409, code: 'document.version_conflict', title: 'conflict' });
     const success = vi.spyOn(feedback, 'showSuccess'); await setup(); await run('restore');
     expect(api.restoreRecycleBinItem).toHaveBeenCalledTimes(2); expect(vm().batchReceipt?.succeeded).toBe(1);
-    expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'unconfirmed', 'not_sent']);
+    expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'failed', 'not_sent']);
     expect(vm().batchReceipt?.items[1]?.errorCode).toBe('document.version_conflict'); expect(success).not.toHaveBeenCalled(); expect(api.listRecycleBinItems).toHaveBeenCalledTimes(2);
   });
   it('清除部分成功后 false 停止，不重复已成功项目', async () => {
     vi.mocked(api.purgeRecycleBinItem).mockResolvedValueOnce(true).mockResolvedValueOnce(false); await setup(); await run('purge');
-    expect(api.purgeRecycleBinItem).toHaveBeenCalledTimes(2); expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'unconfirmed', 'not_sent']);
+    expect(api.purgeRecycleBinItem).toHaveBeenCalledTimes(2); expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'failed', 'not_sent']);
     expect(api.listRecycleBinItems).toHaveBeenCalledTimes(2);
   });
   it('首项 false 保留目录和未发送项目，不报成功或额外补读', async () => {
     vi.mocked(api.purgeRecycleBinItem).mockResolvedValueOnce(false); await setup(); await run('purge');
-    expect(vm().batchReceipt?.succeeded).toBe(0); expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['unconfirmed', 'not_sent', 'not_sent']);
+    expect(vm().batchReceipt?.succeeded).toBe(0); expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['failed', 'not_sent', 'not_sent']);
     expect(api.listRecycleBinItems).toHaveBeenCalledOnce();
   });
   it('未知网络结果不冒充明确失败，补读也不自动重试写入', async () => {
@@ -70,7 +71,7 @@ describe('回收站批量结果及中断回执', () => {
   });
   it('补读失败时成功条目已从本地移除，回执仍保留', async () => {
     await setup(); vi.mocked(api.listRecycleBinItems).mockRejectedValueOnce(new Error('reload failed'));
-    vi.mocked(api.restoreRecycleBinItem).mockResolvedValueOnce(first).mockRejectedValueOnce(new Error('network'));
+    vi.mocked(api.restoreRecycleBinItem).mockResolvedValueOnce(restoredRecycleItem(first)).mockRejectedValueOnce(new Error('network'));
     await run('restore'); expect(vm().items.map(item => item.id)).toEqual([second.id, third.id]); expect(vm().total).toBe(2);
     expect(vm().batchReceipt?.succeeded).toBe(1); expect(vm().selectedRows).toHaveLength(0);
   });
@@ -84,8 +85,8 @@ describe('回收站批量结果及中断回执', () => {
   it('批次后续目标修订变化时停止，不发送陈旧目标', async () => {
     const pending = deferred<typeof first>(); vi.mocked(api.restoreRecycleBinItem).mockReturnValueOnce(pending.promise);
     await setup(); vm().selectedRows = [first, second, third]; const action = vm().batchRestore(); vm().items = [first, { ...second, version: 99 }, third];
-    pending.resolve(first); await action; expect(api.restoreRecycleBinItem).toHaveBeenCalledOnce();
-    expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'unconfirmed', 'not_sent']);
+    pending.resolve(restoredRecycleItem(first)); await action; expect(api.restoreRecycleBinItem).toHaveBeenCalledOnce();
+    expect(vm().batchReceipt?.items.map(item => item.outcome)).toEqual(['succeeded', 'not_sent', 'not_sent']);
   });
   it('重复选择按 UUID 去重，同一条目只发送一次', async () => {
     await setup(); await run('restore', [first, { ...first }, second]); expect(vi.mocked(api.restoreRecycleBinItem).mock.calls.map(call => call[0])).toEqual([first.id, second.id]);
@@ -104,7 +105,7 @@ describe('回收站批量结果及中断回执', () => {
   it('在途切会话取消后续项目，清除回执且不接入晚结果', async () => {
     const pending = deferred<typeof first>(); vi.mocked(api.restoreRecycleBinItem).mockReturnValueOnce(pending.promise);
     const session = await setup(); vm().selectedRows = [first, second]; const action = vm().batchRestore(); const signal = vi.mocked(api.restoreRecycleBinItem).mock.calls[0]![2]!;
-    session.currentUser!.sessionId = second.id; pending.resolve(first); await action; await flushPromises();
+    session.currentUser!.sessionId = second.id; pending.resolve(restoredRecycleItem(first)); await action; await flushPromises();
     expect(signal.aborted).toBe(true); expect(api.restoreRecycleBinItem).toHaveBeenCalledOnce(); expect(vm().batchReceipt).toBeUndefined();
   });
   it('KeepAlive 停用清回执，恢复不重放写操作', async () => {
