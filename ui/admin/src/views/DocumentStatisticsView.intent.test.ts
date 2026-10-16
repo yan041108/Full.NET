@@ -17,7 +17,7 @@ let wrapper: VueWrapper | undefined;
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(statistics.getDocumentStatistics).mockResolvedValue({ summary: { totalItems: 0, totalVersions: 0, totalSizeKb: 0, totalSizeInfo: '0 B' }, byType: [], byCategory: [], shareCount: 0, todayAccessCount: 0, todayDownloadCount: 0, todayCreatedCount: 0, recycleBinCount: 0 });
-  vi.mocked(logs.listDocumentAccessLogs).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 100 });
+  vi.mocked(logs.listDocumentAccessLogs).mockImplementation(async (page = 1, pageSize = 20) => ({ items: [], page, pageSize, total: 100 }));
   vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue(settings);
   vi.mocked(retention.updateDocumentVersionRetentionSettings).mockImplementation(async value => ({ ...value, version: value.version + 1 }));
 });
@@ -30,7 +30,7 @@ async function tab(name: string) { wrapper!.getComponent(ElTabs).vm.$emit('updat
 const refresh = async () => { await wrapper!.get('[data-testid="document-statistics-refresh"]').trigger('click'); await flushPromises(); };
 const vm = () => wrapper!.vm as unknown as { applyAccessLogFilters(): void; resetAccessLogFilters(): void; accessLogFilters: { documentItemId: string; accessTypeKey: string; sourceKey: string }; retentionForm: typeof settings; saveRetentionSettings(): Promise<void> };
 const apply = async () => { vm().applyAccessLogFilters(); await flushPromises(); };
-const changePage = async () => { const pager = wrapper!.getComponent(ElPagination); pager.vm.$emit('update:currentPage', 2); pager.vm.$emit('current-change', 2); await flushPromises(); };
+const changePage = async () => { const pager = wrapper!.getComponent(ElPagination); pager.vm.$emit('change', 2, 20); await flushPromises(); };
 
 describe('文档统计日志查询意图', () => {
   it('Host标识携带租户时统计及子页签均不读取', async () => {

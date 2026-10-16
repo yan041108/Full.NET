@@ -60,6 +60,9 @@ describe('报表查询与导出恢复', () => {
     await setup(); vi.mocked(executeReportingDefinition).mockResolvedValueOnce({ ...reportResult, hasMore: true, totalRows: 120 }).mockResolvedValueOnce({ ...reportResult, page: 2 }); await state().runExecute(); await flushPromises();
     const paging = wrapper.getComponent(ElPagination); paging.vm.$emit('change', 2, 50); paging.vm.$emit('change', 2, 50); await flushPromises(); expect(executeReportingDefinition).toHaveBeenCalledTimes(2);
   });
+  it('真实分页渲染，点击下一页先更新受控模型再仅执行一次', async () => {
+    await setup(); vi.mocked(executeReportingDefinition).mockImplementation(async (_id, _body, page = 1, pageSize = 50) => ({ ...reportResult, page, pageSize, totalRows: 120, hasMore: page < 3 })); await state().runExecute(); await flushPromises(); const pager = wrapper.getComponent(ElPagination); expect(pager.find('.el-pagination').exists()).toBe(true); await pager.get('.btn-next').trigger('click'); await flushPromises(); expect(vi.mocked(executeReportingDefinition).mock.calls.at(-1)?.slice(2, 4)).toEqual([2, 50]); expect(executeReportingDefinition).toHaveBeenCalledTimes(2);
+  });
   it.each([0, 302, 408, 503])('导出状态%s不确定时跨选择保留阻断，确认核对后仅允许手动重试', async status => {
     await setup(); vi.mocked(createReportingExportTask).mockRejectedValueOnce({ status, code: 'export.unknown', title: 'unknown' }); await state().exportCurrent(); expect(state().receipt?.outcome).toBe('unconfirmed');
     state().parameterValues.set('filter', 'another'); await state().runExecute(); state().parameterValues.set('filter', 'original'); await state().exportCurrent(); expect(createReportingExportTask).toHaveBeenCalledOnce();

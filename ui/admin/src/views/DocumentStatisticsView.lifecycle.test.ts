@@ -64,11 +64,11 @@ describe('文档统计、日志与版本策略归属', () => {
     await setup(); const pending = deferred<typeof page>(); vi.mocked(logs.listDocumentAccessLogs).mockReturnValue(pending.promise); await tab('accessLogs'); const signal = vi.mocked(logs.listDocumentAccessLogs).mock.calls[0]?.[3]; await tab('statistics'); expect(signal?.aborted).toBe(true);
     if (outcome === 'resolve') pending.resolve(page); else pending.reject(new Error('late')); await flushPromises(); expect(view.findComponent(ElPagination).exists()).toBe(false); expect(view.find('.el-alert--error').exists()).toBe(false);
   });
-  it('日志替换和失败清空旧total', async () => {
+  it('日志替换取消旧请求，同查询失败保留最近确认分页', async () => {
     await setup(); await tab('accessLogs'); expect(view.getComponent(ElPagination).props('total')).toBe(100);
     const old = deferred<typeof page>(); vi.mocked(logs.listDocumentAccessLogs).mockReturnValueOnce(old.promise).mockRejectedValueOnce(new Error('latest failed'));
     await filter(); const signal = vi.mocked(logs.listDocumentAccessLogs).mock.calls.at(-1)?.[3]; await filter(); expect(signal?.aborted).toBe(true); await flushPromises(); old.resolve(page); await flushPromises();
-    expect(view.findComponent(ElPagination).exists()).toBe(false); expect(view.find('.el-alert--error').exists()).toBe(true);
+    expect(view.getComponent(ElPagination).props('total')).toBe(100); expect(view.find('.el-alert--error').exists()).toBe(true);
   });
   it('成功读取前不能保存；失败后可重读', async () => {
     await setup(); vi.mocked(retention.getDocumentVersionRetentionSettings).mockRejectedValueOnce(new Error('read failed'));
@@ -88,7 +88,7 @@ describe('文档统计、日志与版本策略归属', () => {
   });
   it('失败保存必须重读新策略后继续，旧表单不能重试', async () => {
     await setup(); await tab('retention'); vi.mocked(retention.updateDocumentVersionRetentionSettings).mockRejectedValueOnce(new Error('response lost')); await save(); await flushPromises(); expect(view.find('[data-testid="document-version-retention-save"]').exists()).toBe(false);
-    const latest = { ...settings, batchSize: 99 }; vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue(latest); await refresh(); await flushPromises(); await save(); expect(vi.mocked(retention.updateDocumentVersionRetentionSettings).mock.calls[1]?.[0]).toEqual(latest);
+    const latest = { ...settings, version: 8, batchSize: 99 }; vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue(latest); await refresh(); await flushPromises(); await save(); expect(vi.mocked(retention.updateDocumentVersionRetentionSettings).mock.calls[1]?.[0]).toEqual(latest);
   });
   it.each([undefined, NaN, 1.5, 0, 1001])('无效最低保留数%s不提交', async value => { await setup(); await tab('retention'); view.findAllComponents(ElInputNumber)[0]!.vm.$emit('update:modelValue', value); await save(); expect(retention.updateDocumentVersionRetentionSettings).not.toHaveBeenCalled(); });
   it.each(['sessionId', 'tenantId', 'id', 'scope', 'permissions'] as const)('%s改变取消策略读取并清空旧表单', async field => {

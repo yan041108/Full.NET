@@ -75,6 +75,7 @@ const intent = computed(() => JSON.stringify([selectedDefinition.value, paramete
 // 重复写入按实际提交值匹配，不能用空白差异绕过结果不确定时的人工核对。
 const exportKey = computed(() => selectedDefinition.value ? JSON.stringify([versionKey(selectedDefinition.value), 'excel', currentParameters()]) : '');
 const exportBlocked = computed(() => exportBlocks.value.has(exportKey.value));
+let lastExecutionPage: { page: number; pageSize: number } | undefined;
 
 const {
   tableMainRef,
@@ -109,6 +110,7 @@ watch(() => JSON.stringify(selectedDefinition.value), resetParameters, { flush: 
 watch(intent, () => {
   cancelExecution(); cancelExport(); result.value = undefined; problem.value = undefined; navigationProblem.value = undefined;
   page.value = 1; owner.value++; recoveryConfirmation.value = undefined;
+  lastExecutionPage = undefined;
 }, { flush: 'sync' });
 watch(() => route?.name, name => {
   if (name === 'reporting-execute') { if (pageActive.value) void loadDefinitions(); return; }
@@ -121,6 +123,7 @@ const controls = computed(() => {
   return { reload: () => { if (owned() && !busy.value) void loadDefinitions(); }, run: () => { if (owned()) void runExecute(); }, export: () => { if (owned()) void exportCurrent(); },
     select: (value: string) => { if (owned() && !busy.value) selectedDefinitionVersionKey.value = value; },
     parameters: parameterSchema.value.map(parameter => ({ ...parameter, input: (value: string) => { if (owned() && !busy.value) parameterValues.set(parameter.parameterKey, value); } })),
+    currentPage: (value: number) => { if (owned() && !busy.value && Number.isSafeInteger(value) && value > 0 && value <= 2147483647) page.value = value; },
     page: (value: number, size: number) => { if (owned() && output && result.value === output && size === output.pageSize) void onPageChanged(value); },
     recover: () => { if (owned()) acknowledgeExport(); }, open: () => { if (owned() && receipt.value?.outcome === 'succeeded') void openExport(receipt.value); } };
 });
@@ -157,6 +160,7 @@ async function runExecute(): Promise<void> {
     return;
   }
   const query = { definitionId: definition.definitionId, versionNumber: definition.versionNumber, queryPortKey: definition.queryPortKey, parameters: currentParameters(), page: page.value, pageSize: pageSize.value };
+  lastExecutionPage = { page: query.page, pageSize: query.pageSize };
   const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request; owner.value++;
   executing.value = true;
   problem.value = undefined;
@@ -232,7 +236,7 @@ function acknowledgeExport(): void {
 }
 
 async function onPageChanged(nextPage: number): Promise<void> {
-  if (busy.value || !canRun() || !Number.isSafeInteger(nextPage) || nextPage < 1 || nextPage > 2147483647 || nextPage === page.value) return;
+  if (busy.value || !canRun() || !Number.isSafeInteger(nextPage) || nextPage < 1 || nextPage > 2147483647 || lastExecutionPage && nextPage === lastExecutionPage.page && pageSize.value === lastExecutionPage.pageSize) return;
   page.value = nextPage;
   await runExecute();
 }
@@ -334,11 +338,11 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           v-if="result.hasMore || result.page > 1"
           class="art-table-pagination"
           layout="prev, pager, next"
-          :current-page="result.page"
+          :current-page="page"
           :disabled="busy"
           :page-size="result.pageSize"
           :total="result.totalRows ?? result.page * result.pageSize + (result.hasMore ? 1 : 0)"
-          v-on="{ change: controls.page }"
+          v-on="{ 'update:current-page': controls.currentPage, change: controls.page }"
         />
       </div>
     </ElCard>
