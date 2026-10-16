@@ -70,8 +70,13 @@ describe('Vue 工作流恢复任务页', () => {
       total: 2
     });
     getMock.mockReset().mockResolvedValue(task('failed'));
-    vi.mocked(retryWorkflowRecoveryTask).mockReset().mockResolvedValue(task('pending'));
-    vi.mocked(reconcileWorkflowRecoveryTask).mockReset().mockResolvedValue(task('succeeded'));
+    vi.mocked(retryWorkflowRecoveryTask).mockReset().mockImplementation(async () => {
+      const next = { ...task('pending'), revision: 3 };
+      listMock.mockResolvedValue({ items: [next, task('succeeded', '08')], page: 1, pageSize: 20, total: 2 });
+      getMock.mockResolvedValue(next);
+      return next;
+    });
+    vi.mocked(reconcileWorkflowRecoveryTask).mockReset().mockResolvedValue({ ...task('succeeded'), revision: 4 });
   });
 
   it('只读权限不显示重试和对账入口', async () => {
@@ -104,7 +109,8 @@ describe('Vue 工作流恢复任务页', () => {
         expectedRevision: 2,
         reason: '卡住实例',
         idempotencyKey: expect.stringMatching(/^retry-/)
-      })
+      }),
+      expect.any(AbortSignal)
     );
 
     await wrapper.get('[data-testid="workflow-recovery-tasks-reconcile"]').trigger('click');
@@ -112,9 +118,10 @@ describe('Vue 工作流恢复任务页', () => {
     expect(reconcileWorkflowRecoveryTask).toHaveBeenCalledWith(
       task('failed').id,
       expect.objectContaining({
-        expectedRevision: 2,
+        expectedRevision: 3,
         idempotencyKey: expect.stringMatching(/^reconcile-/)
-      })
+      }),
+      expect.any(AbortSignal)
     );
   });
 
@@ -135,6 +142,7 @@ describe('Vue 工作流恢复任务页', () => {
     await wrapper.get('[data-testid="workflow-recovery-tasks-retry"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('workflow.revision.conflict');
+    expect((wrapper.vm as unknown as { problem?: { code: string } }).problem?.code).toBe('workflow.revision.conflict');
+    expect(wrapper.get('[role="alert"]').text()).toContain('恢复任务操作未完成');
   });
 });

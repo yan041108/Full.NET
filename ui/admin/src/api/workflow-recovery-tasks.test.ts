@@ -64,7 +64,7 @@ describe('workflow recovery tasks api', () => {
     };
     vi.mocked(workflowGetRecoveryTask).mockResolvedValue(task);
     vi.mocked(workflowRetryRecoveryTask).mockResolvedValue(task);
-    vi.mocked(workflowReconcileRecoveryTask).mockResolvedValue({ ...task, statusKey: 'succeeded' });
+    vi.mocked(workflowReconcileRecoveryTask).mockResolvedValue({ ...task, statusKey: 'succeeded', revision: 4 });
 
     await expect(getWorkflowRecoveryTask(taskId)).resolves.toMatchObject({ id: taskId });
     await retryWorkflowRecoveryTask(taskId, {
