@@ -4,9 +4,13 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6823,
+      "minimum": 6831,
       "timeout": "10m",
       "selections": {
+        "goview-transactions": {
+          "filter": "FullyQualifiedName~GoViewProjectTransactionTests",
+          "minimum": 8
+        },
         "identity-cookie-control": {
           "filter": "FullyQualifiedName~IdentityAuthSessionScopeFilterTests|FullyQualifiedName~IdentityEndpointSecurityTests",
           "minimum": 7

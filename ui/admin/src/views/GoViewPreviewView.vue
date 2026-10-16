@@ -1,87 +1,42 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, ref } from 'vue';
 import { ElAlert, ElButton, ElCard, ElTag } from 'element-plus';
 import type { FullNetProblemDetails, GoViewProjectPreview } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useGoViewScope } from '../composables/useGoViewScope';
 import { previewGoViewProject } from '../api/goview-projects';
-
+import { validGoViewId, validGoViewPreview, validGoViewVersionNumber } from '../api/goview-guards';
+import { displayGoViewCanvas } from '../goview/displayCanvas';
 defineOptions({ name: 'GoViewPreviewView' });
-
-interface CanvasComponent {
-  id?: string;
-  type?: string;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  props?: Record<string, unknown>;
-}
-
-interface CanvasDocument {
-  width?: number;
-  height?: number;
-  backgroundColor?: string;
-  components?: CanvasComponent[];
-}
-
-const route = useRoute();
-const { t } = useAdminI18n();
-const preview = ref<GoViewProjectPreview>();
-const loading = ref(false);
-const problem = ref<FullNetProblemDetails>();
-
-const projectId = computed(() => String(route.params.projectId ?? ''));
-const canvas = computed<CanvasDocument | null>(() => {
-  if (!preview.value) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(preview.value.canvasJson) as CanvasDocument;
-  } catch {
-    return null;
-  }
-});
-
-function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
-  return isFullNetProblemDetails(error)
-    ? error
-    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
-}
-
-function componentLabel(component: CanvasComponent): string {
-  const text = component.props?.text;
-  return typeof text === 'string' && text.length > 0 ? text : component.type ?? 'component';
-}
-
+const { t } = useAdminI18n(), preview = ref<GoViewProjectPreview>(), loading = ref(false), problem = ref<FullNetProblemDetails>(), owner = ref(0);
+const context = useGoViewScope('goview-preview', reset, async () => { await load(); }, 'goview.projects.preview'), { route, canRead } = context;
+type Lease = NonNullable<ReturnType<typeof context.begin>>; let request: Lease | undefined, versionFloor = 0;
+const known = new Map<number, { key: string; canvas: string }>();
+function reset(): void { request = undefined; preview.value = undefined; loading.value = false; problem.value = undefined; versionFloor = 0; known.clear(); owner.value++; }
+const canvas = computed(() => preview.value ? displayGoViewCanvas(preview.value.canvasJson) : undefined);
 async function load(): Promise<void> {
-  if (!projectId.value) {
-    return;
-  }
-
-  loading.value = true;
-  problem.value = undefined;
+  if (!canRead.value) return; request?.cancel(); const lease = context.begin('goview.projects.preview'); if (!lease) return; request = lease;
+  preview.value = undefined; loading.value = true; problem.value = undefined; owner.value++;
+  const id = route?.params.projectId, raw = route?.query.versionNumber;
   try {
-    preview.value = await previewGoViewProject(projectId.value, {});
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'goviewPreview.loadFailed');
-  } finally {
-    loading.value = false;
-  }
+    if (!validGoViewId(id) || raw !== undefined && (typeof raw !== 'string' || !/^[1-9]\d*$/u.test(raw) || !validGoViewVersionNumber(Number(raw)))) throw Error('client.invalid_goview_project_preview');
+    const version = typeof raw === 'string' ? Number(raw) : undefined, value = await previewGoViewProject(id, version === undefined ? {} : { versionNumber: version }, lease.signal);
+    if (!lease.current() || request !== lease) return;
+    const previous = known.get(value.versionNumber);
+    if (!validGoViewPreview(value, id, version) || version === undefined && value.versionNumber < versionFloor || previous && (value.projectKey !== previous.key || value.canvasJson !== previous.canvas) || !displayGoViewCanvas(value.canvasJson)) throw Error('client.invalid_goview_project_preview');
+    versionFloor = Math.max(versionFloor, value.versionNumber); known.clear(); known.set(value.versionNumber, { key: value.projectKey, canvas: value.canvasJson }); preview.value = value;
+  } catch (error) { if (lease.current() && request === lease) problem.value = isFullNetProblemDetails(error) ? error : { status: 500, code: 'client.request_failed', title: t('goviewPreview.loadFailed') }; }
+  finally { if (request === lease) { request = undefined; loading.value = false; owner.value++; } lease.finish(); }
 }
-
-onMounted(() => {
-  void load();
-});
+const controls = computed(() => { const ticket = owner.value; return { reload: () => { if (canRead.value && ticket === owner.value) void load(); } }; });
 </script>
 
 <template>
-  <div class="goview-preview-view">
+  <div v-if="canRead" class="goview-preview-view">
     <ArtTableHeader :title="t('goviewPreview.title')">
-      <ElButton data-testid="goview-preview-reload" :loading="loading" @click="load">
+      <ElButton data-testid="goview-preview-reload" :loading="loading" v-on="{ click: controls.reload }">
         {{ t('goviewPreview.reload') }}
       </ElButton>
     </ArtTableHeader>
@@ -117,8 +72,8 @@ onMounted(() => {
       }"
     >
       <div
-        v-for="(component, index) in canvas.components ?? []"
-        :key="component.id ?? index"
+        v-for="component in canvas.components"
+        :key="component.key"
         class="goview-preview-component"
         :style="{
           position: 'absolute',
@@ -126,15 +81,15 @@ onMounted(() => {
           top: `${component.y ?? 0}px`,
           width: `${component.width ?? 120}px`,
           height: `${component.height ?? 40}px`,
-          color: String(component.props?.color ?? '#ffffff'),
-          fontSize: `${String(component.props?.fontSize ?? 16)}px`,
+          color: component.color,
+          fontSize: `${component.fontSize}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           border: '1px dashed rgba(255,255,255,0.2)'
         }"
       >
-        {{ componentLabel(component) }}
+        {{ component.text }}
       </div>
     </div>
   </div>
