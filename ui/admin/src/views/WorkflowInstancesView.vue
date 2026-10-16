@@ -45,13 +45,13 @@ function markUnknown(value: NonNullable<typeof operation>): void { blocks.value.
 function cancelAction(): void { if (!operation) return; if (operation.sent) markUnknown(operation); else receipt.value = operation.previous; operation.lease.cancel(); operation = undefined; actionKind.value = undefined; detailOwner.value++; }
 function closeReassign(): void { if (operation?.kind === 'reassign') cancelAction(); reassignOpen.value = false; reassignWindow.value++; detailOwner.value++; }
 function clearDetail(): void { cancelAction(); detailRequest?.cancel(); logsRequest?.cancel(); navigation?.cancel(); recovery.value?.lease.cancel(); detailRequest = logsRequest = navigation = undefined; recovery.value = undefined; instance.value = undefined; executionLogs.value = []; loading.value = logsLoading.value = detailReady.value = logsReady.value = navigating.value = false; reassignOpen.value = false; reassignWindow.value++; problem.value = logsProblem.value = undefined; detailWindow.value++; detailOwner.value++; }
-function authContext(): string { const user = session.currentUser; return workflowFormValueKey([session.state, user?.id, user?.sessionId, user?.tenantId, user?.scope, user?.actorScope, user?.permissions]); }
+function authContext(): string { const user = session.currentUser; return workflowFormValueKey([session.state, user?.id, user?.sessionId, user?.tenantId, user?.scope, user?.actorScope]); }
 function resetScope(): void {
   const context = authContext(), preserveRecovery = session.state === 'authenticated' && context === lastContext; lastContext = context;
   resetting = true;
   try {
     listRequest = undefined; clearDetail(); instanceId.value = ''; activeTab.value = 'mine'; listItems.value = []; listTotal.value = 0; listPage.value = 1; listLoading.value = catalogReady.value = false; statusFilter.value = undefined; definitionKeyFilter.value = ''; applied.value = {};
-    // 同一会话的停用/路由变化不等于服务端回滚；保留未知门槛和幂等意图，界面内容仍全部清空。
+    // 同一会话的停用、路由或权限变化不等于服务端回滚；保留未知门槛和幂等意图，界面内容仍全部清空。
     if (!preserveRecovery) { receipt.value = undefined; blocks.value.clear(); floors.clear(); bindings.clear(); logFacts.clear(); intents.clear(); }
     else if (receipt.value?.outcome !== 'unconfirmed') receipt.value = undefined;
     listOwner.value++;
