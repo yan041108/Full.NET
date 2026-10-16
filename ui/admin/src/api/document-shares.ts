@@ -14,6 +14,7 @@ import {
   isHostDocumentSharePage,
   isHostDocumentShareResponse,
   isUpdateHostDocumentShareStatusRequest,
+  isGuid,
   type AccessHostDocumentShareRequest,
   type BatchCreateHostDocumentSharesRequest,
   type BatchCreateHostDocumentSharesResponse,
@@ -140,22 +141,32 @@ export async function batchCreateDocumentShares(
   return value;
 }
 
+/** 公开读取只携带本次冻结的口令副本，不混入管理会话字段。 */
+function publicShareInput(shareCode: string, req: AccessHostDocumentShareRequest) {
+  const code = shareCode.trim();
+  if (!code) throw new Error('client.invalid_public_document_share_code');
+  if (!isAccessHostDocumentShareRequest(req)) throw new Error('client.invalid_access_document_share_request');
+  return { shareCode: code, body: req.password === undefined ? {} : { password: req.password } };
+}
+const nonNilGuid = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
+function checkPublicPreviewTask(task: HostDocumentPreviewTaskResponse): void {
+  if (!nonNilGuid(task.id) || !nonNilGuid(task.documentItemId) || !nonNilGuid(task.sourceFileId) || task.versionId !== null || !Number.isSafeInteger(task.version) || task.version < 1) throw new Error('client.invalid_document_preview_task_identity');
+}
 /** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
 export async function accessDocumentShareByCode(
   shareCode: string,
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentShareAccessResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req);
   const value = await documentPublicAccessDocumentShare(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     { retryUnauthorized: false, skipAuthentication: true }
   );
-  if (!isHostDocumentShareAccessResponse(value)) {
+  if (!isHostDocumentShareAccessResponse(value) || value.shareCode !== input.shareCode || !nonNilGuid(value.shareId) || !nonNilGuid(value.documentId)
+    || !Number.isSafeInteger(value.fileSizeBytes) || value.fileSizeBytes < 0 || !Number.isSafeInteger(value.accessCountRemaining) || value.accessCountRemaining < 0) {
     throw new Error('client.invalid_document_share_access');
   }
   return value;
@@ -167,12 +178,10 @@ export async function loadDocumentShareContentByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<Blob> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req);
   return documentPublicContentDocumentShare(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     { retryUnauthorized: false, skipAuthentication: true }
   );
@@ -186,15 +195,14 @@ export async function createDocumentSharePreviewTaskByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
-  return documentPublicCreateDocumentSharePreviewTask(
+  const input = publicShareInput(shareCode, req);
+  const value = await documentPublicCreateDocumentSharePreviewTask(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     publicShareOptions
   );
+  checkPublicPreviewTask(value); return value;
 }
 
 /** 匿名分享：查询预览任务状态。 */
@@ -204,17 +212,15 @@ export async function getDocumentSharePreviewTaskByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req); if (!nonNilGuid(taskId)) throw new Error('client.invalid_document_preview_task_identity');
   const value = await documentPublicGetDocumentSharePreviewTask(
     http,
-    { shareCode, taskId, body: req },
+    { ...input, taskId },
     signal,
     publicShareOptions
   );
   // 生成操作验证响应结构；公开轮询还必须拒绝另一个任务的合法响应。
-  if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
+  checkPublicPreviewTask(value); if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
   return value;
 }
 
@@ -225,12 +231,10 @@ export async function loadDocumentSharePreviewTaskContentByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<Blob> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req); if (!nonNilGuid(taskId)) throw new Error('client.invalid_document_preview_task_identity');
   return documentPublicContentDocumentSharePreviewTask(
     http,
-    { shareCode, taskId, body: req },
+    { ...input, taskId },
     signal,
     publicShareOptions
   );

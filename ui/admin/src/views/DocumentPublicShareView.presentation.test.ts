@@ -13,7 +13,7 @@ vi.mock('../api/host-document-items', () => ({ openDocumentBlob: vi.fn() }));
 const access = { shareId: outputId, documentId: outputId, shareCode: 'OLD', title: '分享文档', fileName: 'sample.pdf', mimeType: 'application/pdf', fileSizeBytes: 12, hasPassword: false, accessCountRemaining: 9 };
 let wrapper: VueWrapper | undefined; let router: Router; let visible = ref(true);
 beforeEach(() => {
-  vi.resetAllMocks(); vi.mocked(api.accessDocumentShareByCode).mockResolvedValue(access);
+  vi.resetAllMocks(); vi.mocked(api.accessDocumentShareByCode).mockImplementation(async shareCode => ({ ...access, shareCode }));
   vi.mocked(api.loadDocumentShareContentByCode).mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }));
   vi.mocked(api.createDocumentSharePreviewTaskByCode).mockResolvedValue(documentPreviewTask);
   vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValue(documentPreviewTask);
