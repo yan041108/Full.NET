@@ -211,6 +211,14 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryWorkerOptions>()
+            .BindConfiguration(Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryWorkerOptions.SectionName)
+            .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
+            .Validate(options => options.PollMilliseconds is >= 1000 and <= 60000, "PollMilliseconds must be between 1000 and 60000.")
+            .ValidateOnStart();
+        services.TryAddSingleton<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryCursor>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryWorker>();
+        services.AddHostedService<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryHostedProcessor>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmedHandler>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,

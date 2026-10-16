@@ -16,6 +16,7 @@ internal enum AiFailureStage
     AgentApprovalCommit, AgentReconciliationCommit, AgentWorkflowCommit,
     ChatLease, ChatCleanup, KnowledgeIndex, KnowledgeIndexIteration,
     KnowledgeCleanupIndex, KnowledgeCleanupImport, KnowledgeCleanupRetired, KnowledgeCleanupIteration,
+    KnowledgeIncrementalRecovery, KnowledgeIncrementalRecoveryIteration,
 }
 
 /// <summary>只投影闭合故障分类；诊断设施失效不能改变取消、清理或预算状态。</summary>
@@ -68,7 +69,9 @@ internal static class AiFailureLog
         AiFailureStage.ChatCleanup => "chat_cleanup", AiFailureStage.KnowledgeIndex => "knowledge_index",
         AiFailureStage.KnowledgeIndexIteration => "knowledge_index_iteration", AiFailureStage.KnowledgeCleanupIndex => "knowledge_cleanup_index",
         AiFailureStage.KnowledgeCleanupImport => "knowledge_cleanup_import", AiFailureStage.KnowledgeCleanupRetired => "knowledge_cleanup_retired",
-        AiFailureStage.KnowledgeCleanupIteration => "knowledge_cleanup_iteration", _ => "other",
+        AiFailureStage.KnowledgeCleanupIteration => "knowledge_cleanup_iteration",
+        AiFailureStage.KnowledgeIncrementalRecovery => "knowledge_incremental_recovery",
+        AiFailureStage.KnowledgeIncrementalRecoveryIteration => "knowledge_incremental_recovery_iteration", _ => "other",
     };
 
     /// <summary>固定字段的不可变投影；静态格式器与有界枚举保持 AOT 闭包和重入隔离。</summary>

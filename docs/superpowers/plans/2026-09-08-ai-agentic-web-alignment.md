@@ -3237,3 +3237,12 @@ R08g 本地专项验收完成（23:12）：SDK402 API/Worker 分析退出 0、�
 SDK402 同源 API/Worker AOT分析零警告/错误，两个全新 Linux x64 ELF 的 compiler/runtime 10.0.13、发布告警 17/15 项通过原精确门禁，官方 NuGet 包审计5范围零发现（不含框架/运行时漏洞评估）。Native专项6/6验证新来源确认→真实Worker Host/Tenant/Host消费及既有AI API和JSON SignalR，未重跑完整44项。输入6383前后核对通过，两个解析工具锁文件仅接受已验证SDK13 ILLink精确转换；共享脏工作区冻结快照的结论不外推为干净完整main。证据 artifacts/ai-incremental-20261016/acceptance17、native-security，详见[本批计划](2026-10-16-ai-incremental-index-intents.md)。
 
 历史回填、禁用期间自动补偿、元数据事件和有费用自动派发仍待后续；不升级整个R08、完整RAG、真实云模型、Native Worker文件解析或生产容量，重建默认关闭，Capacity-not-verified。
+
+
+#### R08：历史来源意图恢复与自动补偿（2026-10-16）
+
+所有者显式历史恢复已在 main 提交 `a7ae1670`，覆盖历史导入与停用期间漏记来源、精确操作权限、有界分页和 Vue 入口；本地双库影响集及 Native 专项验收已完成，准确范围见[恢复计划](2026-10-16-ai-incremental-index-recovery.md)。
+
+后续默认关闭的无费用补偿 Worker 已实现：最小来源锚点分批扫描、独立 Host/Tenant 作用域、文档锁幂等收敛、失败推进与绕回、重启重扫；重新启用目录可在后续扫描补齐，不创建收费任务或接管用户会话。本批开发实现及只读复审已完成：Unit2792/2792、修复精确上下文登记后的完整Architecture235/235，双库原8项通过与修复后精确复查2/2按10个唯一UID并集验收，不称单次全组通过；API/Worker AOT分析零警告/错误。原生发布因宿主内存不足暂停，用户选择稍后清理并保留进度，新ELF与Native双库2项尚未完成、不计通过。核心消费闭包、失败原件与资源释放证据保留；候选治理仍有1项既有TRX断言失败，另有6项继承的canonical分片计数漂移，不称clean-main全绿。实施边界与最终结果记录在[自动补偿计划](2026-10-16-ai-incremental-auto-recovery.md)。
+
+元数据可靠事件、后台有费用的自动派发、真实云模型质量及容量仍按后续范围推进；本轮不关闭完整 R08/RAG 或 Capacity-not-verified。

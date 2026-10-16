@@ -36,6 +36,7 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
         await using var db = AiOperationBudgetAssertions.Connection(configuration);
         var token = await NativeApiE2EAssertions.LoginAsync(client, host.LogFilePath);
         var expectedEvents = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeSourceConfirmed.EventType });
+        var recoveredBases = new List<Guid>();
         foreach (var phase in new[] { "host", "tenant", "host-after-tenant" })
         {
             if (phase == "tenant") token = await NativeApiE2EAssertions.EnterLocalTenantAsync(client, token);
@@ -48,6 +49,7 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
             using var createdBase = await client.PostAsJsonAsync("/api/v1/ai/knowledge-bases", new CreateAiKnowledgeBaseRequest("原生来源 " + phase, null));
             Assert.AreEqual(HttpStatusCode.Created, createdBase.StatusCode, await createdBase.Content.ReadAsStringAsync());
             var knowledge = (await createdBase.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
+            recoveredBases.Add(knowledge.Id);
             var path = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/documents";
             using var createdDocument = await client.PostAsJsonAsync(path, new CreateAiKnowledgeDocumentRequest("来源替换", null));
             Assert.AreEqual(HttpStatusCode.Created, createdDocument.StatusCode, await createdDocument.Content.ReadAsStringAsync());
@@ -97,7 +99,38 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
         }
         await worker.StopGracefullyAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
         worker.AssertNoFatalMarkersInLogs();
+        // 原事件已消费且旧 Worker 已停机；用新 Worker 验证无需人工调用恢复接口的历史补偿。
+        await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change");
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@Id", new { Id = recoveredBases[0] });
+        await using var recoveryWorker = await NativeWorkerProcessHost.StartAsync(workerArtifact, provider, connection, NativeAotTestTimeouts.ProcessStartup,
+            additionalSettings: new Dictionary<string, string?>
+            {
+                ["FullNet:Ai:KnowledgeIndexWorker:Enabled"] = "false",
+                ["FullNet:Ai:KnowledgeIncrementalRecoveryWorker:Enabled"] = "true",
+                ["FullNet:Ai:KnowledgeIncrementalRecoveryWorker:BatchSize"] = "1",
+                ["FullNet:Ai:KnowledgeIncrementalRecoveryWorker:PollMilliseconds"] = "1000"
+            });
+        await WaitForIntentCount(2);
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change AS intent INNER JOIN fn_ai_knowledge_document AS document ON document.Id=intent.DocumentId WHERE document.KnowledgeBaseId=@Id", new { Id = recoveredBases[0] }));
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=1 WHERE Id=@Id", new { Id = recoveredBases[0] });
+        await WaitForIntentCount(3);
+        Assert.AreEqual(3, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE VersionNumber=2"));
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task"));
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_session"));
+        Assert.AreEqual(expectedEvents, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeSourceConfirmed.EventType }));
+        await recoveryWorker.StopGracefullyAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
+        recoveryWorker.AssertNoFatalMarkersInLogs();
         await host.StopGracefullyAsync(CancellationToken.None);
         host.AssertNoFatalMarkersInLogs();
+
+        async Task WaitForIntentCount(int expected)
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            while (await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change") != expected)
+            {
+                if (deadline.IsCancellationRequested) Assert.Fail(await File.ReadAllTextAsync(recoveryWorker.LogFilePath));
+                await Task.Delay(100, deadline.Token);
+            }
+        }
     }
 }

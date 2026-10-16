@@ -2,6 +2,40 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "ai.knowledge_incremental_recovery.scan.sql_server",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIncrementalRecoveryWorkerSql.ScanSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIncrementalRecoveryWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "默认关闭的 Worker 仅有界扫描 AI 自有最新完成来源的四列身份锚点；每项另建可信 Host/Tenant 范围并在文档短事务内重验。只补齐幂等意图，不读取正文、不接管用户会话、不触发索引任务或费用。",
+      "requiredSqlFragments": [
+        "TOP (@BatchSize)",
+        "knowledge.TenantId",
+        "knowledge.IsEnabled=1",
+        "document.IsDeleted=0",
+        "operation.StateKey='completed'",
+        "existing.VersionNumber<version.VersionNumber",
+        "document.Id>@AfterDocumentId",
+        "ORDER BY document.Id"
+      ]
+    },
+    {
+      "statementName": "ai.knowledge_incremental_recovery.scan.my_sql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIncrementalRecoveryWorkerSql.ScanMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIncrementalRecoveryWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "默认关闭的 Worker 仅有界扫描 AI 自有最新完成来源的四列身份锚点；每项另建可信 Host/Tenant 范围并在文档短事务内重验。只补齐幂等意图，不读取正文、不接管用户会话、不触发索引任务或费用。",
+      "requiredSqlFragments": [
+        "LIMIT @BatchSize",
+        "knowledge.TenantId",
+        "knowledge.IsEnabled=1",
+        "document.IsDeleted=0",
+        "operation.StateKey='completed'",
+        "existing.VersionNumber<version.VersionNumber",
+        "document.Id>@AfterDocumentId",
+        "ORDER BY document.Id"
+      ]
+    },
+    {
       "statementName": "ai.knowledge_cleanup_worker.scan.sqlserver",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeCleanupWorkerSql.ScanSqlServer",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCleanupWorkerSql.cs",
