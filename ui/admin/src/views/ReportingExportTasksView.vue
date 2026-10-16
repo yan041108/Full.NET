@@ -604,7 +604,7 @@ function markCancelUnconfirmed(): void {
         </ElDescriptions>
         <template v-if="selectedTask">
           <PermissionGate code="reporting.export_tasks.download"><ElButton v-if="selectedTask.statusKey === 'succeeded'"
-            data-testid="reporting-export-detail-download" :disabled="detailLoading || downloading || cancelling || unavailableFiles.isUnavailable(selectedTask.id)"
+            data-testid="reporting-export-detail-download" :data-task-id="selectedTask.id" :disabled="detailLoading || downloading || cancelling || unavailableFiles.isUnavailable(selectedTask.id)"
             v-on="{ click: detailControls.download }">{{ t('reportingExportTasks.download') }}</ElButton></PermissionGate>
           <span v-if="unavailableFiles.isUnavailable(selectedTask.id)" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
           <ElButton v-if="isCancellable(selectedTask)" data-testid="reporting-export-detail-cancel" :disabled="detailLoading || cancelling || creating || downloading"

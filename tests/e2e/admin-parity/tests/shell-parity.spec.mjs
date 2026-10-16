@@ -3598,14 +3598,26 @@ test('刷新失败后可登录、进入动态控制台并安全退出', async ({
   }));
   await mockSnapshotEndpoints(page);
 
+  const layoutRequests = [];
+  page.on('request', request => {
+    if (/(?:OverviewView|ArtAdminShell)(?:-|\.vue)/u.test(new URL(request.url()).pathname)) {
+      layoutRequests.push(request.url());
+    }
+  });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
+  expect(layoutRequests).toEqual([]);
   await page.getByLabel('账号', { exact: true }).fill('admin');
   await page.getByLabel('密码', { exact: true }).fill('FullNet!2026Secure');
   await page.getByRole('button', { name: '进入控制台' }).click();
 
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: /租户上下文/ })).toBeVisible();
+  await expect.poll(() => layoutRequests.some(url => url.includes('OverviewView'))).toBe(true);
+  await expect.poll(() => layoutRequests.some(url => url.includes('ArtAdminShell'))).toBe(true);
+  await testInfo.attach('authenticated-layout-request-waterfall', {
+    body: JSON.stringify(layoutRequests, null, 2), contentType: 'application/json'
+  });
   if (clientKind === 'vue') {
     await expect(page.getByRole('button', { name: '系统管理员' })).toBeVisible();
     await page.getByRole('button', { name: '系统管理员' }).click();

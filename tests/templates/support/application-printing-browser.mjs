@@ -121,10 +121,14 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   assert.equal(exported.status(),201);stage='tenant-report-export-response';const exportTask=await exported.json();
   stage='tenant-report-export-identity';assert.equal(exportTask.definitionId,fixture.reportingDefinitionId);assert.equal(exportTask.versionNumber,1);assert.equal(exportTask.statusKey,'succeeded');
   // 稳定任务身份仅用于定位控件，不能下载同名旧任务冒充本次导出。
-  const exportDownload=page.locator('[data-testid="reporting-export-download"][data-task-id="'+exportTask.id+'"]');
-  stage='tenant-report-export-download-control';await expect(exportDownload).toHaveCount(1);
+   const exportDownload=page.locator('[data-testid="reporting-export-detail-download"][data-task-id="'+exportTask.id+'"]');
+   stage='tenant-report-export-download-control';await expect(exportDownload).toBeVisible();await expect(exportDownload).toBeEnabled();
   stage='tenant-report-export-download';
-  const [reportDownload]=await Promise.all([page.waitForEvent('download'),exportDownload.click()]);
+   const [reportDownload,downloadResponse]=await Promise.all([
+    page.waitForEvent('download'),
+    runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/reporting/export-tasks/'+exportTask.id+'/download',()=>exportDownload.click())
+   ]);
+   assert.equal(downloadResponse.status(),200);
   stage='tenant-report-export-filename';assert.equal(reportDownload.suggestedFilename(),exportTask.outputFileName);
   stage='tenant-report-export-workbook';
   const verified=fixture.verifyWorkbook(readFileSync(await reportDownload.path()),fixture.reportingExpectedValue);assert.equal(verified.dataRows,1);evidence.reportExport=true;

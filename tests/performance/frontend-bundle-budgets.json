@@ -17,6 +17,22 @@
       }
     },
     {
+      "name": "Vue authenticated overview static JavaScript",
+      "dist": "ui/admin/dist",
+      "entry": {
+        "directory": "assets",
+        "entryPrefix": "index-",
+        "entrySuffix": ".js",
+        "followStaticImports": true,
+        "additionalEntryPrefixes": ["OverviewRoute-", "OverviewView-", "ArtAdminShell-"]
+      },
+      "budget": {
+        "minifiedBytes": 1480687,
+        "gzipBytes": 394836,
+        "maxRegressionPercent": 5
+      }
+    },
+    {
       "name": "Vue FullNetChart lazy JavaScript",
       "dist": "ui/admin/dist",
       "asset": {

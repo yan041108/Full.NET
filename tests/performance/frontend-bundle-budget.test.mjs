@@ -68,6 +68,23 @@ test('预算只允许配置比例内的相对退化', () => {
   );
 });
 
+test('登录后概览预算合并入口与按需资产的静态依赖且共享文件只计一次', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'fullnet-authenticated-bundle-'));
+  try {
+    const assets = path.join(root, 'assets'); await mkdir(assets);
+    await writeFile(path.join(assets, 'index-entry.js'), 'import "./shared.js"; const overview = () => import("./OverviewView-page.js");');
+    await writeFile(path.join(assets, 'shared.js'), 'export const shared = true;');
+    await writeFile(path.join(assets, 'OverviewView-page.js'), 'import "./shared.js"; import "./metrics.js";');
+    await writeFile(path.join(assets, 'ArtAdminShell-shell.js'), 'import "./shared.js";');
+    await writeFile(path.join(assets, 'metrics.js'), 'export const metric = true;');
+    const definition = { directory: 'assets', entryPrefix: 'index-', entrySuffix: '.js', followStaticImports: true,
+      additionalEntryPrefixes: ['OverviewView-', 'ArtAdminShell-'] };
+    const result = await measureStaticJavaScriptGraph(root, definition);
+    assert.deepEqual(result.files.map(file => path.basename(file)).sort(), ['ArtAdminShell-shell.js', 'OverviewView-page.js', 'index-entry.js', 'metrics.js', 'shared.js']);
+    await assert.rejects(measureStaticJavaScriptGraph(root, { ...definition, additionalEntryPrefixes: ['MissingView-'] }), /found 0/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('延迟加载资产可以按稳定前缀纳入独立预算', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'fullnet-lazy-budget-'));
   try {

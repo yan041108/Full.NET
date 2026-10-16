@@ -32,18 +32,20 @@ export async function measureJavaScriptAsset(distRoot, definition) {
 
 export async function measureStaticJavaScriptGraph(distRoot, definition) {
   const assetRoot = path.resolve(distRoot, definition.directory);
-  const candidates = (await readdir(assetRoot))
-    .filter(name =>
-      name.startsWith(definition.entryPrefix)
-      && name.endsWith(definition.entrySuffix));
-  if (candidates.length !== 1) {
-    throw new Error(
-      `Expected one entry matching ${definition.entryPrefix}*`
-      + `${definition.entrySuffix} in ${assetRoot}, found ${candidates.length}.`
-    );
+  const assets = await readdir(assetRoot);
+  // 合并完整交互场景的入口闭包，共享依赖通过 visited 只计一次。
+  const queue = [];
+  for (const prefix of [definition.entryPrefix, ...definition.additionalEntryPrefixes ?? []]) {
+    const candidates = assets.filter(name =>
+      name.startsWith(prefix) && name.endsWith(definition.entrySuffix));
+    if (candidates.length !== 1) {
+      throw new Error(
+        `Expected one entry matching ${prefix}*`
+        + `${definition.entrySuffix} in ${assetRoot}, found ${candidates.length}.`
+      );
+    }
+    queue.push(path.join(assetRoot, candidates[0]));
   }
-
-  const queue = [path.join(assetRoot, candidates[0])];
   const files = [];
   const visited = new Set();
   let minifiedBytes = 0;

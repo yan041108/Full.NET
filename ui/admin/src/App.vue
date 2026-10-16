@@ -24,7 +24,6 @@ import { useSessionStore } from './auth/session';
 import { adminIdentityAuthMode } from './config/identity-auth';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
-import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
@@ -45,6 +44,10 @@ import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
 import { scheduleComboboxLabeling } from './framework/art-design/accessibility/labelComboboxes';
 
+// 登录页与公开分享页无需预载后台布局，登录后的完整依赖另设预算约束。
+const ArtAdminShell = defineAsyncComponent(
+  () => import('./framework/art-design/layout/ArtAdminShell.vue')
+);
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();

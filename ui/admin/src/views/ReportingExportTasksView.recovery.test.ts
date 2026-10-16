@@ -22,13 +22,23 @@ beforeEach(() => {
   vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{ ...publishedReportDefinition }]);
 });
 afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
-async function setup() {
-  const context = createOutputSession([read, create, run, cancel]), route = reactive({ name: 'reporting-export-tasks', query: {} });
+async function setup(extraPermissions: string[] = []) {
+  const context = createOutputSession([read, create, run, cancel, ...extraPermissions]), route = reactive({ name: 'reporting-export-tasks', query: {} });
   wrapper = mount(View, { global: { plugins: [context.pinia], provide: { [routeLocationKey as symbol]: route }, directives: { loading: () => {} }, stubs: {
     ElDialog: { name: 'ElDialog', props: ['modelValue'], template: '<div v-if="modelValue"><slot/><slot name="footer"/></div>' }, ElDrawer: { name: 'ElDrawer', props: ['modelValue'], template: '<div v-if="modelValue"><slot/></div>' }
   } } }); await flushPromises(); return { ...context, route };
 }
 describe('报表导出目录与任务恢复', () => {
+  it('创建成功后在详情提供绑定当前任务的下载入口', async () => {
+    vi.mocked(api.createReportingExportTask).mockResolvedValue({ ...exportTask });
+    await setup(['reporting.export_tasks.download']);
+    state().openCreateDialog(); await flushPromises();
+    await state().submitCreate(); await flushPromises();
+    expect(state().detailVisible).toBe(true);
+    expect(wrapper.get('[data-testid="reporting-export-detail-download"]').attributes('data-task-id')).toBe(exportTask.id);
+    expect(api.getReportingExportTask).not.toHaveBeenCalled();
+    expect(api.downloadReportingExportTask).not.toHaveBeenCalled();
+  });
   it('定义首次失败独立显示，列表刷新不能吞掉目录错误，可见重试可恢复', async () => {
     vi.mocked(listReportingPublishedDefinitions).mockRejectedValueOnce(new Error('offline')); await setup(); state().openCreateDialog(); await flushPromises(); await state().load(); await flushPromises();
     expect(wrapper.find('[data-testid="reporting-export-definitions-problem"]').exists()).toBe(true); await wrapper.get('[data-testid="reporting-export-definitions-refresh"]').trigger('click'); await flushPromises(); expect(state().selectedDefinitionVersionKey).toBe(exportTask.definitionId + ':1');
