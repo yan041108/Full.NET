@@ -55,7 +55,7 @@ const rowAction = async (text: string) => {
 beforeEach(() => {
   vi.clearAllMocks();
   for (const value of [...Object.values(sources), ...Object.values(definitions)]) vi.mocked(value).mockReset();
-  vi.mocked(sources.listReportingDataSources).mockResolvedValue(page);
+  vi.mocked(sources.listReportingDataSources).mockImplementation(async query => ({ ...page, page: query?.page ?? 1, pageSize: query?.pageSize ?? 20 }));
   vi.mocked(definitions.listReportingGroups).mockResolvedValue([group]);
   vi.mocked(definitions.listReportingDefinitions).mockResolvedValue([reportDefinition]);
   vi.mocked(definitions.listReportingQueryPorts).mockResolvedValue([]);
@@ -183,11 +183,11 @@ describe('Reporting 管理页授权代次', () => {
     await flushPromises(); expect(sources.deleteReportingDataSource).toHaveBeenCalledOnce();
     expect(sources.listReportingDataSources).toHaveBeenCalledTimes(2);
   });
-  it('版本读取失败关闭抽屉，让页面错误可见', async () => {
+  it('版本读取失败保留抽屉并显示可重试错误', async () => {
     vi.mocked(definitions.listReportingDefinitionVersions).mockRejectedValue({ status: 503, code: 'fixture.unavailable', title: '版本服务不可用' });
     mountPage(ReportingDefinitionsView); await flushPromises(); await rowAction('版本');
-    expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(false);
-    expect(wrapper!.text()).toContain('版本服务不可用');
+    expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(true);
+    expect(wrapper!.getComponent(ElDrawer).findAllComponents({ name: 'ElAlert' }).some(alert => alert.props('title') === '版本服务不可用')).toBe(true);
   });
   it('关闭报表编辑器清空备注，随后发布不携带上一草稿', async () => {
     vi.mocked(definitions.publishReportingDefinition).mockResolvedValue({} as any);

@@ -28,7 +28,7 @@ const otherGroup = { ...group, id: otherId, name: '分组二' };
 const parameter = { parameterKey: 'schema', displayName: '默认名称', dataTypeKey: 'string', isRequired: true, defaultValue: 'default' };
 const port = { queryPortKey: reportDefinition.queryPortKey, displayName: '目录', description: '', supportedProviderKeys: ['mysql'],
   parameters: [{ ...parameter, minimum: null, maximum: null }] };
-const definition = { ...reportDefinition, parameterSchema: [{ ...parameter, displayName: '已保存名称', defaultValue: 'saved' }] };
+const definition = { ...reportDefinition, dataSourceId: otherId, parameterSchema: [{ ...parameter, displayName: '已保存名称', defaultValue: 'saved' }] };
 const all = ['reporting.data_sources.read', 'reporting.data_sources.create', 'reporting.data_sources.update', 'reporting.data_sources.delete',
   'reporting.data_sources.test', 'reporting.definitions.read', 'reporting.definitions.create', 'reporting.definitions.update',
   'reporting.definitions.delete', 'reporting.definitions.publish', 'reporting.groups.read', 'reporting.groups.create',
@@ -49,7 +49,7 @@ async function validateOpen(result = Promise.resolve(true)) {
   vi.spyOn(dialog.getComponent(ElForm).vm.$.exposed!, 'validate').mockImplementation(() => result);
 }
 beforeEach(() => {
-  vi.resetAllMocks(); vi.mocked(sources.listReportingDataSources).mockResolvedValue({ items: [sourceRow, otherSource], page: 1, pageSize: 20, total: 2 });
+  vi.resetAllMocks(); vi.mocked(sources.listReportingDataSources).mockImplementation(async query => ({ items: [sourceRow, otherSource], page: query?.page ?? 1, pageSize: query?.pageSize ?? 20, total: 2 }));
   vi.mocked(sources.getReportingDataSource).mockResolvedValue(source);
   vi.mocked(sources.updateReportingDataSource).mockImplementation(async (id, body) => ({ ...source, id, name: body.name,
     providerKey: body.providerKey, serverHost: body.serverHost, port: body.port, databaseName: body.databaseName,
@@ -119,7 +119,7 @@ describe('报表定义编辑与确认意图', () => {
     vi.mocked(definitions.listReportingDefinitionVersions).mockResolvedValueOnce([{ id: otherId, definitionId: otherId, versionNumber: 1,
       dataSourceId: outputId, queryPortKey: port.queryPortKey, parameterSchema: [], layoutConfigJson: '{}', changeNote: '其他定义',
       publishedByUserId: outputId, publishedAtUtc: source.createdAtUtc }]); await setup(Definitions); await run('openVersions', definition);
-    expect(state().versionsDrawerOpen).toBe(false); expect(wrapper!.text()).not.toContain('其他定义');
+    expect(state().versionsDrawerOpen).toBe(true); expect(wrapper!.text()).not.toContain('其他定义');
   });
   it('健康编辑定义保留原分组、版本与自定义参数', async () => {
     await setup(Definitions); await run('openEditDefinition', definition); await validateOpen(); await run('submitDefinition');
@@ -140,13 +140,17 @@ describe('报表定义编辑与确认意图', () => {
     const old = deferred<ReportingDefinition>(); const next = deferred<ReportingDefinition>();
     vi.mocked(definitions.updateReportingDefinition).mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);
     await setup(Definitions); await run('openEditDefinition', definition); await validateOpen(); const first = run('submitDefinition'); await flushPromises();
-    state().definitionEditorOpen = false; await run('openEditDefinition', definition); await validateOpen(); const second = run('submitDefinition'); await flushPromises();
+    state().definitionEditorOpen = false;
+    const recovery = run('acknowledgeRecovery', 'definition', definition.id); await run('finishConfirmation', true); await recovery;
+    await run('openEditDefinition', definition); await validateOpen(); const second = run('submitDefinition'); await flushPromises();
     old.resolve({ ...definition, version: 2 }); await first; expect(state().definitionEditorOpen).toBe(true); expect(state().acting).toBe(true);
     state().definitionEditorOpen = false; next.resolve({ ...definition, version: 2 }); await second;
   });
   it('健康新建定义使用打开时分组和兼容数据源', async () => {
-    vi.mocked(definitions.createReportingDefinition).mockResolvedValueOnce({ ...definition, dataSourceId: otherId });
-    await setup(Definitions); await run('openCreateDefinition'); await validateOpen(); await run('submitDefinition');
+    vi.mocked(definitions.createReportingDefinition).mockImplementationOnce(async body => ({ ...definition, ...body,
+      description: body.description ?? null, layoutConfigJson: body.layoutConfigJson ?? '{}', id: otherId, version: 1, latestPublishedVersionNumber: 0 }));
+    await setup(Definitions); await run('openCreateDefinition'); Object.assign(state().definitionForm, { definitionKey: 'new-fixture', name: '新增报表' });
+    await validateOpen(); await run('submitDefinition');
     expect(definitions.createReportingDefinition).toHaveBeenCalledWith(expect.objectContaining({ groupId: group.id, dataSourceId: otherId }), expect.any(AbortSignal));
     expect(state().definitionEditorOpen).toBe(false);
   });
