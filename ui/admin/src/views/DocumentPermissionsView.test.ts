@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { permissionDocument } from '../test/document-permission-fixtures';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import DocumentPermissionsView from './DocumentPermissionsView.vue';
@@ -18,6 +19,7 @@ const listMock = vi.mocked(listDocumentItems);
 
 const samplePage = {
   items: [{
+    ...permissionDocument,
     id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
     title: 'Spec',
     documentNo: 'DOC-1',

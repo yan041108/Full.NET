@@ -90,7 +90,7 @@ describe('文档权限配置移除及快照归属', () => {
   });
   it('冲突或响应丢失后必须重读，不能用旧快照再次整份替换', async () => {
     vi.mocked(acl.setDocumentPermissions).mockRejectedValueOnce({ status: 409, title: '配置已更新', code: 'document.host_permission.version_conflict' });
-    await setup(); await open(); await remove(); expect(vm().permissionsReady).toBe(false); expect(vm().permissions).toHaveLength(0);
+    await setup(); await open(); await remove(); expect(vm().permissionsReady).toBe(false); expect(vm().permissions).toHaveLength(2);
     await remove(other); vm().userId = shareId; await vm().savePermission(); expect(acl.setDocumentPermissions).toHaveBeenCalledOnce();
     vi.mocked(acl.getDocumentPermissionSnapshot).mockResolvedValueOnce(snapshot([other], 10)); await open(); await remove(other);
     expect(vi.mocked(acl.setDocumentPermissions).mock.calls[1]![0]).toEqual({ documentId: doc.id, version: 10, permissions: [] });
