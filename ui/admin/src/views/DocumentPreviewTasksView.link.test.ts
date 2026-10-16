@@ -69,14 +69,15 @@ describe('文档预览详情及完整任务流程', () => {
     closeDetail(); expect(vi.mocked(api.getDocumentPreviewTask).mock.calls[0]![1]!.aborted).toBe(true);
     pending.resolve(task); await flushPromises(); expect(vm().detailVisible).toBe(false); expect(wrapper!.text()).not.toContain('敏感文档');
   });
-  it('详情读取失败关闭抽屉，刷新不会隐式重放已关闭链接', async () => {
+  it('详情读取失败保留重试入口，显式关闭后刷新不重放链接', async () => {
     vi.mocked(api.getDocumentPreviewTask).mockRejectedValueOnce({ status: 404, code: 'document.preview_task.not_found', title: '任务不存在' });
-    await setup(); expect(vm().detailVisible).toBe(false); expect(wrapper!.text()).toContain('任务不存在');
-    await vm().refreshResults(); await flushPromises(); expect(api.getDocumentPreviewTask).toHaveBeenCalledOnce();
+    await setup(); expect(vm().detailVisible).toBe(true); expect(wrapper!.text()).toContain('任务不存在');
+    await vm().refreshResults(); await flushPromises(); expect(api.getDocumentPreviewTask).toHaveBeenCalledTimes(2);
+    closeDetail(); await vm().refreshResults(); await flushPromises(); expect(api.getDocumentPreviewTask).toHaveBeenCalledTimes(2);
   });
   it('详情响应身份错配不展示其他任务', async () => {
     vi.mocked(api.getDocumentPreviewTask).mockResolvedValueOnce({ ...task, id: otherId, documentTitle: '错误目标' });
-    await setup(); expect(vm().detailVisible).toBe(false); expect(wrapper!.text()).not.toContain('错误目标');
+    await setup(); expect(vm().detailVisible).toBe(true); expect(wrapper!.text()).not.toContain('错误目标');
   });
   it('关闭详情取消PDF读取，旧错误不污染重开的任务', async () => {
     const pending = deferred<void>(); vi.mocked(api.openDocumentPreviewTaskContent).mockReturnValueOnce(pending.promise); await setup();
@@ -159,7 +160,7 @@ describe('文档预览详情及完整任务流程', () => {
     const old = deferred<typeof task>(); const next = deferred<typeof task>(); vi.mocked(api.createDocumentPreviewTask).mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);
     await setup({}, [read, create]); await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click'); await flushPromises();
     vm().editorForm.documentItemId = task.documentItemId; const first = vm().submitCreate(); vm().editorOpen = false;
-    await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click'); await flushPromises(); vm().editorForm.documentItemId = task.documentItemId;
+    await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click'); await flushPromises(); vm().editorForm.documentItemId = otherId;
     const second = vm().submitCreate(); old.resolve(task); await first; expect(vm().changing).toBe(true); expect(vm().editorOpen).toBe(true);
     vm().editorOpen = false; next.resolve(task); await second; expect(api.getDocumentPreviewTask).not.toHaveBeenCalled();
   });

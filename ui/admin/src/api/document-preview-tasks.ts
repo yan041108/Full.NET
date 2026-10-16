@@ -38,7 +38,9 @@ export async function listDocumentPreviewTasks(
     },
     signal
   );
-  if (!isHostDocumentPreviewTaskPage(value)) {
+  if (!isHostDocumentPreviewTaskPage(value) || value.page !== page || value.pageSize !== pageSize
+    || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || documentItemId !== undefined && row.documentItemId.toLowerCase() !== documentItemId.toLowerCase())) {
     throw new Error('client.invalid_document_preview_task_page');
   }
   return value;
@@ -51,7 +53,7 @@ export async function createDocumentPreviewTask(
 ): Promise<HostDocumentPreviewTaskResponse> {
   // 发送与响应复核共用固定副本，不能在等待期间借用调用方后改的文档或版本。
   const snapshot = { ...req, versionId: req.versionId ?? null };
-  if (!isCreateHostDocumentPreviewTaskRequest(snapshot)) {
+  if (!isCreateHostDocumentPreviewTaskRequest(snapshot) || snapshot.documentItemId === '00000000-0000-0000-0000-000000000000' || snapshot.versionId === '00000000-0000-0000-0000-000000000000') {
     throw new Error('client.invalid_create_document_preview_task_request');
   }
   const value = await documentHostCreateDocumentPreviewTask(http, {
