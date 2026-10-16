@@ -53,7 +53,7 @@ describe('PrintingPreviewView', () => {
     listMock.mockResolvedValue([printTemplate]);
     vi.mocked(previewPrintingTemplate).mockResolvedValue({
       templateId: '019bc2b1-2a40-7cc3-8992-a80de51bf299',
-      templateKey: 'review-template',
+      templateKey: printTemplate.templateKey,
       templateName: '测试模板',
       versionNumber: 1,
       formSchemaKey: printTemplate.formSchemaKey,

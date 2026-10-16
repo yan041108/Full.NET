@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import "../printing/printing.css";
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { computed, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import { validHostPrintingTemplate, validHostPrintingVersion } from '../api/printing-host-guards';
 import { sanitizePrintingHtml } from '../printing/sanitizePrintingHtml';
 import PrintingTenantGrantsDialog from '../components/printing/PrintingTenantGrantsDialog.vue';
 import { showSuccess, showWarning } from '../feedback/fullNetMessage';
@@ -16,7 +19,7 @@ import {
   ElSelect
 } from 'element-plus';
 import { Plus, Printer } from '@element-plus/icons-vue';
-import type { FullNetProblemDetails, PrintingTemplate, PrintingTemplatePreview } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, PrintingTemplate, PrintingTemplatePreview, PrintingTemplateVersion } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -40,235 +43,230 @@ const DEFAULT_LAYOUT_HTML = `<div class="print-card">
   <p>打印时间：{{printedAtUtc}}</p>
 </div>`;
 
-const session = useSessionStore();
+const session = useSessionStore(), route = inject(routeLocationKey, undefined);
 const { t } = useAdminI18n();
-const templates = ref<PrintingTemplate[]>([]);
-const selectedTemplateId = ref('');
-const preview = ref<PrintingTemplatePreview>();
-// 布局属于可编辑的不可信内容；必须在最终插入 DOM 前净化，覆盖数据库中已经保存的旧模板。
+const templates = ref<PrintingTemplate[]>([]), selectedTemplateId = ref(''), preview = ref<PrintingTemplatePreview>();
+// 不可信布局必须在最终插入 DOM 前净化，已保存旧模板也不能例外。
 const safePreviewHtml = computed(() => sanitizePrintingHtml(preview.value?.html ?? ''));
-const grantDialogVisible = ref(false);
-const viewActive = ref(false);
-onMounted(() => { viewActive.value = true; });
-onActivated(() => { viewActive.value = true; });
-onDeactivated(() => { viewActive.value = false; });
-onBeforeUnmount(() => { viewActive.value = false; });
-const host = () => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const grantDialogVisible = ref(false), viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const host = () => viewActive.value && (!route || route.name === 'printing-preview') && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
 const canRead = computed(() => host() && session.can('printing.templates.read'));
-const loading = ref(false);
-const previewing = ref(false);
-const creating = ref(false);
-const publishing = ref(false);
-const creationReceipt = ref<{ templateId: string; name: string; outcome: 'draft' | 'publishing' | 'published' | 'publishUnconfirmed' }>();
-// 最近一条回执可以被新操作替换，发布门槛必须按模板保留，直到对应目录读取完成核对。
+const loading = ref(false), previewing = ref(false), creating = ref(false), publishing = ref(false), recovering = ref(false), catalogReady = ref(false);
+const problem = ref<FullNetProblemDetails>(), catalogProblem = ref<FullNetProblemDetails>();
+type CreationReceipt = { templateId: string; name: string; versionNumber?: number; versionId?: string; outcome: 'draft' | 'publishing' | 'published' | 'publishUnconfirmed' | 'publishFailed' };
+const creationReceipt = ref<CreationReceipt>(), createBlocked = ref(false), createOutcome = ref<'processing' | 'unconfirmed' | 'failed'>();
+// 恢复门槛只保存资源标识和修订，布局与表单输入不进入恢复索引。
 const publicationBlocks = ref(new Map<string, 'published' | 'unconfirmed'>());
-let createSequence = 0;
-const createIntent = ref<{ token: number; update: (open: boolean) => void; close: () => void; submit: () => void }>();
-const previewTarget = ref<PrintingTemplate>();
-const problem = ref<FullNetProblemDetails>();
-const createDialogVisible = ref(false);
-const createForm = ref({
-  templateKey: 'tenant-profile-card',
-  name: '租户档案卡片',
-  layoutHtml: DEFAULT_LAYOUT_HTML
+const publicationBases = new Map<string, number>(), revisionFloors = new Map<string, number>(), publishedFloors = new Map<string, number>();
+const previewTarget = ref<PrintingTemplate>(), createDialogVisible = ref(false);
+const createForm = ref({ templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML });
+const createOwner = ref(0), pageOwner = ref(0), createWindow = ref(0), grantOwner = ref(0);
+let createStage: 'create' | 'publish' | 'read' | 'preview' | undefined;
+const recoveryConfirmation = ref<{ kind: 'create' | 'publish'; resolve: (confirmed: boolean) => void }>();
+function finishRecovery(value: boolean): void { const pending = recoveryConfirmation.value; recoveryConfirmation.value = undefined; pending?.resolve(value); }
+const recoveryHandlers = computed(() => {
+  const pending = recoveryConfirmation.value, finish = (value: boolean) => { if (pending && recoveryConfirmation.value === pending) finishRecovery(value); };
+  return { confirm: () => finish(true), update: (open: boolean) => { if (!open) finish(false); } };
 });
-function resetCreateForm(): void {
-  createForm.value = { templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML };
-}
-const scope = useAuthorizedViewScope(session, () => {
-  templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined;
-  grantDialogVisible.value = false; createDialogVisible.value = false; createIntent.value = undefined; creationReceipt.value = undefined; publicationBlocks.value = new Map(); previewTarget.value = undefined; loading.value = false; previewing.value = false; creating.value = false; publishing.value = false;
-  resetCreateForm();
-}, async () => { await load(); });
+function resetCreateForm(): void { createForm.value = { templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML }; }
+const scope = useAuthorizedViewScope(session, resetScope, async () => { await load(); });
 type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;
-let previewRequest: ReturnType<typeof scope.begin>;
-let loadRequest: ReturnType<typeof scope.begin>;
-let createRequest: ReturnType<typeof scope.begin>;
-let publishRequest: ReturnType<typeof scope.begin>;
-
-/** 创建派生的目录和预览请求随原弹窗关闭而取消，不影响另一轮独立操作。 */
+let previewRequest: ViewRequest | undefined, loadRequest: ViewRequest | undefined, createRequest: ViewRequest | undefined, publishRequest: ViewRequest | undefined;
+let standaloneTarget: PrintingTemplate | undefined;
+function resetScope(): void {
+  createStage = undefined; standaloneTarget = undefined;
+  templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined; catalogProblem.value = undefined;
+  grantDialogVisible.value = false; createDialogVisible.value = false; creationReceipt.value = undefined; publicationBlocks.value = new Map();
+  publicationBases.clear(); revisionFloors.clear(); publishedFloors.clear(); createBlocked.value = false; createOutcome.value = undefined;
+  previewTarget.value = undefined; loading.value = false; previewing.value = false; creating.value = false; publishing.value = false; recovering.value = false; catalogReady.value = false;
+  createRequest = undefined; publishRequest = undefined; loadRequest = undefined; previewRequest = undefined;
+  createOwner.value++; pageOwner.value++; finishRecovery(false); resetCreateForm();
+}
+watch(() => route?.name, () => { scope.invalidate(); if (canRead.value) void load(); }, { flush: 'sync' });
 function begin(permission: string, owner?: ViewRequest): ViewRequest | undefined {
-  if (!canRead.value || (owner && !owner.current())) return;
+  if (!canRead.value || owner && !owner.current()) return;
   const request = scope.begin(permission); if (!request || !owner) return request;
-  const cancel = () => request.cancel();
-  owner.signal.addEventListener('abort', cancel, { once: true });
+  const cancel = () => request.cancel(); owner.signal.addEventListener('abort', cancel, { once: true });
   return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); request.finish(); } };
 }
-
-watch(createDialogVisible, open => {
-  if (!open) {
-    if (createRequest?.current() && creationReceipt.value?.outcome === 'publishing') creationReceipt.value.outcome = 'publishUnconfirmed';
-    createRequest?.cancel(); createRequest = undefined;
-    // 子请求的取消先同步生效；旧 finally 不能清除新弹窗的状态。
-    if (loadRequest?.signal.aborted) loading.value = false;
-    if (previewRequest?.signal.aborted) { previewing.value = false; preview.value = undefined; }
-    creating.value = false; createIntent.value = undefined; resetCreateForm();
-  }
-}, { flush: 'sync' });
-watch(selectedTemplateId, onTemplateChanged, { flush: 'sync' });
-
-function openCreate(): void {
-  if (!canRead.value || !session.can('printing.templates.create') || creating.value || publishing.value || previewing.value || loading.value) return;
-  const token = ++createSequence, close = () => { if (createIntent.value?.token === token) createDialogVisible.value = false; };
-  createIntent.value = { token, close, update: open => { if (!open) close(); }, submit: () => { if (createIntent.value?.token === token) void submitCreate(); } };
-  resetCreateForm(); createDialogVisible.value = true;
-}
-
-const selectedTemplate = computed(() =>
-  templates.value.find(item => item.id.toLowerCase() === selectedTemplateId.value.toLowerCase()));
-const canPublishSelected = computed(() => !!selectedTemplate.value?.isEnabled && selectedTemplate.value.latestPublishedVersionNumber === 0
-  && !publicationBlocks.value.has(selectedTemplate.value.id.toLowerCase()));
+const selectedTemplate = computed(() => templates.value.find(item => item.id.toLowerCase() === selectedTemplateId.value.toLowerCase()));
 function targetCurrent(target: PrintingTemplate): boolean {
   const current = selectedTemplate.value;
-  return !!current && current.id.toLowerCase() === target.id.toLowerCase() && current.version === target.version
-    && current.templateKey === target.templateKey && current.name === target.name
-    && current.formSchemaKey === target.formSchemaKey && current.layoutHtml === target.layoutHtml && current.isEnabled === target.isEnabled
-    && current.latestPublishedVersionNumber === target.latestPublishedVersionNumber;
+  return !!current && current.id.toLowerCase() === target.id.toLowerCase() && current.version === target.version && current.templateKey === target.templateKey
+    && current.name === target.name && current.formSchemaKey === target.formSchemaKey && current.layoutHtml === target.layoutHtml
+    && current.isEnabled === target.isEnabled && current.latestPublishedVersionNumber === target.latestPublishedVersionNumber;
 }
-watch(templates, () => { if (previewTarget.value && !targetCurrent(previewTarget.value)) onTemplateChanged(); }, { deep: true, flush: 'sync' });
-
-const printableTemplates = computed(() =>
-  templates.value.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0));
-
-function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
-  if (isFullNetProblemDetails(error)) {
-    return error;
+const canPublishSelected = computed(() => catalogReady.value && !!selectedTemplate.value?.isEnabled && selectedTemplate.value.latestPublishedVersionNumber === 0
+  && !publicationBlocks.value.has(selectedTemplate.value.id.toLowerCase()));
+const printableTemplates = computed(() => templates.value.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0));
+const unknown = (error: unknown) => !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
+function toProblem(error: unknown, fallback: Parameters<typeof t>[0]): FullNetProblemDetails {
+  return isFullNetProblemDetails(error) ? error : { code: 'client.request_failed', title: t(fallback), status: 500, type: 'about:blank' };
+}
+function markPublishUnconfirmed(id: string): void {
+  publicationBlocks.value = new Map(publicationBlocks.value).set(id.toLowerCase(), 'unconfirmed');
+  if (creationReceipt.value?.templateId.toLowerCase() === id.toLowerCase()) creationReceipt.value = { ...creationReceipt.value, outcome: 'publishUnconfirmed' };
+}
+function cancelCreate(): void {
+  if (createRequest?.current()) {
+    if (createStage === 'create') { createBlocked.value = true; createOutcome.value = 'unconfirmed'; }
+    if (createStage === 'publish' && creationReceipt.value) markPublishUnconfirmed(creationReceipt.value.templateId);
   }
-  return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
+  createRequest?.cancel(); createRequest = undefined; createStage = undefined; creating.value = false;
+  if (loadRequest?.signal.aborted) { loading.value = false; loadRequest = undefined; catalogReady.value = false; }
+  if (previewRequest?.signal.aborted) { previewing.value = false; previewRequest = undefined; preview.value = undefined; }
 }
-
+function cancelStandalonePublish(): void {
+  if (publishRequest?.current() && standaloneTarget) markPublishUnconfirmed(standaloneTarget.id);
+  publishRequest?.cancel(); publishRequest = undefined; standaloneTarget = undefined; publishing.value = false;
+}
+watch(createDialogVisible, open => {
+  createOwner.value++;
+  if (!open) { cancelCreate(); if (recoveryConfirmation.value?.kind === 'create') finishRecovery(false); resetCreateForm(); }
+}, { flush: 'sync' });
+watch(createForm, () => { createOwner.value++; cancelCreate(); if (recoveryConfirmation.value?.kind === 'create') finishRecovery(false); }, { flush: 'sync', deep: true });
+function clearPreview(): void { grantDialogVisible.value = false; previewRequest?.cancel(); previewRequest = undefined; previewTarget.value = undefined; preview.value = undefined; previewing.value = false; problem.value = undefined; pageOwner.value++; }
+watch(selectedTemplateId, () => { cancelStandalonePublish(); clearPreview(); if (recoveryConfirmation.value?.kind === 'publish') finishRecovery(false); }, { flush: 'sync' });
+watch(templates, () => {
+  pageOwner.value++;
+  if (previewTarget.value && !targetCurrent(previewTarget.value)) clearPreview();
+  if (standaloneTarget && !targetCurrent(standaloneTarget)) cancelStandalonePublish();
+}, { flush: 'sync', deep: true });
+function openCreate(): void {
+  if (!canRead.value || !session.can('printing.templates.create') || creating.value || publishing.value || previewing.value || loading.value || recovering.value) return;
+  resetCreateForm(); problem.value = undefined; createWindow.value++; createDialogVisible.value = true;
+}
+const createIntent = computed(() => {
+  if (!createDialogVisible.value) return undefined;
+  const token = createWindow.value, owner = createOwner.value;
+  const owned = () => canRead.value && createDialogVisible.value && token === createWindow.value && owner === createOwner.value;
+  const input = (key: keyof typeof createForm.value, value: string) => { if (owned() && !creating.value && !recovering.value) createForm.value[key] = value; };
+  const close = () => { if (owned()) createDialogVisible.value = false; };
+  return { token, close, update: (value: boolean) => { if (!value) close(); }, submit: () => { if (owned()) void submitCreate(); },
+    key: (value: string) => input('templateKey', value), name: (value: string) => input('name', value), layout: (value: string) => input('layoutHtml', value), recover: () => { if (owned()) void acknowledgeRecovery('create'); } };
+});
+const pageControls = computed(() => {
+  const owner = pageOwner.value, selection = selectedTemplateId.value, template = selectedTemplate.value ? { ...selectedTemplate.value } : undefined;
+  const owned = () => canRead.value && owner === pageOwner.value && selection === selectedTemplateId.value && (!template || targetCurrent(template));
+  return { refresh: () => { if (owned()) void load(); }, create: () => { if (owned()) openCreate(); }, select: (value: string) => { if (owned() && !creating.value && !publishing.value && !loading.value && !recovering.value) selectedTemplateId.value = value; },
+    preview: () => { if (owned()) void runPreview(); }, print: () => { if (owned()) void printPreview(); }, publish: () => { if (owned()) void publishSelected(); },
+    recover: () => { if (owned()) void acknowledgeRecovery('publish'); }, grants: () => { if (owned() && template && template.latestPublishedVersionNumber > 0 && session.can('printing.templates.grant_tenants') && !loading.value && !creating.value && !publishing.value && !previewing.value) grantDialogVisible.value = true; } };
+});
+watch(grantDialogVisible, () => { grantOwner.value++; pageOwner.value++; }, { flush: 'sync' });
+const grantControls = computed(() => { const owner = grantOwner.value, open = grantDialogVisible.value, target = selectedTemplate.value;
+  return { close: () => { if (owner === grantOwner.value && open && grantDialogVisible.value && target === selectedTemplate.value) grantDialogVisible.value = false; } }; });
 async function load(owner?: ViewRequest): Promise<boolean> {
-  if (!canRead.value || (!owner && (creating.value || publishing.value))) return false;
-  grantDialogVisible.value = false; previewRequest?.cancel(); previewTarget.value = undefined; preview.value = undefined; previewing.value = false;
-  loadRequest?.cancel(); const request = begin('printing.templates.read', owner); loadRequest = request;
-  if (!request) return false;
-  const previousSelection = selectedTemplateId.value;
-  loading.value = true;
-  problem.value = undefined;
+  if (!canRead.value || owner && !owner.current() || !owner && (creating.value || publishing.value || recovering.value)) return false;
+  clearPreview(); loadRequest?.cancel(); const request = begin('printing.templates.read', owner); if (!request) return false; loadRequest = request;
+  const previous = selectedTemplateId.value; loading.value = true; catalogReady.value = false; catalogProblem.value = undefined; pageOwner.value++;
   try {
-    const values = await listPrintingTemplates(undefined, request.signal);
-    if (!request.current()) return false;
-    templates.value = values;
-    selectedTemplateId.value = values.find(item => item.id.toLowerCase() === previousSelection.toLowerCase())?.id
-      ?? printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
-    for (const [id, state] of publicationBlocks.value) {
-      const current = values.find(item => item.id.toLowerCase() === id);
-      if (current && (current.latestPublishedVersionNumber > 0 || state === 'unconfirmed')) publicationBlocks.value.delete(id);
+    const values = await listPrintingTemplates(undefined, request.signal); if (!request.current() || loadRequest !== request) return false;
+    if (!values.every(validHostPrintingTemplate) || new Set(values.map(row => row.id.toLowerCase())).size !== values.length
+      || values.some(row => row.version < (revisionFloors.get(row.id.toLowerCase()) ?? 0) || row.latestPublishedVersionNumber < (publishedFloors.get(row.id.toLowerCase()) ?? 0))) throw Error('client.invalid_printing_template_list');
+    for (const value of values) { revisionFloors.set(value.id.toLowerCase(), value.version); publishedFloors.set(value.id.toLowerCase(), value.latestPublishedVersionNumber); }
+    templates.value = values; selectedTemplateId.value = values.find(row => row.id.toLowerCase() === previous.toLowerCase())?.id ?? printableTemplates.value[0]?.id ?? values[0]?.id ?? '';
+    const blocks = new Map(publicationBlocks.value);
+    for (const [id, state] of blocks) {
+      const current = values.find(row => row.id.toLowerCase() === id), base = publicationBases.get(id) ?? 0;
+      if (current && current.version > base && (state === 'unconfirmed' || current.latestPublishedVersionNumber > 0)) {
+        blocks.delete(id);
+        if (creationReceipt.value?.templateId.toLowerCase() === id && creationReceipt.value.outcome === 'publishUnconfirmed') creationReceipt.value = { ...creationReceipt.value, versionNumber: current.latestPublishedVersionNumber || undefined, outcome: current.latestPublishedVersionNumber > 0 ? 'published' : 'draft' };
+      }
     }
-    if (creationReceipt.value?.outcome === 'publishUnconfirmed') {
-      const current = values.find(item => item.id.toLowerCase() === creationReceipt.value!.templateId.toLowerCase());
-      if (current) creationReceipt.value.outcome = current.latestPublishedVersionNumber > 0 ? 'published' : 'draft';
-    }
-    preview.value = undefined;
-    return true;
-  } catch (error: unknown) {
-    if (request.current()) problem.value = toProblem(error, 'printingPreview.loadFailed');
-    return false;
-  } finally {
-    if (request.current()) loading.value = false; request.finish();
-  }
+    publicationBlocks.value = blocks; catalogReady.value = true; return true;
+  } catch (error) { if (request.current() && loadRequest === request) catalogProblem.value = toProblem(error, 'printingPreview.loadFailed'); return false; }
+  finally { if (loadRequest === request) { loading.value = false; loadRequest = undefined; pageOwner.value++; } request.finish(); }
 }
-
 async function runPreview(printAfter = false, owner?: ViewRequest): Promise<void> {
-  const current = selectedTemplate.value, template = current ? { ...current } : undefined;
-  if (!canRead.value || !template || template.latestPublishedVersionNumber < 1 || loading.value || previewing.value || publishing.value || (creating.value && owner !== createRequest)) {
-    return;
-  }
+  const template = selectedTemplate.value ? { ...selectedTemplate.value } : undefined;
+  if (!canRead.value || !catalogReady.value || !template?.isEnabled || template.latestPublishedVersionNumber < 1 || loading.value || previewing.value || publishing.value || recovering.value || creating.value && owner !== createRequest) return;
   if (printAfter && (!preview.value || preview.value.templateId.toLowerCase() !== template.id.toLowerCase())) return;
+  const versionNumber = printAfter ? preview.value!.versionNumber : template.latestPublishedVersionNumber;
   const request = begin('printing.templates.preview', owner); if (!request) return; previewRequest = request;
-
-  const templateId = template.id;
-  previewTarget.value = template;
-  const versionNumber = printAfter ? preview.value?.versionNumber : undefined;
-  // 打印也重新访问受保护入口；撤权失败不能留下此前已经展示的内容。
-  preview.value = undefined;
-  previewing.value = true;
-  problem.value = undefined;
+  previewTarget.value = template; preview.value = undefined; previewing.value = true; problem.value = undefined; pageOwner.value++;
   try {
-    const value = await previewPrintingTemplate(templateId, versionNumber === undefined ? {} : {versionNumber}, request.signal);
-    if (!request.current() || !targetCurrent(template)) return;
-    if (value.templateId.toLowerCase() !== templateId.toLowerCase() || value.formSchemaKey !== template.formSchemaKey || (versionNumber !== undefined && value.versionNumber !== versionNumber))
-      throw new Error('client.invalid_printing_template_preview');
-    preview.value = value;
-    await nextTick();
-    if (printAfter && request.current() && targetCurrent(template)) window.print();
-  } catch (error: unknown) {
-    if (request.current()) problem.value = toProblem(error, 'printingPreview.previewFailed');
-  } finally {
-    if (request.current()) previewing.value = false; request.finish();
-  }
+    const value = await previewPrintingTemplate(template.id, { versionNumber }, request.signal);
+    if (!request.current() || !targetCurrent(template) || previewRequest !== request) return;
+    if (value.templateId.toLowerCase() !== template.id.toLowerCase() || value.templateKey !== template.templateKey || value.formSchemaKey !== template.formSchemaKey || value.versionNumber !== versionNumber) throw Error('client.invalid_printing_template_preview');
+    preview.value = value; await nextTick();
+    if (printAfter && request.current() && previewRequest === request && targetCurrent(template)) window.print();
+  } catch (error) { if (request.current() && previewRequest === request) problem.value = toProblem(error, 'printingPreview.previewFailed'); }
+  finally { if (previewRequest === request) { previewing.value = false; previewRequest = undefined; pageOwner.value++; } request.finish(); }
 }
-
-async function printPreview(): Promise<void> {
-  if (preview.value) await runPreview(true);
+async function printPreview(): Promise<void> { if (preview.value) await runPreview(true); }
+function acceptPublication(target: PrintingTemplate, value: PrintingTemplateVersion): void {
+  if (!validHostPrintingVersion(value) || value.templateId.toLowerCase() !== target.id.toLowerCase() || value.versionNumber !== target.latestPublishedVersionNumber + 1
+    || value.layoutHtml !== target.layoutHtml || value.changeNote !== null || value.publishedByUserId.toLowerCase() !== session.currentUser?.id.toLowerCase()) throw Error('client.invalid_printing_template_version');
+  publicationBlocks.value = new Map(publicationBlocks.value).set(target.id.toLowerCase(), 'published');
+  revisionFloors.set(target.id.toLowerCase(), target.version + 1); publishedFloors.set(target.id.toLowerCase(), value.versionNumber);
+  creationReceipt.value = { templateId: target.id, name: target.name, outcome: 'published', versionNumber: value.versionNumber, versionId: value.id };
 }
-
-function onTemplateChanged(): void {
-  grantDialogVisible.value = false; previewRequest?.cancel(); previewTarget.value = undefined; preview.value = undefined; previewing.value = false; problem.value = undefined;
+function publishFailure(target: PrintingTemplate, error: unknown): void {
+  if (unknown(error)) markPublishUnconfirmed(target.id);
+  else { const blocks = new Map(publicationBlocks.value); blocks.delete(target.id.toLowerCase()); publicationBlocks.value = blocks; creationReceipt.value = { templateId: target.id, name: target.name, outcome: 'publishFailed' }; }
 }
-
 async function publishSelected(): Promise<void> {
   const current = selectedTemplate.value;
-  if (!canRead.value || !current || current.latestPublishedVersionNumber > 0 || !current.isEnabled || creating.value || publishing.value || loading.value || previewing.value) return;
-  if (publicationBlocks.value.has(current.id.toLowerCase())) return;
-  const target = { ...current }, request = begin('printing.templates.publish'); if (!request) return; publishRequest = request;
-  publishing.value = true; problem.value = undefined;
-  creationReceipt.value = { templateId: target.id, name: target.name, outcome: 'publishing' };
-  publicationBlocks.value.set(target.id.toLowerCase(), 'unconfirmed');
+  if (!canRead.value || !canPublishSelected.value || !current || creating.value || publishing.value || loading.value || previewing.value || recovering.value) return;
+  const target = { ...current }, request = begin('printing.templates.publish'); if (!request) return; publishRequest = request; standaloneTarget = target;
+  publishing.value = true; problem.value = undefined; pageOwner.value++;
+  creationReceipt.value = { templateId: target.id, name: target.name, outcome: 'publishing' }; publicationBases.set(target.id.toLowerCase(), target.version); publicationBlocks.value = new Map(publicationBlocks.value).set(target.id.toLowerCase(), 'unconfirmed');
   try {
-    await publishPrintingTemplate(target.id, { version: target.version }, request.signal); if (!request.current()) return;
-    publicationBlocks.value.set(target.id.toLowerCase(), 'published'); creationReceipt.value.outcome = 'published'; showSuccess(t('printingPreview.publishSuccess')); await load(request);
-  } catch (error) { if (request.current()) { creationReceipt.value.outcome = 'publishUnconfirmed'; problem.value = toProblem(error, 'printingPreview.createFailed'); } }
-  finally { if (request.current() && publishRequest === request) publishing.value = false; request.finish(); }
+    const value = await publishPrintingTemplate(target.id, { version: target.version }, request.signal); if (!request.current()) return;
+    acceptPublication(target, value); standaloneTarget = undefined; publishRequest = undefined; publishing.value = false;
+    showSuccess(t('printingPreview.publishSuccess')); await load(request);
+  } catch (error) { if (request.current()) { publishFailure(target, error); problem.value = toProblem(error, 'printingPreview.createFailed'); } }
+  finally { if (publishRequest === request) { publishing.value = false; publishRequest = undefined; standaloneTarget = undefined; } pageOwner.value++; request.finish(); }
 }
-
 async function submitCreate(): Promise<void> {
-  if (!canRead.value || !createDialogVisible.value || creating.value || publishing.value || previewing.value || loading.value) return;
-  if (!createForm.value.templateKey.trim() || !createForm.value.name.trim() || !createForm.value.layoutHtml.trim()) {
-    showWarning(t('printingPreview.requiredFields')); return;
-  }
-  const request = begin('printing.templates.create'); if (!request) return;
-  createRequest = request;
-  const publish = session.can('printing.templates.publish');
-  const payload = { templateKey: createForm.value.templateKey, name: createForm.value.name,
-    formSchemaKey: 'printing.tenant_profile_card', layoutHtml: createForm.value.layoutHtml, isEnabled: true };
-  let saved = false;
-  creating.value = true;
-  problem.value = undefined;
+  if (!canRead.value || !createDialogVisible.value || createBlocked.value || creating.value || publishing.value || previewing.value || loading.value || recovering.value) return;
+  const input = { ...createForm.value };
+  if (!input.templateKey.trim() || !input.name.trim() || !input.layoutHtml.trim()) { showWarning(t('printingPreview.requiredFields')); return; }
+  const request = begin('printing.templates.create'); if (!request) return; createRequest = request;
+  const publish = session.can('printing.templates.publish'); let saved = false, target: PrintingTemplate | undefined;
+  creating.value = true; createStage = 'create'; createOutcome.value = 'processing'; problem.value = undefined; createOwner.value++; pageOwner.value++;
   try {
-    const created = await createPrintingTemplate(payload, request.signal);
-    if (!request.current()) return;
-    // 创建与发布不是原子操作；先记录已创建事实，后续失败不能重交创建表单。
-    saved = true;
-    const existing = templates.value.find(item => item.id.toLowerCase() === created.id.toLowerCase());
-    if (!existing || existing.version <= created.version) templates.value = [...templates.value.filter(item => item.id.toLowerCase() !== created.id.toLowerCase()), created];
-    selectedTemplateId.value = created.id;
+    const created = await createPrintingTemplate({ ...input, formSchemaKey: 'printing.tenant_profile_card', isEnabled: true }, request.signal); if (!request.current()) return;
+    if (!validHostPrintingTemplate(created) || created.version !== 1 || created.latestPublishedVersionNumber !== 0) throw Error('client.invalid_printing_template');
+    // 创建已确认后，后续发布或读取失败只恢复后续步骤，不能再提交创建。
+    saved = true; target = { ...created }; createOutcome.value = undefined; revisionFloors.set(created.id.toLowerCase(), created.version);
+    templates.value = [...templates.value.filter(row => row.id.toLowerCase() !== created.id.toLowerCase()), created]; selectedTemplateId.value = created.id;
     creationReceipt.value = { templateId: created.id, name: created.name, outcome: publish ? 'publishing' : 'draft' };
     if (publish) {
-      publicationBlocks.value.set(created.id.toLowerCase(), 'unconfirmed');
-      await publishPrintingTemplate(created.id, { version: created.version }, request.signal);
-      if (!request.current()) return;
-      publicationBlocks.value.set(created.id.toLowerCase(), 'published');
-      creationReceipt.value.outcome = 'published';
+      createStage = 'publish'; publicationBases.set(created.id.toLowerCase(), created.version); publicationBlocks.value = new Map(publicationBlocks.value).set(created.id.toLowerCase(), 'unconfirmed');
+      const value = await publishPrintingTemplate(created.id, { version: created.version }, request.signal); if (!request.current()) return; acceptPublication(created, value);
     }
-    showSuccess(t(publish ? 'printingPreview.createSuccess' : 'printingPreview.draftCreated'));
-    const loaded = await load(request);
-    if (!request.current() || !loaded || !templates.value.some(item => item.id === created.id)) return;
-    selectedTemplateId.value = created.id;
-    await runPreview(false, request);
-  } catch (error: unknown) {
+    createStage = 'read'; showSuccess(t(publish ? 'printingPreview.createSuccess' : 'printingPreview.draftCreated'));
+    const loaded = await load(request); if (!request.current() || !loaded || !templates.value.some(row => row.id.toLowerCase() === created.id.toLowerCase())) return;
+    selectedTemplateId.value = created.id; createStage = 'preview'; await runPreview(false, request);
+  } catch (error) {
     if (request.current()) {
-      if (saved && creationReceipt.value?.outcome === 'publishing') creationReceipt.value.outcome = 'publishUnconfirmed';
+      if (!saved) { createOutcome.value = unknown(error) ? 'unconfirmed' : 'failed'; if (unknown(error)) createBlocked.value = true; }
+      else if (createStage === 'publish' && target) publishFailure(target, error);
       problem.value = toProblem(error, 'printingPreview.createFailed');
     }
   } finally {
-    if (request.current() && createRequest === request) {
-      creating.value = false;
-      // 写入成功后即使目录刷新失败，也不能留下可重复提交的旧表单。
+    if (createRequest === request) {
+      createRequest = undefined; creating.value = false; createStage = undefined; createOwner.value++; pageOwner.value++;
       if (saved) createDialogVisible.value = false;
     }
     request.finish();
   }
+}
+async function acknowledgeRecovery(kind: 'create' | 'publish'): Promise<void> {
+  const target = selectedTemplate.value ? { ...selectedTemplate.value } : undefined, owner = createOwner.value, page = pageOwner.value;
+  if (!canRead.value || creating.value || publishing.value || previewing.value || loading.value || recovering.value
+    || (kind === 'create' ? !createDialogVisible.value || !createBlocked.value : !target || publicationBlocks.value.get(target.id.toLowerCase()) !== 'unconfirmed')) return;
+  const request = begin(kind === 'create' ? 'printing.templates.create' : 'printing.templates.publish'); if (!request) return;
+  recovering.value = true;
+  try {
+    const confirmed = await new Promise<boolean>(resolve => { recoveryConfirmation.value = { kind, resolve }; });
+    if (!confirmed || !request.current()) return;
+    if (kind === 'create' && createDialogVisible.value && createOwner.value === owner) createBlocked.value = false;
+    else if (kind === 'publish' && target && pageOwner.value === page && targetCurrent(target)) { const blocks = new Map(publicationBlocks.value); blocks.delete(target.id.toLowerCase()); publicationBlocks.value = blocks; }
+  } finally { if (request.current()) recovering.value = false; request.finish(); }
 }
 
 </script>
@@ -276,7 +274,7 @@ async function submitCreate(): Promise<void> {
 <template>
   <div v-if="canRead" class="printing-preview-view art-page-stack">
     <ElCard shadow="never" class="art-table-card no-print">
-      <ArtTableHeader :loading="loading || creating || publishing" @refresh="load()">
+      <ArtTableHeader :loading="loading || creating || publishing" v-on="{ refresh: pageControls.refresh }">
         <template #left>
           <PermissionGate code="printing.templates.create">
             <ElButton
@@ -285,14 +283,14 @@ async function submitCreate(): Promise<void> {
               :icon="Plus"
               :disabled="loading || creating || publishing || previewing"
               data-testid="printing-preview-create"
-              @click="openCreate"
+              v-on="{ click: pageControls.create }"
             >
               {{ t('printingPreview.createTemplate') }}
             </ElButton>
           </PermissionGate>
           <PermissionGate code="printing.templates.grant_tenants">
             <ElButton :disabled="!selectedTemplate || selectedTemplate.latestPublishedVersionNumber < 1 || previewing || creating || publishing || loading"
-              data-testid="printing-tenant-grants-open" @click="grantDialogVisible = true">{{ t('printingGrants.open') }}</ElButton>
+              data-testid="printing-tenant-grants-open" v-on="{ click: pageControls.grants }">{{ t('printingGrants.open') }}</ElButton>
           </PermissionGate>
         </template>
       </ArtTableHeader>
@@ -305,15 +303,20 @@ async function submitCreate(): Promise<void> {
         class="mb-4"
       />
 
+      <ElAlert v-if="catalogProblem" type="error" :title="catalogProblem.title" :description="catalogProblem.detail ?? catalogProblem.code" :closable="false" />
+      <div v-if="createOutcome" role="status" data-testid="printing-create-outcome">{{ t(createOutcome === 'processing' ? 'printingPreview.creatingReceipt' : createOutcome === 'failed' ? 'printingPreview.createFailed' : 'printingPreview.createUnconfirmedReceipt') }}</div>
+
       <div v-if="creationReceipt" role="status" data-testid="printing-creation-receipt">
         <p>{{ creationReceipt.name }} · <code translate="no">{{ creationReceipt.templateId }}</code></p>
-        <p>{{ t(creationReceipt.outcome === 'draft' ? 'printingPreview.createdDraftReceipt' : creationReceipt.outcome === 'published' ? 'printingPreview.publishedReceipt' : creationReceipt.outcome === 'publishing' ? 'printingPreview.publishingReceipt' : 'printingPreview.publishUnconfirmedReceipt') }}</p>
+        <p>{{ t(creationReceipt.outcome === 'draft' ? 'printingPreview.createdDraftReceipt' : creationReceipt.outcome === 'published' ? 'printingPreview.publishedReceipt' : creationReceipt.outcome === 'publishing' ? 'printingPreview.publishingReceipt' : creationReceipt.outcome === 'publishFailed' ? 'printingPreview.publishFailedReceipt' : 'printingPreview.publishUnconfirmedReceipt') }}</p>
+        <p v-if="creationReceipt.versionNumber">{{ t('printingPreview.publishedVersionReceipt', { version: String(creationReceipt.versionNumber) }) }}</p>
       </div>
 
       <ElForm label-width="120px">
         <ElFormItem :label="t('printingPreview.fieldTemplate')">
           <ElSelect
-            v-model="selectedTemplateId"
+            :model-value="selectedTemplateId"
+            v-on="{ 'update:modelValue': pageControls.select }"
             data-testid="printing-preview-template"
             class="w-full"
             :disabled="creating || publishing || loading"
@@ -331,9 +334,9 @@ async function submitCreate(): Promise<void> {
             type="primary"
             :icon="Printer"
             :loading="previewing"
-            :disabled="!selectedTemplate || selectedTemplate.latestPublishedVersionNumber < 1 || creating || publishing || loading"
+            :disabled="!catalogReady || !selectedTemplate || selectedTemplate.latestPublishedVersionNumber < 1 || creating || publishing || loading"
             data-testid="printing-preview-run"
-            @click="runPreview()"
+            v-on="{ click: pageControls.preview }"
           >
             {{ t('printingPreview.preview') }}
           </ElButton></PermissionGate>
@@ -341,14 +344,15 @@ async function submitCreate(): Promise<void> {
             v-if="preview && session.can('printing.templates.preview')"
             :disabled="previewing || creating || publishing || loading"
             data-testid="printing-preview-print"
-            @click="printPreview"
+            v-on="{ click: pageControls.print }"
           >
             {{ t('printingPreview.print') }}
           </ElButton>
           <PermissionGate code="printing.templates.publish"><ElButton v-if="selectedTemplate?.latestPublishedVersionNumber === 0"
-            data-testid="printing-preview-publish" :loading="publishing" :disabled="!canPublishSelected || creating || previewing || loading" @click="publishSelected">
+            data-testid="printing-preview-publish" :loading="publishing" :disabled="!canPublishSelected || creating || previewing || loading" v-on="{ click: pageControls.publish }">
             {{ t('printingPreview.publishDraft') }}
           </ElButton></PermissionGate>
+          <PermissionGate code="printing.templates.publish"><ElButton v-if="selectedTemplate && publicationBlocks.get(selectedTemplate.id.toLowerCase()) === 'unconfirmed'" :disabled="creating || publishing || previewing || loading || recovering" data-testid="printing-publish-recover" v-on="{ click: pageControls.recover }">{{ t('printingPreview.recoveryTitle') }}</ElButton></PermissionGate>
         </ElFormItem>
       </ElForm>
     </ElCard>
@@ -358,7 +362,11 @@ async function submitCreate(): Promise<void> {
     </section>
 
     <PrintingTenantGrantsDialog v-if="grantDialogVisible && selectedTemplate && session.can('printing.templates.grant_tenants')"
-      :key="selectedTemplate.id" :template="selectedTemplate" @close="grantDialogVisible = false" />
+      :key="selectedTemplate.id" :template="selectedTemplate" v-on="{ close: grantControls.close }" />
+    <ArtFormDialog v-if="recoveryConfirmation" :open="true" :title="t('printingPreview.recoveryTitle')" confirm-test-id="printing-recovery-confirm"
+      :confirm-label="t('users.confirm')" :cancel-label="t('common.cancel')" v-on="{ confirm: recoveryHandlers.confirm, 'update:open': recoveryHandlers.update }">
+      <p>{{ t('printingPreview.recoveryHint') }}</p>
+    </ArtFormDialog>
     <ElDialog
       v-if="createIntent"
       :key="createIntent.token"
@@ -368,22 +376,25 @@ async function submitCreate(): Promise<void> {
       width="640px"
       class="no-print"
     >
-      <ElForm label-width="120px">
+      <ElAlert v-if="problem" type="error" :title="problem.title" :description="problem.detail ?? problem.code" :closable="false" />
+      <ElAlert v-if="createBlocked" type="warning" :title="t('printingPreview.recoveryHint')" :closable="false" />
+      <ElButton v-if="createBlocked" :disabled="recovering || creating" data-testid="printing-create-recover" v-on="{ click: createIntent.recover }">{{ t('printingPreview.recoveryTitle') }}</ElButton>
+      <ElForm label-width="120px" :disabled="creating || recovering">
         <ElFormItem :label="t('printingPreview.fieldTemplateKey')" required>
-          <ElInput v-model="createForm.templateKey" />
+          <ElInput :model-value="createForm.templateKey" v-on="{ 'update:modelValue': createIntent.key }" />
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldName')" required>
-          <ElInput v-model="createForm.name" />
+          <ElInput :model-value="createForm.name" v-on="{ 'update:modelValue': createIntent.name }" />
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldLayoutHtml')" required>
-          <ElInput v-model="createForm.layoutHtml" type="textarea" :rows="10" />
+          <ElInput :model-value="createForm.layoutHtml" type="textarea" :rows="10" v-on="{ 'update:modelValue': createIntent.layout }" />
         </ElFormItem>
       </ElForm>
       <template #footer>
         <ElButton data-testid="printing-preview-create-back" v-on="{ click: createIntent.close }">
           {{ t('common.cancel') }}
         </ElButton>
-        <PermissionGate code="printing.templates.create"><ElButton type="primary" :loading="creating" :disabled="previewing || publishing" data-testid="printing-preview-submit" v-on="{ click: createIntent.submit }">
+        <PermissionGate code="printing.templates.create"><ElButton type="primary" :loading="creating" :disabled="previewing || publishing || createBlocked || recovering" data-testid="printing-preview-submit" v-on="{ click: createIntent.submit }">
           {{ t(session.can('printing.templates.publish') ? 'printingPreview.submitCreate' : 'printingPreview.saveDraft') }}
         </ElButton></PermissionGate>
       </template>

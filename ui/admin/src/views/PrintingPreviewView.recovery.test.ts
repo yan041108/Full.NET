@@ -1,3 +1,4 @@
+import { hostPrintingVersion } from '../test/printing-host-fixtures';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h, KeepAlive, ref } from 'vue';
@@ -14,7 +15,7 @@ const other = { ...printTemplate, id: '01980000-0000-7000-8000-000000000003', te
 let wrapper: VueWrapper | undefined; let visible = ref(true);
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(api.listPrintingTemplates).mockResolvedValue([printTemplate, other]);
-  vi.mocked(api.createPrintingTemplate).mockResolvedValue(printTemplate); vi.mocked(api.publishPrintingTemplate).mockResolvedValue();
+  vi.mocked(api.createPrintingTemplate).mockResolvedValue({ ...printTemplate, latestPublishedVersionNumber: 0 }); vi.mocked(api.publishPrintingTemplate).mockResolvedValue(hostPrintingVersion());
   vi.mocked(api.previewPrintingTemplate).mockResolvedValue(printResult);
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
@@ -41,13 +42,13 @@ describe('Host 打印创建发布恢复', () => {
     await vm().submitCreate(); expect(api.createPrintingTemplate).toHaveBeenCalledOnce();
   });
   it('未确认发布不能重发，刷新确认仍为草稿后显式发布而不重新创建', async () => {
-    await setup(); await openCreate(); vi.mocked(api.createPrintingTemplate).mockResolvedValueOnce({ ...printTemplate, latestPublishedVersionNumber: 0 }); vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await vm().submitCreate();
+    vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, latestPublishedVersionNumber: 0 }, other]); await setup(); await openCreate(); vi.mocked(api.createPrintingTemplate).mockResolvedValueOnce({ ...printTemplate, latestPublishedVersionNumber: 0 }); vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await vm().submitCreate();
     await state().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledOnce();
     vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, latestPublishedVersionNumber: 0, version: 2 }]); await vm().load(); await state().publishSelected();
     expect(api.createPrintingTemplate).toHaveBeenCalledOnce(); expect(api.publishPrintingTemplate).toHaveBeenLastCalledWith(printTemplate.id, { version: 2 }, expect.any(AbortSignal));
   });
   it('刷新确认已发布后不再次发布草稿', async () => {
-    await setup(); await openCreate(); vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await vm().submitCreate(); await vm().load(); await state().publishSelected();
+    await setup(); await openCreate(); vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await vm().submitCreate(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, version: 2 }]); await vm().load(); await state().publishSelected();
     expect(state().creationReceipt?.outcome).toBe('published'); expect(api.publishPrintingTemplate).toHaveBeenCalledOnce();
   });
   it('发布未知后目录刷新失败不解除再次发布门槛', async () => {
@@ -61,18 +62,19 @@ describe('Host 打印创建发布恢复', () => {
   });
   it('其他回执覆盖后已确认发布仍不能被失败补读降级为可重发', async () => {
     await setup(); state().templates = [{ ...printTemplate, latestPublishedVersionNumber: 0 }, { ...other, latestPublishedVersionNumber: 0 }]; vi.mocked(api.listPrintingTemplates).mockRejectedValueOnce(new Error('offline'));
-    await state().publishSelected(); vm().selectedTemplateId = other.id; vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await state().publishSelected();
+    await state().publishSelected(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, version: 2 }, { ...other, latestPublishedVersionNumber: 0 }]);
+    await vm().load(); vm().selectedTemplateId = other.id; vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await state().publishSelected();
     vm().selectedTemplateId = printTemplate.id; await state().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledTimes(2);
   });
   it('草稿发布在途切换主体后丢弃迟到结果和回执', async () => {
-    const session = await setup(); state().templates = [{ ...printTemplate, latestPublishedVersionNumber: 0 }]; const pending = deferred<void>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise);
-    const action = state().publishSelected(); session.currentUser!.sessionId = 'next'; await flushPromises(); pending.resolve(); await action; expect(state().creationReceipt).toBeUndefined();
+    const session = await setup(); state().templates = [{ ...printTemplate, latestPublishedVersionNumber: 0 }]; const pending = deferred<ReturnType<typeof hostPrintingVersion>>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise);
+    const action = state().publishSelected(); session.currentUser!.sessionId = 'next'; await flushPromises(); pending.resolve(hostPrintingVersion()); await action; expect(state().creationReceipt).toBeUndefined();
   });
   it('缺少发布权限不能直接发布已有草稿', async () => {
     await setup(permissions.filter(code => code !== 'printing.templates.publish')); state().templates = [{ ...printTemplate, latestPublishedVersionNumber: 0 }]; await state().publishSelected(); expect(api.publishPrintingTemplate).not.toHaveBeenCalled();
   });
   it('关闭在途发布保留已创建但发布未确认的回执', async () => {
-    await setup(); await openCreate(); const pending = deferred<void>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise); const action = vm().submitCreate(); await flushPromises(); vm().createDialogVisible = false; pending.resolve(); await action;
+    await setup(); await openCreate(); const pending = deferred<ReturnType<typeof hostPrintingVersion>>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise); const action = vm().submitCreate(); await flushPromises(); vm().createDialogVisible = false; pending.resolve(hostPrintingVersion()); await action;
     expect(state().creationReceipt?.outcome).toBe('publishUnconfirmed');
   });
   it('旧创建窗口关闭和提交回调不能影响新窗口', async () => {

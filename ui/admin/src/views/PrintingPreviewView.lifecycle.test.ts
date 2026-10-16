@@ -4,6 +4,7 @@ import { ElSelect } from 'element-plus';
 import PrintingPreviewView from './PrintingPreviewView.vue';
 import { createPrintingTemplate, listPrintingTemplates, previewPrintingTemplate, publishPrintingTemplate } from '../api/printing-templates';
 import { createOutputSession, deferred, printResult, printTemplate } from '../test/data-output-fixtures';
+import { hostPrintingDraft } from '../test/printing-host-fixtures';
 vi.mock('../api/printing-templates', () => ({ createPrintingTemplate: vi.fn(), listPrintingTemplates: vi.fn(), previewPrintingTemplate: vi.fn(), publishPrintingTemplate: vi.fn() }));
 let wrapper: VueWrapper | undefined;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(listPrintingTemplates).mockResolvedValue([printTemplate]); });
@@ -23,7 +24,7 @@ describe('打印输出授权与生命周期', () => {
     const session = mountView(['printing.templates.read', 'printing.templates.create', 'printing.templates.publish', 'printing.templates.preview']);
     await flushPromises(); await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises();
     await wrapper!.get('[data-testid="printing-preview-submit"]').trigger('click');
-    session.currentUser!.permissions = ['printing.templates.read']; pending.resolve(printTemplate); await flushPromises();
+    session.currentUser!.permissions = ['printing.templates.read']; pending.resolve(hostPrintingDraft); await flushPromises();
     expect(publishPrintingTemplate).not.toHaveBeenCalled(); expect(previewPrintingTemplate).not.toHaveBeenCalled();
   });
   it('无预览权限不创建操作入口，无读取权限不请求目录', async () => {
@@ -51,8 +52,9 @@ describe('打印输出授权与生命周期', () => {
   it('创建权限不隐式授予发布或预览，重复点击只创建一次', async () => {
     const pending = deferred<typeof printTemplate>(); vi.mocked(createPrintingTemplate).mockReturnValue(pending.promise);
     mountView(['printing.templates.read', 'printing.templates.create']); await flushPromises(); await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises();
-    const button = wrapper!.get('[data-testid="printing-preview-submit"]'); await button.trigger('click'); await button.trigger('click'); pending.resolve(printTemplate); await flushPromises();
+    const button = wrapper!.get('[data-testid="printing-preview-submit"]'); await button.trigger('click'); await button.trigger('click'); pending.resolve({ ...hostPrintingDraft, id: '019bc2b1-2a40-7cc3-8992-a80de51bf292' }); await flushPromises();
     expect(createPrintingTemplate).toHaveBeenCalledTimes(1); expect(publishPrintingTemplate).not.toHaveBeenCalled(); expect(previewPrintingTemplate).not.toHaveBeenCalled();
+    expect(wrapper!.get('[data-testid="printing-creation-receipt"]').text()).toContain('019bc2b1-2a40-7cc3-8992-a80de51bf292');
   });
   it('打印前重新获取预览，服务端撤权时立即清除旧内容且不调用浏览器打印', async () => {
     vi.mocked(previewPrintingTemplate).mockResolvedValueOnce(printResult).mockRejectedValueOnce({status:403,code:'authorization.permission_denied',title:'Denied'});

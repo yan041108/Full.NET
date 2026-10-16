@@ -18,10 +18,12 @@ import {
   type PrintingFormSchemaDefinition,
   type PrintingTemplate,
   type PrintingTemplatePreview,
+  type PrintingTemplateVersion,
   type PublishPrintingTemplateRequest,
   type UpdatePrintingTemplateRequest
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
+import { validHostPrintingTemplate, validHostPrintingVersion } from './printing-host-guards';
 
 export async function listPrintingTemplates(
   nameContains?: string,
@@ -33,7 +35,8 @@ export async function listPrintingTemplates(
   }
   const suffix = params.size > 0 ? `?${params.toString()}` : '';
   const value = await request<unknown>(`/api/v1/printing/templates${suffix}`, { method: 'GET' }, signal);
-  if (!Array.isArray(value) || !value.every(isPrintingTemplate)) {
+  if (!Array.isArray(value) || !value.every(validHostPrintingTemplate)
+    || new Set(value.map(row => row.id.toLowerCase())).size !== value.length) {
     throw new Error('client.invalid_printing_template_list');
   }
   return value;
@@ -43,8 +46,11 @@ export async function createPrintingTemplate(
   body: CreatePrintingTemplateRequest,
   signal?: AbortSignal
 ): Promise<PrintingTemplate> {
-  const value = await request<unknown>('/api/v1/printing/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
-  if (!isPrintingTemplate(value)) {
+  const payload = { ...body };
+  const value = await request<unknown>('/api/v1/printing/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }, signal);
+  // 布局由服务端净化，不能要求危险输入原样回显。
+  if (!validHostPrintingTemplate(value) || value.version !== 1 || value.latestPublishedVersionNumber !== 0
+    || value.templateKey !== payload.templateKey.trim() || value.name !== payload.name.trim() || value.formSchemaKey !== payload.formSchemaKey.trim() || value.isEnabled !== payload.isEnabled) {
     throw new Error('client.invalid_printing_template');
   }
   return value;
@@ -70,12 +76,18 @@ export async function publishPrintingTemplate(
   templateId: string,
   body: PublishPrintingTemplateRequest,
   signal?: AbortSignal
-): Promise<void> {
-  await request<unknown>(
+): Promise<PrintingTemplateVersion> {
+  const payload = { ...body };
+  if (!isGuid(templateId) || templateId === '00000000-0000-0000-0000-000000000000' || !Number.isSafeInteger(payload.version) || payload.version < 1)
+    throw new Error('client.invalid_printing_template_publish_request');
+  const value = await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}/publish`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
     signal
   );
+  if (!validHostPrintingVersion(value) || value.templateId.toLowerCase() !== templateId.toLowerCase()
+    || value.changeNote !== (payload.changeNote?.trim() || null)) throw new Error('client.invalid_printing_template_version');
+  return value;
 }
 
 export async function previewPrintingTemplate(
@@ -84,12 +96,17 @@ export async function previewPrintingTemplate(
   signal?: AbortSignal
 ): Promise<PrintingTemplatePreview> {
   const payload = { ...body };
+  if (!isGuid(templateId) || templateId === '00000000-0000-0000-0000-000000000000'
+    || payload.versionNumber != null && (!Number.isSafeInteger(payload.versionNumber) || payload.versionNumber < 1)
+    || payload.recordId != null && (!isGuid(payload.recordId) || payload.recordId === '00000000-0000-0000-0000-000000000000')) throw new Error('client.invalid_printing_template_preview_request');
   const value = await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}/preview`,
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
     signal
   );
   if (!isPrintingTemplatePreview(value) || value.templateId.toLowerCase() !== templateId.toLowerCase()
+    || !Number.isSafeInteger(value.versionNumber) || value.versionNumber < 1
+    || Object.values(value.boundFields).some(field => field !== null && typeof field !== 'string')
     || payload.versionNumber != null && value.versionNumber !== payload.versionNumber) {
     throw new Error('client.invalid_printing_template_preview');
   }
