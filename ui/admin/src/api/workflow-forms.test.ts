@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { workflowForm as form, workflowFormDraft as draft, workflowFormCatalog as catalog, workflowFormVersion } from '../test/workflow-form-fixtures';
 import {
   workflowCreateForm,
   workflowGetForm,
   workflowGetFormComponentCatalog,
   workflowListForms,
   workflowPublishForm,
-  workflowUpdateFormDraft,
-  type WorkflowFormSchema
+  workflowUpdateFormDraft
 } from '@fullnet/client-contracts';
 import {
   createWorkflowForm,
@@ -27,14 +27,6 @@ vi.mock('@fullnet/client-contracts', async importOriginal => ({
   workflowUpdateFormDraft: vi.fn()
 }));
 
-const draft = {
-  schemaVersion: 1,
-  adapterVersion: 1,
-  sections: [{
-    sectionKey: 'main',
-    fields: [{ fieldKey: 'summary', fieldTypeKey: 'text', required: true, constraints: {} }]
-  }]
-} satisfies WorkflowFormSchema;
 
 describe('workflow forms api', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -45,22 +37,22 @@ describe('workflow forms api', () => {
     vi.mocked(workflowGetFormComponentCatalog).mockResolvedValue(catalogResponse());
 
     await listWorkflowForms();
-    await getWorkflowForm('form-1');
+    await getWorkflowForm(form.id);
     await getWorkflowFormComponentCatalog();
 
     expect(workflowListForms).toHaveBeenCalledWith(expect.anything(), {}, undefined);
-    expect(workflowGetForm).toHaveBeenCalledWith(expect.anything(), { formId: 'form-1' }, undefined);
+    expect(workflowGetForm).toHaveBeenCalledWith(expect.anything(), { formId: form.id }, undefined);
     expect(workflowGetFormComponentCatalog).toHaveBeenCalledWith(expect.anything(), {}, undefined);
   });
 
   it('创建、保存和发布均保留强类型请求及并发修订号', async () => {
-    vi.mocked(workflowCreateForm).mockResolvedValue(formResponse());
+    vi.mocked(workflowCreateForm).mockResolvedValue(formResponse(1));
     vi.mocked(workflowUpdateFormDraft).mockResolvedValue(formResponse(3));
     vi.mocked(workflowPublishForm).mockResolvedValue(versionResponse());
 
     await createWorkflowForm('purchase.request', draft);
-    await updateWorkflowFormDraft('form-1', 2, draft);
-    await publishWorkflowForm('form-1', { expectedRevision: 3 });
+    await updateWorkflowFormDraft(form.id, 2, draft);
+    await publishWorkflowForm(form.id, { expectedRevision: 3 });
 
     expect(workflowCreateForm).toHaveBeenCalledWith(
       expect.anything(),
@@ -69,39 +61,17 @@ describe('workflow forms api', () => {
     );
     expect(workflowUpdateFormDraft).toHaveBeenCalledWith(
       expect.anything(),
-      { formId: 'form-1', body: { expectedRevision: 2, draft } },
+      { formId: form.id, body: { expectedRevision: 2, draft } },
       undefined
     );
     expect(workflowPublishForm).toHaveBeenCalledWith(
       expect.anything(),
-      { formId: 'form-1', body: { expectedRevision: 3 } },
+      { formId: form.id, body: { expectedRevision: 3 } },
       undefined
     );
   });
 });
 
-function formResponse(draftRevision = 2) {
-  return {
-    id: 'form-1', formKey: 'purchase.request', statusKey: 'active', version: 1, draft, draftRevision,
-    latestPublishedVersionId: null, createdAtUtc: '2026-08-30T00:00:00Z', updatedAtUtc: null
-  };
-}
-
-function catalogResponse() {
-  return {
-    catalogVersion: 1, schemaVersion: 1, adapterVersion: 1,
-    components: [{
-      fieldTypeKey: 'text', designable: true, publishable: true,
-      executable: true, constraintKeys: ['minLength', 'maxLength']
-    }]
-  };
-}
-
-function versionResponse() {
-  return {
-    id: 'version-1', formDefinitionId: 'form-1', versionNumber: 1,
-    schemaVersion: 1, adapterVersion: 1, componentCatalogVersion: 1,
-    formSchemaJson: '{}', webRenderSchemaJson: '{}', contentHash: 'hash',
-    publishedById: 'user-1', publishedAtUtc: '2026-08-30T00:00:00Z'
-  };
-}
+function formResponse(draftRevision = 2) { return { ...form, draftRevision }; }
+function catalogResponse() { return catalog; }
+function versionResponse() { return workflowFormVersion(); }
