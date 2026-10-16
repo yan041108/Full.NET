@@ -50,8 +50,12 @@ async function validateOpen(result = Promise.resolve(true)) {
 }
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(sources.listReportingDataSources).mockResolvedValue({ items: [sourceRow, otherSource], page: 1, pageSize: 20, total: 2 });
-  vi.mocked(sources.getReportingDataSource).mockResolvedValue(source); vi.mocked(sources.updateReportingDataSource).mockResolvedValue(source);
-  vi.mocked(sources.deleteReportingDataSource).mockResolvedValue(true); vi.mocked(sources.disableReportingDataSource).mockResolvedValue(source);
+  vi.mocked(sources.getReportingDataSource).mockResolvedValue(source);
+  vi.mocked(sources.updateReportingDataSource).mockImplementation(async (id, body) => ({ ...source, id, name: body.name,
+    providerKey: body.providerKey, serverHost: body.serverHost, port: body.port, databaseName: body.databaseName,
+    username: body.username, trustServerCertificate: body.trustServerCertificate, isEnabled: body.isEnabled, version: body.version + 1 }));
+  vi.mocked(sources.deleteReportingDataSource).mockResolvedValue(true);
+  vi.mocked(sources.disableReportingDataSource).mockResolvedValue({ ...source, version: 2, isEnabled: false });
   vi.mocked(definitions.listReportingGroups).mockResolvedValue([group, otherGroup]); vi.mocked(definitions.listReportingDefinitions).mockResolvedValue([definition]);
   vi.mocked(definitions.listReportingQueryPorts).mockResolvedValue([port]); vi.mocked(definitions.listReportingDefinitionVersions).mockResolvedValue([]);
   vi.mocked(definitions.deleteReportingDefinition).mockResolvedValue(true); vi.mocked(definitions.deleteReportingGroup).mockResolvedValue(true);
