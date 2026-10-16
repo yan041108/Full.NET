@@ -24,6 +24,8 @@
     <PackageVersion Include="dbup-sqlserver" Version="7.2.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.0" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <!-- 固定 Redis 实时背板的传递依赖补丁，防止嵌套数组反序列化放大内存分配。 -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
     <PackageVersion Include="MQTTnet" Version="4.3.7.1207" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
