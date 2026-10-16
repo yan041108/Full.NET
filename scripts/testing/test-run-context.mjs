@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, realpath, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -8,25 +9,94 @@ import { setTimeout as delay } from 'node:timers/promises';
 const context = new AsyncLocalStorage();
 export const testRunEnvironment = () => context.getStore()?.env ?? process.env;
 export const concentratedAcceptanceTimeout = 45 * 60_000 + 30_000;
+export const preparedConcentratedAcceptanceTimeout = concentratedAcceptanceTimeout + 20 * 60_000;
 
 /** 排队属于外层预算；取得资源后才开始原来的独立应用执行预算。 */
 export async function runConcentratedAcceptance(testContext, action, options = {}) {
   const { executionTimeoutMs = 15 * 60_000, ...runOptions } = options;
   return withTestRun({ cwd: process.cwd(), heavy: true, signal: testContext.signal, ...runOptions, disposableBuild: true }, async () => {
-    let pending;
-    let completed = false;
-    await testContext.test('集中验收执行', { timeout: executionTimeoutMs }, execution => {
-      pending = Promise.resolve().then(() => action(execution.signal)).then(value => {
-        execution.signal.throwIfAborted();
-        completed = true;
-        return value;
-      });
-      return pending;
-    });
-    // Node 子测试超时可能早于任务清理；清理结束前不能释放共享资源。
-    await pending;
-    if (!completed) throw new Error('集中验收没有完成，不能登记成功。');
+    await runTimedAcceptance(testContext, action, executionTimeoutMs);
   });
+}
+
+/** 准备与执行分开计时；生成应用、构建及最终清理始终由同一个资源上下文拥有。 */
+export async function runPreparedConcentratedAcceptance(testContext, prepareAndRun, options = {}) {
+  const { preparationTimeoutMs = 20 * 60_000, executionTimeoutMs = 15 * 60_000, ...runOptions } = options;
+  if (!Number.isFinite(preparationTimeoutMs) || preparationTimeoutMs <= 0) throw new Error('准备预算必须为正数。');
+  return withTestRun({ cwd: process.cwd(), heavy: true, signal: testContext.signal, ...runOptions, disposableBuild: true }, async () => {
+    const deadline = performance.now() + preparationTimeoutMs;
+    const controller = new AbortController();
+    const timeoutError = new Error('集中验收准备超时，未开始执行。');
+    const signal = AbortSignal.any([controller.signal, testContext.signal, runOptions.signal].filter(Boolean));
+    const timer = setTimeout(() => controller.abort(timeoutError), preparationTimeoutMs);
+    timer.unref();
+    let entered = false;
+    let operationEnded = false;
+    let execution;
+    const check = () => {
+      if (entered || operationEnded) throw new Error('准备已经结束，不能再启动准备步骤。');
+      if (performance.now() >= deadline) controller.abort(timeoutError);
+      signal.throwIfAborted();
+    };
+    const preparation = {
+      signal,
+      check,
+      run(binary, args, options = {}) {
+        check();
+        const remaining = Math.max(1, Math.ceil(deadline - performance.now()));
+        const limit = options.timeout > 0 ? Math.min(options.timeout, remaining) : remaining;
+        const result = spawnSync(binary, args, { ...options, env: options.env ?? testRunEnvironment(), windowsHide: true, timeout: limit });
+        // 同步调用期间事件循环无法投递取消；子进程使用剩余期限，返回后立即阻止后续步骤。
+        check();
+        return result;
+      },
+    };
+    try {
+      await prepareAndRun(action => {
+        if (entered || operationEnded) throw new Error('准备只能进入一次执行。');
+        check();
+        clearTimeout(timer);
+        entered = true;
+        execution = runTimedAcceptance(testContext, async runtimeSignal => {
+          const effective = AbortSignal.any([runtimeSignal, testContext.signal, runOptions.signal].filter(Boolean));
+          effective.throwIfAborted();
+          const result = await action(effective);
+          effective.throwIfAborted();
+          return result;
+        }, executionTimeoutMs);
+        // 即使调用方遗漏 await，也先观察异常；finally 仍等待并重新传播，不能提前释放锁。
+        execution.catch(() => {});
+        return execution;
+      }, preparation);
+      if (!entered) {
+        check();
+        throw new Error('集中验收没有进入实际执行，不能登记成功。');
+      }
+    } catch (error) {
+      if (!entered && error?.name === 'AbortError' && signal.aborted) throw signal.reason;
+      throw error;
+    } finally {
+      operationEnded = true;
+      clearTimeout(timer);
+      await execution;
+    }
+  });
+}
+
+async function runTimedAcceptance(testContext, action, executionTimeoutMs) {
+  let pending;
+  let completed = false;
+  await testContext.test('集中验收执行', { timeout: executionTimeoutMs }, execution => {
+    pending = Promise.resolve().then(() => action(execution.signal)).then(value => {
+      execution.signal.throwIfAborted();
+      completed = true;
+      return value;
+    });
+    return pending;
+  });
+  // Node 子测试超时可能早于任务清理；清理结束前不能释放共享资源。
+  await pending;
+  if (!completed) throw new Error('集中验收没有完成，不能登记成功。');
 }
 
 async function acquire(file, { signal, deadline, onWait }) {

@@ -221,7 +221,7 @@ async function loginAndReadSettings(baseUrl) {
 /**
  * @param {'sqlserver'|'mysql'} databaseProviderKey
  */
-export async function verifyCreatedAppRealStack(databaseProviderKey) {
+export async function verifyCreatedAppRealStack(databaseProviderKey, { executeRuntime = action => action(), preparation } = {}) {
   // Windows 的 TEMP 可能是 8.3 短路径，Vite 以长路径校验文件允许列表。
   const workspace = mkdtempSync(join(realpathSync.native(tmpdir()), 'fullnet-created-app-rs-'));
   let dbContainer;
@@ -231,10 +231,14 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
   let workerProcess;
   let workerLogStream;
   let browserRuntime;
+  const runPreparation = preparation?.run ?? spawnSync;
+  const checkPreparation = () => preparation?.check();
   try {
-    const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
+    checkPreparation();
+    const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package'), run: runPreparation });
     const appRoot = join(workspace, 'app');
     createApp({
+      run: runPreparation,
       packageRoot: templateRoot,
       output: appRoot,
       name: 'Demo',
@@ -252,7 +256,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
     mkdirSync(logRoot, { recursive: true });
     // 运行应用自带客户端工具；仅验证冻结基线零漂移，不冒充业务 Vue 接入或页面编译。
-    const clientCheck = spawnSync(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
+    checkPreparation();
+    const clientCheck = runPreparation(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
       { cwd: workspace, encoding: 'utf8', timeout: 60_000, windowsHide: true });
     writeFileSync(join(logRoot, 'application-client-tools.json'), JSON.stringify({ status: clientCheck.status,
       error: clientCheck.error?.message, stdout: clientCheck.stdout, stderr: clientCheck.stderr }, null, 2));
@@ -265,7 +270,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const diagnosis = runDotnet(['run', '--project',
       join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli'),
       '-c', 'Release', '--', 'diagnose', '--workspace', appRoot, '--profile', 'development'],
-    appRoot, {}, 300_000, join(logRoot, 'diagnose.log'));
+    appRoot, {}, 300_000, join(logRoot, 'diagnose.log'), runPreparation);
     for (const code of ['DIAG_SDK_OK', 'DIAG_WORKSPACE_OK', 'DIAG_APP_PROFILE_OK', 'DIAG_MODULE_CLOSURE_OK']) {
       assert.match(diagnosis.stdout, new RegExp(`${code} ok`));
     }
@@ -275,7 +280,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const diagnosticCli = join(appRoot,
       'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
     // 分发应用未初始化 User Secrets 时，生产诊断必须报告缺连接，且不能改写应用文件。
-    const productionDiagnosis = spawnSync('dotnet', [diagnosticCli, 'diagnose', '--workspace', appRoot,
+    const productionDiagnosis = runPreparation('dotnet', [diagnosticCli, 'diagnose', '--workspace', appRoot,
       '--profile', 'production'], {
       cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
       env: { ...process.env, ConnectionStrings__app: '<your-connection>' },
@@ -292,16 +297,20 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     }, null, 2));
 
     prepareApplicationCompositionProbe(appRoot);
-    verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });
-    verifyApplicationCrudModule(appRoot, { reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
-    verifyApplicationCrudHostWiring(appRoot, { reportDirectory: join(logRoot, 'application-crud-host-wiring') });
-    verifyApplicationCrudAuthorization(appRoot, { reportDirectory: join(logRoot, 'application-crud-authorization') });
+    verifyApplicationCrudGeneration(appRoot, { run: runPreparation, reportDirectory: join(logRoot, 'application-crud') });
+    verifyApplicationCrudModule(appRoot, { run: runPreparation, reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot, { run: runPreparation, reportDirectory: join(logRoot, 'application-crud-host-wiring') });
+    verifyApplicationCrudAuthorization(appRoot, { run: runPreparation, reportDirectory: join(logRoot, 'application-crud-authorization') });
     const adoption = prepareApplicationBusinessMigrations(appRoot);
     writeFileSync(join(logRoot, 'application-migration-adoption.json'), JSON.stringify(adoption, null, 2));
+    checkPreparation();
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
+    // 容器启动沿用 SDK 的有限期限；先登记所有权，再检查取消，确保 finally 可以回收。
+    checkPreparation();
     const redis = await startRedisContainer();
     redisContainer = redis.container;
+    checkPreparation();
     patchAppSettings(appRoot, database.databaseProvider, database.connectionString);
     const env = buildSharedEnv(database.connectionString, database.databaseProvider, redis.connectionString);
 
@@ -314,215 +323,218 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       copyFileSync(join(repoRoot, 'tests/templates/support/created-app-outbox-probe', file), join(outboxProbeRoot, file));
     }
     const outboxProbeProject = join(outboxProbeRoot, 'CreatedAppOutboxProbe.csproj');
-    runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet(['build', workerProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet(['build', outboxProbeProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    const firstMigration = runDotnet([
-      'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
-      '--seed', 'development',
-    ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
-    const firstResult = verifyApplicationMigrationResult(firstMigration.stdout, true);
-    const repeatMigration = runDotnet([
-      'run', '--project', migratorProject, '-c', 'Release', '--no-build',
-    ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
-    const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
-    writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
+    runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env, 300_000, undefined, runPreparation);
+    runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env, 300_000, undefined, runPreparation);
+    runDotnet(['build', workerProject, '-c', 'Release', '-v', 'quiet'], appRoot, env, 300_000, undefined, runPreparation);
+    runDotnet(['build', outboxProbeProject, '-c', 'Release', '-v', 'quiet'], appRoot, env, 300_000, undefined, runPreparation);
+    // 生成、接线和宿主构建已完成，从真实迁移开始使用原执行预算。
+    await executeRuntime(async () => {
+      const firstMigration = runDotnet([
+        'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
+        '--seed', 'development',
+      ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
+      const firstResult = verifyApplicationMigrationResult(firstMigration.stdout, true);
+      const repeatMigration = runDotnet([
+        'run', '--project', migratorProject, '-c', 'Release', '--no-build',
+      ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
+      const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
+      writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
 
-    const workerUrl = `http://127.0.0.1:${JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8')).workerHttpPort}`;
-    const workerEnv = {
-      ...env,
-      ASPNETCORE_URLS: workerUrl,
-      Kestrel__Endpoints__Http__Url: workerUrl,
-      Messaging__Worker__Mode: 'LegacyPolling',
-      OutboxWorker__PollMilliseconds: '100',
-      OutboxWorker__MaximumIdlePollMilliseconds: '100',
-    };
-    const retirement = runDotnet([
-      'run', '--project', workerProject, '-c', 'Release', '--no-build', '--',
-      '--outbox-version-retirement-message-type', 'fullnet.tenancy.tenant.changed',
-      '--outbox-version-retirement-schema-version', '1',
-    ], appRoot, workerEnv, 180_000, join(logRoot, 'worker-retirement.log'));
-    const retirementReport = retirement.stdout.split(/\r?\n/u)
-      .map(line => { try { return JSON.parse(line); } catch { return null; } })
-      .find(value => value?.code === 'outbox.version_retirement.safe');
-    assert.ok(retirementReport, 'generated Worker did not query the migrated outbox: ' + retirement.stdout);
-    assert.equal(retirementReport.pendingCount, 0);
-    assert.equal(retirementReport.deadLetterCount, 0);
+      const workerUrl = `http://127.0.0.1:${JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8')).workerHttpPort}`;
+      const workerEnv = {
+        ...env,
+        ASPNETCORE_URLS: workerUrl,
+        Kestrel__Endpoints__Http__Url: workerUrl,
+        Messaging__Worker__Mode: 'LegacyPolling',
+        OutboxWorker__PollMilliseconds: '100',
+        OutboxWorker__MaximumIdlePollMilliseconds: '100',
+      };
+      const retirement = runDotnet([
+        'run', '--project', workerProject, '-c', 'Release', '--no-build', '--',
+        '--outbox-version-retirement-message-type', 'fullnet.tenancy.tenant.changed',
+        '--outbox-version-retirement-schema-version', '1',
+      ], appRoot, workerEnv, 180_000, join(logRoot, 'worker-retirement.log'));
+      const retirementReport = retirement.stdout.split(/\r?\n/u)
+        .map(line => { try { return JSON.parse(line); } catch { return null; } })
+        .find(value => value?.code === 'outbox.version_retirement.safe');
+      assert.ok(retirementReport, 'generated Worker did not query the migrated outbox: ' + retirement.stdout);
+      assert.equal(retirementReport.pendingCount, 0);
+      assert.equal(retirementReport.deadLetterCount, 0);
 
-    const outboxMessage = runOutboxProbe(outboxProbeProject, appRoot, env, 'enqueue');
-    const pendingOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'state', outboxMessage.id);
-    assert.equal(pendingOutbox.Attempts, 0);
-    assert.equal(pendingOutbox.IsProcessed, 0);
-    assert.equal(pendingOutbox.IsDeadLettered, 0);
+      const outboxMessage = runOutboxProbe(outboxProbeProject, appRoot, env, 'enqueue');
+      const pendingOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'state', outboxMessage.id);
+      assert.equal(pendingOutbox.Attempts, 0);
+      assert.equal(pendingOutbox.IsProcessed, 0);
+      assert.equal(pendingOutbox.IsDeadLettered, 0);
 
-    const workerLogPath = join(logRoot, 'worker.log');
-    writeFileSync(workerLogPath, '');
-    workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
-    workerProcess = spawn('dotnet', ['run', '--project', workerProject, '-c', 'Release', '--no-build'], {
-      cwd: appRoot,
-      env: { ...process.env, ...workerEnv },
-      stdio: 'pipe',
+      const workerLogPath = join(logRoot, 'worker.log');
+      writeFileSync(workerLogPath, '');
+      workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
+      workerProcess = spawn('dotnet', ['run', '--project', workerProject, '-c', 'Release', '--no-build'], {
+        cwd: appRoot,
+        env: { ...process.env, ...workerEnv },
+        stdio: 'pipe',
+      });
+      workerProcess.stdout?.pipe(workerLogStream, { end: false });
+      workerProcess.stderr?.pipe(workerLogStream, { end: false });
+      await waitForApi(workerUrl, 180_000, workerLogPath);
+      const workerReady = await fetch(`${workerUrl}/health/ready`);
+      assert.equal(workerReady.status, 200, `generated Worker readiness: ${await workerReady.text()}`);
+      const deliveredOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'wait', outboxMessage.id);
+      writeFileSync(join(logRoot, 'worker-outbox-delivery.json'), JSON.stringify({ pendingOutbox, deliveredOutbox }, null, 2));
+      assert.equal(deliveredOutbox.Attempts, 1);
+      assert.equal(deliveredOutbox.IsProcessed, 1);
+      assert.equal(deliveredOutbox.IsDeadLettered, 0);
+      assert.equal(deliveredOutbox.DeadLetterReasonCode, null);
+      assert.equal(deliveredOutbox.IsLeaseReleased, 1);
+      assert.equal(deliveredOutbox.IsRetryCleared, 1);
+
+      const apiLogPath = join(logRoot, 'api.log');
+      writeFileSync(apiLogPath, '');
+      apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
+      apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
+        cwd: appRoot,
+        env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl },
+        stdio: 'pipe',
+      });
+      apiProcess.stdout?.pipe(apiLogStream, { end: false });
+      apiProcess.stderr?.pipe(apiLogStream, { end: false });
+      await waitForApi(apiUrl, 180_000, apiLogPath);
+      await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
+      await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+        logPath: join(logRoot, 'application-crud-openapi.json') });
+      verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
+      verifyApplicationCrudVue(appRoot, { reportDirectory: join(logRoot, 'application-crud-vue') });
+      browserRuntime = await startApplicationCrudBrowser(appRoot, apiUrl, join(logRoot, 'application-crud-browser'));
+      await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { logPath: join(logRoot, 'application-crud-client/runtime.json') });
+      let hostAccessToken = await loginAndReadSettings(apiUrl);
+      await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { hostAccessToken,
+        logPath: join(logRoot, 'application-crud-client/host-runtime.json') });
+      await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
+      const onTenantAccount = account => browserRuntime.verify(account);
+      const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json'), onTenantAccount });
+      hostAccessToken = readPermission.hostAccessToken;
+      const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json'), onTenantAccount });
+      hostAccessToken = noPermission.hostAccessToken;
+      const createPermission = await verifyApplicationCrudCreatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-create-permission.json'), onTenantAccount });
+      hostAccessToken = createPermission.hostAccessToken;
+      const updatePermission = await verifyApplicationCrudUpdatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-update-permission.json'), onTenantAccount });
+      hostAccessToken = updatePermission.hostAccessToken;
+      const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json'), onTenantAccount });
+      hostAccessToken = deletePermission.hostAccessToken;
+      const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken,
+        logPath: join(logRoot, 'application-crud-tenant-http.json'),
+        onCreatedProduct: async ({ tenantAccessToken, product }) => {
+          await verifyApplicationCrudClientProductRead(appRoot, apiUrl,
+            { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-read.json') });
+          await verifyApplicationCrudClientProductList(appRoot, apiUrl,
+            { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-list.json') });
+        } });
+      const unitName = 'Generated application Worker projection probe';
+      const unitResponse = await fetch(`${apiUrl}/api/v1/organization/units/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tenantCrud.tenantAccessToken}`, Origin: 'http://localhost', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId: null, code: `app-outbox-${Date.now().toString(36)}`, name: unitName, displayOrder: 10 }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      assert.equal(unitResponse.status, 201, unitResponse.status === 201
+        ? 'generated application organization write' : `generated application organization write: ${await unitResponse.text()}`);
+      const unit = await unitResponse.json();
+      assert.match(unit.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu);
+      assert.equal(unit.name, unitName);
+      assert.equal(unit.version, 1);
+      const projectedUnit = runOutboxProbe(outboxProbeProject, appRoot, env, 'business-wait', tenantCrud.tenantId, unit.id);
+      writeFileSync(join(logRoot, 'worker-business-outbox.json'), JSON.stringify(projectedUnit, null, 2));
+      assert.equal(projectedUnit.TenantId, tenantCrud.tenantId);
+      assert.equal(projectedUnit.UnitId, unit.id);
+      assert.equal(projectedUnit.MessageType, 'fullnet.organization.unit.changed');
+      assert.equal(projectedUnit.SchemaVersion, 1);
+      assert.equal(projectedUnit.ContentType, 'application/x-memorypack');
+      assert.equal(projectedUnit.PayloadName, unitName);
+      assert.equal(projectedUnit.PayloadVersion, unit.version);
+      assert.equal(projectedUnit.Attempts, 1);
+      assert.equal(projectedUnit.IsProcessed, 1);
+      assert.equal(projectedUnit.IsDeadLettered, 0);
+      assert.equal(projectedUnit.DeadLetterReasonCode, null);
+      assert.equal(projectedUnit.IsLeaseReleased, 1);
+      assert.equal(projectedUnit.IsRetryCleared, 1);
+      assert.equal(projectedUnit.ProjectionName, unitName);
+      assert.equal(projectedUnit.ProjectionVersion, unit.version);
+      assert.equal(projectedUnit.ProjectionIsActive, 1);
+      await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
+        logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
+      await verifyApplicationCrudClientTenantWrites(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
+        expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
+      await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
+        logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
+      assert.equal(workerProcess.exitCode, null, 'generated Worker exited during application acceptance');
+      assert.equal(workerProcess.signalCode, null, 'generated Worker received an exit signal during application acceptance');
+      const finalWorkerReady = await fetch(`${workerUrl}/health/ready`);
+      assert.equal(finalWorkerReady.status, 200, `generated Worker final readiness: ${await finalWorkerReady.text()}`);
+      await stopLoggedProcess(workerProcess, workerLogStream);
+      workerProcess = undefined;
+      workerLogStream = undefined;
+      const workerOutput = readFileSync(workerLogPath, 'utf8');
+      for (const marker of ['Unhandled exception', 'Outbox polling iteration failed',
+        'Outbox backlog sampling failed', 'Outbox retention iteration failed',
+        'Failed Outbox message', 'Dead-lettered Outbox message']) {
+        assert.ok(!workerOutput.includes(marker), `generated Worker logged ${marker}`);
+      }
+      for (const line of workerOutput.split(/\r?\n/u)) {
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        assert.ok(!['Error', 'Fatal'].includes(entry?.['@l']), `generated Worker logged ${entry['@l']}: ${entry['@mt']}`);
+      }
+
+      const legacyProduct = await createPreUpgradeProduct(apiUrl, tenantCrud.tenantAccessToken,
+        tenantCrud.tenantId, join(logRoot, 'application-crud-live-upgrade/legacy-create.json'));
+      await stopLoggedProcess(apiProcess, apiLogStream);
+      apiProcess = undefined;
+      apiLogStream = undefined;
+      const sourceUpgrade = verifyApplicationCrudSchemaSourceUpgrade(appRoot,
+        { reportDirectory: join(logRoot, 'application-crud-live-upgrade/source') });
+      const upgradedAdoption = prepareApplicationBusinessSchemaUpgrade(appRoot);
+      assert.equal(upgradedAdoption.scriptsPerProvider, 2);
+      runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env,
+        300_000, join(logRoot, 'application-crud-live-upgrade/migrator-build.log'));
+      const migrationArgs = ['run', '--project', migratorProject, '-c', 'Release', '--no-build'];
+      const upgradeMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
+        join(logRoot, 'application-crud-live-upgrade/migrator-upgrade.log'));
+      const upgraded = verifyApplicationMigrationResult(upgradeMigration.stdout, false, 1);
+      const upgradeRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
+        join(logRoot, 'application-crud-live-upgrade/migrator-repeat.log'));
+      const repeated = verifyApplicationMigrationResult(upgradeRepeat.stdout, false);
+      const unaccounted = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-unaccount');
+      assert.equal(unaccounted.removed, 1);
+      assert.equal(unaccounted.commentRemoved, databaseProviderKey === 'sqlserver' ? 1 : 0,
+        'recovery probe did not prepare the provider-specific partial DDL state');
+      const recoveryMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
+        join(logRoot, 'application-crud-live-upgrade/migrator-recovery.log'));
+      const recovered = verifyApplicationMigrationResult(recoveryMigration.stdout, false, 1);
+      const restoredComment = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-comment-state');
+      assert.equal(restoredComment.present, 1, 'recovery did not restore the Description metadata comment');
+      const recoveryRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
+        join(logRoot, 'application-crud-live-upgrade/migrator-recovery-repeat.log'));
+      const recoveryRepeated = verifyApplicationMigrationResult(recoveryRepeat.stdout, false);
+      const upgradedApiLogPath = join(logRoot, 'application-crud-live-upgrade/api.log');
+      apiLogStream = createWriteStream(upgradedApiLogPath, { flags: 'a' });
+      apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
+        cwd: appRoot, env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl }, stdio: 'pipe',
+      });
+      apiProcess.stdout?.pipe(apiLogStream, { end: false });
+      apiProcess.stderr?.pipe(apiLogStream, { end: false });
+      await waitForApi(apiUrl, 180_000, upgradedApiLogPath);
+      await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+        logPath: join(logRoot, 'application-crud-live-upgrade/openapi.json') });
+      const upgradedTenantToken = await renewTenantSession(apiUrl, adminPassword, tenantCrud.tenantId);
+      const http = await verifyUpgradedProductHttp(apiUrl, upgradedTenantToken,
+        tenantCrud.tenantId, legacyProduct, join(logRoot, 'application-crud-live-upgrade/http.json'));
+      writeFileSync(join(logRoot, 'application-crud-live-upgrade/result.json'), JSON.stringify({
+        sourceUpdated: sourceUpgrade.sourceUpdated, moduleUpdated: sourceUpgrade.moduleUpdated,
+        databaseMigrationApplied: true, upgraded, repeated, unaccounted, recovered,
+        restoredComment, recoveryRepeated, ...http,
+      }, null, 2));
     });
-    workerProcess.stdout?.pipe(workerLogStream, { end: false });
-    workerProcess.stderr?.pipe(workerLogStream, { end: false });
-    await waitForApi(workerUrl, 180_000, workerLogPath);
-    const workerReady = await fetch(`${workerUrl}/health/ready`);
-    assert.equal(workerReady.status, 200, `generated Worker readiness: ${await workerReady.text()}`);
-    const deliveredOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'wait', outboxMessage.id);
-    writeFileSync(join(logRoot, 'worker-outbox-delivery.json'), JSON.stringify({ pendingOutbox, deliveredOutbox }, null, 2));
-    assert.equal(deliveredOutbox.Attempts, 1);
-    assert.equal(deliveredOutbox.IsProcessed, 1);
-    assert.equal(deliveredOutbox.IsDeadLettered, 0);
-    assert.equal(deliveredOutbox.DeadLetterReasonCode, null);
-    assert.equal(deliveredOutbox.IsLeaseReleased, 1);
-    assert.equal(deliveredOutbox.IsRetryCleared, 1);
-
-    const apiLogPath = join(logRoot, 'api.log');
-    writeFileSync(apiLogPath, '');
-    apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
-    apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
-      cwd: appRoot,
-      env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl },
-      stdio: 'pipe',
-    });
-    apiProcess.stdout?.pipe(apiLogStream, { end: false });
-    apiProcess.stderr?.pipe(apiLogStream, { end: false });
-    await waitForApi(apiUrl, 180_000, apiLogPath);
-    await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
-    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
-      logPath: join(logRoot, 'application-crud-openapi.json') });
-    verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
-    verifyApplicationCrudVue(appRoot, { reportDirectory: join(logRoot, 'application-crud-vue') });
-    browserRuntime = await startApplicationCrudBrowser(appRoot, apiUrl, join(logRoot, 'application-crud-browser'));
-    await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { logPath: join(logRoot, 'application-crud-client/runtime.json') });
-    let hostAccessToken = await loginAndReadSettings(apiUrl);
-    await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { hostAccessToken,
-      logPath: join(logRoot, 'application-crud-client/host-runtime.json') });
-    await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
-    const onTenantAccount = account => browserRuntime.verify(account);
-    const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json'), onTenantAccount });
-    hostAccessToken = readPermission.hostAccessToken;
-    const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json'), onTenantAccount });
-    hostAccessToken = noPermission.hostAccessToken;
-    const createPermission = await verifyApplicationCrudCreatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-create-permission.json'), onTenantAccount });
-    hostAccessToken = createPermission.hostAccessToken;
-    const updatePermission = await verifyApplicationCrudUpdatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-update-permission.json'), onTenantAccount });
-    hostAccessToken = updatePermission.hostAccessToken;
-    const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json'), onTenantAccount });
-    hostAccessToken = deletePermission.hostAccessToken;
-    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken,
-      logPath: join(logRoot, 'application-crud-tenant-http.json'),
-      onCreatedProduct: async ({ tenantAccessToken, product }) => {
-        await verifyApplicationCrudClientProductRead(appRoot, apiUrl,
-          { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-read.json') });
-        await verifyApplicationCrudClientProductList(appRoot, apiUrl,
-          { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-list.json') });
-      } });
-    const unitName = 'Generated application Worker projection probe';
-    const unitResponse = await fetch(`${apiUrl}/api/v1/organization/units/`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tenantCrud.tenantAccessToken}`, Origin: 'http://localhost', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId: null, code: `app-outbox-${Date.now().toString(36)}`, name: unitName, displayOrder: 10 }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    assert.equal(unitResponse.status, 201, unitResponse.status === 201
-      ? 'generated application organization write' : `generated application organization write: ${await unitResponse.text()}`);
-    const unit = await unitResponse.json();
-    assert.match(unit.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu);
-    assert.equal(unit.name, unitName);
-    assert.equal(unit.version, 1);
-    const projectedUnit = runOutboxProbe(outboxProbeProject, appRoot, env, 'business-wait', tenantCrud.tenantId, unit.id);
-    writeFileSync(join(logRoot, 'worker-business-outbox.json'), JSON.stringify(projectedUnit, null, 2));
-    assert.equal(projectedUnit.TenantId, tenantCrud.tenantId);
-    assert.equal(projectedUnit.UnitId, unit.id);
-    assert.equal(projectedUnit.MessageType, 'fullnet.organization.unit.changed');
-    assert.equal(projectedUnit.SchemaVersion, 1);
-    assert.equal(projectedUnit.ContentType, 'application/x-memorypack');
-    assert.equal(projectedUnit.PayloadName, unitName);
-    assert.equal(projectedUnit.PayloadVersion, unit.version);
-    assert.equal(projectedUnit.Attempts, 1);
-    assert.equal(projectedUnit.IsProcessed, 1);
-    assert.equal(projectedUnit.IsDeadLettered, 0);
-    assert.equal(projectedUnit.DeadLetterReasonCode, null);
-    assert.equal(projectedUnit.IsLeaseReleased, 1);
-    assert.equal(projectedUnit.IsRetryCleared, 1);
-    assert.equal(projectedUnit.ProjectionName, unitName);
-    assert.equal(projectedUnit.ProjectionVersion, unit.version);
-    assert.equal(projectedUnit.ProjectionIsActive, 1);
-    await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
-      logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
-    await verifyApplicationCrudClientTenantWrites(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
-      expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
-    await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
-      logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
-    assert.equal(workerProcess.exitCode, null, 'generated Worker exited during application acceptance');
-    assert.equal(workerProcess.signalCode, null, 'generated Worker received an exit signal during application acceptance');
-    const finalWorkerReady = await fetch(`${workerUrl}/health/ready`);
-    assert.equal(finalWorkerReady.status, 200, `generated Worker final readiness: ${await finalWorkerReady.text()}`);
-    await stopLoggedProcess(workerProcess, workerLogStream);
-    workerProcess = undefined;
-    workerLogStream = undefined;
-    const workerOutput = readFileSync(workerLogPath, 'utf8');
-    for (const marker of ['Unhandled exception', 'Outbox polling iteration failed',
-      'Outbox backlog sampling failed', 'Outbox retention iteration failed',
-      'Failed Outbox message', 'Dead-lettered Outbox message']) {
-      assert.ok(!workerOutput.includes(marker), `generated Worker logged ${marker}`);
-    }
-    for (const line of workerOutput.split(/\r?\n/u)) {
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-      assert.ok(!['Error', 'Fatal'].includes(entry?.['@l']), `generated Worker logged ${entry['@l']}: ${entry['@mt']}`);
-    }
-
-    const legacyProduct = await createPreUpgradeProduct(apiUrl, tenantCrud.tenantAccessToken,
-      tenantCrud.tenantId, join(logRoot, 'application-crud-live-upgrade/legacy-create.json'));
-    await stopLoggedProcess(apiProcess, apiLogStream);
-    apiProcess = undefined;
-    apiLogStream = undefined;
-    const sourceUpgrade = verifyApplicationCrudSchemaSourceUpgrade(appRoot,
-      { reportDirectory: join(logRoot, 'application-crud-live-upgrade/source') });
-    const upgradedAdoption = prepareApplicationBusinessSchemaUpgrade(appRoot);
-    assert.equal(upgradedAdoption.scriptsPerProvider, 2);
-    runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env,
-      300_000, join(logRoot, 'application-crud-live-upgrade/migrator-build.log'));
-    const migrationArgs = ['run', '--project', migratorProject, '-c', 'Release', '--no-build'];
-    const upgradeMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
-      join(logRoot, 'application-crud-live-upgrade/migrator-upgrade.log'));
-    const upgraded = verifyApplicationMigrationResult(upgradeMigration.stdout, false, 1);
-    const upgradeRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
-      join(logRoot, 'application-crud-live-upgrade/migrator-repeat.log'));
-    const repeated = verifyApplicationMigrationResult(upgradeRepeat.stdout, false);
-    const unaccounted = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-unaccount');
-    assert.equal(unaccounted.removed, 1);
-    assert.equal(unaccounted.commentRemoved, databaseProviderKey === 'sqlserver' ? 1 : 0,
-      'recovery probe did not prepare the provider-specific partial DDL state');
-    const recoveryMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
-      join(logRoot, 'application-crud-live-upgrade/migrator-recovery.log'));
-    const recovered = verifyApplicationMigrationResult(recoveryMigration.stdout, false, 1);
-    const restoredComment = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-comment-state');
-    assert.equal(restoredComment.present, 1, 'recovery did not restore the Description metadata comment');
-    const recoveryRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
-      join(logRoot, 'application-crud-live-upgrade/migrator-recovery-repeat.log'));
-    const recoveryRepeated = verifyApplicationMigrationResult(recoveryRepeat.stdout, false);
-    const upgradedApiLogPath = join(logRoot, 'application-crud-live-upgrade/api.log');
-    apiLogStream = createWriteStream(upgradedApiLogPath, { flags: 'a' });
-    apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
-      cwd: appRoot, env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl }, stdio: 'pipe',
-    });
-    apiProcess.stdout?.pipe(apiLogStream, { end: false });
-    apiProcess.stderr?.pipe(apiLogStream, { end: false });
-    await waitForApi(apiUrl, 180_000, upgradedApiLogPath);
-    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
-      logPath: join(logRoot, 'application-crud-live-upgrade/openapi.json') });
-    const upgradedTenantToken = await renewTenantSession(apiUrl, adminPassword, tenantCrud.tenantId);
-    const http = await verifyUpgradedProductHttp(apiUrl, upgradedTenantToken,
-      tenantCrud.tenantId, legacyProduct, join(logRoot, 'application-crud-live-upgrade/http.json'));
-    writeFileSync(join(logRoot, 'application-crud-live-upgrade/result.json'), JSON.stringify({
-      sourceUpdated: sourceUpgrade.sourceUpdated, moduleUpdated: sourceUpgrade.moduleUpdated,
-      databaseMigrationApplied: true, upgraded, repeated, unaccounted, recovered,
-      restoredComment, recoveryRepeated, ...http,
-    }, null, 2));
   } finally {
     try {
       await browserRuntime?.close();

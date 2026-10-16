@@ -82,8 +82,8 @@ function parseArgs(argv) {
   return { output };
 }
 
-function readGitCommit() {
-  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+function readGitCommit(run) {
+  const result = run('git', ['rev-parse', 'HEAD'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   });
@@ -109,14 +109,14 @@ export function assertArchiveEntryModes(treeOutput) {
   }
 }
 
-function assertCommittedBundleInputs() {
-  assertCleanBundleInputStatus(readBundleInputStatus());
+function assertCommittedBundleInputs(run) {
+  assertCleanBundleInputStatus(readBundleInputStatus(run));
 }
 
 /** 供模板测试在脏工作区跳过需完整打包的用例；CI 干净提交仍必须跑绿。 */
-export function readBundleInputStatus() {
+export function readBundleInputStatus(run = spawnSync) {
   const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES].map(toPosixPath);
-  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
+  const result = run('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   });
@@ -192,12 +192,12 @@ function collectManagedFiles(bundleRoot) {
   return managedFiles;
 }
 
-function copyIncludedPaths(bundleRoot, sourceCommit) {
+function copyIncludedPaths(bundleRoot, sourceCommit, run) {
   const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES]
     .filter((relativePath) => existsSync(join(REPO_ROOT, relativePath)))
     .map(toPosixPath);
   const archivePath = join(bundleRoot, '.fullnet-source.tar');
-  const tree = spawnSync('git', ['ls-tree', '-r', '-z', sourceCommit, '--', ...pathspecs], {
+  const tree = run('git', ['ls-tree', '-r', '-z', sourceCommit, '--', ...pathspecs], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
@@ -208,13 +208,13 @@ function copyIncludedPaths(bundleRoot, sourceCommit) {
   assertArchiveEntryModes(tree.stdout);
   // 直接导出固定提交，忽略文件和本机密钥永远不进入分发包。
   try {
-    const archive = spawnSync('git', [
+    const archive = run('git', [
       'archive', '--format=tar', '--output', archivePath, sourceCommit, ...pathspecs,
     ], { cwd: REPO_ROOT, encoding: 'utf8' });
     if (archive.status !== 0) {
       throw new Error('Unable to archive committed source: ' + (archive.stderr || 'unknown error'));
     }
-    const extract = spawnSync('tar', ['-xf', archivePath, '-C', bundleRoot], {
+    const extract = run('tar', ['-xf', archivePath, '-C', bundleRoot], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
     });
@@ -264,10 +264,10 @@ function buildManifest(sourceCommit, managedFiles, bundleRoot) {
   };
 }
 
-export function buildSourceBundle({ output = DEFAULT_OUTPUT } = {}) {
+export function buildSourceBundle({ output = DEFAULT_OUTPUT, run = spawnSync } = {}) {
   const bundleRoot = resolve(output);
-  const sourceCommit = readGitCommit();
-  assertCommittedBundleInputs();
+  const sourceCommit = readGitCommit(run);
+  assertCommittedBundleInputs(run);
 
   // 构建器不拥有调用方既有目录；拒绝覆盖，避免删除应用文件或人工修改。
   if (existsSync(bundleRoot) && readdirSync(bundleRoot).length > 0) {
@@ -275,9 +275,9 @@ export function buildSourceBundle({ output = DEFAULT_OUTPUT } = {}) {
   }
   mkdirSync(bundleRoot, { recursive: true });
 
-  copyIncludedPaths(bundleRoot, sourceCommit);
+  copyIncludedPaths(bundleRoot, sourceCommit, run);
   pruneExcluded(bundleRoot);
-  assertCommittedBundleInputs();
+  assertCommittedBundleInputs(run);
 
   const managedFiles = collectManagedFiles(bundleRoot);
   if (Object.keys(managedFiles).length === 0) {

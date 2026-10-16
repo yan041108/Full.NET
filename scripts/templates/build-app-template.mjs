@@ -3,6 +3,7 @@
  * 将应用模板与固定提交的框架源码组装为可安装的 dotnet new 模板目录。
  */
 import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSourceBundle } from './build-source-bundle.mjs';
@@ -13,7 +14,7 @@ const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..');
 const TEMPLATE_ROOT = join(REPO_ROOT, 'templates', 'fullnet-app');
 const DEFAULT_OUTPUT = join(REPO_ROOT, 'artifacts', 'templates', 'fullnet-app-package');
 
-export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
+export function buildAppTemplate({ output = DEFAULT_OUTPUT, run = spawnSync } = {}) {
   const templateRoot = resolve(output);
   // 分发包只允许写入空目录，避免模板构建覆盖应用或其他人工文件。
   if (existsSync(templateRoot) && readdirSync(templateRoot).length > 0) {
@@ -27,7 +28,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
     copyFileSync(templatePackageJson, join(templateRoot, 'package.json'));
   }
 
-  const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet') });
+  const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet'), run });
   copyFileSync(join(bundleRoot, 'framework-manifest.json'), join(templateRoot, 'framework-manifest.json'));
   copyFileSync(join(bundleRoot, 'global.json'), join(templateRoot, 'global.json'));
   // 管理端是应用拥有的骨架；共享源码与锁文件随分发包固定版本交付。
