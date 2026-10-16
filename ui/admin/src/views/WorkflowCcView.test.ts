@@ -55,6 +55,6 @@ describe('WorkflowCcView', () => {
     expect(wrapper.text()).toContain('REQ-001');
     await wrapper.get('[data-testid="workflow-cc-mark-read"]').trigger('click');
     await flushPromises();
-    expect(markWorkflowCcRead).toHaveBeenCalledWith(record.id);
+    expect(markWorkflowCcRead).toHaveBeenCalledWith(record.id, expect.any(AbortSignal));
   });
 });

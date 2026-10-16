@@ -1,167 +1,108 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
-import {
-  isFullNetProblemDetails,
-  type FullNetProblemDetails
-} from '@fullnet/client-contracts';
-import { useRouter } from 'vue-router';
+import { computed, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { routeLocationKey, routerKey } from 'vue-router';
+import { ElButton, ElCard, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
 import { listMyWorkflowCc, markWorkflowCcRead, type WorkflowCcResponse } from '../api/workflow-cc';
+import { validWorkflowCc, validWorkflowCcList, validWorkflowCcReceipt, workflowCcBindingKey, workflowCcTimestampTicks, workflowCcPersistedReadMatches } from '../api/workflow-cc-guards';
+import { workflowFormIdValid } from '../api/workflow-form-guards';
+import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import PermissionGate from '../components/PermissionGate.vue';
-import { usePermission } from '../auth/permission';
+import { showProblem, showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
-import {
-  findWorkflowBusinessDetailRoute,
-  formatWorkflowBusinessLabel
-} from '../workflow/workflowBusinessDetail';
-
+import { findWorkflowBusinessDetailRoute, formatWorkflowBusinessLabel } from '../workflow/workflowBusinessDetail';
 import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
-const { t, locale } = useAdminI18n();
-
-function formatDateTime(value: string): string {
-  return formatAdminDateTime(locale.value, value);
+const { t, locale } = useAdminI18n(), session = useSessionStore(), route = inject(routeLocationKey, undefined), router = inject(routerKey, undefined), active = ref(false);
+onMounted(() => { active.value = true; }); onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; });
+const canRead = computed(() => { const user = session.currentUser; return active.value && (!route || route.name === 'workflow-cc') && session.can('workflow.cc.read') && !!user && (user.scope === 'host' && user.tenantId === null || workflowFormIdValid(user.tenantId) && user.scope === 'tenant:' + user.tenantId.replaceAll('-', '').toLowerCase()); });
+const records = ref<WorkflowCcResponse[]>([]), loading = ref(false), catalogReady = ref(false), actingId = ref<string>(), navigating = ref(false), problem = ref<FullNetProblemDetails>(), problemIsRead = ref(true), owner = ref(0);
+const receipt = ref<{ id: string; outcome: 'processing' | 'succeeded' | 'failed' | 'unconfirmed' }>();
+const known = new Map<string, WorkflowCcResponse>(), scope = useAuthorizedViewScope(session, reset, async () => { if (canRead.value) await load(); });
+const pendingReadTimes = new Map<string, string>();
+type Lease = NonNullable<ReturnType<typeof scope.begin>>;
+let listRequest: Lease | undefined, operation: { lease: Lease; target: WorkflowCcResponse } | undefined, navigation: Lease | undefined;
+const begin = (permission: string) => canRead.value ? scope.begin(permission) : undefined;
+const busy = computed(() => loading.value || !!actingId.value || navigating.value);
+const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({ bottomOffset: 8 }); watchLoading(busy);
+watch(() => JSON.stringify([route?.name, route?.params, route?.query]), () => { scope.invalidate(); if (canRead.value) void load(); }, { flush: 'sync' });
+function reset(): void { listRequest = undefined; operation = undefined; navigation = undefined; records.value = []; loading.value = navigating.value = catalogReady.value = false; actingId.value = undefined; problem.value = undefined; receipt.value = undefined; known.clear(); pendingReadTimes.clear(); owner.value++; }
+function failure(error: unknown, read: boolean): void { problem.value = isFullNetProblemDetails(error) ? error : { status: 500, code: 'client.workflow_cc_failed', title: t(read ? 'workflowCc.loadFailed' : 'workflowCc.operationFailed') }; problemIsRead.value = read; if (!read) showProblem(problem.value, t('workflowCc.operationFailed')); }
+function assertRecord(row: unknown, authoritative = false): asserts row is WorkflowCcResponse {
+  if (!validWorkflowCc(row)) throw Error('client.invalid_workflow_cc'); const previous = known.get(row.id.toLowerCase());
+  if (!previous) return;
+  const pending = pendingReadTimes.get(row.id.toLowerCase()), sameReadTime = workflowCcTimestampTicks(row.readAtUtc) === workflowCcTimestampTicks(previous.readAtUtc);
+  const firstPrecisionRead = authoritative && pending !== undefined && row.readAtUtc !== null && workflowCcPersistedReadMatches(pending, row.readAtUtc);
+  if (workflowCcBindingKey(row) !== workflowCcBindingKey(previous) || previous.readAtUtc !== null && (row.readAtUtc === null || !sameReadTime && !firstPrecisionRead)) throw Error('client.stale_workflow_cc');
 }
-const router = useRouter();
-const { can } = usePermission();
-const records = ref<WorkflowCcResponse[]>([]);
-const loading = ref(false);
-const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
-  bottomOffset: 8
-});
-watchLoading(loading);
-const actingId = ref<string>();
-const problem = ref<FullNetProblemDetails>();
-let loadController: AbortController | undefined;
-
-onMounted(load);
-onBeforeUnmount(() => loadController?.abort());
-
-/** 加载当前用户有权查看的最近抄送记录。 */
+function observe(row: WorkflowCcResponse): void { known.set(row.id.toLowerCase(), { ...row }); }
+function current(row: WorkflowCcResponse): boolean { return validWorkflowCc(row) && records.value.some(item => item.id.toLowerCase() === row.id.toLowerCase() && workflowCcBindingKey(item) === workflowCcBindingKey(row) && item.readAtUtc === row.readAtUtc); }
 async function load(): Promise<void> {
-  loadController?.abort();
-  loadController = new AbortController();
-  loading.value = true;
-  problem.value = undefined;
+  if (!canRead.value || operation || navigating.value) return; listRequest?.cancel(); const request = begin('workflow.cc.read'); if (!request) return;
+  listRequest = request; loading.value = true; catalogReady.value = false; problem.value = undefined; owner.value++;
   try {
-    records.value = await listMyWorkflowCc(loadController.signal);
-  } catch (error: unknown) {
-    if (!loadController.signal.aborted) {
-      problem.value = toProblem(error);
+    const rows = await listMyWorkflowCc(request.signal); if (!request.current() || listRequest !== request) return;
+    if (!validWorkflowCcList(rows)) throw Error('client.invalid_workflow_cc_list'); for (const row of rows) assertRecord(row, true);
+    // 全部行先验证再接入，不能让无效目录的一部分提前推进已读下界。
+    for (const row of rows) { observe(row); pendingReadTimes.delete(row.id.toLowerCase()); } records.value = rows; catalogReady.value = true;
+    const pending = receipt.value; if (pending?.outcome === 'unconfirmed' && rows.some(row => row.id.toLowerCase() === pending.id.toLowerCase() && row.readAtUtc !== null)) receipt.value = { id: pending.id, outcome: 'succeeded' };
+  } catch (error) { if (request.current() && listRequest === request) failure(error, true); }
+  finally { if (listRequest === request) { listRequest = undefined; loading.value = false; owner.value++; } request.finish(); void nextTick(updateTableHeight); }
+}
+async function markRead(row: WorkflowCcResponse): Promise<void> {
+  if (!canRead.value || !session.can('workflow.cc.mark_read') || !catalogReady.value || busy.value || !current(row) || row.readAtUtc !== null) return;
+  const request = begin('workflow.cc.mark_read'); if (!request) return; const target = { ...row }, action = { lease: request, target }; operation = action; actingId.value = target.id; problem.value = undefined; owner.value++; receipt.value = { id: target.id, outcome: 'processing' };
+  try {
+    const result = await markWorkflowCcRead(target.id, request.signal); if (!request.current() || operation !== action || !canRead.value) return;
+    if (!validWorkflowCcReceipt(result, target.id)) throw Error('client.invalid_workflow_cc_receipt'); const updated = { ...target, readAtUtc: result.readAtUtc }; assertRecord(updated);
+    observe(updated); pendingReadTimes.set(target.id.toLowerCase(), result.readAtUtc); records.value = records.value.map(item => item.id.toLowerCase() === target.id.toLowerCase() ? updated : item); receipt.value = { id: target.id, outcome: 'succeeded' }; showSuccess(t('workflowCc.markReadSuccess'));
+  } catch (error) {
+    if (request.current() && operation === action) {
+      const unknown = !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
+      receipt.value = { id: target.id, outcome: unknown ? 'unconfirmed' : 'failed' }; catalogReady.value = false; failure(error, false);
     }
-  } finally {
-    loading.value = false;
-    void nextTick(updateTableHeight);
-  }
+  } finally { if (operation === action) { operation = undefined; actingId.value = undefined; owner.value++; } request.finish(); }
 }
-
-/** 幂等标记一条本人抄送为已读，并立即更新本地只读投影。 */
-async function markRead(record: WorkflowCcResponse): Promise<void> {
-  if (record.readAtUtc !== null || actingId.value !== undefined) return;
-  actingId.value = record.id;
-  problem.value = undefined;
-  try {
-    const result = await markWorkflowCcRead(record.id);
-    records.value = records.value.map(item => item.id === record.id
-      ? { ...item, readAtUtc: result.readAtUtc }
-      : item);
-    ElMessage.success(t('workflowCc.markReadSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    actingId.value = undefined;
-  }
+/** 仅当前确认目录的原业务绑定可进入白名单路由，权限检查发生在实际导航前。 */
+async function openBusinessDetail(row: WorkflowCcResponse): Promise<void> {
+  if (!canRead.value || !catalogReady.value || busy.value || !current(row) || !router) return; const destination = findWorkflowBusinessDetailRoute(row.businessType, session.can); if (!destination) return;
+  const request = begin('workflow.cc.read'); if (!request) return; navigation = request; navigating.value = true; owner.value++; problem.value = undefined;
+  try { await router.push({ name: destination.routeName, query: { [destination.idQueryKey]: row.businessId } }); }
+  catch (error) { if (request.current() && navigation === request) failure(error, false); }
+  finally { if (navigation === request) { navigation = undefined; navigating.value = false; owner.value++; } request.finish(); }
 }
-
-/** 把未知客户端异常收敛为可展示的 ProblemDetails。 */
-function toProblem(error: unknown): FullNetProblemDetails {
-  return isFullNetProblemDetails(error)
-    ? error
-    : { status: 500, code: 'client.workflow_cc_failed', title: t('workflowCc.operationFailed') };
-}
-
-/** 通过可信白名单路由打开业务单据详情。 */
-function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType, can);
-  if (route === undefined) {
-    return;
-  }
-  void router.push({ name: route.routeName, query: { [route.idQueryKey]: businessId } });
-}
+const controls = computed(() => { const ticket = owner.value; return { refresh: () => { if (ticket === owner.value && canRead.value) void load(); } }; });
+const rowControls = computed(() => { const ticket = owner.value; const currentOwner = () => ticket === owner.value && canRead.value; return new Map(records.value.map(row => [row.id, { mark: () => { if (currentOwner()) void markRead(row); }, business: () => { if (currentOwner()) void openBusinessDetail(row); } }])); });
 </script>
 
 <template>
-  <section class="workflow-cc art-page-stack art-full-height" :aria-busy="loading || actingId !== undefined">
+  <section class="workflow-cc art-page-stack art-full-height" :aria-busy="busy">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowCc.title') }}</h1>
     <p class="art-sr-heading">{{ t('workflowCc.caption') }}</p>
-
-    <div v-if="problem" class="art-inline-alert" role="alert">
-      <strong translate="no">{{ problem.code }}</strong>
-      <span>{{ problem.title }}</span>
-    </div>
-
-    <el-card class="workflow-cc__card art-table-card" shadow="never">
-      <div ref="tableMainRef" class="art-crud-table-main">
-      <el-table
-        v-loading="loading"
-        :data="records"
-        :height="tableHeight"
-        row-key="id"
-        class="workflow-cc__table"
-        empty-text=""
-        :row-class-name="({ row }) => row.readAtUtc === null ? 'is-unread' : ''"
-      >
-        <el-table-column :label="t('workflowCc.business')" min-width="200">
-          <template #default="{ row }">
-            <div class="workflow-cc__business">
+    <p v-if="problem" class="art-inline-alert" role="alert">{{ t(problemIsRead ? 'workflowCc.loadFailed' : 'workflowCc.operationFailed') }}</p>
+    <p v-if="receipt" role="status" aria-live="polite" data-testid="workflow-cc-receipt">{{ t(('workflowCc.recovery.' + receipt.outcome) as 'workflowCc.recovery.processing') }}</p>
+    <PermissionGate code="workflow.cc.read">
+      <ElCard v-if="canRead" class="workflow-cc__card art-table-card" shadow="never">
+        <template #header><ElButton data-testid="workflow-cc-reload" :disabled="busy" v-on="{ click: controls.refresh }">{{ t('workflowCc.reload') }}</ElButton></template>
+        <div ref="tableMainRef" class="art-crud-table-main">
+          <ElTable v-loading="loading" :data="records" :height="tableHeight" row-key="id" class="workflow-cc__table" empty-text="" :row-class-name="({ row }) => row.readAtUtc === null ? 'is-unread' : ''">
+            <ElTableColumn :label="t('workflowCc.business')" min-width="200"><template #default="{ row }"><div class="workflow-cc__business">
               <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
-              <el-button
-                v-if="findWorkflowBusinessDetailRoute(row.businessType, can)"
-                link
-                type="primary"
-                data-testid="workflow-cc-view-document"
-                @click="openBusinessDetail(row.businessType, row.businessId)"
-              >
-                {{ t('workflow.business.viewDocument') }}
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('workflowCc.node')" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }"><code translate="no">{{ row.nodeKey }}</code></template>
-        </el-table-column>
-        <el-table-column :label="t('workflowCc.createdAt')" width="168">
-          <template #default="{ row }">
-            <time translate="no" :datetime="row.createdAtUtc">{{ formatDateTime(row.createdAtUtc) }}</time>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('workflowCc.status')" width="96" align="center">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.readAtUtc === null ? 'warning' : 'info'">
-              {{ t(row.readAtUtc === null ? 'workflowCc.unread' : 'workflowCc.read') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('workflowCc.actions')" width="120" fixed="right">
-          <template #default="{ row }">
-            <PermissionGate code="workflow.cc.mark_read">
-              <el-button
-                size="small"
-                data-testid="workflow-cc-mark-read"
-                :disabled="row.readAtUtc !== null"
-                :loading="actingId === row.id"
-                @click="markRead(row as WorkflowCcResponse)"
-              >{{ t('workflowCc.markRead') }}</el-button>
-            </PermissionGate>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <p v-if="!loading" class="workflow-cc__empty">{{ t('workflowCc.empty') }}</p>
-        </template>
-      </el-table>
-      </div>
-    </el-card>
+              <ElButton v-if="findWorkflowBusinessDetailRoute(row.businessType, session.can)" link type="primary" data-testid="workflow-cc-view-document" :disabled="!catalogReady || busy" v-on="{ click: rowControls.get(row.id)?.business }">{{ t('workflow.business.viewDocument') }}</ElButton>
+            </div></template></ElTableColumn>
+            <ElTableColumn :label="t('workflowCc.node')" min-width="120" show-overflow-tooltip><template #default="{ row }"><code translate="no">{{ row.nodeKey }}</code></template></ElTableColumn>
+            <ElTableColumn :label="t('workflowCc.createdAt')" width="168"><template #default="{ row }"><time translate="no" :datetime="row.createdAtUtc">{{ formatAdminDateTime(locale, row.createdAtUtc) }}</time></template></ElTableColumn>
+            <ElTableColumn :label="t('workflowCc.status')" width="96" align="center"><template #default="{ row }"><ElTag size="small" :type="row.readAtUtc === null ? 'warning' : 'info'">{{ t(row.readAtUtc === null ? 'workflowCc.unread' : 'workflowCc.read') }}</ElTag></template></ElTableColumn>
+            <ElTableColumn :label="t('workflowCc.actions')" width="120" fixed="right"><template #default="{ row }"><PermissionGate code="workflow.cc.mark_read">
+              <ElButton size="small" data-testid="workflow-cc-mark-read" :disabled="row.readAtUtc !== null || !catalogReady || busy" :loading="actingId === row.id" v-on="{ click: rowControls.get(row.id)?.mark }">{{ t('workflowCc.markRead') }}</ElButton>
+            </PermissionGate></template></ElTableColumn>
+            <template #empty><p v-if="!loading" class="workflow-cc__empty">{{ t('workflowCc.empty') }}</p></template>
+          </ElTable>
+        </div>
+      </ElCard>
+    </PermissionGate>
   </section>
 </template>
 
