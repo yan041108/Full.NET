@@ -66,7 +66,8 @@ describe('报表执行授权与生命周期', () => {
   it('切换定义丢弃在途旧结果并清空已展示结果', async () => {
     const pending = deferred<typeof reportResult>(); vi.mocked(executeReportingDefinition).mockReturnValue(pending.promise);
     mountView(); await flushPromises(); await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');
-    const select = wrapper!.findComponent(ElSelect); select.vm.$emit('update:modelValue', 'new-definition'); select.vm.$emit('change');
+    // 模拟外部直接替换状态；禁用中的选择控件本身不会接受变更。
+    (wrapper!.vm as unknown as { selectedDefinitionVersionKey: string }).selectedDefinitionVersionKey = 'new-definition';
     await flushPromises(); pending.resolve(reportResult); await flushPromises(); expect(wrapper!.find('.result-card').exists()).toBe(false);
   });
   it('离开页面取消查询，迟到失败不写回页面', async () => {

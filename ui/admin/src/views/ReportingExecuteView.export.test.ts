@@ -66,7 +66,8 @@ describe('查询页按当前版本和参数创建导出', () => {
   it('更换定义取消旧导出，迟到完成不能接管新选择', async () => {
     const pending = deferred<typeof exportTask>(); vi.mocked(createReportingExportTask).mockReturnValueOnce(pending.promise); await setup();
     await wrapper!.get('[data-testid="reporting-execute-export"]').trigger('click');
-    const select = wrapper!.getComponent(ElSelect); select.vm.$emit('update:modelValue', 'unknown'); select.vm.$emit('change'); await flushPromises();
+    // 模拟外部直接替换状态，验证取消路径而非禁用控件的输入行为。
+    (wrapper!.vm as unknown as { selectedDefinitionVersionKey: string }).selectedDefinitionVersionKey = 'unknown'; await flushPromises();
     pending.resolve(exportTask); await flushPromises(); expect(router.currentRoute.value.name).toBe('reporting-execute');
     expect(vi.mocked(createReportingExportTask).mock.calls[0]![1]!.aborted).toBe(true);
   });
