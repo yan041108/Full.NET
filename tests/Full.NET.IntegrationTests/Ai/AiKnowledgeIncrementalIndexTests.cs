@@ -11,6 +11,7 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 using Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
+using Full.NET.Modules.Ai.Features.ManageKnowledgeDocuments;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Ai;
@@ -37,7 +38,7 @@ public sealed class AiKnowledgeIncrementalIndexTests
         var owner = await factory.CreateHostIdentityAsync($"incremental-{Guid.CreateVersion7():N}",
             [AiKnowledgePermissions.Read, AiKnowledgePermissions.Create, AiKnowledgeDocumentPermissions.Read,
                 AiKnowledgeDocumentPermissions.Create, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.VersionsRead,
-                AiKnowledgeDocumentPermissions.Delete, AiKnowledgeDocumentPermissions.IndexRead, "tenancy.tenants.switch"]);
+                AiKnowledgeDocumentPermissions.Delete, AiKnowledgeDocumentPermissions.Update, AiKnowledgeDocumentPermissions.IndexRead, "tenancy.tenants.switch"]);
         using var host = factory.CreateClientForHost("localhost");
         host.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
         using var client = factory.CreateClientForHost(scoped ? "acme.localhost" : "localhost");
@@ -112,6 +113,46 @@ public sealed class AiKnowledgeIncrementalIndexTests
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_session AS session INNER JOIN fn_ai_knowledge_index_task AS task ON task.Id=session.IndexTaskId WHERE task.DocumentId=@DocumentId", new { DocumentId = document.Id }));
 
+        // 元数据更新可靠修复历史缺失投影，不制造新文件来源或有费用任务。
+        await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
+        using var metadataUpdate = await client.PutAsJsonAsync(path, new UpdateAiKnowledgeDocumentRequest("更新后的标题", "更新后的描述", 3));
+        Assert.AreEqual(HttpStatusCode.OK, metadataUpdate.StatusCode, await metadataUpdate.Content.ReadAsStringAsync());
+        var updatedDocument = (await metadataUpdate.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
+        Assert.AreEqual(4, updatedDocument.Version);
+        using var staleUpdate = await client.PutAsJsonAsync(path, new UpdateAiKnowledgeDocumentRequest("过期", null, 3));
+        Assert.AreEqual(HttpStatusCode.Conflict, staleUpdate.StatusCode);
+        var metadataPayload = await db.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType });
+        var metadata = serializer.Deserialize<AiKnowledgeDocumentMetadataUpdated>(metadataPayload);
+        Assert.AreEqual(tenantId, metadata.TenantId); Assert.AreEqual(4, metadata.MetadataVersion);
+        var metadataHandler = new AiKnowledgeDocumentMetadataUpdatedHandler(serializer, scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>());
+        var metadataEnvelope = envelope with { MessageType = metadataHandler.EventType };
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None)));
+        Assert.IsTrue(current.IsHost); Assert.IsNull(current.Id);
+        Assert.AreEqual(second.VersionId, await db.QuerySingleAsync<Guid>("SELECT VersionId FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+        Assert.AreEqual(1, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => metadataHandler.HandleAsync(metadataEnvelope with { TenantId = Guid.CreateVersion7() }, metadataPayload, CancellationToken.None));
+
+        // 真实事务失败必须同时保留旧元数据及原事件数，而非仅模拟回滚回调。
+        if (tenantId is { } metadataTenant) current.SetTenant(new(metadataTenant, "acme", "Acme"));
+        var metadataService = ActivatorUtilities.CreateInstance<AiKnowledgeDocumentService>(scope.ServiceProvider, new FailingOutbox());
+        await Assert.ThrowsExactlyAsync<IOException>(() => metadataService.UpdateAsync(knowledge.Id, document.Id, owner.UserId,
+            new UpdateAiKnowledgeDocumentRequest("不应提交", null, 4), CancellationToken.None));
+        Assert.AreEqual(4, await db.QuerySingleAsync<int>("SELECT Version FROM fn_ai_knowledge_document WHERE Id=@Id", new { Id = document.Id }));
+        Assert.AreEqual("更新后的标题", await db.QuerySingleAsync<string>("SELECT Title FROM fn_ai_knowledge_document WHERE Id=@Id", new { Id = document.Id }));
+        Assert.AreEqual(1, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = metadataHandler.EventType }));
+        current.SetHost();
+        // 未来通知不具备权威版本；缺失、停用以及不归属当前范围的来源均不能补写。
+        await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
+        await metadataHandler.HandleAsync(metadataEnvelope, serializer.Serialize(metadata with { MetadataVersion = 99 }), CancellationToken.None);
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@Id", new { Id = knowledge.Id });
+        await metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None);
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=1 WHERE Id=@Id", new { Id = knowledge.Id });
+        await metadataHandler.HandleAsync(metadataEnvelope, serializer.Serialize(metadata with { MetadataVersion = 3 }), CancellationToken.None);
+        Assert.AreEqual(second.VersionId, await db.QuerySingleAsync<Guid>("SELECT VersionId FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@Id", new { Id = document.Id }));
+
         // 注入真正的 Outbox 写入故障，确认本地完成状态不会单独提交。
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET StateKey='pending_confirmation',LeaseToken=@Lease,LeaseExpiresAtUtc=@Expires WHERE Id=@Id", new { Id = second.Id, Lease = stableId, Expires = DateTime.UtcNow.AddMinutes(3) });
         if (tenantId is { } activeTenant) current.SetTenant(new TenantContext(activeTenant, "acme", "Acme"));
@@ -124,15 +165,16 @@ public sealed class AiKnowledgeIncrementalIndexTests
 
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET StateKey='completed' WHERE Id=@Id", new { Id = second.Id });
         await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id });
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, path) { Content = JsonContent.Create(new DeleteAiKnowledgeDocumentRequest(3)) };
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, path) { Content = JsonContent.Create(new DeleteAiKnowledgeDocumentRequest(4)) };
         var deletion = client.SendAsync(deleteRequest);
-        await Task.WhenAll(deletion, ConcurrentDelivery());
+        await Task.WhenAll(deletion, ConcurrentDelivery(), metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None));
         using var deleted = await deletion;
         Assert.AreEqual(HttpStatusCode.NoContent, deleted.StatusCode, await deleted.Content.ReadAsStringAsync());
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change AS intent INNER JOIN fn_ai_knowledge_document AS document ON document.Id=intent.DocumentId WHERE document.Id=@DocumentId AND document.IsDeleted=0", new { DocumentId = document.Id }));
         await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id });
         await handler.HandleAsync(envelope, latest.Bytes, CancellationToken.None);
+        await metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None);
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
     }
 

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Dapper;
 using Full.NET.AI.Abstractions.Budgets;
@@ -150,6 +151,9 @@ internal static class AiOperationBudgetAssertions
 
     private static async Task VerifyCommitObservationsAsync(FullNetApiFactory factory, DbConnection db, AiOperationRequest template)
     {
+        // Meter 是进程全局的；独立 Trace 只隔离并行用例，仍观察本事务物理提交前后的全部指标。
+        using var observationActivity = StartObservationActivity();
+        var observationTrace = observationActivity.TraceId;
         var facts = new List<string>();
         using var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, current) =>
@@ -158,15 +162,29 @@ internal static class AiOperationBudgetAssertions
         };
         listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
         {
+            if (Activity.Current?.TraceId != observationTrace) return;
             foreach (var tag in tags) if (tag.Key == "status") facts.Add((string)tag.Value!);
         });
-        listener.SetMeasurementEventCallback<double>((_, _, tags, _) => facts.Add("cost"));
+        listener.SetMeasurementEventCallback<double>((_, _, tags, _) =>
+        {
+            if (Activity.Current?.TraceId == observationTrace) facts.Add("cost");
+        });
         listener.Start();
         var request = template with { OperationId = Guid.CreateVersion7() };
         await using var scope = factory.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
         var transaction = scope.ServiceProvider.GetRequiredService<Full.NET.Abstractions.Messaging.ICommandTransaction>();
         var store = scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>();
+        // 另一个 Trace 的真实提交不能污染当前事务断言；后续正向断言同时防止监听被整体关闭。
+        using (var otherActivity = StartObservationActivity())
+        {
+            Assert.AreNotEqual(observationTrace, otherActivity.TraceId);
+            var otherRequest = template with { OperationId = Guid.CreateVersion7() };
+            Assert.IsTrue((await store.ReserveAsync(otherRequest)).IsNew);
+            Assert.HasCount(0, facts);
+            await store.SettleAsync(otherRequest.OperationId, new(0, 0), "cancelled");
+            Assert.HasCount(0, facts);
+        }
         // 验证的是物理提交，而不是嵌套 ExecuteAsync 返回；异常后数据库和指标必须同时不留成功事实。
         await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteAsync<bool>(async token =>
         {
@@ -203,6 +221,11 @@ internal static class AiOperationBudgetAssertions
         await store.SettleAsync(request.OperationId, new(2, 1), "succeeded");
         CollectionAssert.AreEqual(new[] { "succeeded", "cost" }, facts);
     }
+
+    private static Activity StartObservationActivity() => new Activity("ai.budget.commit-test")
+        .SetIdFormat(ActivityIdFormat.W3C)
+        .SetParentId(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded)
+        .Start();
 
     internal static DbConnection Connection(FullNetApiFactory factory) => factory.Provider == DatabaseProvider.SqlServer
         ? new SqlConnection(factory.ConnectionString)

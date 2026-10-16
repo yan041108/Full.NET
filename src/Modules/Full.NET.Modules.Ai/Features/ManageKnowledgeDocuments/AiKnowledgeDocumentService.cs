@@ -8,6 +8,7 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 
 namespace Full.NET.Modules.Ai.Features.ManageKnowledgeDocuments;
 
@@ -20,8 +21,9 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeDocuments;
 /// <param name="clock">UTC 时钟。</param>
 /// <param name="ids">应用端 UUID v7 生成器。</param>
 /// <param name="access">事务外取得的权威角色读取上下文。</param>
+/// <param name="outbox">元数据更新与可靠通知必须同事务提交。</param>
 internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandExecutor command,
-    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids, AiKnowledgeReadAccess access)
+    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids, AiKnowledgeReadAccess access, IOutboxWriter outbox)
 {
     private bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
 
@@ -80,15 +82,41 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
     internal Task<Result<AiKnowledgeDocumentResponse>> UpdateAsync(Guid knowledgeBaseId, Guid id, Guid actor,
         UpdateAiKnowledgeDocumentRequest request, CancellationToken token) => transaction.ExecuteResultAsync(async ct =>
     {
-        if (await FindOwnedAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false) is null) return NotFound<AiKnowledgeDocumentResponse>();
+        var scopeId = tenant.Id; var scoped = IsTenant;
+        CheckScope();
+        var owned = await FindOwnedAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
+        CheckScope();
+        if (owned is null) return NotFound<AiKnowledgeDocumentResponse>();
         if (AiKnowledgeDocuments.Validate(request.Title, request.Description) is { } error) return Invalid<AiKnowledgeDocumentResponse>(error);
         if (request.Version < 1) return Invalid<AiKnowledgeDocumentResponse>("Version must be positive.");
         var parameters = WriteParameters(knowledgeBaseId, id, actor, request.Version);
         parameters.Add("Title", request.Title.Trim());
         parameters.Add("Description", request.Description?.Trim());
         var changed = await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.UpdateTenant : AiKnowledgeDocumentSql.UpdateHost, parameters, ct).ConfigureAwait(false);
-        return changed == 1 ? await OwnedResponseAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false)
-            : await WriteFailureAsync<AiKnowledgeDocumentResponse>(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
+        CheckScope();
+        if (changed != 1)
+        {
+            var failure = await WriteFailureAsync<AiKnowledgeDocumentResponse>(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
+            CheckScope();
+            return failure;
+        }
+        var response = await OwnedResponseAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
+        CheckScope();
+        if (response.IsSuccess)
+        {
+            // 只在真正成功的 CAS 后通知；发送失败回滚元数据，不产生无业务提交的独立事件。
+            await outbox.AddAsync(AiKnowledgeDocumentMetadataUpdated.EventType, 1,
+                new AiKnowledgeDocumentMetadataUpdated(knowledgeBaseId, id, response.Value!.Version, scopeId), ct).ConfigureAwait(false);
+            CheckScope();
+        }
+        return response;
+
+        void CheckScope()
+        {
+            ct.ThrowIfCancellationRequested();
+            if (tenant.Id != scopeId || IsTenant != scoped)
+                throw new InvalidOperationException("Knowledge metadata scope changed during update.");
+        }
     }, token);
 
     internal Task<Result<bool>> DeleteAsync(Guid knowledgeBaseId, Guid id, Guid actor, int version, CancellationToken token) =>

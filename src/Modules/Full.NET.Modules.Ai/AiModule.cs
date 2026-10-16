@@ -221,6 +221,9 @@ public sealed class AiModule : IFullNetModule
         services.AddHostedService<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryHostedProcessor>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmedHandler>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeDocumentMetadataUpdatedHandler>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeDocumentMetadataUpdatedHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
             Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmedHandler>());
         // 后台原会话授权也按目录过滤精确权限，不能依赖 API 入口补齐 AI 权限定义。
@@ -331,6 +334,14 @@ public sealed class AiModule : IFullNetModule
 
     private static void RegisterKnowledgeFileReferences(IServiceCollection services)
     {
+        var metadataTopic = global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition.Create(
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeDocumentMetadataUpdated.TopicCode,
+            Features.IncrementalKnowledgeIndexing.AiKnowledgeDocumentMetadataUpdated.EventType, 1,
+            global::Full.NET.Messaging.Abstractions.EventDeliveryOwner.LegacyPolling);
+        if (!services.Any(descriptor => descriptor.ServiceType == typeof(global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition)
+            && descriptor.ImplementationInstance is global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition metadata
+            && metadata.TopicCode == metadataTopic.TopicCode))
+            services.AddSingleton(metadataTopic);
         var sourceTopic = global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition.Create(
             Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmed.TopicCode,
             Features.IncrementalKnowledgeIndexing.AiKnowledgeSourceConfirmed.EventType, 1,

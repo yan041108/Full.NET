@@ -30,12 +30,17 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connection);
         await using var host = await NativeApiProcessHost.StartAsync(api, provider, connection, new Dictionary<string, string?>(), NativeAotTestTimeouts.ProcessStartup, CancellationToken.None);
         await using var worker = await NativeWorkerProcessHost.StartAsync(workerArtifact, provider, connection, NativeAotTestTimeouts.ProcessStartup,
-            additionalSettings: new Dictionary<string, string?> { ["FullNet:Ai:KnowledgeIndexWorker:Enabled"] = "false" });
+            additionalSettings: new Dictionary<string, string?>
+            {
+                ["FullNet:Ai:KnowledgeIndexWorker:Enabled"] = "false",
+                ["FullNet:Ai:KnowledgeIncrementalRecoveryWorker:Enabled"] = "false"
+            });
         using var client = host.CreateClient();
         using var configuration = new FullNetApiFactory(provider, connection);
         await using var db = AiOperationBudgetAssertions.Connection(configuration);
         var token = await NativeApiE2EAssertions.LoginAsync(client, host.LogFilePath);
         var expectedEvents = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeSourceConfirmed.EventType });
+        var expectedMetadataEvents = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType });
         var recoveredBases = new List<Guid>();
         foreach (var phase in new[] { "host", "tenant", "host-after-tenant" })
         {
@@ -82,6 +87,25 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
                 await Task.Delay(100, deadline.Token);
             }
             Assert.AreEqual(1, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
+            // 默认自动扫描关闭：先确认旧来源事件已全部处理，再用元数据事件独立补齐投影。
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
+            using var renamed = await client.PutAsJsonAsync(path, new UpdateAiKnowledgeDocumentRequest("原生元数据更新", "只补意图", 3));
+            Assert.AreEqual(HttpStatusCode.OK, renamed.StatusCode, await renamed.Content.ReadAsStringAsync());
+            Assert.AreEqual(4, (await renamed.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!.Version);
+            expectedMetadataEvents++;
+            using (var metadataDeadline = new CancellationTokenSource(TimeSpan.FromMinutes(2)))
+            {
+                while (true)
+                {
+                    var intent = await db.QuerySingleOrDefaultAsync<Guid?>("SELECT VersionId FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
+                    var processed = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type AND ProcessedAtUtc IS NOT NULL AND DeadLetteredAtUtc IS NULL", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType });
+                    var dead = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type AND DeadLetteredAtUtc IS NOT NULL", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType });
+                    if (dead != 0) Assert.Fail(await File.ReadAllTextAsync(worker.LogFilePath));
+                    if (intent == versionId && processed == expectedMetadataEvents) break;
+                    await Task.Delay(100, metadataDeadline.Token);
+                }
+            }
+            Assert.AreEqual(expectedMetadataEvents, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType }));
             // 事件已经确认消费后移除派生投影，验证同一原生产物可恢复历史来源并准确报告幂等计数。
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
             var recoveryPath = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/index-changes/recover";

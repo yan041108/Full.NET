@@ -19,6 +19,7 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
+        "src/Modules/Full.NET.Modules.Ai/Features/IncrementalKnowledgeIndexing/AiKnowledgeDocumentMetadataUpdatedHandler.cs",
         // 补偿循环固定独立 Host；每条只从 AI 自有来源锚点恢复可信范围，不接管会话或收费派发。
         "src/Modules/Full.NET.Modules.Ai/Features/IncrementalKnowledgeIndexing/AiKnowledgeIncrementalRecoveryHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Ai/Features/IncrementalKnowledgeIndexing/AiKnowledgeIncrementalRecoveryWorker.cs",
