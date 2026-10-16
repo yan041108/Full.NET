@@ -14,7 +14,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { useGoViewScope } from '../composables/useGoViewScope';
 import { showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { createGoViewProject, listGoViewProjects } from '../api/goview-projects';
-import { goViewTrim, validGoViewProject } from '../api/goview-guards';
+import { goViewTrim, validGoViewProject } from '../guards/goview-guards';
 defineOptions({ name: 'GoViewProjectsView' });
 const router = useRouter(), { t } = useAdminI18n();
 const items = ref<GoViewProject[]>([]), loading = ref(false), creating = ref(false), catalogReady = ref(false), recovering = ref(false), problem = ref<FullNetProblemDetails>();

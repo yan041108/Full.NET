@@ -9,7 +9,7 @@ import {
   type SetHostDocumentPermissionsRequest
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { permissionRowsMatch, trimPermissionText, validPermissionId, validPermissionRows, validPermissionSnapshot } from './document-permission-guards';
+import { permissionRowsMatch, trimPermissionText, validPermissionId, validPermissionRows, validPermissionSnapshot } from '../guards/document-permission-guards';
 
 /** 查询指定文档的权限列表，并对响应结构做失败关闭校验。 */
 export async function getDocumentPermissionsByDocument(

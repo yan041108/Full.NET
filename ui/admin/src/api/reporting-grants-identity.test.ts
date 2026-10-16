@@ -17,7 +17,8 @@ describe('报表授权版本与分页归属', () => {
     { rows: [version, { ...version, id: other.toUpperCase(), versionNumber: 3 }] }
   ])('拒绝其他定义、重复版本、重复身份或非法版本 %j', async ({ rows }) => {
     vi.mocked(request).mockResolvedValue(rows);
-    await expect(listReportingDefinitionVersions(outputId)).rejects.toThrow(/^client.invalid_reporting_definition_version$/u);
+    await expect(listReportingDefinitionVersions(outputId)).rejects.toThrow(rows.some(row => !Number.isInteger(row.versionNumber) || row.versionNumber < 1)
+      ? /^client.invalid_reporting_definition_version_list$/u : /^client.invalid_reporting_definition_version$/u);
   });
   it('允许大小写等价定义与非连续已发布版本', async () => {
     vi.mocked(request).mockResolvedValue([version, { ...version, id: outputId, definitionId: outputId.toUpperCase(), versionNumber: 3 }]);

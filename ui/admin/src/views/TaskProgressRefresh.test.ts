@@ -37,6 +37,7 @@ beforeEach(() => {
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); vi.useRealTimers(); });
 async function setup(entry: typeof cases[number]) {
   const context = createOutputSession([entry.permission]);
+  if (entry.name === '文档预览') Object.assign(context.session.currentUser!, { scope: 'host', actorScope: 'host', tenantId: null });
   wrapper = mount(entry.view, { global: { plugins: [context.pinia], directives: { loading: {} }, stubs: {
     ElDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /><slot name="footer" /></div>' }
   } } });

@@ -26,7 +26,7 @@ import {
   type UpdateReportingGroupRequest
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
-import { matchesReportingDraft, sameReportingId, validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion } from './reporting-management-guards';
+import { matchesReportingDraft, sameReportingId, validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion } from '../guards/reporting-management-guards';
 
 function buildDefinitionListQuery(query: ReportingDefinitionListQuery): string {
   const params = new URLSearchParams();

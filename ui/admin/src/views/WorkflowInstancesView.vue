@@ -5,8 +5,8 @@ import { ElButton, ElCard, ElInput, ElMessageBox, ElOption, ElPagination, ElSele
 import type { MessageKey } from '@fullnet/admin-i18n';
 import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
 import { cancelWorkflowInstance, getWorkflowInstance, listMyWorkflowInstances, listWorkflowInstanceExecutionLogs, listWorkflowInstances, pauseWorkflowInstance, recoverWorkflowInstance, reassignWorkflowInstance, resumeWorkflowInstance, type WorkflowExecutionLogResponse, type WorkflowInstanceListItemResponse, type WorkflowInstanceResponse } from '../api/workflow-instances';
-import { instanceStatuses, instanceTrim, validWorkflowInstance, validWorkflowInstancePage, validWorkflowLogs, workflowInstanceBinding } from '../api/workflow-instance-guards';
-import { workflowFormIdValid, workflowFormValueKey, workflowFormWriteRevisionValid } from '../api/workflow-form-guards';
+import { instanceStatuses, instanceTrim, validWorkflowInstance, validWorkflowInstancePage, validWorkflowLogs, workflowInstanceBinding } from '../guards/workflow-instance-guards';
+import { workflowFormIdValid, workflowFormValueKey, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import WorkflowInstanceReassignDialog from './workflow/WorkflowInstanceReassignDialog.vue';

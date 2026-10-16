@@ -61,7 +61,7 @@ describe('ReportingDataSourcesView', () => {
     await search.findAll('button').find(button => button.text() === '查询')!.trigger('click');
     await flushPromises();
     expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: 'north' }, expect.any(AbortSignal));
-    await search.findAll('button').find(button => button.text() === '重置')!.trigger('click');
+    await wrapper.getComponent({ name: 'ArtSearchBar' }).findAll('button').find(button => button.text() === '重置')!.trigger('click');
     await flushPromises();
     expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: undefined }, expect.any(AbortSignal));
     wrapper.unmount();

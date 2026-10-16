@@ -115,7 +115,7 @@ describe('文档预览请求归属', () => {
     const pending = deferred<{ items: typeof task[]; page: number; pageSize: number; total: number }>();
     vi.mocked(api.listDocumentPreviewTasks).mockReturnValueOnce(pending.promise).mockResolvedValue({ items: [{ ...task, documentTitle: '新文档' }], page: 1, pageSize: 20, total: 1 });
     await setup(); await wrapper!.get('[data-testid="document-preview-task-filter"]').setValue(outputId);
-    await wrapper!.get('[data-testid="document-preview-task-filter"]').trigger('keydown.enter'); await flushPromises();
+    await wrapper!.get('[data-testid="document-preview-task-filter"]').trigger('keydown', { key: 'Enter' }); await flushPromises();
     pending.resolve({ items: [task], page: 1, pageSize: 20, total: 1 }); await flushPromises();
     expect(wrapper!.text()).toContain('新文档'); expect(wrapper!.text()).not.toContain('敏感文档');
     expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls[0]?.[3]?.aborted).toBe(true);

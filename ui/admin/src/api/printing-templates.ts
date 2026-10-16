@@ -23,7 +23,7 @@ import {
   type UpdatePrintingTemplateRequest
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
-import { validHostPrintingTemplate, validHostPrintingVersion } from './printing-host-guards';
+import { validHostPrintingTemplate, validHostPrintingVersion } from '../guards/printing-host-guards';
 
 export async function listPrintingTemplates(
   nameContains?: string,

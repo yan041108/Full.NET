@@ -166,7 +166,7 @@ describe('Reporting 管理页授权代次', () => {
     await wrapper!.get('[data-testid="reporting-data-source-create"]').trigger('click'); await flushPromises();
     Object.assign(wrapper!.getComponent(ArtFormDialog).getComponent(ElForm).props('model')!, { name: '新增', serverHost: 'localhost',
       databaseName: 'app', username: 'user', password: 'not-a-real-secret' });
-    const dialog = wrapper!.getComponent(ArtFormDialog); dialog.vm.$emit('confirm'); dialog.vm.$emit('confirm'); await flushPromises();
+    await flushPromises(); const dialog = wrapper!.getComponent(ArtFormDialog); dialog.vm.$emit('confirm'); dialog.vm.$emit('confirm'); await flushPromises();
     expect(sources.createReportingDataSource).toHaveBeenCalledOnce();
     expect(vi.mocked(sources.createReportingDataSource).mock.calls[0]![1]).toBeInstanceOf(AbortSignal);
     pending.resolve(source); await flushPromises(); expect(dialog.props('open')).toBe(false);
@@ -216,7 +216,7 @@ describe('Reporting 管理页授权代次', () => {
     const session = mountPage(ReportingDataSourcesView); await flushPromises();
     await wrapper!.get('[data-testid="reporting-data-source-edit"]').trigger('click'); await flushPromises();
     const model = wrapper!.getComponent(ArtFormDialog).getComponent(ElForm).props('model')!;
-    model.password = 'not-a-real-secret'; expect(model.username).toBe(source.username);
+    model.password = 'not-a-real-secret'; await flushPromises(); expect(model.username).toBe(source.username);
     if(kind === 'close') wrapper!.getComponent(ArtFormDialog).vm.$emit('update:open', false);
     else session.currentUser!.permissions = [];
     await flushPromises();

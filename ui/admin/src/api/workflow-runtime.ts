@@ -12,8 +12,8 @@ import {
   type WorkflowSubmission
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { validWorkflowDefinition, validWorkflowDefinitionVersion, workflowDefinitionTrim } from './workflow-definition-guards';
-import { validWorkflowFormVersion, workflowFormIdValid, workflowFormRevisionValid } from './workflow-form-guards';
+import { validWorkflowDefinition, validWorkflowDefinitionVersion, workflowDefinitionTrim } from '../guards/workflow-definition-guards';
+import { validWorkflowFormVersion, workflowFormIdValid, workflowFormRevisionValid } from '../guards/workflow-form-guards';
 
 /** 查询工作流定义列表，供发起流程时选择定义。 */
 export async function listWorkflowDefinitions(

@@ -9,7 +9,7 @@ import {
   type RestoreHostRecycleBinItemRequest
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { validRecycleId, validRecycleRevision, validRecyclePage, validRestoredRecycleItem } from './document-recycle-guards';
+import { validRecycleId, validRecycleRevision, validRecyclePage, validRestoredRecycleItem } from '../guards/document-recycle-guards';
 
 /** 分页查询文档回收站列表，并对响应页做失败关闭校验。 */
 export async function listRecycleBinItems(

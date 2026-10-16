@@ -8,7 +8,7 @@ import {
   type UpdateGoViewProjectRequest
 } from '@fullnet/client-contracts';
 import { request } from './http';
-import { DEFAULT_GOVIEW_CANVAS, goViewTrim, validGoViewId, validGoViewProject, validGoViewPublishedVersion, validGoViewPreview, validGoViewUpdate, validGoViewWriteVersion, validGoViewVersionNumber } from './goview-guards';
+import { DEFAULT_GOVIEW_CANVAS, goViewTrim, validGoViewId, validGoViewProject, validGoViewPublishedVersion, validGoViewPreview, validGoViewUpdate, validGoViewWriteVersion, validGoViewVersionNumber } from '../guards/goview-guards';
 
 export async function listGoViewProjects(
   nameContains?: string,

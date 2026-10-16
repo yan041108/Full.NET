@@ -34,7 +34,7 @@ describe('报表导出目录与任务恢复', () => {
     expect(wrapper.find('[data-testid="reporting-export-definitions-problem"]').exists()).toBe(true); await wrapper.get('[data-testid="reporting-export-definitions-refresh"]').trigger('click'); await flushPromises(); expect(state().selectedDefinitionVersionKey).toBe(exportTask.definitionId + ':1');
   });
   it('相同定义目录重读保留所选版本和手工参数', async () => {
-    const rows = [{ ...publishedReportDefinition, parameterSchema: [{ parameterKey: 'year', displayName: '年', dataTypeKey: 'string', isRequired: false, defaultValue: '2025', minimum: null, maximum: null }] }, { ...publishedReportDefinition, versionNumber: 2 }];
+    const rows = [{ ...publishedReportDefinition, parameterSchema: [{ parameterKey: 'year', displayName: '年', dataTypeKey: 'string', isRequired: false, defaultValue: '2025' }] }, { ...publishedReportDefinition, versionNumber: 2 }];
     vi.mocked(listReportingPublishedDefinitions).mockResolvedValue(rows); await setup(); state().parameterValues.set('year', '2026'); await state().loadDefinitions(); expect(state().parameterValues.get('year')).toBe('2026');
     state().selectedDefinitionVersionKey = exportTask.definitionId + ':2'; await state().loadDefinitions(); expect(state().selectedDefinitionVersionKey).toBe(exportTask.definitionId + ':2');
   });
@@ -43,11 +43,11 @@ describe('报表导出目录与任务恢复', () => {
     state().page = 2; const pending = deferred<Awaited<ReturnType<typeof api.listReportingExportTasks>>>(); vi.mocked(api.listReportingExportTasks).mockReturnValueOnce(pending.promise); const reading = state().load(); expect(state().items).toEqual([]); pending.reject(new Error('offline')); await reading;
   });
   it('特殊参数机器键作为Map键保留，不改变存储对象原型', async () => {
-    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{ ...publishedReportDefinition, parameterSchema: [{ parameterKey: '__proto__', displayName: '参数', dataTypeKey: 'string', isRequired: false, defaultValue: 'safe', minimum: null, maximum: null }] }]);
+    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{ ...publishedReportDefinition, parameterSchema: [{ parameterKey: '__proto__', displayName: '参数', dataTypeKey: 'string', isRequired: false, defaultValue: 'safe' }] }]);
     await setup(); expect(state().parameterValues.has('__proto__')).toBe(true); expect(state().parameterValues.get('__proto__')).toBe('safe'); expect(Object.getPrototypeOf(state().parameterValues)).toBe(Map.prototype);
   });
   it.each(['__proto__', '__v_isRef', '__isVue'])('特殊参数%s改值使旧回调失效并取消在途创建', async parameterKey => {
-    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{ ...publishedReportDefinition, parameterSchema: [{ parameterKey, displayName: '参数', dataTypeKey: 'string', isRequired: false, defaultValue: 'safe', minimum: null, maximum: null }] }]);
+    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{ ...publishedReportDefinition, parameterSchema: [{ parameterKey, displayName: '参数', dataTypeKey: 'string', isRequired: false, defaultValue: 'safe' }] }]);
     await setup(); state().openCreateDialog(); await flushPromises(); const submit = button('reporting-export-submit').vm.$.vnode.props!.onClick as () => void;
     const oldIntent = (wrapper.vm as unknown as { createIntent: string }).createIntent; state().parameterValues.set(parameterKey, 'changed'); expect((wrapper.vm as unknown as { createIntent: string }).createIntent).not.toBe(oldIntent); submit(); expect(api.createReportingExportTask).not.toHaveBeenCalled();
     const pending = deferred<typeof exportTask>(); vi.mocked(api.createReportingExportTask).mockReturnValueOnce(pending.promise); const creating = state().submitCreate(); state().parameterValues.set(parameterKey, 'later'); expect(vi.mocked(api.createReportingExportTask).mock.calls[0]![1]!.aborted).toBe(true); pending.resolve(queued); await creating; expect(state().receipt?.outcome).toBe('unconfirmed'); expect(ElMessage.success).not.toHaveBeenCalled();
@@ -110,5 +110,5 @@ describe('报表导出目录与任务恢复', () => {
   it('可信作用域不匹配时不再读取或提供导出', async () => {
     const { session } = await setup(); session.currentUser!.scope = 'host'; await flushPromises(); await state().load(); state().openCreateDialog(); expect(state().items).toEqual([]); expect(api.listReportingExportTasks).toHaveBeenCalledOnce(); expect(state().createDialogVisible).toBe(false);
   });
-  it('表头和错误在测量容器外，分页位于底部直接子项', async () => { await setup(); expect(wrapper.get('.art-crud-table-main > .art-table-pagination').exists()).toBe(true); expect(wrapper.find('.art-crud-table-main .art-table-header').exists()).toBe(false); });
+  it('表头和错误在测量容器外，分页位于底部直接子项', async () => { await setup(); expect(wrapper.find('.art-crud-table-main > .art-table-pagination').exists()).toBe(true); expect(wrapper.find('.art-crud-table-main .art-table-header').exists()).toBe(false); });
 });

@@ -123,7 +123,8 @@ function makeListControls(): ListControls {
     change: (nextPage, nextSize) => { if (!owned() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
       page.value = lastQuery?.pageSize !== nextSize ? 1 : nextPage; pageSize.value = nextSize; if (lastQuery?.page !== page.value || lastQuery.pageSize !== nextSize) void load(); } };
 }
-const tableRows = computed(() => {
+type ReportingExportTaskRow = ReportingExportTask & { detail: () => void; download: () => void; cancel: () => void };
+const tableRows = computed<ReportingExportTaskRow[]>(() => {
   const token = listControls.value.token;
   return items.value.map(row => { const task = { ...row }, owned = () => token === listControls.value.token && canRead() && !!currentTask(task);
     return { ...task, detail: () => { if (owned()) void openDetail(task.id); }, download: () => { if (owned()) void downloadTask(task); }, cancel: () => { if (owned()) requestCancellation(task); } }; });
@@ -546,7 +547,7 @@ function markCancelUnconfirmed(): void {
           </ElTableColumn>
           <ElTableColumn prop="rowCount" :label="t('reportingExportTasks.fieldRowCount')" width="100" />
           <ElTableColumn prop="createdAtUtc" :label="t('reportingExportTasks.fieldCreatedAt')" min-width="180" />
-          <!-- @vue-generic {ReportingExportTask} -->
+          <!-- @vue-generic {ReportingExportTaskRow} -->
           <ElTableColumn :label="t('reportingExportTasks.actions')" width="120" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>

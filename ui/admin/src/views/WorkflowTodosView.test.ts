@@ -112,7 +112,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  const wrapper = mount(WorkflowTodosView, { global: { plugins: [pinia], stubs: { teleport: true } } }); mounted.push(wrapper); return wrapper;
+  const wrapper = mount(WorkflowTodosView, { global: { plugins: [pinia] } }); mounted.push(wrapper); return wrapper;
 }
 
 describe('WorkflowTodosView', () => {

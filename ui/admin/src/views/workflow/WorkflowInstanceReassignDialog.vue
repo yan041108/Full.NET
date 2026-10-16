@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue';
 import { ElButton, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus';
 import type { WorkflowInstanceResponse } from '../../api/workflow-instances';
-import { instanceTrim, validWorkflowInstance } from '../../api/workflow-instance-guards';
-import { workflowFormIdValid } from '../../api/workflow-form-guards';
+import { instanceTrim, validWorkflowInstance } from '../../guards/workflow-instance-guards';
+import { workflowFormIdValid } from '../../guards/workflow-form-guards';
 import { useSessionStore } from '../../auth/session';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../../i18n/adminI18n';

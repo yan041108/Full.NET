@@ -3,6 +3,20 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/262_DocumentPreviewTaskLease.sql",
+      "reason": "262 在系统目录确认索引缺席后执行固定 CREATE INDEX 字面量，避免同批次新增列的提前绑定；无输入或标识符拼接。双库未记账重入归入本轮 FA-02 待验证。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/262_DocumentPreviewTaskLease.sql",
+      "reason": "262 按 INFORMATION_SCHEMA 分别探测两列及索引，仅 PREPARE 固定字面量 DDL 或 SELECT 1；标识符和列注释不接受输入。用于 MySQL 隐式提交后的部分完成恢复，双库未记账重入归入本轮 FA-02 待验证。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/249_DemoEnterpriseRequestApprovalRepair.sql",
       "kind": "dynamic_sql",
       "value": "dynamic_sql",

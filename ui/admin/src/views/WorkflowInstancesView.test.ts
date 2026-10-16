@@ -30,7 +30,7 @@ vi.mock('../api/workflow-instances', () => ({
 
 const instanceId = '01912345-6789-7abc-8def-0123456789ab';
 
-function mountView(permissions = ['workflow.instances.read']) {
+async function mountView(permissions = ['workflow.instances.read']) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
@@ -49,7 +49,7 @@ function mountView(permissions = ['workflow.instances.read']) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(WorkflowInstancesView, { global: { plugins: [pinia] } });
+  const wrapper = mount(WorkflowInstancesView, { global: { plugins: [pinia] } }); await flushPromises(); return wrapper;
 }
 
 describe('WorkflowInstancesView', () => {
@@ -136,7 +136,7 @@ describe('WorkflowInstancesView', () => {
     let resolveList!: (value: Awaited<ReturnType<typeof listMyWorkflowInstances>>) => void;
     const list = vi.mocked(listMyWorkflowInstances).getMockImplementation()!();
     vi.mocked(listMyWorkflowInstances).mockImplementationOnce(() => new Promise(resolve => { resolveList = resolve; }));
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -154,7 +154,7 @@ describe('WorkflowInstancesView', () => {
   it('取消确认期间切换租户不能写入旧实例', async () => {
     let confirm!: (value: never) => void;
     vi.mocked(ElMessageBox.confirm).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
-    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    const wrapper = await mountView(['workflow.instances.read', 'workflow.instances.cancel']);
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -172,7 +172,7 @@ describe('WorkflowInstancesView', () => {
     let complete!: (value: Awaited<ReturnType<typeof cancelWorkflowInstance>>) => void;
     const cancelled = await vi.mocked(cancelWorkflowInstance).getMockImplementation()!(instanceId, { expectedRevision: 3, reason: null, idempotencyKey: 'probe' });
     vi.mocked(cancelWorkflowInstance).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
-    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    const wrapper = await mountView(['workflow.instances.read', 'workflow.instances.cancel']);
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -188,7 +188,7 @@ describe('WorkflowInstancesView', () => {
   });
 
   it('有精确恢复权限时提供活动待办改派入口', async () => {
-    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.recover']);
+    const wrapper = await mountView(['workflow.instances.read', 'workflow.instances.recover']);
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -202,7 +202,7 @@ describe('WorkflowInstancesView', () => {
     else vi.mocked(ElMessageBox.confirm).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
     const snapshot = await vi.mocked(getWorkflowInstance).getMockImplementation()!(instanceId);
     vi.mocked(getWorkflowInstance).mockResolvedValueOnce({ ...snapshot, statusKey: kind === 'pause' ? 'active' : 'suspended' });
-    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.' + kind]);
+    const wrapper = await mountView(['workflow.instances.read', 'workflow.instances.' + kind]);
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit'); await flushPromises();
     await wrapper.get('[data-testid="workflow-instance-' + kind + '"]').trigger('click');
@@ -216,7 +216,7 @@ describe('WorkflowInstancesView', () => {
     let complete!: (value: Awaited<ReturnType<typeof getWorkflowInstance>>) => void;
     const old = await vi.mocked(getWorkflowInstance).getMockImplementation()!(instanceId);
     vi.mocked(getWorkflowInstance).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit'); await flushPromises();
     const nextId = '01912345-6789-7abc-8def-0123456789bc';
@@ -233,7 +233,7 @@ describe('WorkflowInstancesView', () => {
   it('错误实例轨迹被拒绝且有效详情仍可独立展示', async () => {
     const logs = await vi.mocked(listWorkflowInstanceExecutionLogs).getMockImplementation()!(instanceId);
     vi.mocked(listWorkflowInstanceExecutionLogs).mockResolvedValueOnce(logs.map(log => ({ ...log, instanceId: 'different' })));
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit'); await flushPromises();
     expect(wrapper.find('[data-testid="workflow-instance-summary"]').exists()).toBe(true);
@@ -241,7 +241,7 @@ describe('WorkflowInstancesView', () => {
   });
 
   it('默认加载我发起的列表并在点击行后展开详情', async () => {
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await flushPromises();
 
     expect(listMyWorkflowInstances).toHaveBeenCalled();
@@ -261,7 +261,7 @@ describe('WorkflowInstancesView', () => {
     vi.mocked(listMyWorkflowInstances)
       .mockImplementationOnce(() => new Promise((resolve, reject) => { resolveOld = resolve; rejectOld = reject; }))
       .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve; }));
-    const wrapper = mountView(); await flushPromises();
+    const wrapper = await mountView(); await flushPromises();
     await wrapper.get('.workflow-instances__filters').trigger('submit'); await flushPromises();
     expect(vi.mocked(listMyWorkflowInstances).mock.calls[0]?.[1]?.aborted).toBe(true);
     if (outcome === 'success') resolveOld(result); else rejectOld({ status: 500, code: 'old.failure', title: '旧错误' });
@@ -281,7 +281,7 @@ describe('WorkflowInstancesView', () => {
     vi.mocked(cancelWorkflowInstance)
       .mockImplementationOnce(() => new Promise((_, reject) => { rejectOld = reject; }))
       .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve; }));
-    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    const wrapper = await mountView(['workflow.instances.read', 'workflow.instances.cancel']);
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit'); await flushPromises();
     await wrapper.get('[data-testid="workflow-instance-cancel"]').trigger('click'); await flushPromises();
@@ -300,13 +300,13 @@ describe('WorkflowInstancesView', () => {
   });
 
   it('仅向具有独立取消权限的用户展示并执行活动实例取消', async () => {
-    const reader = mountView();
+    const reader = await mountView();
     await reader.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await reader.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
     expect(reader.find('[data-testid="workflow-instance-cancel"]').exists()).toBe(false);
 
-    const operator = mountView([
+    const operator = await mountView([
       'workflow.instances.read',
       'workflow.instances.cancel'
     ]);
@@ -331,7 +331,7 @@ describe('WorkflowInstancesView', () => {
   });
 
   it('按实例标识同时加载只读概要与顺序执行轨迹', async () => {
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -376,7 +376,7 @@ describe('WorkflowInstancesView', () => {
       rejectedCount: 0,
       pendingCount: 2
     });
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -388,7 +388,7 @@ describe('WorkflowInstancesView', () => {
   });
 
   it('查询失败时清除旧实例并展示 ProblemDetails', async () => {
-    const wrapper = mountView();
+    const wrapper = await mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await wrapper.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
@@ -421,7 +421,7 @@ describe('WorkflowInstancesView', () => {
       activeTodoId: '01912345-6789-7abc-8def-0123456789ae',
       startedAtUtc: '2026-08-30T00:00:00Z'
     });
-    const operator = mountView([
+    const operator = await mountView([
       'workflow.instances.read',
       'workflow.instances.pause'
     ]);
@@ -485,14 +485,14 @@ describe('WorkflowInstancesView', () => {
     });
     vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '卡住后强制恢复' } as never);
 
-    const reader = mountView();
+    const reader = await mountView();
     await reader.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
     await reader.get('.workflow-instances__search').trigger('submit');
     await flushPromises();
     expect(reader.find('[data-testid="workflow-instance-resume"]').exists()).toBe(false);
     expect(reader.find('[data-testid="workflow-instance-recover"]').exists()).toBe(false);
 
-    const resumer = mountView([
+    const resumer = await mountView([
       'workflow.instances.read',
       'workflow.instances.resume'
     ]);
@@ -511,7 +511,7 @@ describe('WorkflowInstancesView', () => {
       expect.any(AbortSignal)
     );
 
-    const recoverer = mountView([
+    const recoverer = await mountView([
       'workflow.instances.read',
       'workflow.instances.recover'
     ]);
@@ -539,7 +539,7 @@ describe('WorkflowInstancesView', () => {
       title: 'The workflow instance was updated by another request.',
       traceId: 'trace-workflow-conflict'
     });
-    const operator = mountView([
+    const operator = await mountView([
       'workflow.instances.read',
       'workflow.instances.pause'
     ]);

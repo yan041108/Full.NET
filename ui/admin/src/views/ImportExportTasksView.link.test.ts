@@ -63,7 +63,8 @@ describe('导入任务详情链接', () => {
     const pending = deferred<typeof importTask>(); vi.mocked(api.getImportExportTask).mockReturnValueOnce(pending.promise);
     await setup(); const signal = vi.mocked(api.getImportExportTask).mock.calls[0]![1]!;
     await router.push({ name: 'elsewhere' }); await flushPromises(); pending.resolve(importTask); await flushPromises();
-    expect(signal.aborted).toBe(true); expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(false);
+    expect(signal.aborted).toBe(true); expect(wrapper!.findComponent(ElDrawer).exists()).toBe(false);
+    expect(wrapper!.text()).not.toContain(importTask.schemaKey);
   });
   it('KeepAlive 恢复不重放旧任务，新链接恢复定位', async () => {
     await setup(undefined, undefined, true); visible.value = false; await flushPromises(); visible.value = true; await flushPromises();

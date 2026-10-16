@@ -30,11 +30,12 @@ async function setup(permissions = [read, create], keepAlive = false, tenantId: 
   const props = { open: true, parentReadPermission: read as 'document.host_documents.read', presetDocuments: [doc, otherDoc] };
   const blank = defineComponent({ render: () => h('div') });
   const root = defineComponent({ setup: () => () => h(KeepAlive, null, { default: () => visible.value ? h(View, props) : h(blank) }) });
-  wrapper = mount(keepAlive ? root : View, { props: keepAlive ? {} : props, global: { plugins: [context.pinia], stubs: {
+  const global = { plugins: [context.pinia], stubs: {
     ElDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot/><slot name="footer"/></div>' }
-  } } }); await flushPromises(); return context.session;
+  } };
+  wrapper = keepAlive ? mount(root, { global }) : mount(View, { props, global }); await flushPromises(); return context.session;
 }
-function vm() { return wrapper!.findComponent(View).vm as unknown as {
+function vm() { return (wrapper!.vm.$options.name === 'DocumentShareCreateDialog' ? wrapper!.vm : wrapper!.getComponent(View).vm) as unknown as {
   editorForm: { password: string }; submitCreate: () => Promise<void>; copyReceiptLink: (url: string) => Promise<void>;
 }; }
 function dialog() { return wrapper!.getComponent(ArtFormDialog); }

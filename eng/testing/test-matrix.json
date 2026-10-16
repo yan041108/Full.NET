@@ -786,7 +786,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1272,
+        "minimum": 1274,
         "timeout": "90m"
       },
       "logging-route-comparison": {

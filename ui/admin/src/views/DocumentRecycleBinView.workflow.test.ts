@@ -98,7 +98,7 @@ describe('回收站目录、批次与恢复流程', () => {
   });
   it('旧行按钮、选择和刷新回调不能操作新目录', async () => {
     await setup(); const restore = wrapper.findAllComponents(ArtTableActionButton).find(button => button.props('testId') === 'document-recycle-restore')!.vm.$.vnode.props!.onClick as () => void;
-    const select = wrapper.findAllComponents(ElTable).find(table => table.props('rowKey') === 'id')!.vm.$.vnode.props!['onSelectionChange'] as (rows: typeof row[]) => void;
+    const select = wrapper.getComponent({ name: 'ElTable' }).vm.$.vnode.props!['onSelection-change'] as (rows: typeof row[]) => void;
     const refresh = wrapper.getComponent(ArtTableHeader).vm.$.vnode.props!.onRefresh as () => void; await state().load(); restore(); select([row]); refresh(); await flushPromises(); expect(api.restoreRecycleBinItem).not.toHaveBeenCalled(); expect(state().selectedRows).toHaveLength(0); expect(api.listRecycleBinItems).toHaveBeenCalledTimes(2);
   });
   it('批次选择改变后旧批量按钮不能借用新选择或执行旧选择', async () => {

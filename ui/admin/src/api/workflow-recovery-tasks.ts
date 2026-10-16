@@ -9,8 +9,8 @@ import {
   type WorkflowRecoveryTaskResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { workflowFormIdValid, workflowFormWriteRevisionValid } from './workflow-form-guards';
-import { recoveryTrim, validRecoveryPage, validRecoveryTask } from './workflow-recovery-guards';
+import { workflowFormIdValid, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
+import { recoveryTrim, validRecoveryPage, validRecoveryTask } from '../guards/workflow-recovery-guards';
 
 function requireTaskId(taskId: string): void { if (!workflowFormIdValid(taskId)) throw Error('client.invalid_recovery_task_id'); }
 function assertTask(value: unknown, taskId: string): asserts value is WorkflowRecoveryTaskResponse {

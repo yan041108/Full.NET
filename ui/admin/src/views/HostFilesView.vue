@@ -130,6 +130,8 @@ const {
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
+// 一次末页恢复后仍为空时保留当前查询页，COUNT 抖动不能驱动组件继续隐式查询。
+const paginationPageCount = computed(() => Math.max(1, page.value, Math.ceil(total.value / pageSize.value)));
 const pagedItems = computed(() => items.value);
 let lastListQueryKey: string | undefined;
 let listingSequence = 0;
@@ -343,7 +345,8 @@ async function readFiles(recoverPage: boolean): Promise<void> {
   const key = listQueryKey(query.page, query.pageSize, query.folderId, query.fileName);
   if (key !== lastListQueryKey) {
     // 新查询不能继续展示可操作的旧行；同一查询补读失败仍保留已确认结果。
-    items.value = []; selectedRows.value = []; total.value = 0;
+    // 保留最近总数直到新页返回，避免分页组件在等待期间把目标页压回第一页。
+    items.value = []; selectedRows.value = [];
     lastListQueryKey = key; listingControls.value = createListingControls();
   }
   listRequest = request;
@@ -842,10 +845,11 @@ function toProblem(
               :current-page="page"
               :page-size="pageSize"
               :total="total"
+              :page-count="paginationPageCount"
               background
               layout="total, sizes, prev, pager, next, jumper"
               :page-sizes="[10, 20, 50, 100]"
-              v-on="{ 'update:currentPage': listingControls.updatePage, 'update:pageSize': listingControls.updateSize, change: listingControls.change }"
+              v-on="{ 'update:current-page': listingControls.updatePage, 'update:page-size': listingControls.updateSize, change: listingControls.change }"
             />
           </div>
         </el-card>

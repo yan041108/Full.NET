@@ -16,7 +16,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentItems } from '../api/host-document-items';
 import { getDocumentPermissionSnapshot, setDocumentPermissions } from '../api/document-permissions';
-import { permissionRowsMatch, permissionSignature, trimPermissionText, validPermissionDocumentPage, validPermissionId, validPermissionSnapshot } from '../api/document-permission-guards';
+import { permissionRowsMatch, permissionSignature, trimPermissionText, validPermissionDocumentPage, validPermissionId, validPermissionSnapshot } from '../guards/document-permission-guards';
 
 defineOptions({ name: 'DocumentPermissionsView' });
 const session = useSessionStore(), route = inject(routeLocationKey, undefined), { t } = useAdminI18n();

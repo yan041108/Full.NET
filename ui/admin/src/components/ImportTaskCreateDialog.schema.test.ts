@@ -61,6 +61,9 @@ describe('业务入口限定导入目录', () => {
     await wrapper!.setProps({ schemaKey: other.schemaKey }); await flushPromises();
     pending.resolve(importTask); await flushPromises(); expect(signal.aborted).toBe(true);
     expect(wrapper!.emitted('created')).toBeUndefined(); expect(showSuccess).not.toHaveBeenCalled();
-    await wrapper!.get('[data-testid="import-create-submit"]').trigger('click'); expect(api.createImportExportTask).toHaveBeenCalledOnce();
+    expect(wrapper!.find('[data-testid="import-create-submit"]').exists()).toBe(false);
+    expect(wrapper!.get('[data-testid="import-create-receipt"]').text()).toContain('requests.xlsx');
+    expect((wrapper!.get('[data-testid="import-create-file"]').element as HTMLInputElement).value).toBe('');
+    expect(api.createImportExportTask).toHaveBeenCalledOnce();
   });
 });

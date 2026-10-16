@@ -1,18 +1,19 @@
-import { beforeEach, vi } from 'vitest';
+import { beforeEach } from 'vitest';
 import { useAdminI18n } from '../i18n/adminI18n';
 
 if (typeof window.matchMedia !== 'function') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+    // 用稳定的浏览器替身承接全局 API；各文件的 resetAllMocks 不应清掉它的实现。
+    value: (query: string) => ({
       matches: false,
       media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn()
-    }))
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent() { return false; }
+    })
   });
 }
 

@@ -6,12 +6,13 @@ import { isFullNetProblemDetails, type FullNetProblemDetails, type WorkflowDefin
 import { createWorkflowDefinition, deleteWorkflowDefinitionVersion, getWorkflowDefinition, getWorkflowNodeTypeCatalog, publishWorkflowDefinition, setWorkflowDefinitionStatus, updateWorkflowDefinitionDraft } from '../api/workflow-definitions';
 import { listWorkflowDefinitions, listWorkflowDefinitionVersions, getWorkflowStartForm, startWorkflowInstance } from '../api/workflow-runtime';
 import { listWorkflowForms, type WorkflowFormResponse } from '../api/workflow-forms';
-import { normalizeWorkflowFormKey, workflowFormIdValid, workflowFormKeyValid, workflowFormValueKey, validWorkflowForm, validWorkflowFormVersion } from '../api/workflow-form-guards';
-import { validWorkflowDefinition, validWorkflowDefinitionVersion, validWorkflowNodeCatalog, workflowDefinitionDraftKey, workflowPublicationMatches, workflowDefinitionTrim, normalizeWorkflowTitleTemplate } from '../api/workflow-definition-guards';
+import { normalizeWorkflowFormKey, workflowFormIdValid, workflowFormKeyValid, workflowFormValueKey, validWorkflowForm, validWorkflowFormVersion } from '../guards/workflow-form-guards';
+import { validWorkflowDefinition, validWorkflowDefinitionVersion, validWorkflowNodeCatalog, workflowDefinitionDraftKey, workflowPublicationMatches, workflowDefinitionTrim, normalizeWorkflowTitleTemplate } from '../guards/workflow-definition-guards';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import PermissionGate from '../components/PermissionGate.vue';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import { useAdminI18n } from '../i18n/adminI18n';
 import WorkflowVue3Designer from '../workflow/WorkflowVue3Designer.vue';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
@@ -214,7 +215,7 @@ const startControls = computed(() => { const ticket = startOwner.value, window =
     <p class="art-sr-heading">{{ t('workflowDefinitions.caption') }}</p>
 
     <div v-if="problem && problemIsRead && !editorId && !selectedVersion" class="art-inline-alert" role="alert">{{ problem.title }}</div>
-    <p v-if="receipt" role="status" data-testid="workflow-definition-receipt">{{ t('workflowDefinitions.recoveryAction.' + receipt.kind) }}：{{ t('workflowDefinitions.recovery.' + receipt.outcome) }}</p>
+    <p v-if="receipt" role="status" data-testid="workflow-definition-receipt">{{ t(('workflowDefinitions.recoveryAction.' + receipt.kind) as MessageKey) }}：{{ t(('workflowDefinitions.recovery.' + receipt.outcome) as MessageKey) }}</p>
     <el-button data-testid="workflow-definition-refresh" :disabled="busy" v-on="{ click: controls.refresh }">{{ t('workflowDefinitions.recoveryRetry') }}</el-button>
     <div class="workflow-definitions__layout art-split-layout">
       <el-card class="workflow-definitions__list art-table-card" shadow="never">
@@ -295,7 +296,7 @@ const startControls = computed(() => { const ticket = startOwner.value, window =
                   <el-button
                     size="small"
                     data-testid="workflow-definition-disable"
-                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row)"
+                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row as WorkflowDefinitionResponse)"
                     v-on="{ click: rowControls.get(row.id)?.disable }"
                   >{{ t('workflowDefinitions.disable') }}</el-button>
                 </PermissionGate>
@@ -303,7 +304,7 @@ const startControls = computed(() => { const ticket = startOwner.value, window =
                   <el-button
                     size="small"
                     data-testid="workflow-definition-enable"
-                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row)"
+                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row as WorkflowDefinitionResponse)"
                     v-on="{ click: rowControls.get(row.id)?.enable }"
                   >{{ t('workflowDefinitions.enable') }}</el-button>
                 </PermissionGate>
@@ -311,11 +312,11 @@ const startControls = computed(() => { const ticket = startOwner.value, window =
                   <el-button
                     size="small"
                     data-testid="workflow-definition-archive"
-                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row)"
+                    :disabled="busy || !catalogReady || !!editorId || rowBlocked(row as WorkflowDefinitionResponse)"
                     v-on="{ click: rowControls.get(row.id)?.archive }"
                   >{{ t('workflowDefinitions.archive') }}</el-button>
                 </PermissionGate>
-                <PermissionGate v-if="blockKey(row)" :code="permissions[blocks.get(blockKey(row)!)!.kind]"><el-button :disabled="busy" v-on="{ click: rowControls.get(row.id)?.recover }">{{ t('workflowDefinitions.recoveryUnlock') }}</el-button></PermissionGate>
+                <PermissionGate v-if="blockKey(row as WorkflowDefinitionResponse)" :code="permissions[blocks.get(blockKey(row as WorkflowDefinitionResponse)!)!.kind]"><el-button :disabled="busy" v-on="{ click: rowControls.get(row.id)?.recover }">{{ t('workflowDefinitions.recoveryUnlock') }}</el-button></PermissionGate>
               </div>
             </template>
           </el-table-column>

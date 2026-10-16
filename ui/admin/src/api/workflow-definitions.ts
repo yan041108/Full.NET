@@ -17,8 +17,8 @@ import {
   type WorkflowRecipientCandidateResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { normalizeWorkflowFormKey, workflowFormIdValid, workflowFormKeyValid, workflowFormWriteRevisionValid } from './workflow-form-guards';
-import { normalizeWorkflowTitleTemplate, validWorkflowDefinition, validWorkflowDefinitionDraft, validWorkflowDefinitionVersion, validWorkflowNodeCatalog, workflowDefinitionDraftKey } from './workflow-definition-guards';
+import { normalizeWorkflowFormKey, workflowFormIdValid, workflowFormKeyValid, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
+import { normalizeWorkflowTitleTemplate, validWorkflowDefinition, validWorkflowDefinitionDraft, validWorkflowDefinitionVersion, validWorkflowNodeCatalog, workflowDefinitionDraftKey } from '../guards/workflow-definition-guards';
 
 export type WorkflowCandidate = {
   readonly id: string;

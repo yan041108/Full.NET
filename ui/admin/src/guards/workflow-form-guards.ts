@@ -1,5 +1,5 @@
 import { isGuid, isWorkflowFormSchema } from '@fullnet/client-contracts';
-import type { WorkflowFormComponentCatalogResponse, WorkflowFormResponse, WorkflowFormVersionResponse } from './workflow-forms';
+import type { WorkflowFormComponentCatalogResponse, WorkflowFormResponse, WorkflowFormVersionResponse } from '../api/workflow-forms';
 export const workflowFormIdValid = (value: unknown): value is string => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
 export const workflowFormRevisionValid = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) > 0;
 export const workflowFormWriteRevisionValid = (value: unknown): value is number => workflowFormRevisionValid(value) && value < Number.MAX_SAFE_INTEGER;

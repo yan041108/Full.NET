@@ -61,7 +61,8 @@ describe('Host 打印创建发布恢复', () => {
     expect(api.publishPrintingTemplate).toHaveBeenCalledTimes(2);
   });
   it('其他回执覆盖后已确认发布仍不能被失败补读降级为可重发', async () => {
-    await setup(); state().templates = [{ ...printTemplate, latestPublishedVersionNumber: 0 }, { ...other, latestPublishedVersionNumber: 0 }]; vi.mocked(api.listPrintingTemplates).mockRejectedValueOnce(new Error('offline'));
+    vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, latestPublishedVersionNumber: 0 }, { ...other, latestPublishedVersionNumber: 0 }]);
+    await setup(); vi.mocked(api.listPrintingTemplates).mockRejectedValueOnce(new Error('offline'));
     await state().publishSelected(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce([{ ...printTemplate, version: 2 }, { ...other, latestPublishedVersionNumber: 0 }]);
     await vm().load(); vm().selectedTemplateId = other.id; vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await state().publishSelected();
     vm().selectedTemplateId = printTemplate.id; await state().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledTimes(2);

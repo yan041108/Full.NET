@@ -7,7 +7,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useGoViewScope } from '../composables/useGoViewScope';
 import { previewGoViewProject } from '../api/goview-projects';
-import { validGoViewId, validGoViewPreview, validGoViewVersionNumber } from '../api/goview-guards';
+import { validGoViewId, validGoViewPreview, validGoViewVersionNumber } from '../guards/goview-guards';
 import { displayGoViewCanvas } from '../goview/displayCanvas';
 defineOptions({ name: 'GoViewPreviewView' });
 const { t } = useAdminI18n(), preview = ref<GoViewProjectPreview>(), loading = ref(false), problem = ref<FullNetProblemDetails>(), owner = ref(0);

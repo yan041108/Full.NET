@@ -14,9 +14,9 @@ import {
   type WorkflowTodoReturnTargetResponse
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
-import { workflowFormIdValid, workflowFormWriteRevisionValid } from './workflow-form-guards';
-import { instanceTrim, validWorkflowInstance } from './workflow-instance-guards';
-import { todoResultActions, validWorkflowTodo, validWorkflowTodoPage, validWorkflowTodoTargets } from './workflow-todo-guards';
+import { workflowFormIdValid, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
+import { instanceTrim, validWorkflowInstance } from '../guards/workflow-instance-guards';
+import { todoResultActions, validWorkflowTodo, validWorkflowTodoPage, validWorkflowTodoTargets } from '../guards/workflow-todo-guards';
 
 function requireId(value: string): void { if (!workflowFormIdValid(value)) throw Error('client.invalid_workflow_todo_id'); }
 function mutationBody(expectedRevision: number, comment: string | null, idempotencyKey: string) {

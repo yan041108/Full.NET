@@ -764,6 +764,8 @@
         "DocumentTitle": "文档标题",
         "ErrorCode": "错误码",
         "Id": "逻辑主键",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseId": "租约标识",
         "OutputFileId": "输出文件标识",
         "ProviderKey": "存储提供程序键",
         "RequestedByUserId": "请求人用户标识",

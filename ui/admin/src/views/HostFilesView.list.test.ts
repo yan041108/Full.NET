@@ -78,16 +78,17 @@ describe('文件目录与分页查询意图', () => {
   });
   it('分页大小变化仅从change查询一次并回第一页', async () => {
     await setup(); state().page = 3; await call('load'); const count = vi.mocked(api.listHostFiles).mock.calls.length; const component = pager();
-    component.vm.$emit('update:pageSize', 50); component.vm.$emit('update:currentPage', 2); component.vm.$emit('size-change', 50); component.vm.$emit('current-change', 2); component.vm.$emit('change', 2, 50); await flushPromises();
+    component.vm.$emit('update:page-size', 50); component.vm.$emit('update:current-page', 2); component.vm.$emit('size-change', 50); component.vm.$emit('current-change', 2); component.vm.$emit('change', 2, 50); await flushPromises();
     expect(api.listHostFiles).toHaveBeenCalledTimes(count + 1); expect(vi.mocked(api.listHostFiles).mock.calls.at(-1)?.slice(0, 2)).toEqual([1, 50]);
     pager().vm.$emit('change', 1, 50); await flushPromises(); expect(api.listHostFiles).toHaveBeenCalledTimes(count + 1);
   });
   it('普通翻页使用目标页且不重复查询', async () => {
-    await setup(); const component = pager(); component.vm.$emit('update:currentPage', 2); component.vm.$emit('current-change', 2); component.vm.$emit('change', 2, 20); await flushPromises();
+    vi.mocked(api.listHostFiles).mockImplementation(async (page = 1, pageSize = 20) => ({ items: [file, other], page, pageSize, total: 60 }));
+    await setup(); const component = pager(); component.vm.$emit('update:current-page', 2); component.vm.$emit('current-change', 2); component.vm.$emit('change', 2, 20); await flushPromises();
     expect(api.listHostFiles).toHaveBeenCalledTimes(2); expect(state().page).toBe(2); expect(vi.mocked(api.listHostFiles).mock.calls.at(-1)?.[0]).toBe(2);
   });
   it('旧查询分页回调不能改变新筛选的页码或大小', async () => {
-    await setup(); const props = pager().vm.$.vnode.props!; const update = props['onUpdate:currentPage'] as (page: number) => void, change = props.onChange as (page: number, size: number) => void;
+    await setup(); const props = pager().vm.$.vnode.props!; const update = props['onUpdate:current-page'] as (page: number) => void, change = props.onChange as (page: number, size: number) => void;
     await call('handleSearch', { fileName: 'next' }); await flushPromises(); const count = vi.mocked(api.listHostFiles).mock.calls.length; update(4); change(4, 50); await flushPromises();
     expect(state().page).toBe(1); expect(state().pageSize).toBe(20); expect(api.listHostFiles).toHaveBeenCalledTimes(count);
   });
@@ -103,6 +104,7 @@ describe('文件目录与分页查询意图', () => {
   it('恢复页仍为空且总数继续变化时不循环读取', async () => {
     await setup(); vi.mocked(api.listHostFiles).mockResolvedValueOnce({ items: [], page: 4, pageSize: 20, total: 21 }).mockResolvedValueOnce({ items: [], page: 2, pageSize: 20, total: 0 }); state().page = 4; await call('load');
     expect(api.listHostFiles).toHaveBeenCalledTimes(3); expect(state().items).toEqual([]);
+    expect(state().page).toBe(2); expect(pager().props('total')).toBe(0); expect(pager().props('pageCount')).toBe(2);
   });
   it('错误页回包不污染当前查询且不解除未知上传限制', async () => {
     await setup(); await call('onFileSelected', { target: { files: [new File(['x'], 'a.txt')] } }); vi.mocked(api.uploadHostFile).mockRejectedValueOnce(new Error('lost')); await call('upload');

@@ -5,8 +5,8 @@ import {
   type WorkflowCcResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { workflowFormIdValid } from './workflow-form-guards';
-import { validWorkflowCcList, validWorkflowCcReceipt } from './workflow-cc-guards';
+import { workflowFormIdValid } from '../guards/workflow-form-guards';
+import { validWorkflowCcList, validWorkflowCcReceipt } from '../guards/workflow-cc-guards';
 
 /** 查询当前用户的有界工作流抄送列表。 */
 export async function listMyWorkflowCc(

@@ -4,11 +4,12 @@ import { routeLocationKey } from 'vue-router';
 import { ElButton, ElCard, ElDialog, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import { createWorkflowFormDraft, isFullNetProblemDetails, type FullNetProblemDetails, type WorkflowFormComponentCatalogResponse, type WorkflowFormSchema } from '@fullnet/client-contracts';
 import { createWorkflowForm, deleteWorkflowFormVersion, getWorkflowForm, getWorkflowFormComponentCatalog, listWorkflowFormVersions, listWorkflowForms, publishWorkflowForm, setWorkflowFormStatus, updateWorkflowFormDraft, type WorkflowFormResponse, type WorkflowFormVersionResponse } from '../api/workflow-forms';
-import { normalizeWorkflowFormKey, sameWorkflowFormDraft, validWorkflowForm, validWorkflowFormCatalog, validWorkflowFormVersion, workflowFormIdValid, workflowFormKeyValid, workflowFormValueKey } from '../api/workflow-form-guards';
+import { normalizeWorkflowFormKey, sameWorkflowFormDraft, validWorkflowForm, validWorkflowFormCatalog, validWorkflowFormVersion, workflowFormIdValid, workflowFormKeyValid, workflowFormValueKey } from '../guards/workflow-form-guards';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import PermissionGate from '../components/PermissionGate.vue';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import { useAdminI18n } from '../i18n/adminI18n';
 import VForm3WorkflowDesigner from '../workflow/VForm3WorkflowDesigner.vue';
 import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
@@ -157,7 +158,7 @@ const deletionControls = computed(() => { const pending = deletion.value, cancel
     <p class="art-sr-heading">{{ t('workflowForms.caption') }}</p>
 
     <div v-if="problem && problemIsRead && !editorId" class="art-inline-alert" role="alert"><span>{{ problem.title }}</span></div>
-    <p v-if="receipt" role="status" data-testid="workflow-form-receipt">{{ t('workflowForms.recoveryAction.' + receipt.kind) }}：{{ t('workflowForms.recovery.' + receipt.outcome) }}</p>
+    <p v-if="receipt" role="status" data-testid="workflow-form-receipt">{{ t(('workflowForms.recoveryAction.' + receipt.kind) as MessageKey) }}：{{ t(('workflowForms.recovery.' + receipt.outcome) as MessageKey) }}</p>
     <el-button data-testid="workflow-form-refresh" :disabled="busy" v-on="{ click: controls.refresh }">{{ t('workflowForms.recoveryRetry') }}</el-button>
     <div class="workflow-forms__layout art-split-layout">
       <el-card class="workflow-forms__list art-table-card" shadow="never">
@@ -198,6 +199,7 @@ const deletionControls = computed(() => { const pending = deletion.value, cancel
           <el-table-column :label="t('workflowForms.publishedVersion')" min-width="120" show-overflow-tooltip>
             <template #default="{ row }"><span translate="no">{{ row.latestPublishedVersionId ?? '—' }}</span></template>
           </el-table-column>
+          <!-- @vue-generic {WorkflowFormResponse} -->
           <el-table-column :label="t('workflowForms.actions')" min-width="360" fixed="right">
             <template #default="{ row }">
               <div class="workflow-forms__actions">

@@ -45,7 +45,7 @@ describe('文档预览筛选与任务快照意图', () => {
     vm().filterDocumentItemId = ''; await vm().applyFilter(); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[2]).toBeUndefined();
   });
   it('Enter使用同一应用入口而不继续触发表单默认提交', async () => {
-    await setup(); const input = wrapper!.get('[data-testid="document-preview-task-filter"]'); await input.setValue(outputId); await input.trigger('keydown.enter'); await flushPromises();
+    await setup(); const input = wrapper!.get('[data-testid="document-preview-task-filter"]'); await input.setValue(outputId); await input.trigger('keydown', { key: 'Enter' }); await flushPromises();
     expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[2]).toBe(outputId);
   });
   it('创建预填仅使用已应用文档条件', async () => {

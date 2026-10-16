@@ -18,8 +18,8 @@ import {
   type WorkflowInstanceResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { workflowFormIdValid, workflowFormWriteRevisionValid } from './workflow-form-guards';
-import { instanceStatuses, instanceTrim, validWorkflowInstance, validWorkflowInstancePage, validWorkflowLogs } from './workflow-instance-guards';
+import { workflowFormIdValid, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
+import { instanceStatuses, instanceTrim, validWorkflowInstance, validWorkflowInstancePage, validWorkflowLogs } from '../guards/workflow-instance-guards';
 type InstanceQuery = NonNullable<Parameters<typeof workflowListInstances>[1]>;
 function requireId(id: string): void { if (!workflowFormIdValid(id)) throw Error('client.invalid_workflow_instance_id'); }
 function assertInstance(value: unknown, id: string): asserts value is WorkflowInstanceResponse { if (!validWorkflowInstance(value) || value.id.toLowerCase() !== id.toLowerCase()) throw Error('client.invalid_workflow_instance'); }

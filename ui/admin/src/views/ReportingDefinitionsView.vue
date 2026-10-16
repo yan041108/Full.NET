@@ -39,7 +39,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { listReportingDataSources } from '../api/reporting-data-sources';
-import { validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion, sameReportingId as sameId, sameReportingLayout, sameReportingParameters, matchesReportingDraft } from '../api/reporting-management-guards';
+import { validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion, sameReportingId as sameId, sameReportingLayout, sameReportingParameters, matchesReportingDraft } from '../guards/reporting-management-guards';
 import {
   createReportingDefinition,
   createReportingGroup,

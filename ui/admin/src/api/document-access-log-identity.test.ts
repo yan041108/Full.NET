@@ -9,7 +9,8 @@ const page = { items: [log], page: 1, pageSize: 20, total: 1 };
 beforeEach(() => vi.resetAllMocks());
 describe('文档访问日志分页与过滤归属', () => {
   it.each([{ page: 2 }, { pageSize: 10 }, { total: -1 }, { total: Number.MAX_SAFE_INTEGER + 1 }, { items: [log, { ...log, id: shareId.toUpperCase() }] }, { items: [{ ...log, id: '00000000-0000-0000-0000-000000000000' }] }, { items: Array.from({ length: 21 }, (_, index) => ({ ...log, id: '00000000-0000-0000-0000-' + String(index + 1).padStart(12, '0') })) }])('拒绝错误分页、总数、重复或空身份 %j', async change => {
-    vi.mocked(http.request).mockResolvedValue({ ...page, ...change }); await expect(listDocumentAccessLogs()).rejects.toThrow(/^client.invalid_document_access_log_page$/u);
+    vi.mocked(http.request).mockResolvedValue({ ...page, ...change }); await expect(listDocumentAccessLogs()).rejects.toThrow('total' in change && typeof change.total === 'number' && change.total > Number.MAX_SAFE_INTEGER
+      ? /^client.invalid_paged_result_of_host_document_access_log_response$/u : /^client.invalid_document_access_log_page$/u);
   });
   it.each([{ documentItemId: shareId }, { accessTypeKey: 'preview' }, { sourceKey: 'authenticated' }])('拒绝不符合已提交过滤的日志 %j', async filters => {
     vi.mocked(http.request).mockResolvedValue(page); await expect(listDocumentAccessLogs(1, 20, filters)).rejects.toThrow(/^client.invalid_document_access_log_page$/u);

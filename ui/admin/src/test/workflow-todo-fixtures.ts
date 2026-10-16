@@ -2,7 +2,7 @@ import type { WorkflowTodoDetail, WorkflowTodoListItemResponse } from '../api/wo
 import { workflowInstance } from './workflow-instance-fixtures';
 export const workflowTodo: WorkflowTodoDetail = {
   id: workflowInstance.activeTodoId!, instanceId: workflowInstance.id,
-  stepId: '01912345-6789-7abc-8def-0123456789b1', assigneeUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
+  stepId: '01912345-6789-7abc-8def-0123456789b1', assigneeUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf299',
   statusKey: 'active', revision: 3, formVersionId: workflowInstance.formVersionId, formSchemaHash: 'a'.repeat(64),
   formSchema: { schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'request', fields: [{ fieldKey: 'summary', fieldTypeKey: 'text', required: true, constraints: {} }] }] },
   submission: { summary: '申请' }, fieldPolicies: { summary: 'required' }, submissionRevision: 4,

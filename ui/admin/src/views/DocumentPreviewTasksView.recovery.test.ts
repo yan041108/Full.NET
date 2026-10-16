@@ -119,6 +119,6 @@ describe('文档预览任务结果与恢复', () => {
     await setup(); const row = (wrapper.vm as unknown as { tableRows: { cancel: () => void }[] }).tableRows[0]!; state().page = 2; vi.mocked(api.listDocumentPreviewTasks).mockResolvedValueOnce({ items: [pendingTask], page: 2, pageSize: 20, total: 21 }); await state().load(); row.cancel(); await flushPromises(); expect(wrapper.find('[data-testid="document-preview-cancel-confirm"]').exists()).toBe(false);
   });
   it('筛选和表头位于测量容器外，分页为同容器底部直接子项', async () => {
-    await setup(); expect(wrapper.get('.art-crud-table-main > .art-table-pagination').exists()).toBe(true); expect(wrapper.find('.art-crud-table-main .document-module-inline-query').exists()).toBe(false);
+    await setup(); expect(wrapper.find('.art-crud-table-main > .art-table-pagination').exists()).toBe(true); expect(wrapper.find('.art-crud-table-main .document-module-inline-query').exists()).toBe(false);
   });
 });

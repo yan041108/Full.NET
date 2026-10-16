@@ -16,7 +16,7 @@ import {
   type WorkflowFormVersionResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
-import { normalizeWorkflowFormKey, sameWorkflowFormDraft, validWorkflowForm, validWorkflowFormCatalog, validWorkflowFormVersion, workflowFormIdValid, workflowFormKeyValid, workflowFormWriteRevisionValid } from './workflow-form-guards';
+import { normalizeWorkflowFormKey, sameWorkflowFormDraft, validWorkflowForm, validWorkflowFormCatalog, validWorkflowFormVersion, workflowFormIdValid, workflowFormKeyValid, workflowFormWriteRevisionValid } from '../guards/workflow-form-guards';
 
 /** 将生成契约中的 draft 收紧为已通过运行时校验的表单草稿结构。 */
 export type WorkflowFormResponse = Omit<GeneratedWorkflowFormResponse, 'draft'> & {

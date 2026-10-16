@@ -16,7 +16,7 @@ import { showSuccess, showProblem } from '../feedback/fullNetMessage';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listRecycleBinItems, purgeRecycleBinItem, restoreRecycleBinItem } from '../api/document-recycle-bin';
-import { validRecyclePage, validRestoredRecycleItem } from '../api/document-recycle-guards';
+import { validRecyclePage, validRestoredRecycleItem } from '../guards/document-recycle-guards';
 
 defineOptions({ name: 'DocumentRecycleBinView' });
 const { t } = useAdminI18n(), session = useSessionStore(), route = inject(routeLocationKey, undefined);
@@ -57,7 +57,7 @@ function begin(permission: string, owner?: ViewRequest): ViewRequest | undefined
   if (!canRead.value || owner && !owner.current()) return;
   const request = scope.begin(permission); if (!request || !owner) return request;
   const cancel = () => request.cancel(); owner.signal.addEventListener('abort', cancel, { once: true });
-  return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); request.finish(); } };
+  return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); return request.finish(); } };
 }
 const displayItems = computed(() => { const term = appliedKeyword.value.trim().toLowerCase(); return term ? items.value.filter(row => row.title.toLowerCase().includes(term)) : items.value; });
 // 新页等待响应时仍保留目标页下界，避免分页器因临时空目录把受控页码压回第一页。
@@ -285,6 +285,7 @@ const rowControls = computed(() => { const owner = catalogOwner.value; return ne
             </el-table-column>
             <el-table-column :label="t('documentRecycleBin.titleColumn')" min-width="240" prop="title" />
             <el-table-column :label="t('documentRecycleBin.deletedAt')" min-width="180" prop="deletedAtUtc" />
+            <!-- @vue-generic {HostRecycleBinItemResponse} -->
             <el-table-column :label="t('users.columnActions')" width="140" fixed="right" align="center">
               <template #default="{ row }">
                 <ArtTableActionGroup>

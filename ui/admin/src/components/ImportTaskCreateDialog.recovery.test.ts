@@ -35,7 +35,7 @@ describe('导入创建结果与恢复', () => {
     expect(state().schemaKey).toBe(schema.schemaKey); expect(state().selectedFile).toBe(selected);
   });
   it('相同目录补读保留所选工作表和文件', async () => {
-    await setup(); state().worksheetKey = 'second'; const selected = await file(); await state().loadSchemas(); expect(state().worksheetKey).toBe('second'); expect(state().selectedFile).toBe(selected);
+    await setup(); state().worksheetKey = 'second'; await flushPromises(); const selected = await file(); await state().loadSchemas(); expect(state().worksheetKey).toBe('second'); expect(state().selectedFile).toBe(selected);
   });
   it('直接修改Schema清除旧文件并选择其真实工作表', async () => {
     await setup(); await file(); state().schemaKey = other.schemaKey; expect(state().selectedFile).toBeUndefined(); expect(state().worksheetKey).toBe('positions');

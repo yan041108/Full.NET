@@ -137,6 +137,6 @@ describe('导入任务归属与失败恢复', () => {
     expect(state().selectedTask?.worksheetKey).toBe(importTask.worksheetKey); expect(state().actionReceipt?.outcome).toBe('unconfirmed'); expect(ElMessage.success).not.toHaveBeenCalled();
   });
   it('列表分页位于同一卡片测量容器底部', async () => {
-    await setup(); expect(wrapper.get('.art-crud-table-main > .art-table-pagination').exists()).toBe(true);
+    await setup(); expect(wrapper.find('.art-crud-table-main > .art-table-pagination').exists()).toBe(true);
   });
 });

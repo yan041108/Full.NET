@@ -3,7 +3,7 @@ import "../printing/printing.css";
 import { computed, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { routeLocationKey } from 'vue-router';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
-import { validHostPrintingTemplate, validHostPrintingVersion } from '../api/printing-host-guards';
+import { validHostPrintingTemplate, validHostPrintingVersion } from '../guards/printing-host-guards';
 import { sanitizePrintingHtml } from '../printing/sanitizePrintingHtml';
 import PrintingTenantGrantsDialog from '../components/printing/PrintingTenantGrantsDialog.vue';
 import { showSuccess, showWarning } from '../feedback/fullNetMessage';
@@ -89,7 +89,7 @@ function begin(permission: string, owner?: ViewRequest): ViewRequest | undefined
   if (!canRead.value || owner && !owner.current()) return;
   const request = scope.begin(permission); if (!request || !owner) return request;
   const cancel = () => request.cancel(); owner.signal.addEventListener('abort', cancel, { once: true });
-  return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); request.finish(); } };
+  return { ...request, finish: () => { owner.signal.removeEventListener('abort', cancel); return request.finish(); } };
 }
 const selectedTemplate = computed(() => templates.value.find(item => item.id.toLowerCase() === selectedTemplateId.value.toLowerCase()));
 function targetCurrent(target: PrintingTemplate): boolean {

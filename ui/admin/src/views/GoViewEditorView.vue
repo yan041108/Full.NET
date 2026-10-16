@@ -11,7 +11,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { useGoViewScope } from '../composables/useGoViewScope';
 import { showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { getGoViewProject, publishGoViewProject, updateGoViewProject } from '../api/goview-projects';
-import { DEFAULT_GOVIEW_CANVAS, goViewTrim, validGoViewCanvas, validGoViewId, validGoViewProject, validGoViewPublishedVersion, validGoViewUpdate, validGoViewWriteVersion } from '../api/goview-guards';
+import { DEFAULT_GOVIEW_CANVAS, goViewTrim, validGoViewCanvas, validGoViewId, validGoViewProject, validGoViewPublishedVersion, validGoViewUpdate, validGoViewWriteVersion } from '../guards/goview-guards';
 defineOptions({ name: 'GoViewEditorView' });
 const router = useRouter(), { t } = useAdminI18n();
 const project = ref<GoViewProject>(), loading = ref(false), saving = ref(false), publishing = ref(false), ready = ref(false), recovering = ref(false), problem = ref<FullNetProblemDetails>();

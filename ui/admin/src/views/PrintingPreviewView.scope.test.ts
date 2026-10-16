@@ -33,7 +33,7 @@ function vm() { return wrapper!.findComponent(PrintingPreviewView).vm as unknown
   acknowledgeRecovery: (kind: 'create') => Promise<void>; finishRecovery: (value: boolean) => void;
   load: () => Promise<unknown>; submitCreate: () => Promise<void>; runPreview: (printAfter?: boolean) => Promise<void>;
 }; }
-async function openCreate() { await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises(); }
+async function openCreate() { await flushPromises(); await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises(); }
 
 describe('Host 打印创建、目录与输出归属', () => {
   it('缺少页面读取权限不显示创建入口或发送直接操作', async () => {

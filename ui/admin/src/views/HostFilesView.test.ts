@@ -39,7 +39,7 @@ const sampleFile = {
   createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
 };
 
-function mountWithPermissions(permissions: string[]) {
+function mountWithPermissions(permissions: string[], attachTo?: HTMLElement) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
@@ -58,7 +58,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(HostFilesView, { global: { plugins: [pinia] } });
+  return mount(HostFilesView, { attachTo, global: { plugins: [pinia] } });
 }
 
 describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
@@ -117,7 +117,7 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
   it('内嵌被动文件使用隔离 iframe', async () => {
     vi.mocked(previewHostFileContent).mockResolvedValue(new Blob(['plain'], { type: 'text/plain' }));
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:plain'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-    const wrapper = mountWithPermissions(['files.files.read']);
+    const wrapper = mountWithPermissions(['files.files.read'], document.body);
     try {
       await flushPromises(); const vm = wrapper.vm as unknown as { preview: (file: typeof sampleFile) => Promise<void> };
       await vm.preview(sampleFile); await flushPromises();

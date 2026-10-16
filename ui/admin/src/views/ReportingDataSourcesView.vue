@@ -199,7 +199,8 @@ const paginationTotal = computed(() => Math.max(total.value, items.value.length 
 async function load(fallback = true): Promise<void> {
   stopList(); const request = begin('reporting.data_sources.read'); if (!request) return; listRequest = request;
   const query = { page: page.value, pageSize: pageSize.value, nameContains: appliedFilters.value.name || undefined };
-  if (JSON.stringify(lastQuery) !== JSON.stringify(query)) { items.value = []; total.value = 0; }
+  // 清理旧行但保留分页总数，防止真实分页组件在读取新页期间回跳。
+  if (JSON.stringify(lastQuery) !== JSON.stringify(query)) { items.value = []; }
   lastQuery = query; listControls.value = makeListControls(); loading.value = true; problem.value = undefined;
   try {
     const result = await listReportingDataSources({ ...query }, request.signal);
