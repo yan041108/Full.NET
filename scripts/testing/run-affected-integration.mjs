@@ -40,6 +40,9 @@ const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.
 const printingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Printing.';
 const filesFilter =
   'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.';
+// 预览领取与租约由模块持久化夹具验证，不能仅选择 HTTP API。
+const documentFilter =
+  'FullyQualifiedName~DocumentApi|FullyQualifiedName~Full.NET.IntegrationTests.Document.';
 const notificationsFilter =
   // 外部凭据专项与正式完整分片保持一致；本机受控 SMTP 用例仍属于默认模块验收。
   '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
@@ -251,6 +254,10 @@ function addModuleTarget(targets, moduleName) {
   }
   if (moduleName === 'Files') {
     addTarget(targets, filterTarget('Files', filesFilter));
+    return;
+  }
+  if (moduleName === 'Document') {
+    addTarget(targets, filterTarget('Document', documentFilter));
     return;
   }
   if (moduleName === 'Notifications') {

@@ -84,6 +84,21 @@ test('Notifications 默认聚焦排除外部凭据专项并保留 API 与模块�
   }
 });
 
+test('Document 改动同时选择 API 与双库预览队列持久化场景', () => {
+  for (const filePath of [
+    'src/Modules/Full.NET.Modules.Document/Persistence/DocumentPreviewTaskSql.cs',
+    'src/Modules/Full.NET.Modules.Document.Contracts/DocumentContracts.cs',
+    'tests/Full.NET.IntegrationTests/Document/DocumentPreviewQueuePersistenceTests.cs'
+  ]) {
+    const target = classifyChangedPaths([filePath]).targets.find(item => item.name === 'Document');
+    assert.ok(target, filePath);
+    assert.equal(target.filter,
+      'FullyQualifiedName~DocumentApi|FullyQualifiedName~Full.NET.IntegrationTests.Document.', filePath);
+    assert.deepEqual(targetsForPhase([target], 'slice'), [target]);
+    assert.deepEqual(targetsForPhase([target], 'inner'), []);
+  }
+});
+
 test('纯文档和客户端改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'docs/development/getting-started.md',
