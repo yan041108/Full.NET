@@ -120,7 +120,10 @@ async function loadVersions(): Promise<void> {
   try { const [parent, rows] = await Promise.all([getWorkflowForm(id, request.signal), listWorkflowFormVersions(id, request.signal)]); if (!request.current() || versionsRequest !== request || selectedFormId.value !== id) return; assertForm(parent, id);
     if (!rows.every(row => validWorkflowFormVersion(row, id)) || new Set(rows.map(row => idKey(row.id))).size !== rows.length || new Set(rows.map(row => row.versionNumber)).size !== rows.length || parent.latestPublishedVersionId && !rows.some(row => idKey(row.id) === idKey(parent.latestPublishedVersionId!))) throw Error('client.invalid_workflow_form_versions');
     for (const row of rows) { const known = knownVersions.get(idKey(row.id)), old = versions.value.find(value => idKey(value.id) === idKey(row.id)); if (deleted.has(idKey(row.id)) || known && (idKey(known.parent) !== idKey(id) || known.number !== row.versionNumber || known.hash !== row.contentHash) || old && workflowFormValueKey(old) !== workflowFormValueKey(row)) throw Error('client.stale_workflow_form_version'); }
-    replaceForm(parent); versions.value = rows; selectedForm.value = parent; for (const row of rows) knownVersions.set(idKey(row.id), { parent: id, number: row.versionNumber, hash: row.contentHash });
+    replaceForm(parent); const present = new Set(rows.map(row => idKey(row.id)));
+    // 人工解锁不代表旧版本仍存在，完整目录确认缺席后同样记录不可复活的标识。
+    for (const [key, known] of knownVersions) if (idKey(known.parent) === idKey(id) && !present.has(key)) deleted.add(key);
+    versions.value = rows; selectedForm.value = parent; for (const row of rows) knownVersions.set(idKey(row.id), { parent: id, number: row.versionNumber, hash: row.contentHash });
     // 删除非最新版本不会推进父记录版本；权威缺席确认后也必须记住不可复活的版本标识。
     for (const [key, block] of blocks.value) if (block.kind === 'delete' && block.formId === id && !rows.some(row => idKey(row.id) === idKey(block.id!))) { deleted.add(idKey(block.id!)); blocks.value.delete(key); } versionsReady.value = true;
   } catch (error) { if (request.current() && versionsRequest === request) failure(error); }
