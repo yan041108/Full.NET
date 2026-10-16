@@ -4,7 +4,7 @@ import { computed, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated
 import { routeLocationKey } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
 import { Printer, Refresh } from '@element-plus/icons-vue';
-import { isFullNetProblemDetails, type FullNetProblemDetails, type PrintingPublishedTemplateResponse, type PrintingTemplatePreview } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid, type FullNetProblemDetails, type PrintingPublishedTemplateResponse, type PrintingTemplatePreview } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
@@ -30,6 +30,7 @@ const tenant = () => {
 };
 const templates = ref<PrintingPublishedTemplateResponse[]>([]); const selectedId = ref('');
 const preview = ref<PrintingTemplatePreview>(); const problem = ref<FullNetProblemDetails>();
+const catalogProblem = ref<FullNetProblemDetails>(), catalogReady = ref(false);
 const recordId = ref('');
 const loading = ref(false); const previewing = ref(false);
 const readable = () => tenant() && session.can(readPermission);
@@ -39,10 +40,10 @@ interface Controls { token: number; select: (id: string) => void; record: (id: s
 const controls = ref<Controls>(makeControls());
 function makeControls(): Controls {
   const token = ++controlSequence, owned = () => controls.value.token === token && readable();
-  return { token, select: id => { if (owned()) selectedId.value = id; }, record: id => { if (owned()) recordId.value = id; },
+  return { token, select: id => { if (owned() && !loading.value) selectedId.value = id; }, record: id => { if (owned() && !loading.value) recordId.value = id; },
     preview: () => { if (owned()) void render(); }, print: () => { if (owned()) void render(true); }, refresh: () => { if (owned()) void load(true); } };
 }
-let linkBlocked = false; let lastLoadKey: string | undefined;
+let linkBlocked = false; let lastLoadKey: string | undefined, acceptedLoadKey: string | undefined;
 // 同一模板可以获授多个版本；选择身份必须同时包含模板和不可变版本。
 const versionKey = (item: PrintingPublishedTemplateResponse) => item.templateId.toLowerCase() + ':' + item.versionNumber;
 const selected = computed(() => templates.value.find(item => versionKey(item) === selectedId.value.toLowerCase()));
@@ -50,13 +51,13 @@ const validRecord = computed(() => !selected.value?.requiresRecordId || isPrinti
 const safeHtml = computed(() => sanitizePrintingHtml(preview.value?.html ?? ''));
 const scope = useAuthorizedViewScope(session, () => {
   // 旧 URL 不能在新账号、租户或激活代次中自动重新解释；显式新路由才重新定位。
-  linkBlocked = true; lastLoadKey = undefined;
+  linkBlocked = true; lastLoadKey = undefined; acceptedLoadKey = undefined; catalogReady.value = false; catalogProblem.value = undefined;
   templates.value = []; selectedId.value = ''; recordId.value = ''; preview.value = undefined; problem.value = undefined;
   loading.value = false; previewing.value = false; previewTarget.value = undefined; controls.value = makeControls();
 }, () => load(false));
 let listRequest: ReturnType<typeof scope.begin>; let previewRequest: ReturnType<typeof scope.begin>;
-function toProblem(error: unknown): FullNetProblemDetails {
-  return isFullNetProblemDetails(error) ? error : {status:500,code:'client.request_failed',title:t('printingPreview.previewFailed')};
+function toProblem(error: unknown, catalog = false): FullNetProblemDetails {
+  return isFullNetProblemDetails(error) ? error : {status:500,code:'client.request_failed',title:t(catalog ? 'printingPublished.loadFailed' : 'printingPreview.previewFailed')};
 }
 function clearPreview(): void {
   previewRequest?.cancel(); previewTarget.value = undefined; preview.value = undefined; previewing.value = false; problem.value = undefined; controls.value = makeControls();
@@ -70,15 +71,25 @@ function targetCurrent(target: PrintingPublishedTemplateResponse): boolean {
     && current.templateKey === target.templateKey && current.templateName === target.templateName && !!current.requiresRecordId === !!target.requiresRecordId;
 }
 watch(templates, () => { if (previewTarget.value && !targetCurrent(previewTarget.value)) clearPreview(); }, {deep:true,flush:'sync'});
-function changeTemplate(): void {
+function changeTemplate(_next: string, previous: string): void {
+  const before = templates.value.find(item => versionKey(item) === previous.toLowerCase());
   const linked = resolvePrintingRecordLink(route?.query ?? {}, templates.value);
-  recordId.value = !linkBlocked && linked.kind === 'bound' && selected.value?.formSchemaKey === linked.templates[0]?.formSchemaKey
-    ? linked.recordId : '';
+  // 同表单的已授版本共用记录上下文，不能将用户修正的编号替换成旧 URL 默认值。
+  if (!(before?.requiresRecordId && selected.value?.requiresRecordId && before.formSchemaKey === selected.value.formSchemaKey))
+    recordId.value = !linkBlocked && linked.kind === 'bound' && selected.value?.formSchemaKey === linked.templates[0]?.formSchemaKey ? linked.recordId : '';
   clearPreview();
 }
-watch(() => JSON.stringify([route?.name, route?.query.formSchemaKey, route?.query.recordId]), () => {
+watch(() => selected.value ? JSON.stringify(selected.value) : '', (value, previous) => {
+  if (value && previous) {
+    const current = JSON.parse(value) as PrintingPublishedTemplateResponse, before = JSON.parse(previous) as PrintingPublishedTemplateResponse;
+    if (versionKey(current) === versionKey(before) && (current.formSchemaKey !== before.formSchemaKey || !!current.requiresRecordId !== !!before.requiresRecordId)) recordId.value = '';
+  }
+  if (previewTarget.value && !targetCurrent(previewTarget.value)) clearPreview();
+  controls.value = makeControls();
+}, { flush: 'sync' });
+watch(() => JSON.stringify({ route: route?.name, formSchemaKey: route?.query.formSchemaKey, recordId: route?.query.recordId }), () => {
   if (route?.name !== 'printing-published-templates') {
-    clearPreview(); listRequest?.cancel(); templates.value = []; selectedId.value = ''; recordId.value = ''; loading.value = false; linkBlocked = true; lastLoadKey = undefined; return;
+    clearPreview(); listRequest?.cancel(); templates.value = []; selectedId.value = ''; recordId.value = ''; loading.value = false; linkBlocked = true; lastLoadKey = undefined; acceptedLoadKey = undefined; catalogReady.value = false; catalogProblem.value = undefined; return;
   }
   linkBlocked = false; void load(false);
 }, { flush: 'sync' });
@@ -86,35 +97,45 @@ async function load(force = true): Promise<void> {
   if (!readable()) return;
   const copy = (value: unknown) => Array.isArray(value) ? [...value] : value;
   const query = { formSchemaKey: copy(route?.query.formSchemaKey), recordId: copy(route?.query.recordId) };
-  const key = JSON.stringify([query.formSchemaKey, query.recordId, linkBlocked]);
+  // 对象编码区分缺省与显式空查询，不能把无链接和非法空链接判为同一个目录请求。
+  const key = JSON.stringify({ ...query, linkBlocked });
   // 同轮上下文恢复与路由定位只发起一次目录读取；用户刷新仍允许重试失败请求。
   if (!force && key === lastLoadKey) return;
+  const previous = selected.value ? { ...selected.value } : undefined, previousRecord = recordId.value, preserve = key === acceptedLoadKey;
   clearPreview(); listRequest?.cancel();
   const request = scope.begin(readPermission); if (!request) return; listRequest = request;
   lastLoadKey = key;
-  templates.value = []; selectedId.value = ''; recordId.value = ''; loading.value = true;
+  catalogReady.value = false; catalogProblem.value = undefined;
+  if (!preserve) { templates.value = []; selectedId.value = ''; recordId.value = ''; }
+  loading.value = true;
   try {
     const result = await listPrintingPublishedTemplates(request.signal);
     if (!request.current()) return;
+    if (result.some(row => !isGuid(row.templateId) || row.templateId === '00000000-0000-0000-0000-000000000000' || !Number.isSafeInteger(row.versionNumber) || row.versionNumber < 1 || !row.formSchemaKey.trim() || !row.templateKey.trim())
+      || new Set(result.map(versionKey)).size !== result.length) throw new Error('client.invalid_printing_published_template_list');
     const linked = resolvePrintingRecordLink(query, result);
     if (linked.kind !== 'none' && (linkBlocked || linked.kind === 'invalid')) {
       templates.value = []; selectedId.value = ''; recordId.value = '';
-      problem.value = {status:400,code:'client.invalid_printing_record_link',title:t('printingPublished.linkUnavailable')};
+      acceptedLoadKey = undefined;
+      catalogProblem.value = {status:400,code:'client.invalid_printing_record_link',title:t('printingPublished.linkUnavailable')};
     } else {
-      templates.value = linked.kind === 'bound' ? linked.templates : result;
-      selectedId.value = templates.value[0] ? versionKey(templates.value[0]) : '';
-      recordId.value = linked.kind === 'bound' ? linked.recordId : '';
+      const rows = linked.kind === 'bound' ? linked.templates : result;
+      const retained = preserve && previous ? rows.find(row => versionKey(row) === versionKey(previous) && row.formSchemaKey === previous.formSchemaKey && row.templateKey === previous.templateKey && row.templateName === previous.templateName && !!row.requiresRecordId === !!previous.requiresRecordId) : undefined;
+      templates.value = rows;
+      selectedId.value = retained ? versionKey(retained) : rows[0] ? versionKey(rows[0]) : '';
+      recordId.value = retained ? previousRecord : linked.kind === 'bound' ? linked.recordId : '';
+      acceptedLoadKey = key; catalogReady.value = true;
     }
-  } catch (error) { if (request.current()) problem.value = toProblem(error); }
-  finally { if (request.current()) loading.value = false; request.finish(); }
+  } catch (error) { if (request.current()) catalogProblem.value = toProblem(error, true); }
+  finally { if (request.current()) { loading.value = false; controls.value = makeControls(); } request.finish(); }
 }
 async function render(printAfter = false): Promise<void> {
-  if (!readable() || !selected.value || !validRecord.value || loading.value || previewing.value) return;
+  if (!readable() || !catalogReady.value || !selected.value || !validRecord.value || loading.value || previewing.value) return;
   if (printAfter && !preview.value) return;
   const request = scope.begin(previewPermission); if (!request) return;
   const template = { ...selected.value }; const bindingRecordId = recordId.value.trim(); previewRequest = request; previewTarget.value = template;
   // 授权可在会话权限不变时撤销；每次打印都重新核验服务器上的精确版本。
-  preview.value = undefined; problem.value = undefined; previewing.value = true;
+  preview.value = undefined; problem.value = undefined; previewing.value = true; controls.value = makeControls();
   try {
     const result = await previewPrintingPublishedTemplate(template.templateId,{versionNumber:template.versionNumber,...(template.requiresRecordId ? {recordId:bindingRecordId} : {})},request.signal);
     if (!request.current() || !readable() || !targetCurrent(template) || recordId.value.trim() !== bindingRecordId) return;
@@ -125,7 +146,7 @@ async function render(printAfter = false): Promise<void> {
     await nextTick();
     if (printAfter && request.current() && readable() && targetCurrent(template) && recordId.value.trim() === bindingRecordId) window.print();
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
-  finally { if (request.current()) previewing.value = false; request.finish(); }
+  finally { if (request.current()) { previewing.value = false; controls.value = makeControls(); } request.finish(); }
 }
 </script>
 
@@ -136,8 +157,10 @@ async function render(printAfter = false): Promise<void> {
         <template #left><span>{{ t('printingPublished.hint') }}</span></template>
         <template #right><PermissionGate :code="readPermission"><ElButton :icon="Refresh" :loading="loading" data-testid="printing-published-refresh" v-on="{ click: controls.refresh }">{{ t('printingGrants.refresh') }}</ElButton></PermissionGate></template>
       </ArtTableHeader>
-      <ElAlert v-if="problem" type="error" :title="problem.title" :closable="false" show-icon />
-      <ElEmpty v-if="!loading && !templates.length && !problem" :description="t('printingPublished.empty')" />
+      <ElAlert v-if="catalogProblem" data-testid="printing-published-catalog-problem" type="error" :title="catalogProblem.title" :closable="false" show-icon />
+      <ElAlert v-if="problem" data-testid="printing-published-preview-problem" type="error" :title="problem.title" :closable="false" show-icon />
+      <p v-if="!catalogReady && !loading && templates.length">{{ t('printingPublished.catalogNeedsRefresh') }}</p>
+      <ElEmpty v-if="!loading && !templates.length && !problem && !catalogProblem" :description="t('printingPublished.empty')" />
       <ElForm label-width="120px" class="printing-published-form">
         <ElFormItem :label="t('printingPreview.fieldTemplate')">
           <ElSelect :model-value="selectedId" :disabled="loading || previewing" class="printing-template-select" data-testid="printing-published-template" v-on="{ 'update:modelValue': controls.select }">
@@ -145,10 +168,10 @@ async function render(printAfter = false): Promise<void> {
           </ElSelect>
         </ElFormItem>
         <ElFormItem v-if="selected?.requiresRecordId" :label="t('printingPublished.recordId')" required>
-          <ElInput :model-value="recordId" data-testid="printing-published-record" :placeholder="t('printingPublished.recordIdHint')" :maxlength="36" v-on="{ 'update:modelValue': controls.record }" />
+          <ElInput :model-value="recordId" :disabled="loading" data-testid="printing-published-record" :placeholder="t('printingPublished.recordIdHint')" :maxlength="36" v-on="{ 'update:modelValue': controls.record }" />
         </ElFormItem>
         <ElFormItem>
-          <PermissionGate :code="previewPermission"><ElButton type="primary" :icon="Printer" :loading="previewing" :disabled="!selected || !validRecord || loading" data-testid="printing-published-preview" v-on="{ click: controls.preview }">{{ t('printingPreview.preview') }}</ElButton></PermissionGate>
+          <PermissionGate :code="previewPermission"><ElButton type="primary" :icon="Printer" :loading="previewing" :disabled="!catalogReady || !selected || !validRecord || loading" data-testid="printing-published-preview" v-on="{ click: controls.preview }">{{ t('printingPreview.preview') }}</ElButton></PermissionGate>
           <PermissionGate :code="previewPermission"><ElButton v-if="preview" :disabled="loading || previewing" data-testid="printing-published-print" v-on="{ click: controls.print }">{{ t('printingPreview.print') }}</ElButton></PermissionGate>
         </ElFormItem>
       </ElForm>

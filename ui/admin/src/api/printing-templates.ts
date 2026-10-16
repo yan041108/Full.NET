@@ -10,6 +10,7 @@ import {
   type PagedResultOfGuid,
   isPrintingTemplate,
   isPrintingTemplatePreview,
+  isGuid,
   printingGetFormSchema,
   printingListFormSchemas,
   type CreatePrintingTemplateRequest,
@@ -112,16 +113,22 @@ export async function getPrintingFormSchema(
 
 /** 租户只消费获授的不可变版本目录，不读取 Host 草稿与布局。 */
 export async function listPrintingPublishedTemplates(signal?: AbortSignal): Promise<PrintingPublishedTemplateResponse[]> {
-  return printingListPublishedTemplates(http, {}, signal);
+  const rows = await printingListPublishedTemplates(http, {}, signal);
+  if (rows.some(row => !isGuid(row.templateId) || row.templateId === '00000000-0000-0000-0000-000000000000' || !Number.isSafeInteger(row.versionNumber) || row.versionNumber < 1 || !row.formSchemaKey.trim() || !row.templateKey.trim())
+    || new Set(rows.map(row => row.templateId.toLowerCase() + ':' + row.versionNumber)).size !== rows.length) throw new Error('client.invalid_printing_published_template_list');
+  return rows;
 }
 
 /** 通过生成操作发送精确版本，不传入可伪造的租户标识。 */
 export async function previewPrintingPublishedTemplate(templateId: string, body: PreviewPrintingTemplateRequest = {},
   signal?: AbortSignal): Promise<PrintingTemplatePreview> {
   const payload = { versionNumber: body.versionNumber ?? null, recordId: body.recordId ?? null };
+  if (!isGuid(templateId) || templateId === '00000000-0000-0000-0000-000000000000'
+    || payload.versionNumber !== null && (!Number.isSafeInteger(payload.versionNumber) || payload.versionNumber < 1)
+    || payload.recordId !== null && (!isGuid(payload.recordId) || payload.recordId === '00000000-0000-0000-0000-000000000000')) throw new Error('client.invalid_printing_template_preview_request');
   const value = await printingPreviewPublishedTemplate(http, { templateId, body: payload }, signal);
   if (!isPrintingTemplatePreview(value) || Object.values(value.boundFields).some(field => field !== null && typeof field !== 'string')
-    || value.templateId.toLowerCase() !== templateId.toLowerCase() || payload.versionNumber !== null && value.versionNumber !== payload.versionNumber)
+    || value.templateId.toLowerCase() !== templateId.toLowerCase() || !Number.isSafeInteger(value.versionNumber) || value.versionNumber < 1 || payload.versionNumber !== null && value.versionNumber !== payload.versionNumber)
     throw new Error('client.invalid_printing_template_preview');
   return value;
 }

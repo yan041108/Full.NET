@@ -12,7 +12,7 @@ const schema = 'enterprise_request.request_summary';
 const record = '01980000-0000-7000-8000-000000000002';
 const nextRecord = '01980000-0000-7000-8000-000000000003';
 const business = { templateId: outputId, templateKey: 'request', templateName: '申请摘要', formSchemaKey: schema, versionNumber: 2, requiresRecordId: true };
-const profile = { ...business, formSchemaKey: 'printing.tenant_profile_card', requiresRecordId: false, templateName: '档案' };
+const profile = { ...business, templateId: '01980000-0000-7000-8000-000000000005', formSchemaKey: 'printing.tenant_profile_card', requiresRecordId: false, templateName: '档案' };
 let wrapper: VueWrapper;
 let router: Router;
 let visible = ref(true);
