@@ -337,6 +337,32 @@ function isAdditiveCoverageManifestChange(fileName, fieldName, baselineValue, cu
     });
   }
 
+  if (fieldName === 'entries') {
+    const currentModules = new Map();
+    for (const entry of currentValue) {
+      if (typeof entry?.apiModule !== 'string' || currentModules.has(entry.apiModule)
+        || (Object.hasOwn(entry, 'clientContractModules')
+          && (!Array.isArray(entry.clientContractModules)
+            || entry.clientContractModules.some(module => typeof module !== 'string')
+            || new Set(entry.clientContractModules).size !== entry.clientContractModules.length))) {
+        return false;
+      }
+      currentModules.set(entry.apiModule, entry);
+    }
+
+    // 同一 API 可以同时使用手写与生成客户端；原契约模块、快照和路由绑定必须保留。
+    return baselineValue.every(entry => {
+      const candidate = currentModules.get(entry?.apiModule);
+      if (isDeepStrictEqual(entry, candidate)) return true;
+      if (!candidate || !Array.isArray(entry?.clientContractModules)
+        || !Array.isArray(candidate.clientContractModules)) return false;
+      const { clientContractModules: before, ...baselineBinding } = entry;
+      const { clientContractModules: after, ...currentBinding } = candidate;
+      return isDeepStrictEqual(baselineBinding, currentBinding)
+        && before.every(module => after.includes(module));
+    });
+  }
+
   // 覆盖清单允许随新增 API 追加绑定，但既有绑定不得删除或静默改写。
   return baselineValue.every((baselineEntry) =>
     currentValue.some((currentEntry) =>
