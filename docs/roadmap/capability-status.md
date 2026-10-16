@@ -1,3 +1,5 @@
+> 当前自主推进范围与剩余任务以[总计划冻结清单](../superpowers/plans/2026-09-16-foundation-productization.md#active-freeze-20261016)为准；以下历史证据与能力矩阵不自动生成新开发任务，也不因范围冻结升级认证状态。
+
 2026-10-14 F11取消结果保留增量72ce7f0：复用0c013cf独立应用，SQL Server/MySQL各4场景实际通过，覆盖执行中409、partial/failed原回执及业务行保留、新Worker排除取消任务；每库4个真实Worker及1次自有强退，回执字节/文件名一致。新增门禁23/23，相关快测44通过/1Linux专属跳过；冻结与完整清理核对通过，集中执行307.735秒、排队31.421秒。无生产代码变化、无重建；新增故障Native、Vue真实页面、结果过期、F11整体与容量仍待，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-f11-取消结果保留与执行中拒绝双库集中验收)。
 
 2026-10-14 F11安全检查点取消0c013cf本批后端验收通过：原创建人当前会话与独立取消权限、状态/版本CAS、双库253迁移、SDK和Vue已实现；取消17/17、恢复29/29、架构88/88、SDK277/277、页面/适配37/37、契约治理290/290、包体预算及API/Worker分析通过。集中双库26/26、双库运行时OpenAPI和同一独立应用各5取消场景实际通过，冻结与自有资源清理核对通过；API Native49/49、Worker Native27/27。主CI38482519356成功。Vue真实页面、在途强停、F11整体/容量仍待，整体保持Build-verified/Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-f11-导入安全检查点取消与客户端分派收口)。

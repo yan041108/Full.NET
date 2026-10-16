@@ -235,6 +235,8 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 
 本队列来自项目所有者确认的 Full.NET 产品定位，不等于 Admin.NET.Pro 已具有或必须原样对标这些功能。统一执行入口为[底座完善开发计划](../superpowers/plans/2026-09-16-foundation-productization.md)，设计边界见[总体规格 §24.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#241-企业应用与-saas-底座完善2026-09-16)。
 
+当前自主推进只执行[总计划冻结清单](../superpowers/plans/2026-09-16-foundation-productization.md#active-freeze-20261016)中的固定任务，剩余开发、集中验收、范围调整和结束条件在该处唯一维护。以下 B/C 能力表是长期路线与证据索引，不自动增加当前轮次任务；历史能力状态不因范围冻结升级。
+
 以下状态只描述新增增量；复用模块已有实现保持其原状态。初始均为 `Mapped`，代码、双库、浏览器、原生和生产证据分别记录，不能以规划批准升级。
 
 | 编号 | 能力增量 | 归属与交付形态 | 优先级/任务 | 状态 |
