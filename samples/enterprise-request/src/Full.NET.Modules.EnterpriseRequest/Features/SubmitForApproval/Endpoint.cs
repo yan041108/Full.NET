@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.EnterpriseRequest.Generated;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -31,9 +32,16 @@ internal static class SubmitForApprovalEndpoint
                         .ConfigureAwait(false);
                     return mapper.Map(result, httpContext);
                 })
-            .RequireAuthorization()
+            .RequireAuthorization(FullNetPermissionPolicies.For(EnterpriseRequestWorkflowPermissions.Submit))
             .WithTags("EnterpriseRequestEnterpriseRequests")
-            .WithName("submitEnterpriseRequestForApproval");
+            .WithName("submitEnterpriseRequestForApproval")
+            // 显式成功与失败响应使生成客户端复用同一静态 JSON 契约。
+            .Produces<EnterpriseRequestResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     private static bool TryResolveActor(ClaimsPrincipal principal, out Guid actorUserId)
@@ -41,6 +49,6 @@ internal static class SubmitForApprovalEndpoint
         actorUserId = default;
         return Guid.TryParse(
             principal.FindFirstValue(FullNetIdentityClaimTypes.Subject),
-            out actorUserId);
+            out actorUserId) && actorUserId != Guid.Empty;
     }
 }

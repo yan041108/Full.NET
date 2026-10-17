@@ -7,10 +7,17 @@ internal static class PrintingLayoutPolicy
 {
     /// <summary>布局 HTML 最大字符数。</summary>
     public const int MaxLayoutHtmlLength = 64 * 1024;
+
+    /// <summary>投影后绑定字段最多 256 个，原始键和值合计最多 1 MiB UTF-16 字节。</summary>
+    public const int MaxBindingFields = 256;
+    public const long MaxBindingTextBytes = 1024 * 1024;
+
+    /// <summary>完整预览 HTML 最多 1 Mi 个 UTF-16 单元，超限拒绝，不截断页面。</summary>
+    public const int MaxRenderedHtmlLength = 1024 * 1024;
 }
 
 /// <summary>内置固定表单 Schema 目录；字段集合由服务端固定，客户端不可扩展。</summary>
-internal static class PrintingFormSchemaCatalog
+internal sealed class PrintingFormSchemaCatalog
 {
     private static readonly IReadOnlyList<PrintingFormSchemaDefinition> Schemas =
     [
@@ -27,11 +34,22 @@ internal static class PrintingFormSchemaCatalog
             ]),
     ];
 
+    private readonly IReadOnlyList<PrintingFormSchemaDefinition> schemas;
+
+    /// <summary>组合内置和显式贡献的静态目录，重复键必须失败，避免绑定所有权被覆盖。</summary>
+    public PrintingFormSchemaCatalog(IEnumerable<IPrintingFormSchemaContributor> contributors)
+    {
+        var all = Schemas.Concat(contributors.SelectMany(item => item.Schemas)).ToArray();
+        if (all.GroupBy(item => item.FormSchemaKey, StringComparer.Ordinal).Any(group => group.Count() != 1))
+            throw new InvalidOperationException("Printing form schema keys must be unique.");
+        schemas = all;
+    }
+
     /// <summary>返回全部固定表单 Schema。</summary>
-    public static IReadOnlyList<PrintingFormSchemaDefinition> List() => Schemas;
+    public IReadOnlyList<PrintingFormSchemaDefinition> List() => schemas;
 
     /// <summary>按键解析 Schema；不存在时返回 <see langword="null"/>。</summary>
-    public static PrintingFormSchemaDefinition? TryGet(string formSchemaKey) =>
-        Schemas.FirstOrDefault(schema =>
+    public PrintingFormSchemaDefinition? TryGet(string formSchemaKey) =>
+        schemas.FirstOrDefault(schema =>
             string.Equals(schema.FormSchemaKey, formSchemaKey, StringComparison.Ordinal));
 }

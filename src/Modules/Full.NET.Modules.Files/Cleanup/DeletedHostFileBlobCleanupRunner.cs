@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
@@ -21,15 +22,19 @@ internal sealed record DeletedHostFileBlobCleanupResult(
 /// <remarks>
 /// 安全边界：清理只针对 <c>DeletedAtUtc IS NOT NULL</c> 的行，软删除前置守卫已在 <see cref="Persistence.HostFileSql.SoftDelete"/> 拒绝存在未释放 Claim 的文件；
 /// Blob 删除失败不阻断元数据清理循环，失败计入 <see cref="DeletedHostFileBlobCleanupResult.BlobFailures"/> 供运维追踪；
-/// 使用 keyset 游标分页与受控批大小，避免长事务与无界扫描；可由配置 <c>Enabled</c> 关闭。
+/// 使用跨作用域共享游标和周期固定上界；周期结束后重试失败墓碑，可由配置 <c>Enabled</c> 关闭。
 /// </remarks>
 internal sealed class DeletedHostFileBlobCleanupRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     FileStorageProviderRegistry storageProviders,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IClock? clock = null,
+    DeletedHostFileBlobCleanupCursor? cursor = null)
 {
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
+    private readonly IClock _clock = clock ?? new SystemClock();
+    private readonly DeletedHostFileBlobCleanupCursor _cursor = cursor ?? new();
 
     public async Task<DeletedHostFileBlobCleanupResult> RunOnceAsync(
         DeletedHostFileBlobCleanupOptions options,
@@ -41,31 +46,46 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
             return DeletedHostFileBlobCleanupResult.Empty;
         }
 
+        var failures = DeletedHostFileBlobCleanupOptionsValidator.ValidateBounds(options);
+        if (failures.Count != 0)
+            throw new OptionsValidationException(DeletedHostFileBlobCleanupOptions.SectionName, options.GetType(), failures);
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false); }
+        finally { _cursor.Gate.Release(); }
+    }
+
+    private async Task<DeletedHostFileBlobCleanupResult> RunCoreAsync(
+        DeletedHostFileBlobCleanupOptions options, CancellationToken cancellationToken)
+    {
+        // 固定本周期上界，持续新增墓碑不能让失败记录无限等待下一轮重试。
+        _cursor.ScanThroughUtc ??= _clock.UtcNow;
+
         var scanned = 0;
         var purged = 0;
         var blobFailures = 0;
         var concurrentlyCompleted = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterDeletedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<DeletedHostFileBlobRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
                     {
-                        ["HasCursor"] = hasCursor ? 1 : 0,
-                        ["AfterDeletedAtUtc"] = afterDeletedAtUtc,
-                        ["AfterId"] = afterId,
+                        ["HasCursor"] = _cursor.Id.HasValue ? 1 : 0,
+                        ["AfterDeletedAtUtc"] = _cursor.DeletedAtUtc,
+                        ["AfterId"] = _cursor.Id,
+                        ["ScanThroughDeletedAtUtc"] = _cursor.ScanThroughUtc,
                         ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -89,6 +109,7 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
                 }
                 catch
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 单个不可删除对象保留墓碑并留到下轮重试，不能阻塞本轮后续候选。
                     blobFailures++;
                     continue;
@@ -121,11 +142,13 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
             }
 
             var last = records[^1];
-            hasCursor = true;
-            afterDeletedAtUtc = last.DeletedAtUtc;
-            afterId = last.Id;
+            cancellationToken.ThrowIfCancellationRequested();
+            // 只有整批执行完才推进；数据库异常或取消保留位置，已删除对象可幂等重试。
+            _cursor.DeletedAtUtc = last.DeletedAtUtc;
+            _cursor.Id = last.Id;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }

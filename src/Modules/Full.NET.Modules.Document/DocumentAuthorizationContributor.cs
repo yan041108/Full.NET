@@ -39,6 +39,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentAccessLogPermissions.Read, "读取 Host 文档访问日志", AuthorizationScope.Host),
         new(HostDocumentPreviewTaskPermissions.Read, "读取 Host 文档预览任务", AuthorizationScope.Host),
         new(HostDocumentPreviewTaskPermissions.Create, "创建 Host 文档预览任务", AuthorizationScope.Host),
+        new(HostDocumentPreviewTaskPermissions.Cancel, "取消本人排队 Host 文档预览任务", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -135,6 +136,8 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition(HostDocumentPreviewTaskPermissions.Cancel, "document-preview-tasks",
+            HostDocumentPreviewTaskPermissions.Cancel, "取消本人排队预览", "cancel", 20),
         new AuthorizationActionDefinition(
             "document.host_documents.create",
             "host-document-items",

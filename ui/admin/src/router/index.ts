@@ -7,7 +7,6 @@ import {
 import type { Pinia } from 'pinia';
 import { useSessionStore } from '../auth/session';
 import { flattenNavigation } from '../navigation/catalog';
-import OverviewView from '../views/OverviewView.vue';
 
 /** 状态页始终允许直接进入，避免未认证或无导航目录时被守卫二次拦截。 */
 const statusPaths = new Set(['/403', '/404', '/500']);
@@ -54,7 +53,7 @@ export function createAppRouter(
   const router = createRouter({
     history,
     routes: [
-      { name: 'overview', path: '/', component: OverviewView },
+      { name: 'overview', path: '/', component: () => import('./OverviewRoute.vue') },
       {
         name: 'login',
         path: '/login',
@@ -334,6 +333,11 @@ export function createAppRouter(
         name: 'reporting-export-tasks',
         path: '/reporting/export-tasks',
         component: () => import('../views/ReportingExportTasksView.vue')
+      },
+      {
+        name: 'printing-published-templates',
+        path: '/printing/published-templates',
+        component: () => import('../views/PrintingPublishedTemplatesView.vue')
       },
       {
         name: 'printing-preview',

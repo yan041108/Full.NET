@@ -77,6 +77,13 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         buffered.Position = 0;
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(buffered, cancellationToken).ConfigureAwait(false));
         buffered.Position = 0;
+        // 大文件读取和摘要计算可能跨越停用或上下文切换；进入配额和持久化前重新核对可信租户。
+        if (RequireScope(ownerModuleKey, resourceId) != tenantId
+            || !await activeTenants.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure<TenantResourceFileReference>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
+        }
+
         var fileId = ids.NewId();
         var operationId = fileId.ToString("N");
         var reserveResult = await FilesHostExecutionScope.RunAsync(
@@ -93,6 +100,17 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         }
 
         var provider = providers.DefaultProvider;
+        try
+        {
+            var uploadOwner = resourceOwners.SingleOrDefault(item => item.OwnerModuleKey == ownerModuleKey) as ITenantResourceFileUploadOwner;
+            if (uploadOwner is not null)
+                await uploadOwner.BeginUploadAsync(new(resourceId, fileId, actorUserId, fileName, buffered.Length, clock.UtcNow), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
         var storageKey = $"tenant-resources/{tenantId:N}/{fileId:N}";
         var parameters = Parameters(ownerModuleKey, resourceId, fileId);
         parameters["OriginalFileName"] = fileName;
@@ -119,13 +137,18 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
             throw;
         }
 
+        // 对象已落盘后完成持久化仲裁，不让请求取消切断迟到对象的可发现清理记录。
         if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
-            Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
+            Parameters(ownerModuleKey, resourceId, fileId), CancellationToken.None).ConfigureAwait(false) != 1)
         {
-            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
-                Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
-            if (current?.StatusKey == "released")
+                Parameters(ownerModuleKey, resourceId, fileId), CancellationToken.None).ConfigureAwait(false);
+            if (current is null && await commands.ExecuteAsync(TenantResourceFileSql.InsertReleasedIntent,
+                parameters, CancellationToken.None).ConfigureAwait(false) != 1)
+                throw new InvalidOperationException("Late tenant resource object cleanup intent was not persisted.");
+            // 配额属于独立事务；先持久化对象回收状态，配额故障不能造成无法扫描的对象。
+            await ReleaseQuotaReservationAsync(tenantId, operationId, CancellationToken.None).ConfigureAwait(false);
+            if (current is null || current.StatusKey == "released")
             {
                 await provider.DeleteAsync(storageKey, cancellationToken).ConfigureAwait(false);
             }
@@ -185,9 +208,11 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             return Failure<TenantResourceFileContent>(FilesErrorCodes.FileNotFound, ErrorType.NotFound);
         }
-        var stream = await providers.Resolve(record.ProviderKey).OpenReadAsync(record.StorageKey, cancellationToken)
-            .ConfigureAwait(false);
-        return Result<TenantResourceFileContent>.Success(new(stream, record.ContentType, record.OriginalFileName));
+        var content = await FileStorageContentReader.OpenAsync(
+            providers.Resolve(record.ProviderKey), record.StorageKey, cancellationToken).ConfigureAwait(false);
+        return content.IsSuccess
+            ? Result<TenantResourceFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName))
+            : Result<TenantResourceFileContent>.Failure(content.Error!);
     }
 
     /// <inheritdoc />

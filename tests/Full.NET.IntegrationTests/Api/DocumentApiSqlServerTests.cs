@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class DocumentApiSqlServerTests
 {
     [TestMethod]
+    public async Task Host_document_version_retention_rejects_stale_writes_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await DocumentVersionRetentionAssertions.VerifyJitAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_document_items_follow_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

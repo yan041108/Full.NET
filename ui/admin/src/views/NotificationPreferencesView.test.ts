@@ -52,6 +52,7 @@ function mountView(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: endpoint.userId,
     username: 'admin',

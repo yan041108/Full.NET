@@ -115,8 +115,9 @@ internal sealed class JobExecutionHostedProcessor(
                 .ConfigureAwait(false);
             JobsTelemetry.RecordBacklog(snapshot, observedAtUtc);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception) when (cancellationToken.IsCancellationRequested)
         {
+            // 驱动可能包装命令取消；停机后保留原始异常给外层终止轮询，不能降级为采样告警并继续心跳。
             throw;
         }
         catch (Exception exception)

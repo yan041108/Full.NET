@@ -67,6 +67,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Options.Create(cacheOptions));
         services.AddSingleton<ICachePolicyRegistry>(policyRegistry);
         services.TryAddSingleton<ICacheInvalidator, FusionCacheInvalidator>();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<ICacheJsonTypeInfoContributor, FusionCacheInfrastructureJsonTypeInfoContributor>());
 
         RegisterRedisDistributedCacheIfConfigured(
             services,

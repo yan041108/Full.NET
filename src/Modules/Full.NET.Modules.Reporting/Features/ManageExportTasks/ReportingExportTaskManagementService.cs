@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -7,14 +8,16 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Domain;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 
 /// <summary>创建报表导出任务并同步领取执行；崩溃后由 Worker 按租约恢复。</summary>
-/// <param name="definitionQueries">报表定义读取。</param>
+/// <param name="publishedDefinitions">报表定义读取。</param>
 /// <param name="resourceFiles">导出文件读取。</param>
 /// <param name="queryExecutor">受租户守卫保护的读执行器。</param>
 /// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
@@ -22,8 +25,10 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="currentTenant">当前可信租户。</param>
 /// <param name="clock">时钟。</param>
 /// <param name="idGenerator">任务 UUID。</param>
+/// <param name="authorization">当前会话与精确权限权威校验。</param>
+/// <param name="permissions">身份模块统一的有效权限快照解释器。</param>
 internal sealed class ReportingExportTaskManagementService(
-    ReportingDefinitionQueryService definitionQueries,
+    Full.NET.Modules.Reporting.Features.PublishedDefinitions.ReportingPublishedDefinitionResolver publishedDefinitions,
     ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -31,7 +36,9 @@ internal sealed class ReportingExportTaskManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    ReportingExportAuthorization authorization,
+    IIdentityPermissionEvaluator permissions)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -40,57 +47,44 @@ internal sealed class ReportingExportTaskManagementService(
     /// <param name="request">创建请求。</param>
     /// <param name="requestedByUserId">已授权主体。</param>
     /// <param name="principal">列权限主体。</param>
+    /// <param name="binding">创建请求的交互会话委托。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<ReportingExportTaskDetailResponse>> CreateAsync(
         CreateReportingExportTaskRequest request,
         Guid requestedByUserId,
         ClaimsPrincipal principal,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var tenantId = currentTenant.Id!.Value;
+
+        if (request is null)
+            return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError("Export request is required."));
 
         if (!string.Equals(request.FormatKey, ReportingExportFormatKeys.Excel, StringComparison.Ordinal))
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(UnsupportedFormatError());
         }
 
-        if (request.Parameters.Any(parameter => string.IsNullOrWhiteSpace(parameter.ParameterKey)))
+        if (request.Parameters is null || request.Parameters.Any(parameter => parameter is null || string.IsNullOrWhiteSpace(parameter.ParameterKey)))
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError(
                 "Export parameter keys are required."));
         }
 
-        var definitionResult = await definitionQueries.GetByIdAsync(request.DefinitionId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!definitionResult.IsSuccess || definitionResult.Value is null)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(definitionResult.Error!);
-        }
-
-        var definition = definitionResult.Value;
-        if (!definition.IsEnabled)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError(
-                "The reporting definition is disabled."));
-        }
-
-        var versionNumber = request.VersionNumber ?? definition.LatestPublishedVersionNumber;
-        if (versionNumber <= 0)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                ReportingErrorCodes.DefinitionNotPublished,
-                "The reporting definition has no published version to export.",
-                ErrorType.Validation));
-        }
+        var published = await publishedDefinitions.ResolveAsync(request.DefinitionId, request.VersionNumber, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!published.IsSuccess) return Result<ReportingExportTaskDetailResponse>.Failure(published.Error!);
+        var definition = published.Value!.Definition;
+        var versionNumber = published.Value.Version.VersionNumber;
 
         var taskId = idGenerator.NewId();
         var now = clock.UtcNow;
         var parametersJson = ReportingExportTaskMapper.SerializeParameters(request.Parameters);
-        var permissionCodes = principal.FindAll(FullNetIdentityClaimTypes.Permission)
-            .Select(claim => claim.Value)
-            .Where(code => !string.IsNullOrWhiteSpace(code))
-            .Distinct(StringComparer.Ordinal)
+        var permissionCodes = permissions.ResolvePermissions(principal)
+            .Where(code => permissions.HasPermission(principal, code))
             .ToArray();
         var record = new ReportingExportTaskRecord
         {
@@ -106,27 +100,48 @@ internal sealed class ReportingExportTaskManagementService(
             RowCount = 0,
             RequestedByUserId = requestedByUserId,
             CreatedAtUtc = now,
-            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializePermissionCodes(permissionCodes),
+            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializeAuthorization(permissionCodes, binding),
             Version = 1,
         };
 
+        var canRun = await authorization.CanRunAsync(record, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!canRun)
+            return Result<ReportingExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied,
+                "The export session or permission is no longer valid.", ErrorType.Forbidden));
+
         await commandExecutor.ExecuteAsync(
                 ReportingExportTaskSql.InsertFor(databaseOptions.Value.Provider),
-                record,
+                // 原生路径不反射展开持久化行；TenantId 由执行器绑定可信当前租户。
+                ReportingSqlParameters.Create(
+                    ("Id", record.Id), ("DefinitionId", record.DefinitionId),
+                    ("VersionNumber", record.VersionNumber), ("DefinitionKey", record.DefinitionKey),
+                    ("DefinitionName", record.DefinitionName), ("FormatKey", record.FormatKey),
+                    ("ParametersJson", record.ParametersJson), ("StatusKey", record.StatusKey),
+                    ("OutputFileId", record.OutputFileId), ("OutputFileName", record.OutputFileName),
+                    ("RowCount", record.RowCount), ("ErrorCode", record.ErrorCode),
+                    ("ErrorMessage", record.ErrorMessage), ("RequestedByUserId", record.RequestedByUserId),
+                    ("CreatedAtUtc", record.CreatedAtUtc), ("CompletedAtUtc", record.CompletedAtUtc),
+                    ("LeaseId", record.LeaseId), ("LeaseExpiresAtUtc", record.LeaseExpiresAtUtc),
+                    ("ActorPermissionCodesJson", record.ActorPermissionCodesJson), ("Version", record.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await runner.RunOwnedAsync(taskId, principal, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await runner.RunOwnedAsync(taskId, cancellationToken).ConfigureAwait(false);
         return await LoadResultAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>打开已完成导出任务的文件内容流。</summary>
+    /// <summary>按创建人的当前会话及原受保护列权限复核后打开文件；不重新执行报表查询。</summary>
     /// <param name="taskId">任务标识。</param>
+    /// <param name="binding">从已认证请求冻结的当前交互会话。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<TenantResourceFileContent>> OpenDownloadAsync(
         Guid taskId,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
@@ -134,10 +149,17 @@ internal sealed class ReportingExportTaskManagementService(
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
+
+        var canDownload = await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!canDownload)
+            return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                "The export download session or permission is no longer valid.", ErrorType.Forbidden));
 
         if (!string.Equals(record.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
@@ -153,14 +175,30 @@ internal sealed class ReportingExportTaskManagementService(
             .ConfigureAwait(false);
         if (!content.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return Result<TenantResourceFileContent>.Failure(content.Error!);
         }
 
         var file = content.Value!;
-        return Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
-            file.Content,
-            file.ContentType ?? WorkbookContentType,
-            record.OutputFileName ?? file.OriginalFileName));
+        var transferred = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // 打开对象期间撤销会话、报表版本授权或列权限时，不再把旧授权文件交给响应管道。
+            var stillAllowed = await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!stillAllowed)
+                return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                    "The export download session or permission is no longer valid.", ErrorType.Forbidden));
+            var result = Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
+                file.Content, file.ContentType ?? WorkbookContentType, record.OutputFileName ?? file.OriginalFileName));
+            transferred = true;
+            return result;
+        }
+        finally
+        {
+            if (!transferred) await file.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>把持久化终态映射为创建 API 结果，失败任务仍返回业务错误。</summary>
@@ -170,12 +208,14 @@ internal sealed class ReportingExportTaskManagementService(
         Guid taskId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var detail = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
                 ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (detail is null)
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError());
@@ -186,7 +226,9 @@ internal sealed class ReportingExportTaskManagementService(
             return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
                 detail.ErrorCode ?? ReportingErrorCodes.ExportFailed,
                 detail.ErrorMessage ?? "Reporting export failed.",
-                ErrorType.Validation));
+                string.Equals(detail.ErrorCode, CommonErrorCodes.PermissionDenied, StringComparison.Ordinal)
+                    ? ErrorType.Forbidden
+                    : ErrorType.Validation));
         }
 
         return Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(detail));

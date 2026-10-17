@@ -30,6 +30,7 @@ internal static class FilesHostFileManagementAssertions
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyPendingUploadReconciliationAsync(factory, cancellationToken);
+        await PendingClaimSnapshotAssertions.VerifyAsync(factory, cancellationToken);
         await VerifyUploadDownloadAndDeleteAsync(
             factory,
             client,

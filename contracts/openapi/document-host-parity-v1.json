@@ -121,6 +121,17 @@
           "successStatus": 200
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/host/permissions/snapshot/{documentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_permissions.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPermissionSnapshotResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -133,7 +144,8 @@
     "SetHostDocumentPermissionsRequest": {
       "properties": [
         "documentId",
-        "permissions"
+        "permissions",
+        "version"
       ]
     },
     "HostDocumentPermissionResponse": {
@@ -263,6 +275,13 @@
         "total"
       ],
       "itemSchema": "HostDocumentItemResponse"
+    },
+    "HostDocumentPermissionSnapshotResponse": {
+      "properties": [
+        "documentId",
+        "version",
+        "permissions"
+      ]
     }
   }
 }

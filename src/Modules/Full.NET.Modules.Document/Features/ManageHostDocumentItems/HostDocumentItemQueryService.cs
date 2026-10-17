@@ -28,6 +28,7 @@ internal sealed class HostDocumentItemQueryService(
         Guid? tagId = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -52,10 +53,12 @@ internal sealed class HostDocumentItemQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var itemIds = pageResult.Rows.Select(row => row.Id).ToArray();
         var tagsByItem = await documentItemTagAssignmentService
             .ListByDocumentItemIdsAsync(itemIds, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
         return Result<PagedResult<HostDocumentItemResponse>>.Success(
             new PagedResult<HostDocumentItemResponse>(
@@ -75,12 +78,14 @@ internal sealed class HostDocumentItemQueryService(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return NotFound();
@@ -89,6 +94,7 @@ internal sealed class HostDocumentItemQueryService(
         var tagsByItem = await documentItemTagAssignmentService
             .ListByDocumentItemIdsAsync([itemId], cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         tagsByItem.TryGetValue(itemId, out var tags);
         return Result<HostDocumentItemResponse>.Success(Map(record, tags));
     }
@@ -98,12 +104,14 @@ internal sealed class HostDocumentItemQueryService(
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<HostFileContent>.Failure(NotFoundError());
@@ -119,23 +127,25 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
         if (!contentResult.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return contentResult;
         }
 
-        await TryRecordAccessAsync(record, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+        return await RecordAccessAndTransferAsync(record, accessObservation, contentResult, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<IReadOnlyList<HostDocumentVersionResponse>>> ListVersionsAsync(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (item is null)
         {
             return Result<IReadOnlyList<HostDocumentVersionResponse>>.Failure(NotFoundError());
@@ -147,6 +157,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
         return Result<IReadOnlyList<HostDocumentVersionResponse>>.Success(
             versions.Select(HostDocumentItemResponseMapper.MapVersion).ToArray());
@@ -158,12 +169,14 @@ internal sealed class HostDocumentItemQueryService(
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (item is null)
         {
             return Result<HostFileContent>.Failure(NotFoundError());
@@ -171,6 +184,7 @@ internal sealed class HostDocumentItemQueryService(
 
         var fileIdResult = await ResolvePreviewFileIdAsync(itemId, versionId, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!fileIdResult.IsSuccess)
         {
             return Result<HostFileContent>.Failure(fileIdResult.Error!);
@@ -181,17 +195,34 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
         if (!contentResult.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return contentResult;
         }
 
-        if (!IsPreviewSupportedMime(contentResult.Value!.ContentType))
-        {
-            contentResult.Value.Content.Dispose();
-            return Result<HostFileContent>.Failure(PreviewNotSupportedError());
-        }
+        return await RecordAccessAndTransferAsync(item, accessObservation, contentResult, cancellationToken, requirePreviewMime: true).ConfigureAwait(false);
+    }
 
-        await TryRecordAccessAsync(item, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+    // 日志或请求取消失败时，尚未交付给 HTTP 层的文件流仍由本服务负责释放。
+    private async Task<Result<HostFileContent>> RecordAccessAndTransferAsync(
+        DocumentItemDetailRecord item, DocumentAccessObservation? observation,
+        Result<HostFileContent> content, CancellationToken token, bool requirePreviewMime = false)
+    {
+        var transferred = false;
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            // MIME 拒绝也在持有范围内解释，不能把已取消请求改为普通“不支持预览”。
+            if (requirePreviewMime && !IsPreviewSupportedMime(content.Value!.ContentType))
+                return Result<HostFileContent>.Failure(PreviewNotSupportedError());
+            await TryRecordAccessAsync(item, observation, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            transferred = true;
+            return content;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task<Result<Guid>> ResolvePreviewFileIdAsync(
@@ -199,6 +230,7 @@ internal sealed class HostDocumentItemQueryService(
         Guid? versionId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (versionId is null)
         {
             var record = await queryExecutor
@@ -207,6 +239,7 @@ internal sealed class HostDocumentItemQueryService(
                     DocumentSqlParameters.Create(("Id", itemId)),
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (record is null)
             {
                 return Result<Guid>.Failure(NotFoundError());
@@ -226,6 +259,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("VersionId", versionId.Value), ("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (version is null)
         {
             return Result<Guid>.Failure(NotFoundError());

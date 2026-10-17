@@ -10,11 +10,13 @@ internal sealed class ReportingExportBudget
 
     /// <summary>计入列定义，限制每行的对象数量。</summary>
     /// <param name="columns">当前可见列。</param>
-    internal void AddColumns(IReadOnlyList<ReportingExecutionColumnDefinition> columns)
+    internal void AddColumns(IReadOnlyList<ReportingExecutionColumnDefinition> columns, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (columns.Count > 256) throw new InvalidDataException("The export column limit was exceeded.");
         foreach (var column in columns)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             AddText(column.ColumnKey);
             AddText(column.DisplayName);
         }
@@ -22,12 +24,14 @@ internal sealed class ReportingExportBudget
 
     /// <summary>在收集或渲染之前计入一行，任何越界都失败关闭。</summary>
     /// <param name="row">即将保留的数据行。</param>
-    internal void AddRow(ReportingExecutionRow row)
+    internal void AddRow(ReportingExecutionRow row, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (++rowCount > ReportingExportPolicy.MaxExportRows || row.Values.Count > 256)
             throw new InvalidDataException("The export row or column limit was exceeded.");
         foreach (var pair in row.Values)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             AddText(pair.Key);
             AddText(pair.Value);
         }

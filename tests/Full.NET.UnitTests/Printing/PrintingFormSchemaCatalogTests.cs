@@ -9,7 +9,7 @@ public sealed class PrintingFormSchemaCatalogTests
     [TestMethod]
     public void Catalog_exposes_tenant_profile_card_schema()
     {
-        var schema = PrintingFormSchemaCatalog.TryGet(PrintingFormSchemaKeys.TenantProfileCard);
+        var schema = new PrintingFormSchemaCatalog([]).TryGet(PrintingFormSchemaKeys.TenantProfileCard);
         Assert.IsNotNull(schema);
         CollectionAssert.AreEquivalent(
             new[] { "tenantName", "tenantCode", "tenantDomain", "printedByDisplayName", "printedAtUtc" },

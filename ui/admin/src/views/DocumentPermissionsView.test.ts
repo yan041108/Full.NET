@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { permissionDocument } from '../test/document-permission-fixtures';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import DocumentPermissionsView from './DocumentPermissionsView.vue';
@@ -10,7 +11,7 @@ vi.mock('../api/host-document-items', () => ({
 }));
 
 vi.mock('../api/document-permissions', () => ({
-  getDocumentPermissionsByDocument: vi.fn().mockResolvedValue([]),
+  getDocumentPermissionSnapshot: vi.fn().mockResolvedValue({ documentId: '0198f36e-f7a7-7c52-9cbb-774e67411205', version: 7, permissions: [] }),
   setDocumentPermissions: vi.fn()
 }));
 
@@ -18,6 +19,7 @@ const listMock = vi.mocked(listDocumentItems);
 
 const samplePage = {
   items: [{
+    ...permissionDocument,
     id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
     title: 'Spec',
     documentNo: 'DOC-1',
@@ -33,6 +35,7 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',

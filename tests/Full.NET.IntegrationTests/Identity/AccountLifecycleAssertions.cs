@@ -77,7 +77,7 @@ internal static class AccountLifecycleAssertions
             && item.ResultCode == IdentityErrorCodes.AccountChallengeInvalid));
     }
 
-    private static async Task<string> LoginAsHostAdminAsync(
+    internal static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -92,7 +92,7 @@ internal static class AccountLifecycleAssertions
         return token!.AccessToken;
     }
 
-    private static async Task CreateHostUserWithEmailAsync(
+    internal static async Task<HostUserResponse> CreateHostUserWithEmailAsync(
         HttpClient client,
         string adminToken,
         string email,
@@ -132,5 +132,8 @@ internal static class AccountLifecycleAssertions
         };
         using var response = await client.SendAsync(request, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var user = await response.Content.ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(user);
+        return user;
     }
 }

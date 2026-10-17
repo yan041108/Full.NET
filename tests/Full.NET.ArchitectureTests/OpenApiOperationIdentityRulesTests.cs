@@ -1,10 +1,12 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization.Metadata;
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Hosting.Observability;
+using Full.NET.Hosting.OpenApi;
 using Full.NET.Modularity.Modules;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MemoryPack;
@@ -12,6 +14,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -179,8 +182,33 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         Assert.HasCount(0, invalidNames, $"Operation 名称必须为 lowerCamelCase：{string.Join(", ", invalidNames)}");
     }
 
-    private static WebApplication BuildApiApplication()
+    [TestMethod]
+    public async Task OpenApi_generation_uses_only_source_generated_json_metadata()
     {
+        using var app = BuildApiApplication(sourceGeneratedOnly: true);
+        // 禁用 JIT 反射兜底，在快速测试中暴露原生文档路径缺失的 JSON 元数据。
+        _ = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).ToArray();
+        using var scope = app.Services.CreateScope();
+        var jsonOptions = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>().Value.SerializerOptions;
+        var descriptions = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Mvc.ApiExplorer.IApiDescriptionGroupCollectionProvider>();
+        var missing = new List<string>();
+        foreach (var type in descriptions.ApiDescriptionGroups.Items.SelectMany(group => group.Items)
+            .SelectMany(description => description.ParameterDescriptions.Select(parameter => parameter.Type)
+                .Concat(description.SupportedResponseTypes.Select(response => response.Type)))
+            .Where(type => type is not null && type != typeof(void)).Distinct())
+        {
+            try { _ = jsonOptions.GetTypeInfo(type!); }
+            catch (NotSupportedException error) { missing.Add(error.Message); }
+        }
+        Assert.HasCount(0, missing, string.Join(Environment.NewLine, missing));
+        var provider = scope.ServiceProvider.GetRequiredKeyedService<IOpenApiDocumentProvider>(FullNetOpenApiExtensions.DocumentName);
+        var document = await provider.GetOpenApiDocumentAsync();
+        Assert.IsTrue(document.Paths.Count > 0);
+    }
+
+    private static WebApplication BuildApiApplication(bool sourceGeneratedOnly = false)
+    {
+        var documentDataSources = new List<EndpointDataSource>();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             EnvironmentName = "Testing",
@@ -204,6 +232,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
             ["Tenancy:HostDomains:0"] = "localhost",
         });
         builder.AddFullNetServiceDefaults();
+        builder.Services.AddFullNetOpenApi();
         builder.Services.AddFullNetDapper(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
         builder.Services.AddFullNetMemoryPack();
@@ -214,9 +243,21 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         builder.Services.AddFullNetApplicationModules(
             builder.Configuration,
             FullNetHostProfile.Api);
+        if (sourceGeneratedOnly)
+        {
+            // 不启动后台服务或数据库，仅将真实模块路由接入 ApiExplorer 的数据源。
+            builder.Services.AddSingleton<EndpointDataSource>(_ => new CompositeEndpointDataSource(documentDataSources));
+            builder.Services.PostConfigure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+            {
+                var resolvers = options.SerializerOptions.TypeInfoResolverChain;
+                for (var index = resolvers.Count - 1; index >= 0; index--)
+                    if (resolvers[index] is DefaultJsonTypeInfoResolver) resolvers.RemoveAt(index);
+            });
+        }
 
         var app = builder.Build();
         app.MapFullNetModules();
+        documentDataSources.AddRange(((IEndpointRouteBuilder)app).DataSources);
         return app;
     }
 
@@ -457,6 +498,11 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/printing/templates/{templateId}/versions", "printingListTemplateVersions", PrintingTemplatesTag),
         new("GET", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}", "printingGetTemplateVersion", PrintingTemplatesTag),
         new("POST", "/api/v1/printing/templates/{templateId}/preview", "printingPreviewTemplate", PrintingPreviewsTag),
+        new("GET", "/api/v1/printing/published-templates", "printingListPublishedTemplates", PrintingTemplatesTag),
+        new("POST", "/api/v1/printing/published-templates/{templateId}/preview", "printingPreviewPublishedTemplate", PrintingPreviewsTag),
+        new("GET", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}/tenant-grants", "printingListTenantVersionGrants", PrintingTemplatesTag),
+        new("PUT", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}/tenant-grants/{tenantId}", "printingGrantTenantVersion", PrintingTemplatesTag),
+        new("DELETE", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}/tenant-grants/{tenantId}", "printingRevokeTenantVersion", PrintingTemplatesTag),
         new("GET", "/api/v1/ai/model-configs", "aiListModelConfigs", AiModelConfigsTag),
         new("GET", "/api/v1/ai/model-configs/{modelConfigId}", "aiGetModelConfig", AiModelConfigsTag),
         new("POST", "/api/v1/ai/model-configs", "aiCreateModelConfig", AiModelConfigsTag),
@@ -743,6 +789,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/document/host/tags/{tagId}", "documentHostUpdateTag", DocumentHostTagsTag),
         new("POST", "/api/v1/document/host/tags/{tagId}/delete", "documentHostDeleteTag", DocumentHostTagsTag),
         new("GET", "/api/v1/document/host/permissions/by-document/{documentId}", "documentHostListDocumentPermissions", DocumentHostPermissionsTag),
+        new("GET", "/api/v1/document/host/permissions/snapshot/{documentId}", "documentHostGetDocumentPermissionSnapshot", DocumentHostPermissionsTag),
         new("POST", "/api/v1/document/host/permissions", "documentHostSetDocumentPermissions", DocumentHostPermissionsTag),
         new("GET", "/api/v1/document/host/recycle-bin", "documentHostListRecycleBinItems", DocumentHostRecycleBinTag),
         new("POST", "/api/v1/document/host/recycle-bin/{id}/restore", "documentHostRestoreRecycleBinItem", DocumentHostRecycleBinTag),

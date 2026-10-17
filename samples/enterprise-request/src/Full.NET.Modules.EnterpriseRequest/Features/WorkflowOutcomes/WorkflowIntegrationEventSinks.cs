@@ -15,7 +15,9 @@ internal sealed class WorkflowInstanceCompletedEnterpriseRequestSink(
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             EnterpriseRequestStatusKeys.Approved,
-            context.MessageId.ToString("D"),
+            integrationEvent.InstanceId,
+            context.TenantId,
+            context.MessageId,
             cancellationToken);
 }
 
@@ -30,7 +32,9 @@ internal sealed class WorkflowInstanceRejectedEnterpriseRequestSink(
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             EnterpriseRequestStatusKeys.Rejected,
-            context.MessageId.ToString("D"),
+            integrationEvent.InstanceId,
+            context.TenantId,
+            context.MessageId,
             cancellationToken);
 }
 
@@ -45,6 +49,8 @@ internal sealed class WorkflowInstanceCancelledEnterpriseRequestSink(
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             EnterpriseRequestStatusKeys.Cancelled,
-            context.MessageId.ToString("D"),
+            integrationEvent.InstanceId,
+            context.TenantId,
+            context.MessageId,
             cancellationToken);
 }

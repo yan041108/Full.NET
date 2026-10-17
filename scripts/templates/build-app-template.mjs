@@ -2,7 +2,8 @@
 /**
  * 将应用模板与固定提交的框架源码组装为可安装的 dotnet new 模板目录。
  */
-import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSourceBundle } from './build-source-bundle.mjs';
@@ -13,7 +14,7 @@ const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..');
 const TEMPLATE_ROOT = join(REPO_ROOT, 'templates', 'fullnet-app');
 const DEFAULT_OUTPUT = join(REPO_ROOT, 'artifacts', 'templates', 'fullnet-app-package');
 
-export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
+export function buildAppTemplate({ output = DEFAULT_OUTPUT, run = spawnSync } = {}) {
   const templateRoot = resolve(output);
   // 分发包只允许写入空目录，避免模板构建覆盖应用或其他人工文件。
   if (existsSync(templateRoot) && readdirSync(templateRoot).length > 0) {
@@ -27,7 +28,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
     copyFileSync(templatePackageJson, join(templateRoot, 'package.json'));
   }
 
-  const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet') });
+  const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet'), run });
   copyFileSync(join(bundleRoot, 'framework-manifest.json'), join(templateRoot, 'framework-manifest.json'));
   copyFileSync(join(bundleRoot, 'global.json'), join(templateRoot, 'global.json'));
   // 管理端是应用拥有的骨架；共享源码与锁文件随分发包固定版本交付。
@@ -48,10 +49,14 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Api', 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Migrator', 'appsettings.json'));
+  const workerConfigPath = join(templateRoot, 'src', 'FullNetAppNameToken.Host.Worker', 'appsettings.json');
+  // Worker 健康端点使用独立端口，避免本地 API 与 Worker 同时启动时发生绑定冲突。
+  writeFileSync(workerConfigPath,
+    readFileSync(configTemplate, 'utf8').replace('http://localhost:5180', 'http://localhost:5181'));
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
+  for (const tool of ['create-app.mjs', 'diagnose-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
   copyApplicationClientTools(bundleRoot, templateRoot);

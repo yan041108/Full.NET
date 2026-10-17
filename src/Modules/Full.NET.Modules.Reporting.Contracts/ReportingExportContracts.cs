@@ -11,6 +11,9 @@ public static class ReportingExportTaskPermissions
 
     /// <summary>下载已完成的报表导出文件。</summary>
     public const string Download = "reporting.export_tasks.download";
+
+    /// <summary>取消创建人自己的排队导出任务；不授予报表执行或下载权限。</summary>
+    public const string Cancel = "reporting.export_tasks.cancel";
 }
 
 /// <summary>报表导出格式键。</summary>
@@ -34,12 +37,15 @@ public static class ReportingExportTaskStatusKeys
 
     /// <summary>导出失败。</summary>
     public const string Failed = "failed";
+
+    /// <summary>创建人在领取前取消，任务不再执行。</summary>
+    public const string Cancelled = "cancelled";
 }
 
 /// <summary>创建报表导出任务请求。</summary>
 /// <param name="DefinitionId">目标报表定义标识。</param>
 /// <param name="FormatKey">导出格式键，当前仅支持 <see cref="ReportingExportFormatKeys.Excel"/>。</param>
-/// <param name="VersionNumber">目标发布版本号；省略时使用最近发布版本。</param>
+/// <param name="VersionNumber">目标发布版本号；省略时 Host 使用最近发布版本，租户使用最近获授版本。</param>
 /// <param name="Parameters">受控执行参数。</param>
 public sealed record CreateReportingExportTaskRequest(
     Guid DefinitionId,

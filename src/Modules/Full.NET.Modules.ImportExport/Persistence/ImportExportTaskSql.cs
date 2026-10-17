@@ -124,6 +124,19 @@ internal static class ImportExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>双库共用的取消 CAS；版本防止 queued→executing→queued 后覆盖新的检查点。</summary>
+    public static readonly SqlStatement Cancel = new(
+        "import_export.task.cancel",
+        """
+        UPDATE fn_import_export_task
+        SET StatusKey = 'cancelled', ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id AND RequestedByUserId = @RequestedByUserId
+          AND StatusKey = @ExpectedStatusKey AND Version = @ExpectedVersion
+          AND StatusKey IN ('preview_succeeded', 'queued', 'execution_partial', 'execution_failed')
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement ClaimQueuedSqlServer = new(
         "import_export.task.claim_queued.sqlserver",
         $"""
@@ -182,6 +195,21 @@ internal static class ImportExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>检查点和失败回写共用本租户任务行锁，不把等待锁前的时间当成仍持有租约。</summary>
+    public static readonly SqlStatement LockExecutionSqlServer = new(
+        "import_export.task.lock_execution.sqlserver",
+        $"""
+        SELECT {SelectColumns} FROM fn_import_export_task WITH (UPDLOCK, ROWLOCK)
+        WHERE TenantId = @TenantId AND Id = @Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement LockExecutionMySql = new(
+        "import_export.task.lock_execution.mysql",
+        $"""
+        SELECT {SelectColumns} FROM fn_import_export_task
+        WHERE TenantId = @TenantId AND Id = @Id FOR UPDATE
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement UpdateExecutionProgress = new(
         "import_export.task.update_execution_progress",
         """
@@ -201,6 +229,7 @@ internal static class ImportExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -217,6 +246,7 @@ internal static class ImportExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

@@ -23,6 +23,26 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class EndpointAuthorizationTests
 {
+    [TestMethod]
+    public void Document_preview_cancel_has_its_own_permission_and_no_anonymous_access()
+    {
+        using var app = BuildApiApplication();
+        var endpoint = CollectApiV1Endpoints(app).Single(item => item.RoutePattern.RawText == "/api/v1/document/host/preview-tasks/{taskId:guid}/cancel");
+        Assert.IsNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        CollectionAssert.AreEquivalent(new[] { FullNetPermissionPolicies.For("document.host_preview_tasks.cancel") },
+            endpoint.Metadata.OfType<IAuthorizeData>().Select(item => item.Policy).ToArray());
+    }
+
+    [TestMethod]
+    public void Reporting_cancel_has_its_own_tenant_permission_and_no_anonymous_access()
+    {
+        using var app = BuildApiApplication();
+        var endpoint = CollectApiV1Endpoints(app).Single(item => item.RoutePattern.RawText == "/api/v1/reporting/export-tasks/{taskId:guid}/cancel");
+        Assert.IsNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        CollectionAssert.AreEquivalent(new[] { FullNetPermissionPolicies.For("reporting.export_tasks.cancel") },
+            endpoint.Metadata.OfType<IAuthorizeData>().Select(item => item.Policy).ToArray());
+    }
+
     /// <summary>仅在提供程序和审批同步同时开启时暴露审批路由。</summary>
     /// <param name="providerEnabled">提供程序开关。</param>
     /// <param name="workflowEnabled">审批同步开关。</param>

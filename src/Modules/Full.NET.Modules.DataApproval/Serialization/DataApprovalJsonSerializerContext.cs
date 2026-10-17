@@ -14,4 +14,6 @@ namespace Full.NET.Modules.DataApproval.Serialization;
 [JsonSerializable(typeof(UpdateDataApprovalScenarioBindingBody))]
 [JsonSerializable(typeof(PagedResult<DataApprovalRequestResponse>))]
 [JsonSerializable(typeof(DataApprovalScenarioResponse[]))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<DataApprovalScenarioResponse>))]
 internal partial class DataApprovalJsonSerializerContext : JsonSerializerContext;

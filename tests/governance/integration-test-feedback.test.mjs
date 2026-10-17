@@ -174,7 +174,13 @@ test('本地 API 工厂必须支持只读模板克隆，容器默认复用', asy
   assert.match(template, /只读 schema 模板/);
   assert.match(template, /FULLNET_API_SCHEMA_TEMPLATE/);
   assert.match(template, /RESTORE DATABASE/);
-  assert.match(template, /CREATE TABLE \{quotedTarget\}\.\{quotedTable\} LIKE/);
+  // SHOW CREATE 保留外键；真实克隆回归同时验证触发器执行与视图隔离。
+  assert.match(template, /SHOW CREATE \{objectKind\}/);
+  assert.doesNotMatch(template, /CREATE TABLE .* LIKE/);
+  const cloneRegression = await read('tests/Full.NET.IntegrationTests/Data/MySqlSchemaCloneTests.cs');
+  assert.match(cloneRegression, /REFERENTIAL_CONSTRAINTS/);
+  assert.match(cloneRegression, /invalidParent\.SqlState/);
+  assert.match(cloneRegression, /invalidValue\.SqlState/);
   assert.match(template, /ClearAllPools/);
   assert.match(template, /ContainsBootstrapDataAsync/);
 });

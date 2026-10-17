@@ -77,6 +77,7 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
@@ -127,7 +128,7 @@ describe('Vue Host 文档库页', () => {
     await wrapper.get('[data-testid="host-document-item-download"]').trigger('click');
     await flushPromises();
 
-    expect(downloadMock).toHaveBeenCalledWith(item.id);
+    expect(downloadMock).toHaveBeenCalledWith(item.id, expect.any(AbortSignal));
     expect(openBlobMock).toHaveBeenCalledOnce();
   });
 

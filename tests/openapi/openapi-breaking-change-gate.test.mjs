@@ -86,6 +86,35 @@ test('覆盖清单允许已有 API 增加消费者，但仍拒绝删除旧消费
   }
 });
 
+test('覆盖清单允许追加客户端模块，仍拒绝丢失、重复或重绑定旧契约', async () => {
+  const name = 'vue-client-coverage-v1.json';
+  const entry = {
+    apiModule: 'ui/admin/src/api/reporting-export-tasks.ts',
+    clientContractModules: ['packages/client-contracts/src/reporting-export-tasks.ts'],
+    openApiFixture: 'contracts/openapi/fullnet-client-v1.openapi.json',
+    routePrefixes: ['/api/v1/reporting/export-tasks']
+  };
+  const baseline = { schemaVersion: 1, entries: [entry] };
+  const current = clone(baseline);
+  current.entries[0].clientContractModules.push('packages/client-contracts/src/generated/index.generated.ts');
+  const compare = value => compareDirectories({ [name]: baseline }, { [name]: value });
+  const additive = await compare(current);
+  assert.equal(additive.status, 0, additive.stderr);
+  for (const mutate of [
+    value => { value.entries[0].clientContractModules.shift(); },
+    value => { value.entries[0].clientContractModules[0] = 'other-client.ts'; },
+    value => { value.entries[0].openApiFixture = 'other.json'; },
+    value => { value.entries[0].routePrefixes = ['/other']; },
+    value => { value.entries[0].clientContractModules.push(value.entries[0].clientContractModules[0]); },
+    value => { value.entries.push(clone(value.entries[0])); },
+    value => { value.entries[0].clientContractModules.push(null); }
+  ]) {
+    const changed = clone(current);
+    mutate(changed);
+    assert.equal((await compare(changed)).status, 1);
+  }
+});
+
 const baselineContract = {
   id: 'sample-v1',
   version: 1,

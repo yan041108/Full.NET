@@ -28,6 +28,7 @@ internal sealed class SettingsDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<ConfigEntryIdentityRecord>(ReadConfigEntryIdentityRecord);
         registrar.Register<ConfigEntrySecretRecord>(ReadConfigEntrySecretRecord);
         registrar.Register<GridPreferenceRecord>(ReadGridPreferenceRecord);
+        registrar.Register<SettingsDomainAuditDiffRecord>(ReadDomainAuditDiffRecord);
     }
 
     private static HostDictTypes.DictTypeRecord ReadHostDictTypeRecord(DbDataReader reader) =>
@@ -160,6 +161,17 @@ internal sealed class SettingsDapperAotMaterializerContributor : IDapperAotMater
             ValueKind = reader.GetString(0),
             Value = reader.GetString(1),
             IsActive = AotDataReaderExtensions.ReadBoolean(reader, 2),
+        };
+
+    /// <summary>审计差异读取使用独立五列投影，可空 Trace 与摘要仍交由上层解析及脱敏。</summary>
+    private static SettingsDomainAuditDiffRecord ReadDomainAuditDiffRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            ActionKey = reader.GetString(1),
+            TraceId = AotDataReaderExtensions.ReadNullableString(reader, 2),
+            DiffSummaryJson = AotDataReaderExtensions.ReadNullableString(reader, 3),
+            OccurredAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 4),
         };
 
     private static GridPreferenceRecord ReadGridPreferenceRecord(DbDataReader reader) =>

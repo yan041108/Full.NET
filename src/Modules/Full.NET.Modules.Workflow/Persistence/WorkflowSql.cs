@@ -1200,6 +1200,19 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>实例取消时收敛所有步骤的未决席位；保留已提交投票，且不依赖活动待办仍存在。</summary>
+    public static readonly SqlStatement CancelPendingApprovalSlotsByInstance = new(
+        "workflow.approval_slot.cancel_pending_by_instance",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET DecisionKey = 'cancelled',
+            DecidedAtUtc = @DecidedAtUtc,
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND DecisionKey IS NULL
+        """,
+        SqlDataScope.Global);
+
     /// <summary>把发起退回的当前活动步骤关闭为 returned。</summary>
     public static readonly SqlStatement ReturnStepWithRevision = new(
         "workflow.step.return_with_revision",

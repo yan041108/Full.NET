@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -8,6 +10,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.RegistrationInvitations;
+using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Notifications.Contracts;
 using Microsoft.Extensions.DependencyInjection;
@@ -76,6 +79,20 @@ internal static class InvitedRegistrationAssertions
         }
 
         Assert.IsNotNull(deliveryPort.LastIntent);
+        var registration = new RegisterAccountRequest(email, "Invited User", "FullNet!2026Register",
+            deliveryPort.LastIntent.ChallengeId, deliveryPort.LastIntent.Credential,
+            InvitationId: invitationId, InvitationToken: invitationToken);
+        await VerifyDisabledPolicyAsync(scopedFactory, client, registration, cancellationToken);
+        await VerifyFailedAttemptsAsync(scopedFactory, client, registration, cancellationToken);
+        // 耗尽后显式重发新挑战，邀请不应因错误验证码被消费。
+        using (var resend = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
+            new SendRegistrationEmailChallengeRequest(email, IdentityAccountChallengePurpose.InvitationEmailVerification,
+                invitationId, invitationToken), cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, resend.StatusCode);
+        }
+        registration = registration with { ChallengeId = deliveryPort.LastIntent!.ChallengeId, ChallengeCode = deliveryPort.LastIntent.Credential };
+        await VerifyBusinessFailureRollbackAsync(scopedFactory, client, registration, cancellationToken);
         using var registerRequest = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/v1/auth/register")
@@ -93,6 +110,137 @@ internal static class InvitedRegistrationAssertions
         Assert.AreEqual(HttpStatusCode.OK, registerResponse.StatusCode);
         var body = await registerResponse.Content.ReadFromJsonAsync<RegisterAccountResponse>(cancellationToken);
         Assert.IsTrue(body!.Created);
+
+        // 同一真实入口还覆盖开放注册，避免只验证邀请模式的特殊分支。
+        await using (var scope = scopedFactory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+            context.SetHost();
+            try
+            {
+                var policy = scope.ServiceProvider.GetRequiredService<RegistrationPolicyService>();
+                var current = await policy.GetAsync(cancellationToken);
+                Assert.IsTrue(current.IsSuccess);
+                Assert.IsTrue((await policy.UpdateAsync(new UpdateRegistrationPolicyRequest(true, current.Value!.Version,
+                    IdentityRegistrationMode.Open), cancellationToken)).IsSuccess);
+            }
+            finally { context.Clear(); }
+        }
+        var openEmail = $"open-{Guid.NewGuid():N}@example.com";
+        using (var challenge = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
+            new SendRegistrationEmailChallengeRequest(openEmail, IdentityAccountChallengePurpose.RegistrationEmailVerification), cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, challenge.StatusCode);
+        }
+        registration = new RegisterAccountRequest(openEmail, "Open User", "FullNet!2026Register",
+            deliveryPort.LastIntent!.ChallengeId, deliveryPort.LastIntent.Credential, registrationWayId);
+        await VerifyFailedAttemptsAsync(scopedFactory, client, registration, cancellationToken);
+        using (var resend = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
+            new SendRegistrationEmailChallengeRequest(openEmail, IdentityAccountChallengePurpose.RegistrationEmailVerification), cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, resend.StatusCode);
+        }
+        registration = registration with { ChallengeId = deliveryPort.LastIntent!.ChallengeId, ChallengeCode = deliveryPort.LastIntent.Credential };
+        await VerifyBusinessFailureRollbackAsync(scopedFactory, client, registration, cancellationToken);
+        using var registered = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, registered.StatusCode);
+        Assert.IsTrue((await registered.Content.ReadFromJsonAsync<RegisterAccountResponse>(cancellationToken))!.Created);
+    }
+
+    private static async Task VerifyFailedAttemptsAsync(FullNetApiFactory factory, HttpClient client,
+        RegisterAccountRequest registration, CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            using var response = await client.PostAsJsonAsync("/api/v1/auth/register",
+                registration with { ChallengeCode = "incorrect-code" }, cancellationToken);
+            await AssertProblemAsync(response, IdentityErrorCodes.AccountChallengeInvalid, cancellationToken);
+            var record = await query.QuerySingleOrDefaultAsync<AccountChallengeRecord>(AccountChallengeSql.FindById,
+                IdentitySqlParameters.Create(("ChallengeId", registration.ChallengeId)), cancellationToken);
+            Assert.IsNotNull(record);
+            Assert.AreEqual(attempt, record.AttemptCount, "注册失败不能回滚验证码错误次数。");
+            Assert.IsNull(record.ConsumedAtUtc);
+        }
+        using var blocked = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
+        await AssertProblemAsync(blocked, IdentityErrorCodes.AccountChallengeAttemptsExceeded, cancellationToken);
+        Assert.IsNull(await query.QuerySingleOrDefaultAsync<IdentityUserRecord>(AccountLifecycleSql.FindUserByProfileEmail,
+            IdentitySqlParameters.Create(("Email", registration.Email)), cancellationToken));
+        if (registration.InvitationId.HasValue)
+        {
+            var invitation = await query.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(RegistrationInvitationSql.FindById,
+                IdentitySqlParameters.Create(("InvitationId", registration.InvitationId.Value)), cancellationToken);
+            Assert.IsNotNull(invitation);
+            Assert.AreEqual((byte)IdentityRegistrationInvitationStatus.Pending, invitation.Status);
+            Assert.IsNull(invitation.ConsumedAtUtc);
+        }
+    }
+
+    private static async Task VerifyDisabledPolicyAsync(FullNetApiFactory factory, HttpClient client,
+        RegisterAccountRequest registration, CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        context.SetHost();
+        var policy = scope.ServiceProvider.GetRequiredService<RegistrationPolicyService>();
+        var original = await policy.GetAsync(cancellationToken);
+        Assert.IsTrue(original.IsSuccess);
+        try
+        {
+            var disabled = await policy.UpdateAsync(new UpdateRegistrationPolicyRequest(false,
+                original.Value!.Version, IdentityRegistrationMode.Disabled), cancellationToken);
+            Assert.IsTrue(disabled.IsSuccess);
+            Assert.AreEqual(IdentityRegistrationMode.Disabled, disabled.Value!.RegistrationMode);
+            // 使用仍有效的邀请与验证码，证明关闭模式在真实入口拒绝注册而非凭据验证失败。
+            using var register = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, register.StatusCode);
+            await AssertProblemAsync(register, IdentityErrorCodes.RegistrationDisabled, cancellationToken, HttpStatusCode.Forbidden);
+            using var challenge = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
+                new SendRegistrationEmailChallengeRequest(registration.Email,
+                    IdentityAccountChallengePurpose.InvitationEmailVerification,
+                    registration.InvitationId, registration.InvitationToken), cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, challenge.StatusCode);
+            await AssertProblemAsync(challenge, IdentityErrorCodes.RegistrationDisabled, cancellationToken, HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            try
+            {
+                var current = await policy.GetAsync(cancellationToken);
+                Assert.IsTrue(current.IsSuccess);
+                Assert.IsTrue((await policy.UpdateAsync(new UpdateRegistrationPolicyRequest(
+                    original.Value!.IsPublicRegistrationEnabled, current.Value!.Version,
+                    original.Value.RegistrationMode), cancellationToken)).IsSuccess);
+            }
+            finally { context.Clear(); }
+        }
+    }
+
+    private static async Task VerifyBusinessFailureRollbackAsync(FullNetApiFactory factory, HttpClient client,
+        RegisterAccountRequest registration, CancellationToken cancellationToken)
+    {
+        // 非空弱密码通过请求验证后在业务策略失败，挑战消费必须随整个注册事务回滚。
+        using var failed = await client.PostAsJsonAsync("/api/v1/auth/register", registration with { Password = "weak" }, cancellationToken);
+        await AssertProblemAsync(failed, ValidationErrorCodes.Failed, cancellationToken);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+        var record = await query.QuerySingleOrDefaultAsync<AccountChallengeRecord>(AccountChallengeSql.FindById,
+            IdentitySqlParameters.Create(("ChallengeId", registration.ChallengeId)), cancellationToken);
+        Assert.IsNotNull(record);
+        Assert.IsNull(record.ConsumedAtUtc);
+        Assert.AreEqual(0, record.AttemptCount);
+        Assert.AreEqual(1, record.Version);
+        Assert.IsNull(await query.QuerySingleOrDefaultAsync<IdentityUserRecord>(AccountLifecycleSql.FindUserByProfileEmail,
+            IdentitySqlParameters.Create(("Email", registration.Email)), cancellationToken));
+    }
+
+    private static async Task AssertProblemAsync(HttpResponseMessage response, string code, CancellationToken cancellationToken,
+        HttpStatusCode expectedStatus = HttpStatusCode.BadRequest)
+    {
+        Assert.AreEqual(expectedStatus, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(code, document.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task<(Guid InvitationId, string Token)> CreateInvitationAsync(

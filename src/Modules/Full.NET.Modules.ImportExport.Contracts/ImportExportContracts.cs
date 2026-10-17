@@ -16,6 +16,9 @@ public static class ImportExportPermissions
 
     /// <summary>允许将预校验成功的导入任务排队执行、恢复或重试。</summary>
     public const string ImportTasksExecute = "import_export.import_tasks.execute";
+
+    /// <summary>允许原创建人取消安全检查点上的导入任务。</summary>
+    public const string ImportTasksCancel = "import_export.import_tasks.cancel";
 }
 
 /// <summary>内置静态导入 Schema 稳定键。</summary>
@@ -62,6 +65,9 @@ public static class ImportExportTaskStatusKeys
     /// <summary>执行阶段失败，无成功行或任务级失败。</summary>
     public const string ExecutionFailed = "execution_failed";
 
+    /// <summary>已显式取消，不再领取、恢复或重试；保留已提交业务行与检查点。</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -73,6 +79,7 @@ public static class ImportExportTaskStatusKeys
         ExecutionSucceeded,
         ExecutionPartial,
         ExecutionFailed,
+        Cancelled,
     ]);
 }
 
@@ -159,6 +166,9 @@ public interface IStaticImportSchemaHandler
 {
     /// <summary>处理器负责的 Schema 稳定键。</summary>
     string SchemaKey { get; }
+
+    /// <summary>执行时使用的附加精确权限；排队时冻结授予范围，Worker 每批复核，不自动扩大能力。</summary>
+    IReadOnlyCollection<string> ExecutionCapabilityPermissions => [];
 
     /// <summary>返回 Schema 元数据，供目录与模板端点投影。</summary>
     /// <returns>当前处理器负责的 Schema 定义；不得返回 <see langword="null"/>。</returns>

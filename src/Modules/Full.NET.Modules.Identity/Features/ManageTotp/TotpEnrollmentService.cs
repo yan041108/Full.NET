@@ -64,35 +64,58 @@ internal sealed class TotpEnrollmentService(
             return BeginUnauthorized();
         }
 
-        var sharedSecret = TotpAlgorithm.GenerateSharedSecretBase32();
-        var now = clock.UtcNow;
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
                 IdentitySql.FindUserTotpByUserId,
                 IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (existing is { IsEnabled: true })
+        {
+            return BeginConflict();
+        }
+
+        var sharedSecret = TotpAlgorithm.GenerateSharedSecretBase32();
+        var now = clock.UtcNow;
         var parameters = IdentitySqlParameters.Create(
             ("UserId", userId),
             ("SecretProtected", secretProtector.Protect(sharedSecret)),
             ("CreatedAtUtc", now),
-            ("UpdatedAtUtc", now));
-        await transaction.ExecuteAsync(async token =>
+            ("UpdatedAtUtc", now),
+            ("Version", existing?.Version ?? 0));
+        bool written;
+        var inserting = existing is null;
+        try
         {
-            var affected = await commandExecutor.ExecuteAsync(
-                    existing is null ? IdentitySql.InsertUserTotpPending
-                        : IdentitySql.ResetUserTotpPending,
-                    parameters, token)
-                .ConfigureAwait(false);
-            if (affected != 1)
+            written = await transaction.ExecuteAsync(async token =>
             {
-                throw new InvalidOperationException("TOTP enrollment state was not written.");
-            }
+                var affected = await commandExecutor.ExecuteAsync(
+                        existing is null ? IdentitySql.InsertUserTotpPending
+                            : IdentitySql.ResetUserTotpPending,
+                        parameters, token)
+                    .ConfigureAwait(false);
+                inserting = false;
+                if (affected != 1)
+                {
+                    return false;
+                }
 
-            await authenticationEvents.WriteAsync(userId, userId,
-                "mfa.totp_enrollment_started", "identity.mfa_totp_enrollment_started",
-                true, "totp", token).ConfigureAwait(false);
-            return true;
-        }, cancellationToken).ConfigureAwait(false);
+                await authenticationEvents.WriteAsync(userId, userId,
+                    "mfa.totp_enrollment_started", "identity.mfa_totp_enrollment_started",
+                    true, "totp", token).ConfigureAwait(false);
+                return true;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception)
+            when (inserting && exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            // 首次登记竞争由事务边界回滚；不得覆盖另一会话已创建的凭据。
+            return BeginConflict();
+        }
+        // 读取后可能被另一个会话确认或重启；条件写入失败时不得返回新密钥。
+        if (!written)
+        {
+            return BeginConflict();
+        }
 
         return Result<BeginTotpEnrollmentResponse>.Success(
             new BeginTotpEnrollmentResponse(
@@ -240,4 +263,10 @@ internal sealed class TotpEnrollmentService(
             IdentityErrorCodes.SessionNotActive,
             "The current session is not active.",
             ErrorType.Unauthorized));
+
+    private static Result<BeginTotpEnrollmentResponse> BeginConflict() =>
+        Result<BeginTotpEnrollmentResponse>.Failure(new Error(
+            IdentityErrorCodes.MfaTotpEnrollmentConflict,
+            "TOTP enrollment changed or is already enabled. Refresh its status.",
+            ErrorType.Conflict));
 }

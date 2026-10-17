@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Full.NET.Modules.Reporting.Contracts;
 
 /// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。ColumnSchemaName 为细分列权限，须与 Run 组合授权。</remarks>
@@ -25,7 +27,7 @@ public sealed record ReportingExecutionParameterValue(
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
 /// </remarks>
 /// <summary>执行已发布报表定义请求。</summary>
-/// <param name="VersionNumber">目标发布版本号；省略时使用最近发布版本。</param>
+/// <param name="VersionNumber">目标发布版本号；省略时 Host 使用最近发布版本，租户使用最近获授版本。</param>
 /// <param name="Parameters">受控参数值集合。</param>
 public sealed record ExecuteReportingDefinitionRequest(
     int? VersionNumber,
@@ -47,6 +49,7 @@ public sealed record ReportingExecutionColumnDefinition(
 /// <summary>报表执行结果行。</summary>
 /// <param name="Values">按列键索引的单元格文本值。</param>
 public sealed record ReportingExecutionRow(
+    [property: JsonConverter(typeof(ReportingResultValuesJsonConverter))]
     IReadOnlyDictionary<string, string?> Values);
 
 /// <remarks>

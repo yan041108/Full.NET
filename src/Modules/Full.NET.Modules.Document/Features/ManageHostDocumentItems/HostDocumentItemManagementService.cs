@@ -24,7 +24,11 @@ internal sealed class HostDocumentItemManagementService(
     DocumentVersionDeletionService documentVersionDeletionService,
     DocumentItemTagAssignmentService documentItemTagAssignmentService,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    DocumentItemCategoryReferenceService categoryReferences,
+    DocumentItemRestoreService restores,
+    DocumentItemTitleService titles,
+    DocumentItemWriteGuard itemWrites)
 {
     public Task<Result<HostDocumentItemResponse>> CreateAsync(
         Guid actorUserId,
@@ -200,6 +204,8 @@ internal sealed class HostDocumentItemManagementService(
         CreateHostDocumentItemRequest request,
         CancellationToken cancellationToken)
     {
+        if (!await categoryReferences.LockActiveAsync(request.CategoryId, cancellationToken).ConfigureAwait(false))
+            return Invalid();
         if (await FindTitleConflictAsync(
                 request.Title.Trim(),
                 request.CategoryId,
@@ -260,6 +266,8 @@ internal sealed class HostDocumentItemManagementService(
         }
 
         var categoryId = request.CategoryId ?? existing.CategoryId;
+        if (!await categoryReferences.LockActiveAsync(categoryId, cancellationToken).ConfigureAwait(false))
+            return Invalid();
         if (await FindTitleConflictAsync(
                 request.Title.Trim(),
                 categoryId,
@@ -374,6 +382,7 @@ internal sealed class HostDocumentItemManagementService(
         HostFileReference fileReference,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return NotFound();
         var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
         if (item is null)
         {
@@ -432,28 +441,8 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindAnyById,
-                DocumentSqlParameters.Create(("Id", itemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (existing is null)
-        {
-            return NotFound();
-        }
-
-        var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                DocumentItemSql.Restore,
-                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affected != 1)
-        {
-            return VersionConflict();
-        }
-
+        var restored = await restores.RestoreAsync(itemId, actorUserId, version, fromRecycleBin: false, cancellationToken).ConfigureAwait(false);
+        if (!restored.IsSuccess) return Result<HostDocumentItemResponse>.Failure(restored.Error!);
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -464,6 +453,7 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return NotFound();
         var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
         if (item is null)
         {
@@ -538,16 +528,7 @@ internal sealed class HostDocumentItemManagementService(
         Guid? excludeItemId,
         CancellationToken cancellationToken)
     {
-        var conflict = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentItemSql.FindActiveByTitle,
-                DocumentSqlParameters.Create(
-                    ("Title", title),
-                    ("CategoryId", categoryId),
-                    ("ExcludeId", excludeItemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return conflict is not null;
+        return await titles.HasConflictAsync(title, categoryId, excludeItemId, cancellationToken).ConfigureAwait(false);
     }
 
     private static HostDocumentItemResponse Map(

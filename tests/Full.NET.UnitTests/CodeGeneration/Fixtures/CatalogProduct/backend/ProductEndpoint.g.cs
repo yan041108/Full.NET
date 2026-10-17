@@ -147,6 +147,9 @@ public static class ProductGeneratedFeatureExtensions
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<ProductQueryService>();
         services.TryAddScoped<ProductManagementService>();
+#if FULLNET_AOT_COMPILE
+        ProductRecordAotMaterializer.Register();
+#endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

@@ -29,6 +29,9 @@ public sealed class DeletedHostFileBlobCleanupTests
         Assert.AreEqual(300, options.PollSeconds);
         Assert.IsTrue(defaults.GetServices<IHostedService>()
             .Any(service => service is DeletedHostFileBlobCleanupHostedProcessor));
+        using var scope = defaults.CreateScope();
+        Assert.AreSame(defaults.GetRequiredService<DeletedHostFileBlobCleanupCursor>(),
+            scope.ServiceProvider.GetRequiredService<DeletedHostFileBlobCleanupCursor>(), "后台新作用域必须保留同一周期游标。");
 
         using var invalid = CreateProvider(
             new Dictionary<string, string?>

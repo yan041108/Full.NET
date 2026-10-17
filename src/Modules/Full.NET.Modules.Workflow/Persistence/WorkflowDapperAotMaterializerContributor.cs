@@ -18,7 +18,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowFormDefinitionRecord>(ReadFormDefinition);
         registrar.Register<WorkflowFormVersionRecord>(ReadFormVersion);
         registrar.Register<WorkflowInstanceRecord>(ReadInstance);
+        registrar.Register<WorkflowInstanceListRecord>(ReadInstanceList);
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
+        registrar.Register<WorkflowTodoListRecord>(ReadTodoList);
         registrar.Register<WorkflowActiveWorkRecord>(ReadActiveWork);
         registrar.Register<WorkflowTodoRuntimeRecord>(ReadTodoRuntime);
         registrar.Register<WorkflowApprovalSlotRecord>(ReadApprovalSlot);
@@ -131,6 +133,26 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableString(reader, 16),
             AotDataReaderExtensions.ReadNullableString(reader, 17),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18));
+
+    /// <summary>实例分页与详情采用不同投影，按列表 SQL 顺序显式读取可空标题及完成时间。</summary>
+    private static WorkflowInstanceListRecord ReadInstanceList(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3),
+            reader.GetString(4), AotDataReaderExtensions.ReadNullableString(reader, 5),
+            reader.GetString(6), reader.GetGuid(7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9));
+
+    /// <summary>待办与已办共享列表投影，保留动作快照、实例上下文及数据库空值语义。</summary>
+    private static WorkflowTodoListRecord ReadTodoList(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 4),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6), reader.GetInt64(7),
+            reader.GetString(8), reader.GetString(9),
+            AotDataReaderExtensions.ReadNullableString(reader, 10), reader.GetString(11),
+            reader.GetString(12), reader.GetString(13));
 
     private static WorkflowTodoRecord ReadTodo(DbDataReader reader) =>
         new(

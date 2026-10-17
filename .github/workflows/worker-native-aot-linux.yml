@@ -30,6 +30,11 @@ on:
       - '.github/workflows/worker-native-aot-linux.yml'
   workflow_dispatch:
 
+# 同一 PR 只保留最新原生检查；main 与手动运行按 run_id 隔离，保留各自证据。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   linux-native-aot-worker:
     runs-on: ubuntu-latest
@@ -47,6 +52,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - run: dotnet restore Full.NET.slnx
       - name: Verify Worker Native AOT analyzers
         run: pnpm test:aot:worker:analyzers
@@ -54,6 +62,17 @@ jobs:
         run: docker build -t fullnet-native-aot-publish-sdk:10.0 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
       - name: Publish Worker linux-x64 Native AOT artifact
         run: pnpm test:aot:worker:publish:linux
+      # 单独提前上传发布文件，最后的 evidence 继续保存完整运行回执及日志。
+      - name: Upload Worker Native AOT publish artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-native-aot-linux-publish
+          if-no-files-found: error
+          path: |
+            artifacts/native-aot/worker/linux-x64/publish-manifest.json
+            artifacts/native-aot/worker/linux-x64/publish.log
+            artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker
       - name: Verify Native AOT architecture gates
         run: pnpm test:dotnet:architecture --selection api-native-aot
       - name: Run Worker Native AOT dual-database E2E

@@ -9,6 +9,26 @@ namespace Full.NET.Modules.Document.Persistence;
 /// </summary>
 internal static class DocumentPermissionSql
 {
+    // 先锁定拥有修订号的父行，再读取授权。写入同样先更新父行，避免空集合和双查询的混合快照。
+    public static readonly SqlStatement LockDocumentSqlServer = new(
+        "document.host_permission.lock_document.sql_server",
+        """
+        SELECT Id, Version
+        FROM fn_document_item WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement LockDocumentMySql = new(
+        "document.host_permission.lock_document.my_sql",
+        """
+        SELECT Id, Version
+        FROM fn_document_item
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>权限记录投影字段；不含审计字段，仅用于权限目录列表。</summary>
     private const string Projection = """
         Id, DocumentId, UserId, PermissionLevel, CreatedAtUtc

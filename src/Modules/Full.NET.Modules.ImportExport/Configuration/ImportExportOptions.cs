@@ -7,23 +7,24 @@ public sealed class ImportExportOptions
     public const string SectionName = "FullNet:ImportExport";
 
     /// <summary>允许上传的最大字节数，默认 1 MiB。</summary>
-    public long MaxUploadBytes { get; init; } = 1024 * 1024;
+    public long MaxUploadBytes { get; set; } = 1024 * 1024;
 
     /// <summary>单次预校验允许的最大数据行数，默认 1000。</summary>
-    public int MaxPreviewRows { get; init; } = 1_000;
+    public int MaxPreviewRows { get; set; } = 1_000;
 
     /// <summary>是否启用后台批量执行 worker。</summary>
-    public bool ExecutionEnabled { get; init; }
+    // 源生成绑定器通过可写属性应用配置；init 会静默保留默认值，导致 Native Worker 不执行队列。
+    public bool ExecutionEnabled { get; set; }
 
     /// <summary>后台 worker 轮询间隔秒数，默认 15 秒。</summary>
-    public int PollSeconds { get; init; } = 15;
+    public int PollSeconds { get; set; } = 15;
 
     /// <summary>单次 worker 迭代处理的 valid 行数上限，默认 50。</summary>
-    public int BatchSize { get; init; } = 50;
+    public int BatchSize { get; set; } = 50;
 
     /// <summary>单次执行租约秒数，默认 120 秒；到期后允许其他 Worker 重领。</summary>
-    public int LeaseSeconds { get; init; } = 120;
+    public int LeaseSeconds { get; set; } = 120;
 
     /// <summary>测试专用：排队后立即同步执行，不依赖后台 worker。</summary>
-    public bool RunSynchronously { get; init; }
+    public bool RunSynchronously { get; set; }
 }

@@ -167,6 +167,7 @@ internal static class NotificationTemplateIntentAssertions
         Assert.AreEqual("single", intent.DispatchModeKey);
         Assert.AreEqual("accepted", intent.StatusKey);
         Assert.AreEqual(2, intent.Recipients.Count);
+        await NotificationIntentDeliveryProgressAssertions.VerifyAsync(factory.Services, intent, "tests.notifications", idempotencyKey, cancellationToken);
 
         using var replay = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -299,7 +300,8 @@ internal static class NotificationTemplateIntentAssertions
         Assert.IsNotNull(frozen);
         Assert.AreEqual(firstVersionId, frozen.TemplateVersionId);
 
-        var tenantToken = await EnterAcmeTenantAsync(tenantClient, tenantSwitchToken, cancellationToken);
+        var tenantContext = await EnterAcmeTenantAsync(tenantClient, tenantSwitchToken, cancellationToken);
+        var tenantToken = tenantContext.AccessToken;
         var tenantKey = $"tenant-{Guid.NewGuid():N}"[..20];
         using var tenantCreate = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -336,6 +338,23 @@ internal static class NotificationTemplateIntentAssertions
         hostGetTenant.Headers.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
         using var hostGetTenantResponse = await hostClient.SendAsync(hostGetTenant, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, hostGetTenantResponse.StatusCode);
+
+        // 复用真实 Acme 上下文和已播种的管理员成员，同一生产者与幂等键须可跨作用域并存。
+        var tenantPublished = await PublishTemplateAsync(tenantClient, tenantToken, tenantTemplate.Id,
+            tenantTemplate.Version, "s2", cancellationToken);
+        Assert.IsNotNull(tenantPublished.LatestPublishedVersionId);
+        using var tenantIntentRequest = CreateBearerJsonRequest(HttpMethod.Post, "/api/v1/notifications/intents",
+            tenantToken, CreateIntentBody(tenantKey, "tests.notifications", "order.paid", idempotencyKey,
+                [hostUser.Id], new { orderNo }));
+        using var tenantIntentResponse = await tenantClient.SendAsync(tenantIntentRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, tenantIntentResponse.StatusCode,
+            await tenantIntentResponse.Content.ReadAsStringAsync(cancellationToken));
+        var tenantIntent = await tenantIntentResponse.Content.ReadFromJsonAsync<NotificationIntentResponse>(cancellationToken);
+        Assert.IsNotNull(tenantIntent); Assert.IsNotNull(tenantContext.Context.TenantId);
+        await NotificationIntentDeliveryProgressAssertions.VerifyTenantAsync(factory.Services, tenantIntent,
+            "tests.notifications", idempotencyKey, tenantContext.Context.TenantId.Value, cancellationToken);
+        await NotificationIntentDeliveryProgressAssertions.VerifyCoexistenceAsync(factory.Services, intent,
+            tenantIntent, tenantContext.Context.TenantId.Value, cancellationToken);
 
         await OpenApiNotificationsTemplatesIntentsContractAssertions.VerifyAsync(
             hostClient,
@@ -513,7 +532,7 @@ internal static class NotificationTemplateIntentAssertions
         return page;
     }
 
-    private static async Task<string> EnterAcmeTenantAsync(
+    private static async Task<TenantContextTokenResponse> EnterAcmeTenantAsync(
         HttpClient client,
         string hostAccessToken,
         CancellationToken cancellationToken)
@@ -536,7 +555,7 @@ internal static class NotificationTemplateIntentAssertions
         var entered = await enterResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(
             cancellationToken);
         Assert.IsNotNull(entered);
-        return entered.AccessToken;
+        return entered;
     }
 
     private static async Task<CurrentUserResponse> GetCurrentUserAsync(

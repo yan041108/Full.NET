@@ -25,6 +25,26 @@ internal sealed class DeletedHostFileBlobCleanupOptionsValidator(
         string? name,
         DeletedHostFileBlobCleanupOptions options)
     {
+        var failures = ValidateBounds(options);
+
+        if (options.Enabled)
+        {
+            var storageValidation = new LocalFileStorageOptionsValidator()
+                .Validate(Options.DefaultName, storageOptions.Value);
+            if (storageValidation.Failed)
+            {
+                failures.AddRange(storageValidation.Failures);
+            }
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
+
+    /// <summary>启动验证与直接 Runner 调用共用批次边界，避免运行入口绕过数量限制。</summary>
+    internal static List<string> ValidateBounds(DeletedHostFileBlobCleanupOptions options)
+    {
         var failures = new List<string>();
         ValidateRange(
             options.BatchSize,
@@ -45,19 +65,7 @@ internal sealed class DeletedHostFileBlobCleanupOptionsValidator(
             "Files:Cleanup:PollSeconds",
             failures);
 
-        if (options.Enabled)
-        {
-            var storageValidation = new LocalFileStorageOptionsValidator()
-                .Validate(Options.DefaultName, storageOptions.Value);
-            if (storageValidation.Failed)
-            {
-                failures.AddRange(storageValidation.Failures);
-            }
-        }
-
-        return failures.Count == 0
-            ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail(failures);
+        return failures;
     }
 
     private static void ValidateRange(

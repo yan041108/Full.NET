@@ -14,10 +14,12 @@ import { resolveAdminOidcClientId } from '../config/identity-auth';
 import {
   clearOidcRefreshCredential,
   readOidcRefreshCredential,
+  readOidcRefreshCredentialRevision,
   writeOidcRefreshCredential
 } from './oidc-session-credentials';
 
 export const ADMIN_OIDC_PKCE_STORAGE_KEY = 'fullnet.admin.oidc.pkce';
+let pkceGeneration = 0;
 
 export interface AdminOidcPkcePending {
   verifier: string;
@@ -84,11 +86,14 @@ export function readAdminOidcPkcePending(): AdminOidcPkcePending | undefined {
 }
 
 export function clearAdminOidcPkcePending(): void {
+  pkceGeneration++;
   sessionStorage.removeItem(ADMIN_OIDC_PKCE_STORAGE_KEY);
 }
 
-export async function beginAdminOidcCenterLogin(): Promise<void> {
+export async function beginAdminOidcCenterLogin(signal?: AbortSignal): Promise<void> {
+  const generation = ++pkceGeneration;
   const request = await createOidcAuthorizationRequest();
+  if (signal?.aborted || generation !== pkceGeneration) throw new Error('oidc_login_cancelled');
   sessionStorage.setItem(ADMIN_OIDC_PKCE_STORAGE_KEY, JSON.stringify(request));
   const url = buildOidcAuthorizeUrl({
     apiBase: resolveOidcApiBase(),
@@ -103,8 +108,11 @@ export async function beginAdminOidcCenterLogin(): Promise<void> {
 }
 
 export async function completeAdminOidcCallback(
-  query: Record<string, string | (string | null)[] | undefined | null>
+  query: Record<string, string | (string | null)[] | undefined | null>,
+  signal?: AbortSignal,
+  onCredentialChanged?: (revision: number) => void
 ): Promise<TokenResponse> {
+  if (signal?.aborted) throw new Error('oidc_callback_cancelled');
   const error = readQueryValue(query.error);
   if (error !== undefined) {
     throw new Error(error);
@@ -113,6 +121,11 @@ export async function completeAdminOidcCallback(
   const code = readQueryValue(query.code);
   const returnedState = readQueryValue(query.state);
   const pending = readAdminOidcPkcePending();
+  const pendingRaw = sessionStorage.getItem(ADMIN_OIDC_PKCE_STORAGE_KEY);
+  const generation = pkceGeneration;
+  const credentialRevision = readOidcRefreshCredentialRevision();
+  const ownsPending = (): boolean => generation === pkceGeneration
+    && sessionStorage.getItem(ADMIN_OIDC_PKCE_STORAGE_KEY) === pendingRaw;
   if (code === undefined || pending === undefined) {
     throw new Error('oidc_invalid_callback');
   }
@@ -128,24 +141,38 @@ export async function completeAdminOidcCallback(
       clientId: resolveAdminOidcClientId(),
       redirectUri: resolveAdminOidcRedirectUri(),
       code,
-      verifier: pending.verifier
+      verifier: pending.verifier,
+      signal
     });
+    // 退出、新登录或页面取消均使旧交换结果失效，禁止重建本地 refresh 凭据。
+    if (signal?.aborted || !ownsPending() || credentialRevision !== readOidcRefreshCredentialRevision()) {
+      throw new Error('oidc_callback_cancelled');
+    }
     if (exchange.refreshToken !== undefined) {
       writeOidcRefreshCredential({
         refreshToken: exchange.refreshToken,
         clientId: resolveAdminOidcClientId()
       });
+    } else {
+      // 新账号交换没有 refresh 时，不得让后续恢复继续使用旧账号凭据。
+      clearOidcRefreshCredential();
     }
+    // 在 promise 交接前同步传递归属，使页面微任务间退出也能清理未确认凭据。
+    onCredentialChanged?.(readOidcRefreshCredentialRevision());
 
     return exchange.token;
   } finally {
-    clearAdminOidcPkcePending();
+    if (ownsPending()) clearAdminOidcPkcePending();
   }
 }
 
 /** 使用已持久化的 refresh token 续签访问令牌；失败时清理本地凭据。 */
 export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | undefined> {
   const credential = readOidcRefreshCredential();
+  const revision = readOidcRefreshCredentialRevision();
+  const ownsCredential = (): boolean => revision === readOidcRefreshCredentialRevision()
+    && readOidcRefreshCredential()?.refreshToken === credential?.refreshToken
+    && readOidcRefreshCredential()?.clientId === credential?.clientId;
   if (credential === undefined) {
     return undefined;
   }
@@ -156,6 +183,8 @@ export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | und
       clientId: credential.clientId,
       refreshToken: credential.refreshToken
     });
+    // 旧成功和旧失败都只能操作其读取时的凭据；同值写回亦由变更代次识别。
+    if (!ownsCredential()) return undefined;
     if (exchange.refreshToken !== undefined) {
       writeOidcRefreshCredential({
         refreshToken: exchange.refreshToken,
@@ -165,7 +194,7 @@ export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | und
 
     return exchange.token;
   } catch {
-    clearOidcRefreshCredential();
+    if (ownsCredential()) clearOidcRefreshCredential();
     return undefined;
   }
 }

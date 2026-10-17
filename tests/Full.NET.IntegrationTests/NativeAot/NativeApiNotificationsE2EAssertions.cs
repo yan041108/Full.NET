@@ -34,6 +34,15 @@ internal static class NativeApiNotificationsE2EAssertions
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["ConnectionStrings:redis"] = redisConnectionString,
             ["Testing:OutboxCommandPath"] = "TypedPlan",
+            ["Notifications:Providers:DingTalk:Enabled"] = "true",
+            ["Notifications:Providers:DingTalk:Workflow:Enabled"] = "true",
+            ["Notifications:Providers:DingTalk:Workflow:ProcessCode"] = "native-process",
+            ["Notifications:Providers:DingTalk:Workflow:AgentId"] = "1",
+            ["Notifications:Providers:DingTalk:Workflow:AppKey"] = "native-read-fixture",
+            ["Notifications:Providers:DingTalk:Workflow:AppSecretReference"] = "env://FULLNET_NATIVE_READ_UNUSED",
+            ["Notifications:Providers:DingTalk:Workflow:CallbackSecretReference"] = "env://FULLNET_NATIVE_READ_UNUSED",
+            ["Notifications:Providers:DingTalk:Workflow:PollIntervalSeconds"] = "3600",
+            ["Notifications:Providers:WeChatMiniProgram:Enabled"] = "true",
         };
 
         await NativeApiDatabaseBootstrap.BootstrapAsync(
@@ -88,6 +97,12 @@ internal static class NativeApiNotificationsE2EAssertions
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // 机构场景会切换会话租户；先结束已完成的实时订阅，避免继续使用旧上下文令牌。
+        await connection.StopAsync(cancellationToken).ConfigureAwait(false);
+        await NativeApiNotificationChannelReadAssertions.VerifyAsync(client, token, host.LogFilePath,
+            provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await NativeApiOrganizationAnnouncementAssertions.VerifyAsync(client, token, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }

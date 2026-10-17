@@ -51,6 +51,9 @@ public static class DocumentErrorCodes
     /// <summary>预览转换任务尚未完成，无法下载输出。</summary>
     public const string PreviewTaskNotReady = "document.host_preview_task.not_ready";
 
+    /// <summary>预览任务已被领取、已完成或取消竞争失效。</summary>
+    public const string PreviewTaskStatusInvalid = "document.host_preview_task.status_invalid";
+
     /// <summary>Office 预览转换 Provider 未启用或未配置。</summary>
     public const string OfficePreviewProviderDisabled = "document.office_preview.provider_disabled";
 
@@ -62,6 +65,12 @@ public static class DocumentErrorCodes
 
     /// <summary>源文件超过 Office 预览转换允许的最大大小。</summary>
     public const string OfficePreviewInputTooLarge = "document.office_preview.input_too_large";
+
+    /// <summary>转换 PDF 实际字节数超过输出预算。</summary>
+    public const string OfficePreviewOutputTooLarge = "document.office_preview.output_too_large";
+
+    /// <summary>预览处理租约已失效，任务不得由旧领取者继续发布结果。</summary>
+    public const string OfficePreviewLeaseExpired = "document.office_preview.lease_expired";
 
     /// <summary>文档分类基础字段或层级约束校验失败。</summary>
     public const string CategoryInvalid = "document.host_category.invalid";
@@ -150,6 +159,15 @@ public static class DocumentErrorCodes
     /// <summary>授权操作引用的目标文档不存在，无法授予权限。</summary>
     public const string PermissionDocumentNotFound = "document.host_permission.document_not_found";
 
+    /// <summary>授权编辑快照已失效，整体替换必须重新读取。</summary>
+    public const string PermissionVersionConflict = "document.host_permission.version_conflict";
+
+    /// <summary>版本保留设置或修订号不符合允许范围。</summary>
+    public const string VersionRetentionInvalid = "document.version_retention.invalid";
+
+    /// <summary>版本保留设置已变化，必须重读后再提交。</summary>
+    public const string VersionRetentionConflict = "document.version_retention.conflict";
+
     /// <summary>已发布的全部 Document 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -196,5 +214,11 @@ public static class DocumentErrorCodes
         SharePasswordInvalidLength,
         HostShareAccessDenied,
         PermissionDocumentNotFound,
+        PermissionVersionConflict,
+        VersionRetentionInvalid,
+        VersionRetentionConflict,
+        PreviewTaskStatusInvalid,
+        OfficePreviewOutputTooLarge,
+        OfficePreviewLeaseExpired,
     ]);
 }

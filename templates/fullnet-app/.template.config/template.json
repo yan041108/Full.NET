@@ -13,6 +13,12 @@
       "target": "./",
       "exclude": [".template.config/**/*", ".fullnet-tools/*.mjs"],
       "copyOnly": ["framework/**/*", "framework-manifest.json", ".fullnet-tools/openapi/**/*", "contracts/openapi/**/*", "ui/**/*", "packages/**/*", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+    },
+    {
+      "source": "./",
+      "target": "./",
+      "include": [".fullnet-tools/diagnose-app.mjs"],
+      "copyOnly": [".fullnet-tools/diagnose-app.mjs"]
     }
   ],
   "symbols": {
@@ -53,6 +59,13 @@
       "defaultValue": "5180",
       "replaces": "5180",
       "description": "HTTP port for local development."
+    },
+    "worker-http-port": {
+      "type": "parameter",
+      "datatype": "integer",
+      "defaultValue": "5181",
+      "replaces": "5181",
+      "description": "Worker health HTTP port; must differ from http-port."
     }
   }
 }

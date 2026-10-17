@@ -375,6 +375,47 @@
         "Version": "乐观并发版本号",
         "MetricId": "实际配额记录标识；NULL 表示历史归属待对账"
       }
+    },
+    "fn_printing_template_tenant_grant": {
+      "comment": "打印模板发布版本租户授权",
+      "columns": {
+        "CreatedAtUtc": "授权时间(UTC)",
+        "GrantedByUserId": "授权操作人标识",
+        "Id": "逻辑主键",
+        "TemplateId": "本模块打印模板标识",
+        "TenantId": "获授租户标识，不建立跨模块外键",
+        "VersionNumber": "明确获授的不可变发布版本"
+      }
+    },
+    "demo_enterprise_request_request_attachment": {
+      "comment": "企业申请附件引用表",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "所属租户标识",
+        "RequestId": "所属申请标识",
+        "FileId": "文件标识",
+        "OriginalFileName": "下载文件名",
+        "SizeBytes": "文件字节数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "StateKey": "附件绑定状态键",
+        "UploadExpiresAtUtc": "上传保护过期时间(UTC)"
+      }
+    },
+    "demo_enterprise_request_approval_repair": {
+      "comment": "企业申请受控审批恢复记录",
+      "columns": {
+        "Id": "逻辑主键及对账逻辑消息标识",
+        "TenantId": "可信租户标识",
+        "RequestId": "申请标识",
+        "WorkflowInstanceId": "已核对原启动回执的流程实例标识",
+        "RequestVersion": "恢复前申请版本",
+        "KindKey": "binding补绑定、start_receipt补启动回执或reconcile终态对账",
+        "WorkflowStatusKey": "读取时的权威流程状态",
+        "ActorUserId": "恢复操作者标识，与原发起人区分",
+        "Reason": "操作者提供的恢复原因",
+        "CreatedAtUtc": "恢复事务记录时间(UTC)"
+      }
     }
   }
 }

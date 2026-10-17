@@ -24,11 +24,15 @@
     <PackageVersion Include="dbup-sqlserver" Version="7.2.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.0" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <!-- 固定 Redis 实时背板的传递依赖补丁，防止嵌套数组反序列化放大内存分配。 -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
     <PackageVersion Include="MQTTnet" Version="4.3.7.1207" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+    <!-- 固定重连缓冲安全补丁，避免客户端传递依赖仍解析到有拒绝服务漏洞的 Common。 -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.13" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
@@ -39,11 +43,11 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
@@ -75,6 +79,8 @@
     <PackageVersion Include="Testcontainers.MySql" Version="4.14.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.14.0" />
     <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.0" />
+    <!-- 固定传递依赖安全补丁，覆盖 SqlClient/MimeKit 的 PKCS 签名验证拒绝服务漏洞。 -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
     <PackageVersion Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" Version="2.6.0" />
     <PackageVersion Include="ZiggyCreatures.FusionCache.OpenTelemetry" Version="2.6.0" />

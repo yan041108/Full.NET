@@ -12,7 +12,7 @@ namespace Full.NET.Modules.Identity.HostUsers;
 internal sealed class TenantMemberSelectionDirectory(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
-    ICurrentTenant currentTenant) : ITenantMemberSelectionDirectory
+    ICurrentTenant currentTenant) : ITenantMemberSelectionDirectory, ITenantMemberBatchSelectionDirectory
 {
     public async Task<PagedResult<TenantUserDirectoryEntry>> ListActiveTenantMembersAsync(
         int page,
@@ -67,6 +67,21 @@ internal sealed class TenantMemberSelectionDirectory(
 
     private static TenantUserDirectoryEntry Map(HostUserDirectoryRecord record) =>
         new(record.Id, record.Username, record.DisplayName, record.PreferredLocale);
+
+    /// <summary>成员权威源一次批量读取，保持可信租户约束且避免通知逐人查询。</summary>
+    public async Task<IReadOnlyDictionary<Guid, TenantUserDirectoryEntry>> FindActiveTenantMembersAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        EnsureTenantContext();
+        var distinctUserIds = userIds.Distinct().ToArray();
+        if (distinctUserIds.Length == 0) return new Dictionary<Guid, TenantUserDirectoryEntry>();
+        var records = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
+            TenantMembershipSql.FindActiveMemberSelectionsByUserIds,
+            IdentitySqlParameters.Create(("ActiveStatus", TenantMemberStatuses.Active), ("UserIds", distinctUserIds)),
+            cancellationToken).ConfigureAwait(false);
+        return records.ToDictionary(record => record.Id, Map);
+    }
 
     private void EnsureTenantContext()
     {

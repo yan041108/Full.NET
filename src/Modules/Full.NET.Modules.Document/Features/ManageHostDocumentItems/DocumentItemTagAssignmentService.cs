@@ -6,7 +6,8 @@ using Full.NET.Modules.Document.Persistence;
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 /// <summary>文档项标签关联的读取与替换；所有写操作须在调用方事务内执行。</summary>
-internal sealed class DocumentItemTagAssignmentService(IQueryExecutor queryExecutor, ICommandExecutor commandExecutor)
+internal sealed class DocumentItemTagAssignmentService(IQueryExecutor queryExecutor, ICommandExecutor commandExecutor,
+    DocumentTaxonomyWriteGuard writeGuard)
 {
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<HostDocumentTagAssignmentResponse>>> ListByDocumentItemIdsAsync(
         IReadOnlyList<Guid> documentItemIds,
@@ -42,6 +43,8 @@ internal sealed class DocumentItemTagAssignmentService(IQueryExecutor queryExecu
             return Result<bool>.Success(true);
         }
 
+        // 锁保持到调用方事务提交；标签删除只能在关联写入提交后重新检查引用。
+        await writeGuard.LockTagsAsync(cancellationToken).ConfigureAwait(false);
         var distinct = tagIds.Distinct().ToArray();
         var count = await queryExecutor.QuerySingleOrDefaultAsync<int>(
                 DocumentTagAssignmentSql.CountActiveTagsByIds,

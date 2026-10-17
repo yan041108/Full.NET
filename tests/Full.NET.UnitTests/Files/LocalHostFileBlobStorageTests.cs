@@ -7,6 +7,63 @@ namespace Full.NET.UnitTests.Files;
 public sealed class LocalHostFileBlobStorageTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Missing_local_object_maps_to_not_found(bool missingDirectory)
+    {
+        var rootPath = CreateRootPath();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            var result = await FileStorageContentReader.OpenAsync(CreateStorage(rootPath),
+                missingDirectory ? "absent/file" : "absent", CancellationToken.None);
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual("files.file.not_found", result.Error!.Code);
+        }
+        finally { Directory.Delete(rootPath, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task Existing_directory_is_not_misreported_as_a_missing_blob()
+    {
+        var rootPath = CreateRootPath();
+        Directory.CreateDirectory(Path.Combine(rootPath, "directory"));
+        try
+        {
+            // File.Exists 对目录也返回 false；直接打开应保留操作系统的访问错误。
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
+                FileStorageContentReader.OpenAsync(CreateStorage(rootPath), "directory", CancellationToken.None));
+        }
+        finally { Directory.Delete(rootPath, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task Invalid_local_path_is_not_misreported_as_a_missing_blob()
+    {
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
+            FileStorageContentReader.OpenAsync(CreateStorage(CreateRootPath()), "invalid\0path", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Local_open_transfers_the_complete_stream_to_the_caller()
+    {
+        var rootPath = CreateRootPath();
+        Directory.CreateDirectory(rootPath);
+        try
+        {
+            byte[] expected = [1, 2, 3];
+            await File.WriteAllBytesAsync(Path.Combine(rootPath, "result"), expected);
+            var result = await FileStorageContentReader.OpenAsync(CreateStorage(rootPath), "result", CancellationToken.None);
+            Assert.IsTrue(result.IsSuccess);
+            await using var stream = result.Value!;
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            CollectionAssert.AreEqual(expected, buffer.ToArray());
+        }
+        finally { Directory.Delete(rootPath, recursive: true); }
+    }
+
+    [TestMethod]
     public async Task Successful_save_publishes_complete_content_without_staging_files()
     {
         var rootPath = CreateRootPath();

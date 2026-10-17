@@ -32,12 +32,18 @@ const SHARED_STEMS = new Set([
   'HostNavigationMenuPermissionScope',
   'AuthenticationAuditContext',
   'SuperAdministratorGrantRevokePermissions',
+  // Identity 与 Tenancy 均在所有官方预设的基础闭包中，媒体代际字段须同步展开。
+  'MediaBindingClaimGeneration',
 ]);
 
 const STEM_MODULE_OVERRIDES = new Map([
   ['HostRoleDataScope', 'Identity'],
   ['IdentityHostUserProfileAuthority', 'Identity'],
   ['DemoEnterpriseRequest', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestImportReceipt', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestApprovalSubmission', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestAttachment', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestApprovalRepair', 'EnterpriseRequest'],
   ['CodeGenerationTemplate', 'Platform'],
   ['CodeGenerationRun', 'Platform'],
   ['CodeGenerationApply', 'Platform'],
@@ -55,9 +61,13 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DocumentAccessLog', 'Platform'],
   ['DocumentHostAccessLogPermission', 'Platform'],
   ['DocumentPreviewTask', 'Platform'],
+  ['DocumentPreviewTaskCancellation', 'Platform'],
+  ['DocumentPreviewTaskLease', 'Platform'],
   ['DocumentHostPreviewTaskPermission', 'Platform'],
   ['DocumentTagHotRecommended', 'Platform'],
   ['DocumentVersionRetentionSetting', 'Platform'],
+  ['DocumentItemWriteGuard', 'Platform'],
+  ['DocumentTaxonomyWriteGuard', 'Platform'],
   ['DataApprovalRequest', 'Workflow'],
   ['DataApprovalScenario', 'Workflow'],
   ['DataApprovalRequestRecovery', 'Workflow'],
@@ -142,6 +152,7 @@ export function inferMigrationModuleOwner(scriptName) {
   if (stem.startsWith('Calendar')) return 'Calendar';
   if (stem.startsWith('Regions')) return 'Regions';
   if (stem.startsWith('Platform')) return 'Platform';
+  if (stem.startsWith('Ai')) return 'Ai';
   if (stem.startsWith('Host')) return 'Identity';
   throw new Error('Unable to infer migration module owner for script: ' + scriptName);
 }

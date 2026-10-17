@@ -28,7 +28,8 @@
         "minimumRetainedVersionsPerItem",
         "maximumRetainedHistoryVersions",
         "pollSeconds",
-        "batchSize"
+        "batchSize",
+        "version"
       ]
     },
     "UpdateHostDocumentVersionRetentionRequest": {
@@ -36,7 +37,8 @@
         "minimumRetainedVersionsPerItem",
         "maximumRetainedHistoryVersions",
         "pollSeconds",
-        "batchSize"
+        "batchSize",
+        "version"
       ]
     }
   }

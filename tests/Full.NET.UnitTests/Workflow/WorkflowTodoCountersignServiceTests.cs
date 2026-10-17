@@ -190,7 +190,7 @@ public sealed class WorkflowTodoCountersignServiceTests
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             hostDirectory,
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter));
 

@@ -141,17 +141,17 @@ test('真实栈必须按生产角色分离启动并清理 Worker', async () => {
   assert.match(source, /workerProcess/u);
   assert.match(source, /workerPid:\s*workerProcess\.pid/u);
   assert.match(source, /workerLogPath/u);
-  assert.match(source, /stopLoggedProcess\(activeStack\.workerProcess, activeStack\.workerLogStream\)/u);
+  assert.match(source, /resources\.add\(\(\) => stopLoggedProcess\(workerProcess, workerLogStream\)\)/u);
   assert.match(source, /Full\.NET\.Host\.Api\.dll/u);
   assert.match(source, /Full\.NET\.Host\.Worker\.dll/u);
   assert.match(source, /FULLNET_E2E_API_PORT/u);
   assert.match(source, /apiLogPath/u);
-  assert.match(source, /stopLoggedProcess\(activeStack\.apiProcess, activeStack\.apiLogStream\)/u);
+  assert.match(source, /resources\.add\(\(\) => stopLoggedProcess\(apiProcess, apiLogStream\)\)/u);
   assert.match(source, /Cache__RedisConnectionString:\s*cacheRedisConnectionString/u);
   assert.match(source, /Realtime__RedisBackplaneConnectionString:\s*realtimeRedisConnectionString/u);
   assert.match(source, /Realtime__AllowSharedRedisInDevelopment:\s*isProductionTotp\s*\?\s*'false'\s*:\s*'true'/u);
-  assert.match(source, /realtimeRedisContainer !== activeStack\.redisContainer/u);
-  assert.match(source, /await activeStack\.realtimeRedisContainer\.stop\(\)/u);
+  assert.match(source, /const realtimeRedis = await startRedisContainer\(\)/u);
+  assert.match(source, /resources\.add\(\(\) => realtimeRedis\.container\.stop\(\)\)/u);
 });
 
 test('真实栈复用前必须确认 Worker 进程仍存活', async () => {
@@ -172,7 +172,7 @@ test('代码生成真实栈必须使用临时工作区并验证双端确认 Appl
   assert.match(bootstrap, /CodeGeneration__Apply__WorkspaceRoot/u);
   assert.match(
     bootstrap,
-    /rmSync\(activeStack\.codeGenerationWorkspaceRoot/u
+    /resources\.add\(\(\) => removeOwnedTempDirectory\(codeGenerationWorkspaceRoot/u
   );
 
   const specPath = path.resolve(
@@ -212,7 +212,7 @@ test('运行日志真实栈必须使用隔离目录并在退出时清理', async
   assert.match(bootstrap, /FullNet__ObservabilityAdmin__LogRootPath/u);
   assert.match(bootstrap, /e2e-observability\.log/u);
   assert.match(bootstrap, /fullnet-observability-real-stack-marker/u);
-  assert.match(bootstrap, /rmSync\(activeStack\.observabilityLogRoot/u);
+  assert.match(bootstrap, /resources\.add\(\(\) => removeOwnedTempDirectory\(observabilityLogRoot/u);
 });
 
 test('工作流真实栈必须覆盖 Host/Tenant 权限、并发与危险 Patch', async () => {

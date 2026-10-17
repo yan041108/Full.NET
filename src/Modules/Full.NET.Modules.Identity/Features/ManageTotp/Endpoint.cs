@@ -44,7 +44,8 @@ internal static class Endpoint
         })
         .WithName("identityBeginTotpEnrollment")
         .Produces<BeginTotpEnrollmentResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status401Unauthorized);
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/confirm", async (
             ConfirmTotpEnrollmentRequest request,
@@ -64,6 +65,7 @@ internal static class Endpoint
         .WithName("identityConfirmTotpEnrollment")
         .Produces<TotpEnrollmentStatusResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict);
     }
 }

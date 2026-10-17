@@ -277,7 +277,20 @@ public sealed record HostDocumentItemResponse(
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SetHostDocumentPermissionsRequest(
     Guid DocumentId,
-    IReadOnlyList<HostDocumentPermissionEntry> Permissions);
+    IReadOnlyList<HostDocumentPermissionEntry> Permissions)
+{
+    /// <summary>编辑快照的文档修订号；省略或无效时拒绝整体替换，避免旧客户端覆盖新授权。</summary>
+    public long Version { get; init; }
+}
+
+/// <summary>同一事务读取的文档授权快照；空授权集合仍携带可用于保存的修订号。</summary>
+/// <param name="DocumentId">活动 Host 文档标识。</param>
+/// <param name="Version">文档修订号；文档内容或授权变更都会使旧快照失效。</param>
+/// <param name="Permissions">该修订下的完整显式授权集合。</param>
+public sealed record HostDocumentPermissionSnapshotResponse(
+    Guid DocumentId,
+    long Version,
+    IReadOnlyList<HostDocumentPermissionResponse> Permissions);
 
 /// <summary>
 /// 文档权限条目，指定单个用户在文档上的权限级别机器码。
@@ -570,7 +583,12 @@ public sealed record HostDocumentVersionRetentionSettingsResponse(
     int MinimumRetainedVersionsPerItem,
     int MaximumRetainedHistoryVersions,
     int PollSeconds,
-    int BatchSize);
+    int BatchSize)
+{
+    /// <summary>数据库修订号；0 表示尚无数据库覆盖，使用配置默认值。</summary>
+    [JsonRequired]
+    public long Version { get; init; }
+}
 
 /// <summary>更新 Host 版本保留策略的请求契约；持久化后通过 Options 合并立即生效。</summary>
 /// <remarks>
@@ -585,7 +603,11 @@ public sealed record UpdateHostDocumentVersionRetentionRequest(
     int MinimumRetainedVersionsPerItem,
     int MaximumRetainedHistoryVersions,
     int PollSeconds,
-    int BatchSize);
+    int BatchSize)
+{
+    /// <summary>读取时取得的修订号；省略或 0 仅允许首次初始化，陈旧修订返回冲突。</summary>
+    public long Version { get; init; }
+}
 
 /// <summary>
 /// 主机文档完整统计响应契约，用于后台统计看板。

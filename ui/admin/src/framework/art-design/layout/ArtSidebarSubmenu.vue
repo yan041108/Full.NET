@@ -40,11 +40,11 @@ function navigate(path: string): void {
       :index="item.path"
       @click="navigate(item.path)"
     >
-      <!-- router-link 保证真实栈 E2E / 读屏能以 link 角色定位叶子菜单。 -->
+      <!-- 保留链接语义；链接自行导航并阻止冒泡，避免菜单项为同一次点击再次导航。 -->
       <router-link
         :to="item.path"
         class="art-sidebar__route-link"
-        @click.prevent
+        @click.stop
       >
         <component :is="item.icon" class="art-sidebar__icon" aria-hidden="true" />
         <span class="art-sidebar__text">{{ item.title }}</span>

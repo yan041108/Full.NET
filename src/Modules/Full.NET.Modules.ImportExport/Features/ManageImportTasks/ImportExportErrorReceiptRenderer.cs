@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 using Full.NET.Modules.ImportExport.Contracts;
 
 namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
@@ -28,23 +29,25 @@ internal static class ImportExportErrorReceiptRenderer
         "http://schemas.openxmlformats.org/package/2006/relationships";
 
     /// <summary>生成仅包含失败行的 xlsx 错误回执。</summary>
-    public static byte[] Render(IReadOnlyList<StaticImportRowExecutionResult> failedRows)
+    public static byte[] Render(IReadOnlyList<StaticImportRowExecutionResult> failedRows, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(failedRows);
+        ImportExportErrorReceiptBudget.Validate(failedRows, cancellationToken);
         var rows = failedRows.Select(row => new[]
         {
-            EscapeFormulaText(row.LineNumber.ToString()),
+            EscapeFormulaText(row.LineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             EscapeFormulaText(row.ErrorCode ?? string.Empty),
             EscapeFormulaText(row.Message ?? string.Empty),
         });
-        return CreateWorkbook(ReceiptHeaders, rows);
+        return CreateWorkbook(ReceiptHeaders, rows, cancellationToken);
     }
 
     private static byte[] CreateWorkbook(
         IReadOnlyList<string> headers,
-        IEnumerable<IReadOnlyList<string>> rows)
+        IEnumerable<IReadOnlyList<string>> rows,
+        CancellationToken cancellationToken)
     {
-        using var output = new MemoryStream();
+        using var output = new ImportExportErrorReceiptOutputStream(cancellationToken);
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
             WriteEntry(
@@ -106,37 +109,41 @@ internal static class ImportExportErrorReceiptRenderer
                             new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"),
                             new XAttribute("Target", "worksheets/sheet1.xml")))));
 
-            var allRows = new[] { headers }.Concat(rows).ToArray();
-            var sheetRows = allRows.Select((row, rowIndex) =>
-                new XElement(
-                    SpreadsheetNamespace + "row",
-                    new XAttribute("r", rowIndex + 1),
-                    row.Select((value, columnIndex) => CreateInlineCell(
-                        CellReference(columnIndex, rowIndex + 1),
-                        value))));
-            WriteEntry(
-                archive,
-                WorksheetPath,
-                new XDocument(
-                    new XElement(
-                        SpreadsheetNamespace + "worksheet",
-                        new XElement(SpreadsheetNamespace + "sheetData", sheetRows))));
+            // 回执逐行写入，不建立与全部失败文本同大小的 XML 对象树。
+            var entry = archive.CreateEntry(WorksheetPath, CompressionLevel.Fastest);
+            using var sheetStream = entry.Open();
+            using var writer = XmlWriter.Create(sheetStream, new XmlWriterSettings { Encoding = new UTF8Encoding(false), CloseOutput = false });
+            writer.WriteStartElement("worksheet", SpreadsheetNamespace.NamespaceName);
+            writer.WriteStartElement("sheetData", SpreadsheetNamespace.NamespaceName);
+            var rowNumber = 1;
+            WriteRow(writer, headers, rowNumber++, cancellationToken);
+            foreach (var row in rows) WriteRow(writer, row, rowNumber++, cancellationToken);
+            writer.WriteEndElement(); writer.WriteEndElement();
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return output.ToArray();
     }
 
-    private static XElement CreateInlineCell(string reference, string value) =>
-        new(
-            SpreadsheetNamespace + "c",
-            new XAttribute("r", reference),
-            new XAttribute("t", "inlineStr"),
-            new XElement(
-                SpreadsheetNamespace + "is",
-                new XElement(
-                    SpreadsheetNamespace + "t",
-                    new XAttribute(XNamespace.Xml + "space", "preserve"),
-                    SanitizeXmlText(value))));
+    private static void WriteRow(XmlWriter writer, IReadOnlyList<string> values, int rowNumber, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        writer.WriteStartElement("row", SpreadsheetNamespace.NamespaceName);
+        writer.WriteAttributeString("r", rowNumber.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        for (var index = 0; index < values.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+            writer.WriteStartElement("c", SpreadsheetNamespace.NamespaceName);
+            writer.WriteAttributeString("r", CellReference(index, rowNumber));
+            writer.WriteAttributeString("t", "inlineStr");
+            writer.WriteStartElement("is", SpreadsheetNamespace.NamespaceName);
+            writer.WriteStartElement("t", SpreadsheetNamespace.NamespaceName);
+            writer.WriteAttributeString("xml", "space", XNamespace.Xml.NamespaceName, "preserve");
+            writer.WriteString(XmlTextSanitizer.Sanitize(values[index], token));
+            writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();
+        }
+        writer.WriteEndElement();
+    }
 
     private static void WriteEntry(
         ZipArchive archive,
@@ -158,9 +165,6 @@ internal static class ImportExportErrorReceiptRenderer
         !string.IsNullOrEmpty(value) && value[0] is '=' or '+' or '-' or '@'
             ? $"'{value}"
             : value;
-
-    private static string SanitizeXmlText(string? value) =>
-        string.Concat((value ?? string.Empty).Where(XmlConvert.IsXmlChar));
 
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";

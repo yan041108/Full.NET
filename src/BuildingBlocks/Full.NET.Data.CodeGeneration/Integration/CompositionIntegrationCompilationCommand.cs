@@ -107,16 +107,24 @@ public static class CompositionIntegrationCompilationCommand
 
         var output = await standardOutput;
         var error = await standardError;
-        if (process.ExitCode == 0)
+        return CreateBuildResult(process.ExitCode, string.Concat(output, "\n", error), repositoryRoot, temporaryRoot);
+    }
+
+    // 成功只由进程退出状态决定；输出文本只能用于解释已经确认的失败。
+    internal static ModuleIntegrationCompilationResult CreateBuildResult(
+        int exitCode, string output, string repositoryRoot, string temporaryRoot)
+    {
+        if (exitCode == 0)
         {
             return ModuleIntegrationCompilationResult.Success();
         }
 
         return ModuleIntegrationCompilationResult.Failure(
             SanitizeDiagnostics(
-                string.Concat(output, "\n", error),
+                output,
                 repositoryRoot,
-                temporaryRoot));
+                temporaryRoot,
+                exitCode));
     }
 
     private static ProcessStartInfo CreateStartInfo(
@@ -156,7 +164,8 @@ public static class CompositionIntegrationCompilationCommand
     private static IReadOnlyList<string> SanitizeDiagnostics(
         string output,
         string repositoryRoot,
-        string temporaryRoot)
+        string temporaryRoot,
+        int exitCode)
     {
         var diagnostics = output
             .Split(
@@ -185,7 +194,8 @@ public static class CompositionIntegrationCompilationCommand
             .Take(MaximumDiagnostics)
             .ToArray();
         return diagnostics.Length == 0
-            ? ["Composition 接入编译失败，构建进程未返回可公开的编译诊断。"]
+            // 非编译器输出不能原样公开；退出码本身仍须保留，便于定位 SDK 或进程异常。
+            ? [$"Composition 接入编译失败，构建进程未返回可公开的编译诊断。构建进程退出码：{exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture)}。"]
             : diagnostics;
     }
 

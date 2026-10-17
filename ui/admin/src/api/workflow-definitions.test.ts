@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from './http';
+import { workflowDefinitionDraft } from '../test/workflow-definition-fixtures';
 import {
   createWorkflowDefinition,
   getWorkflowDefinition,
@@ -43,6 +44,7 @@ describe('workflow definition 管理 API', () => {
       method: 'GET'
     }, undefined);
 
+    vi.mocked(http.request).mockResolvedValue({ ...response, draftRevision: 2 });
     await updateWorkflowDefinitionDraft(response.id, 1, response.draft);
     expect(http.request).toHaveBeenLastCalledWith(`/api/v1/workflow/definitions/${response.id}/draft`, expect.objectContaining({
       method: 'PUT',
@@ -69,7 +71,7 @@ describe('workflow definition 管理 API', () => {
       formVersionId: '0198f955-899d-7000-8000-000000000003',
       versionNumber: 1,
       schemaVersion: 1,
-      canonicalJson: '{}',
+      canonicalJson: JSON.stringify(workflowDefinitionDraft),
       contentHash: 'a'.repeat(64),
       publishedById: '0198f955-899d-7000-8000-000000000004',
       publishedAtUtc: '2026-08-30T00:00:00Z',

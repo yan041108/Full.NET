@@ -3,33 +3,35 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
 import { useSessionStore } from '../auth/session';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import { listReportingExportTasks } from '../api/reporting-export-tasks';
 
 vi.mock('../api/reporting-definitions', () => ({
-  listReportingDefinitions: vi.fn()
+  listReportingPublishedDefinitions: vi.fn()
 }));
 
-vi.mock('../api/reporting-export-tasks', () => ({
+vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(),
+  cancelReportingExportTask: vi.fn(),
   listReportingExportTasks: vi.fn(),
   createReportingExportTask: vi.fn(),
   downloadReportingExportTask: vi.fn()
 }));
 
-const definitionsMock = vi.mocked(listReportingDefinitions);
+const definitionsMock = vi.mocked(listReportingPublishedDefinitions);
 const tasksMock = vi.mocked(listReportingExportTasks);
 
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
     displayName: '管理员',
     tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
-    actorScope: 'tenant',
-    scope: 'tenant',
+    actorScope: 'tenant:019bc2b12a407cc38992a80de51bf297',
+    scope: 'tenant:019bc2b12a407cc38992a80de51bf297',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
@@ -40,7 +41,7 @@ export function verifyApplicationCrudAuthorization(appRoot, {
   const args = ['exec', cli, 'apply-host-integration', '--schema', join(appRoot, 'verification/CrudGeneration/schema.json'),
     '--repository', appRoot, '--target', join(appRoot, target)];
   const execute = (stage) => {
-    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: testRunEnvironment() });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ args,
       status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr,
     }, null, 2));

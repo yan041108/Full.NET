@@ -1,6 +1,8 @@
 import {
+  importExportCancelImportTask,
   importExportCreateImportTask,
   importExportDownloadImportTaskErrorReceipt,
+  importExportDownloadStaticSchemaTemplate,
   importExportExecuteImportTask,
   importExportGetImportTask,
   importExportListImportTasks,
@@ -16,6 +18,25 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+// 结构正确也可能属于另一任务；在薄适配层统一拒绝，避免详情和执行消费者接入错配结果。
+function readTaskResult(value: unknown, taskId: string): ImportExportTaskDetailResponse {
+  if (!isImportExportTaskDetailResponse(value)) throw new Error('client.invalid_import_export_task');
+  if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_import_export_task_identity');
+  return value;
+}
+
+// Unicode White_Space 与服务端键裁剪对齐：包含 NEL，不把 BOM 当作可裁剪空白。
+function trimImportKey(value: string): string {
+  return value.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
+}
+
+/** 下载所选静态 Schema/工作表的 Excel 模板，复用正式生成客户端。 */
+export async function downloadStaticImportTemplate(schemaKey: string, worksheetKey: string, signal?: AbortSignal): Promise<Blob> {
+  const value = await importExportDownloadStaticSchemaTemplate(http, { schemaKey, worksheetKey }, signal);
+  if (!(value instanceof Blob)) throw new Error('client.invalid_import_export_template');
+  return value;
+}
+
 /** 列出已注册的静态导入 Schema。 */
 export async function listStaticImportSchemas(
   signal?: AbortSignal
@@ -24,6 +45,10 @@ export async function listStaticImportSchemas(
   if (!Array.isArray(value) || !value.every(isStaticImportSchemaDefinition)) {
     throw new Error('client.invalid_static_import_schema_list');
   }
+  if (new Set(value.map(schema => schema.schemaKey)).size !== value.length || value.some(schema => !schema.schemaKey.trim() || !schema.requiredPermission.trim()
+    || !schema.worksheets.every(sheet => sheet !== null && typeof sheet === 'object' && typeof sheet.worksheetKey === 'string' && !!sheet.worksheetKey.trim()
+      && typeof sheet.displayName === 'string' && Array.isArray(sheet.headerColumns) && sheet.headerColumns.every(column => typeof column === 'string'))
+    || new Set(schema.worksheets.map(sheet => sheet.worksheetKey)).size !== schema.worksheets.length)) throw new Error('client.invalid_static_import_schema_list');
   return value;
 }
 
@@ -39,7 +64,9 @@ export async function listImportExportTasks(
     { page, pageSize, schemaKey },
     signal
   );
-  if (!isImportExportTaskPage(value)) {
+  if (!isImportExportTaskPage(value) || value.page !== page || value.pageSize !== pageSize
+    || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000')) {
     throw new Error('client.invalid_import_export_task_page');
   }
   return value;
@@ -51,10 +78,7 @@ export async function getImportExportTask(
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportGetImportTask(http, { taskId }, signal);
-  if (!isImportExportTaskDetailResponse(value)) {
-    throw new Error('client.invalid_import_export_task');
-  }
-  return value;
+  return readTaskResult(value, taskId);
 }
 
 /** 上传工作簿并创建导入预校验任务。 */
@@ -64,6 +88,7 @@ export async function createImportExportTask(
   file: File,
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
+  if (!(file instanceof File) || !/\.xlsx$/iu.test(file.name) || file.size === 0 || file.size > 1024 * 1024) throw new Error('client.invalid_import_export_file');
   const value = await importExportCreateImportTask(
     http,
     { schemaKey, worksheetKey, file },
@@ -72,6 +97,9 @@ export async function createImportExportTask(
   if (!isImportExportTaskDetailResponse(value)) {
     throw new Error('client.invalid_import_export_task');
   }
+  // 服务端创建入口只去除首尾空白，Schema/工作表机器键仍按精确大小写匹配。
+  if (value.id === '00000000-0000-0000-0000-000000000000' || value.schemaKey !== trimImportKey(schemaKey) || value.worksheetKey !== trimImportKey(worksheetKey))
+    throw new Error('client.invalid_import_export_task_identity');
   return value;
 }
 
@@ -81,10 +109,7 @@ export async function executeImportExportTask(
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportExecuteImportTask(http, { taskId }, signal);
-  if (!isImportExportTaskDetailResponse(value)) {
-    throw new Error('client.invalid_import_export_task');
-  }
-  return value;
+  return readTaskResult(value, taskId);
 }
 
 /** 从部分成功检查点恢复执行。 */
@@ -93,10 +118,7 @@ export async function resumeImportExportTask(
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportResumeImportTask(http, { taskId }, signal);
-  if (!isImportExportTaskDetailResponse(value)) {
-    throw new Error('client.invalid_import_export_task');
-  }
-  return value;
+  return readTaskResult(value, taskId);
 }
 
 /** 重置并重新排队执行。 */
@@ -105,10 +127,12 @@ export async function retryImportExportTask(
   signal?: AbortSignal
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportRetryImportTask(http, { taskId }, signal);
-  if (!isImportExportTaskDetailResponse(value)) {
-    throw new Error('client.invalid_import_export_task');
-  }
-  return value;
+  return readTaskResult(value, taskId);
+}
+
+/** 在安全检查点取消任务；返回值继续校验任务身份和完整结构。 */
+export async function cancelImportExportTask(taskId: string, signal?: AbortSignal): Promise<ImportExportTaskDetailResponse> {
+  return readTaskResult(await importExportCancelImportTask(http, { taskId }, signal), taskId);
 }
 
 /** 下载错误回执 xlsx。 */

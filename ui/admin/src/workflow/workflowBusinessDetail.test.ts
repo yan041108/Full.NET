@@ -23,4 +23,19 @@ describe('workflowBusinessDetail', () => {
     expect(findWorkflowBusinessDetailRoute('purchase')).toBeUndefined();
     expect(findWorkflowBusinessDetailRoute('')).toBeUndefined();
   });
+
+  it('resolves the enterprise request route and rejects object prototype names', () => {
+    expect(findWorkflowBusinessDetailRoute('demo.enterprise_request')).toEqual({
+      routeName: 'enterprise-requests', idQueryKey: 'requestId'
+    });
+    for (const key of ['__proto__', 'constructor', 'toString', 'https://example.com']) {
+      expect(findWorkflowBusinessDetailRoute(key)).toBeUndefined();
+    }
+  });
+  it('requires the precise business read permission when used by a protected view', () => {
+    expect(findWorkflowBusinessDetailRoute('demo.enterprise_request', () => false)).toBeUndefined();
+    expect(findWorkflowBusinessDetailRoute('demo.enterprise_request', permission => permission === 'workflow.todos.read')).toBeUndefined();
+    expect(findWorkflowBusinessDetailRoute('demo.enterprise_request', permission => permission === 'enterprise_request.enterprise_requests.read')?.routeName).toBe('enterprise-requests');
+    expect(findWorkflowBusinessDetailRoute('data_approval.serial_rule.update', permission => permission === 'data_approvals.requests.read')?.routeName).toBe('data-approval-requests');
+  });
 });

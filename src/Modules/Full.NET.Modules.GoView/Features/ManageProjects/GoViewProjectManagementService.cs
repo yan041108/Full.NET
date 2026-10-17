@@ -21,20 +21,21 @@ internal sealed class GoViewProjectManagementService(
     public Task<Result<GoViewProjectResponse>> CreateAsync(
         CreateGoViewProjectRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(token => CreateCoreAsync(request, token), cancellationToken);
+        transaction.ExecuteResultAsync(token => CreateCoreAsync(request, token), cancellationToken);
 
     public Task<Result<GoViewProjectResponse>> UpdateAsync(
         Guid projectId,
         UpdateGoViewProjectRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(token => UpdateCoreAsync(projectId, request, token), cancellationToken);
+        transaction.ExecuteResultAsync(token => UpdateCoreAsync(projectId, request, token), cancellationToken);
 
     public Task<Result<GoViewProjectVersionResponse>> PublishAsync(
         Guid projectId,
         Guid publishedByUserId,
         PublishGoViewProjectRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        // 发布先插入版本再检查父修订，失败 Result 必须与之前的写入一起回滚。
+        transaction.ExecuteResultAsync(
             token => PublishCoreAsync(projectId, publishedByUserId, request, token),
             cancellationToken);
 

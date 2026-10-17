@@ -26,9 +26,11 @@ internal sealed class PendingHostFileReconciliationRunner(
     FileStorageProviderRegistry storageProviders,
     IEnumerable<IHostFileRetentionContributor> retentionContributors,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    PendingHostFileReconciliationCursor? cursor = null)
 {
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
+    private readonly PendingHostFileReconciliationCursor _cursor = cursor ?? new();
 
     public async Task<PendingHostFileReconciliationResult> RunOnceAsync(
         PendingHostFileReconciliationOptions options,
@@ -40,7 +42,20 @@ internal sealed class PendingHostFileReconciliationRunner(
             return PendingHostFileReconciliationResult.Empty;
         }
 
-        var createdBeforeUtc = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var validation = new PendingHostFileReconciliationOptionsValidator().Validate(null, options);
+        if (validation.Failed)
+            throw new OptionsValidationException(PendingHostFileReconciliationOptions.SectionName, options.GetType(), validation.Failures);
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false); }
+        finally { _cursor.Gate.Release(); }
+    }
+
+    private async Task<PendingHostFileReconciliationResult> RunCoreAsync(
+        PendingHostFileReconciliationOptions options, CancellationToken cancellationToken)
+    {
+        var cutoff = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        // 周期上界保持固定；保护窗口收紧时只向更早上界收敛。
+        _cursor.CreatedBeforeUtc = _cursor.CreatedBeforeUtc is { } previous && previous < cutoff ? previous : cutoff;
         var scanned = 0;
         var promoted = 0;
         var purged = 0;
@@ -48,27 +63,27 @@ internal sealed class PendingHostFileReconciliationRunner(
         var retainedPublishing = 0;
         var concurrentlyCompleted = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterCreatedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<PendingHostFileRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
                     {
-                        ["CreatedBeforeUtc"] = createdBeforeUtc,
-                        ["HasCursor"] = hasCursor ? 1 : 0,
-                        ["AfterCreatedAtUtc"] = afterCreatedAtUtc,
-                        ["AfterId"] = afterId,
+                        ["CreatedBeforeUtc"] = _cursor.CreatedBeforeUtc,
+                        ["HasCursor"] = _cursor.Id.HasValue ? 1 : 0,
+                        ["AfterCreatedAtUtc"] = _cursor.CreatedAtUtc,
+                        ["AfterId"] = _cursor.Id,
                         ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -92,10 +107,13 @@ internal sealed class PendingHostFileReconciliationRunner(
                 }
                 catch
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 未知或不可用的 Provider 必须保留记录重试，禁止误判为对象缺失。
                     probeFailures++;
                     continue;
                 }
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (!exists
                     && string.Equals(
@@ -146,11 +164,12 @@ internal sealed class PendingHostFileReconciliationRunner(
             }
 
             var last = records[^1];
-            hasCursor = true;
-            afterCreatedAtUtc = last.CreatedAtUtc;
-            afterId = last.Id;
+            cancellationToken.ThrowIfCancellationRequested();
+            _cursor.CreatedAtUtc = last.CreatedAtUtc;
+            _cursor.Id = last.Id;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }
@@ -171,7 +190,9 @@ internal sealed class PendingHostFileReconciliationRunner(
     {
         foreach (var contributor in retentionContributors)
         {
-            if (await contributor.IsFileReferencedAsync(fileId, cancellationToken).ConfigureAwait(false))
+            var retained = await contributor.IsFileReferencedAsync(fileId, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (retained)
             {
                 return true;
             }

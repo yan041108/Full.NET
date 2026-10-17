@@ -7,7 +7,7 @@ import {
 } from './workflow-todos';
 
 vi.mock('./http', () => ({
-  http: { request: vi.fn() }
+  http: { request: vi.fn() }, request: vi.fn()
 }));
 
 const runtimeDetail = {
@@ -15,7 +15,7 @@ const runtimeDetail = {
   instanceId: '01912345-6789-7abc-8def-0123456789ac',
   stepId: '01912345-6789-7abc-8def-0123456789ad',
   assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
-  statusKey: 'pending',
+  statusKey: 'active',
   revision: 3,
   approvalModeKey: 'any',
   approvedCount: 0,

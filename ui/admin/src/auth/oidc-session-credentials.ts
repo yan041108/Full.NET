@@ -6,6 +6,13 @@ export interface OidcRefreshCredential {
   clientId: string;
 }
 
+const revisions = new WeakMap<Storage, number>();
+
+/** 同标签页凭据的变更代次；即使清理后写回相同值也使旧请求失效。 */
+export function readOidcRefreshCredentialRevision(storage: Storage = sessionStorage): number {
+  return revisions.get(storage) ?? 0;
+}
+
 function isOidcRefreshCredential(value: unknown): value is OidcRefreshCredential {
   return typeof value === 'object'
     && value !== null
@@ -37,10 +44,12 @@ export function writeOidcRefreshCredential(
   credential: OidcRefreshCredential,
   storage: Storage = sessionStorage
 ): void {
+  revisions.set(storage, readOidcRefreshCredentialRevision(storage) + 1);
   storage.setItem(ADMIN_OIDC_REFRESH_STORAGE_KEY, JSON.stringify(credential));
 }
 
 /** 清理 OIDC refresh token，退出或刷新失败时调用。 */
 export function clearOidcRefreshCredential(storage: Storage = sessionStorage): void {
+  revisions.set(storage, readOidcRefreshCredentialRevision(storage) + 1);
   storage.removeItem(ADMIN_OIDC_REFRESH_STORAGE_KEY);
 }

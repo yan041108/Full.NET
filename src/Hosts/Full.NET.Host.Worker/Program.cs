@@ -91,9 +91,13 @@ builder.Services.AddOptions<MessagingWorkerOptions>()
 builder.Services.AddSingleton<
     IValidateOptions<MessagingWorkerOptions>,
     MessagingWorkerOptionsValidator>();
+#if FULLNET_APP_WORKER
+ApplicationWorkerModuleCatalog.Register(builder.Services, builder.Configuration);
+#else
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
+#endif
 if (commandLine.VersionRetirement is not null)
 {
     WorkerMaintenanceRegistration.StripBackgroundLoops(builder.Services);

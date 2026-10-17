@@ -45,6 +45,22 @@
       "owner": "client-platform",
       "reviewBy": "2026-07-18",
       "expiresOn": "2026-09-26"
+    },
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "allowedPaths": [
+        "clients__uniapp>@dcloudio/uni-cli-shared>chokidar>braces"
+      ],
+      "rationale": "The reviewed upstream advisory has no patched release as of 2026-10-03. This dependency is confined to the pinned uni-app development build watcher; repository-controlled build paths are the only glob inputs in the accepted path.",
+      "mitigations": [
+        "Do not pass user-supplied glob patterns or remote filenames into the uni-app build watcher.",
+        "The dependency is used during local and CI builds and is not included in deployed client artifacts.",
+        "Recheck the upstream advisory and remove this exception once a patched braces release is available."
+      ],
+      "owner": "client-platform",
+      "reviewBy": "2026-10-10",
+      "expiresOn": "2026-10-18"
     }
   ]
 }

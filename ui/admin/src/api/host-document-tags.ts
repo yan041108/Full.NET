@@ -80,6 +80,7 @@ export async function updateDocumentTag(
   if (!isHostDocumentTagResponse(value)) {
     throw new Error('client.invalid_document_tag');
   }
+  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_tag_identity');
   return normalizeHostDocumentTagResponse(value);
 }
 

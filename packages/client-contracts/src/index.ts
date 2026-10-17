@@ -359,6 +359,7 @@ export {
 
 export type {
   CreateRegistrationWayRequest,
+  RegistrationMode,
   RegistrationPolicy,
   RegistrationWay,
   RegistrationWayListQuery,
@@ -787,12 +788,14 @@ export type {
 export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
+  isHostDocumentPermissionSnapshotResponse,
   isSetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
 export type {
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPermissionSnapshotResponse,
   SetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
@@ -1697,3 +1700,6 @@ export * from './public-auth.js';
 export * from './tenancy-entitlements.js';
 export * from './tenant-members.js';
 export * from './tenant-subscriptions.js';
+
+export { isReportingPublishedDefinition, isReportingPublishedDefinitionList, isReportingTenantVersionGrantPage } from './reporting-definitions.js';
+export type { ReportingPublishedDefinition, ReportingTenantVersionGrantPage } from './reporting-definitions.js';

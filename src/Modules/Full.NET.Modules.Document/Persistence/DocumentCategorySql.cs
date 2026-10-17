@@ -13,6 +13,29 @@ internal static class DocumentCategorySql
         Id, ParentId, Name, SortOrder, Code, Icon, Color, Description, CreatedAtUtc, UpdatedAtUtc, Version
         """;
 
+    /// <summary>分类写入前锁定 Host 活动目录；范围锁保护校验与提交之间的层级不变量。</summary>
+    public static readonly SqlStatement LockHierarchySqlServer = new(
+        "document.host_category.lock_hierarchy.sqlserver",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category WITH (UPDLOCK, HOLDLOCK)
+        WHERE TenantId IS NULL AND IsDeleted = 0
+        ORDER BY Id
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 使用当前锁定读，等待另一分类写入后必须重新读取已提交的父链。</summary>
+    public static readonly SqlStatement LockHierarchyMySql = new(
+        "document.host_category.lock_hierarchy.mysql",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category
+        WHERE TenantId IS NULL AND IsDeleted = 0
+        ORDER BY Id
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>列出全部活动分类；按 SortOrder、Name、Id 排序以稳定层级展示。</summary>
     public static readonly SqlStatement ListActive = new(
         "document.host_category.list_active",
@@ -34,19 +57,41 @@ internal static class DocumentCategorySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>文档挂接分类前锁住活动 Host 父行，直到文档写入事务提交，阻止分类并发删除。</summary>
+    public static readonly SqlStatement LockActiveByIdSqlServer = new(
+        "document.host_category.lock_active_by_id.sqlserver",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 使用当前锁定读，与分类删除事务竞争同一父行。</summary>
+    public static readonly SqlStatement LockActiveByIdMySql = new(
+        "document.host_category.lock_active_by_id.mysql",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>
     /// 在同一父分类下按 Name 查找冲突；用于创建/改名时的同名校验。
     /// 父子层级通过 ParentId IS NULL OR ParentId = @ParentId 表达，避免 NULL 比较歧义。
     /// </summary>
-    public static readonly SqlStatement FindActiveByParentAndName = new(
-        "document.host_category.find_active_by_parent_and_name",
+    public static readonly SqlStatement CountActiveByParentAndName = new(
+        "document.host_category.count_active_by_parent_and_name",
         """
-        SELECT Id, Name, Version
+        SELECT COUNT(1)
         FROM fn_document_category
         WHERE TenantId IS NULL
           AND IsDeleted = 0
           AND ((@ParentId IS NULL AND ParentId IS NULL) OR ParentId = @ParentId)
           AND Name = @Name
+          AND (@ExcludeId IS NULL OR Id <> @ExcludeId)
         """,
         SqlDataScope.HostOnly);
 

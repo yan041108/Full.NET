@@ -54,13 +54,14 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
     displayName: '管理员',
     tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
-    actorScope: 'tenant',
-    scope: 'tenant',
+    actorScope: 'tenant:019bc2b12a407cc38992a80de51bf297',
+    scope: 'tenant:019bc2b12a407cc38992a80de51bf297',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,
@@ -96,6 +97,7 @@ describe('Vue 导入任务页', () => {
   it('create 权限显示提交按钮', async () => {
     const wrapper = mountWithPermissions([
       'import_export.import_tasks.read',
+      'import_export.static_schemas.read',
       'import_export.import_tasks.create'
     ]);
     await flushPromises();

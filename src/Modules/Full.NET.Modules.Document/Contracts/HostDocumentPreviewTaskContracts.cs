@@ -16,6 +16,9 @@ public static class HostDocumentPreviewTaskStatusKeys
     /// <summary>转换失败，可查看错误码。</summary>
     public const string Failed = "failed";
 
+    /// <summary>创建人在领取前取消，任务不再转换。</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -23,6 +26,7 @@ public static class HostDocumentPreviewTaskStatusKeys
         Processing,
         Succeeded,
         Failed,
+        Cancelled,
     ]);
 }
 
@@ -49,6 +53,9 @@ public static class HostDocumentPreviewTaskPermissions
 
     /// <summary>允许为 Office 文档创建预览转换任务。</summary>
     public const string Create = "document.host_preview_tasks.create";
+
+    /// <summary>允许取消创建人自己的排队预览任务，不强停正在转换的任务。</summary>
+    public const string Cancel = "document.host_preview_tasks.cancel";
 }
 
 /// <summary>创建 Host 文档预览转换任务请求。</summary>

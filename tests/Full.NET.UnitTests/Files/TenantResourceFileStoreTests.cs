@@ -7,6 +7,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.TenantResourceFiles;
 using Full.NET.Modules.Files.Persistence;
+using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Files.Storage;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,152 @@ namespace Full.NET.UnitTests.Files;
 [TestClass]
 public sealed class TenantResourceFileStoreTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Upload_revalidates_tenant_after_buffering_before_quota_or_object_writes(bool changedScope)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid();
+        tenant.SetTenant(new(tenantId, "a", "A"));
+        var active = Substitute.For<IIdentityActiveTenantDirectory>();
+        active.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(true, false);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>(); var commands = Substitute.For<ICommandExecutor>();
+        var store = Create(Substitute.For<IQueryExecutor>(), commands, tenant, Substitute.For<IDataTransactionState>(), storage, Substitute.For<IIdGenerator>(), quotaPort: quota, activeTenants: active);
+        using var content = new CallbackReadStream(() => { if (changedScope) tenant.SetTenant(new(Guid.NewGuid(), "b", "B")); });
+        var result = await store.UploadAsync("reporting", Guid.NewGuid(), Guid.NewGuid(), "result.xlsx", "application/test", content, 1);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, result.Error!.Code);
+        await quota.DidNotReceive().TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+        await commands.DidNotReceive().ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await storage.DidNotReceive().SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Ready_metadata_with_missing_object_returns_not_found(bool directory)
+    {
+        var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
+        var fileId = Guid.NewGuid(); var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new TenantResourceFileRecord(fileId, "receipt.xlsx", "application/test", 1, "hash", "test", "private-key", "ready"));
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        Exception error = directory ? new DirectoryNotFoundException("private") : new FileNotFoundException("private", "private-key");
+        storage.OpenReadAsync("private-key", Arg.Any<CancellationToken>()).Returns(Task.FromException<Stream>(error));
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(), storage, Substitute.For<IIdGenerator>());
+        var result = await store.OpenReadyContentAsync("import_export", Guid.NewGuid(), fileId);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.FileNotFound, result.Error!.Code);
+        Assert.AreEqual(ErrorType.NotFound, result.Error.Type); Assert.IsFalse(result.Error.Message.Contains("private", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Upload_owner_intent_is_committed_before_object_access_or_blocks_upload(bool ownerFails)
+    {
+        var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
+        var ids = Substitute.For<IIdGenerator>(); var fileId = Guid.NewGuid(); ids.NewId().Returns(fileId);
+        var resourceId = Guid.NewGuid(); var actor = Guid.NewGuid(); var tracked = false;
+        var owner = Substitute.For<ITenantResourceFileUploadOwner>(); owner.OwnerModuleKey.Returns("reporting");
+        owner.BeginUploadAsync(Arg.Any<TenantResourceFileUploadIntent>(), Arg.Any<CancellationToken>()).Returns(call => {
+            var intent = call.ArgAt<TenantResourceFileUploadIntent>(0);
+            Assert.AreEqual(resourceId, intent.ResourceId); Assert.AreEqual(fileId, intent.FileId); Assert.AreEqual(actor, intent.ActorUserId);
+            Assert.AreEqual(1L, intent.SizeBytes); tracked = true;
+            return ownerFails ? Task.FromException(new InvalidOperationException("probe")) : Task.CompletedTask;
+        });
+        var commands = Substitute.For<ICommandExecutor>(); commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        storage.SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns(_ => { Assert.IsTrue(tracked); return Task.CompletedTask; });
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
+        quota.ConfirmAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
+        var store = Create(Substitute.For<IQueryExecutor>(), commands, tenant, Substitute.For<IDataTransactionState>(), storage, ids, quota, owners: [owner]);
+        using var stream = new MemoryStream([1]);
+        if (ownerFails)
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => store.UploadAsync("reporting", resourceId, actor, "probe.txt", "application/test", stream, 1));
+            await storage.DidNotReceive().SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
+            await quota.Received(1).ReleaseAsync(tenant.Id!.Value, fileId.ToString("N"), Arg.Any<CancellationToken>());
+        }
+        else Assert.IsTrue((await store.UploadAsync("reporting", resourceId, actor, "probe.txt", "application/test", stream, 1)).IsSuccess);
+    }
+    [TestMethod]
+    public async Task Lost_pending_metadata_after_save_removes_object_instead_of_leaking_it()
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid();
+        tenant.SetTenant(new(tenantId, "a", "A")); var fileId = Guid.NewGuid();
+        var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(fileId);
+        var commands = Substitute.For<ICommandExecutor>();
+        commands.ExecuteAsync(TenantResourceFileSql.Insert, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        commands.ExecuteAsync(TenantResourceFileSql.InsertReleasedIntent, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(Substitute.For<IQueryExecutor>(), commands, tenant, Substitute.For<IDataTransactionState>(), storage, ids);
+        using var stream = new MemoryStream([1]);
+        Assert.IsFalse((await store.UploadAsync("reporting", Guid.NewGuid(), Guid.NewGuid(), "probe.txt", "application/test", stream, 1)).IsSuccess);
+        await storage.Received(1).DeleteAsync($"tenant-resources/{tenantId:N}/{fileId:N}", Arg.Any<CancellationToken>());
+    }
+    /// <summary>迟到对象删除失败前必须恢复不可读取的墓碑，供 Worker 后续回收。</summary>
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public async Task Lost_pending_metadata_keeps_cleanup_intent_when_delete_fails(bool cancelled, bool quotaFails)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid();
+        tenant.SetTenant(new(tenantId, "a", "A")); var fileId = Guid.NewGuid();
+        var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(fileId);
+        var commands = Substitute.For<ICommandExecutor>(); var cleanupTracked = false;
+        var resourceId = Guid.NewGuid(); var key = $"tenant-resources/{tenantId:N}/{fileId:N}";
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call => {
+            var statement = call.ArgAt<SqlStatement>(0);
+            if (statement.Name == "files.tenant_resource_file.insert_released_intent")
+            {
+                SqlScopeGuard.Validate(statement, tenant);
+                StringAssert.Contains(statement.Text, "'released'");
+                var parameters = (Dictionary<string, object?>)call.ArgAt<object>(1);
+                Assert.AreEqual(fileId, parameters["Id"]);
+                Assert.AreEqual(key, parameters["StorageKey"]);
+                Assert.AreEqual(resourceId, parameters["ResourceId"]);
+                cleanupTracked = true;
+            }
+            if (statement == TenantResourceFileSql.PurgeReleased) cleanupTracked = false;
+            return statement == TenantResourceFileSql.MarkReady ? 0 : 1;
+        });
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        using var cancellation = new CancellationTokenSource(); var attempts = 0;
+        storage.DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => {
+            Assert.IsTrue(cleanupTracked, "物理删除失败或取消之前必须有可重试墓碑。");
+            if (++attempts > 1 || quotaFails) return Task.CompletedTask;
+            if (cancelled) { cancellation.Cancel(); return Task.FromException(new OperationCanceledException(cancellation.Token)); }
+            return Task.FromException(new IOException("Injected delete failure."));
+        });
+        var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => cleanupTracked ? new(fileId, "probe.txt", "application/test", 1, "hash", "test", key, "released") : null);
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
+        quota.ReleaseAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => {
+            if (quotaFails) { Assert.IsTrue(cleanupTracked, "配额释放异常之前也必须有可发现墓碑。"); return Task.FromException<Result<bool>>(new IOException("Injected quota release failure.")); }
+            return Task.FromResult(Result<bool>.Success(true));
+        });
+        var store = Create(queries, commands, tenant, Substitute.For<IDataTransactionState>(), storage, ids, quota);
+        using var stream = new MemoryStream([1]);
+        Task Upload() => store.UploadAsync("reporting", resourceId, Guid.NewGuid(), "probe.txt", "application/test", stream, 1, cancellation.Token);
+        if (cancelled) await Assert.ThrowsExactlyAsync<OperationCanceledException>(Upload);
+        else await Assert.ThrowsExactlyAsync<IOException>(Upload);
+        await commands.DidNotReceive().ExecuteAsync(TenantResourceFileSql.PurgeReleased, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        // 使用同一精确墓碑运行真实 Worker；第二次删除成功后才能清除记录。
+        queries.QueryAsync<TenantResourceFileReconciliationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => cleanupTracked ? [new(fileId, tenantId, "reporting", resourceId, "test", key, "released", DateTimeOffset.UtcNow.AddHours(-1))] : []);
+        var resolver = Substitute.For<IActiveTenantContextResolver>();
+        resolver.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>()).Returns(new TenantContext(tenantId, "a", "A"));
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var runner = new PendingTenantResourceFileReconciliationRunner(queries, commands,
+            new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
+            [], resolver, tenant, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), clock);
+        var result = await runner.RunOnceAsync(new() { Enabled = true, BatchSize = 100, MaxBatchesPerRun = 1, MinimumAgeSeconds = 30 }, CancellationToken.None);
+        Assert.AreEqual(1, result.Released); Assert.AreEqual(quotaFails ? 1 : 2, attempts); Assert.IsFalse(cleanupTracked);
+    }
     /// <summary>隔离租户和资源所有权，并验证释放后不可继续读取。</summary>
     [TestMethod]
     public async Task Ownership_and_release_are_checked_before_storage_access()
@@ -276,11 +423,23 @@ public sealed class TenantResourceFileStoreTests
     /// <param name="ids">标识生成器。</param>
     private static TenantResourceFileStore Create(IQueryExecutor queries, ICommandExecutor commands,
         CurrentTenantAccessor tenant, IDataTransactionState state, IFileStorageProvider storage, IIdGenerator ids,
-        ITenantFileStorageQuotaPort? quotaPort = null, bool tenantActive = true) =>
+        ITenantFileStorageQuotaPort? quotaPort = null, bool tenantActive = true, IEnumerable<ITenantResourceFileOwner>? owners = null,
+        IIdentityActiveTenantDirectory? activeTenants = null) =>
         new(queries, commands, tenant, state,
             new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
-            [], Substitute.For<IClock>(), ids, Options.Create(new LocalFileStorageOptions { MaxUploadBytes = 16 }),
-            quotaPort ?? new NullTenantFileStorageQuotaPort(), CreateActiveTenants(tenantActive));
+            owners ?? [], Substitute.For<IClock>(), ids, Options.Create(new LocalFileStorageOptions { MaxUploadBytes = 16 }),
+            quotaPort ?? new NullTenantFileStorageQuotaPort(), activeTenants ?? CreateActiveTenants(tenantActive));
+
+    /// <summary>在真实读取边界改变租户状态，不伪造配额、数据库或对象上传结果。</summary>
+    private sealed class CallbackReadStream(Action callback) : MemoryStream(new byte[] { 1 })
+    {
+        private bool called;
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!called) { called = true; callback(); }
+            return base.ReadAsync(buffer, cancellationToken);
+        }
+    }
 
     private static IIdentityActiveTenantDirectory CreateActiveTenants(bool active)
     {

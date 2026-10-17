@@ -87,6 +87,7 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: userId,
     username: 'admin',
@@ -317,6 +318,7 @@ describe('Vue 角色管理页', () => {
     expect(wrapper.find('[data-testid="role-save-permissions"]').exists()).toBe(true);
 
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = {
       ...session.currentUser!,
       permissions: []
@@ -335,6 +337,7 @@ describe('Vue 角色管理页', () => {
     expect(wrapper.find('[data-testid="roles-save-data-scope"]').exists()).toBe(true);
 
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = {
       ...session.currentUser!,
       permissions: []

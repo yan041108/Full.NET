@@ -24,7 +24,8 @@ public sealed class Migration044CodeGenerationTemplateRecoveryTests
         var connectionString =
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.MySql, connectionString,
+            template => CreateRunner(DatabaseProvider.MySql, template));
 
         await using var connection = new MySqlConnection(
             MySqlConnectionStringPolicy.Create(
