@@ -52,7 +52,25 @@ Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶�
 
 证据为本轮忽略目录内 `process-provider-focused-source.json`、`process-provider-focused-win.json`、`process-provider-focused-linux.json` 及逐轮 TRX/命令/退出码；这是受影响测试类的复验，不能报告完整 Unit 7422 项已通过。复审另提到进程树部分终止失败时 `AggregateException` 的未复现候选；它不是此次 CI 失败根因，未修改生产行为，也不自动加入冻结开发队列。
 
-AI 有界准备窗口的最终纯资源交接已核验后，`parent16` 正执行独立投影 `b01253b` 的官方 SQL Server Minimal 场景；有界导航探针已随场景启动，尚未取得业务通过证据。原导航 5 秒断言、业务范围及正式准备/运行预算保持不变。当前未发布 continuation2 最终资源回执，未将运行中或资源释放计为验收通过。
+`parent16` 已自然结束、实际 exit 1：SQL Server Minimal 的 102 条迁移与 Development 播种、API/Worker、客户端与 Vue 构建均越过，仍在原产品导航 5 秒断言失败。产品组件及两个生成模块请求约 90 ms 内均返回 200，无 pageerror；超时记录仍为根路径，但原错误采集时地址已是产品路径，页面 evaluate 与截图未完成。尚不能据此认定组件下载慢、路由权限错误或具体生产缺陷。独立应用有效业务证据仍为 3/6，开发余 0、验收余 4。
+
+## 导航失败后的有界定位
+
+捕获副本保持源码与生产资产摘要不变，进行了三次轻量回放：开启 Vite 控制台转发、重放本轮真实身份/租户/产品响应、改用正式 Vite CLI 启动。三次均在原 5 秒内完成产品导航并显示生成页面，监督实际 exit 0；这只能排除相应单独条件，不能当成真实应用通过。第 7 次诊断因跨副本重复加载 Playwright 在启动前失败，原日志保留；第 8—10 次为有效回放。证据为 `generated-ui-navigation-exact{8,9,10}.json` 与 `navigation-light-closeout.json`。
+
+下一次真实失败将记录白名单、有界、脱敏的真实导航树、前 16 条 console 错误/警告与产品导航 CPU 热点摘要。CPU 证据不保留 URL query/hash 或原始 profile；正常流程绝不终止页面。只有原业务断言已失败且停止采样也超时，才中止该自有页面脚本以取回采样，并保留原错误。真实浏览器死循环回归先揭示直接 stop 无法结束采样，随后验证失败后协议中止可取回热点。只读复审又发现初始化超时丢失清理所有权，补充迟到 session、enable/start 挂起的 RED→GREEN，截止后立即或迟到 detach，禁止继续初始化。最终 `node --test tests/templates/application-crud-browser.test.mjs` 为 16/16、零失败/跳过、实际 exit 0；限定复查确认该 P2 已关闭、无新增明确 P1/P2。新诊断尚未进入真实后端，不声称导航缺陷已修复。
+
+窗口16及后续轻量回放结束后，按精确 birth、实际进程句柄终态和资源归属核对，发布主工作区纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation2-final.json`，SHA-256 `82cf900e9aa2ffd1937546a2ff9e7d1224be91ad004cc94420394a906a43282f`。2515 个登记 actor、59 容器、16 会话、12 卷均已释放，acceptance=false、actualParentExit=1，不把清理当业务通过；未知和共享资源保留。按用户长期安全协调授权在自然失败边界交 AI 专项接续，本窗不启动重型等待器。
+
+当前远端 `fd08a57` 的客户端与两个迁移分组均已成功；后端 job 的 Unit、Compatibility、Architecture 步骤已成功，完整 job 仍在双库 Integration，尚未提取全量 Unit 计数。API/Worker Native 工作流已全部成功，冻结原生范围的 50/52 项已匹配，仍余企业链路 2 项，故 FA-05 尚未关闭。新诊断暂留本地批次，避免在这些运行中门禁完成前再次推送导致取消重跑。
+
+## Native 当前提交结果复用
+
+远端提交 `fd08a5768d722c988facbc0afa7e62ae2eb937bc` 的 API job `117262584481` 与 Worker job `117262583842` 均为成功终态，包含分析、Linux 原生发布、88 项 AOT 架构门禁和各自真实外部进程测试。Worker 正式组 27/27、零失败/跳过；已取得 TRX 并与冻结计划 27 个 UID 精确相等。API 正式组 23/23、零失败/跳过；NativeAot 测试源与正式 runner 相对冻结源未变，矩阵 filter/minimum 完全一致，官方入口读取新鲜 TRX 并强制拒绝跳过后才成功。API 成功工作流没有导出逐项 TRX，按“未变源码/筛选器与实际正式组日志”绑定，明确区别于 Worker 的逐 UID TRX 证据。其他 Provider 组不计入冻结的 52 项。
+
+发布清单确认 linux-x64、NativeAot 和实际原生文件大小，日志中的构建/分析为零警告/错误；没有把这些文件声称为本地已下载运行。原 Worker 整包下载 120 秒超时，失败保留；后续认证 Range 读取只传输 75,506 字节取得清单与完整 TRX，逐条 ZIP CRC 与落盘 SHA-256 均核验，不声称已验证整个压缩包摘要。API 亦只提取发布清单。没有保存访问凭据或签名下载 URL。
+
+证据 `native-ci-reuse50.json`、`ci-{api,worker}-fd08a57.json/.log`、两份 Range 证据与 Worker TRX 位于本轮忽略目录。冻结 52 项现覆盖 50，后续只续验 `nativeAotEnterpriseIntegration` 2 项，不再重跑这两个已通过组；FA-05 与 FA-06 仍未关闭。后端完整 CI job 仍在运行，新诊断提交暂未推送以避免取消该轮验证。
 
 ## 仍待关闭
 

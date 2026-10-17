@@ -26,6 +26,108 @@ export async function collectApplicationBrowserDiagnostic(action, fallback, time
   }
 }
 
+// 仅保存重放导航所需白名单字段；不把响应中的凭据或任意附加字段写入证据。
+export function summarizeApplicationNavigation(body, redact = text => text) {
+  let remaining = 64;
+  let truncated = false;
+  const seen = new WeakSet();
+  const visit = (nodes, depth) => {
+    if (!Array.isArray(nodes)) return [];
+    const result = [];
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue;
+      if (remaining === 0 || depth >= 8 || seen.has(node)) { truncated = true; continue; }
+      remaining--;
+      seen.add(node);
+      const value = {};
+      for (const key of ['id', 'parentId', 'routeName', 'path', 'componentKey', 'title', 'caption', 'icon', 'order', 'requiredPermission']) {
+        if (typeof node[key] === 'string') value[key] = redact(node[key]).slice(0, 500);
+        else if (node[key] === null || (typeof node[key] === 'number' && Number.isFinite(node[key]))) value[key] = node[key];
+      }
+      value.children = visit(node.children, depth + 1);
+      result.push(value);
+    }
+    return result;
+  };
+  const nodes = visit(body, 0);
+  return { nodes, truncated };
+}
+
+// 只保留有界热点摘要；剔除 URL 查询及片段，避免调试 token 随 CPU 证据落盘。
+export function summarizeApplicationCpuProfile(profile, redact = text => text) {
+  if (!profile || !Array.isArray(profile.nodes) || !Array.isArray(profile.samples)) return undefined;
+  const counts = new Map();
+  for (const id of profile.samples) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const hotFrames = profile.nodes.filter(node => counts.has(node.id)).map(node => {
+    let path = '';
+    try {
+      const url = new URL(node.callFrame?.url);
+      if (url.protocol === 'http:' || url.protocol === 'https:') path = url.pathname;
+    } catch { /* 空 URL 的运行时帧保留函数名，不保留原始文本。 */ }
+    return { functionName: redact(String(node.callFrame?.functionName ?? '')).slice(0, 500),
+      path: redact(path).slice(0, 500), lineNumber: node.callFrame?.lineNumber, samples: counts.get(node.id) };
+  }).sort((left, right) => right.samples - left.samples).slice(0, 32);
+  return { durationMicroseconds: Number.isFinite(profile.endTime - profile.startTime)
+    ? Math.max(0, profile.endTime - profile.startTime) : undefined, sampleCount: profile.samples.length, hotFrames };
+}
+
+// 初始化立即登记会话清理所有权，超过截止后迟到的会话也必须脱离。
+export async function startApplicationCpuProfile(context, page, { timeoutMs = 2_000 } = {}) {
+  let session;
+  let retired = false;
+  let detaching;
+  const deadline = performance.now() + timeoutMs;
+  const expired = () => retired || performance.now() >= deadline;
+  const detach = async () => {
+    if (!session) return;
+    detaching ??= collectApplicationBrowserDiagnostic(() => session.detach(), undefined, timeoutMs);
+    await detaching;
+  };
+  const initializing = (async () => {
+    try {
+      session = await context.newCDPSession(page);
+      // 会话一创建就归本函数清理；迟到创建或命令完成不得越过截止继续启动采样。
+      if (expired()) { await detach(); return undefined; }
+      await session.send('Profiler.enable');
+      if (expired()) { await detach(); return undefined; }
+      await session.send('Profiler.start');
+      if (expired()) { await detach(); return undefined; }
+      return session;
+    } catch {
+      await detach();
+      return undefined;
+    }
+  })();
+  const result = await collectApplicationBrowserDiagnostic(() => initializing, undefined, timeoutMs);
+  if (!result || expired()) {
+    retired = true;
+    await detach();
+    return undefined;
+  }
+  return result;
+}
+
+// 只有失败页面可以中止脚本；正常停止采样超时仍只脱离调试会话。
+export async function finishApplicationCpuProfile(session, { allowTerminate = false, redact, timeoutMs = 2_000 } = {}) {
+  if (!session) return undefined;
+  let executionTerminatedForDiagnostic = false;
+  try {
+    const stopping = Promise.resolve().then(() => session.send('Profiler.stop'));
+    let result = await collectApplicationBrowserDiagnostic(() => stopping, undefined, timeoutMs);
+    if (!result && allowTerminate) {
+      executionTerminatedForDiagnostic = await collectApplicationBrowserDiagnostic(async () => {
+        await session.send('Runtime.terminateExecution');
+        return true;
+      }, false, timeoutMs);
+      if (executionTerminatedForDiagnostic)
+        result = await collectApplicationBrowserDiagnostic(() => stopping, undefined, timeoutMs);
+    }
+    return { summary: summarizeApplicationCpuProfile(result?.profile, redact), executionTerminatedForDiagnostic };
+  } finally {
+    await collectApplicationBrowserDiagnostic(() => session.detach(), undefined, timeoutMs);
+  }
+}
+
 export async function waitForApplicationTenantLanding(page, tenantName, timeout = 20_000) {
   await expect(page.getByTestId('shell-current-context')).toHaveText(tenantName, { timeout });
   // 会话先发布新上下文，切换页随后跳转首页；等待落地后才能点击产品菜单，避免被迟到的跳转覆盖。
@@ -90,16 +192,24 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
       if (mode === 'update' || mode === 'delete') assert.ok(actionTargetName, 'browser action target is required');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
         buttons: { create: false, update: false, delete: false }, action: null, accessibility: [], authResponses: [],
-        pageErrors: [], failedRequests: [], productModuleRequests: [], productModuleResponses: [], routeEvents: [] };
+        pageErrors: [], consoleMessages: [], navigationSnapshots: [], failedRequests: [],
+        productModuleRequests: [], productModuleResponses: [], routeEvents: [] };
       const context = await browser.newContext();
       let page;
       let activeAccessToken;
       let stage = 'login';
+      let profiler;
       const startedAt = Date.now();
       const redact = value => {
         let text = String(value);
         for (const secret of [password, activeAccessToken]) if (secret) text = text.replaceAll(secret, '[REDACTED]');
         return text.slice(0, 1200);
+      };
+      const stopProfiling = async (allowTerminate = false) => {
+        const session = profiler;
+        profiler = undefined;
+        if (!session) return;
+        evidence.cpuProfile = await finishApplicationCpuProfile(session, { allowTerminate, redact });
       };
       try {
         page = await context.newPage();
@@ -107,6 +217,10 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         let deleteRequests = 0;
         // 仅保留模块路径、状态和有界错误；不记录凭据、请求体或业务响应正文。
         page.on('pageerror', error => { if (evidence.pageErrors.length < 16) evidence.pageErrors.push(redact(error.message)); });
+        page.on('console', message => {
+          if (['error', 'warning'].includes(message.type()) && evidence.consoleMessages.length < 16)
+            evidence.consoleMessages.push({ type: message.type(), text: redact(message.text()) });
+        });
         page.on('requestfailed', request => {
           if (evidence.failedRequests.length < 32) evidence.failedRequests.push({
             path: new URL(request.url()).pathname, error: redact(request.failure()?.errorText), elapsedMs: Date.now() - startedAt
@@ -129,6 +243,13 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
             evidence.productModuleResponses.push({ path, status: response.status(), elapsedMs: Date.now() - startedAt });
           if (['/api/v1/auth/login', '/api/v1/me', '/api/v1/navigation', '/api/v1/tenancy/context'].includes(path)) {
             evidence.authResponses.push({ path, status: response.status() });
+          }
+          if (path === '/api/v1/navigation' && response.status() === 200 && evidence.navigationSnapshots.length < 4) {
+            void collectApplicationBrowserDiagnostic(async () =>
+              summarizeApplicationNavigation(await response.json(), redact), undefined).then(snapshot => {
+                if (snapshot && evidence.navigationSnapshots.length < 4)
+                  evidence.navigationSnapshots.push({ elapsedMs: Date.now() - startedAt, ...snapshot });
+              });
           }
         });
         await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
@@ -172,6 +293,8 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
               await group.locator(':scope > .el-sub-menu__title').click();
             }
           }
+          // 采样只覆盖本次导航；失败时 CDP 仍可提供热点，不依赖已阻塞的页面 evaluate。
+          profiler = await startApplicationCpuProfile(context, page);
           evidence.productClickStartedMs = Date.now() - startedAt;
           await link.click();
           evidence.productClickCompletedMs = Date.now() - startedAt;
@@ -179,6 +302,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
           stage = 'product-view';
           const view = page.locator('.generated-crud-view');
           await expect(view).toBeVisible();
+          await stopProfiling();
           await expect(view.locator('.el-table__row').filter({ hasText: 'Read permission product' }))
             .toBeVisible({ timeout: 20_000 });
           if (mode === 'read') await auditAccessibility(page, '.generated-crud-view', evidence, 'product-list');
@@ -266,6 +390,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         return activeAccessToken;
       } catch (error) {
         evidence.failure = { stage, error: redact(error.message), path: page ? new URL(page.url()).pathname + new URL(page.url()).hash.split('?')[0] : undefined };
+        await stopProfiling(true);
         evidence.clientNavigation = await collectApplicationBrowserDiagnostic(() => page?.evaluate(() => {
           const app = document.querySelector('#app')?.__vue_app__;
           const router = app?.config.globalProperties.$router;
@@ -279,6 +404,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         }), undefined);
         throw error;
       } finally {
+        await stopProfiling();
         if (page) evidence.routeEvents = (await collectApplicationBrowserDiagnostic(
           () => page.evaluate(() => window.__fullnetCrudRouteEvents ?? []), []))
           .map(event => ({ ...event, error: event.error ? redact(event.error) : undefined }));
