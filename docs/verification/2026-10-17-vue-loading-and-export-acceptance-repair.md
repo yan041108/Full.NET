@@ -58,7 +58,7 @@ Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶�
 
 捕获副本保持源码与生产资产摘要不变，进行了三次轻量回放：开启 Vite 控制台转发、重放本轮真实身份/租户/产品响应、改用正式 Vite CLI 启动。三次均在原 5 秒内完成产品导航并显示生成页面，监督实际 exit 0；这只能排除相应单独条件，不能当成真实应用通过。第 7 次诊断因跨副本重复加载 Playwright 在启动前失败，原日志保留；第 8—10 次为有效回放。证据为 `generated-ui-navigation-exact{8,9,10}.json` 与 `navigation-light-closeout.json`。
 
-下一次真实失败将记录白名单、有界、脱敏的真实导航树、前 16 条 console 错误/警告与产品导航 CPU 热点摘要。CPU 证据不保留 URL query/hash 或原始 profile；正常流程绝不终止页面。只有原业务断言已失败且停止采样也超时，才中止该自有页面脚本以取回采样，并保留原错误。真实浏览器死循环回归先揭示直接 stop 无法结束采样，随后验证失败后协议中止可取回热点。只读复审又发现初始化超时丢失清理所有权，补充迟到 session、enable/start 挂起的 RED→GREEN，截止后立即或迟到 detach，禁止继续初始化。最终 `node --test tests/templates/application-crud-browser.test.mjs` 为 16/16、零失败/跳过、实际 exit 0；限定复查确认该 P2 已关闭、无新增明确 P1/P2。新诊断尚未进入真实后端，不声称导航缺陷已修复。
+导航诊断记录白名单、有界、脱敏的真实导航树、前 16 条 console 错误/警告与可取得的产品导航 CPU 热点摘要。CPU 证据不保留 URL query/hash 或原始 profile；正常流程绝不终止页面。只有原业务断言已失败且停止采样也超时，才尝试中止该自有页面脚本以取回采样，并保留原错误。真实浏览器死循环回归先揭示直接 stop 无法结束采样，随后验证失败后协议中止可取回热点。只读复审又发现初始化超时丢失清理所有权，补充迟到 session、enable/start 挂起的 RED→GREEN，截止后立即或迟到 detach，禁止继续初始化。最终 `node --test tests/templates/application-crud-browser.test.mjs` 为 16/16、零失败/跳过、实际 exit 0；限定复查确认该 P2 已关闭、无新增明确 P1/P2。该回归仅证明辅助诊断与清理行为，不声称导航缺陷已修复；真实后端结果见下文。
 
 窗口16及后续轻量回放结束后，按精确 birth、实际进程句柄终态和资源归属核对，发布主工作区纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation2-final.json`，SHA-256 `82cf900e9aa2ffd1937546a2ff9e7d1224be91ad004cc94420394a906a43282f`。2515 个登记 actor、59 容器、16 会话、12 卷均已释放，acceptance=false、actualParentExit=1，不把清理当业务通过；未知和共享资源保留。按用户长期安全协调授权在自然失败边界交 AI 专项接续，本窗不启动重型等待器。
 
@@ -72,6 +72,16 @@ Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶�
 
 证据 `native-ci-reuse50.json`、`ci-{api,worker}-fd08a57.json/.log`、两份 Range 证据与 Worker TRX 位于本轮忽略目录。冻结 52 项现覆盖 50，后续只续验 `nativeAotEnterpriseIntegration` 2 项，不再重跑这两个已通过组；FA-05 与 FA-06 仍未关闭。后端完整 CI job 仍在运行，新诊断提交暂未推送以避免取消该轮验证。
 
+## 复用产物与本轮接续准备
+
+已从相同提交的 CI artifact 以 4 路有界 Range 请求下载 API/Worker 原生文件，校验条目 CRC、SHA-256、ELF 标识与发布清单大小。API 为 137,127,744 字节，Worker 为 88,304,760 字节；所需最高 glibc 符号版本为 2.38，尚未在本地 Linux 执行或证明 ABI 可用。使用单次 `git cat-file --batch` 核对 3984 份编译/资源输入与冻结副本内容一致，其中 3976 份仅 LF/CRLF 原始字节不同。原生产者提交和本地冻结 overlay 分别绑定；不把原旧消费者标成已使用安全补丁的新构建。证据 `ci-native-binary-reuse-ready.json`、`ci-native-source-reuse-match.json`；已准备仅构建一次新消费者、仅发现企业 2 项的入口，未执行构建或测试。
+
+AI 专项在真实失败安全边界交出资源后，已按最终 SHA、父/观察器终态、锁及卷占用核验；只复用资源交接，不消费其业务结果。窗口17的 parent107084 / birth `134366739464048093`、句柄 observer102472、资源 collector98584 执行一项 SQL Server Minimal 官方场景，输入 `52ff56b`，业务断言和原预算不变。该窗口已自然结束，实际 exit 1：生成、Host 接线、权限、迁移/重复迁移、API/Worker 与 Outbox、客户端及 Vue 构建均越过，仍在原产品导航 5 秒断言失败。新导航快照确认切租户后包含产品入口；三个产品模块请求均返回 200，未记录 pageerror。仅取得有界 console 警告，CPU profile、页面执行诊断和路由事件未成功取回，不能声称热点已定位或导航问题已修复。原始 `remaining-acceptance-chain-attempt17.json`、`chain17-minimal-sql-profile.log` 和私有投影的 `application-crud-browser/read.json` 保留；独立应用有效业务结果仍为 3/6。
+
+清理观察曾因历史 PID 80096 被系统复用且 `OpenProcess` 拒绝查询而失败，未将查询失败当作进程不存在。业务终态后保留原观察源码与摘要，使用只读 `NtQuerySystemInformation` 的精确 CreateTime 证明该 PID 当前 birth 与历史身份不同；自身及父进程的两种 API 出生时间一致。历史登记未删除，补充证明见 `window17-process-query-recovery.json`。随后完成 3031 个 actor、62 容器、17 会话、13 卷及自有锁的物理核对，发布主工作区纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation3-final.json`，SHA-256 `802038e106c133c5fc21edf7059e571cc7d5bb5b0658fcc7aeb3566bbc6738c3`；acceptance=false、actualParentExit=1。已显式交回 AI 专项，不以旧回执释放新窗口。
+
+新真实导航树的轻量回放入口已备好，但 `exact11` 在 8/4 GiB 内存准入时失败、runs=[]，未启动浏览器；不是业务失败复现或通过。依协调约定暂缓浏览器重试，只做静态分析。Native 企业 2 项的新消费者准备与复用运行入口也已备好并通过 `node --check`，尚未构建或实跑；仅续验 2 项、复用已通过 50 项，不重复原生发布。
+
 ## 仍待关闭
 
-开发剩余 0、验收组仍剩 4：FA-03 真实后端双库浏览器、FA-04 失败/未执行样例、FA-05 更新依赖后的 API/Worker 分析及 Linux Native 实跑、FA-06 汇总。未合并、未发布。
+开发剩余 0、验收组仍剩 4：FA-03 真实后端双库浏览器、FA-04 Minimal 双库与数据交付 MySQL、FA-05 Native 企业链路 2 项、FA-06 汇总。API/Worker 已通过的 50 项不再重复执行。未合并、未发布。
