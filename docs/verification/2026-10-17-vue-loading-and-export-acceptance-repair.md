@@ -62,7 +62,9 @@ Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶�
 
 窗口16及后续轻量回放结束后，按精确 birth、实际进程句柄终态和资源归属核对，发布主工作区纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation2-final.json`，SHA-256 `82cf900e9aa2ffd1937546a2ff9e7d1224be91ad004cc94420394a906a43282f`。2515 个登记 actor、59 容器、16 会话、12 卷均已释放，acceptance=false、actualParentExit=1，不把清理当业务通过；未知和共享资源保留。按用户长期安全协调授权在自然失败边界交 AI 专项接续，本窗不启动重型等待器。
 
-当前远端 `fd08a57` 的客户端与两个迁移分组均已成功；后端 job 的 Unit、Compatibility、Architecture 步骤已成功，完整 job 仍在双库 Integration，尚未提取全量 Unit 计数。API/Worker Native 工作流已全部成功，冻结原生范围的 50/52 项已匹配，仍余企业链路 2 项，故 FA-05 尚未关闭。新诊断暂留本地批次，避免在这些运行中门禁完成前再次推送导致取消重跑。
+远端 `fd08a57` 的后端 job `117262584761` 已实际成功，原始日志确认 Unit 7422/7422、Compatibility 12/12、Architecture 250/250、双库影响集 526/526、企业 API 样例 16/16，均零失败/跳过；PR 不适用的 Serialization baseline 步骤仍为 skipped，不称全部步骤均执行。日志 SHA-256 为 `e9948cfe27d53ba54b4558abff27518b56769214835245ecdad4ba314f13ab02`，正式计数记录为 `ci-backend-fd08a57-summary.json`。首次日志下载被 gh 的终端转义保护拒绝，空文件与退出码保留；第二次仅将原始日志写文件，实际下载 exit 0，未在终端解释转义内容。客户端、两个迁移分组及 API/Worker Native 工作流亦已成功；新诊断与导航修复等待本批受影响回归关闭后合批推送。
+
+后端 quality artifact 的两个完整 TRX 已下载并验证 ZIP CRC/SHA，实际分别为 526 与 16 个 Passed。逐 UID 比较发现主影响集只覆盖 FA-02 原冻结 324 项中的 318 项，不能凭总数更大就外推全覆盖；其余 6 项均为迁移恢复。在 current/legacy 两个迁移作业的 TRX 中找到这 6 个完全相同的 UID，均 Passed，两个作业原始 checkout 日志亦绑定实际生产者 `ab5d4c7`。最终 `fa02-current-ci-complete-scope.json` 确认冻结 324 项由当前提交的 318+6 证据完整覆盖，补强更新依赖后的验证；原分阶段本地证据、最初 318/324 的不完整比较与原中断结果均保留。不将各作业总数相加当作冻结范围，不把企业 API 样例当成独立生成应用或 Native 企业链路。
 
 ## Native 当前提交结果复用
 
@@ -70,7 +72,9 @@ Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶�
 
 发布清单确认 linux-x64、NativeAot 和实际原生文件大小，日志中的构建/分析为零警告/错误；没有把这些文件声称为本地已下载运行。原 Worker 整包下载 120 秒超时，失败保留；后续认证 Range 读取只传输 75,506 字节取得清单与完整 TRX，逐条 ZIP CRC 与落盘 SHA-256 均核验，不声称已验证整个压缩包摘要。API 亦只提取发布清单。没有保存访问凭据或签名下载 URL。
 
-证据 `native-ci-reuse50.json`、`ci-{api,worker}-fd08a57.json/.log`、两份 Range 证据与 Worker TRX 位于本轮忽略目录。冻结 52 项现覆盖 50，后续只续验 `nativeAotEnterpriseIntegration` 2 项，不再重跑这两个已通过组；FA-05 与 FA-06 仍未关闭。后端完整 CI job 仍在运行，新诊断提交暂未推送以避免取消该轮验证。
+补核 CI 生产者时，实际 checkout 为 PR 合并引用 `ab5d4c75e6a532a938e035a80a34933aa8fe4b70`，不能仅将 job.head_sha 当作构建提交。API/Worker 原始 checkout 日志均确认该引用；GitHub Git commit 对象确认其父包含 `fd08a57`，且二者完整 Git 树精确同为 `b8bf1e4ebdc63c585d81358f49db50059a8bb8ca`，现有 3984 份编译/资源输入比较因此可绑定实际生产者。证明 `ci-native-producer-merge-binding.json` 与原日志摘要保留，后续企业 2 项入口同步校验此证明；不据此增加已执行场景数。
+
+证据 `native-ci-reuse50.json`、`ci-{api,worker}-fd08a57.json/.log`、两份 Range 证据与 Worker TRX 位于本轮忽略目录。冻结 52 项现覆盖 50，后续只续验 `nativeAotEnterpriseIntegration` 2 项，不再重跑这两个已通过组；FA-05 与 FA-06 仍未关闭。后端完整 CI job 现已成功，新诊断将与本批导航修复合并推送，不用旧提交结果证明尚未复验的新导航代码。
 
 ## 复用产物与本轮接续准备
 
@@ -80,7 +84,11 @@ AI 专项在真实失败安全边界交出资源后，已按最终 SHA、父/观
 
 清理观察曾因历史 PID 80096 被系统复用且 `OpenProcess` 拒绝查询而失败，未将查询失败当作进程不存在。业务终态后保留原观察源码与摘要，使用只读 `NtQuerySystemInformation` 的精确 CreateTime 证明该 PID 当前 birth 与历史身份不同；自身及父进程的两种 API 出生时间一致。历史登记未删除，补充证明见 `window17-process-query-recovery.json`。随后完成 3031 个 actor、62 容器、17 会话、13 卷及自有锁的物理核对，发布主工作区纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation3-final.json`，SHA-256 `802038e106c133c5fc21edf7059e571cc7d5bb5b0658fcc7aeb3566bbc6738c3`；acceptance=false、actualParentExit=1。已显式交回 AI 专项，不以旧回执释放新窗口。
 
-新真实导航树的轻量回放入口已备好，但 `exact11` 在 8/4 GiB 内存准入时失败、runs=[]，未启动浏览器；不是业务失败复现或通过。依协调约定暂缓浏览器重试，只做静态分析。Native 企业 2 项的新消费者准备与复用运行入口也已备好并通过 `node --check`，尚未构建或实跑；仅续验 2 项、复用已通过 50 项，不重复原生发布。
+真实导航树回放 `exact11` 在 8/4 GiB 内存准入失败、runs=[]，未启动浏览器，清理已核验；不是业务复现或通过。后续在明确的短资源窗口执行 `exact12`：独立 normal 锁、CPU 亲和性 0x3（2 个逻辑 CPU）、单浏览器、75 秒诊断执行截止，实际一轮约 33 秒；原 5 秒导航断言失败，随后导航成功且生成页可见，诊断监督 actual exit 0 不代表业务通过。该轮同时使用完整真实导航树与严格 CPU 亲和性，与先前三次简化回放存在两项差异，不能仅归因为导航树。实际记录同一次点击触发两次 `router.push('/catalog/products')`，其中一次取消（类型 8）；未发生产品页整文档 load 事件，暂不将开发服务器整页重载作为根因。源码摘要未变，资源回执 `artifacts/foundation-freeze-20261016-navigation-replay12-resource-final.json` 的 SHA-256 为 `0f81ee86687085cf4a10d9ec564408f5677df2bc85da1af4396764b02333a4e5`。观察器在主工作结束后附加，未捕获初始全部后代历史，已明确记载；实际进程句柄 exit 0、外层命令终态、root/Vite/observer 缺席、端口/锁释放及全局 Playwright 浏览器缺席共同作为资源证明，没有声称自建 Windows Job。
+
+沿重复导航调用链新增真实 Vue Router/Element Plus 的 jsdom 回归，覆盖链接点击、detail=0 激活事件、菜单项自身点击、Ctrl/Meta 处理及路由守卫。最初事件夹具使用只读 detail 属性的构造错误单独保留；修正后正式 RED 为 6 项中 5 个预期行为失败、1 通过，actual exit 1、零跳过。现将链接 `@click.prevent` 改为 `@click.stop`，由 RouterLink 处理链接导航，保留父菜单项自身的点击入口；只修改事件归属，不改权限或原 5 秒预算。补丁已写但 GREEN、类型/构建和浏览器复验尚未执行，不能声称导航失败已修复。独立源码副本 `G:/.fullnet-tests/fa-sidebar-unit-IHtvF4` 保留原源码、测试输入摘要与 RED 日志，两个测试根进程、全局 Vitest/Tinypool 进程与自有锁已核验释放。影响集规划只识别前端两个文件、Integration 为 none；不重复后端已通过范围。
+
+Native 企业 2 项的新消费者准备与复用运行入口也已备好并通过 `node --check`，尚未构建或实跑；仅续验 2 项、复用已通过 50 项，不重复原生发布。其他项目的 Vite 构建曾造成共享提交内存不足；该非自有构建已自然结束，本窗未停止它，但可用提交内存仍低于共享验收门槛。取消本地 GREEN 的资源排队，将候选补丁与 6 项回归合批推送既定开发分支，由 GitHub Actions 执行 GREEN、Vue 类型/构建；取得实际结果前保持待验证，不把旧 CI 结果外推至新导航代码。浏览器与本地重型验收仍按安全边界协调，不循环重试占用资源。
 
 ## 仍待关闭
 
