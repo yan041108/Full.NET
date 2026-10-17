@@ -266,14 +266,14 @@ public sealed class RagRetrievalExecutionTests
         var json = node.ToJsonString();
         if (mutation == "duplicate") json = "{\"schemaVersion\":1," + json[1..];
         if (mutation == "nested-duplicate") json = json.Replace("\"chunkId\":", "\"chunkId\":\"injected\",\"chunkId\":", StringComparison.Ordinal);
-        var path = Path.Combine(TestContext.TestResultsDirectory!, Guid.NewGuid().ToString("N") + ".json"); File.WriteAllText(path, json);
+        var path = RagEvaluationJson.TemporaryPath("retrieval-input"); File.WriteAllText(path, json);
         Assert.ThrowsExactly<JsonException>(() => RagRetrievalExecutionArtifacts.Read(path));
     }
 
     [TestMethod]
     public void Artifact_reader_bounds_bytes_and_accepts_bom_but_rejects_invalid_utf8()
     {
-        var path = Path.Combine(TestContext.TestResultsDirectory!, Guid.NewGuid().ToString("N") + ".json");
+        var path = RagEvaluationJson.TemporaryPath("retrieval-input");
         File.WriteAllText(path, JsonSerializer.Serialize(Input(), RagEvaluationJson.Options), new UTF8Encoding(true));
         Assert.AreEqual(Input().DatasetSha256, RagRetrievalExecutionArtifacts.Read(path).DatasetSha256);
         File.WriteAllBytes(path, [0xff]); Assert.ThrowsExactly<DecoderFallbackException>(() => RagRetrievalExecutionArtifacts.Read(path));
@@ -286,7 +286,7 @@ public sealed class RagRetrievalExecutionTests
     public void Report_writer_never_overwrites_existing_evidence()
     {
         var (corpus, digest) = RagEvaluationJson.LoadCorpus(); var report = RagRetrievalExecution.Execute(corpus, digest, Input());
-        var path = Path.Combine(TestContext.TestResultsDirectory!, Guid.NewGuid().ToString("N") + ".json");
+        var path = RagEvaluationJson.TemporaryPath("retrieval-input");
         RagRetrievalExecutionArtifacts.Write(path, report); var original = File.ReadAllBytes(path);
         Assert.ThrowsExactly<IOException>(() => RagRetrievalExecutionArtifacts.Write(path, report)); CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
@@ -295,7 +295,7 @@ public sealed class RagRetrievalExecutionTests
     public void Cancelled_report_write_does_not_create_an_output_file()
     {
         var (corpus, digest) = RagEvaluationJson.LoadCorpus(); var report = RagRetrievalExecution.Execute(corpus, digest, Input());
-        var path = Path.Combine(TestContext.TestResultsDirectory!, Guid.NewGuid().ToString("N") + ".json");
+        var path = RagEvaluationJson.TemporaryPath("retrieval-input");
         using var stop = new CancellationTokenSource(); stop.Cancel();
         Assert.ThrowsExactly<OperationCanceledException>(() => RagRetrievalExecutionArtifacts.Write(path, report, stop.Token));
         Assert.IsFalse(File.Exists(path));
@@ -325,7 +325,7 @@ public sealed class RagRetrievalExecutionTests
         using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var report = RagRetrievalExecution.Execute(corpus, digest, input, budget.Token);
         var output = Environment.GetEnvironmentVariable("FULLNET_AI_RETRIEVAL_EXECUTION_REPORT");
-        if (string.IsNullOrWhiteSpace(output)) output = Path.Combine(TestContext.TestResultsDirectory!, "retrieval-execution-" + Guid.NewGuid().ToString("N") + ".json");
+        if (string.IsNullOrWhiteSpace(output)) output = RagEvaluationJson.TemporaryPath("retrieval-execution");
         RagRetrievalExecutionArtifacts.Write(output, report, budget.Token); TestContext.AddResultFile(output);
     }
 }

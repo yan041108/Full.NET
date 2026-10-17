@@ -227,7 +227,7 @@ public sealed class RagEvaluationBaselineTests
         var report = string.IsNullOrWhiteSpace(admitted) ? Score(run) : ScoreAdmitted(admitted, run);
         var output = Environment.GetEnvironmentVariable("FULLNET_AI_EVALUATION_REPORT");
         if (string.IsNullOrWhiteSpace(output))
-            output = Path.Combine(TestContext.TestResultsDirectory!, "rag-evaluation-report.json");
+            output = RagEvaluationJson.TemporaryPath("rag-evaluation-report");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
         if (string.IsNullOrWhiteSpace(admitted)) File.WriteAllText(output, JsonSerializer.Serialize(report, RagEvaluationJson.Options) + "\n");
         else RagFeedbackAdmissionArtifacts.WriteReport(output, report);

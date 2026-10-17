@@ -67,7 +67,7 @@ public sealed class RagRetrievalComparisonArtifactTests
         var (corpus, digest) = RagEvaluationJson.LoadCorpus();
         var report = RagRetrievalComparison.Compare(corpus, digest, input);
         var output = Environment.GetEnvironmentVariable("FULLNET_AI_STRATEGY_COMPARISON_REPORT");
-        if (string.IsNullOrWhiteSpace(output)) output = Path.Combine(TestContext.TestResultsDirectory!, "rag-strategy-comparison-" + Guid.NewGuid().ToString("N") + ".json");
+        if (string.IsNullOrWhiteSpace(output)) output = RagEvaluationJson.TemporaryPath("rag-strategy-comparison");
         RagRetrievalComparisonArtifacts.Write(output, report);
         TestContext.AddResultFile(output);
         // 外部候选无合格提升时先保留失败报告，再使门禁退出非零；默认参考只验证工具链。

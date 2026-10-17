@@ -212,7 +212,7 @@ public sealed class RagFeedbackAdmissionTests
         var input = string.IsNullOrWhiteSpace(inputPath) ? Input() : RagFeedbackAdmissionArtifacts.ReadInput(inputPath);
         var artifact = RagFeedbackAdmission.Admit(input);
         var output = Environment.GetEnvironmentVariable("FULLNET_AI_FEEDBACK_ADMISSION_OUTPUT");
-        if (string.IsNullOrWhiteSpace(output)) output = Path.Combine(TestContext.TestResultsDirectory!, "admitted-feedback-" + Guid.NewGuid().ToString("N") + ".json");
+        if (string.IsNullOrWhiteSpace(output)) output = RagEvaluationJson.TemporaryPath("admitted-feedback");
         RagFeedbackAdmissionArtifacts.Write(output, artifact); TestContext.AddResultFile(output);
     }
 }

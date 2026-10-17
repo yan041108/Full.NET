@@ -44,6 +44,10 @@ internal static class RagEvaluationJson
     internal static string Digest(string json)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json.Replace("\r\n", "\n", StringComparison.Ordinal))));
 
+    /// <summary>临时 JSON 归本轮 TEMP 管理，避免 MSTest 结果目录回退到程序集目录后污染可复用产物。</summary>
+    internal static string TemporaryPath(string purpose)
+        => Path.Combine(Path.GetTempPath(), $"fullnet-ai-{purpose}-{Guid.NewGuid():N}.json");
+
     internal static (RagEvaluationCorpus Corpus, string Digest) LoadCorpus()
     {
         var json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Ai", "Evaluation", "Fixtures", "rag-cases.json"));
