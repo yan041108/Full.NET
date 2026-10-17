@@ -44,7 +44,7 @@ public sealed class DocumentPreviewProcessProviderTests
     }
 
     [TestMethod]
-    public async Task Caller_cancellation_reaps_owned_parent_and_descendant_before_return()
+    public async Task Caller_cancellation_stops_parent_and_eventually_terminates_owned_descendant()
     {
         using var fixture = new Fixture();
         using var input = new MemoryStream([1]);
@@ -55,15 +55,38 @@ public sealed class DocumentPreviewProcessProviderTests
             var ids = await fixture.WaitForReadyAsync();
             cancellation.Cancel();
             await Assert.ThrowsAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(15)));
-            Assert.IsFalse(Fixture.IsRunning(ids.Pid));
-            Assert.IsFalse(Fixture.IsRunning(ids.ChildPid));
+            Assert.IsFalse(fixture.IsOwnedRunning(ids.Pid));
             Assert.IsTrue(input.CanRead);
+            // Kill(true) 异步终止后代；父进程退出不代表后代已经完成 OS 收尾，不能要求同一时刻消失。
+            await fixture.WaitForOwnedExitAsync(ids.ChildPid, TimeSpan.FromSeconds(5));
+            Assert.IsFalse(fixture.IsOwnedRunning(ids.ChildPid));
         }
         finally
         {
             cancellation.Cancel();
             try { await pending.WaitAsync(TimeSpan.FromSeconds(15)); }
             catch (OperationCanceledException) { }
+        }
+    }
+
+    [TestMethod]
+    public async Task Owned_descendant_exit_probe_times_out_without_terminating_a_live_process()
+    {
+        using var fixture = new Fixture();
+        using var parent = Process.Start(fixture.StartInfo("cancel"))!;
+        try
+        {
+            var ids = await fixture.WaitForReadyAsync();
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() =>
+                fixture.WaitForOwnedExitAsync(ids.ChildPid, TimeSpan.FromMilliseconds(100)));
+            // 负对照必须仍在运行；探针只观察，实际清理只能由本夹具最后执行。
+            Assert.IsTrue(fixture.IsOwnedRunning(ids.Pid));
+            Assert.IsTrue(fixture.IsOwnedRunning(ids.ChildPid));
+        }
+        finally
+        {
+            if (!parent.HasExited) parent.Kill(entireProcessTree: true);
+            await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
 
@@ -188,7 +211,33 @@ public sealed class DocumentPreviewProcessProviderTests
             throw new TimeoutException("转换夹具未就绪。");
         }
 
-        public static bool IsRunning(int id)
+        public async Task WaitForOwnedExitAsync(int id, TimeSpan timeout)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            while (IsOwnedRunning(id))
+            {
+                if (stopwatch.Elapsed >= timeout)
+                    throw new TimeoutException("本次转换夹具的进程未在有限等待内退出。");
+                await Task.Delay(10);
+            }
+        }
+
+        public bool IsOwnedRunning(int id)
+        {
+            var actor = owned.Single(item => item.Id == id);
+            if (!IsRunning(id)) return false;
+            try
+            {
+                using var process = Process.GetProcessById(id);
+                // 只观察回执登记且启动时间未变的身份；PID 已复用表示原进程已经退出。
+                return process.StartTime.ToUniversalTime() == actor.Started && !process.HasExited;
+            }
+            catch (ArgumentException) { return false; }
+            catch (InvalidOperationException) when (!IsRunning(id)) { return false; }
+            catch (System.ComponentModel.Win32Exception) when (!IsRunning(id)) { return false; }
+        }
+
+        private static bool IsRunning(int id)
         {
             if (OperatingSystem.IsLinux())
             {

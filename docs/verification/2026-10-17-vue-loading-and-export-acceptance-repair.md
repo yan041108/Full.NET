@@ -36,11 +36,23 @@ CI job `117243450739` 已通过客户端测试、OpenAPI 兼容、构建及全�
 
 使用独立生成应用捕获的生产资产和前端源码，在自有副本运行既有两个受控 HTTP 场景：每个场景在 production/development 各重复 3 次，单 worker、retries 0，两模式各 6/6，零失败/跳过/flaky，命令及实际 exit 0 见 `ci-browser2-fixture-repair.json`。这是 2 个独立场景的 12 次执行，不是 12 个不同业务场景，也不代替真实后端验收。
 
-Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶段及脱敏错误；不改原导航、超时或业务断言。只读复审发现辅助 evaluate 可能挂起后，统一加 2 秒截止，诊断失败后仍保留原 Error 并继续清理。`node --test tests/templates/application-crud-browser.test.mjs` 实际 6/6、零失败/跳过、exit 0，覆盖原租户落地与辅助诊断成功、拒绝、同步异常、永久 pending 后清理。复审未再发现 P1/P2。新增诊断尚未在真实失败样例中执行，不能据此声称导航问题已修复。
+Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶段及脱敏错误；不改原导航、超时或业务断言。只读复审发现辅助 evaluate 可能挂起后，统一加 2 秒截止，诊断失败后仍保留原 Error 并继续清理。`node --test tests/templates/application-crud-browser.test.mjs` 实际 6/6、零失败/跳过、exit 0，覆盖原租户落地与辅助诊断成功、拒绝、同步异常、永久 pending 后清理。复审未再发现 P1/P2。新增诊断已进入后续真实场景，执行进展见下节；尚不能据此声称导航问题已修复。
 
 `parent15` 已自然结束，实际 exit 1：独立数据交付 SQL Server 的导入、独立 Worker、报表及真实下载/打印边界通过；MySQL 在 API 构建时 ETIMEDOUT，未进入业务验收。Minimal 双库已越过准备期，在产品导航断言失败；现有 mock 诊断未复现，根因仍待真实探针定位。有效审批双库 2 场景结果仍按输入范围复用。后续只续验失败/未执行范围，不重跑已通过业务场景。
 
 原资源观察器查询超时失败与一次因 FILETIME 精度不匹配被拒绝的交接决定均保留；未将它们计作清理通过。使用精确十进制 birth 重新执行完整物理核对后，发布纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation1-final.json`（主工作区，SHA-256 `75324907112addc889a8468f64930dd5e48c599fe0bf5bc5a9152f29eb202b16`）。该回执 acceptance=false，仅证明本窗进程、测试锁、容器/卷已释放；历史及未知资源保留。按既定协调顺序交给 AI 专项做有界生成准备后再续验。
+
+## 后续 CI 与取消夹具复验
+
+提交 `512b4ad` 的客户端 CI job `117254426663` 已实际成功：Vue 324 个文件共 3024/3024，i18n 8 项，其余 23 个工具文件 144 项，uni-app H5 7 项；Vue E2E 为 147 passed、4 skipped、零失败/flaky。4 个跳过保留，不能写成零跳过或整个 CI 全绿。原始日志 `ci-client-512b4ad.log` 的 SHA-256 为 `4425189e3c94229fc3e3bed49b3bea8c2ab31fef5b80aeaaf71141e832eca574`。
+
+同轮后端 job `117254426433` 的全量 Unit 为 7420 通过、1 失败、零跳过，实际失败记录保留。失败在取消夹具返回后立即判断后代存活，约 155 ms 即失败。既有生产契约是停止父进程并尝试终止其进程树；[Process.Kill 官方说明](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process.kill?view=net-10.0)明确终止异步进行，等待父进程退出不能证明后代均已退出。本次仅修正测试：仍验证取消异常、父进程立即停止、借入输入流可读；用独立 5 秒观察截止等待相同 PID 与出生时间的自有后代退出。新增负对照证明观察超时不会终止仍存活的父子进程，不修改生产代码、产品超时或取消契约。原测试 UID 改名为 `Caller_cancellation_stops_parent_and_eventually_terminates_owned_descendant`，不是新增业务场景。
+
+只编译该真实测试源文件，引用已核验的两份未变生产 DLL，避免重建整个后端。145 份生产输入与原编译来源内容一致，其中 16 份仅 LF/CRLF 原始字节不同，已显式记录；不声称当前输入逐字节全部相同。`dotnet build ProcessProviderFocused.csproj -c Release --disable-build-servers -m:1` 实际 exit 0、零警告/错误；执行 `dotnet Full.NET.UnitTests.dll --timeout 1m --minimum-expected-tests 12 --report-trx`，Windows 12/12、Linux 同一程序集连续 3 轮各 12/12，均零失败/跳过、实际 exit 0。Linux 为 12 个不同用例的 36 次执行，不是 36 个不同场景，也不是 Native AOT。各轮自有容器已核验不存在。有限只读复审未发现本次测试修改的 P1/P2。
+
+证据为本轮忽略目录内 `process-provider-focused-source.json`、`process-provider-focused-win.json`、`process-provider-focused-linux.json` 及逐轮 TRX/命令/退出码；这是受影响测试类的复验，不能报告完整 Unit 7422 项已通过。复审另提到进程树部分终止失败时 `AggregateException` 的未复现候选；它不是此次 CI 失败根因，未修改生产行为，也不自动加入冻结开发队列。
+
+AI 有界准备窗口的最终纯资源交接已核验后，`parent16` 正执行独立投影 `b01253b` 的官方 SQL Server Minimal 场景；有界导航探针已随场景启动，尚未取得业务通过证据。原导航 5 秒断言、业务范围及正式准备/运行预算保持不变。当前未发布 continuation2 最终资源回执，未将运行中或资源释放计为验收通过。
 
 ## 仍待关闭
 
