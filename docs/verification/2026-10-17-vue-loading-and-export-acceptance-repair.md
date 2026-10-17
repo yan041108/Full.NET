@@ -90,6 +90,30 @@ AI 专项在真实失败安全边界交出资源后，已按最终 SHA、父/观
 
 Native 企业 2 项的新消费者准备与复用运行入口也已备好并通过 `node --check`，尚未构建或实跑；仅续验 2 项、复用已通过 50 项，不重复原生发布。其他项目的 Vite 构建曾造成共享提交内存不足；该非自有构建已自然结束，本窗未停止它，但可用提交内存仍低于共享验收门槛。取消本地 GREEN 的资源排队，将候选补丁与 6 项回归合批推送既定开发分支，由 GitHub Actions 执行 GREEN、Vue 类型/构建；取得实际结果前保持待验证，不把旧 CI 结果外推至新导航代码。浏览器与本地重型验收仍按安全边界协调，不循环重试占用资源。
 
+
+## 侧边栏后续验证补记
+
+候选a566366的客户端CI job117286538383已实际成功：侧边栏DOM6/6、Vue325文件3030/3030、类型/构建/预算通过；mock E2E147 passed、4 skipped，跳过保留。实际检出合并引用6f69005b46f7aa13805e83806b7426f2fb19b33f，与候选完整Git树相同。完整导航树2CPU受控回放exact13在原5秒内通过，只有一次push；这是受控证据，FA-04真实后端子集仍为3/6，不能由mock关闭。此前“GREEN待执行”记录是当时状态，不是当前结论。
+
+## Native 企业双库集中验收关闭（2026-10-17）
+
+候选仍为 `a566366922c0b9fd3b06e07a5d905e24d1195a3a`。FA-05 已覆盖 **52/52**：原 API23/Worker27 共50项按未变输入继续复用；此次只实跑原企业双库2个UID，未重跑50项或重新原生发布。CI实际生产者 `ab5d4c75e6a532a938e035a80a34933aa8fe4b70` 与 `fd08a57` 完整Git树同为 `b8bf1e4ebdc63c585d81358f49db50059a8bb8ca`；源代码、样例、模板、契约及测试闭包均与候选匹配，明确为仓库换行过滤后的Git比较，不声称所有原始字节一致。
+
+本机原恢复工作目录、SDK10和测试镜像已不在，复用现有冻结目录 `G:/.fullnet-tests/fa-HG4DPX`，没有再复制整仓。临时官方Windows SDK10.0.100按微软SHA512校验；Release完整消费者构建 actual exit0、零警告/错误、13m04，依赖明确为MessagePack2.5.303。两个CI ELF仍为原摘要：API `bd3b0a82d000825720b92f8eebdc796682233fb5bd89d4873a0456ff7064d7f2`、Worker `bf8b03bd59ad02648c8033e9a1b672a9bfdd6b8bfe10c2b7abbcac0692875b83`。Linux运行时实际.NET10.0.13/glibc2.39，两个ELF动态依赖解析实际exit0。
+
+跨工具调用的正式复核暴露构建身份差异：两次探针的源码/SDK/输出相同，唯一变化环境项为 `CODEX_TOOL_CALL_ID`。守卫按规则拒绝复用。改用现有正式 `withPreparedTestRun` 的同进程准备、取得heavy后严格复核、运行；保留全部环境参与摘要，不篡改旧记录、不剔除此变量。必要的新身份增量构建53.58秒、actual0/零警告错误，严格复核随后通过；正式用例阶段不补编译。
+
+首次Linux实跑2失败/0跳过：夹具向只读 `/work/artifacts` 写启动日志，业务断言尚未到达。原TRX与日志保留，不能计通过。只调整容器输入/输出映射：实际源与消费者程序集均只读，工作目录标识和Host配置绑定实际源，日志写独立系统Temp；最小验证实际0且两个UID一致，宿主仓库未创建artifacts。未改C#业务源、测试断言、筛选器或15分钟suite预算。随后只复验这2项：
+
+| UID | 场景 | 结果 |
+| --- | --- | --- |
+| `165bc6ea-7962-8390-a53f-6f91d79ae3d4` | MySQL Native API/Worker企业审批、工作簿及绑定运行态 | Passed |
+| `195cda46-d1af-8881-8261-d4971a4c6498` | SQL Server同场景 | Passed |
+
+命令为 `dotnet Full.NET.IntegrationTests.dll --no-ansi --progress off --timeout 15m --filter FullyQualifiedName~NativeEnterpriseBusinessTests --minimum-expected-tests 2 --report-trx`，实际同时指定独立Temp的results-directory与report-trx-filename。Linux discovery与正式TRX的UID集合精确相等；MTP **2/2、零失败/跳过，2m44.618s**，Docker CLI实际0。held-handle Windows父60856/birth `134367121997711863` 实际0，Job active0/total33，observer36332原身份缺席，自有normal/heavy锁已释放；新增容器差集空，foreign baseline `a39c533bf6d9`/`c584bc64d003` 保留。未停止共享服务。
+
+本次最小证据暂存系统Temp `C:/Users/Administrator/AppData/Local/Temp/fullnet-frozen-acceptance-1792232794104`，由本批最终汇总消费后按本地清理规则回收；不在repo artifacts输出或保存整仓副本。原始正式TRX SHA256 `8323fde5d774a6eed72ad5d63a316fa9544065aa0ca5dd48e8a7cda98ce82b8a`，业务log `bc15ed6925ad3b3bca1b740b2b24912ae7ded27788d7d4c1962c553297416e9a`，父终态 `6c0a88ba93545b7d0ec9f40458672c79f63373927e00899cb3da4f4427b3bc18`，容器归还 `de3f855723ced76039d23ff13f595063a639a07b9882d7f81d3d716f8646a3f5`。首次MCR大层传输最终正常完成；主机侧官方crane备用路径600秒超时，工具与部分tar已清理，未用失败记录计通过。SDK仍供本批剩余验收使用；容量保持Capacity-not-verified。
+
 ## 仍待关闭
 
-开发剩余 0、验收组仍剩 4：FA-03 真实后端双库浏览器、FA-04 Minimal 双库与数据交付 MySQL、FA-05 Native 企业链路 2 项、FA-06 汇总。API/Worker 已通过的 50 项不再重复执行。未合并、未发布。
+开发剩余 0、验收组剩 3：FA-03 真实后端双库浏览器、FA-04 Minimal 双库与数据交付 MySQL、FA-06 最终汇总。FA-05已按50项复用加企业双库2项实跑关闭；其余组不因本组通过而升级。未合并、未发布。
