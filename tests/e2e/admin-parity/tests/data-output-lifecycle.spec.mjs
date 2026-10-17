@@ -215,21 +215,22 @@ test('导入错误回执实际下载保留派生文件名与字节', async ({ pa
 
 test('离开文档预览页取消待返回 PDF，不调用打开窗口', async ({ page }) => {
   await boot(page, 'document-preview-tasks', '/document/preview-tasks', 'document.host_preview_tasks.read',
-    ['document.host_preview_tasks.read', 'import_export.import_tasks.read'], 'host');
+    ['document.host_preview_tasks.read', 'files.files.read'], 'host');
   await page.route('**/api/v1/navigation', route => json(route, [
     { id: 'document-preview-tasks', parentId: null, routeName: 'document-preview-tasks', path: '/document/preview-tasks',
       componentKey: 'document-preview-tasks', title: '文档预览', caption: '', icon: 'document', order: 10,
       requiredPermission: 'document.host_preview_tasks.read', children: [] },
-    { id: 'import-export-tasks', parentId: null, routeName: 'import-export-tasks', path: '/import-export/tasks',
-      componentKey: 'import-export-tasks', title: '导入任务', caption: '', icon: 'document', order: 20,
-      requiredPermission: 'import_export.import_tasks.read', children: [] }
+    { id: 'host-files', parentId: null, routeName: 'host-files', path: '/files/host-files',
+      componentKey: 'host-files', title: '文件管理', caption: '', icon: 'document', order: 20,
+      requiredPermission: 'files.files.read', children: [] }
   ]));
   await page.route('**/api/v1/document/host/preview-tasks?*', route => json(route, { items: [{
     id, documentItemId: id, documentTitle: 'PDF 夹具', versionId: null, sourceFileId: id, outputFileId: id,
     statusKey: 'succeeded', providerKey: 'fixture', errorCode: null, requestedByUserId: id, createdAtUtc,
     startedAtUtc: null, completedAtUtc: createdAtUtc, version: 1
   }], page: 1, pageSize: 20, total: 1 }));
-  await page.route('**/api/v1/import-export/tasks?*', route => json(route, { items: [], page: 1, pageSize: 20, total: 0 }));
+  await page.route('**/api/v1/files/host-folders/tree', route => json(route, []));
+  await page.route('**/api/v1/files/host-files?*', route => json(route, { items: [], page: 1, pageSize: 20, total: 0 }));
   let release; let pending = false; let finished = false;
   const waiting = new Promise(resolve => { release = resolve; });
   await page.route(`**/api/v1/document/host/preview-tasks/${id}/content`, async route => {
@@ -240,9 +241,10 @@ test('离开文档预览页取消待返回 PDF，不调用打开窗口', async (
   await page.goto('/#/document/preview-tasks');
   await page.evaluate(() => { window.__pdfOpens = 0; window.open = () => { window.__pdfOpens++; return null; }; });
   await page.getByTestId('document-preview-task-open-pdf').click(); await expect.poll(() => pending).toBe(true);
-  await page.evaluate(() => { window.location.hash = '/import-export/tasks'; });
-  await expect(page).toHaveURL(/#\/import-export\/tasks$/u);
-  await expect(page.locator('main [data-route-heading]')).toBeVisible();
+  // Host 会话只能进入相同作用域的页面；目标页面就绪后再核验离页清理，不能命中旧页标题。
+  await page.evaluate(() => { window.location.hash = '/files/host-files'; });
+  await expect(page).toHaveURL(/#\/files\/host-files$/u);
+  await expect(page.locator('.host-files-view [data-route-heading]')).toBeVisible();
   await expect(page.getByTestId('document-preview-task-open-pdf')).toHaveCount(0);
   release(); await expect.poll(() => finished).toBe(true);
   expect(await page.evaluate(() => window.__pdfOpens)).toBe(0);

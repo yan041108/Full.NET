@@ -11,6 +11,21 @@ const { chromium, expect } = requireFromE2e('@playwright/test');
 const AxeBuilder = requireFromParity('@axe-core/playwright');
 const origin = 'http://localhost:25183';
 
+// 诊断不能阻塞原错误传播或清理；页面执行上下文卡住时也按短截止时间放行。
+export async function collectApplicationBrowserDiagnostic(action, fallback, timeoutMs = 2_000) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(action),
+      new Promise(resolve => { timer = setTimeout(() => resolve(fallback), timeoutMs); })
+    ]);
+  } catch {
+    return fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function waitForApplicationTenantLanding(page, tenantName, timeout = 20_000) {
   await expect(page.getByTestId('shell-current-context')).toHaveText(tenantName, { timeout });
   // 会话先发布新上下文，切换页随后跳转首页；等待落地后才能点击产品菜单，避免被迟到的跳转覆盖。
@@ -74,14 +89,33 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
       assert.ok(['read', 'none', 'create', 'update', 'delete'].includes(mode), 'unknown browser permission mode');
       if (mode === 'update' || mode === 'delete') assert.ok(actionTargetName, 'browser action target is required');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
-        buttons: { create: false, update: false, delete: false }, action: null, accessibility: [], authResponses: [] };
+        buttons: { create: false, update: false, delete: false }, action: null, accessibility: [], authResponses: [],
+        pageErrors: [], failedRequests: [], productModuleRequests: [], productModuleResponses: [], routeEvents: [] };
       const context = await browser.newContext();
+      let page;
+      let activeAccessToken;
+      let stage = 'login';
+      const startedAt = Date.now();
+      const redact = value => {
+        let text = String(value);
+        for (const secret of [password, activeAccessToken]) if (secret) text = text.replaceAll(secret, '[REDACTED]');
+        return text.slice(0, 1200);
+      };
       try {
-        const page = await context.newPage();
+        page = await context.newPage();
         let tenantSwitchStarted = false;
-        let activeAccessToken;
         let deleteRequests = 0;
+        // 仅保留模块路径、状态和有界错误；不记录凭据、请求体或业务响应正文。
+        page.on('pageerror', error => { if (evidence.pageErrors.length < 16) evidence.pageErrors.push(redact(error.message)); });
+        page.on('requestfailed', request => {
+          if (evidence.failedRequests.length < 32) evidence.failedRequests.push({
+            path: new URL(request.url()).pathname, error: redact(request.failure()?.errorText), elapsedMs: Date.now() - startedAt
+          });
+        });
         page.on('request', request => {
+          const requestPath = new URL(request.url()).pathname;
+          if (evidence.productModuleRequests.length < 32 && /CatalogProductsView|products-page|products\.generated/u.test(requestPath))
+            evidence.productModuleRequests.push({ path: requestPath, elapsedMs: Date.now() - startedAt });
           if (new URL(request.url()).pathname.endsWith('/delete') && request.method() === 'POST') {
             deleteRequests += 1;
           }
@@ -91,6 +125,8 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         });
         page.on('response', response => {
           const path = new URL(response.url()).pathname;
+          if (evidence.productModuleResponses.length < 32 && /CatalogProductsView|products-page|products\.generated/u.test(path))
+            evidence.productModuleResponses.push({ path, status: response.status(), elapsedMs: Date.now() - startedAt });
           if (['/api/v1/auth/login', '/api/v1/me', '/api/v1/navigation', '/api/v1/tenancy/context'].includes(path)) {
             evidence.authResponses.push({ path, status: response.status() });
           }
@@ -104,9 +140,19 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({ timeout: 30_000 });
         evidence.login = true;
 
+        stage = 'tenant-switch';
         await page.goto(origin + '/#/tenant-context');
         const tenantRow = page.locator('.tenant-context-view .el-table__row').filter({ hasText: tenantName });
         await expect(tenantRow).toBeVisible({ timeout: 15_000 });
+        evidence.routeObserverInstalled = await collectApplicationBrowserDiagnostic(() => page.evaluate(() => {
+          const router = document.querySelector('#app')?.__vue_app__?.config.globalProperties.$router;
+          if (!router?.afterEach || !router?.onError) return false;
+          window.__fullnetCrudRouteEvents = [];
+          const record = event => { if (window.__fullnetCrudRouteEvents.length < 64) window.__fullnetCrudRouteEvents.push(event); };
+          router.afterEach((to, from, failure) => record({ to: to.path, from: from.path, failureType: failure?.type }));
+          router.onError(error => record({ error: String(error.message).split('\n')[0] }));
+          return true;
+        }), false);
         tenantSwitchStarted = true;
         await tenantRow.getByRole('button', { name: '进入租户' }).click();
         await waitForApplicationTenantLanding(page, tenantName);
@@ -118,6 +164,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         await expect(link).toHaveCount(canRead ? 1 : 0);
         evidence.navigation = canRead;
         if (canRead) {
+          stage = 'product-navigation';
           const groups = navigation.locator('.el-sub-menu');
           for (let index = 0; index < await groups.count(); index += 1) {
             const group = groups.nth(index);
@@ -125,8 +172,11 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
               await group.locator(':scope > .el-sub-menu__title').click();
             }
           }
+          evidence.productClickStartedMs = Date.now() - startedAt;
           await link.click();
+          evidence.productClickCompletedMs = Date.now() - startedAt;
           await expect(page).toHaveURL(/#\/catalog\/products$/u);
+          stage = 'product-view';
           const view = page.locator('.generated-crud-view');
           await expect(view).toBeVisible();
           await expect(view.locator('.el-table__row').filter({ hasText: 'Read permission product' }))
@@ -214,7 +264,24 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         assert.ok(activeAccessToken, 'browser navigation did not use a tenant access token');
         evidence.completed = true;
         return activeAccessToken;
+      } catch (error) {
+        evidence.failure = { stage, error: redact(error.message), path: page ? new URL(page.url()).pathname + new URL(page.url()).hash.split('?')[0] : undefined };
+        evidence.clientNavigation = await collectApplicationBrowserDiagnostic(() => page?.evaluate(() => {
+          const app = document.querySelector('#app')?.__vue_app__;
+          const router = app?.config.globalProperties.$router;
+          const session = app?.config.globalProperties.$pinia?._s.get('identity-session');
+          return { currentRoute: router?.currentRoute.value.path, productRouteRegistered: router?.hasRoute('m7-catalog-products'),
+            sessionState: session?.state, switching: session?.switching,
+            canReadProduct: session?.can('catalog.products.read'), hasTenant: Boolean(session?.currentUser?.tenantId) };
+        }), undefined);
+        await collectApplicationBrowserDiagnostic(() => page?.screenshot({
+          path: join(reportDirectory, mode + '-failure.png'), timeout: 2_000
+        }), undefined);
+        throw error;
       } finally {
+        if (page) evidence.routeEvents = (await collectApplicationBrowserDiagnostic(
+          () => page.evaluate(() => window.__fullnetCrudRouteEvents ?? []), []))
+          .map(event => ({ ...event, error: event.error ? redact(event.error) : undefined }));
         await context.close();
         writeFileSync(join(reportDirectory, mode + '.json'), JSON.stringify(evidence, null, 2));
       }

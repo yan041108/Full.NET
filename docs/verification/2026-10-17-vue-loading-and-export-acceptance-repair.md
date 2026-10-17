@@ -30,6 +30,18 @@ Windows 10/i7-12700H，Node 24.12.0、Vite 8.1.5；原冻结构建和当前生�
 
 原始命令、参数、退出码、输入摘要、日志及报告位于本轮 `.tmp/foundation-freeze-20261016/`：`bundle-printing-repair.json`、`bundle-printing-ui-green4.json`、`bundle-production-browser4.json`、`frontend-bundle-before.json`、`frontend-bundle-after4.json`。该目录为本地运行证据，永久结论以本报告真实范围为准。
 
+## 浏览器夹具与本轮样例结果
+
+CI job `117243450739` 已通过客户端测试、OpenAPI 兼容、构建及全部包预算，浏览器阶段为 145 passed、1 failed、1 flaky、4 skipped，不能计整批成功。保留原始日志和 trace，修正两个已定位的夹具缺陷：文件名只在真实目录表内断言，删除使用当前确认按钮的正常点击；Host PDF 离页改为相同 Host 作用域的文件页，并等待目标页面专属标题，避免匹配旧页标题。
+
+使用独立生成应用捕获的生产资产和前端源码，在自有副本运行既有两个受控 HTTP 场景：每个场景在 production/development 各重复 3 次，单 worker、retries 0，两模式各 6/6，零失败/跳过/flaky，命令及实际 exit 0 见 `ci-browser2-fixture-repair.json`。这是 2 个独立场景的 12 次执行，不是 12 个不同业务场景，也不代替真实后端验收。
+
+Minimal 导航探针补充有界模块请求/响应、路由事件、失败阶段及脱敏错误；不改原导航、超时或业务断言。只读复审发现辅助 evaluate 可能挂起后，统一加 2 秒截止，诊断失败后仍保留原 Error 并继续清理。`node --test tests/templates/application-crud-browser.test.mjs` 实际 6/6、零失败/跳过、exit 0，覆盖原租户落地与辅助诊断成功、拒绝、同步异常、永久 pending 后清理。复审未再发现 P1/P2。新增诊断尚未在真实失败样例中执行，不能据此声称导航问题已修复。
+
+`parent15` 已自然结束，实际 exit 1：独立数据交付 SQL Server 的导入、独立 Worker、报表及真实下载/打印边界通过；MySQL 在 API 构建时 ETIMEDOUT，未进入业务验收。Minimal 双库已越过准备期，在产品导航断言失败；现有 mock 诊断未复现，根因仍待真实探针定位。有效审批双库 2 场景结果仍按输入范围复用。后续只续验失败/未执行范围，不重跑已通过业务场景。
+
+原资源观察器查询超时失败与一次因 FILETIME 精度不匹配被拒绝的交接决定均保留；未将它们计作清理通过。使用精确十进制 birth 重新执行完整物理核对后，发布纯资源回执 `artifacts/foundation-freeze-20261016-resource-continuation1-final.json`（主工作区，SHA-256 `75324907112addc889a8468f64930dd5e48c599fe0bf5bc5a9152f29eb202b16`）。该回执 acceptance=false，仅证明本窗进程、测试锁、容器/卷已释放；历史及未知资源保留。按既定协调顺序交给 AI 专项做有界生成准备后再续验。
+
 ## 仍待关闭
 
-FA-04 原安全补丁复验已自然结束：审批双库 2 场景通过，Minimal 双库 2 场景计时失败、数据交付双库 2 场景下载控件失败；原 Node 外层实际 exit 1，不能计 6 场景通过。当前新投影仅集中重跑失败 4 场景（含子测试预期 8 项），审批业务有效结果按输入范围复用；新的共享布局另由本批组件、生产包浏览器和后续 FA-03 覆盖。进度见 `remaining-acceptance-chain-attempt15.json`；不得把“正在运行”写为通过。真实后端双库浏览器、更新依赖后的 API/Worker 分析与 Linux Native 实跑、FA-06 汇总仍待完成。未合并、未发布。
+开发剩余 0、验收组仍剩 4：FA-03 真实后端双库浏览器、FA-04 失败/未执行样例、FA-05 更新依赖后的 API/Worker 分析及 Linux Native 实跑、FA-06 汇总。未合并、未发布。

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { after, before, test } from 'node:test';
-import { waitForApplicationTenantLanding } from './support/application-crud-browser.mjs';
+import { collectApplicationBrowserDiagnostic, waitForApplicationTenantLanding } from './support/application-crud-browser.mjs';
 
 const requireFromE2e = createRequire(new URL('../e2e/admin-real-stack/package.json', import.meta.url));
 const { chromium } = requireFromE2e('@playwright/test');
@@ -9,6 +9,28 @@ const origin = 'http://localhost:25183';
 let browser;
 before(async () => { browser = await chromium.launch(); });
 after(async () => { await browser?.close(); });
+
+test('browser diagnostic preserves completed values', async () => {
+  assert.equal(await collectApplicationBrowserDiagnostic(() => 'captured', 'missing'), 'captured');
+});
+
+test('browser diagnostic tolerates rejected and synchronous failures', async () => {
+  assert.equal(await collectApplicationBrowserDiagnostic(() => Promise.reject(new Error('closed')), 'missing'), 'missing');
+  assert.equal(await collectApplicationBrowserDiagnostic(() => { throw new Error('closed'); }, 'missing'), 'missing');
+});
+
+test('browser diagnostic abandons a stuck page operation and permits cleanup', { timeout: 1_000 }, async () => {
+  const events = [];
+  const original = new Error('original navigation failure');
+  await assert.rejects(async () => {
+    try { throw original; }
+    finally {
+      assert.equal(await collectApplicationBrowserDiagnostic(() => new Promise(() => {}), 'timed-out', 20), 'timed-out');
+      events.push('cleanup');
+    }
+  }, error => error === original);
+  assert.deepEqual(events, ['cleanup']);
+});
 
 async function fixture(hash, contextName, action) {
   const context = await browser.newContext();

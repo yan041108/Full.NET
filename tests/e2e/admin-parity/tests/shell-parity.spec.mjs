@@ -1851,7 +1851,11 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   });
   await hostFilesView.getByRole('button', { name: '上传文件' }).click();
   await expect.poll(() => operations.some(operation => operation.type === 'upload')).toBe(true);
-  await expect(hostFilesView.getByText('parity.txt', { exact: true })).toBeVisible();
+  // 上传回执也显示文件名；目录行存在才证明上传后的列表已刷新。
+  const fileDirectory = clientKind === 'vue'
+    ? hostFilesView.locator('.art-crud-data-table')
+    : hostFilesView;
+  await expect(fileDirectory.getByText('parity.txt', { exact: true })).toBeVisible();
 
   await hostFilesView.getByTestId('art-table-action-more').click();
   const deleteButton = page.getByTestId('host-files-delete');
@@ -1859,8 +1863,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   await deleteButton.click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', { name: '删除', exact: true })
-      .evaluate(button => button.click());
+    await page.getByTestId('host-files-confirm-accept').click();
   } else {
     await page.locator('.layui-layer-btn0').click();
   }
