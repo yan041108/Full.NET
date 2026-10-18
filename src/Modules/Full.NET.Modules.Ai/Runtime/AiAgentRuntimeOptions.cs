@@ -22,4 +22,7 @@ public sealed class AiAgentRuntimeOptions
 
     /// <summary>每轮最多领取运行数。</summary>
     public int BatchSize { get; set; } = 4;
+
+    /// <summary>是否自动以完整原始完成凭证关闭待对账运行；默认关闭，未知凭证不重发或补零。</summary>
+    public bool ReconcileCompletedReceipts { get; set; }
 }

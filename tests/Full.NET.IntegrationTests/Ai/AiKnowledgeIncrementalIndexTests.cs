@@ -12,6 +12,8 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
 using Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
 using Full.NET.Modules.Ai.Features.ManageKnowledgeDocuments;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Ai;
@@ -38,7 +40,8 @@ public sealed class AiKnowledgeIncrementalIndexTests
         var owner = await factory.CreateHostIdentityAsync($"incremental-{Guid.CreateVersion7():N}",
             [AiKnowledgePermissions.Read, AiKnowledgePermissions.Create, AiKnowledgeDocumentPermissions.Read,
                 AiKnowledgeDocumentPermissions.Create, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.VersionsRead,
-                AiKnowledgeDocumentPermissions.Delete, AiKnowledgeDocumentPermissions.Update, AiKnowledgeDocumentPermissions.IndexRead, "tenancy.tenants.switch"]);
+                AiKnowledgeDocumentPermissions.Delete, AiKnowledgeDocumentPermissions.Update, AiKnowledgeDocumentPermissions.IndexRead,
+                AiKnowledgeDocumentPermissions.IndexChangesRead, "tenancy.tenants.switch"]);
         using var host = factory.CreateClientForHost("localhost");
         host.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
         using var client = factory.CreateClientForHost(scoped ? "acme.localhost" : "localhost");
@@ -113,6 +116,43 @@ public sealed class AiKnowledgeIncrementalIndexTests
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_session AS session INNER JOIN fn_ai_knowledge_index_task AS task ON task.Id=session.IndexTaskId WHERE task.DocumentId=@DocumentId", new { DocumentId = document.Id }));
 
+        var directoryPath = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/index-changes";
+        async Task<AiKnowledgeIndexChangePage> Directory(string query = "")
+        {
+            using var response = await client.GetAsync(directoryPath + query);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+            return (await response.Content.ReadFromJsonAsync<AiKnowledgeIndexChangePage>())!;
+        }
+        var confirmed = await Directory("?pageSize=1");
+        Assert.AreEqual(1, confirmed.Items.Count); Assert.IsNull(confirmed.NextDocumentId);
+        Assert.AreEqual(document.Id, confirmed.Items[0].DocumentId); Assert.AreEqual(second.VersionId, confirmed.Items[0].VersionId);
+        Assert.AreEqual(2, confirmed.Items[0].VersionNumber);
+        Assert.AreEqual(0, (await Directory($"?afterDocumentId={document.Id}&pageSize=1")).Items.Count);
+        foreach (var invalid in new[] { "?pageSize=0", "?pageSize=51", "?pageSize=", "?afterDocumentId=", "?pageSize=1&pageSize=2", "?tenantId=" + Guid.CreateVersion7(), "?afterDocumentId=" + Guid.Empty })
+        {
+            using var rejected = await client.GetAsync(directoryPath + invalid);
+            Assert.AreEqual(HttpStatusCode.BadRequest, rejected.StatusCode, invalid);
+        }
+        // 完成来源已前进而投影落后时，目录不能暴露旧来源作为当前入口。
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_change SET VersionId=@VersionId,VersionNumber=1 WHERE DocumentId=@Id", new { VersionId = first.VersionId, Id = document.Id });
+        Assert.AreEqual(0, (await Directory()).Items.Count);
+        await handler.HandleAsync(envelope, latest.Bytes, CancellationToken.None);
+        foreach (var permission in new[] { false, true })
+        {
+            var outsider = await factory.CreateHostIdentityAsync($"directory-{Guid.CreateVersion7():N}", permission
+                ? [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.VersionsRead, AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexChangesRead, "tenancy.tenants.switch"]
+                : [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.VersionsRead, AiKnowledgeDocumentPermissions.IndexRead, "tenancy.tenants.switch"]);
+            using var other = factory.CreateClientForHost(scoped ? "acme.localhost" : "localhost");
+            var otherToken = outsider.AccessToken;
+            if (tenantId is { } directoryTenant)
+            {
+                await AiKnowledgeMembersApiAssertions.AddTenantMemberAsync(factory, directoryTenant, outsider.UserId);
+                otherToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, outsider.AccessToken, directoryTenant);
+            }
+            other.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", otherToken);
+            using var forbidden = await other.GetAsync(directoryPath);
+            Assert.AreEqual(permission ? HttpStatusCode.NotFound : HttpStatusCode.Forbidden, forbidden.StatusCode);
+        }
         // 元数据更新可靠修复历史缺失投影，不制造新文件来源或有费用任务。
         await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
         using var metadataUpdate = await client.PutAsJsonAsync(path, new UpdateAiKnowledgeDocumentRequest("更新后的标题", "更新后的描述", 3));
@@ -131,6 +171,7 @@ public sealed class AiKnowledgeIncrementalIndexTests
         Assert.AreEqual(second.VersionId, await db.QuerySingleAsync<Guid>("SELECT VersionId FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
         Assert.AreEqual(1, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => metadataHandler.HandleAsync(metadataEnvelope with { TenantId = Guid.CreateVersion7() }, metadataPayload, CancellationToken.None));
+        Assert.AreEqual("更新后的标题", (await Directory()).Items.Single().Title);
 
         // 真实事务失败必须同时保留旧元数据及原事件数，而非仅模拟回滚回调。
         if (tenantId is { } metadataTenant) current.SetTenant(new(metadataTenant, "acme", "Acme"));
@@ -146,6 +187,7 @@ public sealed class AiKnowledgeIncrementalIndexTests
         await metadataHandler.HandleAsync(metadataEnvelope, serializer.Serialize(metadata with { MetadataVersion = 99 }), CancellationToken.None);
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@Id", new { Id = knowledge.Id });
+        using (var hidden = await client.GetAsync(directoryPath)) Assert.AreEqual(HttpStatusCode.NotFound, hidden.StatusCode);
         await metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None);
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id }));
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=1 WHERE Id=@Id", new { Id = knowledge.Id });
@@ -170,12 +212,61 @@ public sealed class AiKnowledgeIncrementalIndexTests
         await Task.WhenAll(deletion, ConcurrentDelivery(), metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None));
         using var deleted = await deletion;
         Assert.AreEqual(HttpStatusCode.NoContent, deleted.StatusCode, await deleted.Content.ReadAsStringAsync());
+        Assert.AreEqual(0, (await Directory()).Items.Count);
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change AS intent INNER JOIN fn_ai_knowledge_document AS document ON document.Id=intent.DocumentId WHERE document.Id=@DocumentId AND document.IsDeleted=0", new { DocumentId = document.Id }));
         await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id });
         await handler.HandleAsync(envelope, latest.Bytes, CancellationToken.None);
         await metadataHandler.HandleAsync(metadataEnvelope, metadataPayload, CancellationToken.None);
         Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_change WHERE DocumentId=@DocumentId", new { DocumentId = document.Id }));
+
+        // 两库各自的 UUID 排序不同，必须沿数据库返回的非空游标遍历，不能按客户端 Guid 顺序猜测。
+        var directoryDocuments = new HashSet<Guid>(); var directoryVersions = new HashSet<Guid>();
+        for (var index = 0; index < 3; index++)
+        {
+            using var added = await client.PostAsJsonAsync($"/api/v1/ai/knowledge-bases/{knowledge.Id}/documents", new CreateAiKnowledgeDocumentRequest("分页来源" + index, null));
+            Assert.AreEqual(HttpStatusCode.Created, added.StatusCode);
+            var row = (await added.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!; directoryDocuments.Add(row.Id);
+            using var uploaded = await client.PostAsync($"/api/v1/ai/knowledge-bases/{knowledge.Id}/documents/{row.Id}/versions?version=1&requestKey={Guid.CreateVersion7()}&fileName=page.txt", new StringContent("分页", Encoding.UTF8, "text/plain"));
+            Assert.AreEqual(HttpStatusCode.Accepted, uploaded.StatusCode, await uploaded.Content.ReadAsStringAsync());
+            directoryVersions.Add((await uploaded.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!.VersionId);
+        }
+        foreach (var payload in await db.QueryAsync<byte[]>("SELECT Payload FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeSourceConfirmed.EventType }))
+            if (directoryVersions.Contains(serializer.Deserialize<AiKnowledgeSourceConfirmed>(payload).VersionId)) await handler.HandleAsync(envelope, payload, CancellationToken.None);
+        foreach (var pageSize in new[] { 1, 2 })
+        {
+            var seen = new HashSet<Guid>(); Guid? cursor = null; var pages = 0;
+            do
+            {
+                var result = await Directory($"?pageSize={pageSize}" + (cursor is { } after ? $"&afterDocumentId={after}" : ""));
+                Assert.IsTrue(result.Items.Count <= pageSize);
+                foreach (var row in result.Items) Assert.IsTrue(seen.Add(row.DocumentId), "目录不得重复来源");
+                if (result.NextDocumentId is { } next) { Assert.AreEqual(result.Items.Last().DocumentId, next); Assert.AreNotEqual(cursor, next); }
+                cursor = result.NextDocumentId; Assert.IsTrue(++pages <= 3);
+            } while (cursor.HasValue);
+            CollectionAssert.AreEquivalent(directoryDocuments.ToArray(), seen.ToArray());
+            Assert.AreEqual(pageSize == 1 ? 3 : 2, pages);
+        }
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task"));
+        if (scoped)
+        {
+            // 切换租户后旧 Host 令牌已失效；隔离断言必须使用真实切回 Host 后的有效会话。
+            using var staleSession = await host.GetAsync(directoryPath);
+            Assert.AreEqual(HttpStatusCode.Unauthorized, staleSession.StatusCode);
+            using var returnHostRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/tenancy/context")
+            {
+                Content = JsonContent.Create(new ChangeTenantContextRequest(null)),
+            };
+            returnHostRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var returnHostResponse = await host.SendAsync(returnHostRequest);
+            Assert.AreEqual(HttpStatusCode.OK, returnHostResponse.StatusCode, await returnHostResponse.Content.ReadAsStringAsync());
+            var returned = await returnHostResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>();
+            Assert.IsNotNull(returned);
+            Assert.IsNull(returned.Context.TenantId);
+            host.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", returned.AccessToken);
+            using var wrongScope = await host.GetAsync(directoryPath);
+            Assert.AreEqual(HttpStatusCode.NotFound, wrongScope.StatusCode);
+        }
     }
 
     private sealed class FailingOutbox : IOutboxWriter

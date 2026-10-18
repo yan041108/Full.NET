@@ -162,8 +162,9 @@ internal static class AiAgentRunSql
         SELECT TOP (@BatchSize) r.Id
         FROM fn_ai_agent_run r
         INNER JOIN fn_ai_operation_budget b ON b.Id = r.Id AND b.RunId = r.Id AND b.ScopeKey = r.ScopeKey
-        WHERE r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
-          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending'
+        WHERE ((r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
+          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending')
+          OR (@IncludeCompletedReceipts = 1 AND r.StatusKey = 'reconciliation_required' AND b.UsageStatus IN ('reserved', 'unknown', 'known')))
           AND (@AfterRunId IS NULL OR r.Id > @AfterRunId)
         ORDER BY r.Id
         """, SqlDataScope.Global);
@@ -172,8 +173,9 @@ internal static class AiAgentRunSql
         SELECT r.Id
         FROM fn_ai_agent_run r
         INNER JOIN fn_ai_operation_budget b ON b.Id = r.Id AND b.RunId = r.Id AND b.ScopeKey = r.ScopeKey
-        WHERE r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
-          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending'
+        WHERE ((r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
+          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending')
+          OR (@IncludeCompletedReceipts = 1 AND r.StatusKey = 'reconciliation_required' AND b.UsageStatus IN ('reserved', 'unknown', 'known')))
           AND (@AfterRunId IS NULL OR r.Id > @AfterRunId)
         ORDER BY r.Id
         LIMIT @BatchSize

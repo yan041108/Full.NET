@@ -7,7 +7,7 @@ import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-prompts';
 vi.mock('../api/ai-prompts');
 const head = { id: 'catalog', name: 'Catalog', revision: 3, lastVersion: 2, activeVersionId: 'active', epoch: 0 };
-const draft = { id: 'draft', promptId: 'catalog', version: 2, body: { modelConfigId: 'model', languageTag: 'zh-CN', template: '<img src=x onerror=alert(1)> {{input}}', inputTokenLimit: 100, outputTokenLimit: 100 }, bodyHash: 'a'.repeat(64), wasPublished: false, modelConfigVersion: 1, providerKey: 'ollama', modelId: 'model', createdAtUtc: 'now', definitionKey: 'fullnet-single-text-v1', inputSchemaKey: 'ai.prompt.text.v1', outputSchemaKey: 'ai.prompt.text.v1', allowedToolNames: [], retrievalStrategyKey: 'none' };
+const draft = { id: 'draft', promptId: 'catalog', version: 2, body: { modelConfigId: 'model', languageTag: 'zh-CN', template: '<img src=x onerror=alert(1)> {{input}}', inputTokenLimit: 100, outputTokenLimit: 100 }, bodyHash: 'a'.repeat(64), wasPublished: false, modelConfigVersion: 1, providerKey: 'ollama', modelId: 'model', createdAtUtc: 'now', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1, policyVersion: 1, inputSchemaKey: 'ai.prompt.text.v1', outputSchemaKey: 'ai.prompt.text.v1', allowedToolNames: [], retrievalStrategyKey: 'none' };
 const active = { ...draft, id: 'active', version: 1, wasPublished: true };
 const wrappers: VueWrapper[] = [];
 function render(allow = (_code: string) => true) {
@@ -20,6 +20,7 @@ async function choose(wrapper: VueWrapper) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(api.getPromptExecutionStrategies).mockResolvedValue([]);
   vi.mocked(api.listPrompts).mockResolvedValue({ items: [head], page: 1, pageSize: 100, total: 1 });
   vi.mocked(api.getPromptVersions).mockResolvedValue({ items: [active, draft], page: 1, pageSize: 100, total: 2 });
   vi.mocked(api.publishPrompt).mockResolvedValue(head);
@@ -43,6 +44,12 @@ it('缺少回滚权限时不能选择曾发布旧版本作为发布', async () =
 it('只使用当前发布版本；携带完整精确模型和预算策略', async () => {
   const w = render(); await choose(w); await w.get('[data-testid="prompt-use"]').trigger('click');
   expect(w.emitted('select')!.at(-1)).toEqual([active]);
+});
+it('旧版本缺失可选执行元数据时仍可显示和选择正文', async () => {
+  const legacy = { ...active, definitionKey: null, allowedToolNames: null };
+  vi.mocked(api.getPromptVersions).mockResolvedValue({ items: [legacy], page: 1, pageSize: 100, total: 1 });
+  const w = render(); await choose(w); expect(w.get('[data-testid="prompt-version"]').text()).toContain(active.body.template);
+  await w.get('[data-testid="prompt-use"]').trigger('click'); expect(w.emitted('select')!.at(-1)).toEqual([legacy]);
 });
 it('租户切换中晚到正文不重新显示', async () => {
   let resolve!: (value: Awaited<ReturnType<typeof api.getPromptVersions>>) => void;

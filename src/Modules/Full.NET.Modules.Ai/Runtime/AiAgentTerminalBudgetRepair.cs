@@ -62,10 +62,10 @@ internal sealed class AiAgentTerminalBudgetRepair(AiAgentRunStore store, IQueryE
         _ => null
     };
 
-    private static AiOperationUsage OriginalUsage(AiAgentRunRecord run, AiOperationBudgetRecord operation, AgentCheckpointRecord? checkpoint)
+    internal static AiOperationUsage OriginalUsage(AiAgentRunRecord run, AiOperationBudgetRecord operation, AgentCheckpointRecord? checkpoint)
     {
         // 老版本载荷或缺失计量只收敛为 unknown，不凭终态、步骤计数或空结果退款。
-        if (checkpoint is null || string.IsNullOrWhiteSpace(run.BudgetJson)) return new(null, null);
+        if (checkpoint is null || string.IsNullOrWhiteSpace(run.BudgetJson) || run.BudgetJson.Length > 262_144) return new(null, null);
         AgentRunBudgetSnapshot? snapshot;
         try { snapshot = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot); }
         catch (JsonException) { return new(null, null); }

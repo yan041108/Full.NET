@@ -29,15 +29,16 @@ public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (binding.ProviderKey != ProviderKey) throw new InvalidOperationException("AI provider mismatch.");
-        (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
+        var exactResponses = gatewayPolicy.SupportsResponsesInputTokens(binding.Endpoint, binding.ModelId);
+        (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch(exactResponses);
         var clientName = AiProviderHttpClients.NameForData(ProviderKey, "chat", binding.DataClassification, dataPolicy);
         // 保留旧 purpose；明文只在 Provider 内用于当前请求，不能进入业务编排或摘要。
         var protectedCredential = await credentials.ReadAsync(binding, cancellationToken).ConfigureAwait(false);
         var key = string.IsNullOrWhiteSpace(protectedCredential) ? null :
             dataProtection.CreateProtector("Full.NET.Ai.ModelConfigApiKey.v1").Unprotect(protectedCredential);
-        return new HttpChatClient(
-            httpClientFactory.CreateClient(clientName), binding, key,
-            gatewayPolicy.SupportsStreamingUsage(binding.Endpoint, binding.ModelId));
+        var http = httpClientFactory.CreateClient(clientName);
+        return new HttpChatClient(http, binding, key,
+            gatewayPolicy.SupportsStreamingUsage(binding.Endpoint, binding.ModelId), exactResponses ? new ResponsesChatTransport(http) : null);
     }
     /// <inheritdoc/>
     public async ValueTask<IEmbeddingGenerator<string, Embedding<float>>> CreateEmbeddingGeneratorAsync(

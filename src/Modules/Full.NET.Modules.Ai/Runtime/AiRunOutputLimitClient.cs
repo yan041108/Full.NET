@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.AI.Abstractions.Models;
 using Full.NET.Modules.Ai.Budgets;
 
 namespace Full.NET.Modules.Ai.Runtime;
@@ -49,14 +50,18 @@ internal sealed class AiRunOutputLimitClient : IChatClient
         // 流可能只有部分用量或被提前释放，保守占用全部剩余输入，不据此为后续请求退回额度。
         var reservedInputTokens = _remainingInputTokens;
         if (reservedInputTokens.HasValue) _remainingInputTokens = 0;
+        AiChatInputBudgetScope? exactInput = null;
         try
         {
+            exactInput = reservedInputTokens is { } limit ? AiChatInputBudgetScope.Capture(limit) : null;
+            using var activation = exactInput?.Enter();
             var source = _innerClient.GetStreamingResponseAsync(admitted.Messages, limited, cancellationToken);
             if (source is null) throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
-            return new ReservedStream(this, source, limited.MaxOutputTokens!.Value, reservedInputTokens, cancellationToken);
+            return new ReservedStream(this, source, limited.MaxOutputTokens!.Value, reservedInputTokens, cancellationToken, exactInput);
         }
         catch
         {
+            exactInput?.Dispose();
             _remainingTokens = 0;
             Volatile.Write(ref _active, 0);
             throw;
@@ -91,6 +96,7 @@ internal sealed class AiRunOutputLimitClient : IChatClient
     {
         try
         {
+            using var exactInput = _remainingInputTokens is { } limit ? AiChatInputBudgetScope.Begin(limit) : null;
             var response = await _innerClient.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (response is null) throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
@@ -122,15 +128,37 @@ internal sealed class AiRunOutputLimitClient : IChatClient
 
     /// <summary>流只允许一次枚举；保留输出上限与所有剩余输入，不凭部分流退费。</summary>
     private sealed class ReservedStream(AiRunOutputLimitClient owner, IAsyncEnumerable<ChatResponseUpdate> source,
-        int reservedTokens, long? reservedInputTokens, CancellationToken dispatchToken) : IAsyncEnumerable<ChatResponseUpdate>
+        int reservedTokens, long? reservedInputTokens, CancellationToken dispatchToken, AiChatInputBudgetScope? exactInput) : IAsyncEnumerable<ChatResponseUpdate>
     {
         private int _enumerated;
+        private int _closed;
 
         public IAsyncEnumerator<ChatResponseUpdate> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
             if (Interlocked.CompareExchange(ref _enumerated, 1, 0) != 0)
                 throw new AiRunOutputBudgetException(true, "ai.budget.operation_conflict");
-            return Enumerate(cancellationToken).GetAsyncEnumerator();
+            return new OwnedEnumerator(this, Enumerate(cancellationToken).GetAsyncEnumerator());
+        }
+
+        // 异步迭代器在首次 MoveNext 前释放不会执行方法体的 finally，外层仍须结束工厂已捕获的调用范围。
+        private sealed class OwnedEnumerator(ReservedStream stream, IAsyncEnumerator<ChatResponseUpdate> inner) : IAsyncEnumerator<ChatResponseUpdate>
+        {
+            public ChatResponseUpdate Current => inner.Current;
+            public ValueTask<bool> MoveNextAsync() => inner.MoveNextAsync();
+            public async ValueTask DisposeAsync()
+            {
+                // 并发 MoveNext 时无效的释放会提前失败，此时不能解除仍在执行的预算占用。
+                await inner.DisposeAsync().ConfigureAwait(false);
+                stream.CloseScope();
+            }
+        }
+
+        private void CloseScope()
+        {
+            // 旧流的延迟或重复释放不能解除后续模型请求持有的串行锁。
+            if (Interlocked.Exchange(ref _closed, 1) != 0) return;
+            try { exactInput?.Dispose(); }
+            finally { Volatile.Write(ref owner._active, 0); }
         }
 
         private async IAsyncEnumerable<ChatResponseUpdate> Enumerate([EnumeratorCancellation] CancellationToken enumerationToken)
@@ -149,15 +177,19 @@ internal sealed class AiRunOutputLimitClient : IChatClient
             }
             finally
             {
-                try { if (enumerator is not null) await enumerator.DisposeAsync().ConfigureAwait(false); }
+                try { if (enumerator is not null) await DisposeEnumeratorAsync(enumerator).ConfigureAwait(false); }
                 catch { owner._remainingTokens = 0; throw; }
-                finally { Volatile.Write(ref owner._active, 0); }
+                finally
+                {
+                    CloseScope();
+                }
             }
         }
 
         private ChatResponseUpdate ReadCurrent(IAsyncEnumerator<ChatResponseUpdate> enumerator, ref long reportedInput, ref long reportedOutput,
             CancellationToken token)
         {
+            using var activation = exactInput?.Enter();
             try
             {
                 // Current 也可能执行提供者代码并失败；只读取一次，失败后不能继续派发。
@@ -186,6 +218,7 @@ internal sealed class AiRunOutputLimitClient : IChatClient
 
         private IAsyncEnumerator<ChatResponseUpdate> CreateEnumerator(CancellationToken cancellationToken)
         {
+            using var activation = exactInput?.Enter();
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -197,6 +230,7 @@ internal sealed class AiRunOutputLimitClient : IChatClient
 
         private async Task<bool> MoveNextAsync(IAsyncEnumerator<ChatResponseUpdate> enumerator, CancellationToken cancellationToken)
         {
+            using var activation = exactInput?.Enter();
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -206,6 +240,19 @@ internal sealed class AiRunOutputLimitClient : IChatClient
                 return hasNext;
             }
             catch { owner._remainingTokens = 0; throw; }
+        }
+
+        private async ValueTask DisposeEnumeratorAsync(IAsyncEnumerator<ChatResponseUpdate> enumerator)
+        {
+            IDisposable? activation = null;
+            try
+            {
+                try { activation = exactInput?.Enter(); }
+                // 范围改变不得恢复旧权限，也不能阻止原枚举器清理；此时保留当前更严格或已失效的上下文。
+                catch (AiBudgetException) { }
+                await enumerator.DisposeAsync().ConfigureAwait(false);
+            }
+            finally { activation?.Dispose(); }
         }
     }
 }

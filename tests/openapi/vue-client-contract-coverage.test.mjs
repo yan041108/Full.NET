@@ -7,7 +7,9 @@ import {
 
 test('Vue 生产 API 模块与 manifest 一一对应', async () => {
   const modules = await collectProductionApiModules();
-  assert.equal(modules.length, 118);
+  assert.equal(modules.length, 120);
+  assert.ok(modules.includes('ui/admin/src/api/ai-index-grants.ts'));
+  assert.ok(modules.includes('ui/admin/src/api/ai-feedback-evaluation.ts'));
   assert.ok(modules.includes('ui/admin/src/api/ai-answer-feedback-review.ts'));
   assert.ok(modules.every((modulePath) => modulePath.startsWith('ui/admin/src/api/')));
   assert.ok(!modules.includes('ui/admin/src/api/http.ts'));

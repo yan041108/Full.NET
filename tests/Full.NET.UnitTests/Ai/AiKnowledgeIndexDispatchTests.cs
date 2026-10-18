@@ -45,6 +45,7 @@ public sealed class AiKnowledgeIndexDispatchTests
     [DataRow("knowledge-version")]
     [DataRow("token")]
     [DataRow("expiry")]
+    [DataRow("grant-expiry")]
     public async Task Mismatched_or_expired_snapshot_is_rejected(string invalid)
     {
         var (store, query, clock) = Create(false); clock.UtcNow.Returns(Now);
@@ -60,6 +61,17 @@ public sealed class AiKnowledgeIndexDispatchTests
         var binding = Binding(); var task = Guid.CreateVersion7(); var lease = Guid.CreateVersion7();
         query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Snapshot(binding, task, lease));
         Assert.IsNull(await store.ReadDispatchAsync(binding, task, lease, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Grant_expiring_during_database_read_is_rejected_even_with_a_live_lease()
+    {
+        var (store, query, clock) = Create(false); clock.UtcNow.Returns(Now);
+        var binding = Binding(); var task = Guid.CreateVersion7(); var lease = Guid.CreateVersion7();
+        var expected = Snapshot(binding, task, lease, "grant-future");
+        query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { clock.UtcNow.Returns(Now.AddSeconds(6)); return expected; });
+        Assert.IsNull(await store.ReadDispatchAsync(binding, task, lease, default));
     }
 
     [TestMethod]
@@ -104,13 +116,14 @@ public sealed class AiKnowledgeIndexDispatchTests
         table.Columns.Add("ContentHash", typeof(string)); table.Columns.Add("ContentType", typeof(string));
         foreach (var column in new[] { "DataClassification", "ModelProviderKey", "ModelId", "ModelEndpointBaseUrl", "ModelOrganizationId" }) table.Columns.Add(column, typeof(string));
         table.Columns.Add("SizeBytes", typeof(long)); table.Columns.Add("LeaseExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Columns.Add("GrantExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         var data = table.NewRow();
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) data[column] = Guid.CreateVersion7();
         data["DocumentVersion"] = 9; data["KnowledgeBaseVersion"] = 6; data["ModelConfigVersion"] = 3;
         data["ContentHash"] = "trusted-hash"; data["ContentType"] = "text/plain"; data["SizeBytes"] = 123L;
         data["DataClassification"] = "internal"; data["ModelProviderKey"] = "openai_compatible"; data["ModelId"] = "text-embedding-3-small";
         data["ModelEndpointBaseUrl"] = "https://api.openai.com/v1"; data["ModelOrganizationId"] = mysql ? DBNull.Value : "organization";
-        data["LeaseExpiresAtUtc"] = mysql ? Now.UtcDateTime : (object)Now; table.Rows.Add(data);
+        data["LeaseExpiresAtUtc"] = mysql ? Now.UtcDateTime : (object)Now; data["GrantExpiresAtUtc"] = DBNull.Value; table.Rows.Add(data);
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeIndexDispatch(reader);
         Assert.AreEqual((Guid)data["TaskId"], row.TaskId); Assert.AreEqual((Guid)data["DocumentId"], row.DocumentId);
@@ -151,7 +164,7 @@ public sealed class AiKnowledgeIndexDispatchTests
             ["DocumentVersion"] = 1, ["KnowledgeBaseVersion"] = 1, ["ModelConfigVersion"] = 1,
             ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
             ["DataClassification"] = "internal", ["ModelProviderKey"] = "openai_compatible", ["ModelId"] = "text-embedding-3-small",
-            ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value
+            ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value, ["GrantExpiresAtUtc"] = DBNull.Value
         };
         using var table = new DataTable(); foreach (var column in columns) table.Columns.Add(column, typeof(object));
         var data = table.NewRow(); foreach (var column in columns) data[column] = values[column]; table.Rows.Add(data);
@@ -170,6 +183,7 @@ public sealed class AiKnowledgeIndexDispatchTests
         KnowledgeBaseVersion = invalid == "knowledge-version" ? binding.KnowledgeBaseVersion + 1 : binding.KnowledgeBaseVersion,
         LeaseToken = invalid == "token" ? Guid.CreateVersion7() : lease,
         LeaseExpiresAtUtc = invalid == "expiry" ? Now : Now.AddSeconds(30),
+        GrantExpiresAtUtc = invalid == "grant-expiry" ? Now : invalid == "grant-future" ? Now.AddSeconds(5) : null,
         ModelConfigId = Guid.CreateVersion7(), ModelConfigVersion = 3, FileId = Guid.CreateVersion7(),
         ContentHash = "trusted-hash", ContentType = "text/plain", SizeBytes = 123,
     };

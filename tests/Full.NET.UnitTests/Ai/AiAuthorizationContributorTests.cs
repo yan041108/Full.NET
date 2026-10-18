@@ -21,6 +21,7 @@ public sealed class AiAuthorizationContributorTests
                 AiKnowledgeAnswerFeedbackPermissions.Read,
                 AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
                 AiKnowledgeAnswerFeedbackReviewPermissions.Read, AiKnowledgeAnswerFeedbackReviewPermissions.Review, AiKnowledgeAnswerFeedbackReviewPermissions.Export,
+                AiFeedbackEvaluationPermissions.Prepare, AiFeedbackEvaluationPermissions.Admit,
                 AiKnowledgePermissions.Read,
                 AiKnowledgePermissions.Create,
                 AiKnowledgePermissions.Update,
@@ -35,6 +36,9 @@ public sealed class AiAuthorizationContributorTests
                 AiKnowledgePermissions.MembersUpdate,
                 AiKnowledgeDocumentPermissions.Read,
                 AiKnowledgeDocumentPermissions.Upload,
+                AiKnowledgeDocumentPermissions.IndexChangesRead,
+                AiKnowledgeDocumentPermissions.IndexRecover,
+                AiKnowledgeIndexGrantPermissions.Read, AiKnowledgeIndexGrantPermissions.Create, AiKnowledgeIndexGrantPermissions.Revoke,
                 "ai.knowledge_documents.index_enqueue",
                 "ai.knowledge_documents.index_read",
                 "ai.knowledge_documents.index_retry",
@@ -95,7 +99,8 @@ public sealed class AiAuthorizationContributorTests
         var scope = AuthorizationScope.Host | AuthorizationScope.Tenant;
         Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == AiChatPermissions.Read).Scope);
         foreach (var code in new[] { AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
-            AiKnowledgeAnswerFeedbackReviewPermissions.Read, AiKnowledgeAnswerFeedbackReviewPermissions.Review, AiKnowledgeAnswerFeedbackReviewPermissions.Export })
+            AiKnowledgeAnswerFeedbackReviewPermissions.Read, AiKnowledgeAnswerFeedbackReviewPermissions.Review, AiKnowledgeAnswerFeedbackReviewPermissions.Export,
+            AiFeedbackEvaluationPermissions.Prepare, AiFeedbackEvaluationPermissions.Admit })
         {
             Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == code).Scope);
             var action = catalog.Actions.Single(a => a.PermissionCode == code);
@@ -113,6 +118,9 @@ public sealed class AiAuthorizationContributorTests
         Assert.AreEqual("/ai/knowledge-bases", knowledge.Path);
         Assert.AreEqual(AiKnowledgeDocumentPermissions.Read, documents.RequiredPermission);
         Assert.AreEqual("/ai/knowledge-documents", documents.Path);
+        var confirmedSources = catalog.Actions.Single(item => item.PermissionCode == AiKnowledgeDocumentPermissions.IndexChangesRead);
+        Assert.AreEqual("ai-knowledge-documents", confirmedSources.NavigationId);
+        Assert.AreEqual("index-changes-read", confirmedSources.ClientActionKey);
     }
 
     [TestMethod]
@@ -135,6 +143,7 @@ public sealed class AiAuthorizationContributorTests
                 AiKnowledgePermissions.RolesRead,
                      AiKnowledgePermissions.RolesUpdate,
                      AiKnowledgePermissions.MembersUpdate,
+                     AiKnowledgeDocumentPermissions.IndexChangesRead,
                      AiKnowledgeDocumentPermissions.Read,
                      AiKnowledgeDocumentPermissions.Create,
                      AiKnowledgeDocumentPermissions.Update,

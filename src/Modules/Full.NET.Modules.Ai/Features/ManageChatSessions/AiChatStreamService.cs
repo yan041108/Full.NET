@@ -16,6 +16,8 @@ using Full.NET.Agents.Runtime;
 using Full.NET.Modules.Ai.Telemetry;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
+using Full.NET.AI.Abstractions.Models;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 
@@ -33,6 +35,7 @@ namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 /// <param name="databaseOptions">数据库提供程序选择。</param>
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">消息及生成标识生成器。</param>
+/// <param name="currentAuthorization">精确计数等待后复核原交互会话；旧内部消费者未提供时不能进入精确协议。</param>
 internal sealed class AiChatStreamService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -46,7 +49,8 @@ internal sealed class AiChatStreamService(
     ICurrentTenant currentTenant,
     IOptions<DatabaseOptions> databaseOptions,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ICurrentSessionAuthorization? currentAuthorization = null)
 {
     /// <summary>原子获取生成槽位后发送有界 SSE，所有异常路径均收敛自身租约。</summary>
     /// <param name="sessionId">已授权的会话标识。</param>
@@ -161,10 +165,11 @@ internal sealed class AiChatStreamService(
             var linkedToken = generationRegistry.Register(sessionId, assistantMessageId, requestBudget.Token);
             monitor = leaseMonitor.WatchAsync(scope, sessionId, ownerUserId, assistantMessageId, now + AiChatGenerationLeaseMonitor.LeaseDuration, requestBudget, monitorStop.Token);
             var history = await LoadRecentMessagesAsync(sessionId, linkedToken).ConfigureAwait(false);
+            var chatBudgetRequest = AiChatBudgetRequest.Create(assistantMessageId, model, history);
             try
             {
                 var candidate = await quotaGuard.ReserveAsync(
-                    AiChatBudgetRequest.Create(assistantMessageId, model, history), linkedToken).ConfigureAwait(false);
+                    chatBudgetRequest, linkedToken).ConfigureAwait(false);
                 // 只有本次新建且身份匹配的原预留授予派发与结算权；旧凭据不能在失败收尾中被改写。
                 if (candidate is null || !candidate.IsNew || candidate.OperationId != assistantMessageId || candidate.UsageStatus != "reserved")
                     throw new AiBudgetException("ai.budget.operation_conflict");
@@ -183,6 +188,26 @@ internal sealed class AiChatStreamService(
                 .WaitAsync(linkedToken).ConfigureAwait(false))
                 throw new OperationCanceledException("AI generation ownership was lost before dispatch.", linkedToken);
             await output.StartAsync(linkedToken).ConfigureAwait(false);
+            AuthorizedSessionActor? exactActor = null;
+            using var exactInput = AiChatInputBudgetScope.Begin(chatBudgetRequest.InputTokenLimit, async check =>
+            {
+                if (currentAuthorization is null || AiChatScope.Resolve(currentTenant) != scope) throw new UnauthorizedAccessException();
+                var actor = await currentAuthorization.AuthorizeAsync(AiChatPermissions.Send, check).ConfigureAwait(false);
+                if (actor is null || actor.UserId != ownerUserId || actor.TenantId != scope.TenantId || actor.SessionId == Guid.Empty
+                    || exactActor is not null && exactActor != actor) throw new UnauthorizedAccessException();
+                exactActor ??= actor;
+                var currentModel = await queryExecutor.QuerySingleOrDefaultAsync<AiModelConfigRecord>(scope.TenantId.HasValue
+                    ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+                    AiSqlParameters.Create(("ModelConfigId", model.Id)), check).ConfigureAwait(false);
+                if (currentModel is null || currentModel.Version != model.Version || !currentModel.IsEnabled || currentModel.ModelId != model.ModelId
+                    || currentModel.ProviderKey != model.ProviderKey || currentModel.EndpointBaseUrl != model.EndpointBaseUrl)
+                    throw new UnauthorizedAccessException();
+                if (!await leaseMonitor.RenewOnceAsync(scope, sessionId, ownerUserId, assistantMessageId, check).ConfigureAwait(false))
+                    throw new OperationCanceledException("AI generation ownership was lost before dispatch.", check);
+                var finalActor = await currentAuthorization.AuthorizeAsync(AiChatPermissions.Send, check).ConfigureAwait(false);
+                if (finalActor != exactActor || AiChatScope.Resolve(currentTenant) != scope) throw new UnauthorizedAccessException();
+                check.ThrowIfCancellationRequested();
+            });
             var result = await completionStreamer.StreamAsync(
                     model,
                     history,

@@ -1,7 +1,8 @@
-import { aiListPrompts, aiGetPromptVersions, aiCreatePrompt, aiAppendPromptVersion, aiPublishPromptVersion, aiRollbackPromptVersion, aiDeactivatePrompt,
+import { aiListPrompts, aiGetPromptExecutionStrategies, aiGetPromptVersions, aiCreatePrompt, aiAppendPromptVersion, aiPublishPromptVersion, aiRollbackPromptVersion, aiDeactivatePrompt,
   type AiListPromptsParameters, type AiGetPromptVersionsParameters, type AiCreatePromptParameters,
   type AiAppendPromptVersionParameters, type AiPublishPromptVersionParameters, type AiRollbackPromptVersionParameters, type AiDeactivatePromptParameters } from '@fullnet/client-contracts';
 import { http } from './http';
+export const getPromptExecutionStrategies = (signal?: AbortSignal) => aiGetPromptExecutionStrategies(http, {}, signal);
 export const listPrompts = (p: AiListPromptsParameters, signal?: AbortSignal) => aiListPrompts(http, p, signal);
 export const getPromptVersions = (p: AiGetPromptVersionsParameters, signal?: AbortSignal) => aiGetPromptVersions(http, p, signal);
 export const createPrompt = (p: AiCreatePromptParameters, signal?: AbortSignal) => aiCreatePrompt(http, p, signal);

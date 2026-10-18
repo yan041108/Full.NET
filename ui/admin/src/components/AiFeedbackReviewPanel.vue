@@ -9,6 +9,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { feedbackReviewText, type FeedbackReviewTextKey } from '../i18n/feedback-review';
 import { showProblem, showSuccess } from '../feedback/fullNetMessage';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
+import AiFeedbackEvaluationPanel from './AiFeedbackEvaluationPanel.vue';
 import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/components/artTableActions';
 
 const session = useSessionStore(); const { locale } = useAdminI18n();
@@ -16,6 +17,7 @@ const text = (key: FeedbackReviewTextKey) => feedbackReviewText(locale.value, ke
 const parent = computed(() => !session.switching && session.can('ai.chat.sessions.read'));
 const readable = computed(() => parent.value && session.can('ai.knowledge_answer_feedback.review_read'));
 const reviewer = computed(() => readable.value && session.can('ai.knowledge_answer_feedback.review'));
+const evaluator = computed(() => readable.value && session.can('ai.knowledge_answer_feedback.evaluation_prepare'));
 const exportable = computed(() => parent.value && session.can('ai.knowledge_answer_feedback.export'));
 const available = computed(() => readable.value || exportable.value);
 const open = ref(false); const busy = ref(false); const refreshRequired = ref(false);
@@ -101,13 +103,14 @@ function statistics(download = false) {
         <div class="section-heading"><h3>{{ text('queue') }}</h3><ElButton data-testid="feedback-review-refresh" :disabled="busy" @click="refresh">{{ text('refresh') }}</ElButton></div>
         <ElAlert v-if="refreshRequired" :title="text('retry')" type="warning" :closable="false" show-icon />
         <div class="table-scroll">
-          <table :aria-label="text('queue')"><thead><tr><th>{{ text('rating') }}</th><th>{{ text('reason') }}</th><th>{{ text('citations') }}</th><th>{{ text('state') }}</th><th>{{ text('versions') }}</th><th v-if="reviewer" :style="{ width: `${ART_TABLE_ACTION_COLUMN_WIDTH}px` }">{{ text('actions') }}</th></tr></thead>
+          <table :aria-label="text('queue')"><thead><tr><th>{{ text('rating') }}</th><th>{{ text('reason') }}</th><th>{{ text('citations') }}</th><th>{{ text('state') }}</th><th>{{ text('versions') }}</th><th v-if="reviewer || evaluator" :style="{ width: `${ART_TABLE_ACTION_COLUMN_WIDTH}px` }">{{ text('actions') }}</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.feedbackId">
               <td>{{ text(row.ratingKey as FeedbackReviewTextKey) }}</td><td>{{ text(row.reasonKey as FeedbackReviewTextKey) }}</td><td>{{ row.citationCount }}</td>
               <td><ElTag :type="row.reviewStateKey === 'approved' ? 'success' : row.reviewStateKey === 'rejected' ? 'warning' : 'info'">{{ text(row.reviewStateKey as FeedbackReviewTextKey) }}</ElTag></td><td class="version">v{{ row.feedbackVersion }} / v{{ row.reviewVersion }}</td>
-              <td v-if="reviewer"><ArtTableActionGroup>
-                <ElButton :icon="Check" size="small" data-testid="feedback-review-approve" :disabled="busy || refreshRequired || row.feedbackVersion >= 2147483647 || row.reviewVersion >= 2147483647" @click="decide(row, 'approved')">{{ text('approve') }}</ElButton>
-                <ElButton :icon="Close" size="small" data-testid="feedback-review-reject" :disabled="busy || refreshRequired || row.feedbackVersion >= 2147483647 || row.reviewVersion >= 2147483647" @click="decide(row, 'rejected')">{{ text('reject') }}</ElButton>
+              <td v-if="reviewer || evaluator"><ArtTableActionGroup>
+                <ElButton v-if="reviewer" :icon="Check" size="small" data-testid="feedback-review-approve" :disabled="busy || refreshRequired || row.feedbackVersion >= 2147483647 || row.reviewVersion >= 2147483647" @click="decide(row, 'approved')">{{ text('approve') }}</ElButton>
+                <ElButton v-if="reviewer" :icon="Close" size="small" data-testid="feedback-review-reject" :disabled="busy || refreshRequired || row.feedbackVersion >= 2147483647 || row.reviewVersion >= 2147483647" @click="decide(row, 'rejected')">{{ text('reject') }}</ElButton>
+                <AiFeedbackEvaluationPanel v-if="evaluator && !busy && !refreshRequired && row.reviewStateKey === 'approved'" :feedback="row" />
               </ArtTableActionGroup></td>
             </tr></tbody>
           </table><p v-if="!rows.length" class="empty" role="status">{{ text('empty') }}</p>

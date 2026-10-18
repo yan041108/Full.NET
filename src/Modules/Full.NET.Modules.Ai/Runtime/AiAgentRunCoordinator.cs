@@ -318,6 +318,26 @@ internal sealed class AiAgentRunCoordinator(
             // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
             cancellationToken.ThrowIfCancellationRequested();
             // 三类运行共用累计输入回执／输出额度；恢复先扣减已确认用量，未知历史不补零。
+            using var exactInput = AiChatInputBudgetScope.Begin(snapshot.InputTokenLimit, async check =>
+            {
+                check.ThrowIfCancellationRequested();
+                if (!leaseWatch.IsActive || !await bindingValidator.IsValidAsync(binding, check).ConfigureAwait(false))
+                    throw new UnauthorizedAccessException("AI execution identity is no longer available.");
+                var authorized = await scope.ServiceProvider.GetRequiredService<IBackgroundSessionAuthorization>()
+                    .AuthorizeAsync(binding, AiAgentRunPermissions.Create, check).ConfigureAwait(false);
+                if (authorized?.UserId != binding.UserId || authorized.TenantId != binding.TenantId || authorized.SessionId != binding.SessionId)
+                    throw new UnauthorizedAccessException("AI execution authorization is no longer available.");
+                var currentModel = await queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(record.TenantId.HasValue
+                    ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+                    AiSqlParameters.Create(("ModelConfigId", snapshot.ModelConfigId)), check).ConfigureAwait(false);
+                if (currentModel is null || currentModel.Id != model.Id || currentModel.Version != model.Version || !currentModel.IsEnabled
+                    || currentModel.ProviderKey != model.ProviderKey || currentModel.ModelId != model.ModelId || currentModel.EndpointBaseUrl != model.EndpointBaseUrl)
+                    throw new UnauthorizedAccessException("AI execution model binding changed.");
+                if (snapshot.PromptBinding is not null && !(await scope.ServiceProvider.GetRequiredService<AiPromptRunResolver>()
+                    .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, check).ConfigureAwait(false)).IsSuccess)
+                    throw new UnauthorizedAccessException("AI execution prompt binding changed.");
+                check.ThrowIfCancellationRequested();
+            });
             var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit, consumedOutputTokens,
                 snapshot.InputTokenLimit, consumedInputTokens);
             AgentModelResult result;
@@ -418,6 +438,8 @@ internal sealed class AiAgentRunCoordinator(
                 var remoteCatalog = scope.ServiceProvider.GetRequiredService<IMcpRemoteToolCatalog>();
                 var remoteTools = await remoteCatalog.ListExecutableAsync(cancellationToken).ConfigureAwait(false);
                 var additionalAllowed = remoteTools.Select(tool => tool.LocalToolName).ToHashSet(StringComparer.Ordinal);
+                // 发布的静态工具集合不能被后来批准的远程工具扩张。
+                if (snapshot.PromptBinding is not null) additionalAllowed.Clear();
                 var toolRegistry = await scope.ServiceProvider.GetRequiredService<IAgentToolRegistrySource>()
                     .GetRegistryAsync(cancellationToken).ConfigureAwait(false);
                 // 整轮意图先落库；恢复不重放未知的模型或工具，也不把单次本地拒绝当作整轮未派发。

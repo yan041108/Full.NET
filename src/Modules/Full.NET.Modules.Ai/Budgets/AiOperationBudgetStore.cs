@@ -149,7 +149,7 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
     private void Validate(AiOperationRequest request)
     {
         if (request.Kind is "chat" or "agent")
-            (inputPolicy ?? Full.NET.AI.Abstractions.Models.AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
+            (inputPolicy ?? Full.NET.AI.Abstractions.Models.AiChatInputAdmissionPolicy.Default).RequireBudgetReservation(request.ProviderKey, request.ModelId);
         if (string.IsNullOrWhiteSpace(request.ProviderKey) || request.ProviderKey.Length > 32 || string.IsNullOrWhiteSpace(request.ModelId) || request.ModelId.Length > 256
             || request.OperationId == Guid.Empty || request.ModelConfigId == Guid.Empty || request.RunId == Guid.Empty
             || request.Kind is not ("chat" or "agent" or "embedding") || request.RequestHash.Length != 64

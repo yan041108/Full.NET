@@ -106,6 +106,30 @@ internal sealed class AiKnowledgeAnswerFeedbackReviewService(IQueryExecutor quer
         }, token).ConfigureAwait(false);
     }
 
+    /// <summary>评估仅接受当前批准且全部依赖仍可读的原反馈；冻结行在授权等待后再次联合复核。</summary>
+    internal async Task<AiKnowledgeAnswerFeedbackReviewRecord?> ProveEvaluationAsync(Guid feedbackId, Guid actor,
+        int feedbackVersion, int reviewVersion, string permission, Guid originalSessionId, CancellationToken token)
+    {
+        EnsureOutsideTransaction(); var scope = AiChatScope.Resolve(tenant);
+        if (permission is not (AiFeedbackEvaluationPermissions.Prepare or AiFeedbackEvaluationPermissions.Admit)
+            || originalSessionId == Guid.Empty || !await AuthorizedAsync(permission, actor, token, originalSessionId).ConfigureAwait(false) || !SameScope(scope)) return null;
+        var parameters = new Dictionary<string, object?> { ["FeedbackId"] = feedbackId };
+        var row = await FindAsync(scope, parameters, token).ConfigureAwait(false);
+        if (!SameScope(scope) || row is null || row.OwnerUserId == actor || row.FeedbackVersion != feedbackVersion
+            || row.ReviewVersion != reviewVersion || !IsCurrentReview(row) || row.DecisionKey != "approved") return null;
+        var proven = await ProveAsync([row], actor, token).ConfigureAwait(false);
+        if (!SameScope(scope) || !proven.ContainsKey(row.MessageId)) return null;
+        var authority = await CurrentParametersAsync([row], proven, actor, token).ConfigureAwait(false);
+        if (authority is null || !SameScope(scope)) return null;
+        foreach (var pair in authority) parameters[pair.Key] = pair.Value;
+        var current = (await CurrentAsync(scope, parameters, token).ConfigureAwait(false)).SingleOrDefault();
+        if (current != row || !SameScope(scope) || !await AuthorizedAsync(permission, actor, token, originalSessionId).ConfigureAwait(false)
+            || !SameScope(scope)) return null;
+        current = (await CurrentAsync(scope, parameters, token).ConfigureAwait(false)).SingleOrDefault();
+        token.ThrowIfCancellationRequested(); EnsureOutsideTransaction();
+        return SameScope(scope) && current == row ? row : null;
+    }
+
     private async Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> ProveAsync(IReadOnlyList<AiKnowledgeAnswerFeedbackReviewRecord> rows, Guid actor, CancellationToken token)
     {
         var candidates = rows.Where(ValidProjection).ToArray();
@@ -147,11 +171,12 @@ internal sealed class AiKnowledgeAnswerFeedbackReviewService(IQueryExecutor quer
     private Task<IReadOnlyList<AiKnowledgeAnswerFeedbackReviewRecord>> CurrentAsync(AiChatScope scope, Dictionary<string, object?> parameters, CancellationToken token) => query.QueryAsync<AiKnowledgeAnswerFeedbackReviewRecord>(AiKnowledgeAnswerFeedbackReviewSql.CurrentFor(database.Value.Provider, scope.TenantId.HasValue), parameters, token);
     private Task<IReadOnlyList<AiKnowledgeAnswerFeedbackReviewRecord>> PageAsync(AiChatScope scope, Dictionary<string, object?> parameters, bool export, CancellationToken token) => query.QueryAsync<AiKnowledgeAnswerFeedbackReviewRecord>(AiKnowledgeAnswerFeedbackReviewSql.PageFor(database.Value.Provider, scope.TenantId.HasValue, export), parameters, token);
     private Task<AiKnowledgeAnswerFeedbackReviewRecord?> FindAsync(AiChatScope scope, Dictionary<string, object?> parameters, CancellationToken token) => query.QuerySingleOrDefaultAsync<AiKnowledgeAnswerFeedbackReviewRecord>(AiKnowledgeAnswerFeedbackReviewSql.FindFor(scope.TenantId.HasValue), parameters, token);
-    private async Task<bool> AuthorizedAsync(string permission, Guid actor, CancellationToken token)
+    private async Task<bool> AuthorizedAsync(string permission, Guid actor, CancellationToken token, Guid? originalSessionId = null)
     {
         token.ThrowIfCancellationRequested(); if (actor == Guid.Empty) return false;
         foreach (var code in new[] { AiChatPermissions.Read, permission })
-        { var current = await authorization.AuthorizeAsync(code, token).ConfigureAwait(false); if (current?.UserId != actor || current.TenantId != tenant.Id) return false; }
+        { var current = await authorization.AuthorizeAsync(code, token).ConfigureAwait(false); if (current?.UserId != actor || current.TenantId != tenant.Id
+                || (originalSessionId.HasValue && current.SessionId != originalSessionId.Value)) return false; }
         return true;
     }
     private bool SameScope(AiChatScope scope) => AiChatScope.Resolve(tenant) == scope;

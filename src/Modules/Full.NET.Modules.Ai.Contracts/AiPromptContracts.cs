@@ -2,14 +2,32 @@ using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Ai.Contracts;
 
-/// <summary>纯文本 Prompt 的不可变输入策略；只替换一次固定 input 占位符，不执行表达式或工具。</summary>
+/// <summary>不可变 Prompt 输入策略；文本仅替换固定 input 占位符，工作流只使用显式绑定的注册节点模板。</summary>
 /// <param name="ModelConfigId">受当前作用域准入的模型配置。</param>
 /// <param name="LanguageTag">规范语言标签，本阶段仅支持 en-US 或 zh-CN。</param>
 /// <param name="Template">包含且仅包含一次 {{input}} 的文本模板，最多 8192 个字符。</param>
-/// <param name="InputTokenLimit">该版本允许的输入 Token 预算预留上限；当前协议不提供提供程序分词或实际请求硬限。</param>
+/// <param name="InputTokenLimit">该版本的输入 Token 预算预留上限；启用严格准入且批准同 Responses 协议时精确计数后派发，其他模式不宣称请求硬限。</param>
 /// <param name="OutputTokenLimit">该版本允许的输出 Token 预算预留上限；单次文本 Run 的请求上限同时受此预算与提供程序 4096 上限约束，实际计量仍由模型回执处理。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record AiPromptBody(Guid ModelConfigId, string LanguageTag, string Template, long InputTokenLimit, long OutputTokenLimit);
+public sealed record AiPromptBody(Guid ModelConfigId, string LanguageTag, string Template, long InputTokenLimit, long OutputTokenLimit)
+{
+    /// <summary>显式版本二静态执行绑定；缺失时保持版本一原正文和摘要，不推断新能力。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AiPromptExecutionBinding? Execution { get; init; }
+}
+
+/// <summary>版本二只绑定服务端现有静态定义；工具和 Schema 必须与注册目录完全一致。</summary>
+/// <param name="PolicyVersion">固定策略版本二，与数据库序列化封装版本独立。</param>
+/// <param name="DefinitionKey">已注册的静态 Agent 或工作流定义。</param>
+/// <param name="DefinitionVersion">精确静态定义版本。</param>
+/// <param name="DefinitionDigest">服务端静态拓扑或 Agent 定义摘要。</param>
+/// <param name="InputSchemaKey">固定输入 Schema 标识。</param>
+/// <param name="OutputSchemaKey">固定输出 Schema 标识。</param>
+/// <param name="AllowedToolNames">静态允许工具的完整有序集合，不接受远程工具扩张。</param>
+/// <param name="RetrievalStrategyKey">固定为 none；检索策略需独立的真实评估与激活凭据。</param>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AiPromptExecutionBinding(int PolicyVersion, string DefinitionKey, int DefinitionVersion, string DefinitionDigest,
+    string InputSchemaKey, string OutputSchemaKey, IReadOnlyList<string> AllowedToolNames, string RetrievalStrategyKey);
 
 /// <summary>创建 Prompt 目录及首个不可变草稿版本；创建不会自动发布。</summary>
 /// <param name="ClientRequestId">本人、当前作用域内的幂等键。</param>
@@ -55,15 +73,19 @@ public sealed record AiPromptVersionResponse(Guid Id, Guid PromptId, int Version
     int ModelConfigVersion, string ProviderKey, string ModelId, string BodyHash, bool WasPublished, DateTimeOffset CreatedAtUtc)
 {
     /// <summary>本格式只允许已注册的纯文本定义。</summary>
-    public string DefinitionKey => "fullnet-single-text-v1";
+    public string DefinitionKey => Body.Execution?.DefinitionKey ?? "fullnet-single-text-v1";
+    /// <summary>当前绑定的精确静态定义版本。</summary>
+    public int DefinitionVersion => Body.Execution?.DefinitionVersion ?? 1;
+    /// <summary>策略正文版本；旧正文保持一。</summary>
+    public int PolicyVersion => Body.Execution?.PolicyVersion ?? 1;
     /// <summary>输入采用固定纯文本 Schema。</summary>
-    public string InputSchemaKey => "ai.prompt.text.v1";
+    public string InputSchemaKey => Body.Execution?.InputSchemaKey ?? "ai.prompt.text.v1";
     /// <summary>输出采用固定纯文本 Schema，模型输出仍是不可信数据。</summary>
-    public string OutputSchemaKey => "ai.prompt.text.v1";
+    public string OutputSchemaKey => Body.Execution?.OutputSchemaKey ?? "ai.prompt.text.v1";
     /// <summary>纯文本版本不授予工具调用。</summary>
-    public IReadOnlyList<string> AllowedToolNames => Array.Empty<string>();
+    public IReadOnlyList<string> AllowedToolNames => Body.Execution?.AllowedToolNames ?? Array.Empty<string>();
     /// <summary>本格式不发起检索。</summary>
-    public string RetrievalStrategyKey => "none";
+    public string RetrievalStrategyKey => Body.Execution?.RetrievalStrategyKey ?? "none";
 }
 
 /// <summary>Prompt 管理与消费分别授权，客户端隐藏不能代替服务端复核。</summary>

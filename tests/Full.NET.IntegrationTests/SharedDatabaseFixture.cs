@@ -1,3 +1,4 @@
+using Full.NET.IntegrationTests.Infrastructure;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -28,8 +29,11 @@ public static class SharedDatabaseFixture
     private const string MySqlAppUser = "fullnet";
 
     private static MsSqlContainer? _sqlServer;
+    private static NativeContainerResourceProfile.Lease? _sqlServerLease;
     private static MySqlContainer? _mySql;
+    private static NativeContainerResourceProfile.Lease? _mySqlLease;
     private static RedisContainer? _redis;
+    private static NativeContainerResourceProfile.Lease? _redisLease;
     private static readonly SemaphoreSlim SqlServerStartLock = new(1, 1);
     private static readonly SemaphoreSlim MySqlStartLock = new(1, 1);
     private static readonly SemaphoreSlim RedisStartLock = new(1, 1);
@@ -57,6 +61,7 @@ public static class SharedDatabaseFixture
     {
         // 仅保留程序集级清理生命周期；具体依赖由首个消费者异步启动。
         _ = testContext;
+        _ = NativeContainerResourceProfile.Current;
         if (ReuseContainers)
         {
             // Testcontainers 默认关闭 reuse；必须在 Build() 前打开，本地 inner 才能接回已有容器。
@@ -71,19 +76,25 @@ public static class SharedDatabaseFixture
         {
             if (_redis is not null)
             {
-                await _redis.DisposeAsync();
+                if (_redisLease is { } lease) await lease.DisposeContainerAsync(_redis);
+                else await _redis.DisposeAsync();
+                _redisLease = null;
                 _redis = null;
             }
 
             if (_mySql is not null)
             {
-                await _mySql.DisposeAsync();
+                if (_mySqlLease is { } lease) await lease.DisposeContainerAsync(_mySql);
+                else await _mySql.DisposeAsync();
+                _mySqlLease = null;
                 _mySql = null;
             }
 
             if (_sqlServer is not null)
             {
-                await _sqlServer.DisposeAsync();
+                if (_sqlServerLease is { } lease) await lease.DisposeContainerAsync(_sqlServer);
+                else await _sqlServer.DisposeAsync();
+                _sqlServerLease = null;
                 _sqlServer = null;
             }
         }
@@ -174,16 +185,30 @@ public static class SharedDatabaseFixture
                 builder = builder.WithReuse(true).WithName("fullnet-it-mssql");
             }
 
-            var container = builder.Build();
+            var lease = NativeContainerResourceProfile.Current?.Acquire("sqlserver");
+            MsSqlContainer container;
+            try
+            {
+                if (lease is not null) builder = builder.WithCreateParameterModifier(lease.Apply);
+                container = builder.Build();
+            }
+            catch
+            {
+                lease?.Dispose();
+                throw;
+            }
             try
             {
                 await container.StartAsync();
+                if (lease is not null) await lease.CaptureAsync(container.Id);
+                _sqlServerLease = lease;
                 _sqlServer = container;
                 return container;
             }
             catch
             {
-                await container.DisposeAsync();
+                if (lease is not null) await lease.DisposeContainerAsync(container);
+                else await container.DisposeAsync();
                 throw;
             }
         }
@@ -222,16 +247,30 @@ public static class SharedDatabaseFixture
                 builder = builder.WithReuse(true).WithName("fullnet-it-mysql");
             }
 
-            var container = builder.Build();
+            var lease = NativeContainerResourceProfile.Current?.Acquire("mysql");
+            MySqlContainer container;
+            try
+            {
+                if (lease is not null) builder = builder.WithCreateParameterModifier(lease.Apply);
+                container = builder.Build();
+            }
+            catch
+            {
+                lease?.Dispose();
+                throw;
+            }
             try
             {
                 await container.StartAsync();
+                if (lease is not null) await lease.CaptureAsync(container.Id);
+                _mySqlLease = lease;
                 _mySql = container;
                 return container;
             }
             catch
             {
-                await container.DisposeAsync();
+                if (lease is not null) await lease.DisposeContainerAsync(container);
+                else await container.DisposeAsync();
                 throw;
             }
         }
@@ -262,16 +301,30 @@ public static class SharedDatabaseFixture
                 builder = builder.WithReuse(true).WithName("fullnet-it-redis");
             }
 
-            var container = builder.Build();
+            var lease = NativeContainerResourceProfile.Current?.Acquire("redis");
+            RedisContainer container;
+            try
+            {
+                if (lease is not null) builder = builder.WithCreateParameterModifier(lease.Apply);
+                container = builder.Build();
+            }
+            catch
+            {
+                lease?.Dispose();
+                throw;
+            }
             try
             {
                 await container.StartAsync();
+                if (lease is not null) await lease.CaptureAsync(container.Id);
+                _redisLease = lease;
                 _redis = container;
                 return container;
             }
             catch
             {
-                await container.DisposeAsync();
+                if (lease is not null) await lease.DisposeContainerAsync(container);
+                else await container.DisposeAsync();
                 throw;
             }
         }

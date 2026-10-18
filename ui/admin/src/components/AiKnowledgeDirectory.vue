@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
+import { translateKnowledgeIndexChanges, translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElMessageBox, ElPagination, ElSwitch, ElTable, ElTableColumn, ElTag } from 'element-plus';
@@ -18,6 +18,8 @@ import AiKnowledgeSourceDialog from './AiKnowledgeSourceDialog.vue';
 import AiKnowledgePolicyDialog from './AiKnowledgePolicyDialog.vue';
 import AiKnowledgeGrantsDialog from './AiKnowledgeGrantsDialog.vue';
 import AiKnowledgeIndexDialog from './AiKnowledgeIndexDialog.vue';
+import AiKnowledgeIndexChangesDialog from './AiKnowledgeIndexChangesDialog.vue';
+import AiKnowledgeIndexGrantPanel from './AiKnowledgeIndexGrantPanel.vue';
 const props = defineProps<{ documents?: boolean }>();
 const { t, locale } = useAdminI18n(); const session = useSessionStore(); const route = useRoute();
 type Row = AiKnowledgeBaseResponse | AiKnowledgeDocumentResponse;
@@ -35,6 +37,8 @@ const prefix = computed(() => props.documents ? 'ai.knowledge_documents' : 'ai.k
 const canRead = computed(() => !session.switching && session.can('ai.knowledge_bases.read') && (!props.documents || session.can('ai.knowledge_documents.read')));
 const can = (action: string) => canRead.value && session.can(`${prefix.value}.${action}`);
 const canVersion = computed(() => canRead.value && session.can('ai.knowledge_documents.versions_read'));
+const changesOpen = ref(false);
+const canChanges = computed(() => props.documents && canVersion.value && session.can('ai.knowledge_documents.index_read') && session.can('ai.knowledge_documents.index_changes_read'));
 const canRecover = computed(() => props.documents && canVersion.value && session.can('ai.knowledge_documents.index_read') && session.can('ai.knowledge_documents.index_recover'));
 const recoveryCursor = ref<string>(); const recoveryReceipt = ref(''); let recoveryController: AbortController | undefined;
 const canGrants = computed(() => ['members_read', 'roles_read', 'organizations_read'].some(action => can(action)));
@@ -183,6 +187,7 @@ async function recoverSources() {
   } finally { if (scope === epoch) busy.value = false; }
 }
 function reset() {
+  changesOpen.value = false;
   ++epoch; ++listEpoch; ++versionEpoch; controller?.abort(); versionController?.abort(); rows.value = []; versions.value = [];
   recoveryController?.abort(); recoveryCursor.value = undefined; recoveryReceipt.value = '';
   editorOpen.value = false; versionOpen.value = false; sourceOpen.value = false; editing.value = undefined; documentRow.value = undefined;
@@ -206,6 +211,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
         <div class="knowledge-toolbar">
           <AiKnowledgeBaseSelect v-if="documents" v-model="baseId" :disabled="busy" />
           <el-button :disabled="loading || busy" @click="load()">{{ t('common.refresh') }}</el-button>
+          <el-button v-if="canChanges" data-testid="knowledge-changes" :disabled="busy || !guid.test(baseId)" @click="changesOpen = true">{{ translateKnowledgeIndexChanges(locale, 'title') }}</el-button>
           <el-button v-if="canRecover" data-testid="knowledge-recover" :disabled="busy || !baseId" @click="recoverSources">{{ translateKnowledgeRecovery(locale, recoveryCursor ? 'continueRecovery' : 'recover') }}</el-button>
           <el-button v-if="can('create')" type="primary" data-testid="knowledge-create" :disabled="busy || (documents && !baseId)" @click="openEditor()">{{ t('knowledge.create') }}</el-button>
         </div>
@@ -264,6 +270,8 @@ onMounted(() => void load(1)); onUnmounted(reset);
         </section>
       </template><el-empty v-else :description="t('knowledge.empty')" />
     </ArtFormDialog>
+    <AiKnowledgeIndexChangesDialog v-if="documents && canChanges" v-model:open="changesOpen" :knowledge-base-id="baseId" />
+    <AiKnowledgeIndexGrantPanel v-if="documents && baseId" :knowledge-base-id="baseId" />
     <AiKnowledgeSourceDialog v-if="sourceVersion && documentRow" v-model:open="sourceOpen" :knowledge-base-id="baseId" :document-id="documentRow.id" :version-id="sourceVersion.id" :version="sourceVersion" />
     <AiKnowledgeIndexDialog v-if="indexVersion && documentRow" v-model:open="indexOpen" :knowledge-base-id="documentRow.knowledgeBaseId" :document-id="documentRow.id" :version-id="indexVersion.id" />
   </section>

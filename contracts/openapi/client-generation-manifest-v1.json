@@ -3527,6 +3527,12 @@
       "status": "generated"
     },
     {
+      "operationId": "aiListKnowledgeIndexChanges",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
       "operationId": "aiRecoverKnowledgeIndexChanges",
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",
@@ -3710,6 +3716,42 @@
       "operationId": "aiReconcileAgentRun",
       "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
       "generatedGroup": "ai-agent-reconciliation",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeIndexGrants",
+      "apiModule": "ui/admin/src/api/ai-index-grants.ts",
+      "generatedGroup": "ai-index-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeIndexGrant",
+      "apiModule": "ui/admin/src/api/ai-index-grants.ts",
+      "generatedGroup": "ai-index-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRevokeKnowledgeIndexGrant",
+      "apiModule": "ui/admin/src/api/ai-index-grants.ts",
+      "generatedGroup": "ai-index-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPrepareFeedbackEvaluationCandidate",
+      "apiModule": "ui/admin/src/api/ai-feedback-evaluation.ts",
+      "generatedGroup": "ai-feedback-evaluation",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiAdmitFeedbackEvaluationCandidate",
+      "apiModule": "ui/admin/src/api/ai-feedback-evaluation.ts",
+      "generatedGroup": "ai-feedback-evaluation",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetPromptExecutionStrategies",
+      "apiModule": "ui/admin/src/api/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
       "status": "generated"
     }
   ]

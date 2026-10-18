@@ -95,6 +95,20 @@ internal static class AiKnowledgeAnswerFeedbackReviewAssertions
             await Assert.ThrowsAsync<OperationCanceledException>(() => Create(new CancelAfterWrite(commands)).ReviewAsync(feedbackId, reviewer, approve, default));
             Assert.AreEqual(0L, await Count());
             var accepted = await review.ReviewAsync(feedbackId, reviewer, approve, default); Assert.IsTrue(accepted.IsSuccess, accepted.Error?.ToString());
+            var evaluation = new AiFeedbackEvaluationService(review, new(new EphemeralDataProtectionProvider(), clock), authorization, tenant, state, clock);
+            var sample = new AiFeedbackEvaluationSample("zh-CN", "人工改写的问题", "人工改写的参考答案", "人工改写的评估依据", false);
+            var candidate = await evaluation.PrepareAsync(feedbackId, reviewer, new(1, 1, sample), default);
+            Assert.IsTrue(candidate.IsSuccess, candidate.Error?.ToString());
+            var admitRequest = new AdmitAiFeedbackEvaluationRequest(candidate.Value!.CandidateToken, true);
+            Assert.AreEqual(ErrorType.Validation, (await evaluation.AdmitAsync(reviewer, admitRequest with { ConfirmManualRedaction = false }, default)).Error!.Type);
+            var admitted = await evaluation.AdmitAsync(reviewer, admitRequest, default);
+            Assert.IsTrue(admitted.IsSuccess, admitted.Error?.ToString()); Assert.AreEqual(sample, admitted.Value!.Sample);
+            Assert.AreEqual(candidate.Value.SampleHash, admitted.Value.SampleHash);
+            Assert.AreEqual(admitted.Value.CaseKey, (await evaluation.AdmitAsync(reviewer, admitRequest, default)).Value!.CaseKey);
+            // 候选不缓存来源资格，下载之前撤销任一完整依赖即拒绝再次准入。
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_document_member WHERE Id=@Id", new { Id = docMember });
+            try { Assert.AreEqual(ErrorType.NotFound, (await evaluation.AdmitAsync(reviewer, admitRequest, default)).Error!.Type); }
+            finally { await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_document_member (Id,DocumentId,UserId,CreatedAtUtc) VALUES (@Id,@Resource,@UserId,@Now)", new { Id = docMember, Resource = document, UserId = reviewer, Now = clock.UtcNow }); }
             Assert.AreEqual(1, accepted.Value!.ReviewVersion);
             Assert.AreEqual(1, (await review.ReviewAsync(feedbackId, reviewer, approve, default)).Value!.ReviewVersion);
             Assert.AreEqual(ErrorType.Conflict, (await review.ReviewAsync(feedbackId, reviewer, approve with { DecisionKey = "rejected" }, default)).Error!.Type);

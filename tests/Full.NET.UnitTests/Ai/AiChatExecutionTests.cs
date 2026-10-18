@@ -52,7 +52,8 @@ public sealed class AiChatExecutionTests
         queries.QuerySingleOrDefaultAsync<AiTenantQuotaRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new AiTenantQuotaRecord { IsEnabled = true });
         queries.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(
-            Task.FromResult<IReadOnlyList<AiChatMessageRecord>>(Array.Empty<AiChatMessageRecord>()));
+            // 真实编排已在事务内插入本次用户消息；历史桩也必须包含该条输入。
+            Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([new() { RoleKey = "user", Content = "hello", CreatedAtUtc = clock.UtcNow }]));
         if (scenario == "knowledge_history") queries.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([
             new() { RoleKey = "assistant", Content = new string('秘', 40000), IsKnowledgeAnswer = true, CreatedAtUtc = clock.UtcNow },
             new() { RoleKey = "assistant", Content = "损坏知识正文", KnowledgeLineage = "{}", CreatedAtUtc = clock.UtcNow.AddSeconds(-1) },

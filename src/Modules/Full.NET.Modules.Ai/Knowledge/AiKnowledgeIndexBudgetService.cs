@@ -11,7 +11,7 @@ internal sealed record AiKnowledgeIndexBudgetAdmission(AiOperationRequest Reques
 
 /// <summary>先固化操作 ID，再预留；不拥有外部调用，也不推断未知操作是否已经执行。</summary>
 internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnowledgeIndexTaskStore tasks,
-    AiKnowledgeIndexBatchStore batches, IAiOperationBudgetStore budget)
+    AiKnowledgeIndexBatchStore batches, IAiOperationBudgetStore budget, AiKnowledgeIndexGrantStore? grants = null)
 {
     /// <summary>先固化请求身份再预留预算；来源为空的重复凭据只能对账，不能重新派发。</summary>
     /// <remarks>此方法不调用模型，须在无外层事务的作用域调用，确保批次先提交及账本使用自有短事务。新预留后的失败可以明确结算为零；预留响应未知时不推断是否记账。真实调用消费者须校验输入来源、执行者和数据去向，派发前再次复核，并独立结算实际或未知用量。</remarks>
@@ -40,6 +40,7 @@ internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnow
         var batch = await batches.PrepareAsync(binding, taskId, leaseToken, batchOrdinal, AiOperationBudgetStore.Fingerprint(draft), frozen.Length, token).ConfigureAwait(false);
         if (batch is null) return null;
         var request = draft with { OperationId = batch.Id };
+        if (grants is not null && !await grants.ReserveBatchAsync(binding, taskId, batchOrdinal, request.InputTokenLimit, token).ConfigureAwait(false)) return null;
         var reservation = await budget.ReserveAsync(request, token).ConfigureAwait(false);
         if (reservation.OperationId != request.OperationId) throw new InvalidDataException("Unexpected AI budget operation identity.");
         // 重复或 unknown 的既有记录不能从租约接替推断为未执行，也不能释放为零。

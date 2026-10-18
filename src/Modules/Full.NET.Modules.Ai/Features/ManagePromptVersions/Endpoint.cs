@@ -14,6 +14,10 @@ internal static class Endpoint
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
         const string root = "/api/v1/ai/prompts";
+        endpoints.MapGet(root + "/execution-strategies", async (AiPromptManagementService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
+            Actor(http) is { } actor ? mapper.Map(await service.ExecutionStrategiesAsync(actor, token).ConfigureAwait(false), http) : Results.Unauthorized())
+            .WithTags("AiPrompts").WithName("aiGetPromptExecutionStrategies").Produces<AiPromptExecutionBinding[]>(200)
+            .ProducesProblem(401).ProducesProblem(403).RequireAuthorization(FullNetPermissionPolicies.For(AiPromptPermissions.Read));
         endpoints.MapGet(root, async (int? page, int? pageSize, AiPromptManagementService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
             Actor(http) is { } actor ? mapper.Map(await service.ListAsync(actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), http) : Results.Unauthorized())
             .WithTags("AiPrompts").WithName("aiListPrompts").Produces<PagedResult<AiPromptResponse>>(200)

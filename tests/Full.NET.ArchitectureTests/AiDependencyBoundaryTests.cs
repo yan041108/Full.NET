@@ -102,10 +102,22 @@ public sealed class AiDependencyBoundaryTests
             var relativePath = Path.GetRelativePath(Root(), source).Replace('\\', '/');
             var text = File.ReadAllText(source);
             const string reviewCursorPath = "src/Modules/Full.NET.Modules.Ai/Domain/AiKnowledgeAnswerFeedbackReviewCursor.cs";
+            const string evaluationTokenPath = "src/Modules/Full.NET.Modules.Ai/Domain/AiFeedbackEvaluationToken.cs";
             if (relativePath == reviewCursorPath)
             {
                 // 仅允许专用不透明扫描位置，不允许复用模型或服务令牌的解密用途。
                 Assert.Contains("CreateProtector(\"Full.NET.Ai.KnowledgeAnswerFeedback.ReviewCursor.v1\")", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("ApiKey", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("ServiceToken", text, StringComparison.Ordinal);
+            }
+            else if (relativePath == evaluationTokenPath)
+            {
+                // 候选凭据只承载人工脱敏样例与原登录绑定，固定用途不能复用为提供程序密钥或服务令牌。
+                Assert.Contains("CreateProtector(\"Full.NET.Ai.FeedbackEvaluation.Candidate.v1\")", text, StringComparison.Ordinal);
+                Assert.Contains("AiJsonSerializerContext.Default.AiFeedbackEvaluationEnvelope", text, StringComparison.Ordinal);
+                Assert.Contains("envelope.ActorUserId == actor && envelope.TenantId == tenant", text, StringComparison.Ordinal);
+                Assert.Contains("envelope.SessionId == session", text, StringComparison.Ordinal);
+                Assert.Contains("clock.UtcNow.AddMinutes(15)", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("ApiKey", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("ServiceToken", text, StringComparison.Ordinal);
             }

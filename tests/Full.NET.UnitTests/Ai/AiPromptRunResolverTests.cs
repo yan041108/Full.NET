@@ -115,6 +115,17 @@ public sealed class AiPromptRunResolverTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.ExecuteAsync());
     }
 
+    [TestMethod]
+    [DataRow("fullnet-single-text-v1")][DataRow("fullnet-readonly-tool-loop-v1")][DataRow("fullnet-chat-rename-workflow-v1")]
+    public async Task Explicit_static_strategy_preserves_exact_definition_and_execution_binding(string definition)
+    {
+        var f = new Fixture(definition);
+        Assert.IsTrue((await f.Resolver.PrepareAsync(f.Request, f.Binding, default)).IsSuccess);
+        var result = await f.Resolver.ExecutionAsync(f.Snapshot, definition, f.Binding, f.Model, default);
+        Assert.IsTrue(result.IsSuccess, result.Error?.ToString());
+        Assert.AreEqual(definition == "fullnet-chat-rename-workflow-v1" ? "" : "Before {{input}} After", result.Value);
+    }
+
     private sealed class Fixture
     {
         internal IQueryExecutor Queries { get; } = Substitute.For<IQueryExecutor>();
@@ -136,14 +147,19 @@ public sealed class AiPromptRunResolverTests
         internal AiPromptRunResolver Resolver { get; }
         internal AiModelConfigRecord Model => new() { Id = ModelId, Version = 1, IsEnabled = true, ProviderKey = "ollama", ModelId = "model" };
         internal AiPromptVersionRecord Version => new() { Id = VersionId, PromptId = PromptId, ScopeKey = RowScope, Version = 1, FormatVersion = 1, BodyJson = BodyJson, ModelConfigVersion = 1, ProviderKey = "ollama", ModelId = "model", BodyHash = Hash, WasPublished = WasPublished };
-        internal CreateAiAgentRunRequest Request => new(Guid.CreateVersion7(), AgentDefinitionRegistry.SingleTextKey, ModelId, "{{input}}", 100, 100, VersionId);
-        internal AgentRunBudgetSnapshot Snapshot => new(ModelId, "{{input}}", 100, 100, new(PromptId, VersionId, 1, Hash, 0));
+        private readonly string definition = AgentDefinitionRegistry.SingleTextKey;
+        private string Input => definition == "fullnet-chat-rename-workflow-v1" ? "" : "{{input}}";
+        internal CreateAiAgentRunRequest Request => new(Guid.CreateVersion7(), definition, ModelId, Input, 100, 100, VersionId);
+        internal AgentRunBudgetSnapshot Snapshot => new(ModelId, Input, 100, 100, new(PromptId, VersionId, 1, Hash, 0));
         internal Task<Full.NET.Abstractions.Results.Result<string>> ExecuteAsync() => Resolver.ExecutionAsync(Snapshot, AgentDefinitionRegistry.SingleTextKey, Binding, Model, default);
-        internal Fixture()
+        internal Fixture(string? staticDefinition = null)
         {
+            definition = staticDefinition ?? AgentDefinitionRegistry.SingleTextKey;
             ActiveId = VersionId; CurrentModelId = ModelId;
-            BodyJson = AiPromptVersionIntegrity.Serialize(new(ModelId, "zh-CN", "Before {{input}} After", 100, 100));
-            Hash = AiPromptVersionIntegrity.Hash(BodyJson, 1, "ollama", "model");
+            var body = new AiPromptBody(ModelId, "zh-CN", definition == "fullnet-chat-rename-workflow-v1" ? "{{input}}" : "Before {{input}} After", 100, 100)
+            { Execution = staticDefinition is null ? null : AiPromptExecutionPolicy.Resolve(staticDefinition) };
+            BodyJson = AiPromptVersionIntegrity.Serialize(body);
+            Hash = AiPromptVersionIntegrity.Hash(body, BodyJson, 1, "ollama", "model");
             var tenant = Substitute.For<ICurrentTenant>(); tenant.IsHost.Returns(true);
             Authorization.AuthorizeAsync(Binding, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new AuthorizedSessionActor(Binding.UserId, null, Binding.SessionId));
             Queries.QuerySingleOrDefaultAsync<AiPromptVersionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Version);

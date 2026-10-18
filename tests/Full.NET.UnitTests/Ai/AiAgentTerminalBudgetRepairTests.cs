@@ -19,7 +19,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>历史终态只修复账本；凭证不足保留未知预留，状态与结算同事务保护。</summary>
 [TestClass]
-public sealed class AiAgentTerminalBudgetRepairTests
+public sealed partial class AiAgentTerminalBudgetRepairTests
 {
     [TestMethod]
     [DataRow("completed", "succeeded")]

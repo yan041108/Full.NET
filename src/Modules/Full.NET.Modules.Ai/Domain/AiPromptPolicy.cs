@@ -15,7 +15,7 @@ internal static class AiPromptPolicy
         if (body is null || body.ModelConfigId == Guid.Empty || body.LanguageTag is not ("en-US" or "zh-CN")
             || body.Template is not { Length: > 0 and <= 8192 } template
             || body.InputTokenLimit is <= 0 or > AiExecutionBudget.MaximumTokens
-            || body.OutputTokenLimit is <= 0 or > AiExecutionBudget.MaximumTokens) return false;
+            || body.OutputTokenLimit is <= 0 or > AiExecutionBudget.MaximumTokens || !AiPromptExecutionPolicy.Valid(body)) return false;
         var index = template.IndexOf(Placeholder, StringComparison.Ordinal);
         if (index < 0 || index != template.LastIndexOf(Placeholder, StringComparison.Ordinal)) return false;
         // 模板只有一个受控槽位；其他表达式不被接受，输入内容始终作为字面数据。

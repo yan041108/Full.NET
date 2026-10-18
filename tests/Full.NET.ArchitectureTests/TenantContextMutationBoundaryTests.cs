@@ -30,6 +30,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiToolAuditPort.cs",
         // AI 自有全局候选恢复独立范围；清理重验所有者/指针，生成重验冻结原会话，均不沿用父请求身份。
         "src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeCleanupWorkerCoordinator.cs",
+        // 收费授权扫描只接受 AI 自有锚点；每项独立重验持久化原会话，结束后清除上下文。
+        "src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeIndexGrantProcessor.cs",
         "src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeIndexWorkerCoordinator.cs",
         // 领取运行后按持久化记录恢复可信租户作用域，用于会话重验与预算结算。
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs",

@@ -190,6 +190,7 @@ internal static partial class AiAgentCompletionAssertions
                     Assert.AreEqual("reserved", (await queries.QuerySingleOrDefaultAsync<AiOperationBudgetRecord>(AiOperationBudgetSql.Find,
                         AiSqlParameters.Create(("OperationId", id), ("ScopeKey", scopeKey))))!.UsageStatus);
                 Assert.IsTrue((await store.ScanTerminalUnsettledAsync(100, CancellationToken.None)).Any(poison.Contains), "重置后允许重试历史坏行");
+                await VerifyAutomaticCompletedReceiptsAsync(factory, provider, tenantId);
             }
             finally { context.Clear(); }
         }

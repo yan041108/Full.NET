@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/272_AiKnowledgeIndexGrants.sql",
+      "reason": "增量收费授权的可恢复迁移仅依据 INFORMATION_SCHEMA 选择固定字面量约束或索引 DDL；对象名及语句不接受业务输入，逐项恢复由 Migration272AiKnowledgeIndexGrantsRecoveryTests 覆盖，实际双库结果以本批集中验收为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/260_AiKnowledgeIndexRebuild.sql",
       "reason": "260 只按 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 间选择；无外部标识符或业务输入，按独立步骤恢复代次列、说明和约束，保留旧任务及费用历史。",
       "removalMilestone": "M1.0"

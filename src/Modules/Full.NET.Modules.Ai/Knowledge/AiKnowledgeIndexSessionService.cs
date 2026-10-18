@@ -12,13 +12,20 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>任务与原会话原子冻结，恢复时不能由新的登录接管。</summary>
 internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexTaskStore tasks,
-    IBackgroundSessionAuthorization authorization)
+    IBackgroundSessionAuthorization authorization, AiKnowledgeIndexGrantStore? grants = null)
 {
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>只复用完全相同的冻结会话；无绑定的旧任务及其他登录均拒绝接管。</summary>
     internal async Task<Guid?> EnqueueAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
+        => await EnqueueCoreAsync(binding, session, null, token).ConfigureAwait(false);
+
+    /// <summary>显式委托下的派发仍使用原会话；计数、任务与会话必须同事务保存。</summary>
+    internal Task<Guid?> EnqueueGrantedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, Guid grantId, CancellationToken token) =>
+        EnqueueCoreAsync(binding, session, grantId, token);
+
+    private async Task<Guid?> EnqueueCoreAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, Guid? grantId, CancellationToken token)
     {
         NoTransaction(); ArgumentNullException.ThrowIfNull(session);
         var parameters = tasks.TaskParameters(binding, ids.NewId(), token);
@@ -27,6 +34,7 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         parameters["SessionId"] = session.SessionId; parameters["SessionKind"] = session.SessionKind;
         parameters["SecurityStamp"] = session.SecurityStamp; parameters["ActorScope"] = session.ActorScope;
         parameters["EffectiveScope"] = session.EffectiveScope; parameters["Now"] = clock.UtcNow;
+        if (grantId.HasValue && (grants is null || !await grants.CanEnqueueAsync(grantId.Value, binding, session, token).ConfigureAwait(false))) return null;
         try
         {
             var created = await transaction.ExecuteAsync(async cancellation =>
@@ -38,6 +46,8 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
                 // 第一笔已写入，第二笔失败必须抛异常触发回滚，不能返回业务拒绝并提交孤立任务。
                 if (await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexSessionSql.InsertTenant : AiKnowledgeIndexSessionSql.InsertHost, parameters, cancellation).ConfigureAwait(false) != 1)
                     throw new InvalidOperationException("Knowledge index session binding was not created.");
+                if (grantId.HasValue && (grants is null || !await grants.AttachCoreAsync(grantId.Value, (Guid)parameters["TaskId"]!, binding, session, cancellation).ConfigureAwait(false)))
+                    throw new GrantAdmissionException();
                 return true;
             }, token).ConfigureAwait(false);
             if (!created) return null;
@@ -46,6 +56,7 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         {
             // 唯一冲突由事务边界回滚；不补写或更新已有任务的原会话。
         }
+        catch (GrantAdmissionException) { return null; }
         NoTransaction();
         if (!await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return null;
         var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(tasks.IsTenant ? AiKnowledgeIndexSessionSql.FindBindingTenant : AiKnowledgeIndexSessionSql.FindBindingHost, parameters, token).ConfigureAwait(false);
@@ -63,6 +74,7 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         if (row is null || row.Id == Guid.Empty || row.IndexTaskId != taskId || row.LeaseExpiresAtUtc is not { } expiry || expiry <= clock.UtcNow) return null;
         var session = Snapshot(row);
         if (!Valid(binding, session) || row.Generation < 0) return null;
+        if (grants is not null && !await grants.CanExecuteTaskAsync(binding, taskId, session, token).ConfigureAwait(false)) return null;
         if (row.Generation > 0)
         {
             // 代次来自持久化任务；新增重建权限撤销后，所有文件、模型与续租阶段都必须停止。
@@ -75,7 +87,8 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
             }
             if (expiry <= clock.UtcNow) return null;
         }
-        return session;
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        return Valid(binding, session) && expiry > clock.UtcNow ? session : null;
     }
 
     /// <summary>整代次消费者的阶段门禁；续租只绑定原会话，授权不进入事务。</summary>
@@ -124,6 +137,7 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         && session.SessionKind is SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication
         && Text(session.SecurityStamp, 128) && Text(session.ActorScope, 64) && Text(session.EffectiveScope, 64);
     private static bool Text(string value, int limit) => !string.IsNullOrWhiteSpace(value) && value.Length <= limit;
+    private sealed class GrantAdmissionException : Exception { }
     private static SessionBindingSnapshot Snapshot(AiKnowledgeIndexSessionRecord row) => new(row.ActorUserId, row.TenantId, row.SessionId,
         row.SecurityStamp, row.ActorScope, row.EffectiveScope, row.SessionKind);
     private void NoTransaction()

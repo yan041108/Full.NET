@@ -22,7 +22,7 @@ internal sealed class AiModelBindingScope(AiDataProcessingPolicy? dataPolicy = n
             if (!AiDataProcessingPolicy.IsKnown(dataClassification))
                 throw new InvalidOperationException("AI model binding requires a known data classification.");
             Policy.Require(stage, dataClassification);
-            if (stage == "chat") (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch();
+            if (stage == "chat") (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireBudgetReservation(model.ProviderKey, model.ModelId);
             // 随机值是短期能力引用而非数据库逻辑主键，不从配置 ID 或租户 ID 推导。
             Guid? reference = string.IsNullOrWhiteSpace(model.ApiKeyProtected) ? null : Guid.NewGuid();
             var options = BuildOptions(model);

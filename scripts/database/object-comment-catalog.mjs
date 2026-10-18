@@ -788,6 +788,8 @@ const COLUMN_LABELS = {
 };
 
 const TABLE_OVERRIDES = {
+  fn_ai_index_grant: '所有者原会话的有界增量收费授权；默认关闭且不可接管',
+  fn_ai_index_grant_item: '增量授权与原索引任务的不可替换绑定及累计输入预留',
   fn_ai_knowledge_index_change: '最新确认来源的增量索引意图；执行仍需当前会话授权',
   fn_outbox_message: '事务发件箱消息，承载待发布的集成事件',
   fn_messaging_outbox_event: '消息发件箱事件，供 CDC 中继投递',
@@ -802,6 +804,24 @@ const TABLE_OVERRIDES = {
   fn_import_export_task: '导入导出任务表',
   fn_mqtt_client: 'MQTT 客户端表',
   fn_mqtt_message: 'MQTT 消息表',
+};
+
+// 收费授权列保留范围、原会话和保守占用语义，避免通用命名回退丢失关键约束。
+const TABLE_COLUMN_OVERRIDES = {
+  fn_ai_index_grant: {
+    Id: '授权逻辑主键', TenantId: '可信租户；宿主为空', KnowledgeBaseId: '本模块知识库标识',
+    OwnerUserId: '原授权所有者标识', ClientRequestId: '所有者在知识库内的幂等键',
+    KnowledgeBaseVersion: '冻结的知识库及模型批准修订', ModelConfigId: '原批准向量模型配置',
+    ModelConfigVersion: '原批准模型配置修订', SessionJson: '冻结原交互会话绑定；不包含访问令牌且不可替换',
+    ExpiresAtUtc: '原授权到期时间 UTC；不得隐式延长', DocumentLimit: '最多准入任务数；失败及未知不返还',
+    AdmittedDocuments: '已消耗的任务准入次数', InputTokenLimitPerDocument: '每任务累计输入预留上限；不是费用硬限',
+    IsRevoked: '是否已由原所有者明确撤销', Version: '准入和撤销共享并发修订', CreatedAtUtc: '授权创建时间 UTC',
+  },
+  fn_ai_index_grant_item: {
+    Id: '逻辑主键', TenantId: '与原授权一致的可信租户；宿主为空', GrantId: '原增量收费授权标识',
+    TaskId: '唯一原索引任务标识；禁止接管其他代次', LastBatchOrdinal: '已顺序预留的最后批次序号；初始为负一',
+    ReservedInputTokens: '本任务已消耗的输入预留总量；不因未知或失败返还',
+  },
 };
 
 const SQL_KEYWORDS = new Set([
@@ -847,6 +867,9 @@ function splitPascalCase(name) {
 
 /** 生成列级中文说明。 */
 export function describeColumn(tableName, columnName) {
+  if (TABLE_COLUMN_OVERRIDES[tableName]?.[columnName]) {
+    return TABLE_COLUMN_OVERRIDES[tableName][columnName];
+  }
   if (COLUMN_LABELS[columnName]) {
     return COLUMN_LABELS[columnName];
   }

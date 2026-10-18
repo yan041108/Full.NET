@@ -6381,6 +6381,38 @@
         "r.ActorUserId = @ActorUserId",
         "e.EventType = 'run.reconciled'"
       ]
+    },
+    {
+      "statementName": "ai.index_grant.scan.sql_server",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexGrantSql.ScanSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "默认关闭的收费增量 Worker 仅有界扫描授权和可信租户锚点；另建独立范围后重新证明所有者原会话、精确权限、期限、次数及来源；扫描本身不授予费用资格。",
+      "requiredSqlFragments": [
+        "TOP (@BatchSize)",
+        "Id,TenantId",
+        "IsRevoked=0",
+        "ExpiresAtUtc>@Now",
+        "AdmittedDocuments<DocumentLimit",
+        "Id>@AfterId",
+        "ORDER BY Id"
+      ]
+    },
+    {
+      "statementName": "ai.index_grant.scan.my_sql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexGrantSql.ScanMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "默认关闭的收费增量 Worker 仅有界扫描授权和可信租户锚点；另建独立范围后重新证明所有者原会话、精确权限、期限、次数及来源；扫描本身不授予费用资格。",
+      "requiredSqlFragments": [
+        "LIMIT @BatchSize",
+        "Id,TenantId",
+        "IsRevoked=0",
+        "ExpiresAtUtc>@Now",
+        "AdmittedDocuments<DocumentLimit",
+        "Id>@AfterId",
+        "ORDER BY Id"
+      ]
     }
   ]
 }

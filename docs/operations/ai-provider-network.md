@@ -140,3 +140,12 @@ OpenAI 兼容协议不代表支持所有可选字段。默认不发送 `stream_o
 telemetry 拒绝时抑制 AI 自有 Trace、Metrics、故障日志和预算诊断标识，以及本批命名 Provider/MCP HTTP 客户端的默认日志、OpenTelemetry 自动诊断和连接仪表。嵌套范围只能收紧，后台执行继承冻结策略。此边界不关闭安全/业务审计、可靠运行事件或通用宿主入口诊断；这些仍遵守各自脱敏与保留规则，不能把诊断抑制当作授权或账本豁免。
 
 本批生产依赖和测试消费者已完成 JIT 编译，AI/授权以原组加精确补验覆盖 4857 个官方成功 UID；真实双库 OpenAPI 导出一致，前端类型与聚焦组件验证通过。原失败和本机重启中断单列；完整影响集、Native 发布/运行及真实供应商环境仍待集中验收，不外推能力状态。
+
+
+## 显式 Responses 输入计数（开发合批，待验收）
+
+宿主可在精确 `FullNet:Ai:OpenAiGateways:<n>` 端点/模型配对声明 `SupportsResponsesInputTokens=true`，继续显式提供原 `SupportsStreamingUsage` 布尔值。仅填写经独立验证支持 Responses 的 HTTPS 端点和不可变模型标识；禁止通配。严格输入准入还需 `FullNet:Ai:InputAdmission:RequireExactChatTokens=true`。Ollama、Azure Chat 及未批准端点保持失败关闭，不跨协议套用计数。
+
+新文本传输将同一冻结 `model/input` 分别交给 `responses/input_tokens` 与 `responses`，生成侧固定 `store=false`、流式输出及有界 `max_output_tokens`；生成控制字段不参与输入计数。计数后再次复核原授权、取消、模型/来源及剩余额度，超量或坏回执不发送生成请求。生成返回的模型身份必须精确匹配批准标识，别名自动换成其他快照会拒绝交付。收费回执缺失保持未知，计数值不能替代真实 usage。
+
+参见 [官方 Token counting 说明](https://developers.openai.com/api/docs/guides/token-counting)。本地受控 HTTP 回归不等于真实云端/兼容网关验证；未取得对应证据前不要把新声明理解为所有模型已获认证。

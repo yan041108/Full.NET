@@ -11,6 +11,7 @@ import type {
   AdministrativeRegionDatasetManifestResponse,
   AdministrativeRegionResponse,
   AdministrativeRegionTreeNodeResponse,
+  AdmitAiFeedbackEvaluationRequest,
   AiAgentApprovalResponse,
   AiAgentDelegationResponse,
   AiAgentReconciliationResponse,
@@ -20,6 +21,9 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiFeedbackEvaluationAdmission,
+  AiFeedbackEvaluationCandidate,
+  AiFeedbackEvaluationSample,
   AiKnowledgeAnswerFeedbackExportCell,
   AiKnowledgeAnswerFeedbackExportResponse,
   AiKnowledgeAnswerFeedbackResponse,
@@ -34,7 +38,10 @@ import type {
   AiKnowledgeImportResponse,
   AiKnowledgeIncrementalRecoveryRequest,
   AiKnowledgeIncrementalRecoveryResponse,
+  AiKnowledgeIndexChangeItem,
+  AiKnowledgeIndexChangePage,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexGrantResponse,
   AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
@@ -51,6 +58,7 @@ import type {
   AiModelConfigListItem,
   AiModelConfigResponse,
   AiPromptBody,
+  AiPromptExecutionBinding,
   AiPromptResponse,
   AiPromptVersionResponse,
   AiTenantQuotaListItem,
@@ -139,6 +147,7 @@ import type {
   CreateAiChatSessionRequest,
   CreateAiKnowledgeBaseRequest,
   CreateAiKnowledgeDocumentRequest,
+  CreateAiKnowledgeIndexGrantRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
   CreateAiPromptRequest,
@@ -433,6 +442,7 @@ import type {
   PaymentRefundListItem,
   PaymentRefundResponse,
   PersonalScheduleResponse,
+  PrepareAiFeedbackEvaluationRequest,
   PreviewGoViewProjectRequest,
   PreviewPrintingTemplateRequest,
   PreviewSerialNumberRequest,
@@ -492,6 +502,7 @@ import type {
   RevealHostUserProfileFieldsResponse,
   ReviewAiKnowledgeAnswerFeedbackRequest,
   RevokeAiAgentDelegationRequest,
+  RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
@@ -736,6 +747,17 @@ function isAdministrativeRegionTreeNodeResponse(value: unknown): value is Admini
   return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAdministrativeRegionTreeNodeResponse(item17))) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
 }
 
+export function readAdmitAiFeedbackEvaluationRequest(value: unknown): AdmitAiFeedbackEvaluationRequest {
+  if (!(isAdmitAiFeedbackEvaluationRequest(value))) {
+    throw new Error('client.invalid_admit_ai_feedback_evaluation_request');
+  }
+  return value;
+}
+
+function isAdmitAiFeedbackEvaluationRequest(value: unknown): value is AdmitAiFeedbackEvaluationRequest {
+  return isRecord(value) && (typeof value["candidateToken"] === 'string') && (typeof value["confirmManualRedaction"] === 'boolean');
+}
+
 export function readAiAgentApprovalResponse(value: unknown): AiAgentApprovalResponse {
   const normalizedValue = normalizeAiAgentApprovalResponseIntegerJson(value);
   if (!(isAiAgentApprovalResponse(normalizedValue))) {
@@ -841,6 +863,40 @@ export function readAiChatSessionResponse(value: unknown): AiChatSessionResponse
 
 function isAiChatSessionResponse(value: unknown): value is AiChatSessionResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiFeedbackEvaluationAdmission(value: unknown): AiFeedbackEvaluationAdmission {
+  const normalizedValue = normalizeAiFeedbackEvaluationAdmissionIntegerJson(value);
+  if (!(isAiFeedbackEvaluationAdmission(normalizedValue))) {
+    throw new Error('client.invalid_ai_feedback_evaluation_admission');
+  }
+  return normalizedValue;
+}
+
+function isAiFeedbackEvaluationAdmission(value: unknown): value is AiFeedbackEvaluationAdmission {
+  return isRecord(value) && (typeof value["admittedAtUtc"] === 'string') && (typeof value["caseKey"] === 'string') && (typeof value["formatVersion"] === 'number' && Number.isSafeInteger(value["formatVersion"])) && (isAiFeedbackEvaluationSample(value["sample"])) && (typeof value["sampleHash"] === 'string');
+}
+
+export function readAiFeedbackEvaluationCandidate(value: unknown): AiFeedbackEvaluationCandidate {
+  if (!(isAiFeedbackEvaluationCandidate(value))) {
+    throw new Error('client.invalid_ai_feedback_evaluation_candidate');
+  }
+  return value;
+}
+
+function isAiFeedbackEvaluationCandidate(value: unknown): value is AiFeedbackEvaluationCandidate {
+  return isRecord(value) && (typeof value["candidateToken"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["sampleHash"] === 'string');
+}
+
+export function readAiFeedbackEvaluationSample(value: unknown): AiFeedbackEvaluationSample {
+  if (!(isAiFeedbackEvaluationSample(value))) {
+    throw new Error('client.invalid_ai_feedback_evaluation_sample');
+  }
+  return value;
+}
+
+function isAiFeedbackEvaluationSample(value: unknown): value is AiFeedbackEvaluationSample {
+  return isRecord(value) && (typeof value["evidence"] === 'string') && (typeof value["expectedAnswer"] === 'string') && (typeof value["languageTag"] === 'string') && (typeof value["question"] === 'string') && (typeof value["shouldRefuse"] === 'boolean');
 }
 
 export function readAiKnowledgeAnswerFeedbackExportCell(value: unknown): AiKnowledgeAnswerFeedbackExportCell {
@@ -1010,6 +1066,30 @@ function isAiKnowledgeIncrementalRecoveryResponse(value: unknown): value is AiKn
   return isRecord(value) && ((value["nextDocumentId"] === null) || (typeof value["nextDocumentId"] === 'string' && guidPattern.test(value["nextDocumentId"]))) && (typeof value["scanned"] === 'number' && Number.isSafeInteger(value["scanned"])) && (typeof value["updated"] === 'number' && Number.isSafeInteger(value["updated"]));
 }
 
+export function readAiKnowledgeIndexChangeItem(value: unknown): AiKnowledgeIndexChangeItem {
+  const normalizedValue = normalizeAiKnowledgeIndexChangeItemIntegerJson(value);
+  if (!(isAiKnowledgeIndexChangeItem(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_index_change_item');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIndexChangeItem(value: unknown): value is AiKnowledgeIndexChangeItem {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["title"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
+export function readAiKnowledgeIndexChangePage(value: unknown): AiKnowledgeIndexChangePage {
+  const normalizedValue = normalizeAiKnowledgeIndexChangePageIntegerJson(value);
+  if (!(isAiKnowledgeIndexChangePage(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_index_change_page');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIndexChangePage(value: unknown): value is AiKnowledgeIndexChangePage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeIndexChangeItem(item14))) && ((value["nextDocumentId"] === null) || (typeof value["nextDocumentId"] === 'string' && guidPattern.test(value["nextDocumentId"])));
+}
+
 export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledgeIndexEnqueueResponse {
   if (!(isAiKnowledgeIndexEnqueueResponse(value))) {
     throw new Error('client.invalid_ai_knowledge_index_enqueue_response');
@@ -1021,11 +1101,24 @@ function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledge
   return isRecord(value) && (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
+export function readAiKnowledgeIndexGrantResponse(value: unknown): AiKnowledgeIndexGrantResponse {
+  const normalizedValue = normalizeAiKnowledgeIndexGrantResponseIntegerJson(value);
+  if (!(isAiKnowledgeIndexGrantResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_index_grant_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIndexGrantResponse(value: unknown): value is AiKnowledgeIndexGrantResponse {
+  return isRecord(value) && (typeof value["admittedDocuments"] === 'number' && Number.isSafeInteger(value["admittedDocuments"])) && (typeof value["documentLimit"] === 'number' && Number.isSafeInteger(value["documentLimit"])) && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["inputTokenLimitPerDocument"] === 'number' && Number.isSafeInteger(value["inputTokenLimitPerDocument"])) && (typeof value["isRevoked"] === 'boolean') && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["knowledgeBaseVersion"] === 'number' && Number.isSafeInteger(value["knowledgeBaseVersion"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readAiKnowledgeIndexRebuildRequest(value: unknown): AiKnowledgeIndexRebuildRequest {
-  if (!(isAiKnowledgeIndexRebuildRequest(value))) {
+  const normalizedValue = normalizeAiKnowledgeIndexRebuildRequestIntegerJson(value);
+  if (!(isAiKnowledgeIndexRebuildRequest(normalizedValue))) {
     throw new Error('client.invalid_ai_knowledge_index_rebuild_request');
   }
-  return value;
+  return normalizedValue;
 }
 
 function isAiKnowledgeIndexRebuildRequest(value: unknown): value is AiKnowledgeIndexRebuildRequest {
@@ -1205,7 +1298,19 @@ export function readAiPromptBody(value: unknown): AiPromptBody {
 }
 
 function isAiPromptBody(value: unknown): value is AiPromptBody {
-  return isRecord(value) && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["languageTag"] === 'string') && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["template"] === 'string');
+  return isRecord(value) && (value["execution"] === undefined || ((value["execution"] === null) || (isAiPromptExecutionBinding(value["execution"])))) && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["languageTag"] === 'string') && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["template"] === 'string');
+}
+
+export function readAiPromptExecutionBinding(value: unknown): AiPromptExecutionBinding {
+  const normalizedValue = normalizeAiPromptExecutionBindingIntegerJson(value);
+  if (!(isAiPromptExecutionBinding(normalizedValue))) {
+    throw new Error('client.invalid_ai_prompt_execution_binding');
+  }
+  return normalizedValue;
+}
+
+function isAiPromptExecutionBinding(value: unknown): value is AiPromptExecutionBinding {
+  return isRecord(value) && (Array.isArray(value["allowedToolNames"]) && value["allowedToolNames"].every(item25 => typeof item25 === 'string')) && (typeof value["definitionDigest"] === 'string') && (typeof value["definitionKey"] === 'string') && (typeof value["definitionVersion"] === 'number' && Number.isSafeInteger(value["definitionVersion"])) && (typeof value["inputSchemaKey"] === 'string') && (typeof value["outputSchemaKey"] === 'string') && (typeof value["policyVersion"] === 'number' && Number.isSafeInteger(value["policyVersion"])) && (typeof value["retrievalStrategyKey"] === 'string');
 }
 
 export function readAiPromptResponse(value: unknown): AiPromptResponse {
@@ -1229,7 +1334,7 @@ export function readAiPromptVersionResponse(value: unknown): AiPromptVersionResp
 }
 
 function isAiPromptVersionResponse(value: unknown): value is AiPromptVersionResponse {
-  return isRecord(value) && (value["allowedToolNames"] === undefined || ((value["allowedToolNames"] === null) || (Array.isArray(value["allowedToolNames"]) && value["allowedToolNames"].every(item25 => typeof item25 === 'string')))) && (isAiPromptBody(value["body"])) && (typeof value["bodyHash"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (value["definitionKey"] === undefined || ((value["definitionKey"] === null) || (typeof value["definitionKey"] === 'string'))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["inputSchemaKey"] === undefined || ((value["inputSchemaKey"] === null) || (typeof value["inputSchemaKey"] === 'string'))) && (typeof value["modelConfigVersion"] === 'number' && Number.isSafeInteger(value["modelConfigVersion"])) && (typeof value["modelId"] === 'string') && (value["outputSchemaKey"] === undefined || ((value["outputSchemaKey"] === null) || (typeof value["outputSchemaKey"] === 'string'))) && (typeof value["promptId"] === 'string' && guidPattern.test(value["promptId"])) && (typeof value["providerKey"] === 'string') && (value["retrievalStrategyKey"] === undefined || ((value["retrievalStrategyKey"] === null) || (typeof value["retrievalStrategyKey"] === 'string'))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["wasPublished"] === 'boolean');
+  return isRecord(value) && (value["allowedToolNames"] === undefined || ((value["allowedToolNames"] === null) || (Array.isArray(value["allowedToolNames"]) && value["allowedToolNames"].every(item25 => typeof item25 === 'string')))) && (isAiPromptBody(value["body"])) && (typeof value["bodyHash"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (value["definitionKey"] === undefined || ((value["definitionKey"] === null) || (typeof value["definitionKey"] === 'string'))) && (value["definitionVersion"] === undefined || (typeof value["definitionVersion"] === 'number' && Number.isSafeInteger(value["definitionVersion"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["inputSchemaKey"] === undefined || ((value["inputSchemaKey"] === null) || (typeof value["inputSchemaKey"] === 'string'))) && (typeof value["modelConfigVersion"] === 'number' && Number.isSafeInteger(value["modelConfigVersion"])) && (typeof value["modelId"] === 'string') && (value["outputSchemaKey"] === undefined || ((value["outputSchemaKey"] === null) || (typeof value["outputSchemaKey"] === 'string'))) && (value["policyVersion"] === undefined || (typeof value["policyVersion"] === 'number' && Number.isSafeInteger(value["policyVersion"]))) && (typeof value["promptId"] === 'string' && guidPattern.test(value["promptId"])) && (typeof value["providerKey"] === 'string') && (value["retrievalStrategyKey"] === undefined || ((value["retrievalStrategyKey"] === null) || (typeof value["retrievalStrategyKey"] === 'string'))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["wasPublished"] === 'boolean');
 }
 
 export function readAiTenantQuotaListItem(value: unknown): AiTenantQuotaListItem {
@@ -2220,6 +2325,18 @@ export function readCreateAiKnowledgeDocumentRequest(value: unknown): CreateAiKn
 
 function isCreateAiKnowledgeDocumentRequest(value: unknown): value is CreateAiKnowledgeDocumentRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["title"] === 'string');
+}
+
+export function readCreateAiKnowledgeIndexGrantRequest(value: unknown): CreateAiKnowledgeIndexGrantRequest {
+  const normalizedValue = normalizeCreateAiKnowledgeIndexGrantRequestIntegerJson(value);
+  if (!(isCreateAiKnowledgeIndexGrantRequest(normalizedValue))) {
+    throw new Error('client.invalid_create_ai_knowledge_index_grant_request');
+  }
+  return normalizedValue;
+}
+
+function isCreateAiKnowledgeIndexGrantRequest(value: unknown): value is CreateAiKnowledgeIndexGrantRequest {
+  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["confirmPaidDispatch"] === 'boolean') && (typeof value["documentLimit"] === 'number' && Number.isSafeInteger(value["documentLimit"])) && (typeof value["expiresAtUtc"] === 'string') && (typeof value["inputTokenLimitPerDocument"] === 'number' && Number.isSafeInteger(value["inputTokenLimitPerDocument"])) && (typeof value["knowledgeBaseVersion"] === 'number' && Number.isSafeInteger(value["knowledgeBaseVersion"]));
 }
 
 export function readCreateAiMcpRemoteConnectionRequest(value: unknown): CreateAiMcpRemoteConnectionRequest {
@@ -5680,6 +5797,18 @@ function isPersonalScheduleResponse(value: unknown): value is PersonalScheduleRe
   return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["startAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readPrepareAiFeedbackEvaluationRequest(value: unknown): PrepareAiFeedbackEvaluationRequest {
+  const normalizedValue = normalizePrepareAiFeedbackEvaluationRequestIntegerJson(value);
+  if (!(isPrepareAiFeedbackEvaluationRequest(normalizedValue))) {
+    throw new Error('client.invalid_prepare_ai_feedback_evaluation_request');
+  }
+  return normalizedValue;
+}
+
+function isPrepareAiFeedbackEvaluationRequest(value: unknown): value is PrepareAiFeedbackEvaluationRequest {
+  return isRecord(value) && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"])) && (isAiFeedbackEvaluationSample(value["sample"]));
+}
+
 export function readPreviewGoViewProjectRequest(value: unknown): PreviewGoViewProjectRequest {
   const normalizedValue = normalizePreviewGoViewProjectRequestIntegerJson(value);
   if (!(isPreviewGoViewProjectRequest(normalizedValue))) {
@@ -6372,6 +6501,18 @@ export function readRevokeAiAgentDelegationRequest(value: unknown): RevokeAiAgen
 
 function isRevokeAiAgentDelegationRequest(value: unknown): value is RevokeAiAgentDelegationRequest {
   return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"]));
+}
+
+export function readRevokeAiKnowledgeIndexGrantRequest(value: unknown): RevokeAiKnowledgeIndexGrantRequest {
+  const normalizedValue = normalizeRevokeAiKnowledgeIndexGrantRequestIntegerJson(value);
+  if (!(isRevokeAiKnowledgeIndexGrantRequest(normalizedValue))) {
+    throw new Error('client.invalid_revoke_ai_knowledge_index_grant_request');
+  }
+  return normalizedValue;
+}
+
+function isRevokeAiKnowledgeIndexGrantRequest(value: unknown): value is RevokeAiKnowledgeIndexGrantRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readRevokeAllHostUserSessionsResponse(value: unknown): RevokeAllHostUserSessionsResponse {
@@ -8005,6 +8146,14 @@ export function readAiDiscoverMcpRemoteToolsResponse(value: unknown): Array<AiMc
   return value as Array<AiMcpRemoteDiscoveredToolItem>;
 }
 
+export function readAiGetPromptExecutionStrategiesResponse(value: unknown): Array<AiPromptExecutionBinding> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiPromptExecutionBindingIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiPromptExecutionBinding(item15)))) {
+    throw new Error('client.invalid_ai_get_prompt_execution_strategies_response');
+  }
+  return normalizedValue as Array<AiPromptExecutionBinding>;
+}
+
 export function readAiListAgentDelegationsResponse(value: unknown): Array<AiAgentDelegationResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiAgentDelegationResponseIntegerJson(item5)) : value);
   if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiAgentDelegationResponse(item15)))) {
@@ -8018,6 +8167,14 @@ export function readAiListAgentToolsResponse(value: unknown): Array<AiAgentToolC
     throw new Error('client.invalid_ai_list_agent_tools_response');
   }
   return value as Array<AiAgentToolCatalogItem>;
+}
+
+export function readAiListKnowledgeIndexGrantsResponse(value: unknown): Array<AiKnowledgeIndexGrantResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiKnowledgeIndexGrantResponseIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiKnowledgeIndexGrantResponse(item15)))) {
+    throw new Error('client.invalid_ai_list_knowledge_index_grants_response');
+  }
+  return normalizedValue as Array<AiKnowledgeIndexGrantResponse>;
 }
 
 export function readAiListMcpRemoteConnectionsResponse(value: unknown): Array<AiMcpRemoteConnectionListItem> {
@@ -8561,6 +8718,10 @@ function normalizeAiChatSessionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "messages") ? { ["messages"]: (Array.isArray(value["messages"]) ? value["messages"].map((item17: unknown) => normalizeAiChatMessageResponseIntegerJson(item17)) : value["messages"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiFeedbackEvaluationAdmissionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "formatVersion") ? { ["formatVersion"]: normalizeWireInteger(value["formatVersion"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeAnswerFeedbackExportCellIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citationCount") ? { ["citationCount"]: normalizeWireInteger(value["citationCount"]) } : {}), ...(Object.hasOwn(value, "feedbackCount") ? { ["feedbackCount"]: normalizeWireInteger(value["feedbackCount"]) } : {}) } : value);
 }
@@ -8613,6 +8774,22 @@ function normalizeAiKnowledgeIncrementalRecoveryResponseIntegerJson(value: unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "scanned") ? { ["scanned"]: normalizeWireInteger(value["scanned"]) } : {}), ...(Object.hasOwn(value, "updated") ? { ["updated"]: normalizeWireInteger(value["updated"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeIndexChangeItemIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIndexChangePageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeIndexChangeItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIndexGrantResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "admittedDocuments") ? { ["admittedDocuments"]: normalizeWireInteger(value["admittedDocuments"]) } : {}), ...(Object.hasOwn(value, "documentLimit") ? { ["documentLimit"]: normalizeWireInteger(value["documentLimit"]) } : {}), ...(Object.hasOwn(value, "inputTokenLimitPerDocument") ? { ["inputTokenLimitPerDocument"]: normalizeWireInteger(value["inputTokenLimitPerDocument"]) } : {}), ...(Object.hasOwn(value, "knowledgeBaseVersion") ? { ["knowledgeBaseVersion"]: normalizeWireInteger(value["knowledgeBaseVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIndexRebuildRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedDocumentVersion") ? { ["expectedDocumentVersion"]: normalizeWireInteger(value["expectedDocumentVersion"]) } : {}), ...(Object.hasOwn(value, "expectedKnowledgeBaseVersion") ? { ["expectedKnowledgeBaseVersion"]: normalizeWireInteger(value["expectedKnowledgeBaseVersion"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "knowledgeBaseVersion") ? { ["knowledgeBaseVersion"]: normalizeWireInteger(value["knowledgeBaseVersion"]) } : {}) } : value);
 }
@@ -8654,7 +8831,11 @@ function normalizeAiModelConfigResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiPromptBodyIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "execution") ? { ["execution"]: normalizeIntegerUnion(value["execution"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiPromptExecutionBinding(value), normalize: (value: unknown) => normalizeAiPromptExecutionBindingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
+}
+
+function normalizeAiPromptExecutionBindingIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "definitionVersion") ? { ["definitionVersion"]: normalizeWireInteger(value["definitionVersion"]) } : {}), ...(Object.hasOwn(value, "policyVersion") ? { ["policyVersion"]: normalizeWireInteger(value["policyVersion"]) } : {}) } : value);
 }
 
 function normalizeAiPromptResponseIntegerJson(value: unknown): unknown {
@@ -8662,7 +8843,7 @@ function normalizeAiPromptResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiPromptVersionResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}), ...(Object.hasOwn(value, "modelConfigVersion") ? { ["modelConfigVersion"]: normalizeWireInteger(value["modelConfigVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}), ...(Object.hasOwn(value, "definitionVersion") ? { ["definitionVersion"]: normalizeWireInteger(value["definitionVersion"]) } : {}), ...(Object.hasOwn(value, "modelConfigVersion") ? { ["modelConfigVersion"]: normalizeWireInteger(value["modelConfigVersion"]) } : {}), ...(Object.hasOwn(value, "policyVersion") ? { ["policyVersion"]: normalizeWireInteger(value["policyVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeAiTenantQuotaListItemIntegerJson(value: unknown): unknown {
@@ -8839,6 +9020,10 @@ function normalizeCreateAiAgentApprovalRequestIntegerJson(value: unknown): unkno
 
 function normalizeCreateAiAgentRunRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
+}
+
+function normalizeCreateAiKnowledgeIndexGrantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentLimit") ? { ["documentLimit"]: normalizeWireInteger(value["documentLimit"]) } : {}), ...(Object.hasOwn(value, "inputTokenLimitPerDocument") ? { ["inputTokenLimitPerDocument"]: normalizeWireInteger(value["inputTokenLimitPerDocument"]) } : {}), ...(Object.hasOwn(value, "knowledgeBaseVersion") ? { ["knowledgeBaseVersion"]: normalizeWireInteger(value["knowledgeBaseVersion"]) } : {}) } : value);
 }
 
 function normalizeCreateAiPromptRequestIntegerJson(value: unknown): unknown {
@@ -9737,6 +9922,10 @@ function normalizePersonalScheduleResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizePrepareAiFeedbackEvaluationRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
+}
+
 function normalizePreviewGoViewProjectRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -9915,6 +10104,10 @@ function normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value: unkno
 
 function normalizeRevokeAiAgentDelegationRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeRevokeAiKnowledgeIndexGrantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeRevokeAllHostUserSessionsResponseIntegerJson(value: unknown): unknown {

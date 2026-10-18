@@ -102,6 +102,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalIndexWriter>();
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryService>();
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIndexChangeService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
@@ -123,12 +124,16 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeAskService>();
         services.TryAddScoped<Features.ManageAnswerFeedback.AiKnowledgeAnswerFeedbackService>();
         services.TryAddScoped<Domain.AiKnowledgeAnswerFeedbackReviewCursor>();
+        services.TryAddScoped<Domain.AiFeedbackEvaluationToken>();
+        services.TryAddScoped<Features.ManageAnswerFeedbackReview.AiFeedbackEvaluationService>();
         services.TryAddScoped<Features.ManageAnswerFeedbackReview.AiKnowledgeAnswerFeedbackReviewService>();
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptManagementService>();
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
         services.TryAddScoped<AiPromptRunResolver>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
+        RegisterKnowledgeGrantServices(services);
+        services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIndexGrantService>();
         RegisterKnowledgeFileReferences(services);
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
@@ -197,6 +202,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageChatSessions.Endpoint.Map(endpoints);
         Features.ManageAnswerFeedback.Endpoint.Map(endpoints);
         Features.ManageAnswerFeedbackReview.Endpoint.Map(endpoints);
+        Features.IncrementalKnowledgeIndexing.AiKnowledgeIndexGrantEndpoint.Map(endpoints);
         Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
@@ -211,6 +217,9 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        RegisterKnowledgeGrantServices(services);
+        services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
+        services.AddHostedService<Knowledge.AiKnowledgeIndexGrantProcessor>();
         services.AddOptions<Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryWorkerOptions>()
             .BindConfiguration(Features.IncrementalKnowledgeIndexing.AiKnowledgeIncrementalRecoveryWorkerOptions.SectionName)
             .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
@@ -289,9 +298,18 @@ public sealed class AiModule : IFullNetModule
         services.TryAddSingleton<AiAgentWorkerHeartbeatService>();
         services.TryAddScoped<AiAgentRunCoordinator>();
         services.TryAddScoped<AiAgentTerminalBudgetRepair>();
+        services.TryAddScoped<AiAgentCompletedReceiptReconciliation>();
         services.TryAddScoped<AiAgentTerminalBudgetRepairProcessor>();
         services.TryAddSingleton<IAgentModelRunner>(_ => AgentFrameworkRuntime.CreateRunner());
         services.AddHostedService<AiAgentRunHostedProcessor>();
+    }
+
+    private static void RegisterKnowledgeGrantServices(IServiceCollection services)
+    {
+        services.AddOptions<Knowledge.AiKnowledgeIndexGrantOptions>().BindConfiguration(Knowledge.AiKnowledgeIndexGrantOptions.SectionName)
+            .Validate(options => options.BatchSize is >= 1 and <= 16, "BatchSize must be between 1 and 16.")
+            .Validate(options => options.PollMilliseconds is >= 1000 and <= 60000, "PollMilliseconds must be between 1000 and 60000.").ValidateOnStart();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexGrantStore>();
     }
 
     private static void RegisterKnowledgePdfServices(IServiceCollection services, bool worker)

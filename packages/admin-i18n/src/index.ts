@@ -14,6 +14,7 @@ export {
 } from './messages.js';
 
 export { translateKnowledgeDocx } from './knowledge-docx.js';
+export { translateKnowledgeIndexChanges } from './knowledge-index-changes.js';
 export { translateKnowledgeProcessing, translateKnowledgeRecovery } from './knowledge-processing.js';
 
 export { translateAiReconciliation } from './ai-reconciliation.js';

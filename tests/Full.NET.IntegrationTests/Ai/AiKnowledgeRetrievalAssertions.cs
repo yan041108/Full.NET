@@ -151,8 +151,10 @@ internal static class AiKnowledgeRetrievalAssertions
     private sealed class Reader(Guid actor, Guid? tenant, IDataTransactionState state) : ICurrentSessionAuthorization
     {
         internal Guid Actor = actor; internal bool Denied; internal int Calls; internal Func<int, Task>? BeforeAuthorization;
+        // 同一请求的原交互会话保持稳定，不能每次授权伪造新登录。
+        internal Guid SessionId = Guid.CreateVersion7();
         public async Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default)
-        { cancellationToken.ThrowIfCancellationRequested(); Assert.IsFalse(state.HasTransaction); Calls++; if (BeforeAuthorization is not null) await BeforeAuthorization(Calls); return Denied ? null : new(Actor, tenant, Guid.CreateVersion7()); }
+        { cancellationToken.ThrowIfCancellationRequested(); Assert.IsFalse(state.HasTransaction); Calls++; if (BeforeAuthorization is not null) await BeforeAuthorization(Calls); return Denied ? null : new(Actor, tenant, SessionId); }
     }
     private sealed class OfflineWriter : IBackgroundSessionAuthorization
     {

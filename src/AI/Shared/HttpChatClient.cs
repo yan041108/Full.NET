@@ -5,8 +5,16 @@ using Full.NET.AI.Abstractions.Models;
 using Microsoft.Extensions.AI;
 namespace Full.NET.AI.Providers.Internal;
 internal sealed record AiChatCompletionResult(string Content, int? PromptTokens, int? CompletionTokens, bool Cancelled);
+/// <summary>同一文本客户端的显式协议实现；供应商能力选择只能由工厂完成。</summary>
+internal interface IAiTextChatTransport
+{
+    Task<AiChatCompletionResult> StreamAsync(ModelBinding binding, string? apiKey,
+        IReadOnlyList<(string RoleKey, string Content)> messages, Func<string, Task> onDelta,
+        StringBuilder buffer, CancellationToken token, bool requestStreamingUsage, int maxOutputTokens);
+}
 /// <summary>供应商流转为中立增量；有界队列提供背压，提前停止枚举会取消生产者。</summary>
-internal sealed class HttpChatClient(HttpClient httpClient, ModelBinding binding, string? apiKey, bool requestStreamingUsage = false) : IChatClient
+internal sealed class HttpChatClient(HttpClient httpClient, ModelBinding binding, string? apiKey, bool requestStreamingUsage = false,
+    IAiTextChatTransport? transport = null) : IChatClient
 {
     public object? GetService(Type serviceType, object? serviceKey = null) =>
         serviceKey is null && serviceType == typeof(IChatClient) ? this : null;
@@ -50,9 +58,12 @@ internal sealed class HttpChatClient(HttpClient httpClient, ModelBinding binding
         {
             try
             {
-                var result = await new ProviderChatTransport(httpClient).StreamAsync(binding, apiKey, history,
-                    delta => channel.Writer.WriteAsync(new ChatResponseUpdate(ChatRole.Assistant, delta), lifetime.Token).AsTask(),
-                    new StringBuilder(), lifetime.Token, requestStreamingUsage, maxOutputTokens).ConfigureAwait(false);
+                Func<string, Task> onDelta = delta => channel.Writer.WriteAsync(new ChatResponseUpdate(ChatRole.Assistant, delta), lifetime.Token).AsTask();
+                var result = transport is null
+                    ? await new ProviderChatTransport(httpClient).StreamAsync(binding, apiKey, history, onDelta,
+                        new StringBuilder(), lifetime.Token, requestStreamingUsage, maxOutputTokens).ConfigureAwait(false)
+                    : await transport.StreamAsync(binding, apiKey, history, onDelta,
+                        new StringBuilder(), lifetime.Token, requestStreamingUsage, maxOutputTokens).ConfigureAwait(false);
                 await channel.Writer.WriteAsync(new ChatResponseUpdate
                 {
                     Role = ChatRole.Assistant,

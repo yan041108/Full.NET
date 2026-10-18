@@ -310,12 +310,14 @@ internal sealed class AiAgentRunStore(
     }
 
     /// <summary>跨作用域只扫描已有终态和匹配的待结算预留；实际修复重新绑定可信租户。</summary>
-    internal async Task<IReadOnlyList<Guid>> ScanTerminalUnsettledAsync(int batchSize, CancellationToken cancellationToken, Guid? afterRunId = null)
+    internal async Task<IReadOnlyList<Guid>> ScanTerminalUnsettledAsync(int batchSize, CancellationToken cancellationToken, Guid? afterRunId = null,
+        bool includeCompletedReceipts = false)
     {
         if (batchSize <= 0) return [];
         var statement = database.Value.Provider == DatabaseProvider.MySql
             ? AiAgentRunSql.ScanTerminalBudgetMySql : AiAgentRunSql.ScanTerminalBudgetSqlServer;
-        var rows = await queries.QueryAsync<Guid>(statement, AiSqlParameters.Create(("BatchSize", Math.Min(batchSize, 100)), ("AfterRunId", afterRunId)), cancellationToken)
+        var rows = await queries.QueryAsync<Guid>(statement, AiSqlParameters.Create(("BatchSize", Math.Min(batchSize, 100)), ("AfterRunId", afterRunId),
+            ("IncludeCompletedReceipts", includeCompletedReceipts ? 1 : 0)), cancellationToken)
             .ConfigureAwait(false);
         return rows.ToList();
     }

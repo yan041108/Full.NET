@@ -1,4 +1,5 @@
 import {
+  aiListKnowledgeIndexChanges, type AiListKnowledgeIndexChangesParameters,
   aiRecoverKnowledgeIndexChanges, type AiRecoverKnowledgeIndexChangesParameters,
   aiGetKnowledgeIndexReconciliation, type AiGetKnowledgeIndexReconciliationParameters,
   aiGetKnowledgeIndexStatus, type AiGetKnowledgeIndexStatusParameters,
@@ -38,6 +39,22 @@ import {
   aiListKnowledgeDocumentOrganizationCandidates, type AiListKnowledgeDocumentOrganizationCandidatesParameters,
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 生成守卫校验线格式，业务边界再约束分页及来源身份。 */
+export async function listKnowledgeIndexChanges(parameters: AiListKnowledgeIndexChangesParameters, signal?: AbortSignal) {
+  const result = await aiListKnowledgeIndexChanges(http, parameters, signal);
+  const guid = /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const ids = new Set<string>();
+  if (result.items.length > (parameters.pageSize ?? 50) || result.items.some(row => {
+    const key = row.documentId.toLowerCase();
+    const invalid = !guid.test(row.documentId) || !guid.test(row.versionId) || ids.has(key) || !row.title.trim() || row.title.length > 200
+      || !Number.isInteger(row.versionNumber) || row.versionNumber < 1 || !Number.isFinite(Date.parse(row.createdAtUtc)) || !Number.isFinite(Date.parse(row.updatedAtUtc));
+    ids.add(key); return invalid;
+  }) || (result.nextDocumentId != null && (!guid.test(result.nextDocumentId) || !result.items.length
+    || result.nextDocumentId.toLowerCase() !== result.items.at(-1)!.documentId.toLowerCase()
+    || result.nextDocumentId.toLowerCase() === parameters.afterDocumentId?.toLowerCase()))) throw new Error('client.invalid_knowledge_resource');
+  return result;
+}
 
 export function recoverKnowledgeIndexChanges(parameters: AiRecoverKnowledgeIndexChangesParameters, signal?: AbortSignal) {
   return aiRecoverKnowledgeIndexChanges(http, parameters, signal);

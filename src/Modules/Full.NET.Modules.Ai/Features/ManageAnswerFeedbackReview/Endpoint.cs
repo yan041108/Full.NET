@@ -13,6 +13,14 @@ internal static class Endpoint
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
         const string path = "/api/v1/ai/knowledge-answer-feedback";
+        endpoints.MapPost(path + "/{feedbackId:guid}/evaluation-candidate", async (Guid feedbackId, PrepareAiFeedbackEvaluationRequest request, AiFeedbackEvaluationService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
+            Actor(http) is { } actor ? mapper.Map(await service.PrepareAsync(feedbackId, actor, request, token).ConfigureAwait(false), http) : Results.Unauthorized())
+            .WithTags("AiKnowledgeAnswerFeedback").WithName("aiPrepareFeedbackEvaluationCandidate").Produces<AiFeedbackEvaluationCandidate>(200)
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).RequireAuthorization(FullNetPermissionPolicies.For(AiFeedbackEvaluationPermissions.Prepare));
+        endpoints.MapPost(path + "/evaluation-admissions", async (AdmitAiFeedbackEvaluationRequest request, AiFeedbackEvaluationService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
+            Actor(http) is { } actor ? mapper.Map(await service.AdmitAsync(actor, request, token).ConfigureAwait(false), http) : Results.Unauthorized())
+            .WithTags("AiKnowledgeAnswerFeedback").WithName("aiAdmitFeedbackEvaluationCandidate").Produces<AiFeedbackEvaluationAdmission>(200)
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).RequireAuthorization(FullNetPermissionPolicies.For(AiFeedbackEvaluationPermissions.Admit));
         endpoints.MapGet(path + "/reviews", async (string? after, AiKnowledgeAnswerFeedbackReviewService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
             Actor(http) is { } actor ? mapper.Map(await service.GetAsync(actor, after, token).ConfigureAwait(false), http) : Results.Unauthorized())
             .WithTags("AiKnowledgeAnswerFeedback").WithName("aiGetKnowledgeAnswerFeedbackReviews").Produces<AiKnowledgeAnswerFeedbackReviewPage>(200)

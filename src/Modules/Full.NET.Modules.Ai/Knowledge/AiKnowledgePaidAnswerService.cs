@@ -133,6 +133,7 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
             {
                 using var client = await factory.CreateChatClientAsync(bindings.Create(prepared.Retrieval.GenerationModel!, Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy.Strongest(prepared.Retrieval.Sources.Select(s => s.DataClassification), "restricted")), io).ConfigureAwait(false);
                 await AuthorizedAsync(prepared.Retrieval, io).ConfigureAwait(false); Check(io); receipt.Begin();
+                using var exactInput = AiChatInputBudgetScope.Begin(request.InputTokenLimit, check => AuthorizedAsync(prepared.Retrieval, check));
                 // 不复用逐 Token 聊天传输，也不配置任何工具；只有最终缓冲 JSON 可参与校验。
                 // 现有生产适配器固定 4096 输出 Token，拒绝非空选项；JSON 由提示约束并由本模块严格校验。
                 var result = await client.GetResponseAsync(history.Select(m => new ChatMessage(new ChatRole(m.RoleKey), m.Content)),

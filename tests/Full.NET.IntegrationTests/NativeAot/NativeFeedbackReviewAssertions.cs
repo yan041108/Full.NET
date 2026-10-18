@@ -53,6 +53,14 @@ internal static class NativeFeedbackReviewAssertions
                 if (i == 3) Assert.HasCount(0, (await Export()).Cells);
             }
             var replay = await Decide(feedbackIds[0], "approved", 0); Assert.AreEqual(1, replay.ReviewVersion);
+            var sample = new AiFeedbackEvaluationSample("zh-CN", "脱敏原生问题", "脱敏原生答案", "脱敏原生依据", false);
+            using var candidateResponse = await send(HttpMethod.Post, path + $"/{feedbackIds[0]}/evaluation-candidate", JsonContent.Create(new PrepareAiFeedbackEvaluationRequest(1, 1, sample)));
+            await AiKnowledgeAnswerFeedbackAssertions.Expect(candidateResponse, HttpStatusCode.OK);
+            var candidate = (await candidateResponse.Content.ReadFromJsonAsync<AiFeedbackEvaluationCandidate>())!;
+            using var admittedResponse = await send(HttpMethod.Post, path + "/evaluation-admissions", JsonContent.Create(new AdmitAiFeedbackEvaluationRequest(candidate.CandidateToken, true)));
+            await AiKnowledgeAnswerFeedbackAssertions.Expect(admittedResponse, HttpStatusCode.OK);
+            var admitted = (await admittedResponse.Content.ReadFromJsonAsync<AiFeedbackEvaluationAdmission>())!;
+            Assert.AreEqual(sample, admitted.Sample); Assert.AreEqual(candidate.SampleHash, admitted.SampleHash);
             var exported = await Export(); Assert.IsTrue(exported.IsPartial); Assert.AreEqual("feedback-labels-v1", exported.PolicyVersion);
             Assert.AreEqual(new AiKnowledgeAnswerFeedbackExportCell("helpful", "accurate", 0, 5), exported.Cells.Single());
             using (var response = await send(HttpMethod.Get, path + "/export", null))

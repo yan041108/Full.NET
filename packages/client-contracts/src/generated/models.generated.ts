@@ -88,6 +88,11 @@ export interface AdministrativeRegionTreeNodeResponse {
   readonly parentId: null | string;
 }
 
+export interface AdmitAiFeedbackEvaluationRequest {
+  readonly candidateToken: string;
+  readonly confirmManualRedaction: boolean;
+}
+
 export interface AiAgentApprovalResponse {
   readonly actionSummary: string;
   readonly argumentsHash: string;
@@ -215,6 +220,28 @@ export interface AiChatSessionResponse {
   readonly version: number;
 }
 
+export interface AiFeedbackEvaluationAdmission {
+  readonly admittedAtUtc: string;
+  readonly caseKey: string;
+  readonly formatVersion: number;
+  readonly sample: AiFeedbackEvaluationSample;
+  readonly sampleHash: string;
+}
+
+export interface AiFeedbackEvaluationCandidate {
+  readonly candidateToken: string;
+  readonly expiresAtUtc: string;
+  readonly sampleHash: string;
+}
+
+export interface AiFeedbackEvaluationSample {
+  readonly evidence: string;
+  readonly expectedAnswer: string;
+  readonly languageTag: string;
+  readonly question: string;
+  readonly shouldRefuse: boolean;
+}
+
 export interface AiKnowledgeAnswerFeedbackExportCell {
   readonly citationCount: number;
   readonly feedbackCount: number;
@@ -332,9 +359,35 @@ export interface AiKnowledgeIncrementalRecoveryResponse {
   readonly updated: number;
 }
 
+export interface AiKnowledgeIndexChangeItem {
+  readonly createdAtUtc: string;
+  readonly documentId: string;
+  readonly title: string;
+  readonly updatedAtUtc: string;
+  readonly versionId: string;
+  readonly versionNumber: number;
+}
+
+export interface AiKnowledgeIndexChangePage {
+  readonly items: Array<AiKnowledgeIndexChangeItem>;
+  readonly nextDocumentId: null | string;
+}
+
 export interface AiKnowledgeIndexEnqueueResponse {
   readonly taskId: string;
   readonly versionId: string;
+}
+
+export interface AiKnowledgeIndexGrantResponse {
+  readonly admittedDocuments: number;
+  readonly documentLimit: number;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly inputTokenLimitPerDocument: number;
+  readonly isRevoked: boolean;
+  readonly knowledgeBaseId: string;
+  readonly knowledgeBaseVersion: number;
+  readonly version: number;
 }
 
 export interface AiKnowledgeIndexRebuildRequest {
@@ -485,11 +538,23 @@ export interface AiModelConfigResponse {
 }
 
 export interface AiPromptBody {
+  readonly execution?: null | AiPromptExecutionBinding;
   readonly inputTokenLimit: number;
   readonly languageTag: string;
   readonly modelConfigId: string;
   readonly outputTokenLimit: number;
   readonly template: string;
+}
+
+export interface AiPromptExecutionBinding {
+  readonly allowedToolNames: Array<string>;
+  readonly definitionDigest: string;
+  readonly definitionKey: string;
+  readonly definitionVersion: number;
+  readonly inputSchemaKey: string;
+  readonly outputSchemaKey: string;
+  readonly policyVersion: number;
+  readonly retrievalStrategyKey: string;
 }
 
 export interface AiPromptResponse {
@@ -507,11 +572,13 @@ export interface AiPromptVersionResponse {
   readonly bodyHash: string;
   readonly createdAtUtc: string;
   readonly definitionKey?: null | string;
+  readonly definitionVersion?: number;
   readonly id: string;
   readonly inputSchemaKey?: null | string;
   readonly modelConfigVersion: number;
   readonly modelId: string;
   readonly outputSchemaKey?: null | string;
+  readonly policyVersion?: number;
   readonly promptId: string;
   readonly providerKey: string;
   readonly retrievalStrategyKey?: null | string;
@@ -1130,6 +1197,15 @@ export interface CreateAiKnowledgeBaseRequest {
 export interface CreateAiKnowledgeDocumentRequest {
   readonly description: null | string;
   readonly title: string;
+}
+
+export interface CreateAiKnowledgeIndexGrantRequest {
+  readonly clientRequestId: string;
+  readonly confirmPaidDispatch: boolean;
+  readonly documentLimit: number;
+  readonly expiresAtUtc: string;
+  readonly inputTokenLimitPerDocument: number;
+  readonly knowledgeBaseVersion: number;
 }
 
 export interface CreateAiMcpRemoteConnectionRequest {
@@ -3724,6 +3800,12 @@ export interface PersonalScheduleResponse {
   readonly version: number;
 }
 
+export interface PrepareAiFeedbackEvaluationRequest {
+  readonly feedbackVersion: number;
+  readonly reviewVersion: number;
+  readonly sample: AiFeedbackEvaluationSample;
+}
+
 export interface PreviewGoViewProjectRequest {
   readonly versionNumber: null | number;
 }
@@ -4166,6 +4248,10 @@ export interface ReviewAiKnowledgeAnswerFeedbackRequest {
 
 export interface RevokeAiAgentDelegationRequest {
   readonly expectedVersion: number;
+}
+
+export interface RevokeAiKnowledgeIndexGrantRequest {
+  readonly version: number;
 }
 
 export interface RevokeAllHostUserSessionsResponse {

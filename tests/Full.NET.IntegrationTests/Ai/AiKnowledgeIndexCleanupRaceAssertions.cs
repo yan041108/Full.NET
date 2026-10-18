@@ -40,6 +40,10 @@ internal static class AiKnowledgeIndexCleanupRaceAssertions
             var tasks = services.GetRequiredService<AiKnowledgeIndexTaskStore>();
             var binding = new AiKnowledgeIndexTaskBinding((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, (Guid)row["VersionId"]!, 1, 1, owner);
             var held = await tasks.AcquireAsync(binding, taskId, default); Assert.IsNotNull(held);
+            // 本用例验证数据库锁顺序，准备代次不依赖宿主在初始租约的五秒余量内完成；生产租约边界另有覆盖。
+            Assert.AreEqual(1, await db.ExecuteAsync(
+                "UPDATE fn_ai_knowledge_index_task SET LeaseExpiresAtUtc=@Until WHERE Id=@TaskId AND LeaseToken=@Lease AND StateKey='running'",
+                new { TaskId = taskId, Lease = held.LeaseToken, Until = DateTime.UtcNow.AddMinutes(5) }));
             var files = new AiKnowledgeIndexEmbeddingAssertions.ControlledFiles((Guid)row["FileId"]!, binding.VersionId, bytes, hash);
             var provider = new AiKnowledgeIndexEmbeddingAssertions.ControlledFactory();
             var generation = AiKnowledgeIndexStatusApiAssertions.Generation(services, tasks, files, provider);

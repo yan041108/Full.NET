@@ -12,6 +12,8 @@ internal sealed class AiKnowledgeIndexDispatchRecord
     public int ModelConfigVersion { get; init; }
     public Guid LeaseToken { get; init; }
     public DateTimeOffset LeaseExpiresAtUtc { get; init; }
+    /// <summary>最终查询时的原增量授权期限；手工任务为空，查询等待后仍须复核真实时钟。</summary>
+    public DateTimeOffset? GrantExpiresAtUtc { get; init; }
     public Guid FileId { get; init; }
     public string ContentHash { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;

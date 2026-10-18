@@ -19,6 +19,20 @@ internal sealed class AiPromptManagementService(AiPromptReader reader, IQueryExe
     ICommandTransaction transaction, IDataTransactionState transactions, ICurrentTenant tenant,
     ICurrentSessionAuthorization authorization, IOptions<DatabaseOptions> database, IIdGenerator ids, IClock clock)
 {
+    internal async Task<Result<AiPromptExecutionBinding[]>> ExecutionStrategiesAsync(Guid actor, CancellationToken token)
+    {
+        Outside(); var scope = AiChatScope.Resolve(tenant);
+        if (!await AuthorizedAsync(scope, actor, AiPromptPermissions.Read, token).ConfigureAwait(false) || !Same(scope))
+            return Failure<AiPromptExecutionBinding[]>("authorization.permission_denied", ErrorType.Forbidden);
+        token.ThrowIfCancellationRequested();
+        return Result<AiPromptExecutionBinding[]>.Success(new[]
+        {
+            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey)!,
+            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey)!,
+            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey)!
+        });
+    }
+
     internal async Task<Result<PagedResult<AiPromptResponse>>> ListAsync(Guid actor, int page, int pageSize, CancellationToken token)
     {
         Outside(); var scope = AiChatScope.Resolve(tenant);
@@ -181,7 +195,7 @@ internal sealed class AiPromptManagementService(AiPromptReader reader, IQueryExe
     {
         var json = AiPromptVersionIntegrity.Serialize(body);
         p["BodyJson"] = json; p["ModelConfigVersion"] = model.Version; p["ProviderKey"] = model.ProviderKey; p["ModelId"] = model.ModelId;
-        p["BodyHash"] = AiPromptVersionIntegrity.Hash(json, model.Version, model.ProviderKey, model.ModelId);
+        p["BodyHash"] = AiPromptVersionIntegrity.Hash(body, json, model.Version, model.ProviderKey, model.ModelId);
     }
     private async Task<bool> LockAsync(AiChatScope scope, Dictionary<string, object?> p, CancellationToken token) =>
         await queries.QuerySingleOrDefaultAsync<Guid>(AiPromptSql.LockFor(database.Value.Provider, scope.TenantId.HasValue), p, token).ConfigureAwait(false) == (Guid)p["PromptId"]! && Same(scope);

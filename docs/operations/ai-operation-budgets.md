@@ -341,7 +341,7 @@ GET /api/v1/ai/agent/runs/{runId}/reconciliation 要求 ai.agent_runs.read；POS
 
 运行 CAS、原月份/价格账本结算及 run.reconciled/run.failed 证据事件在同一 AI 事务提交；独立 Identity 权威端口在提交前再次读取当前会话与权限，不进入 AI 事务。权限失效回滚并返回 403，独立授权容量不足回滚并返回 503。Data 配置 AuthorizationReadReserve 默认 0；启用准入时必须显式分配，并计入 PermitLimit + HealthReserve + CriticalWorkerReserve + AuthorizationReadReserve 的总连接池预算，实际连接池也至少容纳两个连接。授权预留不回退普通/Worker 许可。Helm API 默认 40 连接分配为普通 37、健康检查 2、独立授权 1，Worker/Migrator 不继承 API 授权预留。
 
-FullNet:Ai:InputAdmission:RequireExactChatTokens 默认为 false；设 true 时，当前 OpenAI/Ollama/Azure Chat 路径均在读取凭据或预留之前以 ai.budget.hard_input_unavailable 拒绝。字符/字节规模检查和事后 usage 不能证明请求前精确输入 Token；本开关是失败关闭门禁，尚未实现供应商/模型协议认证的精确计数。外部动作/费用自动对账仍未实现。
+`FullNet:Ai:InputAdmission:RequireExactChatTokens` 默认 false。严格模式仅允许宿主明确批准的同协议 Responses 计数/生成；其余 Chat 传输继续以 `ai.budget.hard_input_unavailable` 失败关闭。字符/字节规模检查和事后 usage 不能作为请求前精确计数凭据。新路径处于开发合批、待集中验收。
 
 ### 人工处理步骤
 
@@ -365,3 +365,10 @@ FullNet:Ai:InputAdmission:RequireExactChatTokens 默认为 false；设 true 时�
 后端、Vue 操作面板、双语言及生成客户端已集中实现。AI/授权原组加补验覆盖 4857 个官方成功 UID，原失败保留。R12b 的 Ai + Identity + Smoke 双库集合覆盖 261 个唯一成功 UID：SQL Server 130、公共项 1、MySQL 130；MySQL 由原中断组 32 个完整官方结果及同输入精确补验 98 项组成，原中断组自身不报通过。记录见 `artifacts/r12b/acceptance.json`。
 
 R12g 面板组件 21/21 与 Vue 类型检查通过，覆盖结果不明原键重试、冲突后新版本与新键、刷新失败及权限拒绝后清除资格。R12i 的 API/Worker AOT 分析零警告/错误、架构 235/235；这些证据不替代 Native 发布/运行。8 项浏览器用例等待资源，HTTP 为模拟，不能替代真实双库页面验收。Native、浏览器、真实计量认证与外部自动对账继续开放，`Capacity-not-verified`。
+
+
+## 原完成凭据的自动对账（待集中验收）
+
+`FullNet:Ai:AgentRuntime:ReconcileCompletedReceipts` 默认 false。启用后，Worker 在原有有界终态扫描中追加 `reconciliation_required`，逐运行新建原 Host/Tenant 作用域。仅原 SingleText/只读工具循环的完整完成检查点、精确原模型/输入摘要及全部已知用量可以原子关闭运行并结算原账本；当前不支持带 Prompt 绑定的旧凭据。使用原月份和原价格，不重新预留、不轮询新模型、不重发，也不交付历史正文。
+
+缺失、started、部分计量、校验损坏、不兼容工作流或未知外部动作仍保留人工核证；不会猜成零。运行 CAS、原检查点不变、原账本结算和两条审计事件同事务。自动核证不代替所有外部系统的通用对账能力，也不证明真实模型质量或费用硬限。

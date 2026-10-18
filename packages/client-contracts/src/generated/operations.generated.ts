@@ -12,6 +12,7 @@ import type {
   AdministrativeRegionDatasetManifestResponse,
   AdministrativeRegionResponse,
   AdministrativeRegionTreeNodeResponse,
+  AdmitAiFeedbackEvaluationRequest,
   AiAgentApprovalResponse,
   AiAgentDelegationResponse,
   AiAgentReconciliationResponse,
@@ -21,6 +22,9 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiFeedbackEvaluationAdmission,
+  AiFeedbackEvaluationCandidate,
+  AiFeedbackEvaluationSample,
   AiKnowledgeAnswerFeedbackExportCell,
   AiKnowledgeAnswerFeedbackExportResponse,
   AiKnowledgeAnswerFeedbackResponse,
@@ -35,7 +39,10 @@ import type {
   AiKnowledgeImportResponse,
   AiKnowledgeIncrementalRecoveryRequest,
   AiKnowledgeIncrementalRecoveryResponse,
+  AiKnowledgeIndexChangeItem,
+  AiKnowledgeIndexChangePage,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexGrantResponse,
   AiKnowledgeIndexRebuildRequest,
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
@@ -52,6 +59,7 @@ import type {
   AiModelConfigListItem,
   AiModelConfigResponse,
   AiPromptBody,
+  AiPromptExecutionBinding,
   AiPromptResponse,
   AiPromptVersionResponse,
   AiTenantQuotaListItem,
@@ -140,6 +148,7 @@ import type {
   CreateAiChatSessionRequest,
   CreateAiKnowledgeBaseRequest,
   CreateAiKnowledgeDocumentRequest,
+  CreateAiKnowledgeIndexGrantRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
   CreateAiPromptRequest,
@@ -434,6 +443,7 @@ import type {
   PaymentRefundListItem,
   PaymentRefundResponse,
   PersonalScheduleResponse,
+  PrepareAiFeedbackEvaluationRequest,
   PreviewGoViewProjectRequest,
   PreviewPrintingTemplateRequest,
   PreviewSerialNumberRequest,
@@ -493,6 +503,7 @@ import type {
   RevealHostUserProfileFieldsResponse,
   ReviewAiKnowledgeAnswerFeedbackRequest,
   RevokeAiAgentDelegationRequest,
+  RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
@@ -645,6 +656,9 @@ import {
   readAiCleanupKnowledgeImportsResponse,
   readAiDeleteChatSessionResponse,
   readAiDiscoverMcpRemoteToolsResponse,
+  readAiFeedbackEvaluationAdmission,
+  readAiFeedbackEvaluationCandidate,
+  readAiGetPromptExecutionStrategiesResponse,
   readAiKnowledgeAnswerFeedbackExportResponse,
   readAiKnowledgeAnswerFeedbackResponse,
   readAiKnowledgeAnswerFeedbackReviewItem,
@@ -655,7 +669,9 @@ import {
   readAiKnowledgeDocumentResponse,
   readAiKnowledgeImportResponse,
   readAiKnowledgeIncrementalRecoveryResponse,
+  readAiKnowledgeIndexChangePage,
   readAiKnowledgeIndexEnqueueResponse,
+  readAiKnowledgeIndexGrantResponse,
   readAiKnowledgeIndexReconciliationResponse,
   readAiKnowledgeIndexStatusResponse,
   readAiKnowledgeMembersResponse,
@@ -663,6 +679,7 @@ import {
   readAiKnowledgeRoleGrantsResponse,
   readAiListAgentDelegationsResponse,
   readAiListAgentToolsResponse,
+  readAiListKnowledgeIndexGrantsResponse,
   readAiListMcpRemoteConnectionsResponse,
   readAiListMcpRemoteToolApprovalsResponse,
   readAiMcpRemoteConnectionResponse,
@@ -963,6 +980,28 @@ export type GeneratedJsonOperation<T> = (
   options?: RequestOptions
 ) => Promise<T>;
 
+export interface AiAdmitFeedbackEvaluationCandidateParameters {
+  readonly body: AdmitAiFeedbackEvaluationRequest;
+}
+
+export async function aiAdmitFeedbackEvaluationCandidate(
+  http: HttpClient,
+  parameters: AiAdmitFeedbackEvaluationCandidateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiFeedbackEvaluationAdmission> {
+  const path = `/api/v1/ai/knowledge-answer-feedback/evaluation-admissions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiFeedbackEvaluationAdmission(value);
+}
+
 export interface AiAppendPromptVersionParameters {
   readonly promptId: string;
   readonly body: AppendAiPromptVersionRequest;
@@ -1218,6 +1257,29 @@ export async function aiCreateKnowledgeDocument(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiCreateKnowledgeIndexGrantParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeIndexGrantRequest;
+}
+
+export async function aiCreateKnowledgeIndexGrant(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeIndexGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexGrantResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-grants`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexGrantResponse(value);
 }
 
 export interface AiCreateMcpRemoteConnectionParameters {
@@ -1865,6 +1927,24 @@ export async function aiGetModelConfig(
   return readAiModelConfigResponse(value);
 }
 
+export interface AiGetPromptExecutionStrategiesParameters {
+
+}
+
+export async function aiGetPromptExecutionStrategies(
+  http: HttpClient,
+  parameters: AiGetPromptExecutionStrategiesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiPromptExecutionBinding>> {
+  const path = `/api/v1/ai/prompts/execution-strategies`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiGetPromptExecutionStrategiesResponse(value);
+}
+
 export interface AiGetPromptVersionsParameters {
   readonly promptId: string;
   readonly page?: number;
@@ -2119,6 +2199,56 @@ export async function aiListKnowledgeDocuments(
   return readPagedResultOfAiKnowledgeDocumentResponse(value);
 }
 
+export interface AiListKnowledgeIndexChangesParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterDocumentId?: string;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeIndexChanges(
+  http: HttpClient,
+  parameters: AiListKnowledgeIndexChangesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexChangePage> {
+  const query = new URLSearchParams();
+  if (parameters.afterDocumentId !== undefined) {
+    query.set('afterDocumentId', String(parameters.afterDocumentId));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-changes` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-changes?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexChangePage(value);
+}
+
+export interface AiListKnowledgeIndexGrantsParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeIndexGrants(
+  http: HttpClient,
+  parameters: AiListKnowledgeIndexGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiKnowledgeIndexGrantResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-grants` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListKnowledgeIndexGrantsResponse(value);
+}
+
 export interface AiListKnowledgeOrganizationCandidatesParameters {
   readonly knowledgeBaseId: string;
   readonly page?: number;
@@ -2331,6 +2461,29 @@ export async function aiListTenantQuotas(
   return readPagedResultOfAiTenantQuotaListItem(value);
 }
 
+export interface AiPrepareFeedbackEvaluationCandidateParameters {
+  readonly feedbackId: string;
+  readonly body: PrepareAiFeedbackEvaluationRequest;
+}
+
+export async function aiPrepareFeedbackEvaluationCandidate(
+  http: HttpClient,
+  parameters: AiPrepareFeedbackEvaluationCandidateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiFeedbackEvaluationCandidate> {
+  const path = `/api/v1/ai/knowledge-answer-feedback/${encodeURIComponent(String(parameters.feedbackId))}/evaluation-candidate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiFeedbackEvaluationCandidate(value);
+}
+
 export interface AiPublishPromptVersionParameters {
   readonly promptId: string;
   readonly body: SelectAiPromptVersionRequest;
@@ -2528,6 +2681,30 @@ export async function aiRevokeAgentDelegation(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiAgentDelegationResponse(value);
+}
+
+export interface AiRevokeKnowledgeIndexGrantParameters {
+  readonly knowledgeBaseId: string;
+  readonly grantId: string;
+  readonly body: RevokeAiKnowledgeIndexGrantRequest;
+}
+
+export async function aiRevokeKnowledgeIndexGrant(
+  http: HttpClient,
+  parameters: AiRevokeKnowledgeIndexGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexGrantResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/index-grants/${encodeURIComponent(String(parameters.grantId))}/revoke`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexGrantResponse(value);
 }
 
 export interface AiRollbackPromptVersionParameters {

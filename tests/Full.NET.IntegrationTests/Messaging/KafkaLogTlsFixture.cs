@@ -1,3 +1,4 @@
+using Full.NET.IntegrationTests.Infrastructure;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -19,13 +20,16 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
     private const string AdminUser = "log-test-admin";
     private const string AdminPassword = "fullnet-log-admin-test-only";
     private readonly IContainer _container;
+    private readonly NativeContainerResourceProfile.Lease? _resourceLease;
     private readonly string _caPath;
     private readonly bool _useSasl;
     private readonly bool _useAcls;
 
-    private KafkaLogTlsFixture(IContainer container, string caPath, string bootstrapServers, bool useSasl, bool useAcls)
+    private KafkaLogTlsFixture(IContainer container, string caPath, string bootstrapServers, bool useSasl, bool useAcls,
+        NativeContainerResourceProfile.Lease? resourceLease)
     {
         _container = container;
+        _resourceLease = resourceLease;
         _caPath = caPath;
         _useSasl = useSasl;
         _useAcls = useAcls;
@@ -154,18 +158,36 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         }
 
         if (enableCollectorListener) containerBuilder = containerBuilder.WithPortBinding(2020, assignRandomHostPort: true);
-        var container = containerBuilder
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Kafka Server started"))
-            .Build();
+        NativeContainerResourceProfile.Lease? resourceLease = null;
+        IContainer container;
         try
         {
-            await container.StartAsync(cancellationToken).ConfigureAwait(false);
-            return new KafkaLogTlsFixture(container, caPath, bootstrap, useSasl, useAcls);
+            resourceLease = NativeContainerResourceProfile.Current?.Acquire("kafka");
+            if (resourceLease is not null) containerBuilder = containerBuilder.WithCreateParameterModifier(resourceLease.Apply);
+            container = containerBuilder
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Kafka Server started"))
+                .Build();
         }
         catch
         {
-            await container.DisposeAsync().ConfigureAwait(false);
+            resourceLease?.Dispose();
             File.Delete(caPath);
+            throw;
+        }
+        try
+        {
+            await container.StartAsync(cancellationToken).ConfigureAwait(false);
+            if (resourceLease is not null) await resourceLease.CaptureAsync(container.Id).ConfigureAwait(false);
+            return new KafkaLogTlsFixture(container, caPath, bootstrap, useSasl, useAcls, resourceLease);
+        }
+        catch
+        {
+            try
+            {
+                if (resourceLease is not null) await resourceLease.DisposeContainerAsync(container).ConfigureAwait(false);
+                else await container.DisposeAsync().ConfigureAwait(false);
+            }
+            finally { File.Delete(caPath); }
             throw;
         }
     }
@@ -273,7 +295,8 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
     {
         try
         {
-            await _container.DisposeAsync().ConfigureAwait(false);
+            if (_resourceLease is not null) await _resourceLease.DisposeContainerAsync(_container).ConfigureAwait(false);
+            else await _container.DisposeAsync().ConfigureAwait(false);
         }
         finally
         {

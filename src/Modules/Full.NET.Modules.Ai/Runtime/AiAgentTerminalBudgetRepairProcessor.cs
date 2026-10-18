@@ -15,7 +15,8 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
 
     internal async Task<int> ProcessPendingAsync(CancellationToken cancellationToken, Guid? afterRunId = null)
     {
-        var runIds = await store.ScanTerminalUnsettledAsync(options.Value.BatchSize, cancellationToken, afterRunId).ConfigureAwait(false);
+        var reconcileReceipts = options.Value.ReconcileCompletedReceipts;
+        var runIds = await store.ScanTerminalUnsettledAsync(options.Value.BatchSize, cancellationToken, afterRunId, reconcileReceipts).ConfigureAwait(false);
         LastScannedRunId = null;
         var repaired = 0;
         foreach (var runId in runIds)
@@ -27,7 +28,8 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var run = await scope.ServiceProvider.GetRequiredService<AiAgentRunStore>().FindByIdAsync(runId, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (run is null || AiAgentTerminalBudgetRepair.Outcome(run.StatusKey) is null) continue;
+                if (run is null || AiAgentTerminalBudgetRepair.Outcome(run.StatusKey) is null
+                    && !(reconcileReceipts && run.StatusKey == "reconciliation_required")) continue;
                 var writer = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
                 // 只接纳持久行的精确 Host/租户绑定，不用请求参数或用户会话决定账本归属。
                 if (run.TenantId is { } id && id != Guid.Empty && run.ScopeKey == id.ToString("N"))
@@ -36,7 +38,10 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
                 else continue;
                 try
                 {
-                    if (await scope.ServiceProvider.GetRequiredService<AiAgentTerminalBudgetRepair>().RepairAsync(runId, cancellationToken).ConfigureAwait(false)) repaired++;
+                    var changed = run.StatusKey == "reconciliation_required"
+                        ? await scope.ServiceProvider.GetRequiredService<AiAgentCompletedReceiptReconciliation>().ReconcileAsync(runId, cancellationToken).ConfigureAwait(false)
+                        : await scope.ServiceProvider.GetRequiredService<AiAgentTerminalBudgetRepair>().RepairAsync(runId, cancellationToken).ConfigureAwait(false);
+                    if (changed) repaired++;
                 }
                 finally { writer.Clear(); }
             }

@@ -1,5 +1,6 @@
 // 知识库协议只从运行时 OpenAPI 生成；共享入口不复制 HTTP、权限或租户决策。
 export {
+  aiListKnowledgeIndexChanges,
   aiRecoverKnowledgeIndexChanges,
   aiGetKnowledgeMembers,
   aiSetKnowledgeMembers,
@@ -41,6 +42,8 @@ export {
 } from './generated/operations.generated.js';
 
 export type {
+  AiKnowledgeIndexChangeItem,
+  AiKnowledgeIndexChangePage,
   AiKnowledgeBaseResponse,
   AiKnowledgeIncrementalRecoveryRequest,
   AiKnowledgeIncrementalRecoveryResponse,
@@ -92,6 +95,7 @@ export {
 
 export type {
   AiGetKnowledgeIndexStatusParameters,
+  AiListKnowledgeIndexChangesParameters,
   AiRecoverKnowledgeIndexChangesParameters,
   AiGetKnowledgeIndexReconciliationParameters,
   AiRebuildKnowledgeIndexParameters,

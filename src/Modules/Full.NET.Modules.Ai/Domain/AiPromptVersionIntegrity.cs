@@ -7,7 +7,7 @@ using Full.NET.Modules.Ai.Serialization;
 
 namespace Full.NET.Modules.Ai.Domain;
 
-/// <summary>格式一固定纯文本 Schema、静态 single-text 定义、零工具与无检索；验证完整规范正文及模型身份。</summary>
+/// <summary>保留格式一正文兼容，分别验证旧文本与显式版本二静态策略的完整规范正文、摘要及模型身份。</summary>
 internal static class AiPromptVersionIntegrity
 {
     internal static string Serialize(AiPromptBody body) => JsonSerializer.Serialize(body, AiJsonSerializerContext.Default.AiPromptBody);
@@ -26,8 +26,14 @@ internal static class AiPromptVersionIntegrity
             var body = JsonSerializer.Deserialize(row.BodyJson, AiJsonSerializerContext.Default.AiPromptBody);
             // 存储只接受源生成的规范表示；重复属性、伪造摘要或 Unicode 替代不得换成可执行新策略。
             return AiPromptPolicy.IsValid(body) && Serialize(body!) == row.BodyJson
-                && Hash(row.BodyJson, row.ModelConfigVersion, row.ProviderKey, row.ModelId) == row.BodyHash ? body : null;
+                && Hash(body!, row.BodyJson, row.ModelConfigVersion, row.ProviderKey, row.ModelId) == row.BodyHash ? body : null;
         }
         catch (JsonException) { return null; }
     }
+
+    /// <summary>旧正文继续使用原摘要；静态策略版本二使用独立域，不能移除绑定降级为版本一。</summary>
+    internal static string Hash(AiPromptBody body, string json, int modelVersion, string provider, string model) => body.Execution is null
+        ? Hash(json, modelVersion, provider, model)
+        : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            FormattableString.Invariant($"strategy.v2|{modelVersion}|{provider.Length}:{provider}|{model.Length}:{model}|{json}"))));
 }

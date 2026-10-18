@@ -33,6 +33,15 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it.each(['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.versions_read', 'ai.knowledge_documents.index_read', 'ai.knowledge_documents.index_changes_read'])('已确认来源入口缺少 %s 时不渲染', async code => {
+    const wrapper = await render(true, permission => permission !== code);
+    expect(wrapper.find('[data-testid="knowledge-changes"]').exists()).toBe(false);
+  });
+  it('文档页在独立授权下提供已确认来源入口，知识库页不提供', async () => {
+    const wrapper = await render(true);
+    expect(wrapper.get('[data-testid="knowledge-changes"]').text()).toBe('已确认来源');
+    const bases = await render(false); expect(bases.find('[data-testid="knowledge-changes"]').exists()).toBe(false);
+  });
   it('恢复必须具备独立操作和索引读取权限', async () => {
     const wrapper = await render(true, code => code !== 'ai.knowledge_documents.index_recover');
     expect(wrapper.find('[data-testid="knowledge-recover"]').exists()).toBe(false);

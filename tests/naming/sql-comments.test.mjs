@@ -13,6 +13,12 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fixtureRoot = path.join(repositoryRoot, 'tests/fixtures/naming');
 
+test('收费增量授权注释保留原会话和不返还额度的约束', () => {
+  assert.equal(describeTable('fn_ai_index_grant'), '所有者原会话的有界增量收费授权；默认关闭且不可接管');
+  assert.equal(describeColumn('fn_ai_index_grant', 'SessionJson'), '冻结原交互会话绑定；不包含访问令牌且不可替换');
+  assert.equal(describeColumn('fn_ai_index_grant_item', 'ReservedInputTokens'), '本任务已消耗的输入预留总量；不因未知或失败返还');
+});
+
 test('MySQL 幂等建表与 ENGINE 子句中的列进入注释目录', () => {
   const schema = extractSchemaFromMigrations(path.join(fixtureRoot, 'comment-extraction'));
   assert.deepEqual(Object.keys(schema).sort(), [

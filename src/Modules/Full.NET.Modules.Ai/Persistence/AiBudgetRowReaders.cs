@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Globalization;
 using Full.NET.Agents.Runtime;
 using Full.NET.Modules.Ai.Features.IncrementalKnowledgeIndexing;
+using Full.NET.Modules.Ai.Contracts;
 
 namespace Full.NET.Modules.Ai.Persistence;
 
@@ -26,6 +27,9 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiKnowledgeSourceConfirmed>(ReadKnowledgeSourceConfirmed);
+        registrar.Register<AiKnowledgeIndexChangeItem>(ReadKnowledgeIndexChange);
+        registrar.Register<AiKnowledgeIndexGrantRecord>(ReadKnowledgeIndexGrant);
+        registrar.Register<AiKnowledgeIndexGrantAnchor>(ReadKnowledgeIndexGrantAnchor);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiKnowledgeIndexEnqueueRecord>(ReadKnowledgeIndexEnqueue);
         registrar.Register<AiKnowledgeIndexStatusRecord>(ReadKnowledgeIndexStatus);
@@ -283,6 +287,7 @@ internal static class AiBudgetRowReaders
         ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
         LeaseToken = reader.GetGuid(reader.GetOrdinal("LeaseToken")),
         LeaseExpiresAtUtc = Timestamp(reader, "LeaseExpiresAtUtc"),
+        GrantExpiresAtUtc = Null(reader, "GrantExpiresAtUtc") ? null : Timestamp(reader, "GrantExpiresAtUtc"),
         FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
         ContentHash = Text(reader, "ContentHash"),
         ContentType = Text(reader, "ContentType"),
@@ -338,6 +343,30 @@ internal static class AiBudgetRowReaders
     internal static AiKnowledgeSourceConfirmed ReadKnowledgeSourceConfirmed(DbDataReader reader) => new(
         reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), reader.GetGuid(reader.GetOrdinal("DocumentId")),
         reader.GetGuid(reader.GetOrdinal("VersionId")), reader.IsDBNull(reader.GetOrdinal("TenantId")) ? null : reader.GetGuid(reader.GetOrdinal("TenantId")));
+
+    /// <summary>目录使用固定六列读取，不让公开记录依赖反射物化。</summary>
+    internal static AiKnowledgeIndexChangeItem ReadKnowledgeIndexChange(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("DocumentId")), reader.GetString(reader.GetOrdinal("Title")),
+        reader.GetGuid(reader.GetOrdinal("VersionId")), checked((int)Integer(reader, "VersionNumber")),
+        Timestamp(reader, "CreatedAtUtc"), Timestamp(reader, "UpdatedAtUtc"));
+
+    /// <summary>授权和任务累计额度使用固定列，原会话仅供服务端重新授权。</summary>
+    internal static AiKnowledgeIndexGrantRecord ReadKnowledgeIndexGrant(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        ClientRequestId = reader.GetGuid(reader.GetOrdinal("ClientRequestId")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")), ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
+        SessionJson = Text(reader, "SessionJson"), ExpiresAtUtc = Timestamp(reader, "ExpiresAtUtc"),
+        DocumentLimit = checked((int)Integer(reader, "DocumentLimit")), AdmittedDocuments = checked((int)Integer(reader, "AdmittedDocuments")),
+        InputTokenLimitPerDocument = Integer(reader, "InputTokenLimitPerDocument"),
+        IsRevoked = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsRevoked")), CultureInfo.InvariantCulture),
+        Version = checked((int)Integer(reader, "Version")), TaskId = Null(reader, "TaskId") ? null : reader.GetGuid(reader.GetOrdinal("TaskId")),
+        LastBatchOrdinal = checked((int)Integer(reader, "LastBatchOrdinal")), ReservedInputTokens = Integer(reader, "ReservedInputTokens")
+    };
+
+    internal static AiKnowledgeIndexGrantAnchor ReadKnowledgeIndexGrantAnchor(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")));
 
     internal static AiKnowledgeVersionRecord ReadKnowledgeVersion(DbDataReader reader) => new()
     {

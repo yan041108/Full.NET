@@ -15,7 +15,7 @@ internal enum AiKnowledgeIndexFailure { ParsingFailed, ModelUnavailable, IndexUn
 
 /// <summary>仅负责 AI 本地持久化；领取成功不是外部派发授权或索引 ready 证明。</summary>
 internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandExecutor command,
-    ICurrentTenant tenant, IClock clock, IIdGenerator ids)
+    ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexGrantStore? grants = null)
 {
     internal bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
 
@@ -24,15 +24,17 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
     /// <remarks>快照只证明 SQL 判定点，不可缓存为长期授权。读取文件、解析或预算等待后必须重新复核；消费者仍须校验执行者授权、数据去向及预算。</remarks>
     internal async Task<AiKnowledgeIndexDispatchRecord?> ReadDispatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
     {
+        if (grants is not null && !await grants.AuthorizeTaskDispatchAsync(binding, taskId, token).ConfigureAwait(false)) return null;
         var parameters = HeldParameters(binding, taskId, leaseToken, token);
         var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(
-            IsTenant ? AiKnowledgeIndexTaskSql.DispatchTenant : AiKnowledgeIndexTaskSql.DispatchHost, parameters, token).ConfigureAwait(false);
+            (grants is null ? IsTenant ? AiKnowledgeIndexTaskSql.DispatchTenant : AiKnowledgeIndexTaskSql.DispatchHost
+                : IsTenant ? AiKnowledgeIndexTaskSql.DispatchWithGrantTenant : AiKnowledgeIndexTaskSql.DispatchWithGrantHost), parameters, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         // SQL 使用读取开始时的时钟；等待期间失效的租约不能继续下一步，也不接受另一个代次的返回值。
         return row is not null && row.TaskId == taskId && row.DocumentId == binding.DocumentId
             && row.VersionId == binding.VersionId && row.DocumentVersion == binding.DocumentVersion
             && row.KnowledgeBaseVersion == binding.KnowledgeBaseVersion && row.LeaseToken == leaseToken
-            && row.LeaseExpiresAtUtc > clock.UtcNow ? row : null;
+            && row.LeaseExpiresAtUtc > clock.UtcNow && (row.GrantExpiresAtUtc is null || row.GrantExpiresAtUtc > clock.UtcNow) ? row : null;
     }
 
     internal async Task<AiKnowledgeIndexTaskRecord?> EnqueueAsync(AiKnowledgeIndexTaskBinding binding, CancellationToken token)

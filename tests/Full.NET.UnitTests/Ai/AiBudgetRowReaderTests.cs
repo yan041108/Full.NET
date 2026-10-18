@@ -7,6 +7,20 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiBudgetRowReaderTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Confirmed_source_directory_maps_provider_timestamps_and_version(bool mysql)
+    {
+        using var table = new DataTable(); var document = Guid.CreateVersion7(); var version = Guid.CreateVersion7(); var now = DateTime.UtcNow;
+        table.Columns.Add("DocumentId", typeof(Guid)); table.Columns.Add("Title", typeof(string)); table.Columns.Add("VersionId", typeof(Guid));
+        table.Columns.Add("VersionNumber", mysql ? typeof(long) : typeof(int));
+        table.Columns.Add("CreatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Columns.Add("UpdatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Rows.Add(document, "确认来源", version, 2, mysql ? (object)now : new DateTimeOffset(now), mysql ? (object)now : new DateTimeOffset(now));
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeIndexChange(reader);
+        Assert.AreEqual(document, row.DocumentId); Assert.AreEqual(version, row.VersionId); Assert.AreEqual(2, row.VersionNumber);
+        Assert.AreEqual("确认来源", row.Title); Assert.AreEqual(new DateTimeOffset(now), row.CreatedAtUtc); Assert.AreEqual(row.CreatedAtUtc, row.UpdatedAtUtc);
+    }
+
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
     public void Feedback_review_projection_preserves_left_join_versions_and_owner(bool mysql, bool absent)
     {

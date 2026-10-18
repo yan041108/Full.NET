@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 using Full.NET.Modules.Ai.Runtime;
+using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.AI.Abstractions.Models;
 using Microsoft.Extensions.AI;
 using NSubstitute;
 
@@ -9,6 +11,116 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiRunInputBudgetTests
 {
+    [TestMethod]
+    public async Task Invalid_concurrent_stream_disposal_keeps_the_inflight_budget_locked()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async IAsyncEnumerable<ChatResponseUpdate> WaitForRelease()
+        {
+            entered.TrySetResult(); await release.Task;
+            yield return new() { Contents = [new TextContent("frame")] };
+        }
+        var client = new AiRunOutputLimitClient(StreamingClient(WaitForRelease()), 100);
+        var enumerator = client.GetStreamingResponseAsync([], new() { MaxOutputTokens = 10 }).GetAsyncEnumerator();
+        var pending = enumerator.MoveNextAsync().AsTask(); await entered.Task;
+        try
+        {
+            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => enumerator.DisposeAsync().AsTask());
+            var error = await Assert.ThrowsExactlyAsync<AiRunOutputBudgetException>(() => client.GetResponseAsync([]));
+            Assert.AreEqual("ai.budget.operation_conflict", error.Code);
+        }
+        finally { release.TrySetResult(); await pending; await enumerator.DisposeAsync(); }
+    }
+
+    [TestMethod]
+    public async Task Delayed_old_stream_disposal_cannot_unlock_a_new_inflight_request()
+    {
+        var pending = new TaskCompletionSource<ChatResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var inner = StreamingClient(DisposalUpdates(() => { }));
+        inner.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(pending.Task);
+        var client = new AiRunOutputLimitClient(inner, 100);
+        var previous = client.GetStreamingResponseAsync([], new() { MaxOutputTokens = 10 }).GetAsyncEnumerator();
+        while (await previous.MoveNextAsync()) { }
+        var current = client.GetResponseAsync([], new() { MaxOutputTokens = 10 });
+        try
+        {
+            await previous.DisposeAsync(); await previous.DisposeAsync();
+            var error = await Assert.ThrowsExactlyAsync<AiRunOutputBudgetException>(() => client.GetResponseAsync([]));
+            Assert.AreEqual("ai.budget.operation_conflict", error.Code);
+        }
+        finally { pending.TrySetResult(Response(0)); await current; }
+    }
+
+    [TestMethod]
+    public async Task Disposing_before_first_move_closes_scope_captured_by_provider_factory()
+    {
+        using var root = AiChatInputBudgetScope.Begin(100, _ => Task.CompletedTask);
+        AiChatInputBudgetScope? captured = null;
+        var inner = Client(() => Response(0));
+        inner.GetStreamingResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { captured = AiChatInputBudgetScope.RequireCurrent(); return ScopedUpdates(captured, []); });
+        var client = new AiRunOutputLimitClient(inner, 100, inputTokenLimit: 100);
+        await client.GetStreamingResponseAsync([]).GetAsyncEnumerator().DisposeAsync();
+        Assert.IsNotNull(captured); Assert.AreSame(root, AiChatInputBudgetScope.RequireCurrent());
+        await Assert.ThrowsExactlyAsync<AiBudgetException>(() => captured.RevalidateAsync(default));
+        var error = await Assert.ThrowsExactlyAsync<AiRunOutputBudgetException>(() => client.GetResponseAsync([]));
+        Assert.IsFalse(error.DispatchStarted);
+    }
+
+    [TestMethod][DataRow(false)][DataRow(true)]
+    public async Task Streaming_provider_keeps_one_budget_scope_through_factory_yields_and_disposal(bool early)
+    {
+        using var root = AiChatInputBudgetScope.Begin(100, _ => Task.CompletedTask);
+        AiChatInputBudgetScope? captured = null; var checks = new List<string>();
+        var inner = Client(() => Response(0));
+        inner.GetStreamingResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { captured = AiChatInputBudgetScope.RequireCurrent(); return ScopedUpdates(captured, checks); });
+        var client = new AiRunOutputLimitClient(inner, 100, inputTokenLimit: 100, consumedInputTokens: 90);
+        var stream = client.GetStreamingResponseAsync([], new() { MaxOutputTokens = 10 });
+        Assert.AreSame(root, AiChatInputBudgetScope.RequireCurrent()); Assert.IsNotNull(captured); Assert.AreEqual(10L, captured.InputTokenLimit);
+        await using (var enumerator = stream.GetAsyncEnumerator())
+        {
+            Assert.IsTrue(await enumerator.MoveNextAsync()); Assert.AreSame(root, AiChatInputBudgetScope.RequireCurrent());
+            if (!early) { Assert.IsTrue(await enumerator.MoveNextAsync()); Assert.IsFalse(await enumerator.MoveNextAsync()); }
+        }
+        Assert.AreSame(root, AiChatInputBudgetScope.RequireCurrent()); Assert.AreEqual("dispose", checks[^1]);
+        await Assert.ThrowsExactlyAsync<AiBudgetException>(() => captured.RevalidateAsync(default));
+    }
+
+    [TestMethod]
+    public async Task Tighter_caller_context_cannot_prevent_owned_stream_cleanup_or_be_overwritten()
+    {
+        using var root = AiChatInputBudgetScope.Begin(100, _ => Task.CompletedTask);
+        var cleaned = false; var inner = StreamingClient(DisposalUpdates(() => cleaned = true));
+        var client = new AiRunOutputLimitClient(inner, 100, inputTokenLimit: 100);
+        var enumerator = client.GetStreamingResponseAsync([]).GetAsyncEnumerator();
+        Assert.IsTrue(await enumerator.MoveNextAsync());
+        using var tighter = AiChatInputBudgetScope.Begin(5);
+        await enumerator.DisposeAsync();
+        Assert.IsTrue(cleaned); Assert.AreSame(tighter, AiChatInputBudgetScope.RequireCurrent());
+    }
+
+    private static async IAsyncEnumerable<ChatResponseUpdate> ScopedUpdates(AiChatInputBudgetScope captured, List<string> checks)
+    {
+        try
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                await Task.Yield(); Assert.AreSame(captured, AiChatInputBudgetScope.RequireCurrent()); await captured.RevalidateAsync(default);
+                checks.Add("move"); yield return new() { Contents = [new UsageContent(new UsageDetails { InputTokenCount = 0, OutputTokenCount = 0 })] };
+            }
+        }
+        finally { Assert.AreSame(captured, AiChatInputBudgetScope.RequireCurrent()); checks.Add("dispose"); }
+    }
+
+    private static async IAsyncEnumerable<ChatResponseUpdate> DisposalUpdates(Action cleaned)
+    {
+        try { await Task.Yield(); yield return new() { Contents = [new TextContent("frame")] }; }
+        finally { cleaned(); }
+    }
+
     [TestMethod]
     public async Task Known_input_is_cumulative_and_exact_exhaustion_blocks_next_dispatch()
     {

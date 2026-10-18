@@ -28,7 +28,8 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
         if (!NativeWorkerArtifactLocator.TryResolve(out var workerArtifact, out var workerReason)) Assert.Inconclusive(workerReason ?? "Native Worker artifact unavailable.");
         var connection = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connection);
-        await using var host = await NativeApiProcessHost.StartAsync(api, provider, connection, new Dictionary<string, string?>(), NativeAotTestTimeouts.ProcessStartup, CancellationToken.None);
+        await using var host = await NativeApiProcessHost.StartAsync(api, provider, connection,
+            new Dictionary<string, string?> { ["FullNet:Ai:KnowledgeIndexGrants:Enabled"] = "true" }, NativeAotTestTimeouts.ProcessStartup, CancellationToken.None);
         await using var worker = await NativeWorkerProcessHost.StartAsync(workerArtifact, provider, connection, NativeAotTestTimeouts.ProcessStartup,
             additionalSettings: new Dictionary<string, string?>
             {
@@ -106,6 +107,17 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
                 }
             }
             Assert.AreEqual(expectedMetadataEvents, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeDocumentMetadataUpdated.EventType }));
+            // 原生路径同时验证静态 DTO 物化、JSON 源生成及 Host/Tenant/Host 范围恢复。
+            var directoryPath = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/index-changes";
+            using var directory = await client.GetAsync(directoryPath + "?pageSize=1");
+            Assert.AreEqual(HttpStatusCode.OK, directory.StatusCode, await directory.Content.ReadAsStringAsync());
+            var confirmed = (await directory.Content.ReadFromJsonAsync<AiKnowledgeIndexChangePage>())!;
+            Assert.AreEqual(1, confirmed.Items.Count); Assert.IsNull(confirmed.NextDocumentId);
+            Assert.AreEqual(document.Id, confirmed.Items[0].DocumentId); Assert.AreEqual(versionId, confirmed.Items[0].VersionId);
+            Assert.AreEqual("原生元数据更新", confirmed.Items[0].Title); Assert.AreEqual(2, confirmed.Items[0].VersionNumber);
+            using var continued = await client.GetAsync(directoryPath + $"?afterDocumentId={document.Id}&pageSize=1");
+            Assert.AreEqual(HttpStatusCode.OK, continued.StatusCode);
+            Assert.AreEqual(0, (await continued.Content.ReadFromJsonAsync<AiKnowledgeIndexChangePage>())!.Items.Count);
             // 事件已经确认消费后移除派生投影，验证同一原生产物可恢复历史来源并准确报告幂等计数。
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_change WHERE DocumentId=@Id", new { Id = document.Id });
             var recoveryPath = $"/api/v1/ai/knowledge-bases/{knowledge.Id}/index-changes/recover";
@@ -144,6 +156,7 @@ public sealed class NativeApiKnowledgeIncrementalIndexE2ETests
         Assert.AreEqual(expectedEvents, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE MessageType=@Type", new { Type = AiKnowledgeSourceConfirmed.EventType }));
         await recoveryWorker.StopGracefullyAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
         recoveryWorker.AssertNoFatalMarkersInLogs();
+        await NativeIndexGrantAssertions.VerifyAsync(client);
         await host.StopGracefullyAsync(CancellationToken.None);
         host.AssertNoFatalMarkersInLogs();
 

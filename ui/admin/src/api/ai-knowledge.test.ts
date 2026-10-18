@@ -1,5 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http } from './http';
+const directoryId = '01900000-0000-7000-8000-000000000001';
+const directoryVersion = '01900000-0000-7000-8000-000000000002';
+const directoryRow = { documentId: directoryId, versionId: directoryVersion, title: '确认来源', versionNumber: 2, createdAtUtc: '2026-10-16T00:00:00Z', updatedAtUtc: '2026-10-16T01:00:00Z' };
+
+describe('已确认来源目录协议', () => {
+  it('通过生成操作编码游标和分页，取消令牌传给统一客户端', async () => {
+    vi.mocked(http.request).mockResolvedValue({ items: [directoryRow], nextDocumentId: directoryId });
+    const signal = new AbortController().signal;
+    expect((await api.listKnowledgeIndexChanges({ knowledgeBaseId: directoryVersion, pageSize: 1 }, signal)).items).toHaveLength(1);
+    expect(http.request).toHaveBeenCalledWith(`/api/v1/ai/knowledge-bases/${directoryVersion}/index-changes?pageSize=1`, { method: 'GET' }, signal);
+  });
+  it.each(['duplicate', 'empty-id', 'zero-version', 'empty-title', 'bad-date', 'too-many', 'cursor-mismatch', 'cursor-loop', 'malformed'])('异常响应 %s 在数据进入页面前拒绝', async scenario => {
+    const row = { ...directoryRow, ...(scenario === 'empty-id' ? { versionId: '00000000-0000-0000-0000-000000000000' }
+      : scenario === 'zero-version' ? { versionNumber: 0 } : scenario === 'empty-title' ? { title: ' ' } : scenario === 'bad-date' ? { updatedAtUtc: 'not-a-date' } : {}) };
+    vi.mocked(http.request).mockResolvedValue({ items: scenario === 'malformed' ? [{}] : scenario === 'duplicate' || scenario === 'too-many' ? [row, row] : [row],
+      nextDocumentId: scenario === 'cursor-mismatch' ? directoryVersion : scenario === 'cursor-loop' ? directoryId : null });
+    await expect(api.listKnowledgeIndexChanges({ knowledgeBaseId: directoryVersion, pageSize: scenario === 'too-many' ? 1 : 2,
+      afterDocumentId: scenario === 'cursor-loop' ? directoryId : undefined })).rejects.toThrow();
+  });
+});
 import { listKnowledgeBases, uploadKnowledgeVersion, downloadKnowledgeSource } from './ai-knowledge';
 import * as api from './ai-knowledge';
 

@@ -93,6 +93,17 @@ public sealed class NativeWorkerPromptE2ETests
         await host.StopGracefullyAsync(TimeSpan.FromSeconds(30)); host.AssertNoFatalMarkersInLogs(); Assert.AreEqual(0, host.ExitCode);
         CollectionAssert.AreEqual(new[] { "Native current epoch" }, requests.ToArray());
         CollectionAssert.AreEqual(new[] { 100 }, outputLimits.ToArray());
+        using var strategiesResponse = await client.GetAsync("/api/v1/ai/prompts/execution-strategies");
+        Assert.AreEqual(HttpStatusCode.OK, strategiesResponse.StatusCode, await strategiesResponse.Content.ReadAsStringAsync());
+        var strategies = (await strategiesResponse.Content.ReadFromJsonAsync<AiPromptExecutionBinding[]>())!; Assert.HasCount(3, strategies);
+        var strategy = strategies.Single(item => item.DefinitionKey == "fullnet-readonly-tool-loop-v1");
+        var staticHead = await WriteAsync("/api/v1/ai/prompts", new CreateAiPromptRequest(Guid.CreateVersion7(), "Native static strategy",
+            new AiPromptBody(model.Id, "en-US", "Static {{input}}", 100, 100) { Execution = strategy }), HttpStatusCode.Created);
+        using var staticVersions = await client.GetAsync($"/api/v1/ai/prompts/{staticHead.Id}/versions");
+        Assert.AreEqual(HttpStatusCode.OK, staticVersions.StatusCode, await staticVersions.Content.ReadAsStringAsync());
+        var staticVersion = (await staticVersions.Content.ReadFromJsonAsync<Full.NET.Abstractions.Results.PagedResult<AiPromptVersionResponse>>())!.Items.Single();
+        Assert.AreEqual(2, staticVersion.PolicyVersion); Assert.AreEqual(strategy.DefinitionKey, staticVersion.DefinitionKey);
+        CollectionAssert.AreEqual(strategy.AllowedToolNames.ToArray(), staticVersion.AllowedToolNames.ToArray());
         await apiHost.StopGracefullyAsync(); apiHost.AssertNoFatalMarkersInLogs(); Assert.AreEqual(0, apiHost.ExitCode);
         async Task<AiPromptResponse> WriteAsync<T>(string url, T request, HttpStatusCode status = HttpStatusCode.OK)
         {

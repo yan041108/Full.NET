@@ -106,7 +106,7 @@ internal sealed class AiAgentRunManagementService(
                 ErrorType.BusinessRule));
         }
 
-        try { (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireChatDispatch(); }
+        try { (inputPolicy ?? AiChatInputAdmissionPolicy.Default).RequireBudgetReservation(model.ProviderKey, model.ModelId); }
         catch (AiBudgetException ex)
         { return Result<CreateAiAgentRunResponse>.Failure(new Error(ex.Code, "Exact input metering is unavailable for this Chat transport.", ErrorType.BusinessRule)); }
 
@@ -269,7 +269,6 @@ internal sealed class AiAgentRunManagementService(
         var isWorkflow = AgentWorkflowRegistry.Resolve(request.DefinitionKey, ResolveDefinitionVersion(request.DefinitionKey)) is not null;
         var isAgent = AgentDefinitionRegistry.Resolve(request.DefinitionKey, SingleTextDefinitionVersion) is not null;
         if (request.ClientRequestId == Guid.Empty || request.ModelConfigId == Guid.Empty || request.PromptVersionId == Guid.Empty
-            || (request.PromptVersionId.HasValue && request.DefinitionKey != SingleTextDefinitionKey)
             || (!isWorkflow && !isAgent)
             || (!isWorkflow && (string.IsNullOrWhiteSpace(request.Prompt) || request.Prompt.Length > 16_384))
             || (isWorkflow && request.Prompt.Length > 16_384)

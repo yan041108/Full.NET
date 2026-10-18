@@ -204,8 +204,16 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 615);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 615);
+  assert.equal(manifest.entries.length, 623);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 623);
+  for (const [generatedGroup, operationIds] of [
+    ['ai-index-grants', ['aiCreateKnowledgeIndexGrant', 'aiListKnowledgeIndexGrants', 'aiRevokeKnowledgeIndexGrant']],
+    ['ai-feedback-evaluation', ['aiAdmitFeedbackEvaluationCandidate', 'aiPrepareFeedbackEvaluationCandidate']]
+  ]) {
+    assert.deepEqual(manifest.entries.filter(entry => entry.generatedGroup === generatedGroup)
+      .map(entry => entry.operationId).sort(), operationIds);
+  }
+  assert.ok(manifest.entries.some(entry => entry.operationId === 'aiGetPromptExecutionStrategies' && entry.generatedGroup === 'ai-prompts' && entry.status === 'generated'));
   for (const operationId of ['aiGetAgentReconciliation', 'aiReconcileAgentRun']) {
     assert.ok(manifest.entries.some(entry => entry.operationId === operationId && entry.generatedGroup === 'ai-agent-reconciliation' && entry.status === 'generated'));
   }
@@ -239,6 +247,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'ai-agent-tools',
       'ai-answer-feedback',
       'ai-chat',
+      'ai-feedback-evaluation',
+      'ai-index-grants',
       'ai-knowledge',
       'ai-mcp-remote-connections',
       'ai-model-configs',
@@ -338,7 +348,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    615
+    623
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

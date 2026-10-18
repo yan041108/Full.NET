@@ -41,7 +41,8 @@ const session = useSessionStore();
 const promptVersion = ref<AiPromptVersionResponse>();
 function selectPrompt(version: AiPromptVersionResponse | undefined) {
   promptVersion.value = version;
-  if (version) { createModelId.value = version.body.modelConfigId; createDefinitionKey.value = 'fullnet-single-text-v1'; }
+  if (version) { createModelId.value = version.body.modelConfigId; createDefinitionKey.value = version.definitionKey ?? 'fullnet-single-text-v1';
+    if (version.definitionKey === 'fullnet-chat-rename-workflow-v1') createPrompt.value = ''; }
 }
 const runIdInput = ref('');
 const activeRun = ref<AiAgentRunResponse>();
@@ -162,7 +163,7 @@ async function refreshRunQuietly(runId: string): Promise<void> {
 async function handleCreate(): Promise<void> {
   if (loading.value || session.switching || !session.can('ai.agent_runs.create')) return;
   const epoch = contextEpoch;
-  if (!createModelId.value || !createPrompt.value.trim()) {
+  if (!createModelId.value || (createDefinitionKey.value !== 'fullnet-chat-rename-workflow-v1' && !createPrompt.value.trim())) {
     ElMessage.warning(t('aiAgentRuns.createValidation'));
     return;
   }
@@ -173,7 +174,7 @@ async function handleCreate(): Promise<void> {
     const draft: Omit<CreateAiAgentRunRequest, 'clientRequestId'> = {
       definitionKey: createDefinitionKey.value,
       modelConfigId: createModelId.value,
-      prompt: createPrompt.value.trim(),
+      prompt: createDefinitionKey.value === 'fullnet-chat-rename-workflow-v1' ? '' : createPrompt.value.trim(),
       inputTokenLimit: Math.min(4096, promptVersion.value?.body.inputTokenLimit ?? 4096),
       outputTokenLimit: Math.min(4096, promptVersion.value?.body.outputTokenLimit ?? 4096),
       ...(promptVersion.value ? { promptVersionId: promptVersion.value.id } : {})
@@ -309,6 +310,7 @@ void loadModels();
           <ElInput v-model="createModelId" :disabled="!!promptVersion" :placeholder="t('aiAgentRuns.fieldModelId')" />
           <ElInput
             v-model="createPrompt"
+            :disabled="createDefinitionKey === 'fullnet-chat-rename-workflow-v1'"
             data-testid="ai-agent-runs-create-prompt"
             type="textarea"
             :rows="3"

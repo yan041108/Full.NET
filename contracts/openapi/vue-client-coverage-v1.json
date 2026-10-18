@@ -1226,6 +1226,26 @@
       "routePrefixes": [
         "/api/v1/ai/knowledge-answer-feedback"
       ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-index-grants.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-feedback-evaluation.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-answer-feedback"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -1955,7 +1975,8 @@
         "ui/admin/src/components/AiKnowledgePolicyDialog.vue",
         "ui/admin/src/components/AiKnowledgeGrantsDialog.vue",
         "ui/admin/src/components/AiKnowledgeIndexDialog.vue",
-        "ui/admin/src/components/AiKnowledgeBaseMultiSelect.vue"
+        "ui/admin/src/components/AiKnowledgeBaseMultiSelect.vue",
+        "ui/admin/src/components/AiKnowledgeIndexChangesDialog.vue"
       ]
     },
     {
@@ -1974,6 +1995,18 @@
       "apiModule": "ui/admin/src/api/ai-answer-feedback-review.ts",
       "consumers": [
         "ui/admin/src/components/AiFeedbackReviewPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-index-grants.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeIndexGrantPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-feedback-evaluation.ts",
+      "consumers": [
+        "ui/admin/src/components/AiFeedbackEvaluationPanel.vue"
       ]
     }
   ]

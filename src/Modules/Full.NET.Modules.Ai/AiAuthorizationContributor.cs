@@ -24,6 +24,11 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiKnowledgeAnswerFeedbackReviewPermissions.Read, "读取结构化回答反馈审核队列", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeAnswerFeedbackReviewPermissions.Review, "审核他人的回答反馈标签", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeAnswerFeedbackReviewPermissions.Export, "导出已批准回答反馈标签统计", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiFeedbackEvaluationPermissions.Prepare, "准备人工脱敏评估候选", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiFeedbackEvaluationPermissions.Admit, "准入人工脱敏评估候选", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeIndexGrantPermissions.Read, "读取本人增量收费授权", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeIndexGrantPermissions.Create, "明确授权后台增量收费", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeIndexGrantPermissions.Revoke, "撤销本人增量收费授权", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Read, "读取获授权知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Create, "创建私有知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Update, "更新本人知识库目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -41,6 +46,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiKnowledgeDocumentPermissions.IndexEnqueue, "启动本人文档文本索引", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRead, "读取文档索引状态", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRecover, "恢复本人知识库增量意图", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeDocumentPermissions.IndexChangesRead, "读取本人知识库已确认来源目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRebuild, "重建本人文档独立索引代次", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexRetry, "重试本人文档失败索引", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.VersionsRead, "读取获授权文档版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -169,6 +175,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new("ai.knowledge_documents.index_changes_read", "ai-knowledge-documents", AiKnowledgeDocumentPermissions.IndexChangesRead, "读取本人知识库已确认来源目录", "index-changes-read", 100),
         new AuthorizationActionDefinition("ai.prompts.read", "ai-agent-runs", AiPromptPermissions.Read, "读取 Prompt 目录与版本", "prompt-read", 100),
         new AuthorizationActionDefinition("ai.prompts.create", "ai-agent-runs", AiPromptPermissions.Create, "创建 Prompt 草稿", "prompt-create", 101),
         new AuthorizationActionDefinition("ai.prompts.append", "ai-agent-runs", AiPromptPermissions.Append, "追加 Prompt 草稿版本", "prompt-append", 102),
@@ -182,6 +189,11 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new("ai.knowledge_answer_feedback.review_read", "ai-chat", AiKnowledgeAnswerFeedbackReviewPermissions.Read, "读取结构化回答反馈审核队列", "feedback-review-read", 70),
         new("ai.knowledge_answer_feedback.review", "ai-chat", AiKnowledgeAnswerFeedbackReviewPermissions.Review, "审核他人的回答反馈标签", "feedback-review", 80),
         new("ai.knowledge_answer_feedback.export", "ai-chat", AiKnowledgeAnswerFeedbackReviewPermissions.Export, "导出已批准回答反馈标签统计", "feedback-export", 90),
+        new("ai.knowledge_answer_feedback.evaluation_prepare", "ai-chat", AiFeedbackEvaluationPermissions.Prepare, "准备人工脱敏评估候选", "feedback-evaluation-prepare", 91),
+        new("ai.knowledge_answer_feedback.evaluation_admit", "ai-chat", AiFeedbackEvaluationPermissions.Admit, "准入人工脱敏评估候选", "feedback-evaluation-admit", 92),
+        new("ai.knowledge_documents.index_grant_read", "ai-knowledge-documents", AiKnowledgeIndexGrantPermissions.Read, "读取本人增量收费授权", "index-grant-read", 93),
+        new("ai.knowledge_documents.index_grant_create", "ai-knowledge-documents", AiKnowledgeIndexGrantPermissions.Create, "明确授权后台增量收费", "index-grant-create", 94),
+        new("ai.knowledge_documents.index_grant_revoke", "ai-knowledge-documents", AiKnowledgeIndexGrantPermissions.Revoke, "撤销本人增量收费授权", "index-grant-revoke", 95),
         new AuthorizationActionDefinition(
             "ai.models.create",
             "ai-model-configs",
