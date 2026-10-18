@@ -27,10 +27,15 @@ async function freePort() {
  return port;
 }
 
+export function resolveDataDeliveryReportParent(provider) {
+ assert.ok(['sqlserver','mysql'].includes(provider));
+ // 报告与失败证据使用系统临时目录，源码工作树不承担运行产物。
+ return join(realpathSync.native(tmpdir()), 'fullnet-enterprise-delivery', provider);
+}
+
 // 使用应用拥有的 DLL、配置和绝对文件根；直接启动 DLL，避免 dotnet run 的孙进程残留。
 export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } = {}) {
- assert.ok(['sqlserver','mysql'].includes(provider));
- const reportParent = join(repoRoot,'.tmp/template-real-stack/enterprise-delivery',provider);
+ const reportParent = resolveDataDeliveryReportParent(provider);
  mkdirSync(reportParent,{recursive:true});
  const root = mkdtempSync(join(reportParent,'run-'));
  const processes = [];

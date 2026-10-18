@@ -39,6 +39,25 @@ const adminPassword = 'FullNet!2026Secure';
 const apiPort = 5199;
 const apiUrl = `http://127.0.0.1:${apiPort}`;
 
+export function resolveCreatedAppReportParent(provider) {
+  assert.ok(['sqlserver', 'mysql'].includes(provider));
+  // 独立应用的诊断与失败证据保留在系统临时目录，避免写入源码工作树。
+  return join(realpathSync.native(tmpdir()), 'fullnet-created-app-reports', provider);
+}
+
+function configureCreatedAppContainer(container, role) {
+  const profile = process.env.FULLNET_TEMPLATE_TEST_RESOURCE_PROFILE;
+  if (!profile) return container;
+  if (profile !== 'bounded-local') throw new Error('Unsupported template test resource profile');
+  // 仅约束本批自有应用容器，不能把配额外推到 Docker daemon 或 Ryuk。
+  const budgets = {
+    sqlserver: { memory: 3, cpu: 1 },
+    mysql: { memory: 1.5, cpu: 1 },
+    redis: { memory: 0.25, cpu: 0.25 },
+  };
+  return container.withResourcesQuota(budgets[role]);
+}
+
 export function shouldSkipRealStack() {
   if (process.env.FULLNET_SKIP_TESTCONTAINERS === '1') {
     return true;
@@ -52,7 +71,7 @@ export function shouldSkipRealStack() {
 export async function startDatabaseContainer(provider) {
   if (provider === 'mysql') {
     const mysqlImage = process.env.CI ? 'mysql:8.4' : process.env.FULLNET_TEMPLATE_TEST_MYSQL_IMAGE ?? 'mysql:8.4';
-    const container = await new GenericContainer(mysqlImage)
+    const container = await configureCreatedAppContainer(new GenericContainer(mysqlImage), 'mysql')
       .withEnvironment({
         MYSQL_ROOT_PASSWORD: mysqlPassword,
         MYSQL_DATABASE: 'fullnet_app',
@@ -69,7 +88,8 @@ export async function startDatabaseContainer(provider) {
     return { container, connectionString, databaseProvider: 'MySql' };
   }
 
-  const container = await new GenericContainer('mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04')
+  const container = await configureCreatedAppContainer(
+    new GenericContainer('mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04'), 'sqlserver')
     .withEnvironment({ ACCEPT_EULA: 'Y', MSSQL_SA_PASSWORD: sqlPassword })
     .withExposedPorts(1433)
     .withWaitStrategy(Wait.forListeningPorts())
@@ -86,7 +106,7 @@ export async function startDatabaseContainer(provider) {
 export async function startRedisContainer() {
   // 本地 Docker Hub 不可用时可使用已有镜像；CI 始终验证固定版本。
   const redisImage = process.env.CI ? 'redis:7.4-alpine' : process.env.FULLNET_TEMPLATE_TEST_REDIS_IMAGE ?? 'redis:7.4-alpine';
-  const container = await new GenericContainer(redisImage)
+  const container = await configureCreatedAppContainer(new GenericContainer(redisImage), 'redis')
     .withExposedPorts(6379)
     .withWaitStrategy(Wait.forListeningPorts())
     .start();
@@ -253,8 +273,9 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { executeRu
       throw new Error('expected preset-minimal migration inventory');
     }
 
-    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
-    mkdirSync(logRoot, { recursive: true });
+    const reportParent = resolveCreatedAppReportParent(databaseProviderKey);
+    mkdirSync(reportParent, { recursive: true });
+    const logRoot = mkdtempSync(join(reportParent, 'run-'));
     // 运行应用自带客户端工具；仅验证冻结基线零漂移，不冒充业务 Vue 接入或页面编译。
     checkPreparation();
     const clientCheck = runPreparation(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
