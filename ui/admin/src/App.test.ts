@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
 import { ElConfigProvider, ElOption } from 'element-plus';
 import App from './App.vue';
+// 本例验证路由授权边界；提前加载真实页面，避免将 Vite 冷编译计入行为测试时限。
+import './views/SecuritySettingsView.vue';
 import { createAppRouter } from './router';
 import { useSessionStore } from './auth/session';
 import { useAdminI18n } from './i18n/adminI18n';
@@ -47,6 +49,13 @@ function createAuthenticatedPinia() {
   return pinia;
 }
 
+/** 等待真实异步布局完成，避免把空占位节点当成可验收的页面。 */
+async function waitForShell(wrapper: VueWrapper) {
+  await vi.dynamicImportSettled();
+  await flushPromises();
+  expect(wrapper.find('.art-admin-shell').exists()).toBe(true);
+}
+
 describe('Vue 管理端壳层', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -62,6 +71,7 @@ describe('Vue 管理端壳层', () => {
     const wrapper = mount(App, {
       global: { plugins: [pinia, router] }
     });
+    await waitForShell(wrapper);
 
     expect(wrapper.findComponent(ElConfigProvider).exists()).toBe(true);
     expect(wrapper.text()).toContain('Full.NET');
@@ -109,6 +119,7 @@ describe('Vue 管理端壳层', () => {
     const wrapper = mount(App, {
       global: { plugins: [pinia, router] }
     });
+    await waitForShell(wrapper);
     await nextTick();
     await nextTick();
 
@@ -127,6 +138,7 @@ describe('Vue 管理端壳层', () => {
     const wrapper = mount(App, {
       global: { plugins: [pinia, router] }
     });
+    await waitForShell(wrapper);
 
     expect(wrapper.text()).toContain('没有访问权限');
     expect(wrapper.text()).toContain('403');
@@ -145,6 +157,7 @@ describe('Vue 管理端壳层', () => {
       attachTo: document.body,
       global: { plugins: [pinia, router] }
     });
+    await waitForShell(wrapper);
 
     expect(wrapper.get('.skip-link').attributes('href')).toBe('#main-content');
     await wrapper.get('.skip-link').trigger('click');

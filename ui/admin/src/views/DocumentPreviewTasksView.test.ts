@@ -6,6 +6,8 @@ import { useSessionStore } from '../auth/session';
 import { listDocumentPreviewTasks } from '../api/document-preview-tasks';
 
 vi.mock('../api/document-preview-tasks', () => ({
+  cancelDocumentPreviewTask: vi.fn(),
+  getDocumentPreviewTask: vi.fn(),
   listDocumentPreviewTasks: vi.fn(),
   createDocumentPreviewTask: vi.fn(),
   openDocumentPreviewTaskContent: vi.fn()
@@ -17,6 +19,7 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',

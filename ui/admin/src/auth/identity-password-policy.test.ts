@@ -15,3 +15,8 @@ describe('Identity 密码策略', () => {
     expect(isIdentityPasswordValid('NoSpecialChar1')).toBe(false);
   });
 });
+
+describe('服务端 UTF-16 字符分类契约', () => {
+  it.each(['Äbcdefghijk1!', 'Abcdefghijk١!', 'Äbcdefghijk1𝒜'])('accepts supported Unicode password %s', password => expect(isIdentityPasswordValid(password)).toBe(true));
+  it.each(['Abcdefghijk1Ä', 'Abcdefghijk²!', '𝒜bcdefghijk1!'])('rejects missing server character categories %s', password => expect(isIdentityPasswordValid(password)).toBe(false));
+});

@@ -20,6 +20,7 @@ internal static class MediaEndpoints
     {
         endpoints.MapPost("/api/v1/me/profile/avatar", UploadAvatarAsync)
             .WithName("identityUploadSelfServiceAvatar")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -30,6 +31,7 @@ internal static class MediaEndpoints
 
         endpoints.MapDelete("/api/v1/me/profile/avatar", DeleteAvatarAsync)
             .WithName("identityDeleteSelfServiceAvatar")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -47,6 +49,7 @@ internal static class MediaEndpoints
 
         endpoints.MapPost("/api/v1/me/profile/signature", UploadSignatureAsync)
             .WithName("identityUploadSelfServiceSignature")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -57,6 +60,7 @@ internal static class MediaEndpoints
 
         endpoints.MapDelete("/api/v1/me/profile/signature", DeleteSignatureAsync)
             .WithName("identityDeleteSelfServiceSignature")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

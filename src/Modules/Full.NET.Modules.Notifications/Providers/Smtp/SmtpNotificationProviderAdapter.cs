@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Net.Sockets;
+using MailKit.Net.Smtp;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using MimeKit;
@@ -86,7 +88,11 @@ internal sealed class SmtpNotificationProviderAdapter(
         }
         catch (SmtpTransportException exception)
         {
-            var category = exception.FailureKind switch
+            // DATA 阶段断线可能发生在服务端已接受之后；明确的 SMTP 拒收响应仍按原分类处理。
+            var category = exception.FailureStage == SmtpTransportStage.Send
+                && exception.InnerException is IOException or SocketException or SmtpProtocolException
+                ? NotificationDeliveryRetry.Unknown
+                : exception.FailureKind switch
             {
                 SmtpTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 SmtpTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,

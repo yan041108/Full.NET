@@ -17,7 +17,8 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
         string workingDirectory,
         CancellationToken cancellationToken = default)
     {
-        var processOptions = options.CurrentValue.ExternalProcess;
+        var snapshot = options.CurrentValue;
+        var processOptions = snapshot.ExternalProcess;
         if (string.IsNullOrWhiteSpace(processOptions.ExecutablePath))
         {
             return Result<DocumentOfficePreviewConversionOutput>.Failure(
@@ -27,89 +28,41 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
                     ErrorType.BusinessRule));
         }
 
-        var inputPath = Path.Combine(workingDirectory, SanitizeFileName(request.SourceFileName));
-        var outputPath = Path.Combine(workingDirectory, Path.GetFileNameWithoutExtension(inputPath) + ".pdf");
-        await using (var inputFile = File.Create(inputPath))
-        {
-            await request.SourceContent.CopyToAsync(inputFile, cancellationToken).ConfigureAwait(false);
-        }
-
-        var arguments = processOptions.ArgumentTemplate
-            .Replace("{inputPath}", inputPath, StringComparison.Ordinal)
-            .Replace("{outputPath}", outputPath, StringComparison.Ordinal);
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = processOptions.ExecutablePath,
-            Arguments = arguments,
-            WorkingDirectory = workingDirectory,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        using var process = new Process { StartInfo = startInfo };
-        if (!process.Start())
-        {
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External process office preview conversion could not start.",
-                    ErrorType.BusinessRule));
-        }
-
+        // 文件名只由受控 MIME 决定；上传名称中的引号和路径不得成为转换器参数。
+        var inputPath = Path.Combine(workingDirectory, DocumentPreviewProcessArguments.InputFileName(request.SourceMimeType));
+        var outputPath = Path.Combine(workingDirectory, "output.pdf");
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600)));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
+            DocumentPreviewContentBudget.CheckDeclaredLength(request.SourceLength, snapshot.MaxInputBytes, DocumentErrorCodes.OfficePreviewInputTooLarge);
+            using var input = new DocumentPreviewBudgetStream(request.SourceContent, snapshot.MaxInputBytes, DocumentErrorCodes.OfficePreviewInputTooLarge);
+            await using (var inputFile = File.Create(inputPath))
+                await input.CopyToAsync(inputFile, timeoutCts.Token).ConfigureAwait(false);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = processOptions.ExecutablePath, WorkingDirectory = workingDirectory,
+                RedirectStandardError = true, RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true,
+            };
+            foreach (var argument in DocumentPreviewProcessArguments.Build(processOptions.ArgumentTemplate, inputPath, outputPath))
+                startInfo.ArgumentList.Add(argument);
+            if (await DocumentPreviewProcessLifetime.RunAsync(startInfo, timeoutCts.Token).ConfigureAwait(false) != 0)
+                return Failure(DocumentErrorCodes.OfficePreviewConversionFailed);
+            var pdfStream = new FileStream(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
             try
             {
-                process.Kill(entireProcessTree: true);
+                DocumentPreviewContentBudget.CheckDeclaredLength(pdfStream.Length, snapshot.MaxOutputBytes, DocumentErrorCodes.OfficePreviewOutputTooLarge);
+                if (pdfStream.Length == 0) throw new InvalidDataException("Preview output is empty.");
+                timeoutCts.Token.ThrowIfCancellationRequested();
+                return Result<DocumentOfficePreviewConversionOutput>.Success(new(pdfStream, pdfStream.Length));
             }
-            catch
-            {
-                // 进程可能已退出，忽略清理异常。
-            }
-
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External process office preview conversion timed out.",
-                    ErrorType.BusinessRule));
+            catch { await pdfStream.DisposeAsync().ConfigureAwait(false); throw; }
         }
-
-        if (process.ExitCode != 0 || !File.Exists(outputPath))
-        {
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External process office preview conversion returned a non-zero exit code.",
-                    ErrorType.BusinessRule));
-        }
-
-        var pdfStream = File.OpenRead(outputPath);
-        var length = pdfStream.Length;
-        return Result<DocumentOfficePreviewConversionOutput>.Success(
-            new DocumentOfficePreviewConversionOutput(pdfStream, length));
+        catch (DocumentPreviewContentLimitException exception) { return Failure(exception.Code); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return Failure(DocumentErrorCodes.OfficePreviewConversionFailed); }
+        catch (InvalidDataException) { return Failure(DocumentErrorCodes.OfficePreviewConversionFailed); }
+        catch (FileNotFoundException) { return Failure(DocumentErrorCodes.OfficePreviewConversionFailed); }
     }
-
-    private static string SanitizeFileName(string fileName)
-    {
-        var safeName = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(safeName))
-        {
-            return "source.bin";
-        }
-
-        foreach (var invalid in Path.GetInvalidFileNameChars())
-        {
-            safeName = safeName.Replace(invalid, '_');
-        }
-
-        return safeName;
-    }
+    private static Result<DocumentOfficePreviewConversionOutput> Failure(string code) =>
+        Result<DocumentOfficePreviewConversionOutput>.Failure(new(code, "Office preview conversion failed or exceeded its configured budget.", ErrorType.BusinessRule));
 }

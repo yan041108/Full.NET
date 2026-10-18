@@ -240,6 +240,7 @@ internal static class HostFileSql
         FROM fn_files_file
         WHERE TenantId IS NULL
           AND DeletedAtUtc IS NOT NULL
+          AND DeletedAtUtc <= @ScanThroughDeletedAtUtc
           AND (@HasCursor = 0
                OR DeletedAtUtc > @AfterDeletedAtUtc
                OR (DeletedAtUtc = @AfterDeletedAtUtc AND Id > @AfterId))
@@ -257,6 +258,7 @@ internal static class HostFileSql
         FROM fn_files_file
         WHERE TenantId IS NULL
           AND DeletedAtUtc IS NOT NULL
+          AND DeletedAtUtc <= @ScanThroughDeletedAtUtc
           AND (@HasCursor = 0
                OR DeletedAtUtc > @AfterDeletedAtUtc
                OR (DeletedAtUtc = @AfterDeletedAtUtc AND Id > @AfterId))

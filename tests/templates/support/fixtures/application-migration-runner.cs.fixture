@@ -12,7 +12,9 @@ internal sealed class ApplicationMigrationRunner(
     IDatabaseMigrationRunner frameworkRunner,
     IOptions<DatabaseOptions> databaseOptions,
     string sqlServerScript,
-    string mySqlScript) : IDatabaseMigrationRunner
+    string mySqlScript,
+    string? sqlServerUpgradeScript,
+    string? mySqlUpgradeScript) : IDatabaseMigrationRunner
 {
     public async Task<MigrationResult> MigrateAsync(CancellationToken cancellationToken = default)
     {
@@ -37,8 +39,16 @@ internal sealed class ApplicationMigrationRunner(
         };
         var script = options.Provider == DatabaseProvider.SqlServer ? sqlServerScript : mySqlScript;
         // owner/module 与提供程序进入固定 journal 名称，避免与框架脚本碰撞；没有程序集扫描。
+        builder.WithScript($"acme.catalog.Migrations.{options.Provider}.001_CreateProduct.sql", script);
+        var upgradeScript = options.Provider == DatabaseProvider.SqlServer
+            ? sqlServerUpgradeScript : mySqlUpgradeScript;
+        // 002 由应用显式嵌入后才执行；未采纳时不得猜测草案或扫描程序集。
+        if (upgradeScript is not null)
+        {
+            builder.WithScript($"acme.catalog.Migrations.{options.Provider}.002_AddProductDescription.sql", upgradeScript);
+        }
+
         var application = builder
-            .WithScript($"acme.catalog.Migrations.{options.Provider}.001_CreateProduct.sql", script)
             .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
             .LogToConsole()
             .Build()
@@ -60,6 +70,14 @@ internal sealed class ApplicationMigrationRunner(
     {
         using var stream = typeof(ApplicationMigrationRunner).Assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException("缺少显式登记的应用迁移资源。");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    internal static string? ReadOptionalScript(string name)
+    {
+        using var stream = typeof(ApplicationMigrationRunner).Assembly.GetManifestResourceStream(name);
+        if (stream is null) return null;
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

@@ -584,11 +584,11 @@ async function mockDocumentAdminSession(page) {
       });
     }
 
-    if (url.includes('/permissions/by-document/')) {
+    if (url.includes('/permissions/snapshot/')) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([])
+        body: JSON.stringify({ documentId: url.split('/').at(-1), version: 7, permissions: [] })
       });
     }
 

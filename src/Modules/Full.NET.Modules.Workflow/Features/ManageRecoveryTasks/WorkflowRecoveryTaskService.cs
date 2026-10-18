@@ -149,7 +149,7 @@ internal sealed class WorkflowRecoveryTaskService(
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
         var normalizedKey = idempotencyKey.Trim();
-        var requestHash = HashRequest(actionKey, expectedRevision, reason);
+        var requestHash = HashRequest(taskId, actionKey, expectedRevision, reason);
         try
         {
             var result = await transaction.ExecuteResultAsync(
@@ -474,11 +474,12 @@ internal sealed class WorkflowRecoveryTaskService(
         return !requireReason || reason?.Trim() is { Length: > 0 };
     }
 
-    private static string HashRequest(string actionKey, long expectedRevision, string? reason)
+    private static string HashRequest(Guid taskId, string actionKey, long expectedRevision, string? reason)
     {
         var normalized = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        // 实例可包含多个恢复任务；版本化摘要绑定目标，缺少任务归属的旧回执按冲突处理。
         return Convert.ToHexStringLower(
-            SHA256.HashData(Encoding.UTF8.GetBytes($"{actionKey}\n{expectedRevision}\n{normalized}")));
+            SHA256.HashData(Encoding.UTF8.GetBytes($"recovery:v2\n{taskId:D}\n{actionKey}\n{expectedRevision}\n{normalized}")));
     }
 
     private static Result<WorkflowRecoveryTaskResponse> NotFound() =>

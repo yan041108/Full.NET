@@ -10,6 +10,134 @@ namespace Full.NET.UnitTests.Organization;
 public sealed class OrganizationPositionWorkbookCodecTests
 {
     [TestMethod]
+    [DataRow("duplicate-part", false)]
+    [DataRow("duplicate-part", true)]
+    [DataRow("wrong-root", false)]
+    [DataRow("wrong-root", true)]
+    [DataRow("nested-sheet-data", false)]
+    [DataRow("nested-sheet-data", true)]
+    [DataRow("row-zero", false)]
+    [DataRow("row-zero", true)]
+    [DataRow("row-malformed", false)]
+    [DataRow("row-malformed", true)]
+    [DataRow("cell-mismatch", false)]
+    [DataRow("cell-mismatch", true)]
+    [DataRow("error-type", false)]
+    [DataRow("error-type", true)]
+    public async Task Contradictory_workbook_structure_cannot_silently_import_rows(string kind, bool shared)
+    {
+        var workbook = MutateWorkbook(CreateImportWorkbook(shared, [["code", "name", "displayOrder", "unitCode", "positionLevelCode"], ["engineer", "Engineer", "10", "", ""]]), kind);
+        await using var source = new MemoryStream(workbook);
+        await Assert.ThrowsAsync<InvalidDataException>(() => OrganizationPositionWorkbookCodec.ParseImportAsync(source, workbook.LongLength, default));
+        Assert.IsTrue(source.CanRead);
+    }
+
+    [TestMethod]
+    [DataRow("missing-row-reference", false)]
+    [DataRow("missing-row-reference", true)]
+    [DataRow("sparse-row", false)]
+    [DataRow("sparse-row", true)]
+    public async Task Compatible_missing_and_sparse_row_metadata_keep_existing_business_rows(string kind, bool shared)
+    {
+        var workbook = MutateWorkbook(CreateImportWorkbook(shared, [["code", "name", "displayOrder", "unitCode", "positionLevelCode"], ["engineer", "Engineer", "10", "", ""]]), kind);
+        await using var source = new MemoryStream(workbook);
+        var rows = await OrganizationPositionWorkbookCodec.ParseImportAsync(source, workbook.LongLength, default);
+        Assert.HasCount(1, rows);
+        Assert.AreEqual("Engineer", rows[0].Name);
+        Assert.IsTrue(source.CanRead);
+    }
+
+    /// <summary>仅改当前测试工作簿的 ZIP 或行元数据，保留真实 inline/shared 两种编码。</summary>
+    private static byte[] MutateWorkbook(byte[] source, string kind)
+    {
+        using var output = new MemoryStream(); output.Write(source); output.Position = 0;
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Update, true))
+        {
+            const string path = "xl/worksheets/sheet1.xml";
+            if (kind == "duplicate-part") WriteEntry(archive, path, "<duplicate/>");
+            else
+            {
+                var document = ReadXml(archive, path); var root = document.Root!;
+                var data = root.Element(SpreadsheetNamespace + "sheetData")!;
+                var row = data.Elements(SpreadsheetNamespace + "row").Last();
+                var cell = row.Elements(SpreadsheetNamespace + "c").First();
+                switch (kind)
+                {
+                    case "wrong-root": root.Name = SpreadsheetNamespace + "document"; break;
+                    case "nested-sheet-data": data.ReplaceWith(new XElement(SpreadsheetNamespace + "wrapper", new XElement(data))); break;
+                    case "row-zero": row.SetAttributeValue("r", "0"); break;
+                    case "row-malformed": row.SetAttributeValue("r", "invalid"); break;
+                    case "cell-mismatch": cell.SetAttributeValue("r", "A99"); break;
+                    case "error-type": cell.SetAttributeValue("t", "e"); cell.ReplaceNodes(new XElement(SpreadsheetNamespace + "v", "#VALUE!")); break;
+                    case "missing-row-reference": row.Attribute("r")!.Remove(); break;
+                    case "sparse-row": row.SetAttributeValue("r", "4096"); foreach (var item in row.Elements()) item.SetAttributeValue("r", ((string)item.Attribute("r")!)[0] + "4096"); break;
+                }
+                archive.GetEntry(path)!.Delete(); WriteEntry(archive, path, document.ToString());
+            }
+        }
+        return output.ToArray();
+    }
+
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public async Task Cancellation_after_source_eof_stops_xml_parse_and_keeps_source_owned_by_caller(bool hasData, bool shared)
+    {
+        var rows = new List<string[]> { new[] { "code", "name", "displayOrder", "unitCode", "positionLevelCode" } };
+        if (hasData) rows.Add(["engineer", "Engineer", "10", "", ""]);
+        var workbook = CreateImportWorkbook(shared, rows);
+        using var cancellation = new CancellationTokenSource();
+        await using var source = new CancelOnEofStream(workbook, cancellation);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => OrganizationPositionWorkbookCodec.ParseImportAsync(source, workbook.LongLength, cancellation.Token));
+        Assert.IsTrue(source.CanRead);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Duplicate_cell_cannot_silently_replace_an_existing_column(bool shared)
+    {
+        var workbook = CreateImportWorkbook(shared, [["code", "name", "displayOrder", "unitCode", "positionLevelCode"], ["engineer", "Engineer", "10", "", ""]], overriddenCellReference: "B2");
+        await using var source = new MemoryStream(workbook);
+        await Assert.ThrowsAsync<InvalidDataException>(() => OrganizationPositionWorkbookCodec.ParseImportAsync(source, workbook.LongLength, default));
+        Assert.IsTrue(source.CanRead);
+    }
+
+    /// <summary>取消在源流 EOF 返回前发生，避免测试依赖定时或调度竞态。</summary>
+    private sealed class CancelOnEofStream(byte[] bytes, CancellationTokenSource cancellation) : MemoryStream(bytes, writable: false)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await base.ReadAsync(buffer, cancellationToken);
+            if (read == 0) cancellation.Cancel();
+            return read;
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Export_preserves_supplementary_position_and_related_names(bool malformed)
+    {
+        // 同时覆盖职位、机构和职级显示名称；孤立代理项不写入特性参数。
+        var name = malformed ? " 前\0😀\uD800𠮷\uDC00后 " : " 中文 😀 𠮷 \t";
+        var expected = malformed ? " 前😀𠮷后 " : name;
+        var position = new OrganizationPositionResponse(Guid.CreateVersion7(), "unicode-position", name,
+            null, "unit", name, null, "level", name, 10, true,
+            DateTimeOffset.Parse("2026-10-15T00:00:00Z"), null, 1);
+        using var archive = Open(OrganizationPositionWorkbookCodec.Export([position]));
+        var sheet = ReadXml(archive, "xl/worksheets/sheet1.xml");
+        foreach (var reference in new[] { "B2", "E2", "G2" })
+        {
+            var value = sheet.Descendants(SpreadsheetNamespace + "c").Single(cell => (string?)cell.Attribute("r") == reference);
+            Assert.AreEqual(expected, value.Descendants(SpreadsheetNamespace + "t").Single().Value);
+        }
+        Assert.IsFalse(sheet.Descendants(SpreadsheetNamespace + "f").Any());
+    }
+
+    [TestMethod]
     public void CreateImportTemplate_emits_fixed_positions_sheet_and_headers()
     {
         var workbook = OrganizationPositionWorkbookCodec.CreateImportTemplate();

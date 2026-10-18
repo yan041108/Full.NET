@@ -24,6 +24,7 @@ import OidcCallbackView from './OidcCallbackView.vue';
 import { completeAdminOidcCallback } from '../auth/oidc-center-login';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { readOidcRefreshCredential, readOidcRefreshCredentialRevision, writeOidcRefreshCredential } from '../auth/oidc-session-credentials';
 
 const tokenResponse = {
   accessToken: 'oidc-access-token',
@@ -35,10 +36,13 @@ describe('OidcCallbackView', () => {
   beforeEach(() => {
     identityAuth.mode = 'oidc-center';
     localStorage.clear();
+    sessionStorage.clear();
     useAdminI18n().setLocale('zh-CN');
     replaceMock.mockClear();
     vi.mocked(completeAdminOidcCallback).mockReset();
-    vi.mocked(completeAdminOidcCallback).mockResolvedValue(tokenResponse);
+    vi.mocked(completeAdminOidcCallback).mockImplementation(async (_query, _signal, handoff) => {
+      handoff?.(readOidcRefreshCredentialRevision()); return tokenResponse;
+    });
     vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close: vi.fn() }));
     vi.spyOn(ElMessage, 'error').mockImplementation(() => ({ close: vi.fn() }));
   });
@@ -61,13 +65,13 @@ describe('OidcCallbackView', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const completeSpy = vi.spyOn(useSessionStore(), 'completeOidcAuthorization')
-      .mockResolvedValue(undefined);
+      .mockImplementation(async () => { useSessionStore().state = 'authenticated'; });
 
     const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } });
     await flushPromises();
 
     expect(completeAdminOidcCallback).toHaveBeenCalledOnce();
-    expect(completeSpy).toHaveBeenCalledWith(tokenResponse);
+    expect(completeSpy).toHaveBeenCalledWith(tokenResponse, expect.any(AbortSignal));
     expect(ElMessage.success).toHaveBeenCalledWith('身份中心登录成功');
     expect(replaceMock).toHaveBeenCalledWith('/');
     expect(wrapper.text()).toContain('正在返回控制台');
@@ -83,5 +87,54 @@ describe('OidcCallbackView', () => {
 
     expect(ElMessage.error).toHaveBeenCalledWith('授权状态无效或已过期');
     expect(replaceMock).toHaveBeenCalledWith('/');
+  });
+
+  it('建立会话被取消时不能提示成功', async () => {
+    setActivePinia(createPinia());
+    vi.spyOn(useSessionStore(), 'completeOidcAuthorization').mockImplementation(async () => { useSessionStore().state = 'anonymous'; });
+    mount(OidcCallbackView); await flushPromises();
+    expect(ElMessage.success).not.toHaveBeenCalled();
+    expect(ElMessage.error).toHaveBeenCalledWith('OIDC 回调处理失败');
+  });
+
+  it('离开页面后的令牌响应不能建立会话或重定向', async () => {
+    setActivePinia(createPinia());
+    let finish!: (value: typeof tokenResponse) => void;
+    vi.mocked(completeAdminOidcCallback).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const complete = vi.spyOn(useSessionStore(), 'completeOidcAuthorization');
+    const wrapper = mount(OidcCallbackView); wrapper.unmount(); finish(tokenResponse); await flushPromises();
+    expect(complete).not.toHaveBeenCalled(); expect(ElMessage.success).not.toHaveBeenCalled(); expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it('兑换后快照加载被取消只清理本次 refresh 凭据', async () => {
+    setActivePinia(createPinia());
+    vi.mocked(completeAdminOidcCallback).mockImplementation(async (_query, _signal, handoff) => {
+      writeOidcRefreshCredential({ refreshToken: 'callback-refresh', clientId: 'admin-spa' }); handoff?.(readOidcRefreshCredentialRevision()); return tokenResponse;
+    });
+    let finish!: () => void;
+    vi.spyOn(useSessionStore(), 'completeOidcAuthorization').mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    const wrapper = mount(OidcCallbackView); await flushPromises(); wrapper.unmount(); finish(); await flushPromises();
+    expect(readOidcRefreshCredential()).toBeUndefined(); expect(ElMessage.success).not.toHaveBeenCalled();
+  });
+
+  it('凭据写入与页面接收结果之间取消也能清理所属凭据', async () => {
+    setActivePinia(createPinia()); let wrapper: ReturnType<typeof mount>;
+    vi.mocked(completeAdminOidcCallback).mockImplementation(async (_query, _signal, handoff) => {
+      await Promise.resolve(); writeOidcRefreshCredential({ refreshToken: 'callback-refresh', clientId: 'admin-spa' });
+      handoff?.(readOidcRefreshCredentialRevision()); queueMicrotask(() => wrapper.unmount()); return tokenResponse;
+    });
+    wrapper = mount(OidcCallbackView); await flushPromises();
+    expect(readOidcRefreshCredential()).toBeUndefined(); expect(ElMessage.success).not.toHaveBeenCalled();
+  });
+
+  it('交接后的旧令牌不能接入新凭据代次', async () => {
+    setActivePinia(createPinia());
+    vi.mocked(completeAdminOidcCallback).mockImplementation(async (_query, _signal, handoff) => {
+      handoff?.(readOidcRefreshCredentialRevision());
+      queueMicrotask(() => writeOidcRefreshCredential({ refreshToken: 'new-session-refresh', clientId: 'admin-spa' })); return tokenResponse;
+    });
+    const complete = vi.spyOn(useSessionStore(), 'completeOidcAuthorization').mockResolvedValue(undefined);
+    mount(OidcCallbackView); await flushPromises();
+    expect(complete).not.toHaveBeenCalled(); expect(readOidcRefreshCredential()?.refreshToken).toBe('new-session-refresh');
   });
 });

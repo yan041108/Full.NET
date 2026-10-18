@@ -235,19 +235,24 @@ internal static class Endpoint
 
             var detail = detailResult.Value!;
             var storageProvider = storageProviders.Resolve(detail.ProviderKey);
-            var stream = await storageProvider.OpenReadAsync(
+            var content = await FileStorageContentReader.OpenAsync(storageProvider,
                     detail.StorageKey,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (!content.IsSuccess)
+            {
+                return mapper.Map(Result<HostFileResponse>.Failure(content.Error!), httpContext);
+            }
 
             return Results.File(
-                stream,
+                content.Value!,
                 detail.ContentType,
                 detail.OriginalFileName,
                 enableRangeProcessing: true);
         })
         .WithName("filesDownloadHostFileContent")
         .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Download));

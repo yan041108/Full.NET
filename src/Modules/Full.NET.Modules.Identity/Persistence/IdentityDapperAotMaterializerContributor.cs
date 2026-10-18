@@ -36,6 +36,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<HostUserLockoutEndUtcRow>(ReadHostUserLockoutEndUtcRow);
         registrar.Register<HostUserProfileRecord>(ReadHostUserProfileRecord);
         registrar.Register<HostRoleListRow>(ReadHostRoleListRow);
+        registrar.Register<WorkflowRoleListRow>(ReadWorkflowRoleListRow);
+        registrar.Register<WorkflowRoleMemberRow>(ReadWorkflowRoleMemberRow);
         registrar.Register<IdentityRoleRecord>(ReadIdentityRoleRecord);
         registrar.Register<IdentityRolePermission>(ReadIdentityRolePermission);
         registrar.Register<IdentityUserRoleDataScopeRow>(ReadIdentityUserRoleDataScopeRow);
@@ -281,8 +283,17 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Remark = ReadOptionalStringByName(reader, "Remark"),
             AvatarFileId = ReadOptionalGuidByName(reader, "AvatarFileId"),
             SignatureFileId = ReadOptionalGuidByName(reader, "SignatureFileId"),
+            AvatarClaimKey = ReadOptionalStringByName(reader, "AvatarClaimKey"),
+            SignatureClaimKey = ReadOptionalStringByName(reader, "SignatureClaimKey"),
             Version = ReadInt32ByName(reader, "Version"),
         };
+
+    // Workflow 角色目录与成员查询使用独立投影，不能复用 Host 角色管理的可变列序。
+    private static WorkflowRoleListRow ReadWorkflowRoleListRow(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2));
+
+    private static WorkflowRoleMemberRow ReadWorkflowRoleMemberRow(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1));
 
     private static HostRoleListRow ReadHostRoleListRow(DbDataReader reader) =>
         new()
@@ -549,7 +560,10 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadInt32(reader, 6),
             AotDataReaderExtensions.ReadInt32(reader, 7),
             AotDataReaderExtensions.ReadInt32(reader, 8),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9));
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            reader.IsDBNull(10) ? null : reader.GetString(10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12));
 
     private static RegistrationInvitationRecord ReadRegistrationInvitationRecord(DbDataReader reader) =>
         new(

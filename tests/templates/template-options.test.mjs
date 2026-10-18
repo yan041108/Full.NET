@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const TEMPLATE_JSON = resolve('templates/fullnet-app/.template.config/template.json');
-const REQUIRED_SYMBOLS = ['owner-key', 'database', 'preset', 'http-port'];
+const REQUIRED_SYMBOLS = ['owner-key', 'database', 'preset', 'http-port', 'worker-http-port'];
 
 test('template.json exposes required symbols', () => {
   const template = JSON.parse(readFileSync(TEMPLATE_JSON, 'utf8'));

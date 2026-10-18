@@ -68,7 +68,9 @@ internal sealed class ConfirmHandler(
                 IdentityAccountChallengePurpose.PasswordRecovery,
                 challenge.NormalizedEmail,
                 command.Request.ChallengeCode,
-                cancellationToken)
+                cancellationToken,
+                recoveryUserId: user.Id,
+                recoverySecurityStamp: user.SecurityStamp)
             .ConfigureAwait(false);
         if (!consumed.IsSuccess)
         {
@@ -101,6 +103,7 @@ internal sealed class ConfirmHandler(
                 IdentitySqlParameters.Create(
                     ("UserId", user.Id),
                     ("ScopeKey", user.ScopeKey),
+                    ("Version", user.Version),
                     ("PasswordHash", passwordHash),
                     ("SecurityStamp", securityStamp),
                     ("PasswordChangedAtUtc", now),

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isReactive, ref } from 'vue';
 import { Grid } from '@element-plus/icons-vue';
 import type { NavigationNode } from '@fullnet/client-contracts';
 import {
@@ -46,6 +47,14 @@ const navigation: NavigationNode[] = [{
 }];
 
 describe('fullNetShellAdapter', () => {
+  it('标签页进入响应式状态后仍保留静态图标组件', () => {
+    const items = buildShellNavigation({ navigation, translate: key => key });
+    const tabs = ref(upsertShellTab([], items, '/'));
+
+    expect(tabs.value[0]?.icon).toBe(resolveShellIcon('dashboard'));
+    expect(isReactive(tabs.value[0]?.icon)).toBe(false);
+  });
+
   it('只暴露白名单导航并优先使用本地文案', () => {
     const items = buildShellNavigation({
       navigation,

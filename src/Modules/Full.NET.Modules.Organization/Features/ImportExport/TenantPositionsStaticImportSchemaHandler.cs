@@ -23,6 +23,14 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
 
     public string SchemaKey => StaticImportSchemaKeys.OrganizationTenantPositions;
 
+    public IReadOnlyCollection<string> ExecutionCapabilityPermissions =>
+    [
+        OrganizationPositionManagementPermissions.AssignUnit,
+        OrganizationUnitManagementPermissions.Read,
+        OrganizationPositionManagementPermissions.AssignPositionLevel,
+        OrganizationPositionLevelManagementPermissions.Read,
+    ];
+
     public StaticImportSchemaDefinition GetDefinition() =>
         new(
             SchemaKey,

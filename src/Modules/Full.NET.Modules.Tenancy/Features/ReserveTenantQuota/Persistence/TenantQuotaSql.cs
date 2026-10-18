@@ -217,6 +217,9 @@ internal static class TenantQuotaSql
         SqlDataScope.HostOnly);
 }
 
+/// <summary>历史预留对账投影，由静态物化器按 SQL 列序读取，不进入公开契约。</summary>
+internal sealed record OutstandingReservationRow(Guid Id, Guid TenantId, string MetricCode, int Version);
+
 internal sealed record TenantQuotaMetricBackfillCandidate(Guid TenantId);
 
 internal sealed record TenantQuotaMetricRecord(

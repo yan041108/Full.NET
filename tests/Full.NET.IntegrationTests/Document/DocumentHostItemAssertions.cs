@@ -49,6 +49,8 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Restore,
                 HostDocumentPermissions.RollbackVersion,
                 HostDocumentPermissions.DeleteVersion,
+                HostDocumentPreviewTaskPermissions.Create,
+                HostDocumentRecycleBinPermissions.Purge,
                 HostDocumentAccessLogPermissions.Read,
             ],
             cancellationToken);
@@ -73,6 +75,10 @@ internal static class DocumentHostItemAssertions
         await VerifyDeleteVersionAsync(client, writer.AccessToken, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
+        await DocumentLifecycleAssertions.VerifyAsync(client, writer.AccessToken, cancellationToken);
+        await DocumentFileReleaseAssertions.VerifyAsync(factory, client, writer.AccessToken, cancellationToken);
+        await DocumentActiveClaimAssertions.VerifyAsync(factory, cancellationToken);
+        await DocumentLifecycleAssertions.VerifyWaitingVersionAdmissionAsync(factory, client, writer.AccessToken, cancellationToken);
         await OpenApiDocumentHostItemsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 

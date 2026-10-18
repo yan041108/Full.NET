@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.EnterpriseRequest.Generated;
 
-internal sealed class EnterpriseRequestQueryService(
+internal sealed partial class EnterpriseRequestQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
     IUserDataScopeResolver dataScopeResolver,
@@ -42,6 +42,7 @@ internal sealed class EnterpriseRequestQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     EnterpriseRequestSql.CountStatement,
                     filter,
@@ -65,7 +66,7 @@ internal sealed class EnterpriseRequestQueryService(
                 var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     baseStatement,
                     filter,
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var rows = await queryExecutor
                     .QueryAsync<EnterpriseRequestRecord>(
                         listStatement,
@@ -97,6 +98,7 @@ internal sealed class EnterpriseRequestQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var statement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     EnterpriseRequestSql.FindByIdStatement,
                     filter,
@@ -152,13 +154,17 @@ internal sealed class EnterpriseRequestQueryService(
     private static Result<EnterpriseRequestResponse> NotFound() =>
         EnterpriseRequestFeatureErrors.NotFound();
 
+    // 在独立手写 partial 中细化业务记录范围；未实现时编译器移除调用。
+    partial void ConfigureReadDataScope(
+        EffectiveUserDataScope scope, Guid currentUserId, ref DataScopeSqlFilter? filter);
+
     private static class GeneratedTenantDataScopeComposer
     {
         private const string CountTenantWhereAnchor =
             "WHERE TenantId = @TenantId";
 
         private const string ListTenantWhereAnchor =
-            "WHERE 1 = 1\n            AND TenantId = @TenantId";
+            "AND TenantId = @TenantId";
 
         internal static SqlStatement ApplyDataScopeFilter(
             SqlStatement statement,
@@ -233,7 +239,7 @@ internal sealed class EnterpriseRequestQueryService(
     }
 }
 
-internal sealed class EnterpriseRequestManagementService(
+internal sealed partial class EnterpriseRequestManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -282,26 +288,33 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<EnterpriseRequestResponse>.Failure(domainError);
+        }
+
         var enterpriseRequestId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.InsertStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    OrganizationUnitId = organizationUnitId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    Version = 1L,
-                    CreatedAtUtc = clock.UtcNow,
-                    CreatedById = actorUserId,
-                    UpdatedAtUtc = (DateTimeOffset?)null,
-                    UpdatedById = (Guid?)null,
-                    IsDeleted = false,
-                    DeletedAtUtc = (DateTimeOffset?)null,
-                    DeletedById = (Guid?)null
+                    ["Id"] = enterpriseRequestId,
+                    ["OrganizationUnitId"] = organizationUnitId,
+                    ["RequestNumber"] = request.RequestNumber,
+                    ["Title"] = request.Title,
+                    ["Status"] = request.Status,
+                    ["TotalAmount"] = request.TotalAmount,
+                    ["ApplicantUserId"] = request.ApplicantUserId,
+                    ["Version"] = 1L,
+                    ["CreatedAtUtc"] = clock.UtcNow,
+                    ["CreatedById"] = actorUserId,
+                    ["UpdatedAtUtc"] = (DateTimeOffset?)null,
+                    ["UpdatedById"] = (Guid?)null,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -317,6 +330,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateEnterpriseRequestRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<EnterpriseRequestResponse>> UpdateAsync(
         Guid enterpriseRequestId,
@@ -366,19 +383,30 @@ CancellationToken cancellationToken = default)
         return validationError;
     }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(enterpriseRequestId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<EnterpriseRequestResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.UpdateStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    UpdatedAtUtc = clock.UtcNow,
-                    UpdatedById = actorUserId,
-                    request.Version
+                    ["Id"] = enterpriseRequestId,
+                    ["RequestNumber"] = request.RequestNumber,
+                    ["Title"] = request.Title,
+                    ["Status"] = request.Status,
+                    ["TotalAmount"] = request.TotalAmount,
+                    ["ApplicantUserId"] = request.ApplicantUserId,
+                    ["UpdatedAtUtc"] = clock.UtcNow,
+                    ["UpdatedById"] = actorUserId,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -396,12 +424,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(EnterpriseRequestResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<EnterpriseRequestResponse>> DeleteAsync(
         Guid enterpriseRequestId,
             DeleteEnterpriseRequestRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 enterpriseRequestId, request,
                 actorUserId,
@@ -435,18 +466,25 @@ CancellationToken cancellationToken = default)
                     {
                         return Result<EnterpriseRequestResponse>.Failure(authorization.Error!);
                     }
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<EnterpriseRequestResponse>.Failure(domainError);
+        }
+
             await CascadeDeleteDependentsAsync(
             enterpriseRequestId,
             cancellationToken)
             .ConfigureAwait(false);
                 var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.DeleteStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedById = actorUserId,
-                    request.Version
+                    ["Id"] = enterpriseRequestId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -460,6 +498,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateEnterpriseRequestRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable
@@ -532,10 +573,10 @@ CancellationToken cancellationToken = default)
                     "DELETE FROM demo_enterprise_request_enterprise_request_line WHERE RequestId = @Id AND TenantId = @TenantId",
                     SqlDataScope.TenantRequired,
                     SqlTenantBinding.CurrentTenantId),
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                                    TenantId = currentTenant.Id!.Value,
+                    ["Id"] = enterpriseRequestId,
+                                    ["TenantId"] = currentTenant.Id!.Value,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

@@ -56,11 +56,7 @@ internal sealed class LocalHostFileBlobStorage(IOptions<LocalFileStorageOptions>
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullPath = ResolvePath(storageKey);
-        if (!File.Exists(fullPath))
-        {
-            throw new FileNotFoundException("Stored blob was not found.", fullPath);
-        }
-
+        // 直接打开以保留权限与磁盘故障；Exists 会将这些故障压成 false，不能据此判定对象缺失。
         Stream stream = new FileStream(
             fullPath,
             FileMode.Open,

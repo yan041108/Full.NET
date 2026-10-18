@@ -119,8 +119,19 @@ public sealed class TotpStrongReauthTests
         var enrollment = sp.GetRequiredService<TotpEnrollmentService>();
         var begin = await enrollment.BeginAsync(principal);
         Assert.IsTrue(begin.IsSuccess, begin.Error?.Message);
+        var pending = await query.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
+            IdentitySql.FindUserTotpByUserId, new { UserId = admin.Id });
+        Assert.IsNotNull(pending);
+        var commands = sp.GetRequiredService<ICommandExecutor>();
+        var now = sp.GetRequiredService<IClock>().UtcNow;
+        Assert.AreEqual(0, await commands.ExecuteAsync(IdentitySql.ResetUserTotpPending,
+            IdentitySqlParameters.Create(("UserId", admin.Id), ("SecretProtected", "stale-secret"),
+                ("UpdatedAtUtc", now), ("Version", pending.Version + 1))));
+        var restarted = await enrollment.BeginAsync(principal);
+        Assert.IsTrue(restarted.IsSuccess, restarted.Error?.Message);
+        Assert.AreNotEqual(begin.Value!.SharedSecretBase32, restarted.Value!.SharedSecretBase32);
 
-        var key = TotpAlgorithm.DecodeSharedSecret(begin.Value!.SharedSecretBase32);
+        var key = TotpAlgorithm.DecodeSharedSecret(restarted.Value.SharedSecretBase32);
         var code = TotpAlgorithm.ComputeCode(key, sp.GetRequiredService<IClock>().UtcNow);
         var invalidConfirmation = await enrollment.ConfirmAsync(principal, "invalid");
         Assert.IsFalse(invalidConfirmation.IsSuccess);
@@ -133,6 +144,23 @@ public sealed class TotpStrongReauthTests
         Assert.AreEqual(1L, await CountAuthenticationEventsAsync(
             query, sp.GetRequiredService<IClock>().UtcNow,
             admin.Id, "mfa.totp_enrollment_confirmed", true));
+        var enabled = await query.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
+            IdentitySql.FindUserTotpByUserId, new { UserId = admin.Id });
+        Assert.IsNotNull(enabled);
+        var rejectedBegin = await enrollment.BeginAsync(principal);
+        Assert.IsFalse(rejectedBegin.IsSuccess);
+        Assert.AreEqual(ErrorType.Conflict, rejectedBegin.Error!.Type);
+        Assert.AreEqual(IdentityErrorCodes.MfaTotpEnrollmentConflict, rejectedBegin.Error.Code);
+        // 使用当前版本也不得重置已启用凭据，覆盖读取与确认交错的 SQL 保护。
+        Assert.AreEqual(0, await commands.ExecuteAsync(IdentitySql.ResetUserTotpPending,
+            IdentitySqlParameters.Create(("UserId", admin.Id), ("SecretProtected", "replacement-secret"),
+                ("UpdatedAtUtc", now), ("Version", enabled.Version))));
+        var preserved = await query.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
+            IdentitySql.FindUserTotpByUserId, new { UserId = admin.Id });
+        Assert.IsNotNull(preserved);
+        Assert.IsTrue(preserved.IsEnabled);
+        Assert.AreEqual(enabled.SecretProtected, preserved.SecretProtected);
+        Assert.AreEqual(enabled.Version, preserved.Version);
 
         var hostUsers = sp.GetRequiredService<HostUserManagementService>();
         var created = await hostUsers.CreateAsync(

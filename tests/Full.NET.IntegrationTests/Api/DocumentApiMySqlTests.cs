@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class DocumentApiMySqlTests
 {
     [TestMethod]
+    public async Task Host_document_version_retention_rejects_stale_writes_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await DocumentVersionRetentionAssertions.VerifyJitAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_document_items_follow_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

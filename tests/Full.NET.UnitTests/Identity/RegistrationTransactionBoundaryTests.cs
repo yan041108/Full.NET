@@ -19,6 +19,40 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class RegistrationTransactionBoundaryTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Incorrect_challenge_is_counted_before_registration_transaction(bool invitationOnly)
+    {
+        var fixture = new Fixture(invitationOnly, wrongCredential: true);
+        var result = await fixture.HandleAsync();
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.AccountChallengeInvalid, result.Error!.Code);
+        Assert.IsFalse(fixture.FailedAttemptInsideTransaction,
+            "错误次数不能随注册业务失败一起回滚。");
+        Assert.AreEqual(1, fixture.Writes);
+        Assert.AreEqual(0, fixture.Coordinator.BeginCount);
+    }
+
+    [TestMethod]
+    [DataRow("consumed")]
+    [DataRow("exhausted")]
+    [DataRow("expired")]
+    public async Task Registration_rechecks_challenge_after_prevalidation(string change)
+    {
+        var fixture = new Fixture();
+        fixture.AfterInitialChallengeRead = () => fixture.Challenge = change switch
+        {
+            "consumed" => fixture.Challenge with { ConsumedAtUtc = DateTimeOffset.UtcNow },
+            "exhausted" => fixture.Challenge with { AttemptCount = fixture.Challenge.MaxAttempts },
+            _ => fixture.Challenge with { ExpiresAtUtc = DateTimeOffset.MinValue },
+        };
+        var result = await fixture.HandleAsync();
+        Assert.IsFalse(result.IsSuccess, "事务前的校验快照不能替代事务内消费时的重新验证。");
+        Assert.AreEqual(0, fixture.Writes);
+        Assert.AreEqual(1, fixture.Coordinator.RollbackCount);
+    }
+
+    [TestMethod]
     public async Task Active_tenant_is_checked_before_transaction_and_local_writes_remain_atomic()
     {
         var fixture = new Fixture();
@@ -94,10 +128,14 @@ public sealed class RegistrationTransactionBoundaryTests
         public bool AuthorityReadInsideTransaction;
         public Action? AfterAuthorityRead;
         public int Writes;
+        public bool FailedAttemptInsideTransaction;
+        public AccountChallengeRecord Challenge;
+        public Action? AfterInitialChallengeRead;
+        private int challengeReads;
         private readonly Handler handler;
         private readonly RegisterAccountRequest request;
 
-        public Fixture(bool invitationOnly = false)
+        public Fixture(bool invitationOnly = false, bool wrongCredential = false)
         {
             var now = DateTimeOffset.UtcNow;
             var query = Substitute.For<IQueryExecutor>();
@@ -122,12 +160,25 @@ public sealed class RegistrationTransactionBoundaryTests
             query.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Invitation);
             query.QuerySingleOrDefaultAsync<RegistrationPolicyRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Policy);
             query.QuerySingleOrDefaultAsync<RegistrationWayRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Way);
+            Challenge = new AccountChallengeRecord(request.ChallengeId, (byte)(invitationOnly ? IdentityAccountChallengePurpose.InvitationEmailVerification : IdentityAccountChallengePurpose.RegistrationEmailVerification),
+                request.Email, AccountChallengeCredentialHasher.Hash(request.ChallengeId, wrongCredential ? "654321" : request.ChallengeCode), now.AddMinutes(5), null, 0, 5, 1, now);
             query.QuerySingleOrDefaultAsync<AccountChallengeRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-                .Returns(new AccountChallengeRecord(request.ChallengeId, (byte)(invitationOnly ? IdentityAccountChallengePurpose.InvitationEmailVerification : IdentityAccountChallengePurpose.RegistrationEmailVerification),
-                    request.Email, AccountChallengeCredentialHasher.Hash(request.ChallengeId, request.ChallengeCode), now.AddMinutes(5), null, 0, 5, 1, now));
-            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                .Returns(_ =>
+                {
+                    var snapshot = Challenge;
+                    if (++challengeReads == 1) AfterInitialChallengeRead?.Invoke();
+                    return snapshot;
+                });
+            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                Assert.IsTrue(Coordinator.HasTransaction);
+                if (call.ArgAt<SqlStatement>(0) == AccountChallengeSql.IncrementAttempt)
+                {
+                    FailedAttemptInsideTransaction |= Coordinator.HasTransaction;
+                }
+                else
+                {
+                    Assert.IsTrue(Coordinator.HasTransaction);
+                }
                 Writes++;
                 return 1;
             });

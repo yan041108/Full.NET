@@ -13,6 +13,7 @@ import {
   updateWorkflowFormDraft
 } from '../api/workflow-forms';
 import WorkflowFormsView from './WorkflowFormsView.vue';
+import { workflowForm as form, workflowFormDraft as draft, workflowFormCatalog as catalog, workflowFormVersion } from '../test/workflow-form-fixtures';
 
 vi.mock('../api/workflow-forms', () => ({
   createWorkflowForm: vi.fn(),
@@ -20,35 +21,16 @@ vi.mock('../api/workflow-forms', () => ({
   getWorkflowFormComponentCatalog: vi.fn(),
   listWorkflowForms: vi.fn(),
   publishWorkflowForm: vi.fn(),
-  updateWorkflowFormDraft: vi.fn()
+  updateWorkflowFormDraft: vi.fn(), setWorkflowFormStatus: vi.fn(), deleteWorkflowFormVersion: vi.fn(), listWorkflowFormVersions: vi.fn()
 }));
-
-const draft = {
-  schemaVersion: 1,
-  adapterVersion: 1,
-  sections: [{
-    sectionKey: 'main',
-    fields: [{ fieldKey: 'summary', fieldTypeKey: 'text', required: true, constraints: {} }]
-  }]
-} satisfies WorkflowFormSchema;
-const form = {
-  id: 'form-1', formKey: 'purchase.request', statusKey: 'active', version: 1, draft, draftRevision: 2,
-  latestPublishedVersionId: null, createdAtUtc: '2026-08-30T00:00:00Z', updatedAtUtc: null
-};
-const catalog = {
-  catalogVersion: 1, schemaVersion: 1, adapterVersion: 1,
-  components: [{
-    fieldTypeKey: 'text', designable: true, publishable: true,
-    executable: true, constraintKeys: ['minLength', 'maxLength']
-  }]
-};
 
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  useSessionStore().state = 'authenticated';
   useSessionStore().currentUser = {
-    id: 'user-1', username: 'starter', displayName: '管理员', tenantId: 'tenant-1',
-    actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false,
+    id: workflowFormVersion().publishedById, username: 'starter', displayName: '管理员', tenantId: form.id,
+    actorScope: 'tenant:' + form.id.replaceAll('-', ''), scope: 'tenant:' + form.id.replaceAll('-', ''), isSuperAdministrator: false,
     passwordChangeRequired: false, permissions,
     sessionId: 'session-1', preferredLocale: 'zh-CN', profileVersion: 1
   };
@@ -107,7 +89,8 @@ describe('WorkflowFormsView', () => {
   });
 
   it('创建表单时发送安全默认 Draft 并刷新权威列表', async () => {
-    vi.mocked(createWorkflowForm).mockResolvedValue(form);
+    vi.mocked(listWorkflowForms).mockResolvedValueOnce([]);
+    vi.mocked(createWorkflowForm).mockResolvedValue({ ...form, draftRevision: 1 });
     const wrapper = mountWithPermissions(['workflow.forms.read', 'workflow.forms.create']);
     await flushPromises();
     await wrapper.get('[data-testid="workflow-form-create"]').trigger('click');
@@ -115,12 +98,12 @@ describe('WorkflowFormsView', () => {
     await wrapper.get('[data-testid="workflow-form-create-submit"]').trigger('click');
     await flushPromises();
 
-    expect(createWorkflowForm).toHaveBeenCalledWith('purchase.request', draft);
+    expect(createWorkflowForm).toHaveBeenCalledWith('purchase.request', draft, expect.any(AbortSignal));
     expect(listWorkflowForms).toHaveBeenCalledTimes(2);
   });
 
   it('编辑先读取权威 Draft 与目录并用当前修订号保存', async () => {
-    const saved = { ...form, draftRevision: 3 };
+    const saved = { ...form, draftRevision: 3, draft: { ...draft, sections: [{ ...draft.sections[0]!, fields: [{ ...draft.sections[0]!.fields[0]!, required: false }] }] } };
     vi.mocked(updateWorkflowFormDraft).mockResolvedValue(saved);
     const wrapper = mountWithPermissions(['workflow.forms.read', 'workflow.forms.update']);
     await flushPromises();
@@ -130,16 +113,17 @@ describe('WorkflowFormsView', () => {
     await wrapper.get('[data-testid="workflow-form-save"]').trigger('click');
     await flushPromises();
 
-    expect(getWorkflowForm).toHaveBeenCalledWith('form-1');
+    expect(getWorkflowForm).toHaveBeenCalledWith(form.id, expect.any(AbortSignal));
     expect(getWorkflowFormComponentCatalog).toHaveBeenCalledOnce();
     expect(updateWorkflowFormDraft).toHaveBeenCalledWith(
-      'form-1',
+      form.id,
       2,
       expect.objectContaining({
         sections: [expect.objectContaining({
           fields: [expect.objectContaining({ required: false })]
         })]
-      })
+      }),
+      expect.any(AbortSignal)
     );
     expect(wrapper.text()).toContain('Revision 3');
   });
@@ -148,12 +132,7 @@ describe('WorkflowFormsView', () => {
     vi.mocked(updateWorkflowFormDraft).mockRejectedValue({
       status: 409, code: 'workflow.form_revision_conflict', title: '表单已被其他用户修改'
     });
-    vi.mocked(publishWorkflowForm).mockResolvedValue({
-      id: 'version-1', formDefinitionId: 'form-1', versionNumber: 1,
-      schemaVersion: 1, adapterVersion: 1, componentCatalogVersion: 1,
-      formSchemaJson: '{}', webRenderSchemaJson: '{}', contentHash: 'hash',
-      publishedById: 'user-1', publishedAtUtc: '2026-08-30T00:00:00Z'
-    });
+    vi.mocked(publishWorkflowForm).mockResolvedValue(workflowFormVersion());
     const wrapper = mountWithPermissions([
       'workflow.forms.read', 'workflow.forms.update', 'workflow.forms.publish'
     ]);
@@ -164,13 +143,16 @@ describe('WorkflowFormsView', () => {
     await wrapper.get('[data-testid="workflow-form-save"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('workflow.form_revision_conflict');
+    expect((wrapper.vm as unknown as { problem: { code: string } }).problem.code).toBe('workflow.form_revision_conflict');
     expect(wrapper.get('[data-field-key="summary"] [data-field-property="required"]')
       .element).toHaveProperty('checked', false);
 
+    await wrapper.get('[data-testid="workflow-form-close-editor"]').trigger('click');
+    await wrapper.get('[data-testid="workflow-form-refresh"]').trigger('click');
+    await flushPromises();
     await wrapper.get('[data-testid="workflow-form-publish"]').trigger('click');
     await flushPromises();
-    expect(publishWorkflowForm).toHaveBeenCalledWith('form-1', { expectedRevision: 2 });
-    expect(getWorkflowForm).toHaveBeenCalledTimes(2);
+    expect(publishWorkflowForm).toHaveBeenCalledWith(form.id, { expectedRevision: 2 }, expect.any(AbortSignal));
+    expect(getWorkflowForm).toHaveBeenCalledOnce();
   });
 });

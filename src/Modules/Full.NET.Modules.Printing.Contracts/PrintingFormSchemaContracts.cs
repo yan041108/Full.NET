@@ -12,11 +12,13 @@ public sealed record PrintingFormFieldDefinition(
 /// <param name="DisplayName">显示名称。</param>
 /// <param name="Description">说明。</param>
 /// <param name="Fields">允许绑定的字段集合。</param>
+/// <param name="RequiresRecordId">是否必须指定业务记录标识；仅服务端注册的业务表单启用。</param>
 public sealed record PrintingFormSchemaDefinition(
     string FormSchemaKey,
     string DisplayName,
     string Description,
-    IReadOnlyList<PrintingFormFieldDefinition> Fields);
+    IReadOnlyList<PrintingFormFieldDefinition> Fields,
+    bool RequiresRecordId = false);
 
 /// <summary>租户档案卡片绑定数据；由 Tenancy 模块通过契约端口提供。</summary>
 /// <param name="TenantName">租户显示名称。</param>

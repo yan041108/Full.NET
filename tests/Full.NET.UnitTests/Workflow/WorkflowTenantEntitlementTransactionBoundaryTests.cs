@@ -52,7 +52,7 @@ public sealed class WorkflowTenantEntitlementTransactionBoundaryTests
         {
             var service = new WorkflowDefinitionManagementService(query, command, transaction, tenant,
                 Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-                Substitute.For<IHostUserBatchSelectionDirectory>(), Substitute.For<ITenantUserSelectionDirectory>(),
+                Substitute.For<IHostUserBatchSelectionDirectory>(), Substitute.For<ITenantMemberBatchSelectionDirectory>(),
                 WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(), entitlements);
             var result = await service.UpdateDraftAsync(id, actorId,
                 new UpdateWorkflowDefinitionDraftRequest(1, new WorkflowDefinitionDraft(1, [])));

@@ -17,6 +17,60 @@
   ],
   "entries": [
     {
+      "operationId": "enterpriseRequestListAttachments",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestUploadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestRemoveAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDownloadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestGetLines",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestReplaceLines",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "submitEnterpriseRequestForApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestGetApprovalProgress",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestRepairApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
       "operationId": "enterpriseRequestListEnterpriseRequests",
       "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
       "generatedGroup": "enterprise-requests",
@@ -2201,6 +2255,12 @@
       "status": "generated"
     },
     {
+      "operationId": "documentHostGetDocumentPermissionSnapshot",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostSetDocumentPermissions",
       "apiModule": "ui/admin/src/api/document-permissions.ts",
       "generatedGroup": "document-host-permissions",
@@ -2375,6 +2435,12 @@
       "status": "generated"
     },
     {
+      "operationId": "importExportCancelImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
       "operationId": "importExportDownloadImportTaskErrorReceipt",
       "apiModule": "ui/admin/src/api/import-export-tasks.ts",
       "generatedGroup": "import-export",
@@ -2457,6 +2523,30 @@
       "apiModule": "ui/admin/src/api/reporting-definitions.ts",
       "generatedGroup": "reporting-definitions",
       "status": "manual"
+    },
+    {
+      "operationId": "reportingListPublishedDefinitions",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingListTenantVersionGrants",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
     },
     {
       "operationId": "reportingCreateDefinition",
@@ -2577,6 +2667,36 @@
       "apiModule": "ui/admin/src/api/printing-templates.ts",
       "generatedGroup": "printing-templates",
       "status": "manual"
+    },
+    {
+      "operationId": "printingListPublishedTemplates",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingPreviewPublishedTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingListTenantVersionGrants",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
     },
     {
       "operationId": "aiListModelConfigs",
@@ -3380,6 +3500,18 @@
       "operationId": "workflowSetFormStatus",
       "apiModule": "ui/admin/src/api/workflow-forms.ts",
       "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingCancelExportTask",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCancelDocumentPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
       "status": "generated"
     }
   ]

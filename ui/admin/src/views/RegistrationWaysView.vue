@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -9,6 +9,8 @@ import {
   ElMessage,
   ElMessageBox,
   ElPagination,
+  ElSelect,
+  ElOption,
   ElSwitch,
   ElTable,
   ElTableColumn,
@@ -16,13 +18,15 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import type { FullNetProblemDetails, RegistrationPolicy, RegistrationWay } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, RegistrationMode, RegistrationPolicy, RegistrationWay } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { showProblem, showSuccess } from '../feedback/fullNetMessage';
+import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -41,6 +45,32 @@ type EditorMode = 'create' | 'edit';
 const { t } = useAdminI18n();
 const policy = ref<RegistrationPolicy | null>(null);
 const policySaving = ref(false);
+const policyLoading = ref(false);
+const session = useSessionStore();
+let disposed = false;
+let inactive = false;
+let viewGeneration = 0;
+let policyRequest = 0;
+let listRequest = 0;
+// 会话与页面生命周期变化后，旧请求不能修改新页面状态或显示成功提示。
+function invalidateView() {
+  viewGeneration++; policyRequest++; listRequest++;
+  policy.value = null; items.value = []; total.value = 0;
+  policyLoading.value = false; policySaving.value = false; loading.value = false;
+}
+onBeforeUnmount(() => { disposed = true; invalidateView(); });
+onDeactivated(() => { inactive = true; invalidateView(); });
+onActivated(() => {
+  if (!inactive) return;
+  inactive = false; void loadPolicy(); void load();
+});
+watch([() => session.currentUser?.id, () => session.currentUser?.sessionId], () => {
+  invalidateView();
+  if (!disposed && !inactive) { void loadPolicy(); void load(); }
+}, { flush: 'sync' });
+const policyModeLabel = computed(() => policy.value ? t(([
+  'registrationWays.modeDisabled', 'registrationWays.modeInvitationOnly', 'registrationWays.modeOpen'
+] as const)[policy.value.registrationMode]) : t('registrationWays.policyUnavailable'));
 const items = ref<RegistrationWay[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -90,26 +120,45 @@ function rowIndex(index: number) {
 }
 
 async function loadPolicy() {
-  policy.value = await getRegistrationPolicy();
+  if (disposed || inactive || policyLoading.value || policySaving.value) return;
+  const request = ++policyRequest;
+  policyLoading.value = true;
+  try {
+    const result = await getRegistrationPolicy();
+    if (!disposed && !inactive && request === policyRequest) policy.value = result;
+  } catch (error) {
+    if (!disposed && !inactive && request === policyRequest) showProblem(error, t('registrationWays.policyLoadFailed'));
+  } finally {
+    if (request === policyRequest) policyLoading.value = false;
+  }
 }
 
-async function savePolicy(enabled: boolean) {
-  if (!policy.value) {
-    return;
-  }
+async function savePolicy(mode: RegistrationMode) {
+  if (!policy.value || disposed || inactive || policySaving.value || policyLoading.value
+      || (mode !== 0 && mode !== 1 && mode !== 2)) return;
+  const request = ++policyRequest;
   policySaving.value = true;
   try {
-    policy.value = await updateRegistrationPolicy({
-      isPublicRegistrationEnabled: enabled,
+    const result = await updateRegistrationPolicy({
+      registrationMode: mode,
+      isPublicRegistrationEnabled: mode === 2,
       version: policy.value.version
     });
-    ElMessage.success(t('registrationWays.policyUpdateSuccess'));
+    if (!disposed && !inactive && request === policyRequest) {
+      policy.value = result;
+      showSuccess(t('registrationWays.policyUpdateSuccess'));
+    }
+  } catch (error) {
+    if (!disposed && !inactive && request === policyRequest) showProblem(error, t('registrationWays.policyUpdateFailed'));
   } finally {
-    policySaving.value = false;
+    if (request === policyRequest) policySaving.value = false;
   }
 }
 
 async function load() {
+  if (disposed || inactive) return;
+  const generation = viewGeneration;
+  const request = ++listRequest;
   loading.value = true;
   problem.value = undefined;
   try {
@@ -119,13 +168,14 @@ async function load() {
       tenantId: appliedFilters.value.tenantId,
       nameContains: appliedFilters.value.name
     });
+    if (disposed || inactive || generation !== viewGeneration || request !== listRequest) return;
     items.value = result.items;
     total.value = result.total;
     updateTableHeight();
   } catch (error) {
-    problem.value = error as FullNetProblemDetails;
+    if (!disposed && !inactive && generation === viewGeneration && request === listRequest) problem.value = error as FullNetProblemDetails;
   } finally {
-    loading.value = false;
+    if (generation === viewGeneration && request === listRequest) loading.value = false;
   }
 }
 
@@ -231,29 +281,35 @@ async function confirmDelete(way: RegistrationWay) {
   }
 }
 
-onMounted(async () => {
-  await loadPolicy();
-  await load();
-});
+onMounted(() => { void loadPolicy(); void load(); });
 </script>
 
 <template>
   <section class="registration-ways-view art-page-stack art-full-height" :aria-busy="loading">
+    <h1 class="registration-ways-title">{{ t('registrationWays.title') }}</h1>
     <ElCard class="registration-policy-card" shadow="never">
       <template #header>
         <span>{{ t('registrationWays.policyTitle') }}</span>
       </template>
       <div class="registration-policy-row">
-        <span>{{ t('registrationWays.policyPublicEnabled') }}</span>
+        <span data-testid="registration-policy-current">{{ policyModeLabel }}</span>
         <PermissionGate code="identity.registration_policy.update">
-          <ElSwitch
-            :model-value="policy?.isPublicRegistrationEnabled ?? false"
-            :loading="policySaving"
-            data-testid="registration-policy-toggle"
-            @change="value => savePolicy(value === true)"
-          />
+          <ElSelect
+            :model-value="policy?.registrationMode"
+            :disabled="!policy || policyLoading || policySaving"
+            :loading="policySaving || policyLoading"
+            :aria-label="t('registrationWays.policyTitle')"
+            data-testid="registration-policy-mode"
+            @change="savePolicy"
+          >
+            <ElOption :value="0" :label="t('registrationWays.modeDisabled')" />
+            <ElOption :value="1" :label="t('registrationWays.modeInvitationOnly')" />
+            <ElOption :value="2" :label="t('registrationWays.modeOpen')" />
+          </ElSelect>
         </PermissionGate>
-        <ElTag type="info">{{ t('registrationWays.policyDefaultDisabled') }}</ElTag>
+        <ElButton :disabled="policyLoading || policySaving" data-testid="registration-policy-retry" @click="loadPolicy">
+          {{ t('registrationWays.policyRefresh') }}
+        </ElButton>
       </div>
     </ElCard>
 
@@ -266,8 +322,8 @@ onMounted(async () => {
     />
 
     <ElCard ref="tableMainRef" class="art-table-card art-full-height" shadow="never">
-      <ArtTableHeader :title="t('registrationWays.title')">
-        <template #actions>
+      <ArtTableHeader>
+        <template #left>
           <PermissionGate code="identity.registration_ways.create">
             <ElButton
               type="primary"
@@ -377,6 +433,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.registration-ways-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
 .registration-policy-card {
   margin-bottom: 12px;
 }

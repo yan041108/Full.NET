@@ -35,9 +35,11 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
     ICommandExecutor commandExecutor,
     IEnumerable<IHostFileReferenceClaimProbe> probes,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    PendingHostFileReferenceClaimReconciliationCursor? cursor = null)
 {
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
+    private readonly PendingHostFileReferenceClaimReconciliationCursor _cursor = cursor ?? new();
     private readonly IReadOnlyDictionary<string, IHostFileReferenceClaimProbe> _probes =
         probes.ToDictionary(probe => probe.ConsumerModule, StringComparer.Ordinal);
 
@@ -51,35 +53,49 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
             return PendingHostFileReferenceClaimReconciliationResult.Empty;
         }
 
-        var staleBeforeUtc = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
-        var releaseBeforeUtc = clock.UtcNow.AddSeconds(-options.ReleaseGraceSeconds);
+        var validation = new PendingHostFileReferenceClaimReconciliationOptionsValidator().Validate(null, options);
+        if (validation.Failed)
+            throw new OptionsValidationException(PendingHostFileReferenceClaimReconciliationOptions.SectionName, options.GetType(), validation.Failures);
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false); }
+        finally { _cursor.Gate.Release(); }
+    }
+
+    private async Task<PendingHostFileReferenceClaimReconciliationResult> RunCoreAsync(
+        PendingHostFileReferenceClaimReconciliationOptions options, CancellationToken cancellationToken)
+    {
+        var stale = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var release = clock.UtcNow.AddSeconds(-options.ReleaseGraceSeconds);
+        // 扫描与释放年龄各自冻结；运行配置收紧不能扩大本周期可释放范围。
+        _cursor.StaleBeforeUtc = _cursor.StaleBeforeUtc is { } previous && previous < stale ? previous : stale;
+        _cursor.ReleaseBeforeUtc = _cursor.ReleaseBeforeUtc is { } priorRelease && priorRelease < release ? priorRelease : release;
         var scanned = 0;
         var promoted = 0;
         var released = 0;
         var probeFailures = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterUpdatedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<HostFileReferenceClaimRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
                     {
                         ["PendingState"] = HostFileReferenceClaimStates.Pending,
-                        ["StaleBeforeUtc"] = staleBeforeUtc,
-                        ["HasCursor"] = hasCursor ? 1 : 0,
-                        ["AfterUpdatedAtUtc"] = afterUpdatedAtUtc,
-                        ["AfterId"] = afterId,
+                        ["StaleBeforeUtc"] = _cursor.StaleBeforeUtc,
+                        ["HasCursor"] = _cursor.Id.HasValue ? 1 : 0,
+                        ["AfterUpdatedAtUtc"] = _cursor.UpdatedAtUtc,
+                        ["AfterId"] = _cursor.Id,
                         ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -96,11 +112,11 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 HostFileReferenceClaimProbeResult probeResult;
                 try
                 {
-                    probeResult = await probe.ProbeReferenceAsync(
-                            record.ConsumerReferenceId,
-                            record.FileId,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    // 可复用媒体必须精确核对扫描键；其他消费者继续使用原契约，不能猜测代际。
+                    probeResult = probe is IHostFileReferenceBindingClaimProbe bindingProbe
+                        ? await bindingProbe.ProbeBindingAsync(record.ConsumerReferenceId, record.FileId,
+                            record.IdempotencyKey, cancellationToken).ConfigureAwait(false)
+                        : await probe.ProbeReferenceAsync(record.ConsumerReferenceId, record.FileId, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -108,11 +124,14 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 }
                 catch
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     probeFailures++;
                     continue;
                 }
 
-                if (probeResult.Outcome == HostFileReferenceClaimProbeOutcome.Exists)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (probeResult?.Outcome == HostFileReferenceClaimProbeOutcome.Exists)
                 {
                     var affected = await commandExecutor.ExecuteAsync(
                             HostFileReferenceClaimSql.PromoteToActive,
@@ -133,24 +152,25 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                     continue;
                 }
 
-                if (probeResult.Outcome == HostFileReferenceClaimProbeOutcome.Failed)
+                // 仅显式 NotFound 才可释放；未知枚举不是权威不存在结论。
+                if (probeResult?.Outcome != HostFileReferenceClaimProbeOutcome.NotFound)
                 {
                     probeFailures++;
                     continue;
                 }
 
-                if (record.CreatedAtUtc > releaseBeforeUtc)
+                if (record.CreatedAtUtc > _cursor.ReleaseBeforeUtc)
                 {
                     continue;
                 }
 
                 var releasedRows = await commandExecutor.ExecuteAsync(
-                        HostFileReferenceClaimSql.ReleaseOpen,
+                        HostFileReferenceClaimSql.ReleaseStalePending,
                         new Dictionary<string, object?>
                         {
-                            ["IdempotencyKey"] = record.IdempotencyKey,
+                            ["Id"] = record.Id,
+                            ["ObservedUpdatedAtUtc"] = record.UpdatedAtUtc,
                             ["PendingState"] = HostFileReferenceClaimStates.Pending,
-                            ["ActiveState"] = HostFileReferenceClaimStates.Active,
                             ["ReleasedState"] = HostFileReferenceClaimStates.Released,
                             ["Now"] = clock.UtcNow,
                         },
@@ -163,11 +183,12 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
             }
 
             var last = records[^1];
-            hasCursor = true;
-            afterUpdatedAtUtc = last.UpdatedAtUtc;
-            afterId = last.Id;
+            cancellationToken.ThrowIfCancellationRequested();
+            _cursor.UpdatedAtUtc = last.UpdatedAtUtc;
+            _cursor.Id = last.Id;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }

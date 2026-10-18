@@ -25,4 +25,6 @@ namespace Full.NET.Modules.Files.Serialization;
 [JsonSerializable(typeof(StorageProviderCatalogItem))]
 [JsonSerializable(typeof(StorageProviderCatalogItem[]))]
 [JsonSerializable(typeof(TestStorageProviderConnectivityResult))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<StorageProviderCatalogItem>))]
 internal partial class FilesJsonSerializerContext : JsonSerializerContext;

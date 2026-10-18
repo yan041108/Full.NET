@@ -3,6 +3,9 @@ namespace Full.NET.Modules.Reporting.Contracts;
 /// <summary>Reporting 模块稳定业务错误码。</summary>
 public static class ReportingErrorCodes
 {
+    /// <summary>精确发布版本的租户授权分页参数无效。</summary>
+    public const string DefinitionGrantPaginationInvalid = "reporting.definition_grants.pagination_invalid";
+
     /// <summary>报表数据源不存在。</summary>
     public const string DataSourceNotFound = "reporting.data_source.not_found";
 
@@ -77,6 +80,9 @@ public static class ReportingErrorCodes
 
     /// <summary>报表导出任务尚未完成，无法下载。</summary>
     public const string ExportTaskNotReady = "reporting.export_task.not_ready";
+
+    /// <summary>导出任务已被领取、已完成或取消竞争失效。</summary>
+    public const string ExportTaskStatusInvalid = "reporting.export_task.status_invalid";
 
     /// <summary>报表导出行数超过上限。</summary>
     public const string ExportRowLimitExceeded = "reporting.export_task.row_limit_exceeded";

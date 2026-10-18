@@ -31,6 +31,7 @@ internal static class Endpoint
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Update));
     }
 }

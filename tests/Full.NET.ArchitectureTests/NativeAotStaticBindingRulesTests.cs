@@ -8,6 +8,50 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class NativeAotStaticBindingRulesTests
 {
+    [TestMethod]
+    [DataRow("Workflow", "WorkflowInstanceListRecord", "Features/ManageInstances/WorkflowInstanceQueryService.cs")]
+    [DataRow("Workflow", "WorkflowTodoListRecord", "Features/ManageMyTodos/WorkflowTodoQueryService.cs")]
+    [DataRow("Settings", "SettingsDomainAuditDiffRecord", "Auditing/SettingsDomainAuditChangeDiffReader.cs")]
+    [DataRow("Identity", "WorkflowRoleListRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
+    [DataRow("Identity", "WorkflowRoleMemberRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
+    [DataRow("Organization", "WorkflowOrganizationUnitListRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
+    [DataRow("Organization", "WorkflowUnitLeaderRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
+    [DataRow("Organization", "OrganizationMembershipRecord", "HostDashboard/TenantOrganizationUserMembershipReader.cs")]
+    [DataRow("Organization", "OrganizationMembershipUserRecord", "HostDashboard/TenantOrganizationUserMembershipReader.cs")]
+    [DataRow("Notifications", "DingTalkApprovalSyncRecord", "Features/ManageDingTalkApprovalSync/DingTalkApprovalSyncService.cs")]
+    [DataRow("Notifications", "WeChatMiniProgramBindingRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
+    [DataRow("Notifications", "WeChatMiniProgramSubscriptionRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
+    [DataRow("Tenancy", "OutstandingReservationRow", "Features/ReconcileQuotaReservationMetricIds/TenantQuotaMetricIdReconciliationService.cs")]
+    [DataRow("Tenancy", "TenantQuotaMetricBackfillCandidate", "Features/ReconcileQuotaUsageBaseline/TenantQuotaUsageBaselineService.cs")]
+    public void ManagementReadProjection_HasStaticMaterializer(string module, string row, string query)
+    {
+        var directory = Path.Combine(ArchitectureRepositoryRoot.Find(), "src", "Modules", $"Full.NET.Modules.{module}");
+        var source = File.ReadAllText(Path.Combine(directory, query.Replace('/', Path.DirectorySeparatorChar)));
+        StringAssert.Contains(source, $"QueryAsync<{row}>", "回归必须对应真实可达查询，不能以未使用的类型通过。");
+        var contributor = File.ReadAllText(Path.Combine(directory, "Persistence", $"{module}DapperAotMaterializerContributor.cs"));
+        StringAssert.Contains(contributor, $"registrar.Register<{row}>", $"原生管理查询必须静态注册：{module}.{row}");
+    }
+
+    [TestMethod]
+    public void ReportingModule_RegistersEveryQueriedRowMaterializer()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(root, "src", "Modules", "Full.NET.Modules.Reporting");
+        var contributor = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence",
+            "ReportingDapperAotMaterializerContributor.cs"));
+        var queriedRows = Directory.EnumerateFiles(Path.Combine(moduleDirectory, "Features"), "*.cs",
+                SearchOption.AllDirectories)
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file),
+                @"Query(?:SingleOrDefault)?Async<(Reporting\w+Record)>", RegexOptions.CultureInvariant)
+                .Select(match => match.Groups[1].Value))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+
+        Assert.IsTrue(queriedRows.Length > 0, "必须发现 Reporting 真实查询结果，不能以空扫描通过。");
+        foreach (var row in queriedRows)
+            StringAssert.Contains(contributor, $"registrar.Register<{row}>",
+                $"Reporting 原生查询结果必须在请求前静态注册：{row}");
+    }
+
     private static readonly string[] WatchedRelativePaths =
     [
         "src/BuildingBlocks/Full.NET.Hosting",
@@ -952,6 +996,7 @@ public sealed class NativeAotStaticBindingRulesTests
                      "DocumentVersionRecord",
                      "DocumentPermissionRecord",
                      "DocumentShareRecord",
+                     "DocumentPreviewTaskRecord",
                      "DocumentStatisticsSummaryRecord",
                      "DocumentStatisticsByTypeRecord",
                      "DocumentStatisticsByCategoryRecord",
@@ -969,6 +1014,8 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(
             contributorSource,
             "DocumentNo = ReadOptionalString(reader, \"DocumentNo\")");
+        StringAssert.Contains(contributorSource, "LeaseId = ReadNullableGuid(reader, \"LeaseId\")");
+        StringAssert.Contains(contributorSource, "LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, \"LeaseExpiresAtUtc\")");
         StringAssert.Contains(
             contributorSource,
             "ChangeDescription = ReadOptionalNullableString(reader, \"ChangeDescription\")");

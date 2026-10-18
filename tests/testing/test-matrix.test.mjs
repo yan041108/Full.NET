@@ -12,6 +12,11 @@ import {
   mainIntegrationPartitionsJson
 } from '../../scripts/testing/print-test-matrix.mjs';
 
+test('快速套件支持校验式构建复用但不能与手动 no-build 混用', () => {
+  assert.equal(parseSuiteOptions(['--reuse-build']).reuseBuild, true);
+  assert.throws(() => parseSuiteOptions(['--reuse-build', '--no-build']), /不能/);
+});
+
 test('测试矩阵集中定义三个快速套件和完整 Integration 分片', () => {
   const matrix = loadTestMatrix();
   const recoveryMigrationNumbers = readdirSync(
@@ -140,6 +145,7 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
     'api-native-aot'
   ]), {
     noBuild: true,
+    reuseBuild: false,
     selection: 'api-native-aot',
     filter: null,
     minimumExpectedTests: null
@@ -154,6 +160,7 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
     'api-native-aot'
   ]), {
     noBuild: false,
+    reuseBuild: false,
     selection: 'api-native-aot',
     filter: null,
     minimumExpectedTests: null

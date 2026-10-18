@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentCategories;
 
@@ -20,7 +21,9 @@ internal sealed class HostDocumentCategoryManagementService(
     ICommandTransaction transaction,
     HostDocumentCategoryQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IOptions<DatabaseOptions> databaseOptions,
+    DocumentTaxonomyWriteGuard writeGuard)
 {
     public Task<Result<HostDocumentCategoryResponse>> CreateAsync(
         CreateHostDocumentCategoryRequest request,
@@ -32,7 +35,7 @@ internal sealed class HostDocumentCategoryManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, token),
             cancellationToken);
     }
@@ -48,7 +51,7 @@ internal sealed class HostDocumentCategoryManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(categoryId, request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, request.Version, token),
             cancellationToken);
     }
@@ -64,7 +67,7 @@ internal sealed class HostDocumentCategoryManagementService(
             return Task.FromResult(Result<bool>.Failure(InvalidError()));
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(categoryId, actorUserId, request.Version, token),
             cancellationToken);
     }
@@ -80,18 +83,10 @@ internal sealed class HostDocumentCategoryManagementService(
         string? description,
         CancellationToken cancellationToken)
     {
-        if (parentId is not null)
+        var hierarchy = await LockHierarchyAsync(cancellationToken).ConfigureAwait(false);
+        if (!IsValidParent(hierarchy, parentId, null))
         {
-            var parent = await queryExecutor
-                .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
-                    DocumentCategorySql.FindActiveById,
-                    DocumentSqlParameters.Create(("Id", parentId.Value)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (parent is null)
-            {
-                return InvalidParent();
-            }
+            return InvalidParent();
         }
 
         if (await FindNameConflictAsync(parentId, name, null, cancellationToken).ConfigureAwait(false))
@@ -124,28 +119,15 @@ internal sealed class HostDocumentCategoryManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        if (await queries.GetByIdAsync(categoryId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
+        var hierarchy = await LockHierarchyAsync(cancellationToken).ConfigureAwait(false);
+        if (!hierarchy.ContainsKey(categoryId))
         {
             return NotFound();
         }
 
-        if (parentId == categoryId)
+        if (!IsValidParent(hierarchy, parentId, categoryId))
         {
             return InvalidParent();
-        }
-
-        if (parentId is not null)
-        {
-            var parent = await queryExecutor
-                .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
-                    DocumentCategorySql.FindActiveById,
-                    DocumentSqlParameters.Create(("Id", parentId.Value)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (parent is null)
-            {
-                return InvalidParent();
-            }
         }
 
         if (await FindNameConflictAsync(parentId, name, categoryId, cancellationToken).ConfigureAwait(false))
@@ -174,16 +156,16 @@ internal sealed class HostDocumentCategoryManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        if (await queries.GetByIdAsync(categoryId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
+        var hierarchy = await LockHierarchyAsync(cancellationToken).ConfigureAwait(false);
+        if (!hierarchy.ContainsKey(categoryId))
         {
             return Result<bool>.Failure(NotFoundError());
         }
 
+        // MySQL ReadCommitted 的等待扫描可能漏掉新插入的较小 Id；取得父行锁后再新鲜计数。
         var childCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                DocumentCategorySql.CountActiveChildren,
-                DocumentSqlParameters.Create(("ParentId", categoryId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+            DocumentCategorySql.CountActiveChildren,
+            DocumentSqlParameters.Create(("ParentId", categoryId)), cancellationToken).ConfigureAwait(false);
         if (childCount > 0)
         {
             return Result<bool>.Failure(HasChildrenError());
@@ -209,19 +191,49 @@ internal sealed class HostDocumentCategoryManagementService(
             : Result<bool>.Failure(VersionConflictError());
     }
 
+    private async Task<Dictionary<Guid, DocumentCategoryRecord>> LockHierarchyAsync(CancellationToken cancellationToken)
+    {
+        // 门禁不依赖活动分类是否存在，避免 MySQL ReadCommitted 下空目录无行可锁。
+        await writeGuard.LockCategoriesAsync(cancellationToken).ConfigureAwait(false);
+        // 分类增、改、删采用同一锁定入口；单独锁目标行无法防止 A→B 与 B→A 同时提交。
+        var statement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DocumentCategorySql.LockHierarchySqlServer,
+            DatabaseProvider.MySql => DocumentCategorySql.LockHierarchyMySql,
+            _ => throw new InvalidOperationException("The configured database provider is not supported."),
+        };
+        var rows = await queryExecutor.QueryAsync<DocumentCategoryRecord>(statement, null, cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(row => row.Id);
+    }
+
+    private static bool IsValidParent(IReadOnlyDictionary<Guid, DocumentCategoryRecord> hierarchy, Guid? parentId, Guid? categoryId)
+    {
+        // 迭代父链避免深层目录栈溢出；历史循环、失效祖先与移到自身后代都拒绝继续挂接。
+        var visited = new HashSet<Guid>();
+        while (parentId is { } id)
+        {
+            if (id == categoryId || !visited.Add(id) || !hierarchy.TryGetValue(id, out var parent))
+            {
+                return false;
+            }
+            parentId = parent.ParentId;
+        }
+        return true;
+    }
+
     private async Task<bool> FindNameConflictAsync(
         Guid? parentId,
         string name,
         Guid? excludeId,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentCategorySql.FindActiveByParentAndName,
-                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name)),
+        var count = await queryExecutor
+            .QuerySingleOrDefaultAsync<long>(
+                DocumentCategorySql.CountActiveByParentAndName,
+                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name), ("ExcludeId", excludeId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return existing is not null && existing.Id != excludeId;
+        return count > 0;
     }
 
     private static bool TryNormalizeName(string? value, out string name)

@@ -15,6 +15,7 @@ public sealed class ImportExportAuthorizationContributorTests
         CollectionAssert.AreEqual(
             new[]
             {
+                ImportExportPermissions.ImportTasksCancel,
                 ImportExportPermissions.ImportTasksCreate,
                 ImportExportPermissions.ImportTasksExecute,
                 ImportExportPermissions.ImportTasksRead,
@@ -31,6 +32,7 @@ public sealed class ImportExportAuthorizationContributorTests
             {
                 ["create"] = ImportExportPermissions.ImportTasksCreate,
                 ["execute"] = ImportExportPermissions.ImportTasksExecute,
+                ["cancel"] = ImportExportPermissions.ImportTasksCancel,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "import-export-tasks")

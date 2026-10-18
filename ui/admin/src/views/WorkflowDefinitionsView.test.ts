@@ -18,6 +18,8 @@ import {
 } from '../api/workflow-definitions';
 import { listWorkflowForms } from '../api/workflow-forms';
 import WorkflowDefinitionsView from './WorkflowDefinitionsView.vue';
+import { workflowDefinition as definition, workflowDefinitionVersion, workflowDefinitionCatalog, workflowStartForm } from '../test/workflow-definition-fixtures';
+import { workflowForm } from '../test/workflow-form-fixtures';
 
 vi.mock('../api/workflow-runtime', () => ({
   getWorkflowStartForm: vi.fn(),
@@ -32,41 +34,11 @@ vi.mock('../api/workflow-definitions', () => ({
   listWorkflowRoleCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
   listWorkflowOrganizationUnitCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
   publishWorkflowDefinition: vi.fn(),
-  updateWorkflowDefinitionDraft: vi.fn()
+  updateWorkflowDefinitionDraft: vi.fn(), setWorkflowDefinitionStatus: vi.fn(), deleteWorkflowDefinitionVersion: vi.fn()
 }));
 vi.mock('../api/workflow-forms', () => ({ listWorkflowForms: vi.fn() }));
 
-const definition = {
-  businessTitleTemplate: null,
-  id: '01912345-6789-7abc-8def-0123456789ab',
-  definitionKey: 'purchase.approval', statusKey: 'active',
-  draft: {
-    schemaVersion: 1,
-    nodes: [
-      { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approval'] } },
-      { nodeKey: 'approval', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'] } },
-      { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }
-    ]
-  },
-  draftRevision: 2,
-  latestPublishedVersionId: '01912345-6789-7abc-8def-0123456789ac',
-  version: 2,
-  createdAtUtc: '2026-08-30T00:00:00Z',
-  updatedAtUtc: null
-};
-
-const version = {
-  businessTitleTemplate: null,
-  id: definition.latestPublishedVersionId,
-  definitionId: definition.id,
-  formVersionId: '01912345-6789-7abc-8def-0123456789ad',
-  versionNumber: 1,
-  schemaVersion: 1,
-  canonicalJson: '{}',
-  contentHash: 'hash',
-  publishedById: '01912345-6789-7abc-8def-0123456789ae',
-  publishedAtUtc: '2026-08-30T00:00:00Z'
-};
+const version = workflowDefinitionVersion();
 
 function mountWithPermissions(
   permissions: string[],
@@ -75,13 +47,14 @@ function mountWithPermissions(
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
-    id: '01912345-6789-7abc-8def-0123456789af',
+    id: version.publishedById,
     username: 'starter',
     displayName: '发起人',
     tenantId: '01912345-6789-7abc-8def-0123456789a1',
-    actorScope: 'tenant',
-    scope: 'tenant',
+    actorScope: 'tenant:0191234567897abc8def0123456789a1',
+    scope: 'tenant:0191234567897abc8def0123456789a1',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,
@@ -109,58 +82,12 @@ describe('WorkflowDefinitionsView', () => {
   beforeEach(() => {
     vi.mocked(listWorkflowDefinitions).mockReset().mockResolvedValue([definition]);
     vi.mocked(listWorkflowDefinitionVersions).mockReset().mockResolvedValue([version]);
-    vi.mocked(getWorkflowStartForm).mockReset().mockResolvedValue({
-      version: {
-        id: version.formVersionId,
-        formDefinitionId: definition.id,
-        versionNumber: 1,
-        schemaVersion: 1,
-        adapterVersion: 1,
-        componentCatalogVersion: 1,
-        formSchemaJson: '{}',
-        webRenderSchemaJson: '{}',
-        contentHash: 'form-hash',
-        publishedById: version.publishedById,
-        publishedAtUtc: version.publishedAtUtc
-      },
-      schema: {
-        schemaVersion: 1,
-        adapterVersion: 1,
-        sections: [{
-          sectionKey: 'request',
-          fields: [{
-            fieldKey: 'summary',
-            fieldTypeKey: 'text',
-            required: true,
-            constraints: {}
-          }]
-        }]
-      }
-    });
+    vi.mocked(getWorkflowStartForm).mockReset().mockResolvedValue(workflowStartForm);
     vi.mocked(startWorkflowInstance).mockReset();
     vi.mocked(createWorkflowDefinition).mockReset();
     vi.mocked(getWorkflowDefinition).mockReset().mockResolvedValue(definition);
-    vi.mocked(getWorkflowNodeTypeCatalog).mockReset().mockResolvedValue({
-      catalogVersion: 1,
-      definitionSchemaVersion: 1,
-      nodeTypes: ['start', 'human.approval', 'notify.cc', 'gateway.exclusive', 'end'].map(nodeTypeKey => ({
-        nodeTypeKey,
-        nodeSchemaVersion: 1,
-        designable: true,
-        publishable: !['notify.cc', 'gateway.exclusive'].includes(nodeTypeKey),
-        executable: !['notify.cc', 'gateway.exclusive'].includes(nodeTypeKey),
-        supportsFieldPolicies: nodeTypeKey === 'human.approval'
-      }))
-    });
-    vi.mocked(listWorkflowForms).mockReset().mockResolvedValue([{
-      id: '01912345-6789-7abc-8def-0123456789a4',
-      formKey: 'purchase.form', statusKey: 'active', version: 1,
-      draft: { schemaVersion: 1, adapterVersion: 1, sections: [] },
-      draftRevision: 1,
-      latestPublishedVersionId: version.formVersionId,
-      createdAtUtc: version.publishedAtUtc,
-      updatedAtUtc: null
-    }]);
+    vi.mocked(getWorkflowNodeTypeCatalog).mockReset().mockResolvedValue(workflowDefinitionCatalog);
+    vi.mocked(listWorkflowForms).mockReset().mockResolvedValue([{ ...workflowForm, latestPublishedVersionId: version.formVersionId }]);
     vi.mocked(updateWorkflowDefinitionDraft).mockReset().mockResolvedValue({ ...definition, draftRevision: 3 });
     vi.mocked(publishWorkflowDefinition).mockReset().mockResolvedValue(version);
   });
@@ -194,14 +121,14 @@ describe('WorkflowDefinitionsView', () => {
       businessTitle: null,
       businessType: 'purchase',
       businessId: 'PO-001',
-      statusKey: 'running',
+      statusKey: 'active',
       revision: 1,
       activeTodoId: null,
       startedAtUtc: '2026-08-30T00:00:00Z'
     });
     const wrapper = mountWithPermissions([
       'workflow.definitions.read',
-      'workflow.instances.start'
+      'workflow.instances.start', 'workflow.forms.read'
     ]);
     await flushPromises();
     await wrapper.get('[data-testid="workflow-definition-versions"]').trigger('click');
@@ -219,7 +146,8 @@ describe('WorkflowDefinitionsView', () => {
       'purchase',
       'PO-001',
       { summary: '采购审批' },
-      expect.any(String)
+      expect.any(String),
+      expect.any(AbortSignal)
     );
   });
 
@@ -237,11 +165,11 @@ describe('WorkflowDefinitionsView', () => {
     expect(wrapper.find('[data-testid="workflow-vue3-designer-stub"]').exists()).toBe(true);
     await wrapper.get('[data-testid="workflow-definition-save"]').trigger('click');
     await flushPromises();
-    expect(updateWorkflowDefinitionDraft).toHaveBeenCalledWith(definition.id, 2, definition.draft, '');
+    expect(updateWorkflowDefinitionDraft).toHaveBeenCalledWith(definition.id, 2, definition.draft, '', expect.any(AbortSignal));
 
     await wrapper.get('[data-testid="workflow-definition-publish"]').trigger('click');
     await flushPromises();
-    expect(publishWorkflowDefinition).toHaveBeenCalledWith(definition.id, 3, version.formVersionId);
+    expect(publishWorkflowDefinition).toHaveBeenCalledWith(definition.id, 3, version.formVersionId, expect.any(AbortSignal));
   });
 
   it('设计器实例尚未就绪时失败关闭且不覆盖权威 Draft', async () => {
@@ -256,7 +184,7 @@ describe('WorkflowDefinitionsView', () => {
     await flushPromises();
 
     expect(updateWorkflowDefinitionDraft).not.toHaveBeenCalled();
-    expect(wrapper.get('[role="alert"]').text()).toContain('client.workflow_designer_not_ready');
+    expect((wrapper.vm as unknown as { problem: { code: string } }).problem.code).toBe('client.workflow_designer_not_ready');
   });
 
   it('仅有定义编辑权限时不读取表单目录且仍可打开设计器', async () => {
@@ -274,9 +202,7 @@ describe('WorkflowDefinitionsView', () => {
   });
 
   it('发布成功后的权威状态刷新失败时转成稳定 ProblemDetails', async () => {
-    vi.mocked(getWorkflowDefinition)
-      .mockResolvedValueOnce(definition)
-      .mockRejectedValueOnce(new Error('client.workflow_definition_refresh_failed'));
+    vi.mocked(listWorkflowDefinitions).mockResolvedValueOnce([definition]).mockRejectedValueOnce(new Error('client.workflow_definition_refresh_failed'));
     const wrapper = mountWithPermissions([
       'workflow.definitions.read',
       'workflow.definitions.update',
@@ -290,6 +216,7 @@ describe('WorkflowDefinitionsView', () => {
     await flushPromises();
 
     expect(publishWorkflowDefinition).toHaveBeenCalled();
-    expect(wrapper.get('[role="alert"]').text()).toContain('client.workflow_failed');
+    expect((wrapper.vm as unknown as { problem: { code: string }; receipt: { outcome: string } }).problem.code).toBe('client.workflow_failed');
+    expect((wrapper.vm as unknown as { receipt: { outcome: string } }).receipt.outcome).toBe('succeeded');
   });
 });

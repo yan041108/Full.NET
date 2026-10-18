@@ -8,12 +8,12 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 /// <summary>在发布前校验人工节点办理人策略的闭合实体引用。</summary>
 /// <param name="hostUserDirectory">Host 活动用户批量目录。</param>
-/// <param name="tenantUserDirectory">Tenant 活动用户批量目录。</param>
+/// <param name="tenantUserDirectory">可信 Tenant 活动成员批量目录。</param>
 /// <param name="roleMemberDirectory">角色成员批量目录。</param>
 /// <param name="unitLeaderDirectory">机构负责人批量目录。</param>
 internal sealed class WorkflowAssigneePublishValidator(
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     IWorkflowRoleMemberDirectory roleMemberDirectory,
     IWorkflowUnitLeaderDirectory unitLeaderDirectory)
 {
@@ -37,11 +37,11 @@ internal sealed class WorkflowAssigneePublishValidator(
             case WorkflowAssigneePolicy.InitiatorAncestorUnitLeader:
                 return scope.TenantId.HasValue || source.ResolverKindKey == WorkflowAssigneePolicy.Initiator;
             case WorkflowAssigneePolicy.RoleMembers:
-                return await ValidateRolesAsync(source.RoleIds, cancellationToken).ConfigureAwait(false);
+                return await ValidateRolesAsync(source.RoleIds, scope, cancellationToken).ConfigureAwait(false);
             case WorkflowAssigneePolicy.OrganizationUnitLeader:
                 return scope.TenantId.HasValue &&
                     source.UnitId is { } unitId &&
-                    await ValidateUnitLeaderAsync(unitId, cancellationToken).ConfigureAwait(false);
+                    await ValidateUnitLeaderAsync(unitId, scope, cancellationToken).ConfigureAwait(false);
             default:
                 return false;
         }
@@ -75,7 +75,7 @@ internal sealed class WorkflowAssigneePublishValidator(
         if (scope.TenantId.HasValue)
         {
             var users = await tenantUserDirectory
-                .FindActiveTenantUsersAsync(userIds, cancellationToken)
+                .FindActiveTenantMembersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
             return users.Count == userIds.Count;
         }
@@ -88,10 +88,12 @@ internal sealed class WorkflowAssigneePublishValidator(
 
     /// <summary>校验角色存在且至少有一名活动成员。</summary>
     /// <param name="roleIds">角色标识集合。</param>
+    /// <param name="scope">用于复核活动用户或成员的可信发布作用域。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>全部角色有效且可解析成员时返回 <see langword="true"/>。</returns>
     private async Task<bool> ValidateRolesAsync(
         IReadOnlyList<Guid> roleIds,
+        WorkflowManagementScope scope,
         CancellationToken cancellationToken)
     {
         if (roleIds.Count is < 1 or > 5)
@@ -110,16 +112,24 @@ internal sealed class WorkflowAssigneePublishValidator(
         var members = await roleMemberDirectory
             .FindActiveMemberUserIdsByRoleIdsAsync(roleIds, cancellationToken)
             .ConfigureAwait(false);
-        return roleIds.All(roleId =>
-            members.TryGetValue(roleId, out var userIds) && userIds.Count > 0);
+        if (!roleIds.All(roleId => members.TryGetValue(roleId, out var userIds) && userIds.Count > 0))
+        {
+            return false;
+        }
+
+        // 旧角色关系可在成员撤销后保留；发布与运行时必须使用同一活动资格和人数上限。
+        return await ValidateUsersAsync(members.Values.SelectMany(ids => ids).Distinct().ToArray(), scope, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>校验机构单元存在且可解析负责人。</summary>
     /// <param name="unitId">机构单元标识。</param>
+    /// <param name="scope">用于复核负责人活动成员资格的可信发布作用域。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>单元与负责人均可解析时返回 <see langword="true"/>。</returns>
     private async Task<bool> ValidateUnitLeaderAsync(
         Guid unitId,
+        WorkflowManagementScope scope,
         CancellationToken cancellationToken)
     {
         var units = await unitLeaderDirectory
@@ -133,6 +143,7 @@ internal sealed class WorkflowAssigneePublishValidator(
         var leaders = await unitLeaderDirectory
             .FindActiveUnitLeaderUserIdsAsync([unitId], cancellationToken)
             .ConfigureAwait(false);
-        return leaders.ContainsKey(unitId);
+        return leaders.TryGetValue(unitId, out var leaderId) &&
+            await ValidateUsersAsync([leaderId], scope, cancellationToken).ConfigureAwait(false);
     }
 }

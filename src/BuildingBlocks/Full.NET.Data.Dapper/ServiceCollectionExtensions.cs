@@ -1,4 +1,6 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper.Health;
 using Full.NET.Data.Dapper.Inbox;
@@ -96,6 +98,9 @@ public static class ServiceCollectionExtensions
             .Value is not null;
         // BindConfiguration 从 DI 解析配置；固定注册调用方传入实例，保持独立 ServiceCollection 与宿主行为一致。
         services.AddSingleton(configuration);
+        // Outbox 存储属于数据边界，精简 Worker 不一定装配会提供时钟与主键生成器的业务模块。
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddOptions<DatabaseOptions>()
             .BindConfiguration(DatabaseOptions.SectionName)
             .PostConfigure(options =>

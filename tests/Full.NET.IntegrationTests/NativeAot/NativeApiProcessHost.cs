@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Full.NET.Data.Abstractions;
@@ -29,7 +30,8 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
     private readonly string _logFilePath;
     private readonly Process _process;
     private readonly StreamWriter _logWriter;
-    private readonly CancellationTokenSource _logPumpCancellation = new();
+    private readonly CancellationTokenSource _logPumpCancellation;
+    private readonly SemaphoreSlim _logWriteGate;
     private readonly Task _stdoutPump;
     private readonly Task _stderrPump;
     private bool _disposed;
@@ -38,6 +40,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         Process process,
         string logFilePath,
         StreamWriter logWriter,
+        SemaphoreSlim logWriteGate,
         CancellationTokenSource logPumpCancellation,
         Task stdoutPump,
         Task stderrPump,
@@ -46,6 +49,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         _process = process;
         _logFilePath = logFilePath;
         _logWriter = logWriter;
+        _logWriteGate = logWriteGate;
         _logPumpCancellation = logPumpCancellation;
         _stdoutPump = stdoutPump;
         _stderrPump = stderrPump;
@@ -108,8 +112,6 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             }
         }
 
-        var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 Native Host.Api 进程。");
         var logWriter = new StreamWriter(
             new FileStream(
                 logFilePath,
@@ -122,14 +124,34 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         };
 
         var logPumpCancellation = new CancellationTokenSource();
+        var logWriteGate = new SemaphoreSlim(1, 1);
+        Process process;
+        try
+        {
+            // 先取得日志资源，再启动进程，避免文件创建失败留下无人接管的子进程。
+            process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("无法启动 Native Host.Api 进程。");
+        }
+        catch
+        {
+            await logWriter.DisposeAsync().ConfigureAwait(false);
+            logWriteGate.Dispose();
+            logPumpCancellation.Dispose();
+            throw;
+        }
+
         var stdoutPump = PumpStreamAsync(
             process.StandardOutput,
             logWriter,
+            logWriteGate,
             logPumpCancellation.Token);
         var stderrPump = PumpStreamAsync(
             process.StandardError,
             logWriter,
+            logWriteGate,
             logPumpCancellation.Token);
+        var host = new NativeApiProcessHost(process, logFilePath, logWriter, logWriteGate,
+            logPumpCancellation, stdoutPump, stderrPump, baseAddress);
 
         try
         {
@@ -140,24 +162,20 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 startupTimeout,
                 cancellationToken).ConfigureAwait(false);
             AssertNoFatalMarkersInLog(logFilePath);
-            return new NativeApiProcessHost(
-                process,
-                logFilePath,
-                logWriter,
-                logPumpCancellation,
-                stdoutPump,
-                stderrPump,
-                baseAddress);
+            return host;
         }
-        catch
+        catch (Exception startupFailure)
         {
-            logPumpCancellation.Cancel();
-            if (!process.HasExited)
+            try
             {
-                process.Kill(entireProcessTree: true);
+                // 启动失败同样等待退出与 EOF；调用方取消不能丢弃已经写入管道的诊断。
+                await host.CloseResourcesAsync(gracefulShutdown: false).ConfigureAwait(false);
+            }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException("Native Host.Api 启动与清理均失败。", startupFailure, cleanupFailure);
             }
 
-            await logWriter.DisposeAsync().ConfigureAwait(false);
             throw;
         }
     }
@@ -182,27 +200,37 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
     public async Task StopGracefullyAsync(CancellationToken cancellationToken = default)
     {
-        if (_process.HasExited)
+        if (!_process.HasExited)
         {
-            return;
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            TrySendSigTerm(_process.Id);
-            using var registration = cancellationToken.Register(() =>
+            if (OperatingSystem.IsLinux())
             {
-                if (!_process.HasExited)
+                TrySendSigTerm(_process.Id);
+                using var registration = cancellationToken.Register(() =>
                 {
-                    _process.Kill(entireProcessTree: true);
-                }
-            });
-            await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            return;
+                    if (!_process.HasExited)
+                    {
+                        _process.Kill(entireProcessTree: true);
+                    }
+                });
+                await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                _process.Kill(entireProcessTree: true);
+                await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
 
-        _process.Kill(entireProcessTree: true);
-        await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        // 进程退出只关闭写入端；断言前仍须读取管道缓冲中的最后诊断。
+        await DrainLogOutputAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>等待输出泵读到 EOF 并刷新日志，不以取消读取代替排空。</summary>
+    private async Task DrainLogOutputAsync(CancellationToken cancellationToken)
+    {
+        await Task.WhenAll(_stdoutPump, _stderrPump).WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await _logWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void AssertNoFatalMarkersInLogs() => AssertNoFatalMarkersInLog(_logFilePath);
@@ -214,37 +242,69 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             return;
         }
 
-        _disposed = true;
-        if (!_process.HasExited)
+        await CloseResourcesAsync(gracefulShutdown: true).ConfigureAwait(false);
+        AssertNoFatalMarkersInLog(_logFilePath);
+    }
+
+    /// <summary>等待退出与输出完成，并在失败时仍释放本实例拥有的全部资源。</summary>
+    private async Task CloseResourcesAsync(bool gracefulShutdown)
+    {
+        if (_disposed)
         {
-            if (OperatingSystem.IsLinux())
-            {
-                TrySendSigTerm(_process.Id);
-                if (!_process.WaitForExit(15_000))
-                {
-                    _process.Kill(entireProcessTree: true);
-                    await _process.WaitForExitAsync().ConfigureAwait(false);
-                }
-            }
-            else
-            {
-                _process.Kill(entireProcessTree: true);
-                await _process.WaitForExitAsync().ConfigureAwait(false);
-            }
+            return;
         }
 
-        // 先让宿主正常退出并刷新异步日志，再结束输出泵；否则失败现场会只留下启动日志。
-        _logPumpCancellation.Cancel();
+        _disposed = true;
+        Exception? failure = null;
         try
         {
-            await Task.WhenAll(_stdoutPump, _stderrPump).ConfigureAwait(false);
+            if (!_process.HasExited)
+            {
+                if (gracefulShutdown && OperatingSystem.IsLinux())
+                {
+                    TrySendSigTerm(_process.Id);
+                    if (!_process.WaitForExit(15_000))
+                    {
+                        _process.Kill(entireProcessTree: true);
+                    }
+                }
+                else
+                {
+                    _process.Kill(entireProcessTree: true);
+                }
+
+                await _process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+
+            // 宿主退出后先排空 EOF；提前取消会丢掉停机错误并让断言误通过。
+            await DrainLogOutputAsync(CancellationToken.None).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (Exception exception)
         {
+            failure = exception;
         }
 
-        await _logWriter.DisposeAsync().ConfigureAwait(false);
-        AssertNoFatalMarkersInLog(_logFilePath);
+        try
+        {
+            await _logWriter.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure = failure is null ? exception
+                : new AggregateException("Native Host.Api 输出与日志释放均失败。", failure, exception);
+        }
+        finally
+        {
+            _logPumpCancellation.Cancel();
+            _logPumpCancellation.Dispose();
+            _logWriteGate.Dispose();
+            _process.Dispose();
+        }
+
+        if (failure is not null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     private static Dictionary<string, string?> BuildEnvironment(
@@ -298,6 +358,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
     private static async Task PumpStreamAsync(
         TextReader reader,
         TextWriter writer,
+        SemaphoreSlim writeGate,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -308,8 +369,16 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 break;
             }
 
-            await writer.WriteLineAsync(line.AsMemory(), cancellationToken)
-                .ConfigureAwait(false);
+            // stdout/stderr 可同时完成读取，StreamWriter 的异步写入必须由同一门闩串行化。
+            await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                writeGate.Release();
+            }
         }
     }
 
@@ -355,7 +424,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
             if (File.Exists(logFilePath))
             {
-                var content = await File.ReadAllTextAsync(logFilePath, cancellationToken)
+                var content = await NativeProcessLogReader.ReadAsync(logFilePath, cancellationToken)
                     .ConfigureAwait(false);
                 if (ListeningUrlRegex.IsMatch(content))
                 {
@@ -383,7 +452,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             return string.Empty;
         }
 
-        var content = await File.ReadAllTextAsync(logFilePath, cancellationToken)
+        var content = await NativeProcessLogReader.ReadAsync(logFilePath, cancellationToken)
             .ConfigureAwait(false);
         var focused = TryExtractJsonMetadataFailureSnippet(content);
         if (!string.IsNullOrEmpty(focused))
@@ -446,7 +515,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             return;
         }
 
-        var content = File.ReadAllText(logFilePath);
+        var content = NativeProcessLogReader.Read(logFilePath);
         foreach (var marker in FatalLogMarkers)
         {
             if (content.Contains(marker, StringComparison.Ordinal))

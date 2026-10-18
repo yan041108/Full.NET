@@ -714,6 +714,67 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Late_challenge_delivery_failure_preserves_replacement_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await AccountChallengeDeliveryCompensationAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Concurrent_challenge_attempts_preserve_limit_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await AccountChallengeConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Registration_challenge_rejects_other_purposes_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await RegistrationChallengePurposeAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Recovery_response_hides_account_and_delivery_state_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryResponseAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Password_recovery_credentials_follow_account_lifecycle_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryLifecycleAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Concurrent_password_recovery_preserves_committed_account_state_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Recovery_challenge_remains_bound_to_original_account_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryAccountBindingAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

@@ -55,6 +55,7 @@ export interface PrintingTemplateVersion {
 
 export interface PreviewPrintingTemplateRequest {
   versionNumber?: number | null;
+  recordId?: string | null;
 }
 
 export interface PrintingTemplatePreview {

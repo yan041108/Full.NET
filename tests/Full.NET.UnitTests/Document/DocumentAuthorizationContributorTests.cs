@@ -9,6 +9,15 @@ namespace Full.NET.UnitTests.Document;
 public sealed class DocumentAuthorizationContributorTests
 {
     [TestMethod]
+    public void Preview_cancel_has_independent_host_permission_and_read_page_parent()
+    {
+        var catalog = AuthorizationCatalog.Create([new DocumentAuthorizationContributor()]);
+        Assert.AreEqual(AuthorizationScope.Host, catalog.Permissions.Single(item => item.Code == HostDocumentPreviewTaskPermissions.Cancel).Scope);
+        var action = catalog.Actions.Single(item => item.PermissionCode == HostDocumentPreviewTaskPermissions.Cancel);
+        Assert.AreEqual("document-preview-tasks", action.NavigationId); Assert.AreEqual("cancel", action.ClientActionKey);
+    }
+
+    [TestMethod]
     public void Contributor_publishes_document_permissions_and_navigation()
     {
         var catalog = AuthorizationCatalog.Create([new DocumentAuthorizationContributor()]);
@@ -32,6 +41,7 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentPermissions.Update,
                 HostDocumentPermissionManagementPermissions.Read,
                 HostDocumentPermissionManagementPermissions.Set,
+                HostDocumentPreviewTaskPermissions.Cancel,
                 HostDocumentPreviewTaskPermissions.Create,
                 HostDocumentPreviewTaskPermissions.Read,
                 HostDocumentRecycleBinPermissions.Purge,

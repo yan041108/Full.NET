@@ -156,8 +156,9 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
             Math.Max(1, _options.CurrentValue.MaxBatchRows));
         var bufferedBytes = 0;
         AuditWriteEnvelope? deferred = null;
+        var inputCompleted = false;
 
-        while (!stoppingToken.IsCancellationRequested)
+        while (!stoppingToken.IsCancellationRequested && !inputCompleted)
         {
             var optionsReadFailed = true;
             try
@@ -180,9 +181,17 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
                         }
                         else if (buffer.Count == 0)
                         {
-                            envelope = await _channel.Reader
-                                .ReadAsync(stoppingToken)
-                                .ConfigureAwait(false);
+                            // StopAsync 先关闭输入再取消后台循环；正常 EOF 不能进入故障告警与重试。
+                            if (!await _channel.Reader.WaitToReadAsync(stoppingToken).ConfigureAwait(false))
+                            {
+                                inputCompleted = true;
+                                break;
+                            }
+
+                            if (!_channel.Reader.TryRead(out envelope!))
+                            {
+                                continue;
+                            }
                         }
                         else if (!_channel.Reader.TryRead(out envelope!))
                         {
@@ -237,7 +246,7 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
             {
                 break;
             }
-            catch (Exception)
+            catch (Exception exception)
             {
                 // Writer 边界的意外失败也必须终结请求，不能带着原缓冲无限重试。
                 FailOpenRemaining(buffer, "flush_exception");
@@ -253,7 +262,9 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
 
                     FailOpenQueued("options_invalid");
                 }
-                _logger.LogError("B1 micro-batch loop failed; continuing.");
+                // 仅保留异常类型，便于定位关闭竞态；原始消息、堆栈及审计内容不得进入诊断日志。
+                _logger.LogError("B1 micro-batch loop failed; continuing. ExceptionType={ExceptionType}",
+                    exception.GetType().FullName);
                 try
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken)
@@ -346,7 +357,8 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
 
             if (exception is not OperationCanceledException)
             {
-                _logger.LogError("B1 micro-batch shutdown drain failed open.");
+                _logger.LogError("B1 micro-batch shutdown drain failed open. ExceptionType={ExceptionType}",
+                    exception.GetType().FullName);
             }
         }
     }

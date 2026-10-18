@@ -11,6 +11,127 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class CrudArtifactGeneratorTests
 {
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    public void Generated_write_parameter_names_match_sql_when_column_name_differs(string mode)
+    {
+        var original = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema() : CreateExplicitLifecycleSchema();
+        var columns = original.Columns.Select(column => column.ClrPropertyName == "Name"
+            ? column with { DatabaseName = "DisplayName" } : column).ToArray();
+        var schema = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema(columns: columns)
+            : FullNetCrudSchema.CreateProject(original.OwnerKey, original.ModuleKey, original.EntityKey, original.DatabaseTableName,
+                original.RootNamespace, original.ClrTypeName, original.ApiResourceName, original.PermissionResourceName,
+                original.DataScope, original.EntityCapabilities, original.Scene, original.Relationships, columns);
+        var artifacts = GenerateWithLayui(schema);
+        var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
+        var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
+        StringAssert.Contains(sql, "DisplayName = @Name");
+        Assert.AreEqual(2, feature.Split("[\"Name\"] = request.Name", StringSplitOptions.None).Length - 1,
+            "创建和更新的参数名跟随 SQL 占位符，数据库列名只用于 SQL 列投影。");
+        Assert.IsFalse(feature.Contains("[\"DisplayName\"] = request.Name", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    [DataRow("tree")]
+    public void Generated_sql_parameters_have_static_shape(string mode)
+    {
+        var schema = mode switch
+        {
+            "legacy" => FullNetCrudSchemaTests.CreateProductSchema(),
+            "tree" => CreateTreeSchema(),
+            _ => CreateExplicitLifecycleSchema(),
+        };
+        var feature = Artifact(GenerateWithLayui(schema), "backend/ProductFeature.g.cs");
+        var syntax = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(feature).GetRoot();
+        Assert.AreEqual(0, syntax.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.AnonymousObjectCreationExpressionSyntax>().Count(),
+            "生成的 SQL 参数必须能在禁止反射的 Native 执行器上绑定。");
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    public void Generated_records_register_static_native_materializer(string mode)
+    {
+        var schema = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema() : CreateExplicitLifecycleSchema();
+        var artifacts = GenerateWithLayui(schema);
+        var record = Artifact(artifacts, "backend/ProductRecord.g.cs");
+        var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
+        StringAssert.Contains(record, "Register<ProductRecord>");
+        StringAssert.Contains(endpoint, "ProductRecordAotMaterializer.Register()");
+    }
+
+    [TestMethod]
+    [DataRow(FullNetCrudOwnershipMode.None)]
+    [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
+    public void Generated_queries_allow_static_domain_scope_customization(FullNetCrudOwnershipMode ownership)
+    {
+        var feature = Artifact(GenerateWithLayui(CreateExplicitLifecycleSchema(ownershipMode: ownership)), "backend/ProductFeature.g.cs");
+        StringAssert.Contains(feature, "internal sealed partial class ProductQueryService(");
+        if (ownership == FullNetCrudOwnershipMode.OrganizationUnit)
+        {
+            StringAssert.Contains(feature, "partial void ConfigureReadDataScope(");
+            Assert.AreEqual(2, feature.Split("ConfigureReadDataScope(scope, currentUserId, ref filter);", StringSplitOptions.None).Length - 1);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(FullNetCrudOwnershipMode.None)]
+    [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
+    public void Explicit_crud_has_optional_domain_guards_before_writes(FullNetCrudOwnershipMode ownership)
+    {
+        var feature = Artifact(GenerateWithLayui(CreateExplicitLifecycleSchema(ownershipMode: ownership)), "backend/ProductFeature.g.cs");
+        StringAssert.Contains(feature, "internal sealed partial class ProductManagementService(");
+        foreach (var action in new[] { "Create", "Update", "Delete" })
+        {
+            StringAssert.Contains(feature, $"partial void Validate{action}Domain(");
+            var start = feature.IndexOf($"private async Task<Result<ProductResponse>> {action}CoreAsync(", StringComparison.Ordinal);
+            var guard = feature.IndexOf($"Validate{action}Domain(", start, StringComparison.Ordinal);
+            var write = feature.IndexOf("var affectedRows = await commandExecutor.ExecuteAsync(", start, StringComparison.Ordinal);
+            Assert.IsTrue(guard > start && guard < write, $"{action} guard must precede SQL write");
+        }
+    }
+
+    [TestMethod]
+    public void Generate_vue_edit_form_copies_only_editable_fields_and_resets_update_only_values()
+    {
+        var columns = FullNetCrudSchemaTests.CreateProductSchema().Columns.Select(column =>
+            column.DatabaseName == "Description"
+                ? column with { Ui = column.ResolvedUi with { IncludeInCreate = false, IncludeInUpdate = true } }
+                : column).ToArray();
+        var view = Artifact(GenerateWithLayui(FullNetCrudSchemaTests.CreateProductSchema(columns: columns)),
+            "clients/vue/productsView.vue");
+        Assert.IsFalse(view.Contains("Object.assign(editForm, item)", StringComparison.Ordinal));
+        StringAssert.Contains(view, "const initialEditForm = () => ({");
+        StringAssert.Contains(view, "Object.assign(editForm, initialEditForm())");
+        StringAssert.Contains(view, "description: item.description");
+        StringAssert.Contains(view, "if (succeeded && ticket === editTicket");
+        StringAssert.Contains(view, "await disable(deleting.value)");
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("lifecycle")]
+    public void Generate_vue_pages_bind_requests_and_dialogs_to_current_context(string mode)
+    {
+        var schema = mode == "legacy"
+            ? FullNetCrudSchemaTests.CreateProductSchema()
+            : CreateExplicitLifecycleSchema();
+        var artifacts = GenerateWithLayui(schema);
+        var model = Artifact(artifacts, "clients/vue/products-page.generated.ts");
+        var view = Artifact(artifacts, "clients/vue/productsView.vue");
+        StringAssert.Contains(model, "contextKey: () => string;");
+        StringAssert.Contains(model, "if (!request.current()) return false;");
+        StringAssert.Contains(model, "api.list(nextPage, nextPageSize, request.signal)");
+        StringAssert.Contains(model, "onDeactivated(suspend)");
+        StringAssert.Contains(model, "flush: 'sync'");
+        StringAssert.Contains(view, "contextKey: () => JSON.stringify");
+        StringAssert.Contains(view, "watch(scopeVersion");
+        StringAssert.Contains(view, "cancelChange()");
+    }
+
     private static IReadOnlyList<GeneratedArtifact> GenerateWithLayui(FullNetCrudSchema schema) =>
         CrudArtifactGenerator.Generate(schema, includeLayuiClientArtifacts: true);
 
@@ -414,7 +535,7 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(vue, "export function createProductsApi");
         StringAssert.Contains(
             vue,
-            "disable: (id: string, input: DisableProductRequest)");
+            "disable: (id: string, input: DisableProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(layui, "export function createProductsApi");
         StringAssert.Contains(layui, "disable(id, input)");
         StringAssert.Contains(layui, "jsonRequest('POST', input)");
@@ -635,19 +756,19 @@ public sealed class CrudArtifactGeneratorTests
             + "            DeletedById = @DeletedById,\n"
             + "            Version = Version + 1");
         StringAssert.Contains(sql, "AND IsDeleted = 0");
-        StringAssert.Contains(feature, "CreatedById = actorUserId");
-        StringAssert.Contains(feature, "UpdatedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedAtUtc = clock.UtcNow");
+        StringAssert.Contains(feature, "[\"CreatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"UpdatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedAtUtc\"] = clock.UtcNow");
         StringAssert.Contains(endpoint, "ClaimsPrincipal principal");
         StringAssert.Contains(endpoint, "FullNetIdentityClaimTypes.Subject");
         StringAssert.Contains(endpoint, "MapPost(\"/{productId:guid}/delete\"");
         StringAssert.Contains(
             vue,
-            "update: (id: string, input: UpdateProductRequest)");
+            "update: (id: string, input: UpdateProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(
             vue,
-            "delete: (id: string, input: DeleteProductRequest)");
+            "delete: (id: string, input: DeleteProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(vuePage, "version: item.version");
         StringAssert.Contains(layui, "update(id, input)");
         StringAssert.Contains(layui, "delete(id, input)");
@@ -755,6 +876,52 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_vue_view_adapts_readonly_rows_to_element_plus_table_slots()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var vueView = Artifact(artifacts, "clients/vue/productsView.vue");
+
+        StringAssert.Contains(vueView, ":data=\"[...items]\"");
+        StringAssert.Contains(vueView, "function openEdit(row: unknown): void");
+        StringAssert.Contains(vueView, "const item = items.value.find(candidate => candidate === row);");
+        StringAssert.Contains(vueView, "function openDelete(row: unknown): void");
+        StringAssert.Contains(vueView, "async function confirmDelete(): Promise<void>");
+    }
+
+    [TestMethod]
+    public void Generate_explicit_navigation_uses_unique_vue_route_identity()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var navigation = Artifact(artifacts, "backend/ProductAuthorizationContributor.fragment.cs");
+
+        StringAssert.Contains(navigation, "new NavigationDefinition(\n    \"m7-catalog-products\",\n    null,\n    \"m7-catalog-products\",\n    \"/catalog/products\",\n    \"m7-catalog-products\",");
+        foreach (var action in new[] { "create", "update", "disable" })
+        {
+            StringAssert.Contains(navigation,
+                $"\"catalog.products.{action}\",\n    \"m7-catalog-products\",");
+        }
+    }
+
+    [TestMethod]
+    public void Generate_explicit_navigation_distinguishes_module_and_resource_boundaries()
+    {
+        var reference = CreateHardDeleteSchema();
+        FullNetCrudSchema Schema(string moduleKey, string resource) =>
+            FullNetCrudSchema.CreateProject(
+                ownerKey: "acme", moduleKey, entityKey: "product",
+                databaseTableName: $"acme_{moduleKey}_product",
+                rootNamespace: "Acme.Modules.Catalog", clrTypeName: "Product",
+                apiResourceName: resource, permissionResourceName: "products",
+                reference.DataScope, reference.EntityCapabilities,
+                FullNetCrudScene.Single, [], reference.Columns);
+
+        var first = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a_b", "c"));
+        var second = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a", "b-c"));
+        StringAssert.Contains(first, "new NavigationDefinition(\n    \"m3-a-b-c\",");
+        StringAssert.Contains(second, "new NavigationDefinition(\n    \"m1-a-b-c\",");
+    }
+
+    [TestMethod]
     public void Generate_explicit_hard_delete_uses_physical_delete_without_soft_delete_fields()
     {
         var artifacts = GenerateWithLayui(
@@ -766,6 +933,33 @@ public sealed class CrudArtifactGeneratorTests
         Assert.IsFalse(sql.Contains("IsDeleted", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedAtUtc", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedById", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("hard-delete")]
+    public void Generate_vue_requires_confirmation_before_destructive_action(string mode)
+    {
+        var schema = mode == "legacy"
+            ? FullNetCrudSchemaTests.CreateProductSchema()
+            : CreateHardDeleteSchema();
+        var view = Artifact(GenerateWithLayui(schema), "clients/vue/productsView.vue");
+
+        StringAssert.Contains(view, "const deleteOpen = ref(false);");
+        StringAssert.Contains(view, "@click=\"openDelete(row)\"");
+        StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
+        StringAssert.Contains(view, "--el-color-danger: #b42318");
+        StringAssert.Contains(view, "@click=\"confirmDelete\"");
+        if (mode == "hard-delete")
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？此操作无法撤销。");
+        }
+        else
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？</p>");
+            Assert.IsFalse(view.Contains("此操作无法撤销", StringComparison.Ordinal));
+        }
+        Assert.IsFalse(view.Contains("@click=\"removeRow(row)\"", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -885,7 +1079,7 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer");
         StringAssert.Contains(feature, "IDataScopeSqlFilterBuilder dataScopeFilterBuilder");
         StringAssert.Contains(feature, "EnsureCanWriteAsync");
-        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        StringAssert.Contains(feature, "[\"OrganizationUnitId\"] = organizationUnitId");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
         Assert.IsFalse(feature.Contains("GetProperties()", StringComparison.Ordinal));
         StringAssert.Contains(feature, "new Dictionary<string, object?> { [\"Offset\"] = offset");
@@ -1424,7 +1618,7 @@ public sealed class CrudArtifactGeneratorTests
         $"{artifact.Kind}\n{artifact.RelativePath}\n{artifact.Content}";
 
     private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        (T)((IReadOnlyDictionary<string, object?>)parameters)[name]!;
 
     private static string FindRepositoryRoot()
     {

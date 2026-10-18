@@ -1,6 +1,6 @@
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkflowTodoDetail, WorkflowTodoListItemResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import {
@@ -16,6 +16,9 @@ import WorkflowTodosView from './WorkflowTodosView.vue';
 
 vi.mock('../api/workflow-todos', () => ({
   approveWorkflowTodo: vi.fn(),
+  countersignWorkflowTodo: vi.fn(),
+  cancelWorkflowTodoCountersign: vi.fn(),
+  getWorkflowTodoCountersignChain: vi.fn(),
   getWorkflowTodo: vi.fn(),
   listMyWorkflowTodoHistory: vi.fn(),
   listWorkflowTodoReturnTargets: vi.fn(),
@@ -61,7 +64,7 @@ const detail: WorkflowTodoDetail = {
   instanceId: todo.instanceId,
   stepId: todo.stepId,
   assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
-  statusKey: 'pending',
+  statusKey: 'active',
   revision: 3,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
   formSchemaHash: 'a'.repeat(64),
@@ -88,17 +91,20 @@ const detail: WorkflowTodoDetail = {
   pendingCount: 1
 };
 
+const mounted: VueWrapper[] = [];
+afterEach(() => { for (const wrapper of mounted.splice(0)) wrapper.unmount(); });
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '01912345-6789-7abc-8def-0123456789ae',
     username: 'approver',
     displayName: '审批人',
     tenantId: '01912345-6789-7abc-8def-0123456789aa',
     actorScope: 'tenant',
-    scope: 'tenant',
+    scope: 'tenant:0191234567897abc8def0123456789aa',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,
@@ -106,7 +112,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(WorkflowTodosView, { global: { plugins: [pinia] } });
+  const wrapper = mount(WorkflowTodosView, { global: { plugins: [pinia] } }); mounted.push(wrapper); return wrapper;
 }
 
 describe('WorkflowTodosView', () => {
@@ -179,6 +185,7 @@ describe('WorkflowTodosView', () => {
           }]
         }]
       },
+      submission: {},
       fieldPolicies: { decision: 'required' }
     });
     const wrapper = mountWithPermissions([
@@ -204,7 +211,8 @@ describe('WorkflowTodosView', () => {
       todo.revision,
       { decision: '同意' },
       null,
-      expect.any(String)
+      expect.any(String),
+      expect.any(AbortSignal)
     );
   });
 
@@ -259,7 +267,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
   });
 
-  it.each([403, 422])('服务端返回 %s 时保留详情并展示 ProblemDetails', async status => {
+  it.each([403, 422])('服务端返回 %s 时展示错误并按身份边界决定保留详情', async status => {
     vi.mocked(approveWorkflowTodo).mockRejectedValue({
       status,
       code: `workflow.test_${status}`,
@@ -277,7 +285,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
 
     expect(wrapper.get('[role="alert"]').text()).toContain(`workflow.test_${status}`);
-    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(status === 422);
   });
 
   it('旧修订冲突后刷新权威待办并关闭已经失效的动作', async () => {
@@ -315,7 +323,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="workflow-todo-return"]').exists()).toBe(true);
-    expect(listWorkflowTodoReturnTargets).toHaveBeenCalledWith(todo.id);
+    expect(listWorkflowTodoReturnTargets).toHaveBeenCalledWith(todo.id, expect.any(AbortSignal));
     expect(wrapper.text()).toContain('manager-approval');
   });
 
@@ -341,7 +349,8 @@ describe('WorkflowTodosView', () => {
       todo.revision,
       {},
       '资料不完整',
-      expect.any(String)
+      expect.any(String),
+      expect.any(AbortSignal)
     );
   });
 
@@ -354,6 +363,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
 
     expect(listMyWorkflowTodoHistory).toHaveBeenCalled();
+    vi.mocked(getWorkflowTodo).mockResolvedValueOnce({ ...detail, id: historyTodo.id, statusKey: 'completed' });
     await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
     await flushPromises();
 

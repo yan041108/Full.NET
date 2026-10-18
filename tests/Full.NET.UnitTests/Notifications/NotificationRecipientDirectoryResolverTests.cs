@@ -24,7 +24,7 @@ public sealed class NotificationRecipientDirectoryResolverTests
                 [first] = new(first, "first", "第一位用户", LocaleCatalog.English),
                 [second] = new(second, "second", "第二位用户", LocaleCatalog.Chinese),
             });
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var service = new NotificationRecipientDirectoryResolver(hostUsers, tenantUsers);
 
         var result = await service.ResolveAsync(
@@ -41,7 +41,7 @@ public sealed class NotificationRecipientDirectoryResolverTests
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids != null && ids.SequenceEqual(new[] { first, second })),
             Arg.Any<CancellationToken>());
-        await tenantUsers.DidNotReceive().FindActiveTenantUsersAsync(
+        await tenantUsers.DidNotReceive().FindActiveTenantMembersAsync(
             Arg.Any<IReadOnlyCollection<Guid>>(),
             Arg.Any<CancellationToken>());
     }
@@ -51,8 +51,8 @@ public sealed class NotificationRecipientDirectoryResolverTests
     {
         var userId = Guid.CreateVersion7();
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        tenantUsers.FindActiveTenantUsersAsync(
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>
@@ -70,7 +70,7 @@ public sealed class NotificationRecipientDirectoryResolverTests
         var resolved = result.Value!;
         Assert.AreEqual(userId, resolved.Single().UserId);
         Assert.AreEqual(LocaleCatalog.English, resolved.Single().PreferredLocale);
-        await tenantUsers.Received(1).FindActiveTenantUsersAsync(
+        await tenantUsers.Received(1).FindActiveTenantMembersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids != null && ids.SequenceEqual(new[] { userId })),
             Arg.Any<CancellationToken>());
@@ -83,8 +83,8 @@ public sealed class NotificationRecipientDirectoryResolverTests
     public async Task Tenant_scope_rejects_recipient_missing_from_current_tenant_directory()
     {
         var requested = Guid.CreateVersion7();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        tenantUsers.FindActiveTenantUsersAsync(
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>());

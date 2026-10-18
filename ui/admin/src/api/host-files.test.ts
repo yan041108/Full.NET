@@ -34,7 +34,7 @@ describe('Vue Host 文件 API', () => {
 
   it('批量上传将所有文件作为独立 multipart 字段发送', async () => {
     const files = [new File(['first'], 'first.txt'), new File(['second'], 'second.txt')];
-    const response = { succeededCount: 0, results: [] };
+    const response = { succeededCount: 0, results: files.map(file => ({ originalFileName: file.name, succeeded: false, file: null, errorCode: 'files.invalid_upload', message: null })) };
     requestMock.mockResolvedValueOnce(response);
 
     await expect(batchUploadHostFiles(files)).resolves.toEqual(response);
@@ -63,8 +63,8 @@ describe('Vue Host 文件 API', () => {
   });
 
   it('上传 multipart 文件', async () => {
-    requestMock.mockResolvedValueOnce(sampleFile);
     const file = new File(['hello'], 'parity.txt', { type: 'text/plain' });
+    requestMock.mockResolvedValueOnce({ ...sampleFile, sizeBytes: file.size });
     const result = await uploadHostFile(file);
     expect(result.id).toBe(sampleFile.id);
     const [, init] = requestMock.mock.calls[0] ?? [];

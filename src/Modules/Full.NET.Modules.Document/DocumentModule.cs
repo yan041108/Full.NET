@@ -80,9 +80,12 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemTagAssignmentService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<global::Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.HostFileReferences.DocumentVersionDeletedIntegrationEventHandler>());
         services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
         services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskCancellationService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IDocumentOfficePreviewConversionProvider,
@@ -104,7 +107,12 @@ public sealed class DocumentModule : IFullNetModule
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
+        services.TryAddScoped<DocumentTaxonomyWriteGuard>();
+        services.TryAddScoped<DocumentItemWriteGuard>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemCategoryReferenceService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemRestoreService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemTitleService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagManagementService>();
         services.TryAddScoped<Features.QueryHostRecycleBin.HostRecycleBinQueryService>();
@@ -154,7 +162,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddSingleton<DocumentVersionRetentionOptionsChangeTokenSource>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IOptionsChangeTokenSource<DocumentVersionRetentionOptions>,
-            DocumentVersionRetentionOptionsChangeTokenSource>());
+            DocumentVersionRetentionOptionsChangeTokenSourceAdapter>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IPostConfigureOptions<DocumentVersionRetentionOptions>,
             DocumentVersionRetentionOptionsPostConfigurer>());
@@ -180,6 +188,7 @@ public sealed class DocumentModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddScoped<DocumentItemWriteGuard>();
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -189,6 +198,8 @@ public sealed class DocumentModule : IFullNetModule
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<global::Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.HostFileReferences.DocumentVersionDeletedIntegrationEventHandler>());
         services.TryAddScoped<Retention.DocumentVersionRetentionRunner>();
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<PreviewTasks.DocumentPreviewTaskRunner>();

@@ -41,7 +41,7 @@ public sealed class ApplicationMigrationRunnerTests
     }
 
     private static ApplicationMigrationRunner Create(DatabaseProvider provider, IDatabaseMigrationRunner framework) =>
-        new(framework, Options.Create(new DatabaseOptions { Provider = provider, ConnectionString = "invalid-connection-must-not-be-used" }), "SELECT 1;", "SELECT 1;");
+        new(framework, Options.Create(new DatabaseOptions { Provider = provider, ConnectionString = "invalid-connection-must-not-be-used" }), "SELECT 1;", "SELECT 1;", null, null);
 
     // 故意忽略令牌，要求包装器自行阻止取消后的业务迁移。
     private sealed class FrameworkRunner(Func<MigrationResult> action) : IDatabaseMigrationRunner

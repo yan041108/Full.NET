@@ -8,11 +8,40 @@ import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
+test('preview cancellation and lease migrations follow their platform table owner', () => {
+  for (const name of ['261_DocumentPreviewTaskCancellation.sql', '262_DocumentPreviewTaskLease.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    for (const preset of ['minimal', 'platform', 'enterprise']) {
+      const selected = buildPresetMigrationInventory(inventory, preset, resolvePresetModules(preset)).scripts;
+      assert.equal(selected.some(script => script.name === name), preset !== 'minimal');
+    }
+  }
+});
+
+test('document write guards follow the platform migration closure', () => {
+  for (const name of ['250_DocumentItemWriteGuard.sql', '251_DocumentTaxonomyWriteGuard.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    assert.ok(!buildPresetMigrationInventory(inventory, 'minimal', resolvePresetModules('minimal')).scripts.some(script => script.name === name));
+    assert.ok(buildPresetMigrationInventory(inventory, 'platform', resolvePresetModules('platform')).scripts.some(script => script.name === name));
+  }
+});
+
 test('inferMigrationModuleOwner resolves every published script', () => {
   const names = readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
   for (const name of names) {
     assert.doesNotThrow(() => inferMigrationModuleOwner(name), name);
   }
+});
+
+test('AI knowledge migrations retain AI ownership and stay outside preset inventories', () => {
+  assert.equal(inferMigrationModuleOwner('240_AiKnowledgeBase.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('241_AiKnowledgeMember.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('242_AiKnowledgeDocument.sql'), 'Ai');
+  const full = { scripts: [{ name: '001_Foundation.sql' }, { name: '240_AiKnowledgeBase.sql' }] };
+  const minimal = buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal'));
+  assert.deepEqual(minimal.scripts, [{ name: '001_Foundation.sql' }]);
 });
 
 test('preset-minimal migration inventory is smaller than unscoped inventory', () => {
@@ -30,4 +59,24 @@ test('preset-minimal migration inventory is smaller than unscoped inventory', ()
   assert.ok(minimal.scripts.length < full.scripts.length);
   assert.ok(minimal.scripts.length > 40);
   assert.ok(!minimal.scripts.some(({ name }) => name.startsWith('102_Workflow')));
+});
+
+test('sample import receipt and approval journal remain inside the enterprise preset migration closure', () => {
+  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql', '247_DemoEnterpriseRequestApprovalSubmission.sql', '248_DemoEnterpriseRequestAttachment.sql', '249_DemoEnterpriseRequestApprovalRepair.sql']) {
+    const script = { name };
+    assert.equal(inferMigrationModuleOwner(script.name), 'EnterpriseRequest');
+    const full = { scripts: [{ name: '001_Foundation.sql' }, script] };
+    assert.ok(!buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal')).scripts.some(item => item.name === script.name));
+    assert.ok(buildPresetMigrationInventory(full, 'enterprise', resolvePresetModules('enterprise')).scripts.some(item => item.name === script.name));
+  }
+});
+
+test('media binding generation migration belongs to every official foundation preset', () => {
+  const name = '252_MediaBindingClaimGeneration.sql';
+  assert.equal(inferMigrationModuleOwner(name), 'Shared');
+  for (const preset of ['minimal', 'platform', 'saas', 'enterprise']) {
+    const modules = resolvePresetModules(preset);
+    assert.ok(modules.includes('Identity') && modules.includes('Tenancy'));
+    assert.ok(buildPresetMigrationInventory({ scripts: [{ name }] }, preset, modules).scripts.some(script => script.name === name));
+  }
 });

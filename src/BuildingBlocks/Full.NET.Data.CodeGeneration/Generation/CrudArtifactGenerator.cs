@@ -329,10 +329,10 @@ public static class CrudArtifactGenerator
             .Select(value => $"  type {value}"));
         var updateMember = schema.EntityCapabilities.CanUpdate
             ? $$"""
-            update: (id: string, input: Update{{entity}}Request) =>
+            update: (id: string, input: Update{{entity}}Request, signal?: AbortSignal) =>
               {{operationPrefix}}Update{{entity}}(
                 http,
-                { {{LowerFirst(entity)}}Id: id, body: input }
+                { {{LowerFirst(entity)}}Id: id, body: input }, signal
               )
             """
             : string.Empty;
@@ -342,10 +342,10 @@ public static class CrudArtifactGenerator
         var actionBody = schema.HasVersion ? ", body: input" : string.Empty;
         var deleteMember = schema.EntityCapabilities.CanDelete
             ? $$"""
-            {{actionMember}}: (id: string{{actionInputType}}) =>
+            {{actionMember}}: (id: string{{actionInputType}}, signal?: AbortSignal) =>
               {{operationPrefix}}{{action}}{{entity}}(
                 http,
-                { {{LowerFirst(entity)}}Id: id{{actionBody}} }
+                { {{LowerFirst(entity)}}Id: id{{actionBody}} }, signal
               )
             """
             : string.Empty;
@@ -388,10 +388,10 @@ public static class CrudArtifactGenerator
               http: GeneratedRequest
             ) {
               return {
-                list: (page = 1, pageSize = 20) =>
-                  {{operationPrefix}}List{{resource}}(http, { page, pageSize }),
-                create: (input: Create{{entity}}Request) =>
-                  {{operationPrefix}}Create{{entity}}(http, { body: input }){{renderedAdditionalMembers}}
+                list: (page = 1, pageSize = 20, signal?: AbortSignal) =>
+                  {{operationPrefix}}List{{resource}}(http, { page, pageSize }, signal),
+                create: (input: Create{{entity}}Request, signal?: AbortSignal) =>
+                  {{operationPrefix}}Create{{entity}}(http, { body: input }, signal){{renderedAdditionalMembers}}
               };
             }
             """);

@@ -24,6 +24,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentAccessLogRecord>(ReadAccessLog);
         registrar.Register<DocumentPreviewTaskRecord>(ReadPreviewTask);
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
+        registrar.Register<DocumentPermissionRevisionRecord>(ReadPermissionRevision);
         registrar.Register<DocumentShareRecord>(ReadShare);
         registrar.Register<DocumentStatisticsSummaryRecord>(ReadStatisticsSummary);
         registrar.Register<DocumentStatisticsByTypeRecord>(ReadStatisticsByType);
@@ -31,6 +32,12 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentStatisticsShareCountRecord>(ReadStatisticsShareCount);
         registrar.Register<DocumentVersionRetentionSettingRecord>(ReadVersionRetentionSetting);
     }
+
+    private static DocumentPermissionRevisionRecord ReadPermissionRevision(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        Version = ReadInt64(reader, "Version"),
+    };
 
     private static DocumentCategoryRecord ReadCategory(DbDataReader reader) => new()
     {
@@ -195,6 +202,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
         StartedAtUtc = ReadNullableDateTimeOffset(reader, "StartedAtUtc"),
         CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),
         Version = ReadInt64(reader, "Version"),
+        LeaseId = ReadNullableGuid(reader, "LeaseId"),
+        LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
     };
 
     private static DocumentPermissionRecord ReadPermission(DbDataReader reader) => new()

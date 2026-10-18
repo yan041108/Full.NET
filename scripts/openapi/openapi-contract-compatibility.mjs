@@ -337,6 +337,32 @@ function isAdditiveCoverageManifestChange(fileName, fieldName, baselineValue, cu
     });
   }
 
+  if (fieldName === 'entries') {
+    const currentModules = new Map();
+    for (const entry of currentValue) {
+      if (typeof entry?.apiModule !== 'string' || currentModules.has(entry.apiModule)
+        || (Object.hasOwn(entry, 'clientContractModules')
+          && (!Array.isArray(entry.clientContractModules)
+            || entry.clientContractModules.some(module => typeof module !== 'string')
+            || new Set(entry.clientContractModules).size !== entry.clientContractModules.length))) {
+        return false;
+      }
+      currentModules.set(entry.apiModule, entry);
+    }
+
+    // 同一 API 可以同时使用手写与生成客户端；原契约模块、快照和路由绑定必须保留。
+    return baselineValue.every(entry => {
+      const candidate = currentModules.get(entry?.apiModule);
+      if (isDeepStrictEqual(entry, candidate)) return true;
+      if (!candidate || !Array.isArray(entry?.clientContractModules)
+        || !Array.isArray(candidate.clientContractModules)) return false;
+      const { clientContractModules: before, ...baselineBinding } = entry;
+      const { clientContractModules: after, ...currentBinding } = candidate;
+      return isDeepStrictEqual(baselineBinding, currentBinding)
+        && before.every(module => after.includes(module));
+    });
+  }
+
   // 覆盖清单允许随新增 API 追加绑定，但既有绑定不得删除或静默改写。
   return baselineValue.every((baselineEntry) =>
     currentValue.some((currentEntry) =>
@@ -1021,12 +1047,18 @@ function isApprovedJsonOmissionOptionalityRepair(
 const approvedOptionalRequestSchemaEvolutions = new Set([
   'CreateHostAnnouncementRequest',
   'PreviewSerialNumberRequest',
+  // 旧客户端省略版本只用于初始化，不能将新增凭据改为请求必填字段。
+  'UpdateHostDocumentVersionRetentionRequest',
+  // 授权整体覆盖新增修订凭据；JSON 可省略以保持旧构造兼容，但服务端拒绝无版本写入。
+  'SetHostDocumentPermissionsRequest',
   'UpdateHostAnnouncementRequest'
 ]);
 
 const approvedResponseSchemaEvolutions = new Set([
   'AiAgentToolCallListItem',
   'HostAnnouncementResponse',
+  // 版本与策略值一同返回，既有响应字段的类型与必返性继续受保护。
+  'HostDocumentVersionRetentionSettingsResponse',
   'SerialNumberPreviewResponse',
   'WorkflowTodoDetailResponse',
   'WorkflowTodoRuntimeResponse'

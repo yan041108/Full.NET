@@ -108,7 +108,7 @@ describe('workflow instances api', () => {
       businessTitle: null,
       businessType: 'purchase',
       businessId: 'PO-001',
-      statusKey: 'running',
+      statusKey: 'active',
       revision: 3,
       activeTodoId: null,
       startedAtUtc: '2026-08-30T00:00:00Z'

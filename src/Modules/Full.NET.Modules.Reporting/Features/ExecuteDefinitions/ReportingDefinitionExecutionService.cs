@@ -13,17 +13,17 @@ using Full.NET.Modules.Reporting.Security;
 namespace Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 
 /// <summary>对已发布报表定义执行受界 Query Port 并返回分页结果。</summary>
-/// <param name="queryExecutor">本模块查询执行器。</param>
-/// <param name="definitionQueries">报表定义查询。</param>
+/// <param name="publishedDefinitions">报表定义查询。</param>
 /// <param name="secretProtector">数据源密码保护器。</param>
 /// <param name="connectionFactory">外部数据源连接工厂。</param>
 /// <param name="clock">时钟。</param>
+/// <param name="permissions">身份模块统一的当前作用域权限解释器。</param>
 internal sealed class ReportingDefinitionExecutionService(
-    IQueryExecutor queryExecutor,
-    ReportingDefinitionQueryService definitionQueries,
+    Full.NET.Modules.Reporting.Features.PublishedDefinitions.ReportingPublishedDefinitionResolver publishedDefinitions,
     ReportingDataSourceSecretProtector secretProtector,
     ReportingDataSourceConnectionFactory connectionFactory,
-    IClock clock)
+    IClock clock,
+    IIdentityPermissionEvaluator permissions)
 {
     /// <summary>执行已发布版本并返回分页结果；SQL 失败时立即失败。</summary>
     /// <param name="definitionId">报表定义标识。</param>
@@ -41,44 +41,20 @@ internal sealed class ReportingDefinitionExecutionService(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, ReportingExecutionPolicy.MaxPageSize);
-        if (request.Parameters.Any(parameter => string.IsNullOrWhiteSpace(parameter.ParameterKey)))
+        if (request?.Parameters is null || request.Parameters.Any(parameter => parameter is null || string.IsNullOrWhiteSpace(parameter.ParameterKey)))
         {
             return InvalidParameters("Execution parameter keys are required.");
         }
 
-        var definitionResult = await definitionQueries.GetByIdAsync(definitionId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!definitionResult.IsSuccess || definitionResult.Value is null)
-        {
-            return Result<ReportingExecutionPageResponse>.Failure(definitionResult.Error!);
-        }
-
-        var definition = definitionResult.Value;
-        if (!definition.IsEnabled)
-        {
-            return InvalidParameters("The reporting definition is disabled.");
-        }
-
-        var versionNumber = request.VersionNumber ?? definition.LatestPublishedVersionNumber;
-        if (versionNumber <= 0)
-        {
-            return Result<ReportingExecutionPageResponse>.Failure(new Error(
-                ReportingErrorCodes.DefinitionNotPublished,
-                "The reporting definition has no published version to execute.",
-                ErrorType.Validation));
-        }
-
-        var versionResult = await definitionQueries
-            .GetVersionAsync(definitionId, versionNumber, cancellationToken)
-            .ConfigureAwait(false);
-        if (!versionResult.IsSuccess || versionResult.Value is null)
-        {
-            return Result<ReportingExecutionPageResponse>.Failure(versionResult.Error!);
-        }
-
-        var version = versionResult.Value;
+        var published = await publishedDefinitions.ResolveAsync(definitionId, request.VersionNumber, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!published.IsSuccess) return Result<ReportingExecutionPageResponse>.Failure(published.Error!);
+        var definition = published.Value!.Definition;
+        var version = published.Value.Version;
+        var versionNumber = version.VersionNumber;
         var queryPort = ReportingQueryPortCatalog.TryGet(version.QueryPortKey);
         if (queryPort is null)
         {
@@ -97,11 +73,8 @@ internal sealed class ReportingDefinitionExecutionService(
             return InvalidParameters(bindOutcome.ErrorMessage!);
         }
 
-        var dataSource = await queryExecutor.QuerySingleOrDefaultAsync<ReportingDataSourceRecord>(
-                ReportingDataSourceSql.FindById,
-                ReportingSqlParameters.Create(("DataSourceId", version.DataSourceId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var dataSource = await publishedDefinitions.FindDataSourceAsync(published.Value, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (dataSource is null || !dataSource.IsEnabled)
         {
             return InvalidParameters("The reporting data source was not found or is disabled.");
@@ -130,14 +103,18 @@ internal sealed class ReportingDefinitionExecutionService(
         var sessionOutcome = await connectionFactory
             .OpenAsync(dataSource, password, cancellationToken)
             .ConfigureAwait(false);
-        if (!sessionOutcome.Succeeded || sessionOutcome.Session is null)
+        if (sessionOutcome?.Session is not { } session)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return ExecutionFailed("Failed to open reporting data source.");
         }
 
-        await using (sessionOutcome.Session)
+        // 交付会话即转移释放责任，失败载荷或打开后的取消也必须在持有范围内清理。
+        await using (session)
         {
-            var queryOutcome = await sessionOutcome.Session
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!sessionOutcome.Succeeded) return ExecutionFailed("Failed to open reporting data source.");
+            var queryOutcome = await session
                 .ExecuteQueryAsync(
                     sql,
                     sqlParameters,
@@ -145,6 +122,7 @@ internal sealed class ReportingDefinitionExecutionService(
                     ReportingExecutionPolicy.MaxCellValueLength,
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!queryOutcome.Succeeded)
             {
                 return ExecutionFailed("Reporting query execution failed.");
@@ -156,7 +134,7 @@ internal sealed class ReportingDefinitionExecutionService(
             var visibleColumns = ReportingLayoutConfigParser.ResolveVisibleColumns(
                 layoutColumns,
                 resultColumnKeys,
-                permission => HasPermission(principal, permission));
+                permission => permissions.HasPermission(principal, permission));
             if (visibleColumns.Count == 0)
             {
                 return Result<ReportingExecutionPageResponse>.Failure(new Error(
@@ -177,11 +155,16 @@ internal sealed class ReportingDefinitionExecutionService(
             var topN = bindOutcome.Values.TryGetValue("topN", out var topNValue) && topNValue is int topNInt
                 ? topNInt
                 : (int?)null;
-            var offset = (page - 1) * pageSize;
+            var offset = ((long)page - 1) * pageSize;
             var hasMore = ReportingQueryPortCatalog.SupportsPagination(version.QueryPortKey)
                 && topN.HasValue
                 && offset + rows.Length < topN.Value
                 && rows.Length == pageSize;
+
+            // 外部查询位于事务外；返回前复核本次实际执行的版本，不能切换到新发布版本。
+            var stillAvailable = await publishedDefinitions.ResolveAsync(definition.Id, versionNumber, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!stillAvailable.IsSuccess) return Result<ReportingExecutionPageResponse>.Failure(stillAvailable.Error!);
 
             return Result<ReportingExecutionPageResponse>.Success(new ReportingExecutionPageResponse(
                 definition.Id,
@@ -199,10 +182,6 @@ internal sealed class ReportingDefinitionExecutionService(
                 clock.UtcNow));
         }
     }
-
-    private static bool HasPermission(ClaimsPrincipal principal, string permissionCode) =>
-        principal.FindAll(FullNetIdentityClaimTypes.Permission)
-            .Any(claim => string.Equals(claim.Value, permissionCode, StringComparison.Ordinal));
 
     private static Result<ReportingExecutionPageResponse> InvalidParameters(string message) =>
         Result<ReportingExecutionPageResponse>.Failure(new Error(

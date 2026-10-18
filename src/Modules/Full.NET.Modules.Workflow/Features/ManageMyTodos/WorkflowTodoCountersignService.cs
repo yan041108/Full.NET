@@ -27,7 +27,7 @@ internal sealed class WorkflowTodoCountersignService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter)
 {
@@ -696,7 +696,7 @@ internal sealed class WorkflowTodoCountersignService(
             return users.Count == assignees.Count;
         }
 
-        var tenantUsers = await tenantUserDirectory.FindActiveTenantUsersAsync(assignees, token)
+        var tenantUsers = await tenantUserDirectory.FindActiveTenantMembersAsync(assignees, token)
             .ConfigureAwait(false);
         return tenantUsers.Count == assignees.Count;
     }

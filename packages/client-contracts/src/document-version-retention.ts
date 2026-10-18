@@ -3,6 +3,7 @@ export interface HostDocumentVersionRetentionSettingsResponse {
   maximumRetainedHistoryVersions: number;
   pollSeconds: number;
   batchSize: number;
+  version: number;
 }
 
 export interface UpdateHostDocumentVersionRetentionRequest {
@@ -10,6 +11,7 @@ export interface UpdateHostDocumentVersionRetentionRequest {
   maximumRetainedHistoryVersions: number;
   pollSeconds: number;
   batchSize: number;
+  version: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -23,11 +25,12 @@ export function isHostDocumentVersionRetentionSettingsResponse(
     && Number.isInteger(value.minimumRetainedVersionsPerItem)
     && Number.isInteger(value.maximumRetainedHistoryVersions)
     && Number.isInteger(value.pollSeconds)
-    && Number.isInteger(value.batchSize);
+    && Number.isInteger(value.batchSize)
+    && typeof value.version === 'number' && Number.isSafeInteger(value.version) && value.version >= 0;
 }
 
 export function isUpdateHostDocumentVersionRetentionRequest(
   value: unknown
 ): value is UpdateHostDocumentVersionRetentionRequest {
-  return isHostDocumentVersionRetentionSettingsResponse(value);
+  return isHostDocumentVersionRetentionSettingsResponse(value) && value.version < Number.MAX_SAFE_INTEGER;
 }

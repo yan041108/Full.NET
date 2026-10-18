@@ -63,17 +63,31 @@ internal static class ReportingExportTaskMapper
     public static string SerializePermissionCodes(IReadOnlyList<string> permissionCodes) =>
         JsonSerializer.Serialize(permissionCodes.ToArray(), SerializerContext.StringArray);
 
-    /// <summary>还原权限码快照；损坏时返回空集合，恢复路径会按无列权限失败关闭。</summary>
-    /// <param name="json">持久化 JSON。</param>
-    public static IReadOnlyList<string> DeserializePermissionCodes(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
+    /// <summary>序列化服务器冻结的原始权限与会话委托，不改变现有数据库列。</summary>
+    public static string SerializeAuthorization(string[] codes, Full.NET.Modules.Identity.Contracts.SessionBindingSnapshot binding) =>
+        JsonSerializer.Serialize(new ReportingExportAuthorizationSnapshot(codes, binding), SerializerContext.ReportingExportAuthorizationSnapshot);
 
-        return JsonSerializer.Deserialize(json, SerializerContext.StringArray) ?? [];
+    /// <summary>严格识别旧数组和新委托；损坏快照失败关闭，旧数组仅供下载原列边界复核。</summary>
+    public static ReportingExportAuthorizationSnapshot? DeserializeAuthorization(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            ReportingExportAuthorizationSnapshot? snapshot;
+            if (document.RootElement.ValueKind == JsonValueKind.Array)
+                snapshot = new(JsonSerializer.Deserialize(json, SerializerContext.StringArray)!, null);
+            else if (document.RootElement.ValueKind == JsonValueKind.Object)
+                snapshot = JsonSerializer.Deserialize(json, SerializerContext.ReportingExportAuthorizationSnapshot);
+            else return null;
+            return snapshot?.PermissionCodes is null || snapshot.PermissionCodes.Any(string.IsNullOrWhiteSpace) ? null : snapshot;
+        }
+        catch (JsonException) { return null; }
     }
+
+    /// <summary>重建原列权限；损坏快照返回空集合，执行器必须先完成独立授权复核。</summary>
+    public static IReadOnlyList<string> DeserializePermissionCodes(string? json) =>
+        DeserializeAuthorization(json)?.PermissionCodes ?? [];
 
     /// <summary>从任务快照还原报表参数，保持既有空值语义。</summary>
     /// <param name="json">持久化的 JSON 快照。</param>

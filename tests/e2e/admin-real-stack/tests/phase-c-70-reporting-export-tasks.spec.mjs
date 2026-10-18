@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import {
   clickMainNavLink,
   enterDevelopmentTenant,
-  loginAsHostAdmin
+  loginAsHostAdmin,
+  loginHostAdminAccessToken
 } from './support/real-stack-auth.mjs';
 import {
   createReportingExportTaskViaApi,
@@ -41,19 +42,30 @@ test('API：导出任务列表、拒绝非 Excel 格式与下载授权（清单 
       parameters: []
     }
   );
-  expect(unsupportedFormat.status()).toBe(422);
+  expect(unsupportedFormat.status()).toBe(400);
+  expect((await unsupportedFormat.json()).code).toBe('reporting.export_task.format_unsupported');
 
-  const { response: missingDefinition } = await createReportingExportTaskViaApi(
+  const missingDefinitionBody = {
+    definitionId: randomUUID(),
+    formatKey: reportingExportFormatExcel,
+    versionNumber: null,
+    parameters: []
+  };
+  // 租户不能探测未获授定义；Host 也不能绕过租户写入边界创建导出任务。
+  const { response: deniedDefinition } = await createReportingExportTaskViaApi(
+    request, clientKind, missingDefinitionBody
+  );
+  expect(deniedDefinition.status()).toBe(403);
+  expect((await deniedDefinition.json()).code).toBe('authorization.permission_denied');
+  const hostAccessToken = await loginHostAdminAccessToken(request, clientKind);
+  const { response: hostExport } = await createReportingExportTaskViaApi(
     request,
     clientKind,
-    {
-      definitionId: randomUUID(),
-      formatKey: reportingExportFormatExcel,
-      versionNumber: null,
-      parameters: []
-    }
+    missingDefinitionBody,
+    hostAccessToken
   );
-  expect(missingDefinition.status()).toBe(404);
+  expect(hostExport.status()).toBe(403);
+  expect((await hostExport.json()).code).toBe('authorization.permission_denied');
 
   const { response: downloadMissing } = await downloadReportingExportTaskViaApi(
     request,

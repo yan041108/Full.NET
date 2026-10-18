@@ -26,6 +26,11 @@ public sealed class MemoryPackControlledProtocolRulesTests
         typeof(WorkflowInstanceCompletedIntegrationEvent),
         typeof(WorkflowInstanceRejectedIntegrationEvent),
         typeof(WorkflowInstanceCancelledIntegrationEvent),
+        // 媒体解绑是模块主项目内的内部事实，也必须遵守受控协议，不能漏出测试闭包。
+        typeof(Full.NET.Modules.Identity.IdentityModule).Assembly.GetType(
+            "Full.NET.Modules.Identity.Features.HostFileReferences.IdentityProfileMediaUnboundIntegrationEvent", throwOnError: true)!,
+        typeof(Full.NET.Modules.Tenancy.TenancyModule).Assembly.GetType(
+            "Full.NET.Modules.Tenancy.Features.HostFileReferences.TenantLogoUnboundIntegrationEvent", throwOnError: true)!,
     ];
 
     private static readonly HashSet<Type> ForbiddenPropertyTypes =

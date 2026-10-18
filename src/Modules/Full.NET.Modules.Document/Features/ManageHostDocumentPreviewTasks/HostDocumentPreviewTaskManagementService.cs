@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -19,7 +20,9 @@ internal sealed class HostDocumentPreviewTaskManagementService(
     IHostFileContentReader hostFileContentReader,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options)
+    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options,
+    ICommandTransaction transaction,
+    DocumentItemWriteGuard itemWrites)
 {
     public async Task<Result<HostDocumentPreviewTaskResponse>> CreateAsync(
         CreateHostDocumentPreviewTaskRequest request,
@@ -73,37 +76,74 @@ internal sealed class HostDocumentPreviewTaskManagementService(
                         ErrorType.BusinessRule));
             }
 
-            var sourceFileName = probe.OriginalFileName;
-            var sourceMimeType = probe.ContentType;
-            var now = clock.UtcNow;
-            var providerKey = options.CurrentValue.ProviderKey;
-            await commandExecutor.ExecuteAsync(
-                    DocumentPreviewTaskSql.Insert,
-                    DocumentSqlParameters.Create(
-                        ("Id", taskId),
-                        ("DocumentItemId", request.DocumentItemId),
-                        ("VersionId", request.VersionId),
-                        ("DocumentTitle", item.Title),
-                        ("SourceFileId", fileIdResult.Value),
-                        ("SourceFileName", sourceFileName),
-                        ("SourceMimeType", sourceMimeType),
-                        ("OutputFileId", null),
-                        ("StatusKey", HostDocumentPreviewTaskStatusKeys.Pending),
-                        ("ProviderKey", providerKey),
-                        ("ErrorCode", null),
-                        ("RequestedByUserId", requestedByUserId),
-                        ("CreatedAtUtc", now),
-                        ("StartedAtUtc", null),
-                        ("CompletedAtUtc", null),
-                        ("Version", 1L)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            // 文件探测不占用数据库锁；入库时重新确认来源，失败结果撤销整笔任务写入。
+            return await transaction.ExecuteResultAsync(
+                token => CreateCoreAsync(request, requestedByUserId, taskId, fileIdResult.Value,
+                    probe.OriginalFileName, probe.ContentType, token), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             await probe.Content.DisposeAsync().ConfigureAwait(false);
         }
+    }
 
+    private async Task<Result<HostDocumentPreviewTaskResponse>> CreateCoreAsync(
+        CreateHostDocumentPreviewTaskRequest request,
+        Guid requestedByUserId,
+        Guid taskId,
+        Guid expectedFileId,
+        string sourceFileName,
+        string sourceMimeType,
+        CancellationToken cancellationToken)
+    {
+        if (!await itemWrites.LockAsync(request.DocumentItemId, cancellationToken).ConfigureAwait(false))
+        {
+            return Result<HostDocumentPreviewTaskResponse>.Failure(DocumentNotFoundError());
+        }
+
+        var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+            DocumentItemSql.FindActiveById, DocumentSqlParameters.Create(("Id", request.DocumentItemId)),
+            cancellationToken).ConfigureAwait(false);
+        if (item is null)
+        {
+            return Result<HostDocumentPreviewTaskResponse>.Failure(DocumentNotFoundError());
+        }
+
+        var fileIdResult = await ResolveFileIdAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!fileIdResult.IsSuccess)
+        {
+            return Result<HostDocumentPreviewTaskResponse>.Failure(fileIdResult.Error!);
+        }
+
+        if (fileIdResult.Value != expectedFileId)
+        {
+            return Result<HostDocumentPreviewTaskResponse>.Failure(new Error(
+                DocumentErrorCodes.VersionConflict, "Document source changed during preview submission.", ErrorType.Conflict));
+        }
+
+        var now = clock.UtcNow;
+        var providerKey = options.CurrentValue.ProviderKey;
+        await commandExecutor.ExecuteAsync(
+                DocumentPreviewTaskSql.Insert,
+                DocumentSqlParameters.Create(
+                    ("Id", taskId),
+                    ("DocumentItemId", request.DocumentItemId),
+                    ("VersionId", request.VersionId),
+                    ("DocumentTitle", item.Title),
+                    ("SourceFileId", fileIdResult.Value),
+                    ("SourceFileName", sourceFileName),
+                    ("SourceMimeType", sourceMimeType),
+                    ("OutputFileId", null),
+                    ("StatusKey", HostDocumentPreviewTaskStatusKeys.Pending),
+                    ("ProviderKey", providerKey),
+                    ("ErrorCode", null),
+                    ("RequestedByUserId", requestedByUserId),
+                    ("CreatedAtUtc", now),
+                    ("StartedAtUtc", null),
+                    ("CompletedAtUtc", null),
+                    ("Version", 1L)),
+                cancellationToken)
+            .ConfigureAwait(false);
         var created = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
                 DocumentPreviewTaskSql.FindById,

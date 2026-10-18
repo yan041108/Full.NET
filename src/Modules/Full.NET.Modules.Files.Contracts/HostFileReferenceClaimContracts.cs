@@ -73,6 +73,57 @@ public static class HostFileReferenceClaimIdempotencyKeys
     public static string TenancyTenantLogo(Guid tenantId, Guid fileId) =>
         $"tenancy-tenant-logo:{tenantId:D}:{fileId:D}";
 
+    /// <summary>为一次头像绑定生成独立幂等键，延迟解绑不得影响重新绑定。</summary>
+    public static string IdentityUserAvatar(Guid userId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(IdentityUserAvatar(userId, fileId), bindingId);
+
+    /// <summary>为一次签名绑定生成独立幂等键，保留旧双参数方法用于历史数据。</summary>
+    public static string IdentityUserSignature(Guid userId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(IdentityUserSignature(userId, fileId), bindingId);
+
+    /// <summary>为一次 Logo 绑定生成独立幂等键，文件复用也不复用绑定身份。</summary>
+    public static string TenancyTenantLogo(Guid tenantId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(TenancyTenantLogo(tenantId, fileId), bindingId);
+
+    /// <summary>解析本消费方自己的绑定键；拒绝跨资源键及非规范代际。</summary>
+    public static bool IsBindingKey(string legacyKey, string candidate) =>
+        !string.IsNullOrWhiteSpace(legacyKey) && !string.IsNullOrWhiteSpace(candidate)
+        && (string.Equals(legacyKey, candidate, StringComparison.Ordinal)
+            || IsGenerationKey(legacyKey, candidate));
+
+    /// <summary>只识别归属匹配的规范代际键，不将可复用的历史双参数键视为一次性绑定身份。</summary>
+    /// <param name="legacyKey">由消费方主体、媒体类型及文件生成的历史键。</param>
+    /// <param name="candidate">待核对的扫描绑定键。</param>
+    /// <returns>键包含规范的独立绑定标识且归属一致时为 true。</returns>
+    public static bool IsGenerationBindingKey(string legacyKey, string candidate) =>
+        !string.IsNullOrWhiteSpace(legacyKey) && !string.IsNullOrWhiteSpace(candidate)
+        && IsGenerationKey(legacyKey, candidate);
+
+    private static string CreateBindingKey(string legacyKey, Guid bindingId)
+    {
+        if (bindingId == Guid.Empty) throw new ArgumentException("Binding identifier is required.", nameof(bindingId));
+        // 三段 UUID 使用规范 N 格式，键最长 123 字符，适配正式双库的 128 字符列。
+        return $"{CompactBindingPrefix(legacyKey)}{bindingId:N}";
+    }
+
+    private static string CompactBindingPrefix(string legacyKey) =>
+        legacyKey[..^73] + legacyKey[^73..].Replace("-", string.Empty, StringComparison.Ordinal) + ":b:";
+
+    private static bool IsGenerationKey(string legacyKey, string candidate)
+    {
+        // 旧双参数键使用两个 D 格式 UUID；只压缩标识部分，保留消费方前缀。
+        if (legacyKey.Length <= 73 || legacyKey[^37] != ':'
+            || !Guid.TryParseExact(legacyKey.AsSpan(legacyKey.Length - 73, 36), "D", out _)
+            || !Guid.TryParseExact(legacyKey.AsSpan(legacyKey.Length - 36, 36), "D", out _)) return false;
+        var prefix = CompactBindingPrefix(legacyKey);
+        if (candidate is null || candidate.Length != prefix.Length + 32
+            || !candidate.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        var identifier = candidate[prefix.Length..];
+        // 规范小写十六进制避免正式数据库不区分大小写的索引把两种代际别名视为同一键。
+        return Guid.TryParseExact(identifier, "N", out var bindingId) && bindingId != Guid.Empty
+            && string.Equals(identifier, bindingId.ToString("N"), StringComparison.Ordinal);
+    }
+
     /// <summary>为 Notifications 邮件 Intent 附件生成稳定幂等键。</summary>
     /// <param name="intentId">通知意图标识。</param>
     /// <param name="fileId">附件文件标识。</param>
@@ -86,8 +137,8 @@ public static class HostFileReferenceClaimIdempotencyKeys
 /// <summary>
 /// 创建文件引用 claim 的请求契约；IdempotencyKey 保证重复提交的幂等性。
 /// </summary>
-/// <param name="IdempotencyKey">消费者模块内唯一的幂等键；建议通过 HostFileReferenceClaimIdempotencyKeys 生成。</param>
-/// <param name="ConsumerModule">消费者模块稳定键，取值自 HostFileReferenceClaimConsumerModules。</param>
+/// <param name="IdempotencyKey">消费者模块内唯一的幂等键，最多 128 字符；建议通过 HostFileReferenceClaimIdempotencyKeys 生成。</param>
+/// <param name="ConsumerModule">消费者模块稳定键，最多 64 字符，取值自 HostFileReferenceClaimConsumerModules。</param>
 /// <param name="ConsumerReferenceId">消费者侧业务引用标识，如 DocumentVersionId。</param>
 /// <param name="FileId">Files 模块中目标文件标识。</param>
 public sealed record HostFileReferenceClaimRequest(
@@ -136,7 +187,7 @@ public sealed record HostFileReferenceClaimProbeResult(HostFileReferenceClaimPro
 /// </summary>
 /// <remarks>
 /// 典型时序：Claim（创建 Pending，文件被临时保留）→ 消费者写入自身引用 → Confirm（转为 Active）；
-/// 任何阶段失败都会在超时后进入对账扫描，不会永久泄漏引用计数。
+/// Pending 可由超龄对账补偿；Active 仅对不可复用引用的声明探测补偿，其他消费者须可靠发布释放事实。
 /// </remarks>
 public interface IHostFileReferenceClaimService
 {
@@ -165,7 +216,7 @@ public interface IHostFileReferenceClaimService
     /// </summary>
     /// <param name="idempotencyKey">与 ClaimAsync 相同的幂等键。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
-    /// <returns>true 表示本次调用真正完成状态迁移，false 表示已被提前释放。</returns>
+    /// <returns>true 表示本次或此前已完成释放；缺失 claim 返回失败 Result。</returns>
     Task<Result<bool>> ReleaseAsync(
         string idempotencyKey,
         CancellationToken cancellationToken = default);
@@ -201,3 +252,58 @@ public interface IHostFileReferenceClaimProbe
         Guid fileId,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>可复用绑定的 Pending 探测；只有当前有效绑定键匹配扫描键才允许确认。</summary>
+/// <remarks>可选扩展不改变其他消费者；历史双参数键由归属模块按自身绑定记录兼容。</remarks>
+public interface IHostFileReferenceBindingClaimProbe : IHostFileReferenceClaimProbe
+{
+    /// <summary>精确核对一个消费方、文件和绑定代际，不将另一代际的存在视为当前 Claim 有效。</summary>
+    /// <param name="consumerReferenceId">消费方业务标识。</param>
+    /// <param name="fileId">扫描时的文件标识。</param>
+    /// <param name="idempotencyKey">扫描记录的实际绑定键。</param>
+    /// <param name="cancellationToken">取消权威读取。</param>
+    Task<HostFileReferenceClaimProbeResult> ProbeBindingAsync(Guid consumerReferenceId, Guid fileId,
+        string idempotencyKey, CancellationToken cancellationToken = default);
+}
+
+/// <summary>主动声明消费者引用身份不可复用，允许 Files 对账历史 Active 孤儿的只读探测。</summary>
+/// <remarks>
+/// 同一 ConsumerReferenceId/FileId 一旦不存在，官方写入流程不得重新创建该引用。
+/// 软删除或可恢复的事实必须回答 Exists；暂时不可见、未同步或探测错误必须回答 Failed。
+/// 可反复更换头像、Logo 等复用身份的消费者不得实现本标记，普通探测的行为保持不变。
+/// </remarks>
+public interface IHostImmutableFileReferenceClaimProbe : IHostFileReferenceClaimProbe
+{
+    /// <summary>对一个所有者的一批引用一次权威读取；缺失回答视为 Failed，禁止逐条回退。</summary>
+    /// <param name="requests">最多 1000 项且 ClaimId 唯一的扫描快照。</param>
+    /// <param name="cancellationToken">取消权威读取。</param>
+    /// <returns>按 ClaimId 关联的明确结果。</returns>
+    Task<IReadOnlyDictionary<Guid, HostFileReferenceClaimProbeResult>> ProbeReferencesAsync(
+        IReadOnlyList<HostFileReferenceClaimProbeRequest> requests, CancellationToken cancellationToken = default);
+}
+
+/// <summary>可复用主体的一次性绑定代际探测；允许补偿永久退休的 Active 绑定，不授权清理旧格式键。</summary>
+/// <remarks>
+/// 官方写入必须为每次绑定创建新键，禁止重绑退休键；部署须停止旧写入器，不能混用可复用键的旧实现。
+/// 仅明确、权威且永不恢复的退休结论可回答 NotFound；旧格式键、元数据损坏和读取故障必须回答 Failed。
+/// 此契约不改变逻辑引用身份不可复用的原标记，也不替代业务事务中的可靠解绑事实。
+/// </remarks>
+public interface IHostImmutableFileBindingClaimProbe : IHostFileReferenceBindingClaimProbe
+{
+    /// <summary>一次权威读取核对一批完整绑定快照；缺失回答或不确定结论保留扫描 Claim。</summary>
+    /// <param name="requests">最多 1000 项、ClaimId 唯一的消费方绑定快照。</param>
+    /// <param name="cancellationToken">取消权威读取与后续释放。</param>
+    /// <returns>按 ClaimId 关联的明确探测结果；无效或历史键为 Failed。</returns>
+    Task<IReadOnlyDictionary<Guid, HostFileReferenceClaimProbeResult>> ProbeBindingsAsync(
+        IReadOnlyList<HostFileBindingClaimProbeRequest> requests, CancellationToken cancellationToken = default);
+}
+
+/// <summary>一次性绑定的完整探测快照；幂等键区分同主体、同文件的不同绑定代际。</summary>
+/// <param name="ClaimId">Files 扫描记录标识，仅用于关联回答。</param>
+/// <param name="ConsumerReferenceId">消费方业务主体标识。</param>
+/// <param name="FileId">扫描记录中的文件标识。</param>
+/// <param name="IdempotencyKey">扫描记录实际保存的绑定键，不能由探测器重新生成代际。</param>
+public readonly record struct HostFileBindingClaimProbeRequest(Guid ClaimId, Guid ConsumerReferenceId, Guid FileId, string IdempotencyKey);
+
+/// <summary>引用探测快照；ClaimId 关联回答，业务版本和文件标识共同确认归属。</summary>
+public readonly record struct HostFileReferenceClaimProbeRequest(Guid ClaimId, Guid ConsumerReferenceId, Guid FileId);

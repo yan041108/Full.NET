@@ -33,7 +33,7 @@ internal static class ApiSchemaTemplate
             StringComparison.Ordinal);
 
     /// <summary>
-    /// 若目标库尚无 DbUp Journal，则用已迁移模板覆盖；已有 schema 的恢复/升级用例返回 false。
+    /// 仅无用户对象的空库可用已迁移模板覆盖；没有 Journal 的历史库也必须执行真实迁移。
     /// </summary>
     public static async Task<bool> TryHydrateEmptyDatabaseAsync(
         DatabaseProvider provider,
@@ -251,8 +251,6 @@ internal static class ApiSchemaTemplate
         CancellationToken cancellationToken)
     {
         var targetName = SharedDatabaseFixture.GetMySqlDatabaseName(targetConnectionString);
-        var quotedTarget = SharedDatabaseFixture.QuoteMySqlIdent(targetName);
-        var quotedTemplate = SharedDatabaseFixture.QuoteMySqlIdent(MySqlTemplateDatabase);
         var root = await SharedDatabaseFixture
             .GetMySqlRootConnectionStringAsync()
             .ConfigureAwait(false);
@@ -261,11 +259,10 @@ internal static class ApiSchemaTemplate
         await AcquireMySqlTemplateBootstrapLockAsync(admin, cancellationToken).ConfigureAwait(false);
         try
         {
-            await CloneMySqlTemplateCoreAsync(
+            await CloneMySqlSchemaAsync(
                     admin,
+                    MySqlTemplateDatabase,
                     targetName,
-                    quotedTarget,
-                    quotedTemplate,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -276,18 +273,23 @@ internal static class ApiSchemaTemplate
         }
     }
 
-    private static async Task CloneMySqlTemplateCoreAsync(
+    internal static async Task CloneMySqlSchemaAsync(
         MySqlConnection admin,
+        string sourceName,
         string targetName,
-        string quotedTarget,
-        string quotedTemplate,
         CancellationToken cancellationToken)
     {
+        if (string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("模板来源和目标库不得相同。");
+        var quotedTarget = SharedDatabaseFixture.QuoteMySqlIdent(targetName);
+        var quotedTemplate = SharedDatabaseFixture.QuoteMySqlIdent(sourceName);
         await admin.ExecuteAsync(
                 TimeoutCommand(cancellationToken, $"DROP DATABASE {quotedTarget}; CREATE DATABASE {quotedTarget};"))
             .ConfigureAwait(false);
         MySqlConnection.ClearAllPools();
         await GrantMySqlTemplateAsync(admin, targetName, cancellationToken).ConfigureAwait(false);
+        // SHOW CREATE 中的未限定外键、触发器表名必须在目标库解析，不能绑定到模板库。
+        await admin.ExecuteAsync(TimeoutCommand(cancellationToken, $"USE {quotedTarget};")).ConfigureAwait(false);
 
         var objects = (await admin.QueryAsync<(string Name, string Type)>(
                 TimeoutCommand(cancellationToken,
@@ -297,7 +299,7 @@ internal static class ApiSchemaTemplate
                     WHERE TABLE_SCHEMA = @Schema
                     ORDER BY CASE TABLE_TYPE WHEN 'BASE TABLE' THEN 0 ELSE 1 END, TABLE_NAME;
                     """,
-                    new { Schema = MySqlTemplateDatabase }))
+                    new { Schema = sourceName }))
             .ConfigureAwait(false)).ToArray();
         await admin.ExecuteAsync(TimeoutCommand(cancellationToken, "SET FOREIGN_KEY_CHECKS = 0;")).ConfigureAwait(false);
         try
@@ -310,7 +312,7 @@ internal static class ApiSchemaTemplate
                             admin,
                             quotedTemplate,
                             quotedTarget,
-                            MySqlTemplateDatabase,
+                            sourceName,
                             obj.Name,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -320,7 +322,7 @@ internal static class ApiSchemaTemplate
                 await CloneMySqlViewAsync(
                         admin,
                         quotedTarget,
-                        MySqlTemplateDatabase,
+                        sourceName,
                         obj.Name,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -330,6 +332,18 @@ internal static class ApiSchemaTemplate
         {
             await admin.ExecuteAsync(TimeoutCommand(cancellationToken, "SET FOREIGN_KEY_CHECKS = 1;"))
                 .ConfigureAwait(false);
+        }
+
+        // 先复制结构与数据再安装触发器，避免复制基线行时执行业务副作用。
+        var triggers = (await admin.QueryAsync<string>(TimeoutCommand(cancellationToken,
+            "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = @Schema ORDER BY TRIGGER_NAME;",
+            new { Schema = sourceName })).ConfigureAwait(false)).ToArray();
+        foreach (var trigger in triggers)
+        {
+            var definition = await GetMySqlCreateStatementAsync(admin, "TRIGGER", sourceName, trigger, cancellationToken)
+                .ConfigureAwait(false);
+            await admin.ExecuteAsync(TimeoutCommand(cancellationToken,
+                QualifyMySqlCreateStatement(definition, quotedTarget, "TRIGGER"))).ConfigureAwait(false);
         }
     }
 
@@ -342,10 +356,10 @@ internal static class ApiSchemaTemplate
         CancellationToken cancellationToken)
     {
         var quotedTable = SharedDatabaseFixture.QuoteMySqlIdent(tableName);
+        var definition = await GetMySqlCreateStatementAsync(admin, "TABLE", templateDatabase, tableName, cancellationToken)
+            .ConfigureAwait(false);
         await admin.ExecuteAsync(
-                TimeoutCommand(
-                    cancellationToken,
-                    $"CREATE TABLE {quotedTarget}.{quotedTable} LIKE {quotedTemplate}.{quotedTable};"))
+                TimeoutCommand(cancellationToken, QualifyMySqlCreateStatement(definition, quotedTarget, "TABLE")))
             .ConfigureAwait(false);
         var columns = (await admin.QueryAsync<string>(
                 TimeoutCommand(
@@ -394,7 +408,8 @@ internal static class ApiSchemaTemplate
                 cancellationToken)
             .ConfigureAwait(false);
         await admin.ExecuteAsync(
-                TimeoutCommand(cancellationToken, QualifyMySqlCreateStatement(createSql, quotedTarget, "VIEW")))
+                TimeoutCommand(cancellationToken, QualifyMySqlCreateStatement(createSql, quotedTarget, "VIEW")
+                    .Replace(SharedDatabaseFixture.QuoteMySqlIdent(templateDatabase) + ".", quotedTarget + ".", StringComparison.Ordinal)))
             .ConfigureAwait(false);
     }
 
@@ -412,7 +427,8 @@ internal static class ApiSchemaTemplate
             .ConfigureAwait(false);
         var dictionary = (IDictionary<string, object>)row;
         var key = dictionary.Keys.First(name =>
-            name.StartsWith("Create ", StringComparison.OrdinalIgnoreCase));
+            name.StartsWith("Create ", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "SQL Original Statement", StringComparison.OrdinalIgnoreCase));
         return Convert.ToString(dictionary[key], System.Globalization.CultureInfo.InvariantCulture)
             ?? throw new InvalidOperationException($"无法读取 MySQL {objectKind} {objectName} 的定义。");
     }
@@ -430,7 +446,38 @@ internal static class ApiSchemaTemplate
         }
 
         var nameStart = index + marker.Length;
-        return createSql[..nameStart] + quotedTarget + "." + createSql[nameStart..];
+        var nameEnd = ReadMySqlQuotedIdentifierEnd(createSql, nameStart);
+        var objectStart = nameStart;
+        // SHOW CREATE VIEW 可能带源库限定；替换限定，避免拼出三段对象名。
+        if (nameEnd < createSql.Length && createSql[nameEnd] == '.')
+        {
+            objectStart = nameEnd + 1;
+            nameEnd = ReadMySqlQuotedIdentifierEnd(createSql, objectStart);
+        }
+
+        return createSql[..nameStart] + quotedTarget + "." + createSql[objectStart..nameEnd] + createSql[nameEnd..];
+    }
+
+    private static int ReadMySqlQuotedIdentifierEnd(string sql, int start)
+    {
+        if (start >= sql.Length || sql[start] != '`')
+        {
+            throw new InvalidOperationException("MySQL SHOW CREATE 返回了未限定的非标准对象名。");
+        }
+
+        for (var index = start + 1; index < sql.Length; index++)
+        {
+            if (sql[index] != '`') continue;
+            if (index + 1 < sql.Length && sql[index + 1] == '`')
+            {
+                index++;
+                continue;
+            }
+
+            return index + 1;
+        }
+
+        throw new InvalidOperationException("MySQL SHOW CREATE 对象名缺少结束引号。");
     }
 
     private static async Task BackupSqlServerTemplateAsync(
@@ -620,10 +667,28 @@ internal static class ApiSchemaTemplate
         {
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-            var objectId = await connection.ExecuteScalarAsync<int?>(
-                    TimeoutCommand(cancellationToken, "SELECT OBJECT_ID(N'dbo.SchemaVersions', N'U');"))
+            var objectCount = await connection.ExecuteScalarAsync<int>(
+                    TimeoutCommand(cancellationToken, """
+                        SELECT
+                            (SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped = 0)
+                            + (SELECT COUNT(*) FROM sys.triggers WHERE parent_class = 0 AND is_ms_shipped = 0)
+                            + (SELECT COUNT(*) FROM sys.types WHERE is_user_defined = 1)
+                            + (SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN
+                                ('dbo', 'guest', 'sys', 'INFORMATION_SCHEMA', 'db_owner', 'db_accessadmin',
+                                 'db_securityadmin', 'db_ddladmin', 'db_backupoperator', 'db_datareader',
+                                 'db_datawriter', 'db_denydatareader', 'db_denydatawriter'))
+                            + (SELECT COUNT(*) FROM sys.database_principals WHERE principal_id > 4 AND is_fixed_role = 0)
+                            + (SELECT COUNT(*) FROM sys.xml_schema_collections WHERE xml_collection_id > 1)
+                            + (SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined = 1)
+                            + (SELECT COUNT(*) FROM sys.database_scoped_credentials)
+                            + (SELECT COUNT(*) FROM sys.external_data_sources)
+                            + (SELECT COUNT(*) FROM sys.external_file_formats)
+                            + (SELECT COUNT(*) FROM sys.symmetric_keys)
+                            + (SELECT COUNT(*) FROM sys.asymmetric_keys)
+                            + (SELECT COUNT(*) FROM sys.certificates);
+                        """))
                 .ConfigureAwait(false);
-            return objectId is null;
+            return objectCount == 0;
         }
 
         await using var mySql = new MySqlConnection(connectionString);
@@ -631,10 +696,10 @@ internal static class ApiSchemaTemplate
         var count = await mySql.ExecuteScalarAsync<long>(
                 TimeoutCommand(cancellationToken,
                     """
-                    SELECT COUNT(*)
-                    FROM information_schema.TABLES
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND LOWER(TABLE_NAME) = 'schemaversions';
+                    SELECT
+                        (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE())
+                        + (SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE())
+                        + (SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = DATABASE());
                     """))
             .ConfigureAwait(false);
         return count == 0;

@@ -230,6 +230,21 @@ internal static class ReportingExportTaskSql
     public static SqlStatement SelectByIdsFor(DatabaseProvider provider) =>
         provider == DatabaseProvider.SqlServer ? SelectByIdsSqlServer : SelectByIds;
 
+    /// <summary>完成前锁定本租户任务行，等待返回后由调用方重新核对时间及租约身份。</summary>
+    public static readonly SqlStatement LockCompletionSqlServer = new(
+        "reporting.export_task.lock_completion.sqlserver",
+        $"""
+        SELECT {SelectColumnsSqlServer} FROM fn_reporting_export_task WITH (UPDLOCK, ROWLOCK)
+        WHERE TenantId = @TenantId AND Id = @Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement LockCompletionMySql = new(
+        "reporting.export_task.lock_completion.mysql",
+        $"""
+        SELECT {SelectColumns} FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND Id = @Id FOR UPDATE
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement CompleteSucceeded = new(
         "reporting.export_task.complete_succeeded",
         """
@@ -247,6 +262,19 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>领取与取消通过同一主行仲裁；版本防止旧请求覆盖重新排队或新的状态。</summary>
+    public static readonly SqlStatement Cancel = new(
+        "reporting.export_task.cancel",
+        """
+        UPDATE fn_reporting_export_task
+        SET StatusKey = 'cancelled', CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id AND RequestedByUserId = @RequestedByUserId
+          AND StatusKey = 'queued' AND Version = @ExpectedVersion
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -267,6 +295,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -285,6 +314,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -303,6 +333,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

@@ -26,6 +26,67 @@ function workspace() {
   return root;
 }
 
+// 模拟 SDK 故障只验证验收门禁与恢复，真实进程退出码由打包应用独立验证。
+function missingSdkRunner(root, failure, normalCalls, probeCalls, exitStatus = -123) {
+  const normal = runner(root, null, normalCalls);
+  return (command, args, options) => {
+    if (JSON.parse(readFileSync(join(root, 'global.json'), 'utf8')).sdk.version !== '99.0.100')
+      return normal(command, args, options);
+    probeCalls.push(args);
+    if (args[0] === 'build') return { status: exitStatus, signal: null, stdout: '', stderr: '' };
+    if (failure === 'mutates') writeFileSync(join(root, compositionProject), 'changed');
+    return { status: 2, signal: null, stdout: '', stderr: failure === 'missing-code' ? '构建进程未返回诊断'
+      : '构建进程退出码：' + (exitStatus | 0) + (failure === 'leaks' ? ' credential-probe' : '') };
+  };
+}
+
+for (const failure of [null, 'missing-code', 'leaks', 'mutates']) {
+  test(`missing SDK acceptance ${failure ?? 'preserves exit codes'} and restores SDK settings`, () => {
+    const root = workspace();
+    const settingsPath = join(root, 'global.json');
+    const settings = Buffer.from('{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}');
+    writeFileSync(settingsPath, settings);
+    const normalCalls = [];
+    const probeCalls = [];
+    const options = { verifyMissingSdk: true, reportDirectory: join(root, 'evidence'),
+      run: missingSdkRunner(root, failure, normalCalls, probeCalls) };
+    try {
+      if (failure) assert.throws(() => verifyApplicationCrudHostWiring(root, options));
+      else {
+        verifyApplicationCrudHostWiring(root, options);
+        assert.equal(probeCalls.length, 3);
+        for (const command of ['apply-module-integration', 'apply-composition-integration']) {
+          assert.deepEqual(JSON.parse(readFileSync(join(root, 'evidence', command + '-sdk-failure.json'), 'utf8')),
+            { buildExitCode: -123, diagnosticExitCode: -123, cliExitCode: 2, diagnostic: '构建进程退出码：-123', inputsUnchanged: true });
+        }
+      }
+      assert.deepEqual(readFileSync(settingsPath), settings);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test('Windows SDK exit status preserves its signed .NET representation', () => {
+  const root = workspace();
+  const settingsPath = join(root, 'global.json');
+  const settings = Buffer.from('{"sdk":{"version":"10.0.100"}}');
+  writeFileSync(settingsPath, settings);
+  try {
+    verifyApplicationCrudHostWiring(root, { verifyMissingSdk: true, reportDirectory: join(root, 'evidence'),
+      run: missingSdkRunner(root, null, [], [], 2147516571) });
+    for (const command of ['apply-module-integration', 'apply-composition-integration']) {
+      const evidence = JSON.parse(readFileSync(join(root, 'evidence', command + '-sdk-failure.json'), 'utf8'));
+      assert.equal(evidence.buildExitCode, 2147516571);
+      assert.equal(evidence.diagnosticExitCode, -2147450725);
+      assert.equal(evidence.diagnostic, '构建进程退出码：-2147450725');
+    }
+    assert.deepEqual(readFileSync(settingsPath), settings);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // 此执行器只模拟CLI写盘以验证门禁，不能证明模块/Composition/API实际编译。
 function runner(root, failure, calls) {
   return (command, args, options) => {

@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { ElLoading } from 'element-plus';
 import 'element-plus/theme-chalk/base.css';
 import 'element-plus/theme-chalk/el-icon.css';
 import 'element-plus/theme-chalk/el-button.css';
@@ -51,13 +52,18 @@ import { createAppRouter } from './router';
 
 // IdP 回跳到站点根 query 时先提升到 hash 回调路由；同文档内 replace 不会重载脚本，仍需挂载应用。
 promoteOidcAuthorizationResponseToHashRoute();
-bootstrapAdminApp();
+void bootstrapAdminApp();
 
-function bootstrapAdminApp(): void {
-const pinia = createPinia();
+async function bootstrapAdminApp(): Promise<void> {
+  const pinia = createPinia();
+  const router = createAppRouter(undefined, pinia);
+  const app = createApp(App)
+    // 页面统一使用加载遮罩指令，按需注册，避免静默失效及重复告警。
+    .directive('loading', ElLoading.directive)
+    .use(pinia)
+    .use(router);
 
-createApp(App)
-  .use(pinia)
-  .use(createAppRouter(undefined, pinia))
-  .mount('#app');
+  // 初始异步路由先完成，再挂载并恢复会话，避免导航校验把深链接误判为根路径。
+  await router.isReady();
+  app.mount('#app');
 }

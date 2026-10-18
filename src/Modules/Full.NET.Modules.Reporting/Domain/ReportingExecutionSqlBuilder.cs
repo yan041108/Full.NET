@@ -13,7 +13,8 @@ internal static class ReportingExecutionSqlBuilder
         int page,
         int pageSize)
     {
-        var offset = (page - 1) * pageSize;
+        // HTTP 页码可达 Int32 上限；偏移必须按 64 位计算，避免折回到之前页的数据。
+        var offset = ((long)page - 1) * pageSize;
         var baseSql = ReportingQueryPortCatalog.ResolveBaseSql(queryPortKey, providerKey)
             ?? throw new InvalidOperationException($"Query port '{queryPortKey}' is not supported for provider '{providerKey}'.");
 

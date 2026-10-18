@@ -13,6 +13,36 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class HostUserDirectoryTests
 {
     [TestMethod]
+    public async Task Tenant_member_batch_uses_membership_authority_and_one_query_for_distinct_users()
+    {
+        var user = Guid.CreateVersion7();
+        foreach (var provider in new[] { DatabaseProvider.SqlServer, DatabaseProvider.MySql })
+        {
+            var executor = new TenantSelectionQueryExecutor([new HostUserDirectoryRecord(user, "member", "成员", LocaleCatalog.English)]);
+            var tenant = Substitute.For<ICurrentTenant>();
+            tenant.IsAvailable.Returns(true); tenant.IsHost.Returns(false); tenant.Id.Returns(Guid.CreateVersion7());
+            var directory = new TenantMemberSelectionDirectory(executor, Options.Create(new DatabaseOptions { Provider = provider }), tenant);
+            var result = await directory.FindActiveTenantMembersAsync([user, user]);
+            Assert.HasCount(1, result); Assert.AreEqual(LocaleCatalog.English, result[user].PreferredLocale);
+            Assert.AreEqual("identity.tenant_members.find_active_selections_by_user_ids", executor.BatchStatement?.Name);
+            CollectionAssert.AreEqual(new[] { user }, ReadUserIds(executor.BatchParameters!));
+            Assert.AreEqual(TenantMemberStatuses.Active, ReadSqlParameter<string>(executor.BatchParameters!, "ActiveStatus"));
+            Assert.IsTrue(executor.BatchStatement!.Text.Contains("fn_identity_tenant_member", StringComparison.Ordinal));
+            Assert.AreEqual(SqlDataScope.TenantRequired, executor.BatchStatement.Scope);
+        }
+    }
+
+    [TestMethod]
+    public async Task Tenant_member_batch_rejects_host_even_when_input_is_empty()
+    {
+        var executor = new TenantSelectionQueryExecutor([]);
+        var tenant = Substitute.For<ICurrentTenant>(); tenant.IsHost.Returns(true);
+        var directory = new TenantMemberSelectionDirectory(executor, Options.Create(new DatabaseOptions()), tenant);
+        await Assert.ThrowsAsync<TenantContextMissingException>(() => directory.FindActiveTenantMembersAsync([]));
+        Assert.IsNull(executor.BatchStatement);
+    }
+
+    [TestMethod]
     public async Task Tenant_directory_uses_trusted_tenant_scope_for_page_and_batch_lookup()
     {
         var tenantId = Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf293");
@@ -220,7 +250,7 @@ public sealed class HostUserDirectoryTests
             object? parameters = null,
             CancellationToken cancellationToken = default)
         {
-            if (statement.Name == "identity.list_active_tenant_user_selections_by_ids")
+            if (statement.Name is "identity.list_active_tenant_user_selections_by_ids" or "identity.tenant_members.find_active_selections_by_user_ids")
             {
                 BatchStatement = statement;
                 BatchParameters = parameters;

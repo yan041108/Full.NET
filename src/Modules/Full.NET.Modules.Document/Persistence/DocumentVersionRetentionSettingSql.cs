@@ -18,44 +18,39 @@ internal static class DocumentVersionRetentionSettingSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement UpsertSqlServer = new(
-        "document.version_retention_setting.upsert.sql_server",
+    public static readonly SqlStatement UpdateSqlServer = new(
+        "document.version_retention_setting.update.sql_server",
         """
-        MERGE fn_document_version_retention_setting AS target
-        USING (SELECT @Id AS Id) AS source
-        ON target.TenantId IS NULL
-        WHEN MATCHED THEN
-            UPDATE SET
-                MinimumRetainedVersionsPerItem = @MinimumRetainedVersionsPerItem,
-                MaximumRetainedHistoryVersions = @MaximumRetainedHistoryVersions,
-                PollSeconds = @PollSeconds,
-                BatchSize = @BatchSize,
-                Version = target.Version + 1,
-                UpdatedAtUtc = @UpdatedAtUtc
-        WHEN NOT MATCHED THEN
-            INSERT (Id, TenantId, MinimumRetainedVersionsPerItem, MaximumRetainedHistoryVersions,
-                    PollSeconds, BatchSize, Version, UpdatedAtUtc)
-            VALUES (@Id, NULL, @MinimumRetainedVersionsPerItem, @MaximumRetainedHistoryVersions,
-                    @PollSeconds, @BatchSize, 1, @UpdatedAtUtc);
+        UPDATE fn_document_version_retention_setting SET
+            MinimumRetainedVersionsPerItem = @MinimumRetainedVersionsPerItem,
+            MaximumRetainedHistoryVersions = @MaximumRetainedHistoryVersions,
+            PollSeconds = @PollSeconds,
+            BatchSize = @BatchSize,
+            Version = Version + 1,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @Id AND TenantId IS NULL AND Version = @Version;
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement UpsertMySql = new(
-        "document.version_retention_setting.upsert.mysql",
+    public static readonly SqlStatement UpdateMySql = new(
+        "document.version_retention_setting.update.mysql",
+        UpdateSqlServer.Text,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertSqlServer = new(
+        "document.version_retention_setting.insert.sql_server",
         """
         INSERT INTO fn_document_version_retention_setting
             (Id, TenantId, MinimumRetainedVersionsPerItem, MaximumRetainedHistoryVersions,
              PollSeconds, BatchSize, Version, UpdatedAtUtc)
         VALUES
             (@Id, NULL, @MinimumRetainedVersionsPerItem, @MaximumRetainedHistoryVersions,
-             @PollSeconds, @BatchSize, 1, @UpdatedAtUtc)
-        ON DUPLICATE KEY UPDATE
-            MinimumRetainedVersionsPerItem = VALUES(MinimumRetainedVersionsPerItem),
-            MaximumRetainedHistoryVersions = VALUES(MaximumRetainedHistoryVersions),
-            PollSeconds = VALUES(PollSeconds),
-            BatchSize = VALUES(BatchSize),
-            Version = Version + 1,
-            UpdatedAtUtc = VALUES(UpdatedAtUtc)
+             @PollSeconds, @BatchSize, 1, @UpdatedAtUtc);
         """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertMySql = new(
+        "document.version_retention_setting.insert.mysql",
+        InsertSqlServer.Text,
         SqlDataScope.HostOnly);
 }

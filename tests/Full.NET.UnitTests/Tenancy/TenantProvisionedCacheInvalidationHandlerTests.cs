@@ -36,6 +36,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddSingleton<IIntegrationEventSerializer,
             MemoryPackIntegrationEventSerializer>();
         services.AddSingleton(Substitute.For<IQueryExecutor>());
+        // 真实后台配额服务共享正式 Dapper 执行边界，夹具也必须补齐写入与事务依赖。
+        services.AddSingleton(Substitute.For<ICommandExecutor>());
+        services.AddSingleton(Substitute.For<ICommandTransaction>());
 
         new TenancyModule().AddBackgroundServices(
             services,
@@ -51,7 +54,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         var handlers = scope.ServiceProvider
             .GetServices<IIntegrationEventHandler>()
             .ToArray();
-        Assert.HasCount(2, handlers);
+        Assert.HasCount(3, handlers);
+        Assert.IsInstanceOfType<Full.NET.Modules.Tenancy.Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>(
+            handlers.Single(handler => handler.EventType == "fullnet.tenancy.logo.unbound"));
         var provisionedHandler = handlers.Single(handler =>
             handler.EventType == "fullnet.tenancy.tenant.provisioned");
         Assert.IsInstanceOfType<TenantProvisionedCacheInvalidationHandler>(
@@ -64,6 +69,7 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         Assert.AreSame(
             scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>(),
             scope.ServiceProvider.GetRequiredService<ICurrentTenant>());
+        Assert.IsNotNull(scope.ServiceProvider.GetRequiredService<ITenantQuotaReservationService>());
     }
 
     [TestMethod]

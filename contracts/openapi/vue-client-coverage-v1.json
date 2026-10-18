@@ -330,7 +330,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/reporting-export-tasks.ts"
+        "packages/client-contracts/src/reporting-export-tasks.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",

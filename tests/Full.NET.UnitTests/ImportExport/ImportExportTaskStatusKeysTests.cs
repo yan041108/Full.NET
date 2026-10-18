@@ -19,6 +19,7 @@ public sealed class ImportExportTaskStatusKeysTests
                 ImportExportTaskStatusKeys.ExecutionSucceeded,
                 ImportExportTaskStatusKeys.ExecutionPartial,
                 ImportExportTaskStatusKeys.ExecutionFailed,
+                ImportExportTaskStatusKeys.Cancelled,
             },
             ImportExportTaskStatusKeys.All.ToArray());
     }

@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onActivated, onDeactivated, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
   ElForm,
   ElFormItem,
   ElInput,
-  ElMessage,
-  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn
@@ -25,6 +23,8 @@ import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-desi
 import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { showSuccess, showProblem, showWarning } from '../feedback/fullNetMessage';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -43,6 +43,9 @@ interface AppliedFilters {
   name: string;
 }
 
+const viewActive = ref(true);
+onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const allCategories = ref<HostDocumentCategory[]>([]);
@@ -52,6 +55,16 @@ const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ name: '' });
 const editorOpen = ref(false);
+// 删除确认由本页持有，撤权与离页同步回收，避免独立弹窗泄露旧目录名称。
+let confirmationSequence = 0;
+const confirmation = ref<{ token: number; id: string; version: number; message: string;
+  resolve: (confirmed: boolean) => void; confirm: () => void; updateOpen: (open: boolean) => void }>();
+function finishConfirmation(confirmed: boolean, token = confirmation.value?.token): void {
+  const pending = confirmation.value;
+  if (!pending || pending.token !== token) return;
+  confirmation.value = undefined;
+  pending.resolve(confirmed);
+}
 const editorMode = ref<EditorMode>('create');
 const editingCategory = ref<HostDocumentCategory | null>(null);
 const editorFormRef = ref<FormInstance>();
@@ -116,17 +129,40 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-const canCreate = computed(() => session.can('document.categories.create'));
-const canUpdate = computed(() => session.can('document.categories.update'));
-const canDelete = computed(() => session.can('document.categories.delete'));
-
-onMounted(() => {
-  void load();
-});
+// Host 目录要求可信的无租户上下文，停用的缓存页不能继续提供操作入口。
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' &&
+  session.currentUser.tenantId === null && session.can('document.categories.read'));
+const canCreate = computed(() => canRead.value && session.can('document.categories.create'));
+const canUpdate = computed(() => canRead.value && session.can('document.categories.update'));
+const canDelete = computed(() => canRead.value && session.can('document.categories.delete'));
+const scope = useAuthorizedViewScope(session, () => {
+  finishConfirmation(false); closeEditor(); allCategories.value = []; loading.value = false; changing.value = false;
+  problem.value = undefined; searchForm.value = {};
+  appliedFilters.value = { name: '' };
+  resetPage(); pageSize.value = 20;
+}, () => { if (canRead.value) void load(); });
+let listRequest: ReturnType<typeof scope.begin>;
+let editorRequest: ReturnType<typeof scope.begin>;
+const editorModel = computed({ get: () => editorOpen.value, set: open => { if (!open) closeEditor(); } });
+function closeEditor(): void {
+  editorRequest?.cancel();
+  if (editorRequest) changing.value = false;
+  editorRequest = undefined; editorOpen.value = false; editingCategory.value = null;
+  Object.assign(editorForm, { name: '', sortOrder: '0', code: null, icon: null, color: null, description: null }); clearFieldErrors();
+}
 
 function isColumnVisible(key: CategoryTableColumnKey): boolean {
   return columnVisibility.value[key];
 }
+
+// 编辑使用打开时的快照；刷新只复核目录修订，不把新隐藏字段合并进旧表单。
+function currentCategory(target: { id: string; version: number }): HostDocumentCategory | undefined {
+  return allCategories.value.find(item => item.id.toLowerCase() === target.id.toLowerCase() && item.version === target.version);
+}
+watch(allCategories, () => {
+  if (editingCategory.value && !currentCategory(editingCategory.value)) closeEditor();
+  if (confirmation.value && !currentCategory(confirmation.value)) finishConfirmation(false);
+}, { flush: 'sync', deep: true });
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -150,15 +186,15 @@ function validateSortOrder(): string {
   if (!value) {
     return t('documentCategories.sortOrderInvalid');
   }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
+  const parsed = Number(value);
+  if (!/^[+-]?\d+$/.test(value) || !Number.isInteger(parsed) || parsed < -2147483648 || parsed > 2147483647) {
     return t('documentCategories.sortOrderInvalid');
   }
   return '';
 }
 
 function parseSortOrder(): number {
-  return Number.parseInt(editorForm.sortOrder.trim(), 10) || 0;
+  return Number(editorForm.sortOrder.trim());
 }
 
 function applyFieldErrors(): boolean {
@@ -168,15 +204,19 @@ function applyFieldErrors(): boolean {
 }
 
 async function load(): Promise<void> {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  if (!canRead.value) return;
+  const request = scope.begin('document.categories.read');
+  if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    allCategories.value = await listDocumentCategories();
+    const rows = await listDocumentCategories(request.signal);
+    if (request.current()) allCategories.value = rows;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentCategories.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'documentCategories.loadFailed');
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); }
+    request.finish();
   }
 }
 
@@ -192,6 +232,8 @@ function resetSearch(): void {
 }
 
 function openCreate(): void {
+  if (changing.value || !canCreate.value) return;
+  closeEditor();
   editorMode.value = 'create';
   editingCategory.value = null;
   editorForm.name = '';
@@ -205,27 +247,29 @@ function openCreate(): void {
 }
 
 function openEdit(category: HostDocumentCategory): void {
-  if (changing.value) {
-    return;
-  }
+  if (changing.value || !canUpdate.value) return;
+  const target = currentCategory(category);
+  if (!target) return;
+  closeEditor();
   editorMode.value = 'edit';
-  editingCategory.value = category;
-  editorForm.name = category.name;
-  editorForm.sortOrder = String(category.sortOrder);
-  editorForm.code = category.code;
-  editorForm.icon = category.icon;
-  editorForm.color = category.color;
-  editorForm.description = category.description;
+  editingCategory.value = { ...target };
+  editorForm.name = target.name;
+  editorForm.sortOrder = String(target.sortOrder);
+  editorForm.code = target.code;
+  editorForm.icon = target.icon;
+  editorForm.color = target.color;
+  editorForm.description = target.description;
   clearFieldErrors();
   editorOpen.value = true;
 }
 
 async function submitEditor(): Promise<void> {
-  if (changing.value) {
+  if (changing.value || !editorOpen.value || !(editorMode.value === 'create' ? canCreate.value : canUpdate.value)) {
     return;
   }
   editorForm.name = editorForm.name.trim();
   if (!applyFieldErrors()) {
+    showWarning(fieldErrors.name || fieldErrors.sortOrder);
     return;
   }
   if (editorMode.value === 'create') {
@@ -239,6 +283,9 @@ async function create(): Promise<void> {
   if (!canCreate.value) {
     return;
   }
+  const request = scope.begin('document.categories.create');
+  if (!request) return;
+  editorRequest = request;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -249,23 +296,32 @@ async function create(): Promise<void> {
       editorForm.code ?? null,
       editorForm.icon ?? null,
       editorForm.color ?? null,
-      editorForm.description ?? null
+      editorForm.description ?? null,
+      request.signal
     );
-    editorOpen.value = false;
-    ElMessage.success(t('documentCategories.createSuccess'));
+    if (!request.current()) return;
+    closeEditor();
+    showSuccess(t('documentCategories.createSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentCategories.operationFailed');
+    if (request.current()) showProblem(toProblem(error, 'documentCategories.operationFailed'), t('documentCategories.operationFailed'));
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
 async function saveEdit(): Promise<void> {
   const category = editingCategory.value;
-  if (!canUpdate.value || !category) {
+  if (!canUpdate.value || !editorOpen.value || editorMode.value !== 'edit' || !category) {
     return;
   }
+  if (!currentCategory(category)) {
+    closeEditor(); showWarning(t('documentCategories.targetChanged')); return;
+  }
+  const request = scope.begin('document.categories.update');
+  if (!request) return;
+  editorRequest = request;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -278,43 +334,56 @@ async function saveEdit(): Promise<void> {
       editorForm.icon ?? null,
       editorForm.color ?? null,
       editorForm.description ?? null,
-      category.version
+      category.version,
+      request.signal
     );
-    editorOpen.value = false;
-    ElMessage.success(t('documentCategories.updateSuccess'));
+    if (!request.current()) return;
+    closeEditor();
+    showSuccess(t('documentCategories.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentCategories.operationFailed');
+    if (!request.current()) return;
+    const conflict = isFullNetProblemDetails(error) && error.status === 409;
+    if (conflict) closeEditor();
+    showProblem(toProblem(error, 'documentCategories.operationFailed'), t('documentCategories.operationFailed'));
+    if (conflict) await load();
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
 async function remove(category: HostDocumentCategory): Promise<void> {
-  if (changing.value || !canDelete.value) {
-    return;
-  }
+  if (changing.value || editorOpen.value || !canDelete.value) return;
+  const target = currentCategory(category);
+  if (!target) return;
+  const request = scope.begin('document.categories.delete');
+  if (!request) return;
+  // 确认等待本身也是在途操作，不能再次弹窗或借旧权限进入写入。
+  changing.value = true;
+  const { id, version, name } = target;
   try {
-    await ElMessageBox.confirm(
-      t('documentCategories.confirmDelete', { name: category.name }),
-      t('documentCategories.delete'),
-      {
-        type: 'warning',
-        confirmButtonText: t('documentCategories.delete'),
-        cancelButtonText: t('users.cancel')
-      }
-    );
-    changing.value = true;
-    await deleteDocumentCategory(category.id, category.version);
-    ElMessage.success(t('documentCategories.deleteSuccess'));
+    const confirmed = await new Promise<boolean>(resolve => {
+      const token = ++confirmationSequence;
+      // 回调绑定本次确认，旧弹窗的迟到事件不能批准后续删除。
+      confirmation.value = { token, id, version, message: t('documentCategories.confirmDelete', { name }), resolve,
+        confirm: () => finishConfirmation(true, token),
+        updateOpen: open => { if (!open) finishConfirmation(false, token); } };
+    });
+    if (!confirmed || !request.current()) return;
+    if (!currentCategory({ id, version })) { showWarning(t('documentCategories.targetChanged')); return; }
+    const removed = await deleteDocumentCategory(id, version, request.signal);
+    if (!request.current()) return;
+    if (!removed) throw new Error('client.document_category_delete_failed');
+    // 已确认成功的删除立即反映到本地；补读失败不能把已删除行留成可操作目标。
+    allCategories.value = allCategories.value.filter(item => item.id.toLowerCase() !== id.toLowerCase());
+    showSuccess(t('documentCategories.deleteSuccess'));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') {
-      return;
-    }
-    problem.value = toProblem(error, 'documentCategories.operationFailed');
+    if (request.current()) showProblem(toProblem(error, 'documentCategories.operationFailed'), t('documentCategories.operationFailed'));
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
@@ -329,7 +398,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="document-categories-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="document-categories-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentCategories.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -427,7 +496,7 @@ function toProblem(
                       test-id="document-category-edit"
                       :title="t('documentCategories.edit')"
                       :disabled="changing"
-                  @click="openEdit(row as HostDocumentCategory)"
+                      @click="openEdit(row as HostDocumentCategory)"
                     />
                   </PermissionGate>
                   <PermissionGate code="document.categories.delete">
@@ -436,7 +505,7 @@ function toProblem(
                       test-id="document-category-delete"
                       :title="t('documentCategories.delete')"
                       :disabled="changing"
-                  @click="remove(row as HostDocumentCategory)"
+                      @click="remove(row as HostDocumentCategory)"
                     />
                   </PermissionGate>
                 </ArtTableActionGroup>
@@ -460,7 +529,20 @@ function toProblem(
     </el-card>
 
     <ArtFormDialog
-      v-model:open="editorOpen"
+      v-if="confirmation"
+      :key="confirmation.token"
+      :open="true"
+      :title="t('documentCategories.delete')"
+      :confirm-label="t('documentCategories.delete')"
+      :cancel-label="t('users.cancel')"
+      confirm-test-id="document-category-delete-confirm"
+      v-on="{ confirm: confirmation.confirm, 'update:open': confirmation.updateOpen }"
+    >
+      <p>{{ confirmation.message }}</p>
+    </ArtFormDialog>
+
+    <ArtFormDialog
+      v-model:open="editorModel"
       :title="editorMode === 'create' ? t('documentCategories.createDialogTitle') : t('documentCategories.editDialogTitle')"
       :saving="changing"
       :confirm-label="t('users.confirm')"
@@ -473,6 +555,7 @@ function toProblem(
         ref="editorFormRef"
         data-testid="document-category-editor-form"
         :model="editorForm"
+        :disabled="changing"
         label-width="96px"
         class="document-categories-editor-form"
       >

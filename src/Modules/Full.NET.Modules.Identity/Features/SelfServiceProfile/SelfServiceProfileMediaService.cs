@@ -6,6 +6,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Features.HostFileReferences;
 
 namespace Full.NET.Modules.Identity.Features.SelfServiceProfile;
 
@@ -19,8 +20,10 @@ internal sealed class SelfServiceProfileMediaService(
     IHostFileUploadWriter? hostFileUploadWriter = null,
     IHostFileReferenceClaimService? hostFileReferenceClaimService = null,
     IHostFileDescriptorReader? hostFileDescriptorReader = null,
-    IHostFileContentReader? hostFileContentReader = null)
+    IHostFileContentReader? hostFileContentReader = null,
+    IOutboxWriter? outboxWriter = null)
 {
+    private IOutboxWriter? Outbox => outboxWriter;
     /// <summary>上传并绑定头像。</summary>
     public Task<Result<SelfServiceProfileResponse>> UploadAvatarAsync(
         Guid userId,
@@ -115,7 +118,7 @@ internal sealed class SelfServiceProfileMediaService(
         }
 
         // 基础预设允许不装配 Files；媒体依赖不完整时，必须在上传及数据库访问前拒绝。
-        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null)
+        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null || Outbox is null)
         {
             return MediaInvalid<SelfServiceProfileResponse>();
         }
@@ -165,7 +168,12 @@ internal sealed class SelfServiceProfileMediaService(
         var previousFileId = kind == SelfServiceProfileMediaKind.Avatar
             ? profile?.AvatarFileId
             : profile?.SignatureFileId;
-        var idempotencyKey = BuildIdempotencyKey(kind, userId, fileId);
+        var idempotencyKey = kind == SelfServiceProfileMediaKind.Avatar
+            ? HostFileReferenceClaimIdempotencyKeys.IdentityUserAvatar(userId, fileId, Guid.CreateVersion7())
+            : HostFileReferenceClaimIdempotencyKeys.IdentityUserSignature(userId, fileId, Guid.CreateVersion7());
+        var previousKey = previousFileId is Guid previous
+            ? ResolveClaimKey(kind, userId, previous, profile!) : null;
+        if (previousKey is not null && Outbox is null) return MediaInvalid<SelfServiceProfileResponse>();
         var claimResult = await hostFileReferenceClaimService
             .ClaimAsync(
                 new HostFileReferenceClaimRequest(
@@ -183,7 +191,14 @@ internal sealed class SelfServiceProfileMediaService(
         try
         {
             var bindResult = await transaction.ExecuteResultAsync(
-                    token => BindMediaAsync(userId, kind, fileId, profile is null, token),
+                    async token =>
+                    {
+                        var result = await BindMediaAsync(userId, kind, fileId, idempotencyKey, profile?.Version, token).ConfigureAwait(false);
+                        if (result.IsSuccess && previousKey is not null)
+                            await IdentityProfileMediaUnboundOutbox.PublishAsync(Outbox!, userId, previousFileId!.Value,
+                                MediaKindName(kind), previousKey, token).ConfigureAwait(false);
+                        return result;
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!bindResult.IsSuccess)
@@ -207,9 +222,9 @@ internal sealed class SelfServiceProfileMediaService(
             return Result<SelfServiceProfileResponse>.Failure(confirmResult.Error!);
         }
 
-        if (previousFileId is Guid oldFileId && oldFileId != fileId)
+        if (previousKey is not null)
         {
-            await ReleaseMediaClaimAsync(kind, userId, oldFileId, cancellationToken)
+            await ReleaseMediaClaimAsync(previousKey!, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -221,7 +236,8 @@ internal sealed class SelfServiceProfileMediaService(
         Guid userId,
         SelfServiceProfileMediaKind kind,
         Guid fileId,
-        bool createShell,
+        string claimKey,
+        int? version,
         CancellationToken cancellationToken)
     {
         var statement = kind switch
@@ -230,42 +246,53 @@ internal sealed class SelfServiceProfileMediaService(
             SelfServiceProfileMediaKind.Signature => IdentitySql.UpdateHostUserProfileSignature,
             _ => throw new InvalidOperationException("Unsupported media kind."),
         };
-        var affected = await commandExecutor.ExecuteAsync(
+        if (version is int observedVersion)
+        {
+            // 上传期间档案可能被其他媒体或普通资料编辑；只能替换原快照中的绑定。
+            var affected = await commandExecutor.ExecuteAsync(
                 statement,
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
+                    ("Version", observedVersion),
+                    ("ClaimKey", claimKey),
                     kind == SelfServiceProfileMediaKind.Avatar
                         ? ("AvatarFileId", fileId)
                         : ("SignatureFileId", fileId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (affected == 1)
-        {
-            return Result<bool>.Success(true);
+            return affected == 1 ? Result<bool>.Success(true) : Result<bool>.Failure(new Error(
+                IdentityErrorCodes.ProfileVersionConflict,
+                "The host user profile was updated concurrently.",
+                ErrorType.Conflict));
         }
 
-        if (!createShell)
+        try
+        {
+            // 首次快照为空时直接插入；不能先 UPDATE 并覆盖上传期间已经创建的档案。
+            var inserted = await commandExecutor.ExecuteAsync(
+                IdentitySql.InsertHostUserProfileMediaShell,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("AvatarFileId", kind == SelfServiceProfileMediaKind.Avatar ? fileId : null),
+                    ("SignatureFileId", kind == SelfServiceProfileMediaKind.Signature ? fileId : null),
+                    ("AvatarClaimKey", kind == SelfServiceProfileMediaKind.Avatar ? claimKey : null),
+                    ("SignatureClaimKey", kind == SelfServiceProfileMediaKind.Signature ? claimKey : null)),
+                cancellationToken)
+            .ConfigureAwait(false);
+            return inserted == 1
+            ? Result<bool>.Success(true)
+            : Result<bool>.Failure(new Error(
+                IdentityErrorCodes.ProfileVersionConflict,
+                "The host user profile was updated concurrently.",
+                ErrorType.Conflict));
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
             return Result<bool>.Failure(new Error(
                 IdentityErrorCodes.ProfileVersionConflict,
                 "The host user profile was updated concurrently.",
                 ErrorType.Conflict));
         }
-
-        var inserted = await commandExecutor.ExecuteAsync(
-                IdentitySql.InsertHostUserProfileMediaShell,
-                IdentitySqlParameters.Create(
-                    ("UserId", userId),
-                    ("AvatarFileId", kind == SelfServiceProfileMediaKind.Avatar ? fileId : null),
-                    ("SignatureFileId", kind == SelfServiceProfileMediaKind.Signature ? fileId : null)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return inserted == 1
-            ? Result<bool>.Success(true)
-            : Result<bool>.Failure(new Error(
-                IdentityErrorCodes.ProfileVersionConflict,
-                "The host user profile was updated concurrently.",
-                ErrorType.Conflict));
     }
 
     private async Task<Result<SelfServiceProfileResponse>> DeleteAsync(
@@ -304,12 +331,28 @@ internal sealed class SelfServiceProfileMediaService(
         var statement = kind == SelfServiceProfileMediaKind.Avatar
             ? IdentitySql.ClearHostUserProfileAvatar
             : IdentitySql.ClearHostUserProfileSignature;
-        _ = await commandExecutor.ExecuteAsync(
-                statement,
-                IdentitySqlParameters.Create(("UserId", userId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        await ReleaseMediaClaimAsync(kind, userId, fileId.Value, cancellationToken)
+        // 删除只对读取的文件与档案版本生效，冲突不能清除赢家或释放任何引用。
+        if (Outbox is null) return MediaInvalid<SelfServiceProfileResponse>();
+        var releaseKey = ResolveClaimKey(kind, userId, fileId.Value, profile!);
+        var clearResult = await transaction.ExecuteResultAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(
+                    statement,
+                    IdentitySqlParameters.Create(("UserId", userId), ("FileId", fileId.Value), ("Version", profile!.Version)),
+                    token)
+                .ConfigureAwait(false);
+            if (affected != 1)
+            {
+                return Result<bool>.Failure(new Error(
+                    IdentityErrorCodes.ProfileVersionConflict,
+                    "The host user profile was updated concurrently.",
+                    ErrorType.Conflict));
+            }
+            await IdentityProfileMediaUnboundOutbox.PublishAsync(Outbox, userId, fileId.Value, MediaKindName(kind), releaseKey, token).ConfigureAwait(false);
+            return Result<bool>.Success(true);
+        }, cancellationToken).ConfigureAwait(false);
+        if (!clearResult.IsSuccess) return Result<SelfServiceProfileResponse>.Failure(clearResult.Error!);
+        await ReleaseMediaClaimAsync(releaseKey, cancellationToken)
             .ConfigureAwait(false);
         return await profileService.GetAsync(userId, actorScope, cancellationToken)
             .ConfigureAwait(false);
@@ -368,15 +411,22 @@ internal sealed class SelfServiceProfileMediaService(
     }
 
     private async Task ReleaseMediaClaimAsync(
-        SelfServiceProfileMediaKind kind,
-        Guid userId,
-        Guid fileId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
-        var idempotencyKey = BuildIdempotencyKey(kind, userId, fileId);
         _ = await hostFileReferenceClaimService!
             .ReleaseAsync(idempotencyKey, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static string MediaKindName(SelfServiceProfileMediaKind kind) => kind == SelfServiceProfileMediaKind.Avatar ? "avatar" : "signature";
+
+    private static string ResolveClaimKey(SelfServiceProfileMediaKind kind, Guid userId, Guid fileId, HostUserProfileRecord profile)
+    {
+        var legacy = BuildIdempotencyKey(kind, userId, fileId);
+        var stored = kind == SelfServiceProfileMediaKind.Avatar ? profile.AvatarClaimKey : profile.SignatureClaimKey;
+        // 旧版本可能只更换文件列；残留的另一文件代际不能作为当前文件的释放凭据。
+        return stored is not null && HostFileReferenceClaimIdempotencyKeys.IsBindingKey(legacy, stored) ? stored : legacy;
     }
 
     private Task<IdentityUserRecord?> FindActiveUserAsync(

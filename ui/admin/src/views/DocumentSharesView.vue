@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
   ElCheckbox,
   ElInput,
-  ElMessage,
   ElOption,
   ElPagination,
   ElSelect,
@@ -25,7 +24,9 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useSessionStore } from '../auth/session';
+import { showError, showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   listDocumentShares,
@@ -47,6 +48,8 @@ const { t } = useAdminI18n();
 const items = ref<HostDocumentShareResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const unconfirmedShareIds = ref(new Set<string>());
+const statusUnconfirmed = (id: string) => unconfirmedShareIds.value.has(id.toLowerCase());
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
@@ -68,12 +71,16 @@ function consumeBatchShareHint(): void {
       return;
     }
     sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
-    const parsed = JSON.parse(raw) as { succeeded?: number; total?: number };
-    if (typeof parsed.succeeded === 'number' && typeof parsed.total === 'number') {
+    const parsed = JSON.parse(raw) as { succeeded?: number; total?: number; userId?: string; sessionId?: string };
+    // 提示属于创建时账号和会话，旧格式、旧会话或畸形计数不能带入当前页面。
+    if (parsed && parsed.userId === session.currentUser?.id && parsed.sessionId === session.currentUser?.sessionId
+      && typeof parsed.succeeded === 'number' && typeof parsed.total === 'number'
+      && Number.isSafeInteger(parsed.succeeded) && Number.isSafeInteger(parsed.total)
+      && parsed.succeeded >= 0 && parsed.total > 0 && parsed.succeeded <= parsed.total) {
       batchShareHint.value = { succeeded: parsed.succeeded, total: parsed.total };
     }
   } catch {
-    sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
+    // 存储不可用只放弃临时提示，不能阻断当前会话的列表与目录读取。
   }
 }
 
@@ -128,8 +135,25 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canCreate = () => session.can('document.host_shares.create');
-const canUpdateStatus = () => session.can('document.host_shares.update_status');
+const viewActive = ref(false);
+onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
+onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
+const canRead = computed(() => viewActive.value && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null
+  && session.can('document.host_shares.read'));
+const canCreate = () => canRead.value && session.can('document.host_shares.create');
+const canUpdateStatus = () => canRead.value && session.can('document.host_shares.update_status');
+const scope = useAuthorizedViewScope(session, () => {
+  items.value = []; documentLabels.value = new Map(); problem.value = undefined; unconfirmedShareIds.value = new Set();
+  total.value = 0; page.value = 1; pageSize.value = 20; loading.value = false; changing.value = false;
+  editorOpen.value = false; batchShareHint.value = null; searchForm.value = {};
+  appliedFilters.value = { sortBy: 'createdAtUtc', sortDir: 'desc' };
+}, () => {
+  if (!canRead.value) return;
+  consumeBatchShareHint();
+  void loadDocumentLabels(); void load();
+});
+let listRequest: ReturnType<typeof scope.begin>;
+let labelsRequest: ReturnType<typeof scope.begin>;
 
 function shareUrl(row: HostDocumentShareResponse): string {
   return buildDocumentShareUrl(row.shareCode);
@@ -144,16 +168,21 @@ function documentNo(documentId: string): string {
 }
 
 async function loadDocumentLabels() {
-  if (!session.can('document.host_documents.read')) {
+  labelsRequest?.cancel();
+  if (!canRead.value || !session.can('document.host_documents.read')) {
     documentLabels.value = new Map();
     return;
   }
+  const request = scope.begin('document.host_documents.read');
+  if (!request) return;
+  labelsRequest = request;
   try {
     const collected = new Map<string, DocumentLabel>();
     let pageIndex = 1;
     let totalItems = 0;
     do {
-      const result = await listDocumentItems(pageIndex, 100);
+      const result = await listDocumentItems(pageIndex, 100, {}, request.signal);
+      if (!request.current() || !canRead.value) return;
       for (const item of result.items) {
         collected.set(item.id, { title: item.title, documentNo: item.documentNo });
       }
@@ -162,8 +191,8 @@ async function loadDocumentLabels() {
     } while (collected.size < totalItems && pageIndex <= 10);
     documentLabels.value = collected;
   } catch {
-    documentLabels.value = new Map();
-  }
+    if (request.current()) documentLabels.value = new Map();
+  } finally { request.finish(); }
 }
 
 function buildFiltersFromSearch(params: Record<string, string | undefined>): DocumentShareListFilters {
@@ -201,59 +230,92 @@ function resetSearch() {
 }
 
 async function load() {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  if (!canRead.value) return;
+  const request = scope.begin('document.host_shares.read');
+  if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value);
-    items.value = result.items;
-    page.value = result.page;
-    pageSize.value = result.pageSize;
-    total.value = result.total;
+    const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value, request.signal);
+    if (!request.current() || !canRead.value) return;
+    items.value = result.items; page.value = result.page; pageSize.value = result.pageSize; total.value = result.total;
+    unconfirmedShareIds.value = new Set();
   } catch (error) {
-    problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); }
+    request.finish();
   }
 }
 
 function openCreate() {
-  editorOpen.value = true;
+  if (canCreate()) editorOpen.value = true;
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrlValue: string) {
+  if (!canCreate()) return;
+  const request = scope.begin('document.host_shares.create');
+  if (!request) return;
   try {
-    await navigator.clipboard.writeText(shareUrlValue);
-    ElMessage.success(t('documentShares.createdWithLink'));
-  } catch {
-    ElMessage.success(t('documentShares.createSuccess'));
-  }
-  await load();
-  await loadDocumentLabels();
+    try {
+      await navigator.clipboard.writeText(shareUrlValue);
+      if (request.current()) showSuccess(t('documentShares.createdWithLink'));
+    } catch {
+      if (request.current()) showSuccess(t('documentShares.createSuccess'));
+    }
+    if (request.current()) await Promise.all([load(), loadDocumentLabels()]);
+  } finally { request.finish(); }
 }
 
 async function copyShareLink(url: string) {
+  if (!canRead.value || !items.value.some(row => shareUrl(row) === url)) return;
+  const request = scope.begin('document.host_shares.read');
+  if (!request) return;
   try {
     await navigator.clipboard.writeText(url);
-    ElMessage.success(t('documentShares.copyLinkSuccess'));
+    if (request.current()) showSuccess(t('documentShares.copyLinkSuccess'));
   } catch {
-    ElMessage.error(t('documentShares.operationFailed'));
-  }
+    if (request.current()) showError(t('documentShares.operationFailed'));
+  } finally { request.finish(); }
 }
 
 async function toggleStatus(row: HostDocumentShareResponse) {
-  changing.value = true;
+  if (changing.value || !canUpdateStatus() || statusUnconfirmed(row.id)) return;
+  const current = items.value.find(item => item.id.toLowerCase() === row.id.toLowerCase()
+    && item.version === row.version && item.isEnabled === row.isEnabled);
+  if (!current) return;
+  const target = { id: current.id, version: current.version, isEnabled: current.isEnabled, documentId: current.documentId };
+  const request = scope.begin('document.host_shares.update_status');
+  if (!request) return;
+  changing.value = true; problem.value = undefined;
+  // 旧列表不能在写入后恢复旧启停值；不宣称取消客户端读取会撤销服务端操作。
+  listRequest?.cancel(); loading.value = false;
   try {
-    await updateDocumentShareStatus(row.id, {
-      isEnabled: !row.isEnabled,
-      version: row.version
-    });
-    ElMessage.success(t('documentShares.updateSuccess'));
+    const result = await updateDocumentShareStatus(target.id, { isEnabled: !target.isEnabled, version: target.version }, request.signal);
+    if (!request.current()) return;
+    if (result.id.toLowerCase() !== target.id.toLowerCase() || result.documentId.toLowerCase() !== target.documentId.toLowerCase()
+      || result.isEnabled !== !target.isEnabled || result.version !== target.version + 1) throw new Error('client.invalid_document_share_identity');
+    listRequest?.cancel(); loading.value = false;
+    // 已确认状态先落到本地，补读失败也不能用旧修订重复写入；已观察到更高修订则保留它。
+    const observed = items.value.find(item => item.id.toLowerCase() === target.id.toLowerCase());
+    if (observed && observed.version <= result.version) {
+      if (typeof appliedFilters.value.isEnabled === 'boolean' && appliedFilters.value.isEnabled !== result.isEnabled) {
+        items.value = items.value.filter(item => item.id.toLowerCase() !== target.id.toLowerCase());
+        total.value = Math.max(0, total.value - 1);
+      } else items.value = items.value.map(item => item.id.toLowerCase() === target.id.toLowerCase() ? result : item);
+    }
+    showSuccess(t('documentShares.updateSuccess'));
     await load();
   } catch (error) {
-    problem.value = toProblem(error, 'documentShares.operationFailed');
+    if (request.current()) {
+      // 拒绝和未知结果都先失效本地写入资格，成功重读后才允许新的显式操作，不自动重放。
+      listRequest?.cancel(); loading.value = false;
+      unconfirmedShareIds.value = new Set([...unconfirmedShareIds.value, target.id.toLowerCase()]);
+      problem.value = { ...toProblem(error, 'documentShares.operationFailed'), detail: t('documentShares.statusNeedsRefresh') };
+    }
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
@@ -267,15 +329,10 @@ function toProblem(
   return { title: t(fallbackKey), status: 500, code: fallbackKey };
 }
 
-onMounted(async () => {
-  consumeBatchShareHint();
-  await loadDocumentLabels();
-  await load();
-});
 </script>
 
 <template>
-  <section class="document-shares-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="document-shares-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentShares.title') }}</h1>
 
     <el-alert
@@ -415,8 +472,8 @@ onMounted(async () => {
                     <ArtTableActionButton
                       type="edit"
                       test-id="document-share-toggle"
-                      :title="t('documentShares.toggleStatus')"
-                      :disabled="changing"
+                      :title="t(statusUnconfirmed(row.id) ? 'documentShares.statusNeedsRefresh' : 'documentShares.toggleStatus')"
+                      :disabled="changing || statusUnconfirmed(row.id)"
                       @click="toggleStatus(row as HostDocumentShareResponse)"
                     />
                   </PermissionGate>

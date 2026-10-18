@@ -87,26 +87,36 @@ test('UI：版本历史回滚到较早版本（清单 47）', async ({ page }, t
   await clickMainNavLink(page, /Host 文档库/);
   const view = page.locator('.host-document-items-view');
 
-  await view.getByTestId('host-document-item-title').fill(title);
   await view.getByTestId('host-document-item-create').click();
+  const createDialog = page.getByRole('dialog');
+  await createDialog.getByTestId('host-document-item-title').fill(title);
+  await createDialog.getByTestId('host-document-item-create-submit').click();
+  await expect(createDialog).toBeHidden();
   await expect(view.getByText(title, { exact: true })).toBeVisible();
 
   const row = view.locator('.el-table__row').filter({ hasText: title });
+  const versionColumn = (await view.getByRole('columnheader').allTextContents())
+    .findIndex(label => label.trim() === '当前版本');
+  expect(versionColumn).toBeGreaterThanOrEqual(0);
+  const versionCell = row.getByRole('cell').nth(versionColumn);
+  await expect(versionCell).toBeVisible();
+  await expect(row.getByTestId('host-document-item-version-file')).toBeEnabled();
   await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: 'v1.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('rollback-v1')
   });
   await row.getByTestId('host-document-item-upload-version').click();
-  await expect(row.locator('td').filter({ hasText: /^1$/ })).toBeVisible({ timeout: 15_000 });
+  await expect(versionCell).toHaveText('1', { timeout: 15_000 });
 
+  await expect(row.getByTestId('host-document-item-version-file')).toBeEnabled();
   await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: 'v2.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('rollback-v2')
   });
   await row.getByTestId('host-document-item-upload-version').click();
-  await expect(row.locator('td').filter({ hasText: /^2$/ })).toBeVisible({ timeout: 15_000 });
+  await expect(versionCell).toHaveText('2', { timeout: 15_000 });
 
   await row.getByTestId('host-document-item-version-history').click();
   const historyDialog = page.getByRole('dialog');
@@ -114,7 +124,7 @@ test('UI：版本历史回滚到较早版本（清单 47）', async ({ page }, t
 
   const v1Row = historyDialog.locator('tr').filter({ hasText: /^1\b/ }).first();
   await v1Row.getByTestId('host-document-item-version-rollback').click();
-  await page.getByRole('button', { name: '确定' }).click();
+  await page.getByTestId('host-document-confirm-accept').click();
   await expect(page.getByText('当前版本已回滚')).toBeVisible({ timeout: 15_000 });
-  await expect(row.locator('td').filter({ hasText: /^1$/ })).toBeVisible({ timeout: 15_000 });
+  await expect(versionCell).toHaveText('1', { timeout: 15_000 });
 });

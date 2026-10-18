@@ -15,6 +15,107 @@ namespace Full.NET.IntegrationTests.ImportExport;
 /// <summary>使用生产领取 SQL 验证租户隔离、并发争抢与到期租约重领。</summary>
 internal static class ImportExportTaskClaimPersistenceAssertions
 {
+    /// <summary>检查点和任务失败共用同库，等待锁跨过到期时保留旧进度及可恢复租约。</summary>
+    private static async Task CheckpointLockWaitAsync(DatabaseProvider provider, DbConnection connection, DbConnection other,
+        Guid tenantA, Guid tenantB, Guid taskA)
+    {
+        var lockField = provider == DatabaseProvider.SqlServer ? "LockExecutionSqlServer" : "LockExecutionMySql";
+        Assert.IsNull(await other.QuerySingleOrDefaultAsync<CompletionRow>(Sql(lockField), new { TenantId = tenantB, Id = taskA }));
+        foreach (var failed in new[] { false, true })
+        {
+            await connection.ExecuteAsync("UPDATE fn_import_export_task SET StatusKey='queued',LeaseId=NULL,LeaseExpiresAtUtc=NULL,NextLineNumber=0,ProcessedRowCount=0,SucceededRowCount=0,ExecutionFailedRowCount=0,ExecutionCompletedAtUtc=NULL,ErrorCode=NULL WHERE TenantId=@TenantId AND Id=@Id",
+                new { TenantId = tenantA, Id = taskA });
+            Assert.AreEqual(taskA, await ClaimAsync(provider, connection, tenantA, DateTime.UtcNow));
+            var lease = await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA });
+            await using var held = await connection.BeginTransactionAsync();
+            var expiry = DateTime.UtcNow.AddSeconds(1);
+            await connection.ExecuteAsync("UPDATE fn_import_export_task SET LeaseExpiresAtUtc=@Expiry WHERE TenantId=@TenantId AND Id=@Id",
+                new { TenantId = tenantA, Id = taskA, Expiry = expiry }, held);
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completion = CompleteAfterLockAsync(provider, other, tenantA, taskA, lease, failed, started);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5)); Assert.IsFalse(completion.IsCompleted);
+            var wait = expiry - DateTime.UtcNow + TimeSpan.FromMilliseconds(100);
+            if (wait > TimeSpan.Zero) await Task.Delay(wait);
+            await held.CommitAsync();
+            Assert.AreEqual(0, await completion.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.AreEqual("executing", await StatusAsync(connection, taskA));
+            Assert.AreEqual(0, await connection.QuerySingleAsync<int>("SELECT NextLineNumber FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+            Assert.IsNull(await connection.QuerySingleAsync<string?>("SELECT ErrorCode FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+            Assert.AreEqual(lease, await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+            Assert.AreEqual(taskA, await ClaimAsync(provider, other, tenantA, DateTime.UtcNow));
+            Assert.AreNotEqual(lease, await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+        }
+    }
+
+    private static async Task<int> CompleteAfterLockAsync(DatabaseProvider provider, DbConnection connection, Guid tenant, Guid task,
+        Guid lease, bool failed, TaskCompletionSource started)
+    {
+        await using var transaction = await connection.BeginTransactionAsync();
+        var pending = connection.QuerySingleAsync<CompletionRow>(Sql(provider == DatabaseProvider.SqlServer ? "LockExecutionSqlServer" : "LockExecutionMySql"),
+            new { TenantId = tenant, Id = task }, transaction, commandTimeout: 10);
+        started.TrySetResult(); var row = await pending; var now = DateTime.UtcNow;
+        var expiry = row.LeaseExpiresAtUtc switch { DateTimeOffset value => value.UtcDateTime,
+            DateTime value => DateTime.SpecifyKind(value, DateTimeKind.Utc), _ => throw new InvalidDataException("导入租约时间类型不符。") };
+        var affected = row.TenantId == tenant && row.StatusKey == "executing" && row.LeaseId == lease && expiry > now
+            ? await connection.ExecuteAsync(Sql(failed ? "MarkExecutionFailed" : "UpdateExecutionProgress"), new { TenantId = tenant, Id = task,
+                LeaseId = lease, Now = now, ExecutionCompletedAtUtc = now, StatusKey = "execution_succeeded", ProcessedRowCount = 1,
+                SucceededRowCount = 1, ExecutionFailedRowCount = 0, NextLineNumber = 1, ExecutionRowsJson = "[]",
+                ErrorReceiptFileId = (Guid?)null, ErrorCode = failed ? "probe" : null }, transaction) : 0;
+        await transaction.CommitAsync(); return affected;
+    }
+
+    private sealed class CompletionRow
+    {
+        public Guid TenantId { get; set; }
+        public Guid? LeaseId { get; set; }
+        public object? LeaseExpiresAtUtc { get; set; }
+        public string StatusKey { get; set; } = "";
+    }
+
+    /// <summary>取消 CAS 保持可信归属与版本，取消终态不能重领或被旧进度覆盖。</summary>
+    public static async Task Cancellation_is_fenced_and_preserves_checkpoint_async(DatabaseProvider provider)
+    {
+        var (first, second, tenantA, tenantB, taskA, taskB) = await SeedQueuedPairAsync(provider);
+        await using var connection = first; await using var unused = second;
+        var owner = await connection.QuerySingleAsync<Guid>("SELECT RequestedByUserId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA });
+        var now = DateTime.UtcNow;
+        async Task<int> Cancel(Guid tenant, Guid actor, long version) => await connection.ExecuteAsync(Sql("Cancel"), new {
+            Id = taskA, TenantId = tenant, RequestedByUserId = actor, ExpectedStatusKey = "queued", ExpectedVersion = version,
+            ExecutionCompletedAtUtc = now });
+        Assert.AreEqual(0, await Cancel(tenantB, owner, 1));
+        Assert.AreEqual(0, await Cancel(tenantA, Guid.CreateVersion7(), 1));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 2));
+        Assert.AreEqual(taskA, await ClaimAsync(provider, connection, tenantA, now));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 1));
+        // 模拟真实批次回到同一 queued 状态，版本和检查点已有推进；旧取消不能造成 ABA 覆盖。
+        await connection.ExecuteAsync("UPDATE fn_import_export_task SET StatusKey='queued', Version=3, NextLineNumber=1, ProcessedRowCount=1, SucceededRowCount=1, LeaseId=NULL, LeaseExpiresAtUtc=NULL WHERE Id=@Id", new { Id = taskA });
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 1));
+        Assert.AreEqual(1, await Cancel(tenantA, owner, 3));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 3));
+        Assert.IsNull(await ClaimAsync(provider, connection, tenantA, now.AddHours(1)));
+        Assert.AreEqual("cancelled", await StatusAsync(connection, taskA));
+        Assert.AreEqual("queued", await StatusAsync(connection, taskB));
+        Assert.AreEqual(1, await connection.QuerySingleAsync<int>("SELECT NextLineNumber FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+        Assert.AreEqual(4L, await connection.QuerySingleAsync<long>("SELECT Version FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+        Assert.AreEqual(0, await connection.ExecuteAsync(Sql("MarkExecutionFailed"), new { Id = taskA, TenantId = tenantA,
+            LeaseId = Guid.CreateVersion7(), Now = now, ErrorCode = "stale", ExecutionCompletedAtUtc = now }));
+    }
+
+    /// <summary>两个连接同时取消和领取同一任务，最多一个状态转换成功。</summary>
+    public static async Task Cancellation_and_claim_have_one_winner_async(DatabaseProvider provider)
+    {
+        var (first, second, tenantA, _, taskA, _) = await SeedQueuedPairAsync(provider);
+        await using var connection = first; await using var other = second;
+        var owner = await connection.QuerySingleAsync<Guid>("SELECT RequestedByUserId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA });
+        var now = DateTime.UtcNow;
+        var cancellation = connection.ExecuteAsync(Sql("Cancel"), new { Id = taskA, TenantId = tenantA, RequestedByUserId = owner,
+            ExpectedStatusKey = "queued", ExpectedVersion = 1L, ExecutionCompletedAtUtc = now });
+        var claim = ClaimAsync(provider, other, tenantA, now);
+        await Task.WhenAll(cancellation, claim);
+        Assert.AreEqual(1, cancellation.Result + (claim.Result == taskA ? 1 : 0));
+        Assert.AreEqual(cancellation.Result == 1 ? "cancelled" : "executing", await StatusAsync(connection, taskA));
+    }
+
     /// <summary>领取必须带可信 TenantId；租户 A 不能拿走租户 B 的排队任务。</summary>
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Claim_is_isolated_to_current_tenant_async(DatabaseProvider provider)
@@ -52,20 +153,71 @@ internal static class ImportExportTaskClaimPersistenceAssertions
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Expired_executing_lease_can_be_reclaimed_async(DatabaseProvider provider)
     {
-        var (first, second, tenantA, _, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
+        var (first, second, tenantA, tenantB, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
         await using var connection = first;
         await using var unused = second;
-        var expired = DateTime.UtcNow.AddMinutes(-2);
+        // 使用两种提供程序都能精确表示的整秒，避免 DateTime 参数舍入使相等边界变成未来期限。
+        var instant = DateTime.UtcNow;
+        var now = new DateTime(instant.Ticks - instant.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var oldLeaseId = Guid.CreateVersion7();
+        var currentLeaseId = Guid.Empty;
         await connection.ExecuteAsync(
             """
             UPDATE fn_import_export_task
             SET StatusKey = 'executing', LeaseId = @LeaseId, LeaseExpiresAtUtc = @LeaseExpiresAtUtc
             WHERE Id = @Id
             """,
-            new { Id = taskA, LeaseId = Guid.CreateVersion7(), LeaseExpiresAtUtc = expired }).ConfigureAwait(false);
-        var claimed = await ClaimAsync(provider, connection, tenantA, DateTime.UtcNow).ConfigureAwait(false);
+            new { Id = taskA, LeaseId = oldLeaseId, LeaseExpiresAtUtc = now.AddMinutes(-2) }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        // 等于期限和缺少期限均拒绝，不允许旧版本遗留租约继续写入。
+        foreach (var expiry in new DateTime?[] { now, null })
+        {
+            await connection.ExecuteAsync("UPDATE fn_import_export_task SET LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                new { Id = taskA, Expiry = expiry }).ConfigureAwait(false);
+            await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        }
+        var claimed = await ClaimAsync(provider, connection, tenantA, now).ConfigureAwait(false);
         Assert.AreEqual(taskA, claimed);
         Assert.AreEqual("executing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+        currentLeaseId = await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantB, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantA, 1).ConfigureAwait(false);
+        await CheckpointLockWaitAsync(provider, connection, unused, tenantA, tenantB, taskA).ConfigureAwait(false);
+
+        // 同一迁移环境验证两条真实生产语句，避免为每个边界重复创建数据库。
+        async Task AssertWritesAsync(Guid leaseId, Guid tenantId, int expected)
+        {
+            foreach (var statement in new[] { "UpdateExecutionProgress", "MarkExecutionFailed" })
+            {
+                var affected = await connection.ExecuteAsync(Sql(statement), new
+                {
+                    Id = taskA, TenantId = tenantId, LeaseId = leaseId, Now = now,
+                    StatusKey = "execution_succeeded", ProcessedRowCount = 1, SucceededRowCount = 1,
+                    ExecutionFailedRowCount = 0, NextLineNumber = 1, ExecutionRowsJson = "[]",
+                    ErrorReceiptFileId = (Guid?)null, ExecutionCompletedAtUtc = now, ErrorCode = "probe",
+                }).ConfigureAwait(false);
+                Assert.AreEqual(expected, affected, $"{provider}/{statement}");
+                if (expected == 0)
+                {
+                    Assert.AreEqual("executing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+                    Assert.AreEqual(0, await connection.QuerySingleAsync<int>("SELECT NextLineNumber FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false));
+                }
+                else
+                {
+                    // 有效持有者确实能完成写入，终态也不能被同一租约重复覆盖。
+                    Assert.AreEqual(0, await connection.ExecuteAsync(Sql(statement), new
+                    {
+                        Id = taskA, TenantId = tenantId, LeaseId = leaseId, Now = now,
+                        StatusKey = "queued", ProcessedRowCount = 0, SucceededRowCount = 0,
+                        ExecutionFailedRowCount = 0, NextLineNumber = 0, ExecutionRowsJson = "[]",
+                        ErrorReceiptFileId = (Guid?)null, ExecutionCompletedAtUtc = now, ErrorCode = "probe",
+                    }).ConfigureAwait(false));
+                    await connection.ExecuteAsync("UPDATE fn_import_export_task SET StatusKey='executing', LeaseId=@LeaseId, LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                        new { Id = taskA, LeaseId = currentLeaseId, Expiry = now.AddMinutes(1) }).ConfigureAwait(false);
+                }
+            }
+        }
     }
 
     /// <summary>写入两个租户各一条 queued 任务，返回两条连接。</summary>

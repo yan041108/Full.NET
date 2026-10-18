@@ -19,9 +19,6 @@ internal static class DocumentHostCategoryTagAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
-        await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyCreateOnlyCannotListCategoriesAsync(factory, client, cancellationToken);
-        await VerifyCreateOnlyCannotListTagsAsync(factory, client, cancellationToken);
         var manager = await factory.CreateHostIdentityAsync(
             $"document-taxonomy-{Guid.NewGuid():N}",
             [
@@ -33,9 +30,30 @@ internal static class DocumentHostCategoryTagAssertions
                 HostDocumentTagPermissions.Create,
                 HostDocumentTagPermissions.Update,
                 HostDocumentTagPermissions.Delete,
+                HostDocumentPermissions.Read,
+                HostDocumentPermissions.Create,
+                HostDocumentPermissions.Update,
+                HostDocumentPermissions.Delete,
+                HostDocumentPermissions.Restore,
+                HostDocumentRecycleBinPermissions.Restore,
+                HostDocumentRecycleBinPermissions.Purge,
+                HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
 
+        await DocumentTagUseCountAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingEmptyCategoryAsync(factory, client, manager.AccessToken, cancellationToken);
+        await DocumentTaxonomyConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingTagsAsync(factory, client, manager.AccessToken, cancellationToken);
+        await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
+        await VerifyCreateOnlyCannotListCategoriesAsync(factory, client, cancellationToken);
+        await VerifyCreateOnlyCannotListTagsAsync(factory, client, cancellationToken);
+        await DocumentCategoryHierarchyAssertions.VerifyAsync(client, manager.AccessToken, cancellationToken);
+        await DocumentCategoryHierarchyAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
+        await DocumentCategoryReferenceAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentCategoryReferenceAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
+        await DocumentTitleConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentTitleConcurrencyAssertions.VerifyWaitingAdmissionAsync(factory, client, manager.AccessToken, cancellationToken);
         var category = await CreateCategoryAsync(client, manager.AccessToken, cancellationToken);
         await VerifyDuplicateCategoryNameAsync(client, manager.AccessToken, category, cancellationToken);
         var updatedCategory = await UpdateCategoryAsync(client, manager.AccessToken, category, cancellationToken);

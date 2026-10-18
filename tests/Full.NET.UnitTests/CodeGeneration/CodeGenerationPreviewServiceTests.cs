@@ -311,7 +311,7 @@ public sealed class CodeGenerationPreviewServiceTests
             .Content;
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
-        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        StringAssert.Contains(feature, "[\"OrganizationUnitId\"] = organizationUnitId");
         Assert.IsFalse(contracts.Contains(
             "CreateProductRequest(\n    string Name,\n    Guid OrganizationUnitId",
             StringComparison.Ordinal));

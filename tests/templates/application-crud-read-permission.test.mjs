@@ -9,7 +9,7 @@ const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
 const roleId = '01900000-0000-7000-8000-000000000012';
 const userId = '01900000-0000-7000-8000-000000000013';
-const permissions = ['catalog.products.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
+const permissions = ['catalog.products.read', 'identity.navigation.read', 'platform.dashboard.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
 const product = { id, tenantId, name: 'Read permission product', version: '1' };
 const createdProduct = { id: '01900000-0000-7000-8000-000000000014', tenantId, name: 'Ordinary account created product', version: '1' };
 const updatedProduct = { ...product, name: 'Ordinary account updated product', version: '2' };
@@ -22,7 +22,7 @@ const bodies = [
   { id: roleId, version: 2, permissionCodes: permissions, isSuperAdministrator: false },
   { id: userId, version: 1 }, { userId, roleIds: [], version: 1 }, { userId, roleIds: [roleId], version: 2 },
   { accessToken: tokens[1] }, { accessToken: tokens[2] },
-  { id: userId, scope: 'host', tenantId: null, isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['tenancy.tenants.read', 'tenancy.tenants.switch'] },
+  { id: userId, scope: 'host', tenantId: null, isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['identity.navigation.read', 'platform.dashboard.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'] },
   { accessToken: tokens[3], context }, product,
   { accessToken: tokens[4], context },
   { id: userId, tenantId, scope: context.scope, isSuperAdministrator: false, passwordChangeRequired: false, permissions },
@@ -257,6 +257,77 @@ const noPermissionFailures = [
   ['row-mutated', 18, { body: { ...product, version: '2' } }],
   ['denied-create-persisted', 19, { body: { items: [product, { ...product, id: roleId }] } }],
 ];
+
+test('ordinary browser check receives the active account before business requests without logging credentials', async () => fixture(async (logPath) => {
+  const calls = [];
+  const observed = [];
+  const browserTenantToken = 'secret-browser-tenant';
+  await verifyApplicationCrudReadPermission('http://example.test', {
+    hostAccessToken: tokens[0], logPath, request: runner(calls),
+    onTenantAccount: async (account) => {
+      observed.push(account);
+      assert.equal(calls.length, 13);
+      assert.equal(account.mode, 'read');
+      assert.equal(account.username, 'catalog-reader-probe');
+      assert.match(account.password, /^Bb2!/u);
+      assert.equal(account.tenantId, tenantId);
+      return browserTenantToken;
+    },
+  });
+  assert.equal(observed.length, 1);
+  assert.equal(calls[13].options.headers.Authorization, `Bearer ${browserTenantToken}`);
+  const report = readFileSync(logPath, 'utf8');
+  assert.equal(report.includes(observed[0].password), false);
+  assert.equal(report.includes(observed[0].username), false);
+  assert.equal(report.includes(browserTenantToken), false);
+}));
+
+for (const [mode, verify] of [
+  ['create', verifyApplicationCrudCreatePermission],
+  ['update', verifyApplicationCrudUpdatePermission],
+  ['delete', verifyApplicationCrudDeletePermission],
+]) {
+  test(`browser ${mode} action is checked through administrator persistence without changing the permission probe`, async () => fixture(async (logPath) => {
+    const calls = [];
+    const browserCalls = [];
+    const browserId = '01900000-0000-7000-8000-000000000015';
+    const targetName = `Browser ${mode} target`;
+    const browserRow = { id: browserId, tenantId, name: mode === 'create' ? 'Browser created product' : targetName, version: '1' };
+    const baseRequest = runner(calls, undefined, false, mode === 'create', mode === 'update', mode === 'delete');
+    const reply = (body, status = 200) => new Response(JSON.stringify(body), { status,
+      headers: { 'content-type': status === 404 ? 'application/problem+json' : 'application/json' } });
+    const request = (url, options) => {
+      const path = new URL(url).pathname;
+      const body = options.body ? JSON.parse(options.body) : undefined;
+      if (mode !== 'create' && path.endsWith('/catalog/products/') && body?.name === targetName) {
+        browserCalls.push('seed');
+        return reply(browserRow, 201);
+      }
+      if (mode === 'create' && path.endsWith('/catalog/products/') && url.includes('pageSize=20')) {
+        browserCalls.push('list-created');
+        return reply({ items: [product, browserRow] });
+      }
+      if (path.includes(browserId)) {
+        browserCalls.push(options.method === 'GET' ? 'read' : 'cleanup');
+        if (mode === 'delete') return reply({ status: 404, code: 'catalog.products.not_found' }, 404);
+        if (mode === 'update' && options.method === 'GET') return reply({ ...browserRow, name: 'Browser updated product', version: '2' });
+        return reply(browserRow);
+      }
+      return baseRequest(url, options);
+    };
+    const result = await verify('http://example.test', { hostAccessToken: tokens[0], logPath, request,
+      onTenantAccount: async (account) => {
+        assert.equal(account.mode, mode);
+        assert.equal(account.actionTargetName, mode === 'create' ? undefined : targetName);
+        return 'secret-browser-tenant';
+      } });
+    assert.equal(result.hostAccessToken, tokens[5]);
+    assert.deepEqual(browserCalls, mode === 'create' ? ['list-created', 'cleanup']
+      : mode === 'update' ? ['seed', 'read', 'cleanup'] : ['seed', 'read']);
+    assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, true);
+    assert.equal(readFileSync(logPath, 'utf8').includes('secret-browser-tenant'), false);
+  }));
+}
 for (const [name, index, altered] of noPermissionFailures) {
   test(`no product permission acceptance rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
     const calls = [];

@@ -16,6 +16,11 @@ internal static class CrudAuthorizationContributorFragmentGenerator
         var authorizationScope = schema.DataScope == FullNetCrudDataScope.TenantRequired
             ? "Tenant"
             : "Host";
+        // 长度前缀保留模块与资源的边界，避免 a_b/c 与 a/b-c 生成同一导航键；旧版输出保持不变。
+        var moduleRouteSegment = schema.ModuleKey.Replace('_', '-');
+        var navigationKey = schema.UsesLegacyEntityCapabilities
+            ? schema.ApiResourceName
+            : $"m{moduleRouteSegment.Length}-{moduleRouteSegment}-{schema.ApiResourceName}";
         var permissions = schema.UsesLegacyEntityCapabilities
             ? $$"""
                 new PermissionDefinition(
@@ -49,7 +54,7 @@ internal static class CrudAuthorizationContributorFragmentGenerator
             ? $$"""
                 new AuthorizationActionDefinition(
                     "{{schema.ModuleKey}}.{{schema.PermissionResourceName}}.write",
-                    "{{schema.ApiResourceName}}",
+                    "{{navigationKey}}",
                     {{schema.ClrTypeName}}Permissions.Write,
                     "写入",
                     "write",
@@ -58,21 +63,21 @@ internal static class CrudAuthorizationContributorFragmentGenerator
             : $$"""
                 new AuthorizationActionDefinition(
                     "{{schema.CreatePermission}}",
-                    "{{schema.ApiResourceName}}",
+                    "{{navigationKey}}",
                     {{schema.ClrTypeName}}Permissions.Create,
                     "创建",
                     "create",
                     10),
                 new AuthorizationActionDefinition(
                     "{{schema.UpdatePermission}}",
-                    "{{schema.ApiResourceName}}",
+                    "{{navigationKey}}",
                     {{schema.ClrTypeName}}Permissions.Update,
                     "更新",
                     "update",
                     20),
                 new AuthorizationActionDefinition(
                     "{{schema.DisablePermission}}",
-                    "{{schema.ApiResourceName}}",
+                    "{{navigationKey}}",
                     {{schema.ClrTypeName}}Permissions.Disable,
                     "停用",
                     "disable",
@@ -87,11 +92,11 @@ internal static class CrudAuthorizationContributorFragmentGenerator
 
             // <fullnet-generated {{schema.ModuleKey}}.{{schema.EntityKey}} navigation>
             new NavigationDefinition(
-                "{{schema.ApiResourceName}}",
+                "{{navigationKey}}",
                 null,
-                "{{schema.ApiResourceName}}",
+                "{{navigationKey}}",
                 "/{{schema.ModuleKey.Replace('_', '-')}}/{{schema.ApiResourceName}}",
-                "{{schema.ApiResourceName}}",
+                "{{navigationKey}}",
                 "{{schema.ClrTypeName}}",
                 "{{schema.ClrTypeName}}",
                 "collection",

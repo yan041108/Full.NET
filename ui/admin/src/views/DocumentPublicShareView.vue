@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput } from 'element-plus';
-import type { FullNetProblemDetails, HostDocumentShareAccessResponse } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { ElAlert, ElButton, ElCard, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus';
+import type { FullNetProblemDetails, HostDocumentShareAccessResponse, HostDocumentPreviewTaskResponse } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   accessDocumentShareByCode,
@@ -14,6 +14,7 @@ import {
 } from '../api/document-shares';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import { openDocumentBlob } from '../api/host-document-items';
+import { isPassiveContentType } from '../utils/openContentBlob';
 
 defineOptions({ name: 'DocumentPublicShareView' });
 
@@ -22,15 +23,19 @@ const { t } = useAdminI18n();
 const loading = ref(false);
 const contentLoading = ref(false);
 const initialLoaded = ref(false);
-const accessStarted = ref(false);
+const downloading = ref(false);
 const password = ref('');
 const access = ref<HostDocumentShareAccessResponse>();
 const problem = ref<FullNetProblemDetails>();
 const contentProblem = ref<FullNetProblemDetails>();
+const downloadProblem = ref<FullNetProblemDetails>();
+const previewTask = ref<HostDocumentPreviewTaskResponse>(), previewCreationUnknown = ref(false), owner = ref(0);
+const recoveryConfirmation = ref<{ token: number; confirm: () => void; update: (open: boolean) => void }>(); let recoverySequence = 0;
 const passwordRequired = ref(false);
 const { url: previewUrl, load: loadPreview, clear: clearPreview } = useBlobPreview();
 
-const shareCode = computed(() => String(route.params.shareCode ?? '').trim());
+const shareCode = computed(() => typeof route.params.shareCode === 'string' ? route.params.shareCode.trim() : '');
+const routeCurrent = () => !route.name || route.name === 'document-public-share';
 
 const showPasswordForm = computed(
   () => initialLoaded.value && !access.value && (passwordRequired.value || Boolean(problem.value))
@@ -40,11 +45,7 @@ const mimeType = computed(() => access.value?.mimeType?.split(';', 1)[0]?.trim()
 
 const isImage = computed(() => mimeType.value.startsWith('image/'));
 
-const isPdf = computed(() => mimeType.value === 'application/pdf');
-
-const isText = computed(() => mimeType.value.startsWith('text/'));
-
-const canInlinePreview = computed(() => isImage.value || isPdf.value || isText.value);
+const canInlinePreview = computed(() => isPassiveContentType(mimeType.value));
 
 const needsOfficePreview = computed(() => {
   if (!mimeType.value || canInlinePreview.value) {
@@ -58,30 +59,74 @@ const needsOfficePreview = computed(() => {
   );
 });
 
-function shareAccessBody() {
-  return { password: password.value.trim() || null };
+type ShareRequest = { code: string; body: { password: string | null }; controller: AbortController };
+let activeRequest: ShareRequest | undefined;
+let active = true;
+let downloadController: AbortController | undefined;
+let contentController: AbortController | undefined;
+const current = (request: ShareRequest) => active && routeCurrent() && request.code === shareCode.value && request === activeRequest && !request.controller.signal.aborted;
+const sameId = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+const nonNilGuid = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
+const documentKey = (value?: HostDocumentShareAccessResponse) => value ? JSON.stringify([value.shareId.toLowerCase(), value.documentId.toLowerCase(), value.shareCode, value.fileName, value.mimeType]) : '';
+const canResetPreview = computed(() => needsOfficePreview.value && (previewCreationUnknown.value || !!previewTask.value && !['pending', 'processing', 'succeeded'].includes(previewTask.value.statusKey)));
+const canRetryContent = computed(() => !!access.value && (canInlinePreview.value || needsOfficePreview.value && (!!previewTask.value || !previewCreationUnknown.value)));
+const controls = computed(() => {
+  const ticket = owner.value, code = shareCode.value, credential = password.value, source = documentKey(access.value);
+  const owned = () => active && routeCurrent() && ticket === owner.value && code === shareCode.value && credential === password.value && source === documentKey(access.value);
+  return { input: (value: string) => { if (owned() && !loading.value) password.value = value; }, submit: () => { if (owned()) void submitAccess(); }, form: (event: Event) => { event.preventDefault(); if (owned()) void submitAccess(); },
+    retry: () => { if (owned() && activeRequest && access.value && canRetryContent.value && !loading.value && !contentLoading.value && !downloading.value) void loadContent(activeRequest, { ...access.value }); },
+    download: () => { if (owned()) void downloadContent(); }, recover: () => { if (owned()) acknowledgePreview(); } };
+});
+
+// 分享码、密码及所有异步步骤由同一请求快照拥有，路由切换和卸载同步失效。
+function resetAccess(): void {
+  activeRequest?.controller.abort(); downloadController?.abort(); contentController?.abort(); activeRequest = undefined; contentController = undefined;
+  downloadController = undefined;
+  clearPreview(); access.value = undefined; problem.value = undefined; contentProblem.value = undefined; downloadProblem.value = undefined;
+  previewTask.value = undefined; previewCreationUnknown.value = false; recoveryConfirmation.value = undefined; owner.value++;
+  loading.value = false; contentLoading.value = false; downloading.value = false; initialLoaded.value = false; passwordRequired.value = false;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => {
-    window.setTimeout(resolve, ms);
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const cancel = () => { window.clearTimeout(timer); signal.removeEventListener('abort', cancel); reject(signal.reason); };
+    const timer = window.setTimeout(() => { signal.removeEventListener('abort', cancel); resolve(); }, ms);
+    signal.addEventListener('abort', cancel, { once: true });
   });
 }
 
-async function loadOfficePreview(): Promise<void> {
-  const task = await createDocumentSharePreviewTaskByCode(shareCode.value, shareAccessBody());
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const status = await getDocumentSharePreviewTaskByCode(shareCode.value, task.id, shareAccessBody());
-    if (status.statusKey === 'failed') {
-      throw new Error('document.public_share.preview_task_failed');
+function checkPreviewTask(task: HostDocumentPreviewTaskResponse, documentId: string,
+  original?: HostDocumentPreviewTaskResponse): void {
+  if (!nonNilGuid(task.id) || !nonNilGuid(task.sourceFileId) || !Number.isSafeInteger(task.version) || task.version < 1 || !sameId(task.documentItemId, documentId) || task.versionId !== null
+    || (original && (!sameId(task.id, original.id) || !sameId(task.sourceFileId, original.sourceFileId) || task.createdAtUtc !== original.createdAtUtc || task.version < original.version)))
+    throw new Error('client.invalid_document_preview_task_identity');
+}
+
+async function loadOfficePreview(request: ShareRequest, documentId: string, signal: AbortSignal): Promise<void> {
+  let task = previewTask.value;
+  if (!task) {
+    if (previewCreationUnknown.value) throw new Error('document.public_share.preview_creation_unconfirmed');
+    // 创建回包丢失时不能自动重复 POST；没有任务身份只能由用户核对后另行提交。
+    previewCreationUnknown.value = true;
+    try {
+      task = await createDocumentSharePreviewTaskByCode(request.code, request.body, signal);
+      signal.throwIfAborted(); checkPreviewTask(task, documentId); previewTask.value = task; previewCreationUnknown.value = false;
+    } catch (error) {
+      if (!signal.aborted && isFullNetProblemDetails(error) && error.status >= 400 && error.status < 500 && error.status !== 408) previewCreationUnknown.value = false;
+      throw error;
     }
+  }
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const status = await getDocumentSharePreviewTaskByCode(request.code, task.id, request.body, signal);
+    signal.throwIfAborted(); checkPreviewTask(status, documentId, previewTask.value ?? task); previewTask.value = status;
+    if (!['pending', 'processing', 'succeeded'].includes(status.statusKey)) throw new Error('document.public_share.preview_task_failed');
     if (status.statusKey === 'succeeded') {
-      await loadPreview(() =>
-        loadDocumentSharePreviewTaskContentByCode(shareCode.value, task.id, shareAccessBody())
-      );
+      if (!status.outputFileId || !nonNilGuid(status.outputFileId)) throw new Error('client.invalid_document_preview_task_output');
+      await loadPreview(() => loadDocumentSharePreviewTaskContentByCode(request.code, task.id, request.body, signal));
       return;
     }
-    await delay(1500);
+    await delay(1500, signal);
   }
   throw new Error('document.public_share.preview_task_timeout');
 }
@@ -97,90 +142,86 @@ const remainingAccessLabel = computed(() => {
   return String(remaining);
 });
 
-async function loadContent() {
-  if (!shareCode.value || !access.value) {
-    return;
-  }
-  contentLoading.value = true;
-  contentProblem.value = undefined;
+function contentError(error: unknown): FullNetProblemDetails {
+  return isFullNetProblemDetails(error) ? error : { status: 500, code: 'document.public_share.preview_failed', title: t('documentPublicShare.contentFailed') };
+}
+
+async function loadContent(request: ShareRequest, document: HostDocumentShareAccessResponse) {
+  if (!current(request) || contentLoading.value || downloading.value || documentKey(document) !== documentKey(access.value)) return;
+  contentController?.abort(); clearPreview(); const controller = new AbortController(); contentController = controller;
+  const abort = () => controller.abort(); request.controller.signal.addEventListener('abort', abort, { once: true });
+  const owned = () => current(request) && contentController === controller && !controller.signal.aborted && documentKey(document) === documentKey(access.value);
+  owner.value++; recoveryConfirmation.value = undefined;
+  contentLoading.value = true; contentProblem.value = undefined;
   try {
-    if (needsOfficePreview.value) {
-      await loadOfficePreview();
-    } else {
-      await loadPreview(() => loadDocumentShareContentByCode(shareCode.value, shareAccessBody()));
-    }
+    if (needsOfficePreview.value) await loadOfficePreview(request, document.documentId, controller.signal);
+    else if (canInlinePreview.value) await loadPreview(() => loadDocumentShareContentByCode(request.code, request.body, controller.signal));
   } catch (error) {
-    if (isFullNetProblemDetails(error)) {
-      contentProblem.value = error;
-    } else {
-      contentProblem.value = {
-        status: 500,
-        code: 'document.public_share.preview_failed',
-        title: t('documentPublicShare.contentFailed')
-      };
-    }
+    if (owned()) contentProblem.value = contentError(error);
   } finally {
-    contentLoading.value = false;
+    request.controller.signal.removeEventListener('abort', abort);
+    if (contentController === controller) { contentController = undefined; contentLoading.value = false; owner.value++; }
   }
 }
 
-function downloadContent() {
-  if (!previewUrl.value && !access.value) {
-    return;
+async function downloadContent() {
+  const request = activeRequest;
+  if (!request || !current(request) || !access.value || contentLoading.value || downloading.value) return;
+  const document = { ...access.value };
+  const controller = new AbortController(); downloadController = controller; downloading.value = true; downloadProblem.value = undefined; owner.value++; recoveryConfirmation.value = undefined;
+  try {
+    const blob = await loadDocumentShareContentByCode(request.code, request.body, controller.signal);
+    // 下载器即使忽略取消返回Blob，也不能在离页后打开旧内容。
+    if (current(request) && !controller.signal.aborted && documentKey(document) === documentKey(access.value)) openDocumentBlob(blob, document.fileName ?? undefined);
+  } catch (error) {
+    if (current(request) && !controller.signal.aborted) downloadProblem.value = contentError(error);
+  } finally {
+    if (downloadController === controller) { downloadController = undefined; downloading.value = false; owner.value++; }
   }
-  void (async () => {
-    try {
-      const blob = await loadDocumentShareContentByCode(shareCode.value, {
-        password: password.value.trim() || null
-      });
-      openDocumentBlob(blob);
-    } catch (error) {
-      contentProblem.value = isFullNetProblemDetails(error) ? error : undefined;
-    }
-  })();
 }
 
 async function submitAccess() {
-  if (!shareCode.value || loading.value) {
-    return;
-  }
-  loading.value = true;
-  problem.value = undefined;
-  contentProblem.value = undefined;
-  clearPreview();
-  if (!password.value.trim()) {
-    passwordRequired.value = false;
-  }
+  if (!active || !routeCurrent() || !shareCode.value || loading.value || contentLoading.value || downloading.value || access.value) return;
+  // 同一码输错密码后仍需保留输入入口；只有切换分享或成功访问才清除已知密码要求。
+  const requiresPassword = passwordRequired.value;
+  resetAccess(); passwordRequired.value = requiresPassword;
+  const request: ShareRequest = { code: shareCode.value, body: { password: password.value.trim() || null }, controller: new AbortController() };
+  activeRequest = request; loading.value = true;
   try {
-    access.value = await accessDocumentShareByCode(shareCode.value, {
-      password: password.value.trim() || null
-    });
-    passwordRequired.value = false;
-    await loadContent();
+    const result = await accessDocumentShareByCode(request.code, request.body, request.controller.signal);
+    if (!current(request)) return;
+    if (result.shareCode !== request.code || !nonNilGuid(result.shareId) || !nonNilGuid(result.documentId) || !Number.isSafeInteger(result.fileSizeBytes) || result.fileSizeBytes < 0 || !Number.isSafeInteger(result.accessCountRemaining) || result.accessCountRemaining < 0) throw new Error('client.invalid_document_share_access');
+    access.value = result; passwordRequired.value = false; loading.value = false; initialLoaded.value = true; owner.value++;
+    await loadContent(request, result);
   } catch (error) {
+    if (!current(request)) return;
     access.value = undefined;
-    problem.value = isFullNetProblemDetails(error) ? error : undefined;
-    if (problem.value?.code === 'document.host_share.password_required') {
-      passwordRequired.value = true;
-      problem.value = undefined;
-    }
+    problem.value = isFullNetProblemDetails(error) ? error : { status: 500, code: 'document.public_share.access_failed', title: t('documentPublicShare.accessDenied') };
+    if (problem.value.code === 'document.host_share.password_required') { passwordRequired.value = true; problem.value = undefined; }
   } finally {
-    loading.value = false;
-    initialLoaded.value = true;
+    if (current(request)) { loading.value = false; initialLoaded.value = true; }
   }
 }
+function acknowledgePreview(): void {
+  const request = activeRequest;
+  if (!request || !current(request) || !canResetPreview.value || contentLoading.value || downloading.value) return;
+  const ticket = owner.value, token = ++recoverySequence, source = documentKey(access.value);
+  const owned = () => current(request) && ticket === owner.value && source === documentKey(access.value) && recoveryConfirmation.value?.token === token && !contentLoading.value && !downloading.value;
+  recoveryConfirmation.value = { token, confirm: () => { if (owned()) { previewTask.value = undefined; previewCreationUnknown.value = false; recoveryConfirmation.value = undefined; owner.value++; } }, update: value => { if (!value && owned()) recoveryConfirmation.value = undefined; } };
+}
+watch(password, () => {
+  if (loading.value) { const required = passwordRequired.value; resetAccess(); passwordRequired.value = required; initialLoaded.value = true; }
+  owner.value++;
+}, { flush: 'sync' });
 
-watch(
-  shareCode,
-  code => {
-    if (!code || accessStarted.value) {
-      return;
-    }
-    accessStarted.value = true;
-    void submitAccess();
-  },
-  { immediate: true }
-);
+watch(() => JSON.stringify({ route: route.name, shareCode: route.params.shareCode }), () => {
+  resetAccess(); password.value = '';
+  if (active && routeCurrent() && shareCode.value) void submitAccess();
+}, { immediate: true, flush: 'sync' });
+// 停用清除密码与预览；恢复只重新进行匿名授权，不重放先前密码或在途转换。
+onDeactivated(() => { active = false; resetAccess(); password.value = ''; });
+onActivated(() => { if (!active) { active = true; void submitAccess(); } });
+onBeforeUnmount(() => { active = false; resetAccess(); password.value = ''; });
 </script>
 
 <template>
@@ -193,7 +234,7 @@ watch(
       </p>
 
       <el-alert
-        v-if="problem && !passwordRequired"
+        v-if="problem"
         type="error"
         :title="problem.title ?? t('documentPublicShare.accessDenied')"
         :description="problem.detail ?? problem.code"
@@ -201,10 +242,12 @@ watch(
         class="art-page-alert"
       />
 
-      <el-form v-if="showPasswordForm" @submit.prevent="submitAccess">
+      <el-form v-if="showPasswordForm" v-on="{ submit: controls.form }">
         <el-form-item v-if="passwordRequired" :label="t('documentShares.passwordOptional')">
           <el-input
-            v-model="password"
+            :model-value="password"
+            :disabled="loading"
+            v-on="{ 'update:modelValue': controls.input }"
             type="password"
             show-password
             autocomplete="current-password"
@@ -212,7 +255,7 @@ watch(
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" data-testid="document-public-share-submit" @click="submitAccess">
+          <el-button type="primary" :loading="loading" data-testid="document-public-share-submit" v-on="{ click: controls.submit }">
             {{ t('documentPublicShare.open') }}
           </el-button>
         </el-form-item>
@@ -240,6 +283,7 @@ watch(
 
         <el-alert
           v-if="contentProblem"
+          data-testid="document-public-share-content-problem"
           type="error"
           :title="contentProblem.title ?? t('documentPublicShare.contentFailed')"
           :description="contentProblem.detail ?? contentProblem.code"
@@ -257,25 +301,22 @@ watch(
             :src="previewUrl"
             class="document-public-share-view__frame"
             title="preview"
+            sandbox=""
+            referrerpolicy="no-referrer"
           />
         </div>
 
-        <el-button
-          v-if="access && !previewUrl && !contentLoading && !needsOfficePreview"
-          type="primary"
-          data-testid="document-public-share-download"
-          @click="downloadContent"
-        >
-          {{ t('documentPublicShare.download') }}
-        </el-button>
-        <el-button
-          v-else-if="access && previewUrl"
-          data-testid="document-public-share-download"
-          @click="downloadContent"
-        >
+        <el-alert v-if="downloadProblem" data-testid="document-public-share-download-problem" type="error" :title="downloadProblem.title" show-icon />
+        <el-button v-if="contentProblem && canRetryContent" data-testid="document-public-share-content-retry" :disabled="contentLoading || downloading" v-on="{ click: controls.retry }">{{ t('documentPublicShare.retryContent') }}</el-button>
+        <el-button v-if="canResetPreview" data-testid="document-public-share-preview-recovery" :disabled="contentLoading || downloading" v-on="{ click: controls.recover }">{{ t('documentPublicShare.reviewPreview') }}</el-button>
+        <el-button data-testid="document-public-share-download" :loading="downloading" :disabled="contentLoading" v-on="{ click: controls.download }">
           {{ t('documentPublicShare.download') }}
         </el-button>
       </div>
+      <ElDialog :model-value="!!recoveryConfirmation" :title="t('documentPublicShare.reviewPreview')" width="480px" v-on="{ 'update:modelValue': recoveryConfirmation?.update }">
+        <p>{{ t('documentPublicShare.previewRecoveryHint') }}</p>
+        <template #footer><ElButton data-testid="document-public-share-preview-recovery-confirm" type="warning" v-on="{ click: recoveryConfirmation?.confirm }">{{ t('documentPublicShare.previewRecoveryConfirm') }}</ElButton></template>
+      </ElDialog>
     </el-card>
   </section>
 </template>

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
@@ -7,6 +7,6 @@ export default defineConfig({
     environment: 'jsdom',
     clearMocks: true,
     setupFiles: ['./src/test/setup.ts'],
-    exclude: ['tests/**/*.mjs']
+    exclude: [...configDefaults.exclude, 'tests/**/*.mjs']
   }
 });

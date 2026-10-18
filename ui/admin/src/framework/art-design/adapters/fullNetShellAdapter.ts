@@ -1,4 +1,4 @@
-import type { Component } from 'vue';
+import { markRaw, type Component } from 'vue';
 import {
   Bell,
   DataAnalysis,
@@ -355,7 +355,8 @@ export function resolveActiveGroupId(
 
 /** 解析导航图标；仅允许预置映射，避免运行时字符串导入。 */
 export function resolveShellIcon(icon: string): Component {
-  return resolveMenuIconComponent(icon);
+  // 图标为静态组件；标签页进入响应式集合后仍须保留组件身份，避免 Vue 代理与告警序列化开销。
+  return markRaw(resolveMenuIconComponent(icon));
 }
 
 /** 将壳层导航项包装成树节点，同时挂接稳定 id 供菜单组件追踪。 */
