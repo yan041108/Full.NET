@@ -6,6 +6,7 @@ import {
   loginAsHostAdmin,
   loginAsHostViewer,
   loginHostAdminAccessToken,
+  trackUiAccessToken,
   statusPath,
   uploadHostFileViaApi
 } from './support/real-stack-auth.mjs';
@@ -250,17 +251,20 @@ test('Host 管理员可批量上传、预览并批量删除（清单 32）', asy
   }
 });
 
-test('Vue 文件管理可批量上传并批量删除（清单 32）', async ({ page }, testInfo) => {
+test('Vue 文件管理可批量上传并批量删除（清单 32）', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.metadata.clientKind !== 'vue', '批量文件 UI 仅验收 Vue');
   const clientKind = testInfo.project.metadata.clientKind;
   const stamp = Date.now().toString(36);
   const firstName = `batch-ui-a-${stamp}.txt`;
   const secondName = `batch-ui-b-${stamp}.txt`;
 
+  const currentAccessToken = trackUiAccessToken(page);
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /文件管理/);
 
   const hostFilesView = page.locator('.host-files-view');
+  const selectableFileRow = fileName => hostFilesView.getByRole('row')
+    .filter({ hasText: fileName, has: page.getByRole('checkbox') });
   await hostFilesView.locator('[data-testid="host-files-file-input"]').setInputFiles([
     {
       name: firstName,
@@ -273,21 +277,47 @@ test('Vue 文件管理可批量上传并批量删除（清单 32）', async ({ p
       buffer: Buffer.from('ui-batch-b')
     }
   ]);
+  const uploadedResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/v1/files/host-files/batch-upload');
   await hostFilesView.getByTestId('host-files-upload').click();
-  await expect(hostFilesView.locator('.el-table__row').filter({ hasText: firstName }))
+  const uploaded = await uploadedResponse;
+  expect(uploaded.ok()).toBe(true);
+  const uploadResult = await uploaded.json();
+  expect(uploadResult.succeededCount).toBe(2);
+  expect(uploadResult.results.every(item => item.succeeded && item.file)).toBe(true);
+  const fileIds = uploadResult.results.map(item => item.file.id);
+  expect(fileIds).toHaveLength(2);
+  await expect(selectableFileRow(firstName))
     .toBeVisible({ timeout: 15_000 });
-  await expect(hostFilesView.locator('.el-table__row').filter({ hasText: secondName }))
+  await expect(selectableFileRow(secondName))
     .toBeVisible();
 
   for (const fileName of [firstName, secondName]) {
-    const row = hostFilesView.getByRole('row').filter({ hasText: fileName }).first();
+    // 上传回执也展示同名文件；仅选择带复选框的数据行，避免误中回执行。
+    const row = selectableFileRow(fileName);
     await row.locator('.el-checkbox').click();
+    await expect(row.getByRole('checkbox')).toBeChecked();
   }
   await hostFilesView.getByTestId('host-files-batch-delete').click();
-  await page.getByRole('button', { name: '确定', exact: true }).click();
+  const deletedResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/v1/files/host-files/batch-delete');
+  await page.getByTestId('host-files-confirm-accept').click();
+  const deleted = await deletedResponse;
+  expect(deleted.ok()).toBe(true);
+  const deleteResult = await deleted.json();
+  expect(deleteResult.succeededCount).toBe(2);
+  expect(deleteResult.results.every(item => item.succeeded)).toBe(true);
+  expect(deleteResult.results.map(item => item.fileId).sort()).toEqual([...fileIds].sort());
 
-  await expect(hostFilesView.getByText(firstName, { exact: true })).toHaveCount(0, {
-    timeout: 15_000
-  });
-  await expect(hostFilesView.getByText(secondName, { exact: true })).toHaveCount(0);
+  // 上传及删除回执应保留文件名；验证业务列表移除，并直接读取服务器确认已删除。
+  for (const fileName of [firstName, secondName]) {
+    await expect(selectableFileRow(fileName))
+      .toHaveCount(0, { timeout: 15_000 });
+  }
+  for (const fileId of fileIds) {
+    const detail = await request.get(`${apiBaseUrl}/api/v1/files/host-files/${fileId}`, {
+      headers: { Authorization: `Bearer ${currentAccessToken()}`, Origin: adminOrigin(clientKind) }
+    });
+    expect(detail.status()).toBe(404);
+  }
 });

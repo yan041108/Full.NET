@@ -275,6 +275,7 @@ test('管理员可在工作流待办上传附件并经实例上下文读取', as
   expect(startResponse.status(), await startResponse.text()).toBe(201);
   const instance = await startResponse.json();
 
+  const currentAccessToken = trackUiAccessToken(page);
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /我的待办/, '工作流');
   const todos = page.locator('.workflow-todos');
@@ -298,11 +299,14 @@ test('管理员可在工作流待办上传附件并经实例上下文读取', as
   expect(fileId).toMatch(/^[0-9a-f-]{36}$/iu);
 
   const attachmentUrl = `${apiBaseUrl}/api/v1/workflow/instances/${instance.id}/form-attachments/${fileId}/content`;
+  // 页面登录会轮换会话；授权断言必须使用页面当前令牌，而非已撤销的准备会话。
+  headers.Authorization = `Bearer ${currentAccessToken()}`;
   const beforeApproval = await request.get(attachmentUrl, { headers });
   expect(beforeApproval.status()).toBe(403);
 
   await todos.getByTestId('workflow-todo-approve').click();
   await expect(todoRow).toHaveCount(0, { timeout: 15_000 });
+  headers.Authorization = `Bearer ${currentAccessToken()}`;
   const downloadResponse = await request.get(attachmentUrl, { headers });
   expect(downloadResponse.status(), await downloadResponse.text()).toBe(200);
   expect(downloadResponse.headers()['content-type']).toContain('text/plain');
@@ -366,6 +370,7 @@ test('管理员可通过 Workflow-Vue3 创建、保存并绑定已发布表单�
   await view.getByTestId('workflow-definition-create').click();
   await view.getByTestId('workflow-definition-key').fill(definitionKey);
   await view.getByTestId('workflow-definition-create-submit').click();
+  await view.getByRole('row').filter({ hasText: definitionKey }).getByTestId('workflow-definition-edit').click();
 
   const designer = view.getByTestId('workflow-vue3-designer');
   await expect(designer).toBeVisible({ timeout: 15_000 });

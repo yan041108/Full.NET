@@ -40,13 +40,19 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
 
   const row = view.locator('.el-table__row').filter({ hasText: title });
   await expect(row).toBeVisible();
+  const versionColumn = (await view.getByRole('columnheader').allTextContents())
+    .findIndex(label => label.trim() === '当前版本');
+  expect(versionColumn).toBeGreaterThanOrEqual(0);
+  const versionCell = row.getByRole('cell').nth(versionColumn);
+  await expect(versionCell).toBeVisible();
+  await expect(row.getByTestId('host-document-item-version-file')).toBeEnabled();
   await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: `${title}.txt`,
     mimeType: 'text/plain',
     buffer: Buffer.from(`document ${clientKind}`)
   });
   await row.getByTestId('host-document-item-upload-version').click();
-  await expect(row.locator('td').filter({ hasText: /^1$/ })).toBeVisible({ timeout: 15_000 });
+  await expect(versionCell).toHaveText('1', { timeout: 15_000 });
 });
 
 test('受限 Host 账号访问文档 API 被拒绝且导航裁剪', async ({

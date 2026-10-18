@@ -1,6 +1,64 @@
-# Vue 加载边界与报表导出验收修复
+# 冻结验收收口：加载边界、真实双库与交付限制
 
-本批属于冻结清单 FA-01/FA-04 的缺陷修复，不增加开发范围。开发基线为 `ddc6508174e3ae625d4101b1323afcc482602218`；干净私有验证投影为 `f4b722df73daaabdd8b6459d67a3ce89aa50b371`，目录 `G:/.fullnet-tests/fa-package-ui-YmxxEN`。冻结开发余 0；FA-03—FA-06 尚未关闭。
+截至 2026-10-18，本窗口冻结开发余 **0**、规定范围待运行验收余 **0**。业务验收 FA-01—FA-05 已通过，FA-06 的证据与限制已汇总；**6 个临时输出目录及 26 个失败 trace 文件因命令策略拒绝而未清理**，不报告全部清理完成。本结论仅覆盖开发分支的冻结候选，不代表 Main 中其他专项完成。未合并、未发布，容量仍为 `Capacity-not-verified`。
+
+| 冻结组 | 当前结论 | 覆盖边界 |
+| --- | --- | --- |
+| FA-01 | 通过，分阶段证据 | 组件、类型/构建、契约/治理、Unit/架构及既定客户端范围；保留最初失败与聚焦修复记录 |
+| FA-02 | 通过，324 个唯一 UID | 双库固定范围逐 UID 覆盖；不把重叠作业数量相加 |
+| FA-03 | 通过，双库 65+65 | 每库 29 文件、65 个原冻结 UID；SQL Server 为有效 58 项加本轮 7 项，MySQL 本轮一次 65/65，零失败/跳过/flaky |
+| FA-04 | 通过，业务 6/6 | 历史 3 项与当前 3 项分阶段覆盖，包含独立 Minimal 双库与企业数据交付 MySQL；不称六项同源单次全绿 |
+| FA-05 | 通过，52 项 | API/Worker 原生范围 50 项与企业双库原生链路 2 项；原消费者与原生生产者分别绑定 |
+| FA-06 | 报告完成，清理受限 | 范围、复用、原失败、资源归还及以下六个未清理目录和26个trace文件均已明确登记 |
+
+## 2026-10-18 本轮修复与实际验证
+
+运行基线为 `93010d9668cf0cbfeccd4a606332dbf8141e6826`，最终浏览器输入为该基线加精确补丁 SHA-256 `11d0fe5db55e7ec1a7285532cb94db3d297049e9ad871d44ca9e4e1b3baa29f3`，39 个原始文件哈希和完整 Git 差异共同冻结。验证目录复用 `G:/.fullnet-tests/fa-HG4DPX`，没有复制新整仓。永久源码增量仅涉及四个 Vue 页面、两处组件回归及原 E2E 场景；生产 .NET、SQL、依赖和公共 API 均未修改。
+
+- GoView 新建按钮改用真实工具栏的 `left` 插槽，保留精确权限门禁；GoView、报表定义和报表导出补回既有样式的可访问标题。
+- Host 文档上传及补读期间禁用版本文件选择，与已有处理函数的忙碌门禁一致；完成后才允许选下一份文件。真实组件回归先失败，再修复通过。
+- E2E 使用现行创建弹窗、稳定确认按钮标识和当前会话令牌；按“当前版本”列验证版本值，区分可选择文件行与保留的上传/删除回执。批量删除同时核对真实响应中的两个文件 ID 和服务器逐项 404，没有强制点击、扩大超时或允许失败状态集合。
+- API 校验按具体实现核对 `Validation → 400` 及稳定机器码；未获授租户与 Host 越界创建导出均保持 403，工作流附件仍验证审批前 403、审批后 200。报表未发布场景自行创建测试元数据，不再因缺少预种数据而跳过。
+
+实际命令及结果（Vue 命令工作目录为 `ui/admin`，完整参数、输出与退出码保存在下述系统 Temp 控制目录）：
+
+| 实际执行 | 结果 |
+| --- | --- |
+| `node .../vitest/vitest.mjs run src/views/GoViewProjectsView.test.ts src/views/ReportingDefinitionsView src/views/ReportingExportTasksView --maxWorkers=1 --no-file-parallelism` | 8 文件、122/122；真实工具栏新增回归先 RED 1，再 GREEN |
+| `node .../vitest/vitest.mjs run src/views/HostDocumentItemsView --maxWorkers=1 --no-file-parallelism` | 3 文件、53/53；忙碌选择新增回归先 RED 1，再 GREEN |
+| `node .../vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.json`；`node .../vite/bin/vite.js build --outDir <本任务系统Temp>/admin-dist` | 两个对应客户端批次均实际 exit 0；后续仅测试代码变化时复用，不重复全量 Vue |
+| 原 `frontend-bundle-budgets.json` 四项检查，通过现有测量/判定函数消费上述产物 | 四项均通过；初始闭包 gzip 311597、登录后概览 400176、图表 166664、可选设计器 3234 字节，原阈值未放宽 |
+| `node .../@playwright/test/cli.js test --config <本任务系统Temp>/version-column-retry/playwright.config.mjs`，SQL Server 附原 UID 筛选，MySQL 不附额外筛选 | SQL Server 当前 7/7、2m12.894s，加有效复用 58 项构成 65/65；MySQL 65/65、5m48.837s。每个结果要求实际 Passed、只执行一次、无 skip/flaky，逐 UID 与原发现集合相等 |
+| `node .../version-column-retry/verify-frozen-scope.mjs` | 实际 exit 0，双库 130 个规定场景完整覆盖；不称 SQL Server 单次全绿 |
+
+原始 SQL Server 首轮 51 通过/13 失败/1 跳过、后续 7/7、7/4、2/2 的通过/失败记录均保留；只复验失败及实际受影响消费者，没有用修后的预期覆盖原失败。最后 SQL Server 7 项及 MySQL 65 项由同一 actor1944/birth134367800070012716 顺序执行，held exit 0、Job active 0/total270，执行会话实际 exit 0；原绝对执行截止 07:26:49Z、清理截止 07:31:49Z 未延长。API、Worker、Migrator 三份 DLL 在所有提供程序和重试前后哈希完全相同，确实复用同一 Release 构建。客户端 122 与 53 项是两个互不重叠的受影响组，不冒充当前完整 Vue 一次全绿。
+
+证据根目录：`C:/Users/Administrator/AppData/Local/Temp/fullnet-frozen-acceptance-1792232794104/fa03-preparation/release-entry-93010d9`。`version-column-retry/frozen-scope-proof.json` SHA-256 `1e1f3cd518a03d13d4399c3e734125d7f039bc454dbce5c9c5045c7f96c68a19` 保存逐 UID 来源与原始报告摘要；`physical-return.json` 保存实际归还，`shared-binary-reuse-final.json` 保存 DLL 摘要。Windows x64、20 逻辑核、Node24.12.0、SDK10.0.402，真实聚合 Job8GiB/6CPU；专用 MySQL1.5GiB/1CPU、Redis0.25GiB/0.25CPU，SQL Server 原预算3GiB/1CPU。Ryuk 没有硬配额，不宣称全部 Docker 资源均受限。
+
+中途发现 Docker Desktop/后台已停止、LinuxEngine 管道不存在，启动已安装 Desktop 后恢复引擎，没有停止达梦或修改启动项。两个共享容器原 ID/配额保留，但引擎中断后实际处于 Exited255；未手工启动或删除。最终与恢复后的共享状态基线一致，自有容器和双锁为 0，两把既存外来锁保留。07:13:57Z 鲜查归还后，已把下一完整测试窗口协调给日志专项；本窗口后续只在私有目录做报告、清理与 Git 交付。
+
+入口修复提交 `93010d9` 的 [主 CI](https://github.com/yan041108/Full.NET/actions/runs/39099204913)、[API Native](https://github.com/yan041108/Full.NET/actions/runs/39099204957)、[Worker Native](https://github.com/yan041108/Full.NET/actions/runs/39099204967) 均为成功终态：合计 7 个成功作业、8 个跳过作业；跳过不计通过。主日志 SHA-256 `c51992440e67f9e1ada8a95e961dc4773ecf067bf7b410171a9757cbdcaf54d7`。这些 CI 绑定 93010d9，界面增量另由上述本地 175 项、类型/构建及真实双库证据覆盖，不冒充后续提交的 CI 已通过。
+
+## 已知清理限制（6 个目录及 26 个 trace）
+
+以下递归清理均在执行前被 `blocked by policy` 拒绝，**不是 Auto-review**，没有删除、改解释器、重命名或借生命周期清理绕过。当前新增三目录已确认由本批构建生成、无 reparse point、相关 Job0，合计 637225940 字节；预览和拒绝原命令分别保存 `cleanup-preview.json`、`cleanup-command-policy-rejected.txt`，`cleanup-limits.json` 明确 `cleanupPerformed=false`。拒绝命令中的只读哈希步骤同样未执行，之后单独完成只读哈希核验，不是删除重试。
+
+| 目录 | 当前状态 |
+| --- | --- |
+| `C:/Users/Administrator/AppData/Local/Temp/fullnet-created-app-rs-aiZqS0` | 早先拒绝记录保留，未重试 |
+| `C:/Users/Administrator/AppData/Local/Temp/fullnet-template-hive-FYzcWi` | 早先拒绝记录保留，未重试 |
+| `G:/.fullnet-tests/fa-HG4DPX/.tmp/e2e-real-stack/build` | 首次误入 Debug 的失败输出，919 文件/51676182 字节，未重试 |
+| `<证据根目录>/shared-build` | 已成功验收的 Release 输出，3840 文件/627573909 字节，清理被拒绝 |
+| `<证据根目录>/ui-repair-checks/admin-dist` | 已成功验收的前端输出，400 文件/4825997 字节，清理被拒绝 |
+| `<证据根目录>/document-upload-checks/admin-dist` | 已成功验收的前端输出，400 文件/4826034 字节，清理被拒绝 |
+
+另对上述六目录之外、本批四次失败浏览器结果目录中的 **26 个精确 `trace.zip` 文件**做了独立清理预览（合计274456708字节），拟保留原始 JSON 报告、错误上下文和日志，删除已完成诊断的大 trace。该单文件清理命令同样在执行前被策略拒绝，文件未删，未换方式重试；原命令/拒绝保存在 `failure-trace-cleanup-policy-rejected.txt`，精确名单在 `failure-trace-cleanup-preview.json`。这不是对已拒绝六目录的删除重试。
+
+没有生成新整仓副本或 repo 根 artifacts。实际剩余仅为上述清理限制；没有待开发或待运行验收项，不再自动添加功能、自查或验收任务。
+
+## 历史过程记录
+
+下方状态和数量属于各自日期的过程快照；当前剩余清单以上表为准。最初开发基线 `ddc6508174e3ae625d4101b1323afcc482602218`、私有验证投影 `f4b722df73daaabdd8b6459d67a3ce89aa50b371` 及目录 `G:/.fullnet-tests/fa-package-ui-YmxxEN` 仅用于定位历史证据。
 
 ## 问题与修改
 

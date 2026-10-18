@@ -561,6 +561,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 
 <template>
   <div v-if="canRead" class="reporting-definitions-view art-page-stack art-full-height">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('reportingDefinitions.title') }}</h1>
     <div v-if="receipt" role="status" data-testid="reporting-management-receipt">
       <p>{{ t(receipt.resource === 'group' ? 'reportingDefinitions.groupsTitle' : 'reportingDefinitions.title') }} · {{ t(receipt.kind === 'create' ? 'reportingDefinitions.operationCreate' : receipt.kind === 'update' ? 'reportingDefinitions.actionEdit' : receipt.kind === 'delete' ? 'reportingDefinitions.actionDelete' : 'reportingDefinitions.actionPublish') }} · {{ t(receipt.outcome === 'succeeded' ? 'reportingDefinitions.resultSucceeded' : receipt.outcome === 'failed' ? 'reportingDefinitions.resultFailed' : receipt.outcome === 'processing' ? 'reportingDefinitions.resultProcessing' : 'reportingDefinitions.resultUnconfirmed') }}</p>
       <code v-if="receipt.id" translate="no">{{ receipt.id }}</code>

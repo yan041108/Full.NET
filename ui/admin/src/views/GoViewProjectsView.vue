@@ -76,17 +76,20 @@ const createControls = computed(() => { const ticket = formOwner.value, window =
 
 <template>
   <div v-if="canRead" class="goview-projects-view">
-    <ArtTableHeader :title="t('goviewProjects.title')" :loading="loading" v-on="{ refresh: controls.refresh }">
-      <PermissionGate code="goview.projects.create">
-        <ElButton
-          data-testid="goview-project-create"
-          type="primary"
-          :icon="Plus"
-          :disabled="loading || creating || recovering" v-on="{ click: controls.create }"
-        >
-          {{ t('goviewProjects.addProject') }}
-        </ElButton>
-      </PermissionGate>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('goviewProjects.title') }}</h1>
+    <ArtTableHeader :loading="loading" v-on="{ refresh: controls.refresh }">
+      <template #left>
+        <PermissionGate code="goview.projects.create">
+          <ElButton
+            data-testid="goview-project-create"
+            type="primary"
+            :icon="Plus"
+            :disabled="loading || creating || recovering" v-on="{ click: controls.create }"
+          >
+            {{ t('goviewProjects.addProject') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ElAlert

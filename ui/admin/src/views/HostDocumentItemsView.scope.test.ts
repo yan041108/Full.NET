@@ -53,6 +53,24 @@ async function confirmed(name: string, ...args: unknown[]) {
   await wrapper!.get('[data-testid="host-document-confirm-accept"]').trigger('click'); await action;
 }
 describe('Host 文档库整页请求归属', () => {
+  it('上传处理中禁用文件选择，完成后恢复下一次选择', async () => {
+    const pending = deferred<typeof doc>();
+    vi.mocked(api.uploadDocumentVersion).mockReturnValueOnce(pending.promise);
+    await setup();
+    await call('onVersionFileSelected', { target: { files: [new File(['first'], 'first.txt')] } }, doc.id);
+    const action = call('uploadVersion', doc);
+    await flushPromises();
+    try {
+      expect(wrapper!.get('[data-testid="host-document-item-version-file"]').attributes('disabled')).toBeDefined();
+    } finally {
+      pending.resolve(doc);
+      await action;
+    }
+    await flushPromises();
+    expect(wrapper!.get('[data-testid="host-document-item-version-file"]').attributes('disabled')).toBeUndefined();
+    await call('onVersionFileSelected', { target: { files: [new File(['next'], 'next.txt')] } }, doc.id);
+    expect(wrapper!.get('[data-testid="host-document-item-upload-version"]').attributes('disabled')).toBeUndefined();
+  });
   it('预览转换提交后有任务 Read 才定位到新任务详情，不自动打开PDF', async () => {
     vi.mocked(createDocumentPreviewTask).mockResolvedValueOnce({ ...documentPreviewTask, documentItemId: doc.id, versionId: doc.currentVersion.id });
     await setup([...permissions, 'document.host_preview_tasks.read']); await call('submitOfficePreviewTask', doc);

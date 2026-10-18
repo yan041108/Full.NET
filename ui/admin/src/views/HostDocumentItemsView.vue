@@ -984,7 +984,7 @@ function toProblem(
                   <PermissionGate v-if="canAddVersion" code="document.host_documents.add_version">
                     <label class="host-document-items-view__version-input">
                       <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
-                      <input type="file" data-testid="host-document-item-version-file" @change="onVersionFileSelected($event, row.id)" />
+                      <input type="file" data-testid="host-document-item-version-file" :disabled="changing || loading" @change="onVersionFileSelected($event, row.id)" />
                     </label>
                     <el-button
                       plain

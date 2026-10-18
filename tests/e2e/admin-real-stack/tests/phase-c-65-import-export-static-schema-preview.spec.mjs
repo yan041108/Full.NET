@@ -90,6 +90,11 @@ test('UI：导入任务页列表与预校验任务入口占位（清单 65）', 
     timeout: 20_000
   });
   await expect(page.getByTestId('import-export-task-create')).toBeVisible();
-  await expect(page.getByTestId('import-export-task-create')).toBeDisabled();
+  await expect(page.getByTestId('import-export-task-create')).toBeEnabled();
+  await page.getByTestId('import-export-task-create').click();
+  const createDialog = page.getByRole('dialog');
+  await expect(createDialog.getByTestId('import-create-schema')).toBeVisible();
+  await expect(createDialog.getByTestId('import-create-file')).toBeEnabled();
+  await expect(createDialog.getByTestId('import-create-submit')).toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
 });

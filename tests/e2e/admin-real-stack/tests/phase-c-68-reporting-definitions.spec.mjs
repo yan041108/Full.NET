@@ -50,7 +50,8 @@ test('API：Query Port 目录、分组与拒绝任意 SQL 端口（清单 68）'
     layoutConfigJson: null,
     isEnabled: true
   });
-  expect(invalidPort.status()).toBe(422);
+  expect(invalidPort.status()).toBe(400);
+  expect((await invalidPort.json()).code).toBe('reporting.definition.invalid');
 
   const { response: definitionsResponse } = await listReportingDefinitionsViaApi(
     request,

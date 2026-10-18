@@ -483,6 +483,7 @@ function markCancelUnconfirmed(): void {
 
 <template>
   <div v-if="canRead()" class="reporting-export-tasks-view art-page-stack art-full-height">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('reportingExportTasks.title') }}</h1>
     <div v-if="receipt" role="status" data-testid="reporting-export-receipt">
       <p>{{ t('reportingExportTasks.receiptTarget', {definition:receipt.definitionId,version:String(receipt.versionNumber)}) }} · {{ t(receipt.kind === 'create' ? 'reportingExportTasks.create' : 'common.cancel') }}</p>
       <p>{{ t(receipt.outcome === 'succeeded' ? 'reportingExportTasks.resultSucceeded' : receipt.outcome === 'failed' ? 'reportingExportTasks.resultFailed' : receipt.outcome === 'processing' ? 'reportingExportTasks.resultProcessing' : 'reportingExportTasks.resultUnconfirmed') }} <code v-if="receipt.taskId" translate="no">{{ receipt.taskId }}</code> <code v-if="receipt.errorCode" translate="no">{{ receipt.errorCode }}</code></p>
