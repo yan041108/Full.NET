@@ -15,6 +15,7 @@ import { platform, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
+import { configureRealStackContainer } from './container-resource-profile.mjs';
 import { createOidcStackEnv } from './oidc-stack-env.mjs';
 import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
@@ -153,7 +154,7 @@ function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
 }
 
 async function startRedisContainer() {
-  const container = await new GenericContainer('redis:8.6')
+  const container = await configureRealStackContainer(new GenericContainer('redis:8.6'), 'redis')
     .withExposedPorts(6379)
     .withWaitStrategy(Wait.forListeningPorts())
     .start();
@@ -164,7 +165,7 @@ async function startRedisContainer() {
 
 async function startDatabaseContainer(provider) {
   if (provider === 'MySql') {
-    const container = await new GenericContainer('mysql:8.0')
+    const container = await configureRealStackContainer(new GenericContainer('mysql:8.0'), 'mysql')
       .withEnvironment({
         MYSQL_DATABASE: 'fullnet',
         MYSQL_USER: 'fullnet',
@@ -187,9 +188,7 @@ async function startDatabaseContainer(provider) {
     return { container, connectionString };
   }
 
-  const container = await new GenericContainer(
-    'mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04'
-  )
+  const container = await configureRealStackContainer(new GenericContainer('mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04'), 'sqlserver')
     .withEnvironment({
       ACCEPT_EULA: 'Y',
       MSSQL_SA_PASSWORD: sqlPassword

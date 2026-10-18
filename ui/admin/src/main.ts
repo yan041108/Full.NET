@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { ElLoading } from 'element-plus';
 import 'element-plus/theme-chalk/base.css';
 import 'element-plus/theme-chalk/el-icon.css';
 import 'element-plus/theme-chalk/el-button.css';
@@ -57,6 +58,8 @@ async function bootstrapAdminApp(): Promise<void> {
   const pinia = createPinia();
   const router = createAppRouter(undefined, pinia);
   const app = createApp(App)
+    // 页面统一使用加载遮罩指令，按需注册，避免静默失效及重复告警。
+    .directive('loading', ElLoading.directive)
     .use(pinia)
     .use(router);
 
