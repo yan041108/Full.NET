@@ -205,6 +205,8 @@ jobs:
       - name: Verify representative enterprise sample
         env:
           FULLNET_E2E_DATABASE_PROVIDER: ${{ matrix.provider }}
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright test enterprise-request.spec.mjs --project vue-admin
       - name: Upload sample reports
         if: always()
@@ -213,7 +215,7 @@ jobs:
           name: fullnet-foundation-sample-${{ matrix.provider }}
           path: |
             tests/e2e/admin-real-stack/test-results/**
-            .tmp/e2e-real-stack/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e:
@@ -250,6 +252,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify real backend admin smoke (legacy + oidc-center)
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real
 
       - name: Upload real-stack reports
@@ -260,6 +265,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e-mysql:
@@ -296,6 +302,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify real backend admin smoke on MySQL
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real:mysql
 
       - name: Upload real-stack MySQL reports
@@ -306,6 +315,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e-production-totp:
@@ -342,6 +352,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify Production TOTP super-admin grant gate (SqlServer)
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real:production-totp
 
       - name: Upload production-totp real-stack reports
@@ -352,7 +365,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
-            .tmp/e2e-real-stack/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   build-and-module-test:

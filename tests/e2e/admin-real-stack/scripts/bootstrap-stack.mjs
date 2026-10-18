@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
 import { configureRealStackContainer } from './container-resource-profile.mjs';
+import { resolveRealStackBuildLayout } from './stack-build-layout.mjs';
 import { createOidcStackEnv } from './oidc-stack-env.mjs';
 import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
@@ -224,6 +225,7 @@ export async function bootstrapStack() {
     const stackProfile = resolveStackProfile();
     const isProductionTotp = stackProfile === 'production-totp';
     const databaseProvider = resolveDatabaseProvider();
+    const buildLayout = resolveRealStackBuildLayout(repoRoot, { provider: databaseProvider });
     const { container, connectionString } = await startDatabaseContainer(databaseProvider);
     resources.add(() => container.stop());
     const { container: redisContainer, connectionString: cacheRedisConnectionString } =
@@ -319,22 +321,13 @@ export async function bootstrapStack() {
     };
 
     // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
-    const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
-    const isolatedBuildArgs = [
-      '-p:UseArtifactsOutput=true',
-      `-p:ArtifactsPath=${stackArtifactsPath}`,
-      '-m:1',
-      '-nodeReuse:false'
-    ];
+    const isolatedBuildArgs = buildLayout.buildArgs;
     const migratorProjectPath = path.join(
       repoRoot,
       'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj'
     );
     await runDotnet(['build', migratorProjectPath, ...isolatedBuildArgs], sharedEnv);
-    const migratorAssemblyPath = path.join(
-      stackArtifactsPath,
-      'bin/Full.NET.Host.Migrator/debug/Full.NET.Host.Migrator.dll'
-    );
+    const migratorAssemblyPath = buildLayout.assemblyPath('Migrator');
     await runDotnet([
       migratorAssemblyPath,
       '--seed',
@@ -347,12 +340,9 @@ export async function bootstrapStack() {
     );
     const apiProjectDirectory = path.dirname(apiProjectPath);
     await runDotnet(['build', apiProjectPath, ...isolatedBuildArgs], sharedEnv);
-    const apiAssemblyPath = path.join(
-      stackArtifactsPath,
-      'bin/Full.NET.Host.Api/debug/Full.NET.Host.Api.dll'
-    );
+    const apiAssemblyPath = buildLayout.assemblyPath('Api');
 
-    const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
+    const apiLogPath = buildLayout.logPath('Api');
     mkdirSync(path.dirname(apiLogPath), { recursive: true });
     writeFileSync(apiLogPath, '');
     const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
@@ -419,11 +409,8 @@ export async function bootstrapStack() {
     );
     const workerProjectDirectory = path.dirname(workerProjectPath);
     await runDotnet(['build', workerProjectPath, ...isolatedBuildArgs], sharedEnv);
-    const workerAssemblyPath = path.join(
-      stackArtifactsPath,
-      'bin/Full.NET.Host.Worker/debug/Full.NET.Host.Worker.dll'
-    );
-    const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
+    const workerAssemblyPath = buildLayout.assemblyPath('Worker');
+    const workerLogPath = buildLayout.logPath('Worker');
     mkdirSync(path.dirname(workerLogPath), { recursive: true });
     writeFileSync(workerLogPath, '');
     const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });

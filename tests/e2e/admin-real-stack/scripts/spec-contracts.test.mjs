@@ -142,8 +142,8 @@ test('真实栈必须按生产角色分离启动并清理 Worker', async () => {
   assert.match(source, /workerPid:\s*workerProcess\.pid/u);
   assert.match(source, /workerLogPath/u);
   assert.match(source, /resources\.add\(\(\) => stopLoggedProcess\(workerProcess, workerLogStream\)\)/u);
-  assert.match(source, /Full\.NET\.Host\.Api\.dll/u);
-  assert.match(source, /Full\.NET\.Host\.Worker\.dll/u);
+  assert.match(source, /apiAssemblyPath\s*=\s*buildLayout\.assemblyPath\('Api'\)/u);
+  assert.match(source, /workerAssemblyPath\s*=\s*buildLayout\.assemblyPath\('Worker'\)/u);
   assert.match(source, /FULLNET_E2E_API_PORT/u);
   assert.match(source, /apiLogPath/u);
   assert.match(source, /resources\.add\(\(\) => stopLoggedProcess\(apiProcess, apiLogStream\)\)/u);

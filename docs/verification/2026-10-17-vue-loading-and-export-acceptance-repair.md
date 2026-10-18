@@ -128,4 +128,22 @@ Native 企业 2 项的新消费者准备与复用运行入口也已备好并通�
 
 系统Temp证据根 `fullnet-fa04-navigation-20261018` 内的 `frontend-verified-summary.json` 绑定源码摘要、整批及失败文件结果；失败真实栈位于 `fullnet-fa04-20261018-7eaeda2/network-restored`，实际退出保留为4294967295、Job0，自有SQL/Redis/Ryuk及双锁已核对释放。两处旧临时目录此前原生PowerShell清理被命令策略拒绝，未执行且没有更换解释器绕过；本轮复现复用既有临时应用，不将该清理债务写成已完成。
 
-开发余0、验收余3：FA-03真实后端双库浏览器、FA-04原剩余3例、FA-06最终汇总。未合并、未发布，容量仍为Capacity-not-verified。
+`c6e86e5` 后续正式独立应用：SQL Server Minimal原场景整项通过，耗时20m20.958s、嵌套真实执行7m24.472s，Node0、零失败/跳过。五种浏览器权限模式完成，页面异常0、两类原渲染告警0；101框架+1应用迁移及重复零新增、独立Worker业务投影、应用升级迁移、回执缺失恢复与再次重复零新增均按原断言通过。随后MySQL仅在 `dotnet new fullnet-app` 生成阶段触发原120秒预算的ETIMEDOUT，尚未启动数据库；后继企业MySQL自动停止。保留本次失败而不增加超时。聚合actor26928/birth134367656208953198 held exit1、Job0；三只自有容器消失，共享双库ID/StartedAt/配额不变、双锁释放。正式通过1项，失败1项，未执行1项，不能汇总为三项通过。
+
+最小只读诊断复用已有模板包，SDK402真实安装1.218s、MySQL dry-run7.202s，均原120秒预算，未复制整仓、生成新应用或启动构建/数据库。Windows实际Job2GiB/CPU1，actor12756 held0、Job0，模板包清单摘要不变；只证明解析路径当前可用，不能排除输出写入或当时资源争用，更不替代失败用例。该诊断首次fresh memory gate在CreateProcess前拒绝；内存恢复后维持原16GiB提交/12GiB物理门槛再入，未降低门槛。原始证据根 `fullnet-fa04-render-repair-20261018`：`minimal-sqlserver.tap`、`minimal-mysql.tap`、`terminal.json`、`physical-return.json`、`generation-dry-run/result.json`。
+
+续验同一 `c6e86e5`：MySQL Minimal整项实际通过，18m40.969s（嵌套真实执行6m19.385s）、Node0、零失败/跳过。生成命令在原120秒预算内74.785s完成，未改生成实现或增加时限；五种权限浏览器、租户隔离、Worker业务事件、升级/重复迁移及失败恢复均原断言通过，自有MySQL/Redis/Ryuk均已退场。累计独立应用5/6，剩企业数据交付MySQL已自动续验，聚合actor22048仍运行；未将阶段通过写成聚合通过。
+
+当前提交 `c6e86e5` 的CI已完成，6个执行作业（客户端、后端双库、current/legacy迁移、API/Worker Native）及1个汇总检查均成功；8个跳过检查不计通过，真实应用/后台浏览器仍按本地冻结范围继续。源码绑定及检查链接保存系统Temp的 `ci-current-complete.json`。其中GitHub客户端job117570192548已成功，正式原始日志确认Vue326文件/3032场景一次全部通过；受控E2E147通过/4跳过，跳过不计通过。该日志SHA256 `56fb7909805deef5a05a656e4f1224f87f65ce736f0beb0d8f5e7ef798497099`，与本地分阶段3032证据分别记录，不互相冒充，也不替代真实双库应用验收。
+
+企业数据交付MySQL最后一项实际通过，11m52.603s，嵌套11m52.582s、Node0、零失败/跳过；应用导入、独立Worker、跨库数据源/工作簿及真实打印浏览器的原断言均完成。实际查看打印截图，业务标题、单据号、状态和金额可见；只代表该功能样例，不是完整后台视觉审查。累计业务范围6/6为历史3项与当前c6e86e5实跑3项的分阶段覆盖，不能称六项同源单次全绿；业务后端/迁移/契约未新增修改，共享渲染增量由当前3032组件场景及生成应用代表性样例覆盖。
+
+最终聚合actor22048/birth134367686547349744 held exit0、Job0/total1409，执行会话实际exit0。鲜查此前SQL Server、Minimal MySQL和企业MySQL观测的10只自有容器均不存在；共享a39c/c584的ID/StartedAt/内存/CPU完全保持，两个既存外来锁保留、自有normal/heavy锁0。企业实际MySQL1.5GiB/1CPU、外部SQL Server3GiB/1CPU、Redis0.25GiB/0.25CPU，MemorySwap为各自两倍；Ryuk没有硬配额，不宣称所有Docker资源均受限。`remaining-mysql/fa04-closeout.json` 保存TAP、终态和范围哈希。原生成超时未定位到确定根因，原预算复验通过不写成代码已修复；首次失败及117.785s的生成耗时保留。
+
+FA-03首次真实准备于04:19:00Z开始，实际日志仍显示仓库`.tmp/e2e-real-stack/build/.../debug`，说明临时加载变换没有作用于Playwright实际启动入口；只有生成变换文本/直接模块导入的旧探测，不能证明跨进程真实执行。按Release与系统Temp前置要求立即停止自有actor3028/birth134367707407781413，held4294967295、Job0/90，04:25:19Z鲜查后仅按自身PID/token释放双锁，业务测试0，foreign双库及两旧锁保持。当前完整scope仍为每库29文件/65唯一UID，不因准备失败增加范围。
+
+本次直接修正式bootstrap：构建参数和Migrator/API/Worker程序集共用Release布局，默认编译缓存稳定落系统Temp并按工作区隔离、跨Provider复用；日志按Provider分开，支持`FULLNET_E2E_BUILD_ROOT`/`FULLNET_E2E_LOG_ROOT`绝对覆盖。CI四个真实栈作业显式指向runner.temp并上传对应日志，不上传构建缓存。新增回归在独立Node进程调用真实bootstrap，仅替代Docker/.NET SDK边界：原缺少Release的双库2失败确认为RED，修复后2通过；另覆盖默认隔离/复用、空格路径、相对路径在创建容器前拒绝和未知Host/Provider。旧角色契约仍断言独立Worker启动/清理，已改为检查正确角色布局绑定，不再依赖被抽走的DLL字面量。最终Node聚焦48/48、零失败/跳过，原始`final-entry-checks.log`保留；四个CI作业路径经真实YAML解析检查通过。未运行.NET、Docker或浏览器业务，不将替身证据计入130真实场景。
+
+失败Debug目录已预览并核对新建时间、仅bin/obj、无链接/使用者、持柄Job0，919文件共51,676,182字节。原生PowerShell精确清理命令在执行前被`blocked by policy`拒绝；这是命令策略，不是Auto-review。文件未删除，没有改解释器、重命名或借测试清理绕过；`cleanup-command-policy-rejected.txt`保存原命令和拒绝，原失败日志仍在。首次预览的DateTime时区比较错误已通过DateTimeOffset校正，校正前未执行删除。此项与此前两个被拒绝目录均作为清理债务保留，不称全部清理完成。
+
+开发余0、验收余2：FA-03真实后端双库浏览器、FA-06最终汇总。FA-04按上述分阶段证据关闭；正式入口修复已轻量验证，真实65×2仍待固定资源窗口。C6的7项CI成功与本次入口修复分别记录，新输入CI只按实际终态追加，不将旧CI状态当作新输入通过。未合并、未发布，容量仍为Capacity-not-verified。
