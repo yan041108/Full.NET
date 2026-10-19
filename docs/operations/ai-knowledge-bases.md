@@ -8,6 +8,12 @@
 
 后续处理将保留 Excel 工作表/单元格、PPT 幻灯片/备注、CSV 行列、HTML 结构与图片文字区域等引用位置；图片 OCR 不等于无文字照片的语义理解。新增格式大小/像素/页帧与运行配额尚未定稿，不沿用旧限制冒充已验证。完整范围、内容策略及依赖候选见[专项规格 §3.6](../superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md#36-多格式知识文档与图片-ocr2026-10-19-新增需求planned)，开发与验收见[活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md) AI-F01–AI-F05；下列工具说明继续只描述已实现能力。
 
+## 产品完善方向（Planned，尚未交付）
+
+在多格式/OCR 之外，产品方案新增六组：知识目录与发布治理、解析校对与分块工作台、可解释搜索与问答、标准问答 FAQ、质量运营台、业务页面知识助手。目标是把导入、校对、审核发布、带引用使用和反馈改进连成完整流程；已有目录、来源预览、版本、授权、预算和反馈能力继续复用。
+
+详情见[专项规格 §3.7](../superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md#37-知识库产品完善与-weknora-能力吸收2026-10-19产品设计--planned)，实施准备见[唯一活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md) AI-K01–AI-K06。新增发布/有效期、人工分块修订及 FAQ 等是目标行为，当前没有对应操作入口或配置说明；不要把现有索引 ready 当作已具备新增发布审核能力。外部连接器、自动 Wiki、视觉语义检索及 GraphRAG 仅列候选，未进入当前交付范围；音视频仍不纳入。
+
 ## DOCX 独立解析工具（R08d）
 
 `src/Tools/Full.NET.Ai.DocxParser` 是独立进程工具。R08d 交付正文解析子集，R08g 增加受信隔离启动、原会话规划及内部单批执行，R08h 增加完整代次、原子激活和完成恢复；R08i 接入上传、可信配置、Worker、当前读取者证明及逻辑引用。运行时索引默认关闭，须显式启用。

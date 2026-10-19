@@ -128,7 +128,7 @@ Vue 迁移前先证明服务端换码、主 Cookie 与应用 Cookie 分离、CSR
 - CRUD 默认生成 `read/create/update/delete`，其他动作必须由 Schema 明确声明；
 - 不再新增 Layui 页面、JavaScript API 或路由生成能力；
 - Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立 Vue 适配切片。
-- AI 管理端（2026-10-19 核对）：模型、聊天、工具/运行审批、MCP 远端连接、知识库/来源目录、Prompt、反馈评估和增量授权已实现；组件/类型检查及受控 HTTP 浏览器证据见[最终 AI 验收](../verification/2026-10-19-ai-final-development-acceptance.md)，保持 **Build-verified**。真实双库页面、人工流程、移动布局和可访问性归[活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md) AI-A03，标准 AG-UI 客户端归 AI-A04；逐页闭合后再升 Verified。 新增 AI-F01–F05 的文件选择/格式状态、Excel 单元格、PPT 页/备注、HTML 结构及图片文字区域引用/预览均为 Planned，需配合真实解析输出接线；不执行原 HTML/SVG 脚本或外链。
+- AI 管理端（2026-10-19 核对）：模型、聊天、工具/运行审批、MCP 远端连接、知识库/来源目录、Prompt、反馈评估和增量授权已实现；组件/类型检查及受控 HTTP 浏览器证据见[最终 AI 验收](../verification/2026-10-19-ai-final-development-acceptance.md)，保持 **Build-verified**。真实双库页面、人工流程、移动布局和可访问性归[活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md) AI-A03，标准 AG-UI 客户端归 AI-A04；逐页闭合后再升 Verified。 新增 AI-F01–F05 的文件选择/格式状态、Excel 单元格、PPT 页/备注、HTML 结构及图片文字区域引用/预览均为 Planned，需配合真实解析输出接线；不执行原 HTML/SVG 脚本或外链。AI-K01–K06 新增规划目录/发布台、原文与修订对照、独立搜索/诊断、FAQ、质量运营及业务页助手；现有组件与权限继续复用，新增交互均为 Planned，不能由产品文档更新提升页面验收状态。
 
 OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md) 和[专项实施计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)执行。`document-statistics.ts` 已迁移（现 230 条 `generated`）；Document 模块与 `vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest，OpenAPI 客户端单模块迁移阶段收官。
 
