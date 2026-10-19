@@ -8,6 +8,32 @@ import { isMainThread, parentPort, Worker, workerData } from 'node:worker_thread
 const operationIds = ['catalogListProducts', 'catalogCreateProduct', 'catalogGetProduct', 'catalogUpdateProduct', 'catalogDeleteProduct'];
 const fileNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 
+export async function verifyApplicationCrudClientProductRead(appRoot, baseUrl, { tenantAccessToken, expectedProduct, logPath }) {
+  assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
+  for (const key of ['id', 'tenantId', 'name', 'version']) {
+    assert.ok(typeof expectedProduct?.[key] === 'string' && expectedProduct[key], 'expected product field missing: ' + key);
+  }
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath,
+    hostAccessToken: tenantAccessToken, productRead: expectedProduct });
+}
+
+export async function verifyApplicationCrudClientProductList(appRoot, baseUrl, { tenantAccessToken, expectedProduct, logPath }) {
+  assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
+  for (const key of ['id', 'tenantId', 'name', 'version']) {
+    assert.ok(typeof expectedProduct?.[key] === 'string' && expectedProduct[key], 'expected product field missing: ' + key);
+  }
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath,
+    hostAccessToken: tenantAccessToken, productList: expectedProduct });
+}
+
+export async function verifyApplicationCrudClientTenantWrites(appRoot, baseUrl, { tenantAccessToken, expectedTenantId, logPath }) {
+  assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
+  assert.match(expectedTenantId, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+    'valid tenant UUID v7 required');
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath,
+    hostAccessToken: tenantAccessToken, tenantWrites: expectedTenantId });
+}
+
 export async function verifyApplicationCrudClientTenantRead(appRoot, baseUrl, { logPath, tenantAccessToken }) {
   assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
   return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken: tenantAccessToken, tenantRead: true });
@@ -34,13 +60,13 @@ async function runRuntimeWorker(data) {
   });
 }
 
-async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tenantRead = false) {
+async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tenantRead = false, productRead, productList, tenantWrites) {
   const emittedRoot = join(appRoot, 'verification/ClientGeneration/emitted');
   const host = hostAccessToken !== undefined;
   const expectedStatus = host ? 403 : 401;
   const expectedCode = host ? 'authorization.permission_denied' : 'identity.session_not_active';
   const redact = (text) => host ? text.replaceAll(hostAccessToken, '[REDACTED]') : text;
-  const evidence = { completed: false, subject: tenantRead ? 'tenant-reader' : host ? 'host-admin' : 'anonymous', responses: [] };
+  const evidence = { completed: false, subject: tenantWrites ? 'tenant-product-writes' : productRead ? 'tenant-product-reader' : productList ? 'tenant-product-list' : tenantRead ? 'tenant-reader' : host ? 'host-admin' : 'anonymous', responses: [] };
   const originalFetch = globalThis.fetch;
   const transports = [];
   globalThis.fetch = async (...args) => {
@@ -53,6 +79,104 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
     const operations = await import(pathToFileURL(join(emittedRoot, 'verification/ClientGeneration/generated/operations.generated.js')).href);
     const http = createHttpClient(baseUrl);
     if (host) http.configureAuthentication({ getAccessToken: () => hostAccessToken, refresh: async () => false });
+    if (tenantWrites) {
+      const originalName = 'Generated client tenant write probe';
+      const updatedName = 'Updated generated client tenant write probe';
+      const check = (value, id, name, version) => {
+        assert.equal(value.id, id, 'generated write product id mismatch');
+        assert.equal(value.tenantId, tenantWrites, 'generated write product tenant mismatch');
+        assert.equal(value.name, name, 'generated write product name mismatch');
+        assert.equal(value.version, version, 'generated write product version mismatch');
+      };
+      const execute = async (operationId, parameters, expectedHttpStatus) => {
+        const entry = { operationId };
+        evidence.responses.push(entry);
+        const before = transports.length;
+        try {
+          return await operations[operationId](http, parameters, AbortSignal.timeout(15_000), { retryUnauthorized: false });
+        } finally {
+          entry.httpStatus = transports[before];
+          assert.equal(transports.length, before + 1, 'generated write unexpected transport count');
+          assert.equal(entry.httpStatus, expectedHttpStatus, 'generated write HTTP status mismatch');
+        }
+      };
+      const expectProblem = async (operationId, parameters, expectedHttpStatus, expectedMachineCode) => {
+        const entry = { operationId };
+        evidence.responses.push(entry);
+        const before = transports.length;
+        let problem;
+        try {
+          await operations[operationId](http, parameters, AbortSignal.timeout(15_000), { retryUnauthorized: false });
+        } catch (error) { problem = error; }
+        entry.httpStatus = transports[before];
+        entry.status = problem?.status;
+        entry.code = problem?.code;
+        assert.equal(transports.length, before + 1, 'generated write rejection unexpected transport count');
+        assert.equal(entry.httpStatus, expectedHttpStatus, 'generated write rejection HTTP status mismatch');
+        assert.equal(entry.status, expectedHttpStatus, 'generated write rejection decoded status mismatch');
+        assert.equal(entry.code, expectedMachineCode, 'generated write rejection machine code mismatch');
+      };
+      const created = await execute('catalogCreateProduct', { body: { name: originalName } }, 201);
+      assert.match(created.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+        'generated write product UUID v7 mismatch');
+      check(created, created.id, originalName, '1');
+      check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, originalName, '1');
+      check(await execute('catalogUpdateProduct', { productId: created.id,
+        body: { name: updatedName, version: '1' } }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogUpdateProduct', { productId: created.id,
+        body: { name: 'Stale generated client update must be rejected', version: '1' } },
+      409, 'catalog.products.version_conflict');
+      check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogDeleteProduct', { productId: created.id, body: { version: '1' } },
+        409, 'catalog.products.version_conflict');
+      check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, updatedName, '2');
+      check(await execute('catalogDeleteProduct', { productId: created.id,
+        body: { version: '2' } }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogGetProduct', { productId: created.id }, 404, 'catalog.products.not_found');
+      const page = await execute('catalogListProducts', { page: 1, pageSize: 5 }, 200);
+      assert.equal(page.page, 1, 'generated write post-delete page mismatch');
+      assert.equal(page.pageSize, 5, 'generated write post-delete page size mismatch');
+      assert.ok(Array.isArray(page.items), 'generated write post-delete items mismatch');
+      assert.equal(page.items.some((item) => item.id === created.id), false, 'generated write deleted product remains listed');
+      evidence.responses.at(-1).items = page.items.length;
+      evidence.completed = true;
+      return { requests: 10, versionConflicts: 2, productWritten: 1, productDeleted: 1 };
+    }
+    if (productRead) {
+      const entry = { operationId: 'catalogGetProduct' };
+      evidence.responses.push(entry);
+      let value;
+      try { value = await operations.catalogGetProduct(http, { productId: productRead.id }, AbortSignal.timeout(15_000), { retryUnauthorized: false }); }
+      finally { entry.httpStatus = transports[0]; }
+      assert.equal(transports.length, 1, 'generated product read unexpected transport count');
+      assert.equal(entry.httpStatus, 200, 'generated product read HTTP status mismatch');
+      assert.equal(value.id, productRead.id, 'generated product id mismatch');
+      assert.equal(value.tenantId, productRead.tenantId, 'generated product tenant mismatch');
+      assert.equal(value.name, productRead.name, 'generated product name mismatch');
+      assert.equal(value.version, productRead.version, 'generated product version mismatch');
+      evidence.completed = true;
+      return { requests: 1, productRead: 1 };
+    }
+    if (productList) {
+      const entry = { operationId: 'catalogListProducts' };
+      evidence.responses.push(entry);
+      let page;
+      try { page = await operations.catalogListProducts(http, { page: 1, pageSize: 5 }, AbortSignal.timeout(15_000), { retryUnauthorized: false }); }
+      finally { entry.httpStatus = transports[0]; }
+      assert.equal(transports.length, 1, 'generated product list unexpected transport count');
+      assert.equal(entry.httpStatus, 200, 'generated product list HTTP status mismatch');
+      assert.equal(page.page, 1, 'generated product list page mismatch');
+      assert.equal(page.pageSize, 5, 'generated product list page size mismatch');
+      assert.ok(Array.isArray(page.items), 'generated product list items mismatch');
+      const matches = page.items.filter((item) => item.id === productList.id);
+      assert.equal(matches.length, 1, 'generated product list must contain the created product exactly once');
+      for (const key of ['id', 'tenantId', 'name', 'version']) {
+        assert.equal(matches[0][key], productList[key], 'generated product list ' + key + ' mismatch');
+      }
+      entry.items = page.items.length;
+      evidence.completed = true;
+      return { requests: 1, productListed: 1 };
+    }
     if (tenantRead) {
       const entry = { operationId: 'catalogListProducts' };
       evidence.responses.push(entry);
@@ -99,7 +223,7 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
 }
 
 if (!isMainThread && workerData?.kind === 'client-runtime') {
-  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken, workerData.tenantRead) }); }
+  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken, workerData.tenantRead, workerData.productRead, workerData.productList, workerData.tenantWrites) }); }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     parentPort.postMessage({ error: workerData.hostAccessToken === undefined ? message : message.replaceAll(workerData.hostAccessToken, '[REDACTED]') });

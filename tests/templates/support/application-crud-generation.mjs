@@ -71,6 +71,9 @@ export function verifyApplicationCrudGeneration(appRoot, {
   const conflict = execute('conflict', [...args, '--apply'], 2);
   assert.ok(conflict.split(/\r?\n/u).includes('Conflict ' + sqlPath), 'missing exact SQL conflict');
   assert.deepEqual(capture(), customized, 'conflict overwrote application content or manifest');
+  // 冲突检查结束后仅撤销本轮注释，后续模块和 Vue 再生成使用原始受管产物。
+  writeFileSync(join(appRoot, sqlPath), generated.get(sqlPath));
+  assert.deepEqual(capture(), generated, 'test comment cleanup changed unrelated application content');
   const result = { artifacts: CRUD_ARTIFACTS.length, conflictRejected: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;

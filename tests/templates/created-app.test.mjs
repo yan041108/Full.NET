@@ -54,6 +54,20 @@ test('application-owned migrator consumes the shared lifecycle and its applicati
   assert.doesNotMatch(project, /Full\.NET\.Host\.(?:Api|Migrator)\.csproj/u);
 });
 
+test('application-owned worker runs the framework processing pipeline with application modules', () => {
+  const root = join(TEMPLATE_ROOT, 'src/FullNetAppNameToken.Host.Worker');
+  const project = readFileSync(join(root, 'FullNetAppNameToken.Host.Worker.csproj'), 'utf8');
+  const catalog = readFileSync(join(root, 'ApplicationWorkerModuleCatalog.cs'), 'utf8');
+  const frameworkProgram = readFileSync(resolve('src/Hosts/Full.NET.Host.Worker/Program.cs'), 'utf8');
+  assert.match(project, /FullNetAppNameToken\.Composition\.csproj/u);
+  assert.match(project, /Full\.NET\.Host\.Worker\/\*\*\/\*\.cs/u);
+  assert.match(project, /FULLNET_APP_WORKER/u);
+  assert.doesNotMatch(project, /ProjectReference[^\n]*Full\.NET\.Host\.Worker\.csproj/u);
+  assert.match(frameworkProgram, /ApplicationWorkerModuleCatalog\.Register\(builder\.Services, builder\.Configuration\)/u);
+  assert.match(catalog, /AddApplicationModules\(configuration, FullNetHostProfile\.Worker\)/u);
+  assert.match(frameworkProgram, /AddHostedService<OutboxProcessor>/u);
+});
+
 test('fullnet-app template exposes code-generation diagnose scripts', () => {
   const packageJson = JSON.parse(readFileSync(join(TEMPLATE_ROOT, 'package.json'), 'utf8'));
   assert.match(packageJson.scripts['diagnose:development'], /diagnose --workspace \. --profile development/u);

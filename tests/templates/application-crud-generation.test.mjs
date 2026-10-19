@@ -71,7 +71,8 @@ test('generated application CRUD acceptance runs its own CLI and protects regene
     assert.equal(calls[1].args.includes('--apply'), false);
     assert.equal(calls[2].args.includes('--apply'), true);
     assert.match(readFileSync(join(root, 'backend/Product.manual.cs'), 'utf8'), /人工业务文件/);
-    assert.match(readFileSync(join(root, 'backend/ProductSql.g.cs'), 'utf8'), /人工修改/);
+    assert.equal(readFileSync(join(root, 'backend/ProductSql.g.cs'), 'utf8'),
+      'backend/ProductSql.g.cs\n', 'acceptance test comment leaked into later application stages');
     assert.equal(JSON.parse(readFileSync(join(root, 'evidence/conflict.json'), 'utf8')).status, 2);
   } finally {
     rmSync(root, { recursive: true, force: true });

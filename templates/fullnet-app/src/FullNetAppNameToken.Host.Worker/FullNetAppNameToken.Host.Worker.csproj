@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <RootNamespace>FullNetAppNameToken.Host.Worker</RootNamespace>
+    <AssemblyName>FullNetAppNameToken.Host.Worker</AssemblyName>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+    <DefineConstants>$(DefineConstants);FULLNET_APP_WORKER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 应用与官方 Worker 编译同一运行管线，避免 Outbox/消息模式在模板中分叉。 -->
+    <Compile Include="../../framework/fullnet/src/Hosts/Full.NET.Host.Worker/**/*.cs"
+             Exclude="../../framework/fullnet/src/Hosts/Full.NET.Host.Worker/**/obj/**/*.cs;../../framework/fullnet/src/Hosts/Full.NET.Host.Worker/**/bin/**/*.cs"
+             LinkBase="FrameworkWorker" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../FullNetAppNameToken.Composition/FullNetAppNameToken.Composition.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Caching.Fusion/Full.NET.Caching.Fusion.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Logging.Kafka/Full.NET.Logging.Kafka.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Realtime.SignalR/Full.NET.Realtime.SignalR.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Messaging.Abstractions/Full.NET.Messaging.Abstractions.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

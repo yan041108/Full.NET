@@ -848,3 +848,9 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 初始两测试RED2/2，实施后2/2，再补HTTP201正常结构拒绝。fixture为真实本地HTTP服务器，确认Bearer/GET与分页参数、坏响应结构拒绝及报告无凭据；不等于ASP.NET双库证明。真实成功列表仍待新SHA；完整生成客户端CRUD、非空数据隔离、包解析及Vue接线等F02缺口保持，Capacity-not-verified保持，未合并/发布。
 
 终检相关三组串行42/42、治理55/55零跳过，补列表准确路由及pageSize断言后新三项3/3；syntax/任务diff通过、inner影响none。独立复审本组20/20无阻断，确认实际生成解析器、单fetch、可信会话接入及Worker隔离/脱敏；真实分页total等形态仍待新SHA，空列表通过不认证非空数据/隔离或普通账号权限。外部日志文档增量保留，不纳入本提交。
+
+非空商品生成客户端读取增量（基线79da3f96b21cb50b1370d1a4e551df12c066c88a，分支codex/foundation-acceptance-20261003，快照f02-generated-client-nonempty-read-20261003）：32fc独立应用双库作业108675258575成功394/394，SQL Server/MySQL tenant-read.json均completed=true、HTTP200/items0；但主CI36338997482的build-and-module-test作业108675258857在无关Workflow Todo SQL Server测试中遭1205 deadlock，整条CI失败，不能把模板成功称整体成功。该提交已由其他任务合并main，本轮从main另开开发分支，保留并行AI及日志模块工作区改动。
+
+针对空列表只验证结构的缺口，在已有tenantCRUD创建商品并校验Id/TenantId/Name/Version后增加可选回调，将可信租户token和最小商品身份只在内存中传给生成客户端Worker。Worker实际调用catalogGetProduct，要求单次HTTP200、生成响应解析成功、四字段完全一致；失败即停止原CRUD的后续更新/删除，product-read.json只记录操作、HTTP状态及completed。未改生产服务端、SQL、授权或Vue。四项新增可失败验证初始RED，实施后4/4；相关Node59/59、治理57/57均零跳过。新规则R-20260930允许本地验收，本轮Node夹具证明辅助验收逻辑；真实独立应用双库运行仍未验证，故不将此项标为完整应用通过。F02和Capacity-not-verified保持，未合并/发布。
+
+独立只读复审相关两组Node37/37、任务diff通过，无阻断。复审指出本地测试成功响应同时包含旧CatalogProduct黄金契约的displayName/description/isActive与当前应用name；它证明旧夹具的生成读取器路径和明确name比对，不证明新应用真实ProductResponse schema。新SHA本地双库真实栈尚未执行，不能把该夹具通过称作真实DTO兼容认证。并行AI/日志工作区改动继续保留，不纳入本提交。

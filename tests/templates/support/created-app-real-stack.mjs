@@ -19,7 +19,9 @@ import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.
 import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
 import { verifyApplicationCrudTenantIsolation } from './application-crud-tenant-isolation.mjs';
 import { verifyApplicationCrudOpenApi } from './application-crud-openapi.mjs';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead } from './application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead, verifyApplicationCrudClientProductList, verifyApplicationCrudClientTenantWrites } from './application-crud-client.mjs';
+import { verifyApplicationCrudVue } from './application-crud-vue.mjs';
+import { startApplicationCrudBrowser } from './application-crud-browser.mjs';
 import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
@@ -124,8 +126,11 @@ function buildSharedEnv(connectionString, databaseProvider, redisConnectionStrin
     PreV1NamingContract__DestructiveDdlApprovalId: 'created-app-real-stack-011',
     Identity__Bootstrap__Username: 'admin',
     Identity__Bootstrap__Password: adminPassword,
+    // 五种普通账号各走一次 API 改密前登录和一次浏览器登录，保持有界限流并容纳该验收流量。
+    Identity__LoginRateLimitPermitLimitPerMinute: '20',
     Identity__AllowedOrigins__0: 'http://localhost',
     Identity__AllowedOrigins__1: 'http://127.0.0.1',
+    Identity__AllowedOrigins__2: 'http://localhost:25183',
     Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Tenancy__HostDomains__0: 'localhost',
     Tenancy__HostDomains__1: '127.0.0.1',
@@ -207,6 +212,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
   let redisContainer;
   let apiProcess;
   let apiLogStream;
+  let browserRuntime;
   try {
     const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
     const appRoot = join(workspace, 'app');
@@ -293,27 +299,43 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
       logPath: join(logRoot, 'application-crud-openapi.json') });
     verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
+    verifyApplicationCrudVue(appRoot, { reportDirectory: join(logRoot, 'application-crud-vue') });
+    browserRuntime = await startApplicationCrudBrowser(appRoot, apiUrl, join(logRoot, 'application-crud-browser'));
     await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { logPath: join(logRoot, 'application-crud-client/runtime.json') });
     let hostAccessToken = await loginAndReadSettings(apiUrl);
     await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { hostAccessToken,
       logPath: join(logRoot, 'application-crud-client/host-runtime.json') });
     await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
-    const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json') });
+    const onTenantAccount = account => browserRuntime.verify(account);
+    const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json'), onTenantAccount });
     hostAccessToken = readPermission.hostAccessToken;
-    const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json') });
+    const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json'), onTenantAccount });
     hostAccessToken = noPermission.hostAccessToken;
-    const createPermission = await verifyApplicationCrudCreatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-create-permission.json') });
+    const createPermission = await verifyApplicationCrudCreatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-create-permission.json'), onTenantAccount });
     hostAccessToken = createPermission.hostAccessToken;
-    const updatePermission = await verifyApplicationCrudUpdatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-update-permission.json') });
+    const updatePermission = await verifyApplicationCrudUpdatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-update-permission.json'), onTenantAccount });
     hostAccessToken = updatePermission.hostAccessToken;
-    const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json') });
+    const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json'), onTenantAccount });
     hostAccessToken = deletePermission.hostAccessToken;
-    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-tenant-http.json') });
+    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken,
+      logPath: join(logRoot, 'application-crud-tenant-http.json'),
+      onCreatedProduct: async ({ tenantAccessToken, product }) => {
+        await verifyApplicationCrudClientProductRead(appRoot, apiUrl,
+          { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-read.json') });
+        await verifyApplicationCrudClientProductList(appRoot, apiUrl,
+          { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-list.json') });
+      } });
     await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
+    await verifyApplicationCrudClientTenantWrites(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
+      expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
   } finally {
-    await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
+    try {
+      await browserRuntime?.close();
+    } finally {
+      await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
+    }
   }
 }

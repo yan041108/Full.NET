@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 
 // 复用真实授权的 Host 会话切入 local 租户；不伪造主体，也不在业务请求提供 TenantId。
-export async function verifyApplicationCrudTenantHttp(baseUrl, { hostAccessToken, logPath, request = fetch }) {
+export async function verifyApplicationCrudTenantHttp(baseUrl, { hostAccessToken, logPath, request = fetch, onCreatedProduct }) {
   assert.ok(typeof hostAccessToken === 'string' && hostAccessToken.trim(), 'authenticated Host token is required');
   const secrets = [hostAccessToken];
   const redact = (value) => secrets.reduce((text, secret) => text.replaceAll(secret, '[REDACTED]'), String(value));
@@ -68,6 +68,9 @@ export async function verifyApplicationCrudTenantHttp(baseUrl, { hostAccessToken
       assert.equal(product.version, version, 'version must retain the generated string contract');
     };
     check(created, originalName, '1');
+    // 创建结果完成租户与版本核对后，才移交可信上下文给生成客户端读取。
+    if (onCreatedProduct) await onCreatedProduct({ tenantAccessToken: tenantToken,
+      product: { id: created.id, tenantId, name: originalName, version: '1' } });
     check(await execute('read', item, 'GET', tenantToken, undefined, 200), originalName, '1');
     const listed = await execute('list', base + '/?page=1&pageSize=5', 'GET', tenantToken, undefined, 200);
     assert.ok(Array.isArray(listed.items), 'list response missing items');
