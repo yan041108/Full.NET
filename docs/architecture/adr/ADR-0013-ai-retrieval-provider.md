@@ -1,7 +1,7 @@
 # ADR-0013：知识库首版检索与文件解析边界
 
 - 日期：2026-10-02
-- 状态：R03 选型实验完成后作为 R04–R06 的实施决策；正式知识库能力仍 Planned
+- 状态：R03 的检索选择与原始实验保留；正式知识库后续实现状态见活动计划。2026-10-19 多格式与图片 OCR 新需求已批准登记为 Planned，扩展解析边界见下节，不改变双库存派生向量选择。
 - 范围：内部制度、操作手册、产品文档的有界首版知识库
 - 活动计划：[AI 计划 R03–R06](../../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md#r03检索-provider-与解析器选型证据p1基础设施决策门)
 - 实验入口：[run-retrieval-probe.mjs](../../../tests/ai-evaluation/run-retrieval-probe.mjs)；依赖只存在于独立测试项目，不进入解决方案、生产中央依赖或宿主闭包
@@ -28,6 +28,8 @@
 6. SQL 派生片段与元数据可在 Ai 本地事务维护，模型及 Files 调用均在事务外。Host 上传关联使用 Pending Claim → Ai 提交 → Confirm，并登记 Ai 消费者/Probe；租户使用 `ITenantResourceFileStore` 的可信模块/资源合同。`IHostFileContentReader` 自身的 FileId 参数不是共享授权；调用者先查已授权的 Ai 引用。首期不导入其他模块附件。
 
 ## 解析决策
+
+2026-10-19 范围更新：TXT/Markdown/文本 PDF/DOCX 是当前已实现范围；用户新增 `.doc`、`.xls/.xlsx`、`.ppt/.pptx`、CSV、HTML、多格式图片及扫描/图文混合 PDF OCR，音视频暂不纳入。当前格式矩阵、安全/坐标及候选选型要求以[专项规格 §3.6](../../superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md#36-多格式知识文档与图片-ocr2026-10-19-新增需求planned)为准；下文“首期不支持 DOCX/OCR”为 2026-10-02 实验范围，不再表示当前待办排除项。解析器/OCR/编解码器版本、性能和许可仍待真实样本验证，不把需求批准视为选型或验收完成。
 
 采用 PdfPig **0.1.16** 的 `ContentOrderTextExtractor` 作为 R05 文本 PDF 解析候选；MD/TXT 采用严格 UTF-8 解码、保留标题/表格文本与稳定位置，不新增 Markdown 引擎。PdfPig 为 Apache-2.0，生产接入时随分发保留完整许可及通知，版本升级重新测试；未复制第三方文档/字体资源。依据 [PdfPig 固定版说明](https://github.com/UglyToad/PdfPig/blob/v0.1.16/README.md)及[许可](https://github.com/UglyToad/PdfPig/blob/v0.1.16/LICENSE)。
 

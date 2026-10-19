@@ -185,7 +185,7 @@ AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还�
 | AG-UI | Build-verified | 官方事件语义映射、持久 SSE 与双库重放、取消/终态回归 | AI-A04 标准客户端真实重连/慢消费者；AI-A03 页面；AI-A05 未覆盖 Native 联动 |
 | Embedding | Build-verified | OpenAI/Ollama/Azure 适配、管理员能力测试、双库账本与受控计量 | AI-A01 真实模型计量；AI-A05 原生完整成功联动；AI-A07 专项容量 |
 | Azure OpenAI Provider | Build-verified（合同/受控范围） | Chat/Embedding/连通性、deployment/endpoint 与凭据边界切片 | AI-A01 真实 Azure 部署、认证与换钥；不由适配器存在升级为生产 Verified |
-| 知识库检索/解析选型 | Build-verified（正式功能已实现） | ADR-0013 的双库有界精确检索、TXT/Markdown/PDF/DOCX、索引/重建、权限问答与来源依赖；后续 R04–R11 切片及最终范围已交付 | AI-A01/A02 真实模型质量、AI-A03 页面、AI-A05 原生完整联动及 AI-A07 容量；Qdrant/OCR/外部连接器未生产启用且不属于当前待办 |
+| 知识库检索/解析选型 | Build-verified（现有格式）；扩展 Planned | ADR-0013 的双库有界精确检索、TXT/Markdown/PDF/DOCX、索引/重建、权限问答与来源依赖；后续 R04–R11 切片及最终范围已交付 | AI-A01/A02 真实模型质量、AI-A03 页面、AI-A05 原生完整联动及 AI-A07 容量；doc、Excel、PPT、CSV、HTML、多格式图片与扫描 PDF OCR 新增为 AI-F01–F05；音视频暂不纳入；Qdrant/外部连接器仍范围外 |
 
 本节剩余编号统一指向[AI 唯一活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)的 2026-10-19 清单；旧 2026-09-12 表中的已实现/已验证事项不再重复排队。任何 Build-verified 都不表示真实云模型质量、全页面或平台容量已通过。
 

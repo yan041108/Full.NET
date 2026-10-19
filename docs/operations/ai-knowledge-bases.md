@@ -1,5 +1,13 @@
 # 知识库目录、文件版本、用户与角色授权及模型处理审批
 
+## 当前格式与已登记扩展（2026-10-19）
+
+当前实际上传白名单为 TXT/Markdown/PDF/DOCX，前三种上限 8 MiB，DOCX 为 5 MiB；TXT/Markdown 要求严格 UTF-8。PDF/DOCX 的新解析、入队与 Worker 扫描需分别显式启用对应运行时。上传完成仅保存来源，不能据此认定索引 ready。
+
+已批准登记但**尚未实现/验收**的扩展为 `.doc`、`.xls/.xlsx`、`.ppt/.pptx`、`.csv`、`.html/.htm`、多格式图片 OCR，以及 Office 内嵌图片和扫描/混合 PDF OCR。图片目标包含 JPEG/JFIF、PNG/APNG、WebP、BMP、TIFF、GIF、HEIC/HEIF、AVIF、JPEG 2000/JPEG XL、ICO、TGA、PCX、PNM 系列、SVG/SVGZ、WMF/EMF、PSD；编解码器和文件变体按清单逐项验证，当前不能通过修改文件后缀绕过白名单。音视频暂不支持。
+
+后续处理将保留 Excel 工作表/单元格、PPT 幻灯片/备注、CSV 行列、HTML 结构与图片文字区域等引用位置；图片 OCR 不等于无文字照片的语义理解。新增格式大小/像素/页帧与运行配额尚未定稿，不沿用旧限制冒充已验证。完整范围、内容策略及依赖候选见[专项规格 §3.6](../superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md#36-多格式知识文档与图片-ocr2026-10-19-新增需求planned)，开发与验收见[活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md) AI-F01–AI-F05；下列工具说明继续只描述已实现能力。
+
 ## DOCX 独立解析工具（R08d）
 
 `src/Tools/Full.NET.Ai.DocxParser` 是独立进程工具。R08d 交付正文解析子集，R08g 增加受信隔离启动、原会话规划及内部单批执行，R08h 增加完整代次、原子激活和完成恢复；R08i 接入上传、可信配置、Worker、当前读取者证明及逻辑引用。运行时索引默认关闭，须显式启用。
