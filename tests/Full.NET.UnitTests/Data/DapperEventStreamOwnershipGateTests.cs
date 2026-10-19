@@ -7,6 +7,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Dapper Event Stream Ownership Gate。</summary>
 [TestClass]
 public sealed class DapperEventStreamOwnershipGateTests
 {

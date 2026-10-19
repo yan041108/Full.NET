@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：刷新令牌在切换后的失效。</summary>
 internal static class IdentityOidcContextSwitchRefreshInvalidationAssertions
 {
     public static async Task VerifyAsync(

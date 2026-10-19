@@ -4,6 +4,7 @@ using Full.NET.Data.Dapper;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Command Transaction Result。</summary>
 [TestClass]
 public sealed class CommandTransactionResultTests
 {

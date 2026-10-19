@@ -8,10 +8,13 @@ public sealed class ObservabilityAdminOptions
     /// <summary>配置节名称。</summary>
     public const string SectionName = "FullNet:ObservabilityAdmin";
 
-    /// <summary>日志文件根目录；默认 "logs"，控制面仅允许读取该目录下的文件。</summary>
-    public string LogRootPath { get; init; } = "logs";
+    /// <summary>显式可见实例的日志目录；未配置时仅自动定位已启用的 Local 应用目录，否则不读取文件；不接受空白路径。</summary>
+    public string? LogRootPath { get; init; }
 
-    /// <summary>列目录时返回的最大文件数；默认 100，防止目录枚举过载。</summary>
+    /// <summary>一次操作检查的全部顶层目录项上限，包含非日志文件与子目录。</summary>
+    public int MaximumScanEntries { get; init; } = 1000;
+
+    /// <summary>列目录时返回的最大文件数；扫描另受 MaximumScanEntries 限制。</summary>
     public int MaximumListFiles { get; init; } = 100;
 
     /// <summary>尾部读取的默认行数；默认 200。</summary>

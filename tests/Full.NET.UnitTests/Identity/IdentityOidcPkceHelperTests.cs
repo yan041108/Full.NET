@@ -1,5 +1,6 @@
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Oidc Pkce Helper。</summary>
 [TestClass]
 public sealed class IdentityOidcPkceHelperTests
 {

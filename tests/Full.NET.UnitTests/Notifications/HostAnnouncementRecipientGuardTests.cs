@@ -6,6 +6,7 @@ using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Host Announcement Recipient Guard。</summary>
 [TestClass]
 public sealed class HostAnnouncementRecipientGuardTests
 {

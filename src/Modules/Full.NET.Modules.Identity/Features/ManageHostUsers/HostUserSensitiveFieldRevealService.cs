@@ -144,6 +144,7 @@ internal sealed class HostUserSensitiveFieldRevealService(
         await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertAuthAudit,
                 IdentitySqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", audit.Id),
                     ("UserId", audit.UserId),
                     ("SessionId", audit.SessionId),

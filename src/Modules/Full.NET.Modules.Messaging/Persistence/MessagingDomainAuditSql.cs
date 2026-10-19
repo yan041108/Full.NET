@@ -15,10 +15,10 @@ internal static class MessagingDomainAuditSql
         """
         INSERT INTO fn_messaging_domain_audit
             (Id, TenantId, ActionKey, EntityId, Outcome, ActorUserId, ActorDisplayName,
-             TraceId, DiffSummaryJson, OccurredAtUtc)
+             TraceId, DiffSummaryJson, OccurredAtUtc, CorrelationJson)
         VALUES
             (@Id, @TenantId, @ActionKey, @EntityId, @Outcome, @ActorUserId, @ActorDisplayName,
-             @TraceId, @DiffSummaryJson, @OccurredAtUtc)
+             @TraceId, @DiffSummaryJson, @OccurredAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 }

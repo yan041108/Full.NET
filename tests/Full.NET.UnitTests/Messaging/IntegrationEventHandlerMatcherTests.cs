@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Integration Event Handler Matcher。</summary>
 [TestClass]
 public sealed class IntegrationEventHandlerMatcherTests
 {

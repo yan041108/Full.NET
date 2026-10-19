@@ -10,10 +10,10 @@ internal static class DocumentAccessLogSql
         """
         INSERT INTO fn_document_access_log
             (Id, DocumentItemId, DocumentTitle, AccessTypeKey, SourceKey,
-             ActorUserId, OccurredAtUtc, ClientIpFingerprint)
+             ActorUserId, OccurredAtUtc, ClientIpFingerprint, CorrelationJson)
         VALUES
             (@Id, @DocumentItemId, @DocumentTitle, @AccessTypeKey, @SourceKey,
-             @ActorUserId, @OccurredAtUtc, @ClientIpFingerprint)
+             @ActorUserId, @OccurredAtUtc, @ClientIpFingerprint, @CorrelationJson)
         """,
         SqlDataScope.HostOnly);
 

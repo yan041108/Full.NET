@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.ImportExport;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：ImportExportApiSqlServer。</summary>
 [TestClass]
 public sealed class ImportExportApiSqlServerTests
 {

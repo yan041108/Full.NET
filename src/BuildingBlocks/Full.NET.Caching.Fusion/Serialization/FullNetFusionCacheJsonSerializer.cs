@@ -52,6 +52,10 @@ internal sealed class FullNetFusionCacheJsonSerializer(
 
     private JsonTypeInfo ResolveTypeInfo(Type type)
     {
+        // 标签与清空标记由 SDK 使用 long 包装；业务包装仍由载荷所有者显式贡献。
+        if (FusionCacheJsonSerializerContext.Default.GetTypeInfo(type) is { } infrastructureTypeInfo)
+            return infrastructureTypeInfo;
+
         foreach (var contributor in _contributors)
         {
             if (contributor.GetTypeInfo(type) is { } typeInfo)

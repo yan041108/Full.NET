@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Results;
 
 namespace Full.NET.UnitTests.Results;
 
+/// <summary>兼容性测试：ErrorCompatibility。</summary>
 [TestClass]
 public sealed class ErrorCompatibilityTests
 {

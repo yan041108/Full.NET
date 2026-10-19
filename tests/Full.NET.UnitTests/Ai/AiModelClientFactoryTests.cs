@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Model Client Factory。</summary>
 [TestClass]
 public sealed class AiModelClientFactoryTests
 {

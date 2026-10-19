@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>邀请注册：令牌消费与席位配额。</summary>
 internal static class InvitedRegistrationAssertions
 {
     public static async Task VerifyAsync(

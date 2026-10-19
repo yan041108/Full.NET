@@ -165,7 +165,6 @@ public sealed class OptionalFilesConsumerTests
             registrations.AddSingleton(Substitute.For<IHostEnvironment>());
             registrations.AddScoped<SelfServiceProfileService>();
             registrations.AddScoped<SelfServiceProfileMediaService>();
-            registrations.AddScoped<TenantCacheInvalidator>();
             registrations.AddScoped<TenantBrandingService>();
             registrations.AddScoped<TenantBrandingMediaService>();
             registrations.AddScoped<TenantQuotaUsageBaselineService>();

@@ -36,7 +36,7 @@ internal sealed class AiAgentToolCallAuditWriter(
             ("ToolName", AiAgentToolCatalog.Find(invocation.ToolName ?? string.Empty)?.ToolName ?? "unknown"),
             ("PermissionCode", permissionCode), ("StatusKey", statusKey), ("DurationMs", null),
             ("InputSummary", summary), ("OutputSummary", null), ("ErrorCode", errorCode),
-            ("TraceId", traceId), ("RunId", invocation.RunId), ("StepId", null),
+            ("TraceId", traceId), ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("RunId", invocation.RunId), ("StepId", null),
             ("ArgumentsHash", hash), ("ApprovalId", binding?.Id), ("ReceiptId", null),
             ("CreatedAtUtc", clock.UtcNow));
         var affected = await TryInsertCallAsync(parameters, cancellationToken).ConfigureAwait(false);
@@ -106,7 +106,7 @@ internal sealed class AiAgentToolCallAuditWriter(
                         ? null
                         : AiAgentToolAuditPolicy.Summarize(outputSummary)),
                     ("ErrorCode", errorCode),
-                    ("TraceId", traceId),
+                    ("TraceId", traceId), ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("CreatedAtUtc", clock.UtcNow),
                 ]),
                 cancellationToken)

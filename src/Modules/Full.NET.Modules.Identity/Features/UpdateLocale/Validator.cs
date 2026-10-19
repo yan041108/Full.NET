@@ -1,6 +1,7 @@
 using FluentValidation;
 using Full.NET.Abstractions.Results;
 
+/// <summary>FluentValidation 规则；只校验输入形状，不访问数据库。</summary>
 namespace Full.NET.Modules.Identity.Features.UpdateLocale;
 
 internal sealed class Validator : AbstractValidator<Command>

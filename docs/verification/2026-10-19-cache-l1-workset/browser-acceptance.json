@@ -1,0 +1,23 @@
+{
+  "status": "Accepted real Vue cache page on both providers",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "sourceHash": "7508654a2c7e1eeab620e64e7f96efb75f57ed976887c0ec867890e0b0b38013",
+  "providers": [
+    {
+      "provider": "SqlServer",
+      "passed": 3,
+      "reportSha256": "4b3105979101b9b465069da656b2e8f8fab0b74ff267f7a3b8720be3cebfd9be",
+      "stateSha256": "3e8ecca0f35e38f7bafc6a893877388586b9bd4c0be8ce430218957d4ba09cdb",
+      "terminalSha256": "fb621e2effc93784bbd3e4a0eb0ac803520122a021ec6f16d02d378ff5af0ada"
+    },
+    {
+      "provider": "MySql",
+      "passed": 3,
+      "reportSha256": "8d0c857d831d17d6d0e4b107eddeb60c45b42cc7696b8a522170abb9586448e6",
+      "stateSha256": "4be4ba9d5cadc9691449ea9626aae67959515983b0d08bdf52b00f455f7d308e",
+      "terminalSha256": "fb621e2effc93784bbd3e4a0eb0ac803520122a021ec6f16d02d378ff5af0ada"
+    }
+  ]
+}

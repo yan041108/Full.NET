@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 
 namespace Full.NET.UnitTests.Ids;
 
+/// <summary>单元测试（Ids）：Guid V7Id Generator。</summary>
 [TestClass]
 public sealed class GuidV7IdGeneratorTests
 {

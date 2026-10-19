@@ -6,6 +6,7 @@ using Full.NET.Modules.Organization.Features.ImportExport;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Tenant Position Import Preview Service。</summary>
 [TestClass]
 public sealed class TenantPositionImportPreviewServiceTests
 {

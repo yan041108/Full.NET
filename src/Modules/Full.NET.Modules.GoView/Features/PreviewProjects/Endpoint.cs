@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Projects预览 API 路由注册。</summary>
 namespace Full.NET.Modules.GoView.Features.PreviewProjects;
 
 internal static class Endpoint

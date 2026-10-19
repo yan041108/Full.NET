@@ -10,7 +10,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.UnitTests.Files;
 
-/// <summary>Worker Profile must expose host file reference ports for Notifications background services.</summary>
+/// <summary>Worker 组合须暴露 Host 文件引用 Port，供 Notifications 后台服务解析。</summary>
 [TestClass]
 public sealed class FilesModuleWorkerRegistrationTests
 {

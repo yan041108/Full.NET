@@ -1,92 +1,50 @@
-using System.Net;
+using System.Text.Json;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.ObservabilityAdmin.Features.MonitorElasticsearchLogPipeline;
+using Full.NET.Modules.ObservabilityAdmin.Features.QueryLogTimeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.ObservabilityAdmin;
 
+/// <summary>入口与查询配置独立，管理面不访问网络或声称远端投递成功。</summary>
 [TestClass]
 public sealed class ElasticsearchLogDeliveryStatusTests
 {
     [TestMethod]
-    public async Task Disabled_es_reports_application_boundary_without_network_probe()
+    public async Task All_modes_report_configuration_only_without_an_es_write_adapter()
     {
-        foreach (var (mode, expectedStatus) in new[]
-        {
-            ((LoggingDeliveryMode?)null, "legacy-console"),
-            (LoggingDeliveryMode.Local, "disabled"),
+        foreach (var (mode, expected) in new[] {
+            (LoggingDeliveryMode.Local, "local"),
             (LoggingDeliveryMode.Collector, "external-collector"),
-        })
+            (LoggingDeliveryMode.ApplicationKafka, "application-kafka") })
         {
-            var service = CreateService(
-                new ElasticsearchLoggingOptions(),
-                new LoggingDeliverySelection(mode, false),
-                new RejectingHttpClientFactory());
-
+            var service = Create(new(), mode);
             var response = await service.GetHealthAsync(CancellationToken.None);
-
-            Assert.AreEqual(expectedStatus, response.DeliveryStatus);
+            Assert.AreEqual(expected, response.DeliveryStatus);
             Assert.AreEqual("configuration-only", response.DeliveryConfirmationBoundary);
-            Assert.AreEqual("disabled", response.ClusterStatus);
+            Assert.IsFalse(response.ElasticsearchQueryEnabled);
+            Assert.IsNull(response.ElasticsearchEndpoint);
         }
     }
 
     [TestMethod]
-    public async Task Legacy_direct_reports_sink_registration_without_claiming_delivery()
+    public async Task Es_query_configuration_never_exposes_credentials_or_implies_delivery()
     {
-        var service = CreateService(
-            new ElasticsearchLoggingOptions
-            {
-                Enabled = true,
-                NodeUris = ["https://search.example.test:9243"],
-                ApiKey = "secret-key",
-            },
-            new LoggingDeliverySelection(null, true),
-            new StaticHttpClientFactory());
-
-        var response = await service.GetHealthAsync(CancellationToken.None);
-
-        Assert.AreEqual("legacy-direct", response.DeliveryStatus);
-        Assert.AreEqual("sink-registered-only", response.DeliveryConfirmationBoundary);
-        Assert.AreEqual("green", response.ClusterStatus);
-        Assert.DoesNotContain("secret-key", string.Join(' ', response.NodeEndpoints));
+        var options = new RuntimeLogTimelineOptions { ElasticsearchEnabled = true,
+            ElasticsearchEndpoint = "https://search.example.test:9243", ElasticsearchApiKey = "private-key" };
+        var response = await Create(options, LoggingDeliveryMode.ApplicationKafka).GetHealthAsync(CancellationToken.None);
+        Assert.IsTrue(response.ElasticsearchQueryEnabled);
+        Assert.AreEqual("configuration-only", response.DeliveryConfirmationBoundary);
+        Assert.DoesNotContain("private-key", JsonSerializer.Serialize(response));
+        options.ElasticsearchEndpoint = "https://user:private-password@search.example.test";
+        response = await Create(options, LoggingDeliveryMode.Local).GetHealthAsync(CancellationToken.None);
+        Assert.IsFalse(response.ElasticsearchQueryEnabled);
+        Assert.IsNull(response.ElasticsearchEndpoint);
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+            Create(options, LoggingDeliveryMode.Local).GetHealthAsync(new CancellationToken(true)));
     }
 
-    private static ElasticsearchLogPipelineHealthService CreateService(
-        ElasticsearchLoggingOptions options,
-        ILoggingDeliverySelection selection,
-        IHttpClientFactory httpClientFactory) =>
-        new(
-            Options.Create(options),
-            new ElasticsearchLogPipelineRegistration
-            {
-                IsEnabled = options.Enabled,
-                IsSinkRegistered = options.Enabled,
-            },
-            selection,
-            new ConfigurationBuilder().Build(),
-            httpClientFactory);
-
-    private sealed class RejectingHttpClientFactory : IHttpClientFactory
-    {
-        public HttpClient CreateClient(string name) =>
-            throw new AssertFailedException("disabled Elasticsearch must not create a client");
-    }
-
-    private sealed class StaticHttpClientFactory : IHttpClientFactory
-    {
-        public HttpClient CreateClient(string name) => new(new StaticResponseHandler());
-    }
-
-    private sealed class StaticResponseHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"status\":\"green\",\"cluster_name\":\"logs\",\"number_of_nodes\":2}"),
-            });
-    }
+    private static ElasticsearchLogPipelineHealthService Create(RuntimeLogTimelineOptions options, LoggingDeliveryMode mode) =>
+        new(Options.Create(options), new LoggingDeliverySelection(mode), new ConfigurationBuilder().Build());
 }

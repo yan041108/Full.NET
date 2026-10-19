@@ -7,6 +7,7 @@ using Full.NET.Modules.Jobs.Contracts;
 
 namespace Full.NET.IntegrationTests.Jobs;
 
+/// <summary>Jobs 健康只读端点：Worker 与定义状态烟雾检查。</summary>
 internal static class JobsHealthReadonlyAssertions
 {
     public static async Task VerifyAsync(

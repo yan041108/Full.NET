@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：强制改密流程与协议拦截。</summary>
 internal static class IdentityOidcMustChangePasswordProtocolAssertions
 {
     public static async Task VerifyAsync(

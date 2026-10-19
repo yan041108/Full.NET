@@ -3,6 +3,7 @@ import {
   observabilityListLogFiles,
   observabilityTailLogFile,
   type LogFileSummary,
+  type LogFileList,
   type LogFileTail
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -10,7 +11,7 @@ import { http } from './http';
 /** 列出当前实例允许浏览的日志文件摘要，供日志文件管理页初始化目录。 */
 export function listObservabilityLogFiles(
   signal?: AbortSignal
-): Promise<LogFileSummary[]> {
+): Promise<LogFileList> {
   return observabilityListLogFiles(http, {}, signal);
 }
 

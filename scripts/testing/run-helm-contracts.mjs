@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { testOutputDirectory } from './test-output-directory.mjs';
 /**
  * Helm 合同编排：lint、双库角色渲染、反例 fail、kubectl dry-run。
  * CI 只验证模板，不连接生产集群。
@@ -14,7 +15,7 @@ const repositoryRoot = path.resolve(
 );
 const chartDir = path.join(repositoryRoot, 'deploy/helm/fullnet');
 const ciDir = path.join(chartDir, 'ci');
-const outDir = path.join(repositoryRoot, 'artifacts/helm-contract');
+const outDir = testOutputDirectory(repositoryRoot, 'helm-contract');
 
 function run(command, args, options = {}) {
   // Windows 上 shell:true + 参数数组会错误拼接，导致 helm 收到空输出。

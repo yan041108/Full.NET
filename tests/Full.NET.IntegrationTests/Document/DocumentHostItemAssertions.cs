@@ -11,6 +11,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>Host 文档条目：CRUD 与版本契约。</summary>
 internal static class DocumentHostItemAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";

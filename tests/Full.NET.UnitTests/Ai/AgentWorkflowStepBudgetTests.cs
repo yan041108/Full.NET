@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AgentWorkflowRunner。</summary>
 public sealed partial class AgentWorkflowRunnerTests
 {
     [TestMethod]

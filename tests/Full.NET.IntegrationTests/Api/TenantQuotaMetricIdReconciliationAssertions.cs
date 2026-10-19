@@ -10,6 +10,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>租户配额指标：计量 ID 与对账一致性。</summary>
 internal static class TenantQuotaMetricIdReconciliationAssertions
 {
     public static async Task VerifyAsync(

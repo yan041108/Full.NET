@@ -16,14 +16,14 @@ function render(...extra) {
 const enabled = ['--set', 'enabled=true', '--set', 'experimental=true',
   '--set', 'configurationSecretName=consumer-test', '--set', 'image.tag=test'];
 
-test('批次默认单条，允许显式 8 条且拒绝超限或非整数', () => {
-  for (const size of [1, 8]) {
+test('批次默认单条，允许显式 8/64 条且拒绝超限或非整数', () => {
+  for (const size of [1, 8, 64]) {
     const result = render(...enabled, '--set', `batchMaxRecords=${size}`);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, new RegExp(`FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS\\s+value: "${size}"`));
   }
   assert.match(render(...enabled).stdout, /FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS\s+value: "1"/);
-  for (const size of [0, 9, 1.5]) assert.notEqual(render(...enabled, '--set', `batchMaxRecords=${size}`).status, 0);
+  for (const size of [0, 65, 1.5]) assert.notEqual(render(...enabled, '--set', `batchMaxRecords=${size}`).status, 0);
 });
 
 test('消费者默认关闭，不创建网络、Secret 或工作负载', () => {

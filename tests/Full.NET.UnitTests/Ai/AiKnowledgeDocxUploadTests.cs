@@ -3,6 +3,7 @@ using Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Docx Upload。</summary>
 [TestClass]
 public sealed class AiKnowledgeDocxUploadTests
 {

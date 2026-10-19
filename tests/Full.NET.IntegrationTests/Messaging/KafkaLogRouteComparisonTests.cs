@@ -1,11 +1,16 @@
+extern alias kafkabenchmarks;
+
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Confluent.Kafka;
+using LoggingRequestLoadProfile = kafkabenchmarks::Full.NET.Benchmarks.Logging.LoggingRequestLoadProfile;
+using LoggingRequestWarmupBarrier = kafkabenchmarks::Full.NET.Benchmarks.Logging.LoggingRequestWarmupBarrier;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaLogRouteComparison。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaLogRouteComparisonTests
@@ -16,8 +21,8 @@ public sealed class KafkaLogRouteComparisonTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Full.NET.slnx"))) root = root.Parent;
         Assert.IsNotNull(root);
-        var directory = Path.Combine(root.FullName, "artifacts/logging-route-comparison");
-        Directory.CreateDirectory(directory);
+        // 与真实采集链路使用相同的临时产物边界，不再在源码目录累积压测文件。
+        var directory = Directory.CreateTempSubdirectory("fullnet-logging-route-comparison-").FullName;
         var resultPath = Path.Combine(directory, "result.json");
         File.Delete(resultPath);
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(10));
@@ -37,8 +42,10 @@ public sealed class KafkaLogRouteComparisonTests
         }, new JsonSerializerOptions { WriteIndented = true }), deadline.Token);
     }
 
-    private static async Task<object> RunCaseAsync(string root, string directory, string route, int round, int position, CancellationToken token)
+    internal static async Task<object> RunCaseAsync(string root, string directory, string route, int round, int position, CancellationToken token,
+        int? capacityRate = null)
     {
+        var load = capacityRate is { } rate ? LoggingRequestLoadProfile.Capacity(rate) : LoggingRequestLoadProfile.Comparison;
         var suffix = Guid.NewGuid().ToString("N");
         var general = "fullnet.compare.general." + suffix;
         var priority = "fullnet.compare.priority." + suffix;
@@ -50,10 +57,11 @@ public sealed class KafkaLogRouteComparisonTests
         LoggingRequestCaseProcess? requestProof = null;
         KafkaRequestConsumerProcess? consumerProof = null;
         await using (var kafka = await KafkaLogTlsFixture.StartAsync(cancellationToken: token, enableCollectorListener: collectorMode))
-        await using (var es = await KafkaRequestElasticsearchFixture.StartTlsAsync(token))
+        await using (var es = await KafkaRequestElasticsearchFixture.StartTlsAsync(token, capacityRate == 1000 ? 2 : 1))
         {
             await kafka.EnsureTopicsAsync(token, general, priority, dlq);
-            await using var consumerProcess = await KafkaRequestConsumerProcess.StartAsync(kafka, es, general, priority, group, dlq, directory, token);
+            var consumerBatchMaxRecords = capacityRate is not null ? 64 : 8;
+            await using var consumerProcess = await KafkaRequestConsumerProcess.StartAsync(kafka, es, general, priority, group, dlq, directory, token, consumerBatchMaxRecords);
             consumerProof = consumerProcess;
             using var reader = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
             {
@@ -62,11 +70,17 @@ public sealed class KafkaLogRouteComparisonTests
             }).Build();
             reader.Assign([new TopicPartitionOffset(general, 0, Offset.Beginning), new TopicPartitionOffset(priority, 0, Offset.Beginning)]);
             var criDirectory = Path.Combine(directory, "cri");
-            await using var collector = collectorMode ? await KafkaRequestCollectorFixture.StartAsync(root, directory, kafka, general, priority, [], token, criDirectory) : null;
-            await using var bridge = collectorMode ? await LiveCollectorCriBridge.StartAsync(Path.Combine(directory, "Projected-1.jsonl"), criDirectory, token) : null;
-            await using var request = LoggingRequestCaseProcess.Start(root, directory, route, kafka, general, priority);
+            await using var collector = collectorMode ? await KafkaRequestCollectorFixture.StartAsync(root, directory, kafka, general, priority, [], token, criDirectory, lowLatency: capacityRate is not null) : null;
+            await using var bridge = collectorMode ? await LiveCollectorCriBridge.StartAsync(Path.Combine(directory, "Projected-1.jsonl"), criDirectory, token, load.MaximumBrokerRecords) : null;
+            await using var request = LoggingRequestCaseProcess.Start(root, directory, route, kafka, general, priority, capacityRate);
             requestProof = request;
             var records = new List<ConsumeResult<byte[], byte[]>>();
+            var warmupIds = new HashSet<string>(StringComparer.Ordinal);
+            var warmupOffsets = new Dictionary<TopicPartition, long>();
+            var measuredOffsets = new Dictionary<TopicPartition, List<long>>();
+            var progress = new List<CommitProgress>();
+            var lastProgressUtc = DateTimeOffset.MinValue;
+            DateTimeOffset? warmupConfirmedUtc = null;
             TopicPartitionOffset? measuredHttp = null;
             long duringCommit = 0;
             DateTimeOffset? commitConfirmedUtc = null;
@@ -75,35 +89,81 @@ public sealed class KafkaLogRouteComparisonTests
             {
                 token.ThrowIfCancellationRequested();
                 Assert.IsTrue(consumerProcess.IsAlive);
-                var record = reader.Consume(TimeSpan.FromMilliseconds(20));
-                if (record is not null)
+                // 有界读取已就绪收据，避免 500 请求/秒的比较被逐条 25ms 观察延迟限制。
+                for (var batch = 0; batch < 256 && !requestTask.IsCompleted; batch++)
                 {
+                    token.ThrowIfCancellationRequested();
+                    var record = reader.Consume(batch == 0 ? TimeSpan.FromMilliseconds(20) : TimeSpan.Zero);
+                    if (record is null) break;
                     records.Add(record);
-                    Assert.IsTrue(records.Count <= 10000);
+                    Assert.IsTrue(records.Count <= load.MaximumBrokerRecords);
                     using var json = JsonDocument.Parse(record.Message.Value);
+                    if (json.RootElement.GetProperty("@mt").GetString() == "HttpOperationCompleted"
+                        && json.RootElement.GetProperty("RequestId").GetString() is { } requestId
+                        && requestId.StartsWith("logging-probe:warmup:", StringComparison.Ordinal))
+                    {
+                        Assert.IsTrue(warmupIds.Add(requestId));
+                        warmupOffsets[record.TopicPartition] = record.Offset.Value + 1;
+                    }
                     if (request.MeasurementBegin is not null && json.RootElement.GetProperty("@mt").GetString() == "HttpOperationCompleted"
                         && json.RootElement.GetProperty("RequestId").GetString()!.StartsWith("logging-probe:measured:", StringComparison.Ordinal))
+                    {
                         measuredHttp ??= new TopicPartitionOffset(record.TopicPartition, record.Offset.Value + 1);
+                        if (!measuredOffsets.TryGetValue(record.TopicPartition, out var offsets))
+                            measuredOffsets[record.TopicPartition] = offsets = [];
+                        offsets.Add(record.Offset.Value);
+                    }
+                }
+                if (warmupConfirmedUtc is null && warmupIds.Count == load.WarmupRequests)
+                {
+                    var committed = ReadCommittedIfCoordinatorReady(reader, warmupOffsets.Keys);
+                    if (committed is not null && committed.All(offset => offset.Offset.Value >= warmupOffsets[offset.TopicPartition]))
+                    {
+                        warmupConfirmedUtc = DateTimeOffset.UtcNow;
+                        await LoggingRequestWarmupBarrier.ConfirmAsync(directory, token);
+                    }
                 }
                 if (measuredHttp is not null && duringCommit == 0)
                 {
-                    var committed = reader.Committed([measuredHttp.TopicPartition], TimeSpan.FromSeconds(2))[0];
-                    if (committed.Offset.Value >= measuredHttp.Offset.Value)
+                    var committed = ReadCommittedIfCoordinatorReady(reader, [measuredHttp.TopicPartition]);
+                    if (committed is not null && committed[0].Offset.Value >= measuredHttp.Offset.Value)
                     {
-                        duringCommit = committed.Offset.Value;
+                        duringCommit = committed[0].Offset.Value;
                         commitConfirmedUtc = DateTimeOffset.UtcNow;
+                    }
+                }
+                if (warmupConfirmedUtc is not null && DateTimeOffset.UtcNow - lastProgressUtc >= TimeSpan.FromMilliseconds(500))
+                {
+                    lastProgressUtc = DateTimeOffset.UtcNow;
+                    var committed = ReadCommittedIfCoordinatorReady(reader, reader.Assignment);
+                    if (committed is not null)
+                    {
+                        var confirmed = 0;
+                        foreach (var offset in committed)
+                            if (measuredOffsets.TryGetValue(offset.TopicPartition, out var offsets))
+                            {
+                                var index = offsets.BinarySearch(offset.Offset.Value);
+                                confirmed += index >= 0 ? index : ~index;
+                            }
+                        Assert.IsTrue(progress.Count < 256, "提交进度观察必须有界。");
+                        progress.Add(new(DateTimeOffset.UtcNow, confirmed));
                     }
                 }
                 await Task.Delay(25, token);
             }
             measurement = await requestTask;
             var endUtc = measurement.GetProperty("measurementEndUtc").GetDateTimeOffset();
+            Assert.IsNotNull(warmupConfirmedUtc);
+            Assert.IsTrue(warmupConfirmedUtc <= measurement.GetProperty("measurementStartUtc").GetDateTimeOffset());
+            var endProgress = progress.LastOrDefault(sample => sample.AtUtc < endUtc
+                && sample.AtUtc >= measurement.GetProperty("measurementStartUtc").GetDateTimeOffset());
+            Assert.IsNotNull(endProgress, "必须取得实际发送窗口内的提交进度。");
             Assert.IsNotNull(measuredHttp);
             Assert.IsTrue(duringCommit >= measuredHttp.Offset.Value && commitConfirmedUtc < endUtc, "实测发送窗口内必须确认具体实测 HTTP 记录。");
             var metrics = measurement.GetProperty("requestReport");
             Assert.AreEqual(route, metrics.GetProperty("deliveryMode").GetString());
             Assert.IsTrue(metrics.GetProperty("receiptVerificationDeferred").GetBoolean());
-            Assert.AreEqual(5000, metrics.GetProperty("statistics").GetProperty("SampleCount").GetInt32());
+            Assert.AreEqual(load.Requests, metrics.GetProperty("statistics").GetProperty("SampleCount").GetInt32());
             Assert.AreEqual(0, metrics.GetProperty("unexpected").GetInt32());
             Assert.AreEqual(0L, metrics.GetProperty("preDisposalDroppedMessages").GetInt64());
             var drain = Stopwatch.StartNew();
@@ -115,9 +175,10 @@ public sealed class KafkaLogRouteComparisonTests
                 while (!await collector.VerifyInputDrainedAsync(kafka.CollectorMetricsUri, originals!.Count, token)) await Task.Delay(250, token);
                 await collector.StopAsync(token);
             }
+            var sourceDrainedMilliseconds = drain.Elapsed.TotalMilliseconds;
             var ends = reader.Assignment.ToDictionary(partition => partition, partition => reader.QueryWatermarkOffsets(partition, TimeSpan.FromSeconds(10)).High.Value);
             var brokerRecords = checked((int)ends.Values.Sum());
-            Assert.IsTrue(brokerRecords is >= 5200 and <= 10000);
+            Assert.IsTrue(brokerRecords >= load.Requests + load.WarmupRequests && brokerRecords <= load.MaximumBrokerRecords);
             if (originals is not null) Assert.AreEqual(originals.Count, brokerRecords);
             while (records.Count < brokerRecords)
             {
@@ -126,6 +187,20 @@ public sealed class KafkaLogRouteComparisonTests
                 if (record is not null) records.Add(record);
             }
             Assert.AreEqual(brokerRecords, records.Count);
+            var brokerReceiptsReadMilliseconds = drain.Elapsed.TotalMilliseconds;
+            // 先观察真实位点，再做逐条内容校验；校验耗时不得掩盖消费端追赶等待。
+            var offsetWait = Stopwatch.StartNew();
+            var final = ReadCommittedIfCoordinatorReady(reader, ends.Keys);
+            while (final is null || final.Any(offset => offset.Offset.Value != ends[offset.TopicPartition]))
+            {
+                token.ThrowIfCancellationRequested();
+                Assert.IsTrue(consumerProcess.IsAlive);
+                await Task.Delay(250, token);
+                final = ReadCommittedIfCoordinatorReady(reader, ends.Keys);
+            }
+            var offsetCatchupWaitMilliseconds = offsetWait.Elapsed.TotalMilliseconds;
+            var offsetsConfirmedMilliseconds = drain.Elapsed.TotalMilliseconds;
+            var contentStarted = Stopwatch.GetTimestamp();
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var requestIds = new HashSet<string>(StringComparer.Ordinal);
             var lines = new List<string>();
@@ -147,6 +222,11 @@ public sealed class KafkaLogRouteComparisonTests
                     Assert.IsTrue(requestIds.Add(json["RequestId"]!.GetValue<string>()));
                     var status = json["http.status_code"]!.GetValue<int>();
                     Assert.IsTrue(status is 200 or 500);
+                    var parts = json["RequestId"]!.GetValue<string>().Split(':');
+                    Assert.IsTrue(parts.Length == 3 && parts[0] == "logging-probe" && parts[1] is "warmup" or "measured");
+                    Assert.IsTrue(int.TryParse(parts[2], out var sequence) && sequence >= 0
+                        && sequence < (parts[1] == "warmup" ? load.WarmupRequests : load.Requests));
+                    Assert.AreEqual(sequence % 10 == 0 ? 500 : 200, status);
                     if (status == 500) errors++;
                     Assert.AreEqual(20, JsonNode.Parse(json["RequestPayload"]!.GetValue<string>())!["pageSize"]!.GetValue<int>());
                     Assert.AreEqual(100, JsonNode.Parse(json["ResponsePayload"]!.GetValue<string>())!["totalCount"]!.GetValue<int>());
@@ -155,17 +235,11 @@ public sealed class KafkaLogRouteComparisonTests
                 }
                 lines.Add(line);
             }
-            Assert.AreEqual(5200, requestIds.Count);
-            Assert.AreEqual(5000, measuredRecords);
-            Assert.AreEqual(520, errors);
-            var final = reader.Committed(ends.Keys, TimeSpan.FromSeconds(10));
-            while (final.Any(offset => offset.Offset.Value != ends[offset.TopicPartition]))
-            {
-                token.ThrowIfCancellationRequested();
-                Assert.IsTrue(consumerProcess.IsAlive);
-                await Task.Delay(250, token);
-                final = reader.Committed(ends.Keys, TimeSpan.FromSeconds(10));
-            }
+            Assert.AreEqual(load.Requests + load.WarmupRequests, requestIds.Count);
+            Assert.AreEqual(load.Requests, measuredRecords);
+            Assert.AreEqual((load.Requests + load.WarmupRequests) / 10, errors);
+            var contentVerifiedMilliseconds = drain.Elapsed.TotalMilliseconds;
+            var contentValidationMilliseconds = Stopwatch.GetElapsedTime(contentStarted).TotalMilliseconds;
             drain.Stop();
             Assert.AreEqual(0L, reader.QueryWatermarkOffsets(new TopicPartition(dlq, 0), TimeSpan.FromSeconds(10)).High.Value);
             await File.WriteAllLinesAsync(Path.Combine(directory, "broker.jsonl"), lines, token);
@@ -174,14 +248,36 @@ public sealed class KafkaLogRouteComparisonTests
                 documents = await es.VerifyAsync(lines, token), httpEvents = requestIds.Count, expected500 = errors,
                 measuredRecords, measuredBytes, measuredLogBytesPerSecond = measuredBytes * 1000d / metrics.GetProperty("elapsedMilliseconds").GetDouble(),
                 drainMilliseconds = drain.Elapsed.TotalMilliseconds, measuredHttpTopic = measuredHttp.Topic,
+                sourceDrainedMilliseconds, brokerReceiptsReadMilliseconds, contentVerifiedMilliseconds,
+                warmupConfirmedUtc, warmupRecords = warmupIds.Count,
+                consumerBatchMaxRecords, collectorTimingProfile = collectorMode ? (capacityRate is not null ? "low-latency" : "default") : null,
+                elasticsearchCpuCount = SharedDatabaseFixture.BoundedContainers ? (capacityRate == 1000 ? 2 : 1) : (int?)null,
+                offsetCatchupWaitMilliseconds, offsetsConfirmedMilliseconds, contentValidationMilliseconds,
+                endWindowCommittedMeasuredRecords = endProgress.MeasuredRecords,
+                endWindowSampleAgeMilliseconds = (endUtc - endProgress.AtUtc).TotalMilliseconds, progress,
                 measuredHttpOffset = measuredHttp.Offset.Value - 1, duringCommit, commitConfirmedUtc,
                 collectorInputRecords = originals?.Count * 2, rejectedMirrors = originals?.Count,
                 finalOffsets = final.Select(offset => new { topic = offset.Topic, offset = offset.Offset.Value, brokerEnd = ends[offset.TopicPartition] }).ToArray(),
             };
         }
         Assert.IsTrue(requestProof!.Stopped && consumerProof!.Stopped);
-        return new { route, round, position, measurement, proof, cleanupCompleted = true };
+        return new { route, round, position, targetRequestsPerSecond = load.RequestsPerSecond,
+            measuredRequests = load.Requests, measurement, proof, cleanupCompleted = true };
     }
+
+    private static List<TopicPartitionOffset>? ReadCommittedIfCoordinatorReady(IConsumer<byte[], byte[]> reader,
+        IEnumerable<TopicPartition> partitions)
+    {
+        try { return reader.Committed(partitions, TimeSpan.FromSeconds(2)); }
+        catch (KafkaException error) when (error.Error.Code is ErrorCode.GroupLoadInProgress
+            or ErrorCode.GroupCoordinatorNotAvailable or ErrorCode.NotCoordinatorForGroup)
+        {
+            // 只等待观察查询的协调器就绪；不重发记录、不放宽发送窗口内必须真实提交的断言。
+            return null;
+        }
+    }
+
+    private sealed record CommitProgress(DateTimeOffset AtUtc, int MeasuredRecords);
 
     private static void VerifyCollectorSource(Dictionary<string, JsonNode> originals, string key, JsonObject json)
     {

@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：令牌声明与 API 权限映射边界。</summary>
 internal static class IdentityOidcTokenClaimBoundaryAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5013/signin-oidc-claim-boundary";

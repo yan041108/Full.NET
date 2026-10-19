@@ -28,6 +28,55 @@ public static class CacheReliabilityTelemetry
         Meter.CreateCounter<long>("fullnet.cache.backplane.recoveries");
     private static readonly Counter<long> PolicyEvents =
         Meter.CreateCounter<long>("fullnet.cache.policy.events");
+    private static readonly Counter<long> DeserializationRejections =
+        Meter.CreateCounter<long>("fullnet.cache.deserialization.rejections");
+    private static readonly Histogram<double> InvalidationBatchDuration =
+        Meter.CreateHistogram<double>("fullnet.cache.invalidation.batch.duration", unit: "ms");
+    private static readonly Counter<long> InvalidationBatchTargets =
+        Meter.CreateCounter<long>("fullnet.cache.invalidation.batch.targets");
+    private static readonly Counter<long> RuntimeEvents =
+        Meter.CreateCounter<long>("fullnet.cache.runtime.events");
+    private static readonly Counter<long> InvalidationBatchRejections =
+        Meter.CreateCounter<long>("fullnet.cache.invalidation.batch.rejections");
+
+    internal static void RecordInvalidationBatchRejection(string reason)
+    {
+        try { InvalidationBatchRejections.Add(1, new KeyValuePair<string, object?>("reason", reason)); }
+        catch (Exception) { /* 无效输入的原始异常不得被指标消费者覆盖。 */ }
+    }
+
+    internal static void RecordRuntimeEvent(string layer, string operation, string result)
+    {
+        try
+        {
+            RuntimeEvents.Add(1, new TagList
+            {
+                { "layer", layer }, { "operation", operation }, { "result", result },
+            });
+        }
+        catch (Exception) { /* 观察器异常不改变缓存或回源行为。 */ }
+    }
+
+    internal static void RecordInvalidationBatch(TimeSpan duration, int inputs, int unique, bool succeeded)
+    {
+        try
+        {
+            InvalidationBatchDuration.Record(duration.TotalMilliseconds,
+                new KeyValuePair<string, object?>("outcome", succeeded ? "success" : "failure"));
+            InvalidationBatchTargets.Add(unique, new KeyValuePair<string, object?>("kind", "unique"));
+            InvalidationBatchTargets.Add(inputs - unique, new KeyValuePair<string, object?>("kind", "duplicate"));
+        }
+        catch (Exception) { /* 旁路指标异常不能覆盖批次原始失败。 */ }
+    }
+
+    internal static void RecordDeserializationRejection()
+    {
+        try { DeserializationRejections.Add(1); }
+        catch (Exception)
+        {
+            // 全局输入拒绝没有业务键/租户标签；指标消费者异常不得覆盖输入拒绝。
+        }
+    }
 
     /// <summary>记录仅修复当前节点的缓存失效结果。</summary>
     public static void RecordLocalInvalidation(

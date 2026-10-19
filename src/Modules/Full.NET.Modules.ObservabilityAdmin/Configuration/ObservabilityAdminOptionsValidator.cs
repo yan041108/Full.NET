@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 
+/// <summary>启动期校验模块配置；非法组合在宿主启动时失败。</summary>
 namespace Full.NET.Modules.ObservabilityAdmin.Configuration;
 
 internal sealed class ObservabilityAdminOptionsValidator
@@ -9,10 +10,13 @@ internal sealed class ObservabilityAdminOptionsValidator
         string? name,
         ObservabilityAdminOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.LogRootPath))
+        if (options.LogRootPath is not null && string.IsNullOrWhiteSpace(options.LogRootPath))
         {
             return ValidateOptionsResult.Fail("日志根目录不能为空。");
         }
+
+        if (options.MaximumScanEntries is < 1 or > 10_000)
+            return ValidateOptionsResult.Fail("日志目录扫描上限必须在 1 到 10000 之间。");
 
         if (options.MaximumListFiles is < 1 or > 100)
         {

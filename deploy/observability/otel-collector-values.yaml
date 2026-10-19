@@ -1,6 +1,13 @@
-# OpenTelemetry Collector values overlay for Full.NET.
+# Full.NET 的 OpenTelemetry Collector values；升级镜像时须重跑真实配置与指标链路验收。
 mode: deployment
 replicaCount: 2
+
+image:
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.163.1"
+  digest: sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806
+command:
+  name: otelcol-contrib
 
 config:
   receivers:
@@ -40,7 +47,7 @@ config:
       endpoint: 0.0.0.0:13133
 
   exporters:
-    otlp/tempo:
+    otlp_grpc/tempo:
       endpoint: tempo.observability.svc:4317
       tls:
         insecure: false
@@ -54,20 +61,29 @@ config:
         storage: file_storage
         num_consumers: 4
         queue_size: 2048
-    prometheusremotewrite:
-      endpoint: http://prometheus.observability.svc:9090/api/v1/write
-      tls:
-        insecure: false
+    prometheus_remote_write:
+      http:
+        endpoint: http://prometheus.observability.svc:9090/api/v1/write
+        tls:
+          insecure: false
+      # 显式保持现行指标命名和单请求发送，避免版本默认值变化导致告警失配或同序列乱序。
+      translation_strategy: UnderscoreEscapingWithSuffixes
+      max_batch_request_parallelism: 1
       retry_on_failure:
         enabled: true
         initial_interval: 1s
         max_interval: 30s
         max_elapsed_time: 300s
-      sending_queue:
+      # 此导出器有独立队列和 WAL，不支持 OTLP exporter 的 sending_queue.storage。
+      # 单消费者保持同序列发送顺序；WAL 使用下方 emptyDir，只覆盖 Pod 生命周期内的重启。
+      remote_write_queue:
         enabled: true
-        storage: file_storage
-        num_consumers: 2
+        num_consumers: 1
         queue_size: 1024
+      wal:
+        directory: /var/otel-collector/storage/prometheus
+        buffer_size: 100
+        truncate_frequency: 1m
 
   service:
     extensions: [file_storage, health_check]
@@ -75,11 +91,11 @@ config:
       traces:
         receivers: [otlp]
         processors: [memory_limiter, batch, attributes/drop_high_cardinality]
-        exporters: [otlp/tempo]
+        exporters: [otlp_grpc/tempo]
       metrics:
         receivers: [otlp]
         processors: [memory_limiter, batch, attributes/drop_high_cardinality]
-        exporters: [prometheusremotewrite]
+        exporters: [prometheus_remote_write]
     telemetry:
       logs:
         level: info

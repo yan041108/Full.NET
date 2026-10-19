@@ -5,6 +5,7 @@ using Full.NET.Modules.Ai.Contracts;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Authorization Contributor。</summary>
 [TestClass]
 public sealed class AiAuthorizationContributorTests
 {

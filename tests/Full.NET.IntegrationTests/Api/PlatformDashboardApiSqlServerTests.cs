@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Identity;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：PlatformDashboardApiSqlServer。</summary>
 [TestClass]
 public sealed class PlatformDashboardApiSqlServerTests
 {

@@ -413,6 +413,7 @@ internal sealed class NotificationProviderProfileService(
                 ? NotificationPlatformSql.InsertDomainAuditHost
                 : NotificationPlatformSql.InsertDomainAuditTenant,
             NotificationPlatformSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                 ("Id", idGenerator.NewId()),
                 ("OperationKey", operationKey),
                 ("ActorUserId", actorUserId),

@@ -1,0 +1,36 @@
+{
+  "at": "2026-10-18T21:54:03.616Z",
+  "pressureSource": "ae04189c45d38049f6d8d0a08f0ed3affcc444bee4ad22917b52990e15464ea6",
+  "deliverySource": "a08477cc03ca7e4b77bdf9d5c4956e8b1d49a7fe573d191bb9ad98452a49ddb8",
+  "nativeSource": "9bea866fedd21a184f37867dfca16089cfa53d0ebf90f768fd85054d921782b8",
+  "files": {
+    "eng/load/cache-capacity/log-evidence.mjs": {
+      "before": null,
+      "after": "9e2ec89ed7f2dafb6ba9142b5ff02ac45be4bcf4ba32f2553616192034b3d477",
+      "candidate": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\fullnet-cache-integration-402-f4b1ecf3e28f\\capacity-k6-resume/log-evidence.mjs"
+    },
+    "eng/load/cache-capacity/reuse.mjs": {
+      "before": "63d75c5bb00f0e7eeee2a1c1c01c0b5e778655d53988d670bfdb4b521c841bb4",
+      "after": "5cb5497a597b47580a944a3c50fe9c634f0024e8963b6859d833407ede291d5d",
+      "candidate": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\fullnet-cache-integration-402-f4b1ecf3e28f\\capacity-k6-resume/reuse-candidate.mjs"
+    },
+    "eng/load/cache-capacity/summarize.mjs": {
+      "before": "2bf95b2e0b020408030ece1ba7a557d12055ed8bd3e745434fb01db42999a02f",
+      "after": "2c268567f845282d5a8c4f0a216cb7a698dbd9b720610ef724472d643167fd2d",
+      "candidate": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\fullnet-cache-integration-402-f4b1ecf3e28f\\capacity-k6-resume/summarize-candidate.mjs"
+    },
+    "eng/load/cache-capacity/run.mjs": {
+      "before": "7ce154944b49d4b42e94adfb2472aea444d7f45286e7342e963211b3448c3f56",
+      "after": "bdcc89626f1e34de20f615b663ef247c4992218e51f57a8e3e8967511959d09c",
+      "candidate": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\fullnet-cache-integration-402-f4b1ecf3e28f\\capacity-k6-resume/run-candidate.mjs"
+    },
+    "tests/performance/cache-capacity.test.mjs": {
+      "before": "cd5691ec02427dbc619617b543c400affca0e21896e107eaef5e14d2e43fdbbf",
+      "after": "3b05686f27d79a83f14f074c350ce72ba30e9f817ce69a0bf769d44421a67811",
+      "candidate": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\fullnet-cache-integration-402-f4b1ecf3e28f\\capacity-k6-resume/cache-capacity-candidate.test.mjs"
+    }
+  },
+  "actualIndependentSummaryExit": 0,
+  "review": "Root bounded streaming review accepted; no Native or pressure replay",
+  "pressureEvidenceUnchanged": true
+}

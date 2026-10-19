@@ -73,7 +73,8 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /migrationReserve:/);
   assert.match(values, /healthReserve:\s*2/);
   assert.match(values, /workerCriticalReserve:\s*1/);
-  assert.match(values, /apiPermitLimit:\s*38/);
+  assert.match(values, /apiAuthorizationReadReserve:\s*1/);
+  assert.match(values, /apiPermitLimit:\s*37/);
   assert.match(values, /apiQueueLimit:\s*0/);
   assert.match(values, /workerPermitLimit:\s*7/);
   assert.match(values, /workerQueueLimit:\s*1/);
@@ -201,16 +202,35 @@ test('rendered API manifest keeps Capacity-not-verified marker', () => {
   assert.match(rendered.stdout, /Capacity-not-verified/);
   assert.match(rendered.stdout, /DatabaseCapacity__Enabled:\s*"true"/);
   assert.match(rendered.stdout, /DatabaseCapacity__HostRole:\s*"Api"/);
-  assert.match(rendered.stdout, /DatabaseCapacity__PermitLimit:\s*"38"/);
+  assert.match(rendered.stdout, /DatabaseCapacity__PermitLimit:\s*"37"/);
+  assert.match(rendered.stdout, /DatabaseCapacity__AuthorizationReadReserve:\s*"1"/);
   assert.match(rendered.stdout, /DatabaseCapacity__QueueLimit:\s*"0"/);
-  assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*legacy/);
+  assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*collector/);
   assert.match(rendered.stdout, /DOTNET_ENVIRONMENT:\s*"Production"/);
   assert.match(rendered.stdout, /ASPNETCORE_ENVIRONMENT:\s*"Production"/);
-  assert.doesNotMatch(rendered.stdout, /- name: FullNet__Logging__DeliveryMode/);
-  assert.doesNotMatch(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode/);
+  assert.match(rendered.stdout, /- name: FullNet__Logging__DeliveryMode/);
+  assert.match(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode/);
   assert.match(rendered.stdout, /kind:\s*Deployment/);
   assert.match(rendered.stdout, /component:\s*api/);
   assert.doesNotMatch(rendered.stdout, /kind:\s*StatefulSet/);
+});
+
+test('API authorization reserve cannot be negative or overdraw the process pool', () => {
+  for (const [setting, expected] of [
+    ['databaseConnectionBudget.apiAuthorizationReadReserve=-1', /minimum|greater than or equal to 0|must not be negative/],
+    ['databaseConnectionBudget.apiPermitLimit=38', /requires 41 connections but apiMaxPoolSize=40/],
+  ]) {
+    const args = ['template', 'fullnet-api-reserve-check', chartDir,
+      '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'), '--set', setting];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map(part => /\s/.test(part) ? `"${part}"` : part).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.notEqual(rendered.status, 0);
+    assert.match(rendered.stderr, expected);
+  }
 });
 
 test('Collector ingress renders matching Pod route and application expectation', () => {
@@ -420,7 +440,7 @@ test('ApplicationKafka requires dedicated Secrets and frozen routes in Staging a
   }
 });
 
-test('production Local ingress remains rejected by Helm', () => {
+test('production Console-only Local ingress remains rejected by Helm', () => {
   for (const ingress of ['Local']) {
     const args = [
       'template', `fullnet-log-${ingress.toLowerCase()}-check`, chartDir,
@@ -434,6 +454,46 @@ test('production Local ingress remains rejected by Helm', () => {
       })
       : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
     assert.notEqual(rendered.status, 0);
-    assert.match(rendered.stderr, /logging\.ingress=Local is disabled in production until collector exclusion is verified/);
+    assert.match(rendered.stderr, /logging\.ingress=Local requires logging.localFile.enabled/);
   }
+});
+
+test('production Local files require persistent storage and an exclusive single replica', () => {
+  const base = ['template', 'fullnet-local-files', chartDir,
+    '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+    '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+    '--set', 'logging.ingress=Local', '--set', 'logging.localFile.enabled=true'];
+  const render = (extra) => process.platform === 'win32'
+    ? spawnSync(['helm', ...base, ...extra].map(p => /\s/.test(p) ? `"${p}"` : p).join(' '), {encoding:'utf8', shell:true, cwd:repositoryRoot})
+    : spawnSync('helm', [...base, ...extra], {encoding:'utf8', cwd:repositoryRoot});
+  const missingVolume=render([]);
+  assert.notEqual(missingVolume.status, 0);
+  assert.match(missingVolume.stderr, /localFile.existingClaimName is required/);
+  const concurrent=render(['--set','logging.localFile.existingClaimName=log-files']);
+  assert.notEqual(concurrent.status, 0);
+  assert.match(concurrent.stderr, /one replica per role and API\/Worker HPA disabled/);
+  const accepted = render(['--set','logging.localFile.existingClaimName=log-files', '--set','api.replicaCount=1', '--set','api.hpa.enabled=false']);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.match(accepted.stdout, /FullNet__Logging__LocalFile__Directory\s+value: "\/var\/fullnet\/logs"/);
+  assert.match(accepted.stdout, /FullNet__Logging__LocalFile__PriorityReservePercent\s+value: "20"/);
+  for (const percent of ['0', '50']) {
+    const configured = render(['--set','logging.localFile.existingClaimName=log-files', '--set','api.replicaCount=1', '--set','api.hpa.enabled=false', '--set',`logging.localFile.priorityReservePercent=${percent}`]);
+    assert.equal(configured.status, 0, configured.stderr);
+    assert.match(configured.stdout, new RegExp(`FullNet__Logging__LocalFile__PriorityReservePercent\\s+value: "${percent}"`));
+  }
+  for (const percent of ['-1', '51', '20.5']) {
+    const rejected = render(['--set','logging.localFile.existingClaimName=log-files', '--set','api.replicaCount=1', '--set','api.hpa.enabled=false', '--set',`logging.localFile.priorityReservePercent=${percent}`]);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /priorityReservePercent/);
+  }
+  assert.match(accepted.stdout, /claimName: "log-files"/);
+  assert.match(accepted.stdout, /strategy:\s+type: Recreate/);
+  assert.doesNotMatch(accepted.stdout, /kind: HorizontalPodAutoscaler/);
+  assert.notEqual(render(['--set','logging.ingress=Collector', '--set','logging.localFile.existingClaimName=log-files']).status, 0);
+  const nonLocal=render(['--set','logging.ingress=Collector','--set','logging.localFile.enabled=false','--set','api.replicaCount=1']);
+  assert.notEqual(nonLocal.status,0);assert.match(nonLocal.stderr,/minimum/);
+  const worker=render(['--set','roles.api=false','--set','roles.worker=true','--set','logging.localFile.existingClaimName=log-files','--set','worker.replicaCount=1']);
+  assert.notEqual(worker.status,0);assert.match(worker.stderr,/API\/Worker HPA disabled/);
+  const workerAccepted=render(['--set','roles.api=false','--set','roles.worker=true','--set','logging.localFile.existingClaimName=log-files','--set','worker.replicaCount=1','--set','worker.hpa.enabled=false']);
+  assert.equal(workerAccepted.status,0,workerAccepted.stderr);assert.doesNotMatch(workerAccepted.stdout,/kind: HorizontalPodAutoscaler/);
 });

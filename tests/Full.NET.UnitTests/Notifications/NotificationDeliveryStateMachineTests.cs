@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Domain;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notification Delivery State Machine。</summary>
 [TestClass]
 public sealed class NotificationDeliveryStateMachineTests
 {

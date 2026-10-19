@@ -2,6 +2,7 @@ using Full.NET.Modules.ImportExport.Contracts;
 
 namespace Full.NET.UnitTests.ImportExport;
 
+/// <summary>单元测试（导入导出）：Import Export Task Status Keys。</summary>
 [TestClass]
 public sealed class ImportExportTaskStatusKeysTests
 {

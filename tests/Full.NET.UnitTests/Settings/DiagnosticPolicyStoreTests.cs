@@ -15,9 +15,28 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Settings;
 
+/// <summary>单元测试（设置）：Diagnostic Policy Store。</summary>
 [TestClass]
 public sealed class DiagnosticPolicyStoreTests
 {
+    [TestMethod]
+    public async Task Snapshot_expiry_revokes_rules_even_when_background_poller_stops()
+    {
+        var clock = Substitute.For<IClock>();
+        var now = DateTimeOffset.UtcNow;
+        clock.UtcNow.Returns(now);
+        var (store, query, _) = CreateStore(clock);
+        query.Row = ActivePolicyRow();
+        await store.RefreshAsync(0, CancellationToken.None);
+        Assert.IsFalse(store.Current.IsDefault);
+        var count = query.QueryCount;
+
+        clock.UtcNow.Returns(now.AddMinutes(2));
+        Assert.IsTrue(store.Current.IsDefault);
+        Assert.IsTrue((await store.GetCurrentAsync(CancellationToken.None)).IsDefault);
+        Assert.AreEqual(count, query.QueryCount);
+    }
+
     [TestMethod]
     public async Task Authority_failure_replaces_widening_snapshot_with_safe_default()
     {
@@ -123,7 +142,7 @@ public sealed class DiagnosticPolicyStoreTests
         }
     }
 
-    private static (DiagnosticPolicyStore Store, StubQueryExecutor Query, ICachePolicyRegistry Policies) CreateStore()
+    private static (DiagnosticPolicyStore Store, StubQueryExecutor Query, ICachePolicyRegistry Policies) CreateStore(IClock? suppliedClock = null)
     {
         var query = new StubQueryExecutor();
         var services = new ServiceCollection();
@@ -133,17 +152,15 @@ public sealed class DiagnosticPolicyStoreTests
         var policies = Substitute.For<ICachePolicyRegistry>();
         policies.GetRequired(Arg.Any<string>())
             .Returns(_ => throw new InvalidOperationException("cache unavailable"));
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var clock = suppliedClock ?? Substitute.For<IClock>();
+        if (suppliedClock is null) clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         var environment = Substitute.For<IHostEnvironment>();
         environment.EnvironmentName.Returns("Development");
         return (new DiagnosticPolicyStore(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            Substitute.For<IFusionCache>(),
-            environment,
-            policies,
             clock,
-            NullLogger<DiagnosticPolicyStore>.Instance), query, policies);
+            NullLogger<DiagnosticPolicyStore>.Instance,
+            Microsoft.Extensions.Options.Options.Create(new CacheOptions())), query, policies);
     }
 
     private static ConfigEntryRecord ActivePolicyRow(long documentVersion = 4)

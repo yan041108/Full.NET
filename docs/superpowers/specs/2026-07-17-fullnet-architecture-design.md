@@ -788,7 +788,7 @@ Audit 不使用 Outbox。B0 与业务事务原子写；B1 批写器必须定义�
 
 ### 16.4 管道、压力状态与保留
 
-目标生产参考管道如下；用户确认 Collector 与应用有界后台直发 ApplicationKafka 为正式比较候选，验证后可按配置选择。Local 无远程服务，CentralDirect 指 Collector 跳过 Kafka，CentralKafka 指 Collector 使用 Kafka；ApplicationKafka 省去同流文件采集。Kafka 与 ES 独立可选，不替代 B0/B1：
+目标生产参考管道如下；用户确认 Collector 与应用有界后台直发 ApplicationKafka 为正式比较候选，验证后可按配置选择。Local 无远程服务；2026-10-10 用户批准其可配置后台结构化 txt 落盘，生产必须启用文件，Chart 使用预置 PVC、单副本且关闭 API/Worker HPA，Recreate 更新存在中断；目录预算和排他写入不代表跨崩溃无损。CentralDirect 指 Collector 跳过 Kafka，CentralKafka 指 Collector 使用 Kafka；ApplicationKafka 省去同流文件采集。Kafka 与 ES 独立可选，不替代 B0/B1：
 
 ```text
 应用 JSON stdout / 可选滚动文件

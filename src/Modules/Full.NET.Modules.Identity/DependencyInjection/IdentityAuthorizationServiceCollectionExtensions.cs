@@ -1,3 +1,4 @@
+// Identity 授权相关 DI 扩展；策略、Handler 与权限目录组合。
 using System.Diagnostics.CodeAnalysis;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
@@ -14,6 +15,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.Modules.Identity.DependencyInjection;
 
+/// <summary>Identity 授权相关 DI 扩展；策略、Handler 与权限目录组合。</summary>
 internal static class IdentityAuthorizationServiceCollectionExtensions
 {
     internal static IServiceCollection AddIdentityAuthorization(

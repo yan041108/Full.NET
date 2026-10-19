@@ -1,10 +1,12 @@
 namespace Full.NET.Seeding.Dapper;
 
+/// <summary>跨进程播种互斥租约；获取失败映射为稳定种子错误码。</summary>
 internal interface ISeedExecutionLeaseProvider
 {
     Task<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>播种运行与贡献项审计持久化；与业务模块事务隔离。</summary>
 internal interface ISeedExecutionStore
 {
     Task StartRunAsync(SeedRunAuditStart audit, CancellationToken cancellationToken);

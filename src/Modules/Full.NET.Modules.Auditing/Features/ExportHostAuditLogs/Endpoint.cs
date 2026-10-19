@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧AuditLogs导出 API 路由注册。</summary>
 namespace Full.NET.Modules.Auditing.Features.ExportHostAuditLogs;
 
 internal static class Endpoint

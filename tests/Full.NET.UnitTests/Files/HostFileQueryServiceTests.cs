@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Host File Query Service。</summary>
 [TestClass]
 public sealed class HostFileQueryServiceTests
 {

@@ -6,6 +6,7 @@ using Microsoft.Data.SqlClient;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试辅助：NamingContractTestMigrationRunner。</summary>
 internal static class NamingContractTestMigrationRunner
 {
     public static async Task PrepareMySqlExpandStateAsync(string connectionString)

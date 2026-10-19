@@ -1,7 +1,9 @@
+// 工作流表单管理 API 契约；Schema 版本与组件引用约束。
 using Full.NET.Modules.Workflow.Domain;
 
 namespace Full.NET.Modules.Workflow.Features.ManageForms;
 
+/// <summary>工作流表单管理 API 契约；Schema 版本与组件引用约束。</summary>
 internal sealed record SetWorkflowFormStatusRequest(
     string StatusKey,
     long ExpectedVersion);

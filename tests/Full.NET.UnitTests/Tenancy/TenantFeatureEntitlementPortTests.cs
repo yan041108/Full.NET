@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenant Feature Entitlement Port。</summary>
 [TestClass]
 public sealed class TenantFeatureEntitlementPortTests
 {

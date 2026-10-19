@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Access Log Cursor。</summary>
 [TestClass]
 public sealed class AuditingAccessLogCursorTests
 {

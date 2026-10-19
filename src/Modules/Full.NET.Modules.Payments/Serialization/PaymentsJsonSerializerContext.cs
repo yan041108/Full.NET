@@ -19,4 +19,5 @@ namespace Full.NET.Modules.Payments.Serialization;
 [JsonSerializable(typeof(CreatePaymentRefundRequest))]
 [JsonSerializable(typeof(PagedResult<PaymentRefundListItem>))]
 [JsonSerializable(typeof(WeChatPayNotifyAckResponse))]
+/// <summary>Payments 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class PaymentsJsonSerializerContext : JsonSerializerContext;

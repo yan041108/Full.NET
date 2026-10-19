@@ -1,0 +1,74 @@
+[
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\Full.NET.Abstractions.dll",
+    "sha256": "dd78b6a592b4f15200c5c233a989c22128182507db9150fb5a1a64332538c6e8"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\Full.NET.Caching.Abstractions.dll",
+    "sha256": "be60cc6509cd74010f589561df9630f86f210e3f3d62f452b7ff5dd5eeecd91b"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\Full.NET.Caching.Fusion.dll",
+    "sha256": "dbd7bb0ab2ac27b1ba39f8a0d3921c82b1dfe8e2e24b20a6ad7e3ecc045dd612"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\Microsoft.Extensions.Caching.Hybrid.dll",
+    "sha256": "d7d46a1b22dd5309057f4a33f1c85f34cf742e9d8de92a949486c4028cb23bb1"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\Microsoft.Extensions.Caching.StackExchangeRedis.dll",
+    "sha256": "07be835975b8afa21446527ca0782865d34019e2696683570e4d22ffd54edef3"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Api.dll",
+    "sha256": "9c636063c335902c73f916c133de22fe8af476c68189080176443b0b82d4d399"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Api.ProviderBuilderExtensions.dll",
+    "sha256": "fcd57330a4a3252773a0c71b9a497ee7834f415210fa405151275f97575ed164"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.dll",
+    "sha256": "a19a8b4d39a00dca043919473c0d5b46a174a4363d611c8dd237b8f2b3f8a5b8"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Exporter.OpenTelemetryProtocol.dll",
+    "sha256": "3297002036e73a2ea7385d9521464dee725bbbd6491e20c559498cbe81598a3c"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Extensions.Hosting.dll",
+    "sha256": "97e52b88bfbad51767829ba834a3a35a63692170109c21a7103f5170c389d6f9"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Instrumentation.AspNetCore.dll",
+    "sha256": "f8fc042542796290a249a3229ccf1a6e44cfaa1502394f568e810c069b261d24"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Instrumentation.Http.dll",
+    "sha256": "797c80e3b7f0d2a7250a1e94f49cbe0c802f0e085d586b96d957bc15f553c82e"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\OpenTelemetry.Instrumentation.Runtime.dll",
+    "sha256": "516efb4b5e3d4ed50bbe918d4563b9036370d61aea012ea2e05b68d4b73b21fb"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\StackExchange.Redis.dll",
+    "sha256": "0ed024892b090837f22067d4f0831a3e07ecf831fea7fa76a4f3f6c6cac75914"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis.dll",
+    "sha256": "f2b0d6dfaf444e9b7edb34d2e21e1bd6105de840140086fb77e1658d37e2a3d6"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\ZiggyCreatures.FusionCache.dll",
+    "sha256": "d9deecffee82413ac35e658691a628a09dd91944c0217c18115433aa7daa2c38"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\ZiggyCreatures.FusionCache.OpenTelemetry.dll",
+    "sha256": "e5a86e6645f15708eacf6fecd5aac49320e2e4dc0c26ba469157311ccf342739"
+  },
+  {
+    "path": "G:\\FullNET-build\\cache-ui\\bin\\Full.NET.Host.Api\\release\\ZiggyCreatures.FusionCache.Serialization.SystemTextJson.dll",
+    "sha256": "fecc9fa3ce010bb4131358b4e8fa05f9cf95bfaa39d5f6b8429adba479e77a85"
+  }
+]

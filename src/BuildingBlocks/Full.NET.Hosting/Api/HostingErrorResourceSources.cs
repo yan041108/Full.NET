@@ -4,6 +4,7 @@ using Full.NET.Localization;
 
 namespace Full.NET.Hosting.Api;
 
+/// <summary>将通用/授权/校验错误码映射到嵌入式多语言资源；供 ProblemDetails 本地化。</summary>
 internal sealed class CommonErrorResourceSource()
     : ResourceManagerErrorResourceSource(
         CommonErrorCodes.Prefix,

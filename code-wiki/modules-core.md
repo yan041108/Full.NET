@@ -7,7 +7,7 @@
 
 ### 1.1 职责
 
-- 租户开通（Provisioning）：创建租户记录 + 幂等播种 + 发送 `TenantProvisionedIntegrationEvent`
+- 租户开通（Provisioning）：创建租户记录与可选套餐绑定；租户准入读取权威状态
 - 租户解析：域名 / 请求 Header / 认证 Claim → 可信 TenantId
 - 租户切换：授权用户在其可用租户间切换（写审计 + 刷新会话）
 - 租户包（Tenant Package）：功能套餐、配额、资源包
@@ -23,10 +23,8 @@
 | `TenantProvisioningService` | 开通编排：验证标识 → 事务写 Tenant → 播种 Seed Profile → Outbox |
 | `HostTenantManagementService` | 宿主管理员 CRUD 租户 |
 | `HostTenantPackageManagementService` | 租户包管理 |
-| `TenantCacheInvalidator` | 本地缓存失效处理器（Outbox Event Handler） |
+| `ITenantResolver` | 每次准入读取租户权威状态，不维护 Redis 副本 |
 | `TenantContextSummary` | 契约：当前租户摘要（Id, Name, Locale, TimeZone） |
-| `TenantChangedIntegrationEvent` | 租户变更集成事件（V1 + SchemaVersion） |
-| `TenantProvisionedIntegrationEvent` | 开通完成集成事件 |
 
 ### 1.3 解析流程
 
@@ -238,6 +236,8 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 > 项目：[`src/Modules/Full.NET.Modules.Messaging`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Messaging)
 > 稳定模块键：`Messaging`
+>
+> 本节只描述运维控制面。业务事件的发布、消费和默认 Legacy 轮询见 [可靠事件交付指南](./reliable-event-delivery.md)。
 
 ### 8.1 职责
 
@@ -321,8 +321,9 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ### 10.4 依赖
 
-- Identity：解析受信用户与作用域
-- 被以下模块作为可选契约依赖：`DataApproval`（按规则生成审批单号，未启用时仍可独立运行）
+- `Identity`：解析受信用户与作用域
+- `DataApproval`：硬依赖。启用流水号时必须同时启用数据审批
+- `DataApproval` 反过来只把 `SerialNumbers` 列为可选契约：未启用流水号时审批仍可运行
 
 ---
 
@@ -490,6 +491,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 - `Identity`：办理人解析（用户、角色目录）、`IWorkflowRoleMemberDirectory`
 - `Notifications`：可靠提醒事件 Port（发布 WorkflowTodo* 事件）
 - `Organization`：组织作用域办理人候选（`WorkflowOrganizationUnitCandidateQueryService`）
+- `Tenancy`：租户上下文与权益读取。权益读取放在本地事务之外
 
 ---
 
@@ -510,13 +512,14 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 - Agent 审批：工具调用前人工审批门禁
 - Agent 委托：用户委托 Agent 操作
 - 预算与配额：操作预算（按月/运行）、租户配额、模型价格
+- 知识库：目录、文档版本、导入、索引任务、检索问答、引用与反馈。原文在 Files，Ai 保存版本与派生向量
 - Provider 服务：`AddAiProviderServices` 由 Composition 在 API/Worker Profile 统一注册
 
 ### 13.2 核心类
 
 | 类 | 职责 |
 |----|------|
-| `AiModule` | 模块入口；`Dependencies: Identity, Tenancy` |
+| `AiModule` | 模块入口；`Dependencies: Identity, Tenancy, Files, Organization` |
 | `AiModelConfigManagementService` | 模型配置 CRUD |
 | `AiModelConnectivityTester` | 模型连通性测试 |
 | `AiEmbeddingTestService` | 嵌入向量测试 |
@@ -533,6 +536,11 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `AiAgentDelegationService` | Agent 委派 |
 | `AiOperationBudgetStore` | 预算存储（OpenTelemetry Metrics） |
 | `AiTenantQuotaManagementService` | 租户配额管理 |
+| `AiKnowledgeAskService` | 带授权范围的知识库提问入口 |
+| `AiKnowledgeRetrievalService` | 先按租户、授权、活动代次和模型空间过滤，再做有界余弦排序 |
+| `AiKnowledgeAnswerPipeline` | 把检索结果整理成带引用的回答 |
+| `AiKnowledgeIndexHostedProcessor` | 默认关闭的文本/PDF/DOCX 索引 Worker |
+| `AiKnowledgeCleanupHostedProcessor` | 默认关闭的派生索引清理 Worker |
 | `AiModelBindingScope` | 凭据作用域（Scoped） |
 | `IProtectedModelCredentialStore` | 凭据保护 Port |
 
@@ -555,14 +563,32 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `fn_ai_agent_delegation` | Agent 委派记录 |
 | `fn_ai_agent_worker_instance` | Worker 实例心跳注册 |
 | `fn_ai_operation_budget` | 操作预算：TenantId, MonthlyRequests, MonthlyTokens |
+| `fn_ai_knowledge_base` | 知识库目录、嵌入模型版本与数据分级 |
+| `fn_ai_knowledge_document` / `fn_ai_knowledge_version` | 文档与不可变文件版本 |
+| `fn_ai_knowledge_import` | 从 Files 导入的状态与内容摘要 |
+| `fn_ai_knowledge_index_task` / `fn_ai_knowledge_index_session` | 索引任务与原会话绑定 |
+| `fn_ai_knowledge_index_batch` / `fn_ai_knowledge_index_vector` | 分批向量；首版存在 SQL Server 与 MySQL，查询侧做有界精确余弦 |
+| `fn_ai_knowledge_text_manifest` / `fn_ai_knowledge_docx_manifest` | 文本与 DOCX 的完整清单 |
+| `fn_ai_knowledge_active_generation` | 当前可检索代次指针 |
+| `fn_ai_knowledge_answer_feedback` / `fn_ai_knowledge_answer_review` | 回答反馈与独立复核 |
 
 ### 13.4 依赖
 
 - `Identity`：用户目录、`IAgentToolApprovalBindingReader`
 - `Tenancy`：租户上下文、配额作用域
-- 外部：`Full.NET.AI.Providers.*`（OpenAI、Ollama、AzureOpenAI HTTP 客户端）
-- 外部：`Full.NET.AgenticWeb.*`（AgUi、MCP 客户端/服务端）
-- 外部：`Full.NET.Agents.*`（Agent 运行时）
+- `Files`：原文与导入文件。模型调用和文件读取都在 Ai 本地事务之外
+- `Organization`：知识库成员与机构授权范围
+- 外部：`src/AI/Full.NET.AI.Providers.*`（OpenAI、Ollama、AzureOpenAI）
+- 外部：`src/AI/Full.NET.AgenticWeb.*`（AgUi、MCP）
+- 外部：`src/AI/Full.NET.Agents`（Agent 运行时）
+
+### 13.5 知识库代码入口
+
+实现集中在 `src/Modules/Full.NET.Modules.Ai/Knowledge/`。支持的来源类型是 UTF-8 文本、Markdown、PDF 和 DOCX。PDF 与 DOCX 走独立解析进程，不在 API 请求线程里直接解析不可信文件。
+
+检索选型见 [ADR-0013](../docs/architecture/adr/ADR-0013-ai-retrieval-provider.md)：两库存派生向量，SQL 先按授权和代次过滤，再在代码中精确余弦排序。Qdrant 仍是候选，不是当前生产依赖。索引和缓存不代替权限检查。
+
+本页只说明代码位置。某条知识库能力是否已经验收，以 [能力状态矩阵](../docs/roadmap/capability-status.md) 为准。操作步骤见 [知识库运行说明](../docs/operations/ai-knowledge-bases.md)。Vue 管理入口在 `ui/admin/src/views/AiKnowledgeBasesView.vue` 与 `AiKnowledgeDocumentsView.vue`。
 
 ---
 
@@ -875,6 +901,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 ### 21.4 依赖
 
 - `Identity`：用户上下文与精确权限
+- `Settings`：诊断策略读取
 - 外部：Elasticsearch（HTTP 探针，不参与业务事务）
 
 ---
@@ -1243,29 +1270,29 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 |------|--------|--------------|
 | `Identity` | （根，无） | Files, Notifications |
 | `Tenancy` | Identity | Files, Printing |
-| `Organization` | Identity, Tenancy | （无） |
-| `Settings` | Identity, Tenancy | （无） |
-| `Auditing` | Identity, Tenancy | （无） |
-| `Files` | Identity, Tenancy | （无） |
-| `Document` | Identity, Tenancy, Files | （无） |
+| `Organization` | Identity, Tenancy | ImportExport |
+| `Settings` | Identity | （无） |
+| `Auditing` | Identity | （无） |
+| `Files` | Identity | （无） |
+| `Document` | Identity, Files | （无） |
 | `Notifications` | Identity, Organization, Files | Workflow |
 | `Calendar` | Identity | （无） |
 | `Platform` | Identity | （无） |
 | `Regions` | Identity | （无） |
-| `Jobs` | Identity, Tenancy | （无） |
-| `Messaging` | Identity, Tenancy | （无） |
-| `CodeGeneration` | Identity, Tenancy | （无） |
-| `SerialNumbers` | Identity, Tenancy | （无） |
+| `Jobs` | Identity, Settings | （无） |
+| `Messaging` | Identity | （无） |
+| `CodeGeneration` | Identity | （无） |
+| `SerialNumbers` | Identity, DataApproval | （无） |
 | `ImportExport` | Identity, Files, Tenancy | （无） |
 | `Reporting` | Identity, Files, Tenancy | （无） |
 | `Printing` | Identity, Tenancy | （无） |
-| `Ai` | Identity, Tenancy | （无） |
+| `Ai` | Identity, Tenancy, Files, Organization | （无） |
 | `Payments` | Identity, Tenancy | （无） |
 | `GoView` | Identity, Tenancy | （无） |
 | `K3Cloud` | Identity, Tenancy | （无） |
 | `Ocr` | Identity, Tenancy, Files | （无） |
-| `ObservabilityAdmin` | Identity | （无） |
-| `Workflow` | Files, Identity, Notifications, Organization | （无） |
+| `ObservabilityAdmin` | Identity, Settings | （无） |
+| `Workflow` | Files, Identity, Notifications, Organization, Tenancy | （无） |
 | `DataApproval` | Identity, Workflow | SerialNumbers |
 | `Mqtt` | Identity | （无） |
 | `Webhooks` | Identity, Tenancy | Workflow |

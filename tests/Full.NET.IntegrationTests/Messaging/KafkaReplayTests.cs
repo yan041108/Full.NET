@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaReplay。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaReplayTests

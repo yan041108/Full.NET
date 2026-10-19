@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：切换后应用级授权隔离。</summary>
 internal static class IdentityOidcContextSwitchApplicationIsolationAssertions
 {
     public static async Task VerifyAsync(

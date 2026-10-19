@@ -42,12 +42,12 @@ function mountView(permissions: string[]) {
 
 describe('运行日志控制面', () => {
   beforeEach(() => {
-    listMock.mockReset().mockResolvedValue([{
+    listMock.mockReset().mockResolvedValue({ items: [{
       id: 'a'.repeat(64),
       fileName: 'api.log',
       sizeBytes: 128,
       lastModifiedUtc: '2026-08-30T00:00:00Z'
-    }]);
+    }], isTruncated: false, scannedEntries: 1 });
     tailMock.mockReset().mockResolvedValue({
       id: 'a'.repeat(64),
       fileName: 'api.log',
@@ -67,6 +67,15 @@ describe('运行日志控制面', () => {
     expect(wrapper.text()).toContain('api.log');
     expect(wrapper.text()).toContain('second');
     expect(wrapper.find('[data-testid="observability-log-download"]').exists()).toBe(false);
+  });
+
+  it('扫描预算耗尽但未找到日志时仍提示列表不完整', async () => {
+    listMock.mockResolvedValue({ items: [], isTruncated: true, scannedEntries: 1000 });
+    const wrapper = mountView(['observability.log_files.read']);
+    await flushPromises();
+
+    expect(wrapper.get('[role="status"]').text()).toContain('不完整');
+    expect(tailMock).not.toHaveBeenCalled();
   });
 
   it('下载按钮由独立权限控制并使用稳定文件标识', async () => {

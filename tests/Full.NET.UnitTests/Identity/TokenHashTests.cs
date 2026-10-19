@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Token Hash。</summary>
 [TestClass]
 public sealed class TokenHashTests
 {

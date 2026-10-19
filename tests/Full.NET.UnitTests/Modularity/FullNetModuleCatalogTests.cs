@@ -39,6 +39,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Modularity;
 
+/// <summary>单元测试（模块化）：Full Net Module Catalog。</summary>
 [TestClass]
 public sealed class FullNetModuleCatalogTests
 {

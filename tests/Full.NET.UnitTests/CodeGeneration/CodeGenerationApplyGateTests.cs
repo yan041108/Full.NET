@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Code Generation Apply Gate。</summary>
 [TestClass]
 public sealed class CodeGenerationApplyGateTests
 {

@@ -5,6 +5,7 @@ using Full.NET.Modules.Tenancy.Resources;
 
 namespace Full.NET.UnitTests.Naming;
 
+/// <summary>单元测试（Naming）：Pre V1Error Resource Localization。</summary>
 [TestClass]
 public sealed class PreV1ErrorResourceLocalizationTests
 {

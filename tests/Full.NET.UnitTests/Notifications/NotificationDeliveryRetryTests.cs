@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Execution;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notification Delivery Retry。</summary>
 [TestClass]
 public sealed class NotificationDeliveryRetryTests
 {

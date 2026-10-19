@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Messaging.Kafka.Health;
 
+/// <summary>探测 Kafka Broker 元数据；Messaging 关闭时直接健康，避免误报未部署场景。</summary>
 internal sealed class KafkaHealthCheck(IOptions<KafkaMessagingOptions> options) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(

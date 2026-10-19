@@ -4,6 +4,7 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Elasticsearch Log Document Sink。</summary>
 [TestClass]
 public sealed class ElasticsearchLogDocumentSinkTests
 {

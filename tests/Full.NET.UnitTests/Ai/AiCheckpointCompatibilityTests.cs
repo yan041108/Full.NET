@@ -4,6 +4,7 @@ using Full.NET.Agents.Workflows;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>兼容性测试：AiCheckpointCompatibility。</summary>
 [TestClass]
 public sealed class AiCheckpointCompatibilityTests
 {

@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：离线客户端与刷新/设备码边界。</summary>
 internal static class IdentityOidcClientOfflineAssertions
 {
     public static async Task VerifyAsync(

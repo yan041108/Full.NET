@@ -137,9 +137,8 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
             ? requiredPermissions[0]
             : null;
 
-        var traceId = Activity.Current?.TraceId.ToString()
-            ?? httpContext.TraceIdentifier;
-        if (traceId.Length > 64)
+        var traceId = Full.NET.Hosting.Observability.HttpLogCorrelation.Capture(httpContext).TraceId;
+        if (traceId is { Length: > 64 })
         {
             traceId = traceId[..64];
         }

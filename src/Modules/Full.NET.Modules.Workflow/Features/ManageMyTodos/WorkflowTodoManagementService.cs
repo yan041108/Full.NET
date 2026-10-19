@@ -574,13 +574,15 @@ internal sealed class WorkflowTodoManagementService(
                 ("IdempotencyKey", request.IdempotencyKey.Trim()),
                 ("CommentSummary", request.Comment?.Trim()), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", todo.StepId), ("TransitionKey", $"todo.{actionKey}"),
                 ("FromStatusKey", "active"), ("ToStatusKey", instanceStatus),
                 ("IdempotencyKey", request.IdempotencyKey.Trim()),
                 ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instance.Id),
                 ("OperationKey", $"todo.{actionKey}"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),
@@ -809,14 +811,16 @@ internal sealed class WorkflowTodoManagementService(
             .ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertExecutionLog,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", todo.StepId), ("TransitionKey", $"todo.{actionKey}"),
                 ("FromStatusKey", "active"), ("ToStatusKey", instanceStatus),
                 ("IdempotencyKey", request.IdempotencyKey.Trim()),
                 ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertDomainAudit,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instance.Id),
                 ("OperationKey", $"todo.{actionKey}"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),
@@ -1087,14 +1091,16 @@ internal sealed class WorkflowTodoManagementService(
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertExecutionLog,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", todo.StepId), ("TransitionKey", "todo.return"),
                 ("FromStatusKey", "active"), ("ToStatusKey", "active"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertExecutionLog,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", nextStepId), ("TransitionKey", "step.reactivated"),
                 ("FromStatusKey", "completed"), ("ToStatusKey", "active"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", target.NodeKey),
@@ -1104,7 +1110,8 @@ internal sealed class WorkflowTodoManagementService(
             WorkflowJsonSerializerContext.Default.WorkflowTodoReturnAuditDetail);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertDomainAudit,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instance.Id),
                 ("OperationKey", "todo.return"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),

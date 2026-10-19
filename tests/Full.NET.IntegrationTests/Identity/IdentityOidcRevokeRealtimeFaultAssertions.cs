@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：实时通道故障时的吊销补偿。</summary>
 internal static class IdentityOidcRevokeRealtimeFaultAssertions
 {
     public static async Task VerifyAsync(

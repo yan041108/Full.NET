@@ -1,10 +1,8 @@
 {{- define "fullnet.loggingModeEnv" -}}
-{{- if ne .Values.logging.ingress "Legacy" -}}
 - name: FullNet__Logging__DeliveryMode
   value: {{ .Values.logging.ingress | quote }}
 - name: FullNet__Logging__ExpectedDeliveryMode
   value: {{ .Values.logging.ingress | quote }}
-{{- end }}
 {{ if gt (.Values.logging.indexRouteVersion | int) 0 }}
 - name: FullNet__Logging__IndexRouteVersion
   value: {{ .Values.logging.indexRouteVersion | quote }}

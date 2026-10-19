@@ -15,6 +15,7 @@ using Full.NET.Modules.Ai.Features.ManageAgentRuns;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Run Management。</summary>
 [TestClass]
 public sealed class AiAgentRunManagementTests
 {
@@ -109,4 +110,53 @@ public sealed class AiAgentRunManagementTests
         await commands.DidNotReceive().ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task Runtime_model_lookup_obeys_trusted_scope_and_rejects_before_budget(bool isTenant, bool disabled)
+    {
+        var queries = Substitute.For<IQueryExecutor>();
+        var commands = Substitute.For<ICommandExecutor>();
+        var transaction = Substitute.For<ICommandTransaction>();
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var ids = Substitute.For<IIdGenerator>();
+        var tenant = Substitute.For<ICurrentTenant>();
+        Guid? tenantId = isTenant ? Guid.CreateVersion7() : null;
+        tenant.Id.Returns(tenantId); tenant.IsHost.Returns(!isTenant);
+        var database = Options.Create(new DatabaseOptions());
+        var runtime = Options.Create(new AiAgentRuntimeOptions { AcceptsNewRuns = true });
+        var request = new CreateAiAgentRunRequest(Guid.CreateVersion7(),
+            AiAgentRunManagementService.SingleTextDefinitionKey, Guid.CreateVersion7(), "input", 100, 100);
+        var binding = new SessionBindingSnapshot(Guid.CreateVersion7(), tenantId, Guid.CreateVersion7(), "stamp",
+            isTenant ? "tenant" : "host", isTenant ? "tenant" : "host");
+        queries.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        SqlStatement? observed = null;
+        queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                observed = call.Arg<SqlStatement>();
+                return disabled ? new AiModelConfigRecord { Id = request.ModelConfigId, IsEnabled = false } : null;
+            });
+        var store = new AiAgentRunStore(queries, commands, transaction, ids, clock, database);
+        var heartbeat = new AiAgentWorkerHeartbeatService(Substitute.For<IServiceScopeFactory>(), clock, database, runtime);
+        var budget = Substitute.For<IAiOperationBudgetStore>();
+        var service = new AiAgentRunManagementService(store, new(queries, clock, runtime, heartbeat), null!,
+            new(queries, database), null!, null!, budget, tenant, clock, ids, runtime, transaction);
+
+        var result = await service.CreateAsync(request, binding);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(disabled ? AiErrorCodes.ModelConfigUnavailable : AiErrorCodes.ModelConfigNotFound, result.Error!.Code);
+        Assert.IsNotNull(observed);
+        Assert.AreEqual(isTenant ? SqlDataScope.TenantRequired : SqlDataScope.HostOnly, observed.Scope);
+        Assert.AreEqual(isTenant ? SqlTenantBinding.CurrentTenantId : SqlTenantBinding.None, observed.TenantBinding);
+        StringAssert.Contains(observed.Text, isTenant
+            ? "config.TenantId = @TenantId OR config.TenantId IS NULL"
+            : "config.TenantId IS NULL");
+        // 保持禁用与不存在的原有错误语义；两类拒绝都发生在预算预留和写入之前。
+        await budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+        await commands.DidNotReceive().ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
 }

@@ -1,3 +1,4 @@
+// Workflow 模块宿主入口；注册定义、表单、实例执行与恢复 Worker。
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
@@ -48,6 +49,7 @@ public sealed class WorkflowModule : IFullNetModule
     /// <param name="configuration">应用只读配置根。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        Persistence.WorkflowLogTimelineSources.Register(services);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             WorkflowAuthorizationContributor>());

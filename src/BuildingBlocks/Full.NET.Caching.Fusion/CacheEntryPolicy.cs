@@ -25,6 +25,9 @@ public sealed record CacheEntryPolicy(
     bool RequiresVersionRecheck,
     int MaxSerializedBytes)
 {
+    /// <summary>启用 Fail-Safe 时的显式保留上限；不是每次降级命中后重新起算的业务承诺。</summary>
+    public TimeSpan? FailSafeMaxDuration { get; init; }
+
     /// <summary>
     /// S1/S0-L2 必须在事务提交后直接删除 L1/L2（并广播 Backplane），禁止改走 Outbox。
     /// </summary>

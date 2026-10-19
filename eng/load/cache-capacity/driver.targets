@@ -1,0 +1,6 @@
+<Project>
+  <!-- 仅显式容量入口链接驱动；其余源码由当前只读 Main 正常编译。 -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Full.NET.IntegrationTests'">
+    <Compile Include="$(MSBuildThisFileDirectory)NativeCacheCapacityDriver.cs" />
+  </ItemGroup>
+</Project>

@@ -8,6 +8,7 @@ using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Host Job Execution Cancel Service。</summary>
 [TestClass]
 public sealed class HostJobExecutionCancelServiceTests
 {

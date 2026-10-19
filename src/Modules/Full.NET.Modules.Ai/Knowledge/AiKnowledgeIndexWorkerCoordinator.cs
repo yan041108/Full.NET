@@ -55,6 +55,8 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             Guard(token, childTransactions);
             if (held?.LeaseToken is not { } leaseToken) continue;
             acquired++;
+            // 同一任务作用域只接收消费者已经验证的快照，内层退出后仍覆盖本层失败记录。
+            using var correlation = provider.GetRequiredService<AiBackgroundLogCorrelation>().BeginCapture();
             try
             {
                 // 格式只决定消费者；消费者仍从当前权威来源复核，扫描行不授予模型派发资格。

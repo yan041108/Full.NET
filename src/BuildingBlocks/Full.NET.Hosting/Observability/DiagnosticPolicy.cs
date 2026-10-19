@@ -38,8 +38,8 @@ public static class DiagnosticPolicyLimits
 /// <param name="ScopeValue">作用域匹配值；语义随 ScopeKind 变化（类别名、路由模板、TraceId、租户 Id 等）。</param>
 /// <param name="SuccessSampleRateOverride">成功请求采样率覆盖值（0-1）；null 表示沿用全局策略。</param>
 /// <param name="BestEffortCapacityOverride">尽力而为容量覆盖值；null 表示沿用全局策略。</param>
-/// <param name="MaxRequestPayloadBytesOverride">请求体最大字节数覆盖值；null 表示沿用全局策略。</param>
-/// <param name="MaxResponsePayloadBytesOverride">响应体最大字节数覆盖值；null 表示沿用全局策略。</param>
+/// <param name="MaxRequestPayloadBytesOverride">请求投影字节限制，范围 0—2048；null 沿用全局，0 禁用该方向；命中规则与全局取最小值。</param>
+/// <param name="MaxResponsePayloadBytesOverride">响应投影字节限制，范围 0—2048；null 沿用全局，0 禁用该方向；不扩大路由或采集权限。</param>
 /// <param name="ExpiresAtUtc">规则过期时间（UTC）；到期后必须停止放宽，不得自动续期。</param>
 public sealed record DiagnosticPolicyRule(
     DiagnosticPolicyScopeKind ScopeKind,

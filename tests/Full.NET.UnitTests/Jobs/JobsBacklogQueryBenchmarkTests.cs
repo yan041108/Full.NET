@@ -3,6 +3,7 @@ using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Jobs Backlog Query Benchmark。</summary>
 [TestClass]
 public sealed class JobsBacklogQueryBenchmarkTests
 {

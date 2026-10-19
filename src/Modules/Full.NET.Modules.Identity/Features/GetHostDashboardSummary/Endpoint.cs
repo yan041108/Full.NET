@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
+/// <summary>HostDashboardSummary读取 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.GetHostDashboardSummary;
 
 internal static class Endpoint

@@ -93,6 +93,10 @@ async function restore(): Promise<void> {
             {{ rule.scopeKind }}={{ rule.scopeValue }}
             —
             {{ t('diagnosticPolicy.expiresAt', { expiresAtUtc: rule.expiresAtUtc }) }}
+            <p>{{ t('diagnosticPolicy.payloadLimits', {
+              request: rule.maxRequestPayloadBytesOverride ?? '—',
+              response: rule.maxResponsePayloadBytesOverride ?? '—'
+            }) }}</p>
           </li>
         </ul>
       </template>

@@ -3,6 +3,7 @@ using Full.NET.Modules.Auditing.Persistence;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Sql Scope。</summary>
 [TestClass]
 public sealed class AuditingSqlScopeTests
 {

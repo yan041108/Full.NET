@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
+/// <summary>Host 侧RoleFieldGrants管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 
 internal static class Endpoint

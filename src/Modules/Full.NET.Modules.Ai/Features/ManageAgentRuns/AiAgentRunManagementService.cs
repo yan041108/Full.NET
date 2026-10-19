@@ -90,7 +90,8 @@ internal sealed class AiAgentRunManagementService(
             if (!promptResult.IsSuccess) return Result<CreateAiAgentRunResponse>.Failure(promptResult.Error!);
             prepared = promptResult.Value!;
         }
-        var modelResult = prepared is null ? await modelQueries.GetByIdAsync(request.ModelConfigId, cancellationToken).ConfigureAwait(false)
+        // 普通运行同样按可信上下文限制模型归属，不能复用跨租户 Host 管理详情查询。
+        var modelResult = prepared is null ? await modelQueries.GetForAgentRuntimeAsync(request.ModelConfigId, tenant.Id.HasValue, cancellationToken).ConfigureAwait(false)
             : Result<AiModelConfigResponse>.Success(AiModelConfigMapper.MapDetail(prepared.Model));
         if (!modelResult.IsSuccess)
         {

@@ -34,4 +34,24 @@ internal sealed record AuthAuditEvent(
     string? AuthenticationMethod = null,
     string? ClientId = null,
     Guid? CenterSessionId = null,
-    Guid? ApplicationSessionId = null);
+    Guid? ApplicationSessionId = null)
+{
+    public string CorrelationJson { get; init; } = CaptureCorrelation(
+        UserId, SessionId, ContextTenantId, ActorUserId, CenterSessionId, ApplicationSessionId, IpAddress);
+
+    private static string CaptureCorrelation(Guid? userId, Guid? sessionId, Guid? tenantId,
+        Guid? actorUserId, Guid? centerSessionId, Guid? applicationSessionId, string? ipAddress)
+    {
+        var current = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture();
+        return (current with
+        {
+            UserId = current.UserId ?? actorUserId ?? userId,
+            TenantId = current.TenantId ?? tenantId,
+            SessionId = sessionId ?? current.SessionId,
+            CenterSessionId = centerSessionId ?? current.CenterSessionId,
+            ApplicationSessionId = applicationSessionId ?? current.ApplicationSessionId,
+            ClientIpFingerprint = current.ClientIpFingerprint ?? (string.IsNullOrWhiteSpace(ipAddress) ? null
+                : Full.NET.Hosting.Observability.HttpOperationLogSanitizer.FingerprintClientIp(ipAddress)),
+        }).ToJson();
+    }
+}

@@ -6,6 +6,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：登出传播与 Backplane 协同。</summary>
 internal static class IdentityOidcMultiInstanceLogoutPropagationAssertions
 {
     private const string SigningKeyId = "logout-multi-key";

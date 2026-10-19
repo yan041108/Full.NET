@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：授权码与令牌等核心协议端点、错误响应与生命周期。</summary>
 internal static class IdentityOidcProtocolAssertions
 {
     public static readonly IReadOnlyDictionary<string, string?> Settings = new Dictionary<string, string?>

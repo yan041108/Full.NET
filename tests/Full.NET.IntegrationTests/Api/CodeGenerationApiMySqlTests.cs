@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.CodeGeneration;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：CodeGenerationApiMySql。</summary>
 [TestClass]
 public sealed class CodeGenerationApiMySqlTests
 {

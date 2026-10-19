@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Time;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Current Tenant Accessor。</summary>
 [TestClass]
 public sealed class CurrentTenantAccessorTests
 {

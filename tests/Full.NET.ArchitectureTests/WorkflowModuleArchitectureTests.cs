@@ -2,6 +2,7 @@ using System.Xml.Linq;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：WorkflowModuleArchitecture 约束与回归门禁。</summary>
 [TestClass]
 public sealed class WorkflowModuleArchitectureTests
 {

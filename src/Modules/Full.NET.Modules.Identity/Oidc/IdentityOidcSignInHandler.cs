@@ -9,6 +9,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Identity.Oidc;
 
 internal sealed class IdentityOidcSignInHandler(

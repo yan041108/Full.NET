@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 
+/// <summary>SQL Server 分页语句构造；与 MySQL 变体成对维护。</summary>
 namespace Full.NET.Modules.Auditing.Persistence;
 
 internal static class AuditingSqlServerPageStatementBuilder

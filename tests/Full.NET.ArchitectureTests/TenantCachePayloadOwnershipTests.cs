@@ -3,6 +3,7 @@ using Full.NET.Modules.Tenancy;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：TenantCachePayloadOwnership 约束与回归门禁。</summary>
 [TestClass]
 public sealed class TenantCachePayloadOwnershipTests
 {
@@ -13,7 +14,7 @@ public sealed class TenantCachePayloadOwnershipTests
     ];
 
     [TestMethod]
-    public void Tenancy_cache_payload_shapes_are_internal_to_the_tenancy_module()
+    public void Tenancy_authority_reads_have_no_retired_cache_payloads()
     {
         var abstractionTypes = typeof(ICurrentTenant).Assembly.GetTypes();
         var tenancyTypes = typeof(TenancyModule).Assembly.GetTypes();
@@ -25,8 +26,7 @@ public sealed class TenantCachePayloadOwnershipTests
                 TenancyType = tenancyTypes.SingleOrDefault(type => type.Name == typeName),
             })
             .Where(item => item.AbstractionType is not null
-                           || item.TenancyType is null
-                           || item.TenancyType.IsPublic)
+                           || item.TenancyType is not null)
             .Select(item => item.TypeName)
             .Order(StringComparer.Ordinal)
             .ToArray();

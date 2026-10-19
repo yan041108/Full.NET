@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>租户生命周期：开通、停用与状态迁移 API。</summary>
 internal static class TenantLifecycleAssertions
 {
     public static async Task VerifyAsync(

@@ -16,6 +16,7 @@ using System.Reflection.Emit;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：SeedingDependencyRules 约束与回归门禁。</summary>
 [TestClass]
 public sealed class SeedingDependencyRulesTests
 {

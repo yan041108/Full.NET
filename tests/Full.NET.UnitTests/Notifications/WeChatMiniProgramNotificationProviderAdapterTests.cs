@@ -7,6 +7,7 @@ using Full.NET.Modules.Notifications.Providers.WeChatMiniProgram;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：We Chat Mini Program Notification Provider Adapter。</summary>
 [TestClass]
 public sealed class WeChatMiniProgramNotificationProviderAdapterTests
 {

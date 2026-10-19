@@ -19,6 +19,7 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Change Password Handler。</summary>
 [TestClass]
 public sealed class ChangePasswordHandlerTests
 {

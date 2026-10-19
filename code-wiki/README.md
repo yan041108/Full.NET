@@ -18,7 +18,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 |------|------|
 | [架构总览](./architecture-overview.md) | 总体架构、分层设计、模块通信机制、部署形态 |
 | [关键接口与类详解](./key-interfaces-and-classes.md) | 核心抽象、CQRS、模块系统、数据访问的类型定义 |
-| [ADR 索引](../docs/architecture/adr/) | 架构决策记录（ADR-0001 ~ ADR-0011；含 Native AOT、Outbox/CDC/Kafka、UUID v7、OIDC SSO 等） |
+| [ADR 索引](../docs/architecture/adr/) | 架构决策记录（ADR-0001 ~ ADR-0013；含 Native AOT、Outbox/CDC/Kafka、UUID v7、OIDC SSO、可配置日志投递、知识库检索） |
 | [命名规范摘要](./naming-conventions-summary.md) | 数据库、C#、HTTP/JSON、配置键的统一命名规则 |
 
 ### 二、基础设施层 (BuildingBlocks)
@@ -27,8 +27,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 |------|------|
 | [基础设施层总览](./building-blocks.md) | 所有 BuildingBlocks 项目的职责、依赖和关键能力 |
 | [日志模块配置与模式指南](./logging-guide.md) | 四种入口、Kafka/ES 开关、环境要求、受限详情、性能边界与故障处置 |
+| [可靠事件交付指南](./reliable-event-delivery.md) | 事务 Outbox 发布与消费、Legacy 轮询、CDC/Kafka 试点、死信与运维切流 |
 | [构建与测试指南](./build-and-test.md) | 环境要求、还原、构建、测试套件、集成测试分片、Native AOT 测试梯度 |
-| [宿主与部署](./hosts-and-deployment.md) | API/Worker/Migrator/AppHost 四宿主、Docker 镜像、Helm Chart、K8s 部署、Native AOT 编译与发布 |
+| [宿主与部署](./hosts-and-deployment.md) | API/Worker/Migrator/AppHost，以及独立日志消费进程、Docker 镜像、Helm Chart、K8s 部署、Native AOT 编译与发布 |
 | [Dapper SQL 来源与门禁](./dapper-sql-sources.md) | 手写 SQL、Global 目录、CodeGeneration、SqlDataScope、SQL 安全门禁 |
 
 ### 三、业务模块 (Modules)
@@ -67,9 +68,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 | 数据库 | SQL Server / MySQL (双提供程序一等支持) |
 | 迁移引擎 | DbUp + 可审查 SQL 脚本（`{NNN}_{PascalCasePurpose}.sql`） |
 | 缓存 | FusionCache (L1 内存 + L2 Redis + Backplane) |
-| 消息 | 事务 Outbox + MessagePack / CDC Kafka / 消费 Inbox |
+| 消息 | 事务 Outbox + MemoryPack / CDC Kafka / 消费 Inbox。使用说明见 [可靠事件交付指南](./reliable-event-delivery.md) |
 | 实时 | SignalR + 可选 Redis Backplane |
-| 序列化 | System.Text.Json (HTTP) / MessagePack (内部事件) |
+| 序列化 | System.Text.Json (HTTP) / MemoryPack (可靠事件) |
 | 验证 | FluentValidation |
 | 日志 | Serilog + 有界异步输出 |
 | 可观测性 | OpenTelemetry + 健康检查 |
@@ -85,8 +86,10 @@ Full.NET/
 ├── src/
 │   ├── BuildingBlocks/          # 基础设施层（不依赖业务模块）
 │   ├── Modules/                 # 业务模块（拥有独立表和契约）
+│   ├── AI/                      # 模型 Provider、Agent 运行时、MCP 与 AG-UI
+│   ├── Platform/                # 独立日志消费库（Full.NET.LogConsumer）
 │   ├── Composition/             # 组合根（唯一可引用具体模块的位置）
-│   ├── Hosts/                   # 运行宿主（API/Worker/Migrator/AppHost）
+│   ├── Hosts/                   # API / Worker / Migrator / AppHost / LogConsumer
 │   ├── Compatibility/          # 兼容适配层（Admin.NET 信封等）
 │   ├── Generators/              # 源代码生成器
 │   └── Tools/                   # CLI 工具（如 CodeGeneration.Cli）

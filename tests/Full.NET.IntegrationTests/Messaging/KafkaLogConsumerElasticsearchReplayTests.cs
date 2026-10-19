@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Images;
 using Full.NET.LogConsumer;
 using KafkaLogDeadLetterSink = consumerhost::KafkaLogDeadLetterSink;
 using KafkaLogOffsetCommitter = consumerhost::KafkaLogOffsetCommitter;
@@ -16,10 +17,14 @@ namespace Full.NET.IntegrationTests.Messaging;
 [DoNotParallelize]
 public sealed class KafkaLogConsumerElasticsearchReplayTests
 {
+    private static ContainerBuilder BoundedElasticsearch(ContainerBuilder builder) => SharedDatabaseFixture.BoundedContainers
+        ? builder.WithImagePullPolicy(PullPolicy.Never)
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch"))
+        : builder;
     [TestMethod]
     public async Task ElasticsearchWriteBeforeFailedCommitReplaysSameDocumentId()
     {
-        await using var elasticsearch = new ContainerBuilder(
+        await using var elasticsearch = BoundedElasticsearch(new ContainerBuilder(
             "docker.elastic.co/elasticsearch/elasticsearch@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026")
             .WithEnvironment("discovery.type", "single-node")
             .WithEnvironment("xpack.security.enabled", "false")
@@ -27,7 +32,7 @@ public sealed class KafkaLogConsumerElasticsearchReplayTests
             .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
             .WithPortBinding(9200, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/")))
+                .UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/"))))
             .Build();
         await elasticsearch.StartAsync();
         var esUri = new UriBuilder("http", elasticsearch.Hostname, elasticsearch.GetMappedPublicPort(9200)).Uri;
@@ -105,7 +110,7 @@ public sealed class KafkaLogConsumerElasticsearchReplayTests
     [TestMethod]
     public async Task ElasticsearchMappingRejectionWaitsForDurableDlqBeforeCommit()
     {
-        await using var elasticsearch = new ContainerBuilder(
+        await using var elasticsearch = BoundedElasticsearch(new ContainerBuilder(
             "docker.elastic.co/elasticsearch/elasticsearch@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026")
             .WithEnvironment("discovery.type", "single-node")
             .WithEnvironment("xpack.security.enabled", "false")
@@ -113,7 +118,7 @@ public sealed class KafkaLogConsumerElasticsearchReplayTests
             .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
             .WithPortBinding(9200, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/")))
+                .UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/"))))
             .Build();
         await elasticsearch.StartAsync();
         var esUri = new UriBuilder("http", elasticsearch.Hostname, elasticsearch.GetMappedPublicPort(9200)).Uri;

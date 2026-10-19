@@ -1,6 +1,6 @@
 # 日志高优先级通道与降级处置
 
-本页描述当前应用双通道的故障处理。字段和平台现状见[日志模块说明](logging-module.md)；Collector 与 ApplicationKafka 后台直发为 [ADR-0012](../architecture/adr/ADR-0012-configurable-log-delivery.md)中的待实现、待比较目标，按[LG00—LG08](../superpowers/plans/2026-09-28-configurable-log-delivery.md)验证后配置选择。本页当前指标/配置不因此自动适用于未来 Producer；直发需独立 SDK 预算/确认/恢复监控，不默认故障双写到采集器。
+本页描述应用双通道的故障处理。模式、字段和平台现状见[日志模块说明](logging-module.md)；Local、Collector 与 ApplicationKafka 的配置见 [Wiki](../../code-wiki/logging-guide.md)。2026-10-17 整改状态以[活动计划](../superpowers/plans/2026-10-17-logging-remediation.md)为准。宿主接收、Kafka ACK 与 ES 可查是不同阶段；直发保留独立 SDK 预算/确认监控，不默认故障双写到采集器。
 
 ## 当前边界
 
@@ -13,7 +13,7 @@ Full.NET 的三个官方宿主统一通过 `AddFullNetServiceDefaults()` 建立�
 
 两条通道都固定为非阻塞。`FullNet:Logging:BlockWhenFull=true` 会在启动时被拒绝，避免慢 Sink 或平台故障把请求线程拖入同步等待。`Debug/Verbose` 仍受全局最小等级限制，不进入这两条生产通道。
 
-每次调用先按单事件最大费用非阻塞预留，快照完成后退还差额；未取得预算时不会继续构造快照。旧 Elasticsearch Sink 启用时还需容纳安全事件拷贝，启动校验会要求每条通道至少能保留一条此类最大封套。字节指标是保守队列/在途费用，不代表进程 RSS。
+每次调用先非阻塞预留条数名额，再按单事件最大费用预留字节预算，快照完成后退还差额；未取得预算时不会继续构造快照。后台仅持有受限安全 JSON 和事件 ID，旧 Elasticsearch Sink 的专用事件副本已移除。字节指标是保守队列/在途费用，不代表进程 RSS。
 
 ```json
 {
@@ -40,10 +40,17 @@ Meter `Full.NET.Logging` 暴露：
 - `fullnet.logging.events.dropped{channel}`
 - `fullnet.logging.queue.bytes{channel}` / `fullnet.logging.queue.bytes.capacity{channel}`
 - `fullnet.logging.events.oversize{channel}` / `fullnet.logging.events.byte_budget_dropped{channel}`
+- `fullnet.logging.events.offered{channel,level}` / `fullnet.logging.events.consumed{channel,outcome}`
+- `fullnet.logging.worker.state{channel}` / `fullnet.logging.worker.progress_age{channel}`
+- `fullnet.logging.queue.oldest_age{channel}`（包含下游在途记录，单位秒）
 
 `channel` 只允许 `general` 与 `high_priority`。禁止加入租户、用户、路径、异常消息或其他高基数值。
 
-`high_priority_logging` 作为 `ready` 健康检查注册。当前高优先级条数或已预留字节达到相应容量的 90% 时返回 `Degraded`；普通通道过载不会驱逐实例。累计丢弃值不直接让实例永久降级，必须由监控平台按时间窗口计算增量。
+`high_priority_logging` 作为 `ready` 健康检查注册。高优先级条数或已预留字节达到 90%、消费者不在运行状态、最老在途/排队记录超过 30 秒时返回 `Degraded`。普通通道过载不改变此检查。累计 Counter 在停止后保留，按窗口增量告警；停机不归零。`worker.state` 的 0/1/2/3/4 表示未装配/运行/停止接收/已停止/故障。`consumed{outcome=accepted}` 只表示下游调用接收，不表示外部持久确认。
+
+Prometheus 命名由 OTel 转换，例如 `fullnet_logging_events_dropped_total{channel="high_priority"}` 和 `fullnet_logging_queue_oldest_age_seconds`。B1 使用 `fullnet_auditing_microbatch_queue_depth/capacity/bytes`、`fullnet_auditing_microbatch_failed_total{outcome}` 及 `fullnet_auditing_microbatch_wait_seconds_bucket`；容量压力按深度/容量计算，不能写死 3000 条阈值。正式规则和仪表盘见 `deploy/observability`。
+
+若 Host 有指标而 Prometheus 无数据，先运行 `node eng/testing/otel-collector-config-test.mjs`，再检查 OTLP 地址、Collector 接收/拒绝和 Remote Write 回执。参考配置的 Metrics 队列为 `remote_write_queue` + `wal`，Trace 才使用 `sending_queue.storage: file_storage`。WAL 所在 emptyDir 不跨 Pod 替换保留；不能将 Collector 已接收等同 Prometheus 可查询。平台 Prometheus 需允许 Remote Write 接收，TLS 与认证按实际后端配置。
 
 建议告警：
 
@@ -56,7 +63,7 @@ Meter `Full.NET.Logging` 暴露：
 
 普通与高优先级后台 Worker 都会感知内部 Sink 的真实投递异常。单条事件失败时，Full.NET 丢弃当前事件、递增对应 `channel` 的 `events.dropped`，并继续消费后续事件；一次 Console 或未来外部 Sink 异常不会让整条通道永久停止。
 
-降级 SelfLog 只记录异常类型，不记录异常消息、日志正文或事件属性，避免在备用诊断通道再次泄露敏感信息。连续 Sink 失败仍会持续丢弃事件，但不得反向阻塞请求线程。平台恢复后必须确认 dropped 增量归零、队列深度回落，并核对恢复窗口内的外部采集缺口。
+后台内部故障通过限频 stderr 报告固定阶段及异常类型，不依赖启用 SelfLog，不记录异常消息、日志正文、路径或事件属性。连续 Sink 失败仍会持续丢弃事件，但不得反向阻塞请求线程。平台恢复后确认 dropped 增量归零、队列深度回落和消费者恢复，并核对外部采集缺口。
 
 ## 退出排空
 
@@ -78,10 +85,12 @@ Meter `Full.NET.Logging` 暴露：
 4. 若高优先级通道丢弃，保留 TraceId 和受保护的服务端诊断，按事故处理；敏感异常、Token、Cookie、连接串和 SQL 不得写入临时日志。
 5. 恢复后确认高优先级深度回落、丢弃增量归零，并记录故障窗口。
 
-## 尚未完成
+## 退出与恢复边界
 
-当前 Console Sink 依赖部署平台采集标准输出，不提供 Full.NET 自有的磁盘 Spool、跨重启重放或外部 Sink 投递确认。Task 8B1 已验证正常退出完整排空，以及两个 Sink 同时阻塞时共享一个有界退出预算；事件级异常隔离已保证单次 Sink 失败不会永久终止 Worker，但失败事件仍会丢失。
+Hosting 两个队列及 Kafka 的两个 Producer Flush 共用 `FullNet:Logging:ShutdownFlushTimeout` 的剩余时间。单独释放 Kafka 组件时使用其 `ShutdownFlushTimeoutMs`；宿主管理时不会重新领取这段预算。底层 native Dispose 和不响应取消的操作不能被这个期限强制终止。内存队列仍可能在退出或崩溃时丢失；本地 `.txt` 文件不是可重放的投递队列。
 
-Fluent Bit 部署示例已有 filesystem 缓冲，但使用 emptyDir，且解析/字段筛选仍需真实样本验证；配置存在不代表可跨 Pod 重建恢复。活动计划 LG05/LG06/LG08 接管历史 Task 8B 未完成部分，实施可选组件、持久存储、发送 ACK/检查点验证、消费确认/去重、满盘与重启故障矩阵。历史局部通过证据保持不变，不据此上调当前容量或端到端交付状态。
+B1 的 `Auditing:MicroBatch` 增加最大排队年龄、批次执行期限和隔离尝试上限。连接/超时/死锁/未知故障不拆批；明确数据错误才有界隔离。取消传入实际事务，待真实操作结束再归还预约；不能把 fail-open 理解成请求侧提前返回并留下后台数据库写入。
 
-LG00 原 Logstash/PQ 准入实验已取得单事件重启恢复的局部证据，但[官方 Offset 限制](https://www.elastic.co/docs/reference/logstash/tips-best-practices)使该组合无法满足可靠档安全落盘先于提交的要求，现转为重新评估消费者。LG02 已接入应用内条数/字节双预算、预留后构造和快照，尚未完成真实 P99/RSS、构造临时分配及旧 Sink 安全事件拷贝的实测内存验收。LG03/LG04 的先许可后投影与数据库独立详情清理、LG06 固定事件日期索引去重仍未实施。当前字节指标不能解释为进程内存上限，也不能把审计 API 的详情权限解释为普通 stdout/平台副本的权限；目标方案禁止这些出口携带 Restricted 详情。
+令牌已取消时，驱动返回普通数据库异常也统一归入取消路径，先于毒记录分类处理。内部批次期限保持 fail-open，调用方传入 Writer 的取消保留传播；两者都终结所有信封并等待实际调用退出，不通过放松恢复断言隐藏迟到写入。当前 Writer 边界的双库故障/恢复组 8/8 与日志整改 Unit 125/125 已通过，整队列、真实指标及原生范围仍见活动计划。
+
+Fluent Bit 缓冲、Kafka 保留、独立消费者 ES 写入/DLQ/Offset 各有独立故障边界。是否可恢复取决于实际持久卷、保留策略和确认位置；具体模式配置与测试证据以 Wiki 和活动计划为准。当前整改的双库、真实指标导出、日志链路与 Native AOT 验证尚待集中执行，历史通过不能外推到新修订。队列计费不是进程 RSS，也不替代容量与请求 P99 实测；Restricted 详情始终不能进入普通 stdout/File/Kafka/ES 副本。

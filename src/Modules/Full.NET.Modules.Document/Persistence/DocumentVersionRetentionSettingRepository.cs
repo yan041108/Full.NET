@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Microsoft.Extensions.Options;
 
+/// <summary>Document 模块只读或写入边界；经 Dapper 访问，不含 HTTP 语义。</summary>
 namespace Full.NET.Modules.Document.Persistence;
 
 internal sealed class DocumentVersionRetentionSettingRepository(

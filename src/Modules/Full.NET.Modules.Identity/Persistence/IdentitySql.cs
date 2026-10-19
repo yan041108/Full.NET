@@ -1,3 +1,4 @@
+// Identity 模块核心 SQL 文本；用户、角色与权限等表的显式语句集合。
 using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Identity.Persistence;
@@ -1101,11 +1102,11 @@ internal static class IdentitySql
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
              ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
-             OccurredAtUtc)
+             OccurredAtUtc, CorrelationJson)
         VALUES
             (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
              @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
-             @OccurredAtUtc)
+             @OccurredAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -1394,11 +1395,11 @@ internal static class IdentitySql
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
              ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
-             OccurredAtUtc, ActorUserId)
+             OccurredAtUtc, ActorUserId, CorrelationJson)
         VALUES
             (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
              @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
-             @OccurredAtUtc, @ActorUserId)
+             @OccurredAtUtc, @ActorUserId, @CorrelationJson)
         """,
         SqlDataScope.HostOnly);
 
@@ -1873,12 +1874,12 @@ internal static class IdentitySql
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
              ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
              OccurredAtUtc, ActorUserId, TraceId, AuthenticationMethod,
-             ClientId, CenterSessionId, ApplicationSessionId)
+             ClientId, CenterSessionId, ApplicationSessionId, CorrelationJson)
         VALUES
             (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
              @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
              @OccurredAtUtc, @ActorUserId, @TraceId, @AuthenticationMethod,
-             @ClientId, @CenterSessionId, @ApplicationSessionId)
+             @ClientId, @CenterSessionId, @ApplicationSessionId, @CorrelationJson)
         """,
         // ApiKey/Signature 认证在 Host 上下文建立前写入审计，须允许 Global。
         SqlDataScope.Global);

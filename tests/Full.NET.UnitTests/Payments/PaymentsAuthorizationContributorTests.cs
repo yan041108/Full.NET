@@ -6,6 +6,7 @@ using Full.NET.Modules.Payments.Contracts;
 
 namespace Full.NET.UnitTests.Payments;
 
+/// <summary>单元测试（支付）：Payments Authorization Contributor。</summary>
 [TestClass]
 public sealed class PaymentsAuthorizationContributorTests
 {

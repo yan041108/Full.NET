@@ -14,6 +14,7 @@ namespace Full.NET.IntegrationTests.Messaging;
 
 
 
+/// <summary>集成测试：SqlServerCdcShadow。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class SqlServerCdcShadowTests

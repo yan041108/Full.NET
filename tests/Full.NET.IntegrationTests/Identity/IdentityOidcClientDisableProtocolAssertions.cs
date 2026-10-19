@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：停用客户端后协议端点拒绝行为。</summary>
 internal static class IdentityOidcClientDisableProtocolAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5014/signin-oidc-client-disable";

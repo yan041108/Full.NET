@@ -4,6 +4,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexDocxVectorStore。</summary>
 public sealed partial class AiKnowledgeIndexDocxVectorStoreTests
 {
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]

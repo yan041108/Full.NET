@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>单元测试分片：LocalizedProblemDetails。</summary>
 internal static class LocalizedProblemDetailsTests
 {
     private const string TraceId = "4bf92f3577b34da6a3ce929d0e0e4736";

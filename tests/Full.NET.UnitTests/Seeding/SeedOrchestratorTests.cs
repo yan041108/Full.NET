@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Seeding;
 
+/// <summary>单元测试（种子）：Seed Orchestrator。</summary>
 [TestClass]
 public sealed class SeedOrchestratorTests
 {

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Provider Endpoint Policy。</summary>
 [TestClass]
 public sealed class AiProviderEndpointPolicyTests
 {

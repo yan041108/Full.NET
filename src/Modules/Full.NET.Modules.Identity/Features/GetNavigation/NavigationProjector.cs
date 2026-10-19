@@ -1,3 +1,4 @@
+// 导航菜单投影；将权限过滤后的菜单树映射为 API 契约。
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 

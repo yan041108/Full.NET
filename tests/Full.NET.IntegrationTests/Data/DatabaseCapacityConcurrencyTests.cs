@@ -10,6 +10,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Data;
 
+/// <summary>集成测试：DatabaseCapacityConcurrency。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class DatabaseCapacityConcurrencyTests

@@ -2,6 +2,7 @@ using System.Text.Json;
 using BenchmarkDotNet.Attributes;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Tenancy.Serialization;
 using Full.NET.Serialization.MemoryPack;
 
@@ -18,10 +19,9 @@ public class SerializationBenchmarks
         true,
         1);
 
-    private readonly TenantProvisionedIntegrationEvent _event = new(
+    private readonly AnnouncementPublishedIntegrationEvent _event = new(
         Guid.Parse("018f3f78-4d7a-7c16-9f0f-8a7ce6d5a001"),
-        "acme",
-        "acme.localhost");
+        "Announcement published");
 
     private readonly IIntegrationEventSerializer _memoryPack =
         new MemoryPackIntegrationEventSerializer();
@@ -43,7 +43,7 @@ public class SerializationBenchmarks
         _memoryPack.Serialize(_event);
 
     [Benchmark]
-    public TenantProvisionedIntegrationEvent MemoryPackDeserialize() =>
-        _memoryPack.Deserialize<TenantProvisionedIntegrationEvent>(
+    public AnnouncementPublishedIntegrationEvent MemoryPackDeserialize() =>
+        _memoryPack.Deserialize<AnnouncementPublishedIntegrationEvent>(
             _memoryPackPayload);
 }

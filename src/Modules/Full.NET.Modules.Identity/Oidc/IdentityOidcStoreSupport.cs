@@ -1,3 +1,4 @@
+// OIDC 存储共享辅助；序列化载荷与 OpenIddict 实体互转。
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -11,6 +12,7 @@ using static OpenIddict.Abstractions.OpenIddictExceptions;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
+/// <summary>OIDC 存储共享辅助；序列化载荷与 OpenIddict 实体互转。</summary>
 internal static class IdentityOidcStoreSupport
 {
     internal const string SessionIdProperty = "fn:session_id";

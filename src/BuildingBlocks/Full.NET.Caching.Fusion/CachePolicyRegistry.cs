@@ -8,10 +8,12 @@ namespace Full.NET.Caching.Fusion;
 public sealed class CachePolicyRegistry : ICachePolicyRegistry
 {
     private readonly IReadOnlyDictionary<string, CacheEntryPolicy> _policies;
+    private readonly TimeSpan _redisOperationTimeout;
 
-    private CachePolicyRegistry(IReadOnlyDictionary<string, CacheEntryPolicy> policies)
+    private CachePolicyRegistry(IReadOnlyDictionary<string, CacheEntryPolicy> policies, TimeSpan redisOperationTimeout)
     {
         _policies = policies;
+        _redisOperationTimeout = redisOperationTimeout;
     }
 
     /// <summary>从已验证的 <see cref="CacheOptions"/> 创建注册表，并合并内置默认条目。</summary>
@@ -36,10 +38,19 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
                     ["Cache:Entries contains an empty entry name."]);
             }
 
-            policies[entryName.Trim()] = BuildPolicy(entryName.Trim(), definition, options);
+            var name = entryName.Trim().ToLowerInvariant();
+            var policy = BuildPolicy(name, definition, options);
+            // 两条权威路径没有 FusionCache 消费者，配置不能伪装为可缓存策略。
+            if ((name.Equals(CacheEntryNames.TenantResolution, StringComparison.OrdinalIgnoreCase)
+                    && policy.ConsistencyClass != CacheConsistencyClass.AuthorityCritical)
+                || (name.Equals(CacheEntryNames.DiagnosticPolicy, StringComparison.OrdinalIgnoreCase)
+                    && policy.ConsistencyClass != CacheConsistencyClass.NotCached))
+                throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                    [$"Cache:Entries:{name} cannot change the authority or local-snapshot access contract."]);
+            policies[name] = policy;
         }
 
-        return new CachePolicyRegistry(policies);
+        return new CachePolicyRegistry(policies, options.RedisOperationTimeout);
     }
 
     /// <inheritdoc />
@@ -88,11 +99,15 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
 
         var options = new FusionCacheEntryOptions
         {
+            Size = 1,
             Duration = policy.L2Duration,
             MemoryCacheDuration = policy.L1Duration,
             JitterMaxDuration = policy.Jitter,
             IsFailSafeEnabled = policy.FailSafeEnabled,
+            DistributedCacheHardTimeout = _redisOperationTimeout,
         };
+        if (policy.FailSafeMaxDuration is { } retention)
+            options.FailSafeMaxDuration = retention;
 
         if (policy.ConsistencyClass == CacheConsistencyClass.SharedL2Only)
         {
@@ -142,33 +157,28 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         return new HybridCacheEntryOptions
         {
             Expiration = l2Duration,
-            LocalCacheExpiration = l1Duration,
+            LocalCacheExpiration = policy.ConsistencyClass == CacheConsistencyClass.SharedL2Only
+                ? TimeSpan.Zero : l1Duration,
+            Flags = policy.ConsistencyClass == CacheConsistencyClass.SharedL2Only
+                ? HybridCacheEntryFlags.DisableLocalCacheRead | HybridCacheEntryFlags.DisableLocalCacheWrite
+                : HybridCacheEntryFlags.None,
         };
     }
 
 
     private static CacheEntryPolicy CreateDefaultDiagnosticPolicy(CacheOptions options) =>
-        new(
-            CacheEntryNames.DiagnosticPolicy,
-            OwnerModule: "settings",
-            CacheConsistencyClass.ImportantBusiness,
-            L1Duration: TimeSpan.FromSeconds(30),
-            L2Duration: TimeSpan.FromMinutes(2),
-            Jitter: options.Jitter,
-            NegativeDuration: TimeSpan.FromSeconds(15),
-            FailSafeEnabled: false,
-            RequiresVersionRecheck: false,
-            MaxSerializedBytes: 65_536);
+        new(CacheEntryNames.DiagnosticPolicy, "settings", CacheConsistencyClass.NotCached,
+            TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero, null, false, false, 65_536);
 
     private static CacheEntryPolicy CreateDefaultTenantResolution(CacheOptions options) =>
         new(
             CacheEntryNames.TenantResolution,
             OwnerModule: "tenancy",
-            CacheConsistencyClass.ImportantBusiness,
-            L1Duration: TimeSpan.FromMinutes(5),
-            L2Duration: TimeSpan.FromMinutes(5),
-            Jitter: options.Jitter,
-            NegativeDuration: TimeSpan.FromMinutes(1),
+            CacheConsistencyClass.AuthorityCritical,
+            L1Duration: TimeSpan.Zero,
+            L2Duration: TimeSpan.Zero,
+            Jitter: TimeSpan.Zero,
+            NegativeDuration: null,
             FailSafeEnabled: false,
             RequiresVersionRecheck: false,
             MaxSerializedBytes: 65_536);
@@ -178,8 +188,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             CacheEntryNames.GridPreference,
             OwnerModule: "settings",
             CacheConsistencyClass.DegradableDisplay,
-            L1Duration: TimeSpan.FromMinutes(15),
-            L2Duration: TimeSpan.FromDays(7),
+            L1Duration: TimeSpan.FromMinutes(1),
+            L2Duration: TimeSpan.FromMinutes(15),
             Jitter: options.Jitter,
             NegativeDuration: null,
             FailSafeEnabled: false,
@@ -203,7 +213,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
 
         var consistency = ParseConsistencyClass(entryName, definition.ConsistencyClass);
         var jitter = definition.Jitter < TimeSpan.Zero ? fallback.Jitter : definition.Jitter;
-        if (jitter == TimeSpan.Zero && fallback.Jitter > TimeSpan.Zero
+        if (!definition.HasExplicitJitter && fallback.Jitter > TimeSpan.Zero
             && consistency is CacheConsistencyClass.ImportantBusiness
                 or CacheConsistencyClass.DegradableDisplay
                 or CacheConsistencyClass.SharedL2Only)
@@ -213,13 +223,28 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
 
         ValidateDurations(entryName, consistency, definition);
         ValidateFailSafe(entryName, consistency, definition.FailSafeEnabled);
+        if (definition.FailSafeEnabled && (definition.FailSafeMaxDuration is not { } retention
+            || retention <= TimeSpan.Zero || retention > TimeSpan.FromDays(1)
+            || retention < definition.L1Duration + jitter || retention < definition.L2Duration + jitter
+            || definition.NegativeDuration is not null))
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                [$"Cache:Entries:{entryName}:FailSafeMaxDuration must explicitly cover normal TTL plus jitter within one day; negative caching with Fail-Safe is unsupported."]);
+        }
 
-        if (definition.MaxSerializedBytes <= 0)
+        // 直接权威读取已完成复核；缓存命中路径尚无登记的业务版本协议，不能静默接受此开关。
+        if (definition.RequiresVersionRecheck && consistency is not CacheConsistencyClass.AuthorityCritical and not CacheConsistencyClass.NotCached)
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                [$"Cache:Entries:{entryName}:RequiresVersionRecheck has no registered cached-read protocol."]);
+        }
+
+        if (definition.MaxSerializedBytes is < 1 or > CacheOptions.MaximumDeserializationBytes)
         {
             throw new OptionsValidationException(
                 CacheOptions.SectionName,
                 typeof(CacheOptions),
-                [$"Cache:Entries:{entryName}:MaxSerializedBytes must be greater than zero."]);
+                [$"Cache:Entries:{entryName}:MaxSerializedBytes must be between 1 and 67108864 bytes."]);
         }
 
         return new CacheEntryPolicy(
@@ -232,7 +257,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             definition.NegativeDuration,
             definition.FailSafeEnabled,
             definition.RequiresVersionRecheck,
-            definition.MaxSerializedBytes);
+            definition.MaxSerializedBytes)
+        { FailSafeMaxDuration = definition.FailSafeMaxDuration };
     }
 
     private static void ValidateDurations(
@@ -240,6 +266,12 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         CacheConsistencyClass consistency,
         CacheEntryDefinitionOptions definition)
     {
+        if (definition.NegativeDuration is { } negative && negative <= TimeSpan.Zero)
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                [$"Cache:Entries:{entryName}:NegativeDuration must be greater than zero when specified."]);
+        }
+
         if (consistency is CacheConsistencyClass.AuthorityCritical
             or CacheConsistencyClass.NotCached)
         {
@@ -304,7 +336,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         }
 
         var normalized = raw.Trim();
-        if (Enum.TryParse<CacheConsistencyClass>(normalized, ignoreCase: true, out var parsed))
+        if (Enum.TryParse<CacheConsistencyClass>(normalized, ignoreCase: true, out var parsed)
+            && Enum.IsDefined(parsed))
         {
             return parsed;
         }

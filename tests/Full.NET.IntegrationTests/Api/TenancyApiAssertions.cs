@@ -7,6 +7,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>租户 API：当前租户解析、未知域名与 TenantSummary 契约。</summary>
 internal static class TenancyApiAssertions
 {
     public static async Task VerifyAsync(

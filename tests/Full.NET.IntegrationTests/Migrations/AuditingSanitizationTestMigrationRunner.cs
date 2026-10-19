@@ -5,6 +5,7 @@ using Full.NET.Migrations.DbUp;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试辅助：AuditingSanitizationTestMigrationRunner。</summary>
 internal static class AuditingSanitizationTestMigrationRunner
 {
     public static Task MigrateMySqlThrough031Async(string connectionString)

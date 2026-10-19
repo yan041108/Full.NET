@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Realtime;
 
+/// <summary>单元测试（实时通信）：Signal RRealtime Publisher。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class SignalRRealtimePublisherTests

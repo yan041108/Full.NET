@@ -7,6 +7,7 @@ using Full.NET.Modules.Notifications.Providers.Smtp;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Ding Talk Notification Provider Adapter。</summary>
 [TestClass]
 public sealed class DingTalkNotificationProviderAdapterTests
 {

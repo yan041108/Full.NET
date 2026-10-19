@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+// Agent 工具循环的 AOT 友好 JSON 契约；类型仅用于序列化边界，不对外暴露 HTTP。
 namespace Full.NET.Agents.Runtime;
 
 internal sealed record ToolLoopDeniedPayload(string StatusKey, string ErrorCode);
@@ -26,4 +27,5 @@ internal sealed record AgentSessionSnapshot(List<AgentSessionMessageEntry> Messa
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(long))]
 [JsonSerializable(typeof(double))]
+/// <summary>Agent 工具循环 JSON 源生成上下文；仅用于运行时序列化边界。</summary>
 internal sealed partial class AgentToolLoopJsonSerializerContext : JsonSerializerContext;

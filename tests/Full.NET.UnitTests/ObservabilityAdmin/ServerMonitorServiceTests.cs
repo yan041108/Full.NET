@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.ObservabilityAdmin;
 
+/// <summary>单元测试（可观测管理）：Server Monitor Service。</summary>
 [TestClass]
 public sealed class ServerMonitorServiceTests
 {

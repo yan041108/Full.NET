@@ -3,6 +3,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Host.Worker;
 
+/// <summary>Outbox 保留任务删除行数、失败次数与上次成功时间的指标。</summary>
 internal static class OutboxRetentionTelemetry
 {
     public const string MeterName = "Full.NET.Outbox.Retention";

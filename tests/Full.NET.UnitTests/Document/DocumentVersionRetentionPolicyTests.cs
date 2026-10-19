@@ -2,6 +2,7 @@ using Full.NET.Modules.Document.Domain;
 
 namespace Full.NET.UnitTests.Document;
 
+/// <summary>单元测试（文档）：Document Version Retention Policy。</summary>
 [TestClass]
 public sealed class DocumentVersionRetentionPolicyTests
 {

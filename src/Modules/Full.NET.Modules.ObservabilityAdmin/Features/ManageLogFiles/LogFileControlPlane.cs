@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text;
 using Full.NET.Modules.ObservabilityAdmin.Configuration;
+using Full.NET.Hosting.Observability;
 using Microsoft.Win32.SafeHandles;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -41,37 +42,44 @@ public sealed partial class LogFileControlPlane
         throwOnInvalidBytes: false);
 
     private readonly ObservabilityAdminOptions _options;
-    private readonly string _logRootPath;
+    private readonly string? _logRootPath;
     private readonly Action<string>? _beforeOpenTestHook;
 
     public LogFileControlPlane(
         IOptions<ObservabilityAdminOptions> options,
-        IHostEnvironment environment)
-        : this(options, environment, beforeOpenTestHook: null)
+        IHostEnvironment environment,
+        LoggingOptions loggingOptions)
+        : this(options, environment, loggingOptions, beforeOpenTestHook: null)
     {
     }
 
     internal LogFileControlPlane(
         IOptions<ObservabilityAdminOptions> options,
         IHostEnvironment environment,
+        LoggingOptions loggingOptions,
         Action<string>? beforeOpenTestHook)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(loggingOptions);
         _options = options.Value;
         _beforeOpenTestHook = beforeOpenTestHook;
-        _logRootPath = Path.GetFullPath(
-            Path.IsPathRooted(_options.LogRootPath)
-                ? _options.LogRootPath
-                : Path.Combine(environment.ContentRootPath, _options.LogRootPath));
+        _logRootPath = _options.LogRootPath is { Length: > 0 } root
+            ? Path.GetFullPath(root, environment.ContentRootPath)
+            : loggingOptions.DeliveryMode == LoggingDeliveryMode.Local && loggingOptions.LocalFile.Enabled
+                ? LocalLogFileLayout.ResolveDirectory(loggingOptions.LocalFile.Directory,
+                    environment.ContentRootPath, environment.ApplicationName)
+                : null;
     }
 
     /// <summary>
     /// 枚举日志根目录下的普通日志文件，按最后修改时间倒序返回受 MaximumListFiles 限制的摘要列表；
     /// 每次调用都重新枚举顶层目录，不缓存文件名映射以抵御软链接逃逸。
     /// </summary>
-    public IReadOnlyList<LogFileSummary> List() =>
-        EnumerateCandidates()
+    public LogFileList List(CancellationToken cancellationToken = default)
+    {
+        var scan = EnumerateCandidates(_options.MaximumScanEntries, cancellationToken);
+        var items = scan.Candidates
             .OrderByDescending(candidate => candidate.LastModifiedUtc)
             .ThenBy(candidate => candidate.FileName, StringComparer.OrdinalIgnoreCase)
             .Take(_options.MaximumListFiles)
@@ -81,6 +89,8 @@ public sealed partial class LogFileControlPlane
                 candidate.SizeBytes,
                 candidate.LastModifiedUtc))
             .ToArray();
+        return new LogFileList(items, scan.IsTruncated || scan.Candidates.Count > items.Length, scan.ScannedEntries);
+    }
 
     /// <summary>
     /// 按文件散列标识读取日志文件尾部内容；返回受行数/字节上限约束的尾部片段，
@@ -96,12 +106,33 @@ public sealed partial class LogFileControlPlane
         int? maximumBytes,
         CancellationToken cancellationToken)
     {
-        var opened = ResolveAndOpen(id);
+        var opened = ResolveAndOpen(id, cancellationToken);
         if (opened is null)
         {
             return null;
         }
 
+        return await ReadOpenedTailAsync(opened, maximumLines, maximumBytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>时间线专用有界扫描：至多检查 1000 个目录项、打开十个文件，复用安全句柄而不重复枚举。</summary>
+    internal async Task<IReadOnlyList<LogFileTail>> ReadTimelineTailsAsync(CancellationToken cancellationToken)
+    {
+        var result = new List<LogFileTail>();
+        foreach (var candidate in EnumerateCandidates(Math.Min(1000, _options.MaximumScanEntries), cancellationToken).Candidates
+            .OrderByDescending(file => file.LastModifiedUtc).ThenBy(file => file.FileName, StringComparer.Ordinal).Take(10))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var opened = TryOpen(candidate);
+            if (opened is not null)
+                result.Add(await ReadOpenedTailAsync(opened, 5000, 256 * 1024, cancellationToken).ConfigureAwait(false));
+        }
+        return result;
+    }
+
+    private async Task<LogFileTail> ReadOpenedTailAsync(OpenedLogFile opened, int? maximumLines,
+        int? maximumBytes, CancellationToken cancellationToken)
+    {
         var lineLimit = Math.Clamp(
             maximumLines ?? _options.DefaultTailLines,
             1,
@@ -154,9 +185,9 @@ public sealed partial class LogFileControlPlane
     /// 调用方负责释放返回的流；标识无效或文件非安全普通文件时返回 <see langword="null"/>。
     /// </summary>
     /// <param name="id">由文件名 SHA-256 计算的 64 位十六进制标识。</param>
-    public LogFileDownload? OpenDownload(string id)
+    public LogFileDownload? OpenDownload(string id, CancellationToken cancellationToken = default)
     {
-        var opened = ResolveAndOpen(id);
+        var opened = ResolveAndOpen(id, cancellationToken);
         if (opened is null)
         {
             return null;
@@ -169,71 +200,53 @@ public sealed partial class LogFileControlPlane
             opened.LastModifiedUtc);
     }
 
-    private OpenedLogFile? ResolveAndOpen(string id)
+    private OpenedLogFile? ResolveAndOpen(string id, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(id) || id.Length != 64)
         {
             return null;
         }
 
-        var candidate = EnumerateCandidates().FirstOrDefault(candidate =>
+        var candidate = EnumerateCandidates(_options.MaximumScanEntries, cancellationToken).Candidates.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, id, StringComparison.Ordinal));
         return candidate is null ? null : TryOpen(candidate);
     }
 
-    private IReadOnlyList<LogFileCandidate> EnumerateCandidates()
-    {
-        if (!IsAllowedRootDirectory())
-        {
-            return [];
-        }
+    private sealed record FileScan(IReadOnlyList<LogFileCandidate> Candidates, int ScannedEntries, bool IsTruncated);
 
-        string[] paths;
+    private FileScan EnumerateCandidates(int maximumEntries, CancellationToken cancellationToken)
+    {
+        var candidates = new List<LogFileCandidate>();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_logRootPath is null || !IsAllowedRootDirectory()) return new(candidates, 0, false);
+        var scanned = 0;
+        var incomplete = false;
         try
         {
-            paths = Directory.GetFiles(_logRootPath, "*.log", SearchOption.TopDirectoryOnly);
-        }
-        catch (IOException)
-        {
-            return [];
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return [];
-        }
-
-        var candidates = new List<LogFileCandidate>(Math.Min(paths.Length, _options.MaximumListFiles));
-        foreach (var path in paths)
-        {
-            try
+            // 枚举全部顶层目录项再计数，避免大量非日志文件绕过扫描预算。
+            foreach (var path in Directory.EnumerateFileSystemEntries(_logRootPath).Take(maximumEntries))
             {
-                var file = new FileInfo(path);
-                if ((file.Attributes & FileAttributes.ReparsePoint) != 0
-                    || !string.Equals(
-                        file.DirectoryName,
-                        _logRootPath,
-                        StringComparison.OrdinalIgnoreCase))
+                cancellationToken.ThrowIfCancellationRequested();
+                scanned++;
+                var extension = Path.GetExtension(path);
+                if (!extension.Equals(".log", StringComparison.OrdinalIgnoreCase)
+                    && !LocalLogFileLayout.IsOwnedFileName(Path.GetFileName(path))) continue;
+                try
                 {
-                    continue;
+                    var file = new FileInfo(path);
+                    if ((file.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0
+                        || !string.Equals(file.DirectoryName, _logRootPath, StringComparison.OrdinalIgnoreCase)) continue;
+                    candidates.Add(new LogFileCandidate(CreateId(file.Name), file.Name, file.FullName,
+                        file.Length, file.LastWriteTimeUtc));
                 }
-                candidates.Add(new LogFileCandidate(
-                    CreateId(file.Name),
-                    file.Name,
-                    file.FullName,
-                    file.Length,
-                    file.LastWriteTimeUtc));
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
+                catch (IOException) { /* 轮转期间消失的文件跳过。 */ }
+                catch (UnauthorizedAccessException) { /* 不扩大文件访问权限。 */ }
             }
         }
-
-        return candidates;
+        catch (IOException) { incomplete = true; }
+        catch (UnauthorizedAccessException) { incomplete = true; }
+        // 恰好达到预算也报告不完整，不额外探测下一项以突破扫描上限。
+        return new(candidates, scanned, incomplete || scanned >= maximumEntries);
     }
 
     private OpenedLogFile? TryOpen(LogFileCandidate candidate)
@@ -248,7 +261,7 @@ public sealed partial class LogFileControlPlane
             }
 
             _beforeOpenTestHook?.Invoke(candidate.FullPath);
-            stream = OpenReadWithoutFollowingLinks(candidate.FullPath, _logRootPath);
+            stream = OpenReadWithoutFollowingLinks(candidate.FullPath, _logRootPath!);
             if (stream is null)
             {
                 return null;
@@ -298,7 +311,10 @@ public sealed partial class LogFileControlPlane
     {
         try
         {
+            if (_logRootPath is null) return false;
             var directory = new DirectoryInfo(_logRootPath);
+            for (var ancestor = directory.Parent; ancestor is not null; ancestor = ancestor.Parent)
+                if (ancestor.Exists && (ancestor.Attributes & FileAttributes.ReparsePoint) != 0) return false;
             return directory.Exists
                 && (directory.Attributes & FileAttributes.ReparsePoint) == 0
                 && Directory.ResolveLinkTarget(_logRootPath, returnFinalTarget: false) is null;

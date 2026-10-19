@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Regions;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：RegionsApiSqlServer。</summary>
 [TestClass]
 public sealed class RegionsApiSqlServerTests
 {

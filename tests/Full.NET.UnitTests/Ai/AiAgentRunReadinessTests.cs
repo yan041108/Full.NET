@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Run Readiness。</summary>
 [TestClass]
 public sealed class AiAgentRunReadinessTests
 {

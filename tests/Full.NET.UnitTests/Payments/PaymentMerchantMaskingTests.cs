@@ -2,6 +2,7 @@ using Full.NET.Modules.Payments.Domain;
 
 namespace Full.NET.UnitTests.Payments;
 
+/// <summary>单元测试（支付）：Payment Merchant Masking。</summary>
 [TestClass]
 public sealed class PaymentMerchantMaskingTests
 {

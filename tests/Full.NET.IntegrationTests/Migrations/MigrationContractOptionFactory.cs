@@ -3,6 +3,7 @@ using Full.NET.Migrations.DbUp;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试辅助：MigrationContractOptionFactory。</summary>
 internal static class MigrationContractOptionFactory
 {
     public const string UuidApprovalId = "test-uuid-contract-009";

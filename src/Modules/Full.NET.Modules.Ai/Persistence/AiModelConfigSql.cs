@@ -45,6 +45,27 @@ internal static class AiModelConfigSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>Agent 准入只读当前租户或共享模型，保留禁用状态供调用方返回既有错误；租户由执行器绑定。</summary>
+    public static readonly SqlStatement FindForTenantAgentRun = new(
+        "ai.find_model_for_tenant_agent_run",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_ai_model_config AS config
+        WHERE config.Id = @ModelConfigId
+          AND (config.TenantId = @TenantId OR config.TenantId IS NULL)
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>Host 的 Agent 准入只读 Host 模型；跨租户管理查询不得作为运行模型读取入口。</summary>
+    public static readonly SqlStatement FindForHostAgentRun = new(
+        "ai.find_model_for_host_agent_run",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_ai_model_config AS config
+        WHERE config.Id = @ModelConfigId AND config.TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>租户聊天只能使用本租户配置或明确共享的 Host 配置，身份由执行器绑定。</summary>
     public static readonly SqlStatement FindAvailableForTenantChat = new(
         "ai.find_available_model_for_tenant_chat",

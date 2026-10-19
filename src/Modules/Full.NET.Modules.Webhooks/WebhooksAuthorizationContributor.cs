@@ -1,6 +1,7 @@
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Webhooks.Contracts;
 
+/// <summary>Webhooks 模块授权目录贡献者；向 Identity 注册权限、导航与精确动作。</summary>
 namespace Full.NET.Modules.Webhooks;
 
 internal sealed class WebhooksAuthorizationContributor : IAuthorizationCatalogContributor

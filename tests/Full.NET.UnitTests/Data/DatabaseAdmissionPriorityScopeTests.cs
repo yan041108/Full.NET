@@ -2,6 +2,7 @@ using Full.NET.Data.Dapper;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Database Admission Priority Scope。</summary>
 [TestClass]
 public sealed class DatabaseAdmissionPriorityScopeTests
 {

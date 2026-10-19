@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Node Type Catalog。</summary>
 [TestClass]
 public sealed class WorkflowNodeTypeCatalogTests
 {

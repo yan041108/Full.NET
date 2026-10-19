@@ -612,11 +612,11 @@ internal static class NotificationPlatformSql
         INSERT INTO fn_notifications_delivery_attempt
             (Id, DeliveryId, AttemptNumber, LeaseOwnerKey, LeaseGeneration, LeaseExpiresAtUtc,
              ResultCategoryKey, StatusKey, ProviderMessageId, ErrorCode, ReceiptDigest,
-             StartedAtUtc, FinishedAtUtc)
+             StartedAtUtc, FinishedAtUtc, CorrelationJson)
         VALUES
             (@Id, @DeliveryId, @AttemptNumber, @LeaseOwnerKey, @LeaseGeneration, @LeaseExpiresAtUtc,
              @ResultCategoryKey, @StatusKey, @ProviderMessageId, @ErrorCode, @ReceiptDigest,
-             @StartedAtUtc, @FinishedAtUtc)
+             @StartedAtUtc, @FinishedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -1069,10 +1069,10 @@ internal static class NotificationPlatformSql
         """
         INSERT INTO fn_notifications_domain_audit
             (Id, TenantId, ScopeKey, IntentId, OperationKey, ActorUserId,
-             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc)
+             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc, CorrelationJson)
         VALUES
             (@Id, NULL, 'host', NULL, @OperationKey, @ActorUserId,
-             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc)
+             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.HostOnly);
 
@@ -1081,10 +1081,10 @@ internal static class NotificationPlatformSql
         """
         INSERT INTO fn_notifications_domain_audit
             (Id, TenantId, ScopeKey, IntentId, OperationKey, ActorUserId,
-             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc)
+             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc, CorrelationJson)
         VALUES
             (@Id, @TenantId, 'tenant', NULL, @OperationKey, @ActorUserId,
-             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc)
+             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

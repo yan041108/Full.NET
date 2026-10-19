@@ -4,6 +4,7 @@ using Full.NET.Modules.Messaging.Contracts;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Messaging Authorization Contributor。</summary>
 [TestClass]
 public sealed class MessagingAuthorizationContributorTests
 {

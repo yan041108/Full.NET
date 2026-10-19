@@ -9,6 +9,7 @@ using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>可观测管理 API：诊断策略与日志投递配置只读/变更门禁。</summary>
 internal static class ObservabilityAdminApiAssertions
 {
     private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
@@ -30,15 +31,33 @@ internal static class ObservabilityAdminApiAssertions
         var readToken = await factory.CreateHostAccessTokenAsync(
             ["observability.log_files.read"],
             cancellationToken);
+        using (var deniedStatus = AuthorizedRequest(HttpMethod.Get,
+            "/api/v1/observability/elasticsearch-log-pipeline/health", readToken))
+        using (var response = await client.SendAsync(deniedStatus, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        var statusToken = await factory.CreateHostAccessTokenAsync(["observability.elasticsearch.read"], cancellationToken);
+        using (var statusRequest = AuthorizedRequest(HttpMethod.Get,
+            "/api/v1/observability/elasticsearch-log-pipeline/health", statusToken))
+        using (var response = await client.SendAsync(statusRequest, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            using var statusPayload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual("configuration-only", statusPayload.RootElement.GetProperty("deliveryConfirmationBoundary").GetString());
+            Assert.IsFalse(statusPayload.RootElement.GetProperty("elasticsearchQueryEnabled").GetBoolean());
+            Assert.IsFalse(statusPayload.RootElement.TryGetProperty("isSinkRegistered", out _));
+            Assert.IsFalse(statusPayload.RootElement.TryGetProperty("clusterStatus", out _));
+        }
         using var listRequest = AuthorizedRequest(
             HttpMethod.Get,
             "/api/v1/observability/log-files",
             readToken);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
-        var files = await listResponse.Content.ReadFromJsonAsync<LogFileSummary[]>(
+        var listing = await listResponse.Content.ReadFromJsonAsync<LogFileList>(
             cancellationToken);
-        Assert.IsNotNull(files);
+        Assert.IsNotNull(listing);
+        Assert.IsFalse(listing.IsTruncated);
+        var files = listing.Items;
         Assert.HasCount(1, files);
         Assert.AreEqual("api.log", files[0].FileName);
         Assert.AreEqual(64, files[0].Id.Length);
@@ -145,7 +164,9 @@ internal static class ObservabilityAdminApiAssertions
         Assert.IsNotNull(policies);
         Assert.IsGreaterThan(0, policies.Length);
         var tenantPolicy = policies.Single(policy => policy.EntryName == CacheEntryNames.TenantResolution);
-        Assert.IsTrue(tenantPolicy.CanInvalidate);
+        // 租户解析走权威读取，不能把旧缓存失效能力重新开放给控制面。
+        Assert.IsFalse(tenantPolicy.CanInvalidate);
+        Assert.HasCount(0, tenantPolicy.InvalidationOperations);
         var policyPayload = await policiesResponse.Content.ReadAsStringAsync(cancellationToken);
         Assert.DoesNotContain("RedisConnectionString", policyPayload, StringComparison.OrdinalIgnoreCase);
 
@@ -185,6 +206,10 @@ internal static class ObservabilityAdminApiAssertions
             invalidInvalidateRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, invalidInvalidateResponse.StatusCode);
+        using var cacheInvalidationProblem = JsonDocument.Parse(
+            await invalidInvalidateResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("observability.cache_policies.not_invalidatable",
+            cacheInvalidationProblem.RootElement.GetProperty("code").GetString());
     }
 
     private static HttpRequestMessage AuthorizedRequest(

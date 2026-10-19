@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 
+/// <summary>Tenancy 模块显式 SQL 语句；参数化访问，作用域在声明处标注。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 
 internal static class TenantQuotaSql

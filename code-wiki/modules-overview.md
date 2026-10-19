@@ -58,7 +58,7 @@ Full.NET.Modules.{ModuleName}/
 │   ├── {ModuleName}ErrorResourceSource.cs
 │   ├── {ModuleName}Errors.resx
 │   └── {ModuleName}Errors.en-US.resx
-└── Serialization/                  // 模块专属 JSON/MessagePack 序列化上下文
+└── Serialization/                  // 模块专属 JSON 源生成上下文；可靠事件用 MemoryPack
 ```
 
 ---
@@ -159,7 +159,7 @@ public static class FullNetModuleCatalog
 | **ImportExport** | `ImportExport` | `Full.NET.Modules.ImportExport` | 静态 Schema 目录、模板下载、预校验、批量导入任务（Worker） |
 | **Reporting** | `Reporting` | `Full.NET.Modules.Reporting` | 数据源管理、报表定义、执行、Excel 导出（Worker）、查询端口目录 |
 | **Printing** | `Printing` | `Full.NET.Modules.Printing` | 固定表单 Schema、打印模板版本、浏览器预览、租户绑定 Port |
-| **Ai** | `Ai` | `Full.NET.Modules.Ai` | 模型配置、连通性测试、聊天会话、MCP 远程连接、Agent 运行、审批、委派、预算与配额 |
+| **Ai** | `Ai` | `Full.NET.Modules.Ai` | 模型配置、聊天、MCP、Agent、预算，以及知识库目录、索引、检索问答与引用 |
 | **Payments** | `Payments` | `Full.NET.Modules.Payments` | 微信 Native/支付宝 Page Pay 商户配置、订单、退款、回调、租户订阅履约 |
 | **GoView** | `GoView` | `Full.NET.Modules.GoView` | 大屏项目草稿、发布快照、只读预览 |
 | **K3Cloud** | `K3Cloud` | `Full.NET.Modules.K3Cloud` | 金蝶 K3Cloud ValidateUser 连接配置、销售订单 Save/Submit 同步 |
@@ -173,6 +173,8 @@ public static class FullNetModuleCatalog
 | **Webhooks** | `Webhooks` | `Full.NET.Modules.Webhooks` | Webhook 订阅、事件入队、投递 Worker、HMAC-SHA256 签名 |
 | **Cryptography** | `Cryptography` | `Full.NET.Modules.Cryptography` | 国密 SM2 密钥目录、受控签名、验签 |
 | **EnterpriseRequest**（sample） | `EnterpriseRequest` | `samples/enterprise-request/...` | 跨模块业务请求样板（Identity+Tenancy+Organization+Files+Workflow+ImportExport） |
+
+可靠业务事件的发布与消费不在上表的 `Messaging` 行里。那一行是运维控制面；事务 Outbox、Worker 和 Kafka 试点的使用说明见 [可靠事件交付指南](./reliable-event-delivery.md)。
 
 ### 3.2 存在 Contracts 独立项目的模块
 

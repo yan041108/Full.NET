@@ -1,6 +1,7 @@
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ObservabilityAdmin.Contracts;
 
+/// <summary>ObservabilityAdmin 模块授权目录贡献者；向 Identity 注册权限、导航与精确动作。</summary>
 namespace Full.NET.Modules.ObservabilityAdmin;
 
 internal sealed class ObservabilityAdminAuthorizationContributor
@@ -11,6 +12,7 @@ internal sealed class ObservabilityAdminAuthorizationContributor
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new PermissionDefinition(ObservabilityLogSearchPermissions.Read, "查询集中运行日志摘要", AuthorizationScope.Host),
         new PermissionDefinition(
             ObservabilityLogFilePermissions.Read,
             "读取 Host 日志文件列表与有界尾部内容",
@@ -87,6 +89,8 @@ internal sealed class ObservabilityAdminAuthorizationContributor
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("observability.log_search.read", "observability-elasticsearch-health",
+            ObservabilityLogSearchPermissions.Read, "查询日志摘要", "search", 20),
         new AuthorizationActionDefinition(
             "observability.log_files.download",
             "observability-log-files",

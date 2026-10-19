@@ -80,6 +80,7 @@ using LoginHandler = Full.NET.Modules.Identity.Features.Login.Handler;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Module Registration。</summary>
 [TestClass]
 public sealed class IdentityModuleRegistrationTests
 {

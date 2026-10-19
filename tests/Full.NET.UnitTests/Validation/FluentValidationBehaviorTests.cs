@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Validation;
 
+/// <summary>单元测试（Validation）：Fluent Validation Behavior。</summary>
 [TestClass]
 public sealed class FluentValidationBehaviorTests
 {

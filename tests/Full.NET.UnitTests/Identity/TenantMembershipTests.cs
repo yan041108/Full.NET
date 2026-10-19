@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Tenant Membership。</summary>
 [TestClass]
 public sealed class TenantMembershipTests
 {

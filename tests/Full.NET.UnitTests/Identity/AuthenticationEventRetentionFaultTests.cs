@@ -7,6 +7,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Authentication Event Retention Fault。</summary>
 [TestClass]
 public sealed class AuthenticationEventRetentionFaultTests
 {

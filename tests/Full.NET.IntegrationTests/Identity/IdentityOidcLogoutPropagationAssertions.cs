@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：登出传播与 Backplane 协同。</summary>
 internal static class IdentityOidcLogoutPropagationAssertions
 {
     public static async Task VerifyAsync(

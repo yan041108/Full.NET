@@ -5,6 +5,7 @@ using Full.NET.Modules.Workflow.Serialization;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Form Compiler。</summary>
 [TestClass]
 public sealed class WorkflowFormCompilerTests
 {

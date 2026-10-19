@@ -25,6 +25,7 @@ internal sealed class DiagnosticPolicyAuditWriter(
         var affectedRows = await commandExecutor.ExecuteAsync(
                 DiagnosticPolicyAuditSql.Insert,
                 SettingsSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("TenantId", auditWrite.TenantId),
                     ("ActionKey", auditWrite.ActionKey),

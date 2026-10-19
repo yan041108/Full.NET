@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：账户锁定、解锁与协议可见性。</summary>
 internal static class IdentityOidcAccountLockoutAssertions
 {
     private const int LockoutThreshold = 5;

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：后台会话绑定与 Worker 上下文。</summary>
 internal static class IdentityOidcContextSwitchBackgroundBindingAssertions
 {
     public static async Task VerifyAsync(

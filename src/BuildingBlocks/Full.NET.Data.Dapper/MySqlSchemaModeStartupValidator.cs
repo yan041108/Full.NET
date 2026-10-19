@@ -6,6 +6,9 @@ using MySqlConnector;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>
+/// 启动期探测 MySQL 是否已按 Full.NET 约定建表；未迁移时失败 fast，避免运行时才暴露缺表。
+/// </summary>
 internal sealed class MySqlSchemaModeStartupValidator(
     IOptions<DatabaseOptions> databaseOptions) : IHostedService
 {

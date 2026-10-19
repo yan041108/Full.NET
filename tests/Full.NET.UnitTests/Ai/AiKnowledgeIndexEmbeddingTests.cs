@@ -9,6 +9,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Modules.Ai.Knowledge;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Security;
@@ -339,6 +340,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
         internal AiModelConfigRecord Model;
         internal readonly TestGenerator Generator = new();
         internal readonly TestFactory Factory;
+        internal readonly AiBackgroundLogCorrelation Correlation = new();
         internal TestStream? OpenedStream;
         internal Action? AfterOpen;
         internal Func<Task>? BeforeSessionRead;
@@ -367,7 +369,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
             var tasks = new AiKnowledgeIndexTaskStore(Query, Command, tenant, Clock, ids);
             var batches = new AiKnowledgeIndexBatchStore(Query, Command, tasks, ids);
             var sessions = new AiKnowledgeIndexSessionService(Query, Command, Substitute.For<ICommandTransaction>(), Transactions, tenant, Clock, ids, tasks, Authorization);
-            service = new(Query, tenant, Transactions, tasks, sessions, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope);
+            service = new(Query, tenant, Transactions, tasks, sessions, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope, Correlation);
             Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call => Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(async _ =>
             {

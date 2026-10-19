@@ -1,5 +1,7 @@
+// 架构测试共享：解析仓库根路径与常用源码目录。
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试共享：解析仓库根路径与常用源码目录。</summary>
 internal static class ArchitectureRepositoryRoot
 {
     public static string Find()

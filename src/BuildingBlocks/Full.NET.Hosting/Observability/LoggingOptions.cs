@@ -11,14 +11,17 @@ public sealed class LoggingOptions
     public const string SectionName = "FullNet:Logging";
 
     /// <summary>
-    /// 显式投递入口；为空时保留旧 Console/Elasticsearch 配置的兼容行为。
+    /// 投递入口，默认 Collector 输出结构化控制台快照；配置事实不证明外部采集器存在。
     /// </summary>
-    public LoggingDeliveryMode? DeliveryMode { get; set; }
+    public LoggingDeliveryMode DeliveryMode { get; set; } = LoggingDeliveryMode.Collector;
 
     /// <summary>
     /// 部署清单注入的预期入口；与显式模式不一致时拒绝启动，不代表已验证平台采集器。
     /// </summary>
-    public LoggingDeliveryMode? ExpectedDeliveryMode { get; set; }
+    public LoggingDeliveryMode ExpectedDeliveryMode { get; set; } = LoggingDeliveryMode.Collector;
+
+    /// <summary>仅显式 Local 使用的本地结构化 txt 文件存储；默认关闭。</summary>
+    public LocalFileLoggingOptions LocalFile { get; set; } = new();
 
     /// <summary>
     /// 获取或设置普通日志通道容量。

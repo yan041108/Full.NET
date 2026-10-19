@@ -3,6 +3,7 @@ using Full.NET.Modules.SerialNumbers.Domain;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Number Pattern。</summary>
 [TestClass]
 public sealed class SerialNumberPatternTests
 {

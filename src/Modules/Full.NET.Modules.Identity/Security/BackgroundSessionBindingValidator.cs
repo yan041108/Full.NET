@@ -7,11 +7,12 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Security;
 
-/// <summary>与交互 JWT 校验共用会话表权威状态，不把 ClaimsPrincipal 持久化到运行记录。</summary>
+/// <summary>后台绑定分别重查会话与租户活动的权威状态，不把 ClaimsPrincipal 持久化或作为长期授权。</summary>
 internal sealed class BackgroundSessionBindingValidator(
     IQueryExecutor queryExecutor,
     IClock clock,
-    IOptions<IdentityOptions> identityOptions)
+    IOptions<IdentityOptions> identityOptions,
+    IIdentityActiveTenantDirectory activeTenants)
     : IBackgroundSessionBindingValidator
 {
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
@@ -19,6 +20,7 @@ internal sealed class BackgroundSessionBindingValidator(
     public async Task<bool> IsValidAsync(SessionBindingSnapshot binding, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(binding);
+        cancellationToken.ThrowIfCancellationRequested();
         if (binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty
             || string.IsNullOrWhiteSpace(binding.SecurityStamp)
             || string.IsNullOrWhiteSpace(binding.ActorScope)
@@ -29,7 +31,10 @@ internal sealed class BackgroundSessionBindingValidator(
 
         if (string.Equals(binding.SessionKind, SessionBindingKinds.OidcApplication, StringComparison.Ordinal))
         {
-            return await ValidateOidcApplicationBindingAsync(binding, cancellationToken)
+            var sessionValid = await ValidateOidcApplicationBindingAsync(binding, cancellationToken)
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return sessionValid && await ValidateTenantActivityAsync(binding.TenantId, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -56,7 +61,31 @@ internal sealed class BackgroundSessionBindingValidator(
             return false;
         }
 
-        return ValidateRefreshBinding(record, binding);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValidateRefreshBinding(record, binding)
+            && await ValidateTenantActivityAsync(binding.TenantId, cancellationToken).ConfigureAwait(false);
+    }
+
+    // 会话与租户启停属于不同权威事实；后台不能沿用领取运行时的租户快照或依赖缓存通知。
+    private async Task<bool> ValidateTenantActivityAsync(Guid? tenantId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (tenantId is not { } id) return true;
+        try
+        {
+            var active = await activeTenants.IsActiveTenantAsync(id, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return active;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 与会话表读取保持一致：权威结果未知时拒绝绑定，不退回先前活动状态。
+            return false;
+        }
     }
 
     private async Task<bool> ValidateOidcApplicationBindingAsync(

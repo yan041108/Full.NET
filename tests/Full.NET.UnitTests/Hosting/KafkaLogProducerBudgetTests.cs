@@ -2,6 +2,7 @@ using Full.NET.Logging.Kafka;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Kafka Log Producer Budget。</summary>
 [TestClass]
 public sealed class KafkaLogProducerBudgetTests
 {

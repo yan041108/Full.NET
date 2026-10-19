@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+/// <summary>Tenancy 模块后台循环任务；停机时遵守宿主取消令牌。</summary>
 namespace Full.NET.Modules.Tenancy;
 
 internal sealed class TenancySaasDefaultsBootstrapHostedService(

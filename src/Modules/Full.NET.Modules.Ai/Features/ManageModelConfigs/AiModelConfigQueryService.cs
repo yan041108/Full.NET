@@ -32,6 +32,19 @@ internal sealed class AiModelConfigQueryService(
         return Result<AiModelConfigResponse>.Success(AiModelConfigMapper.MapDetail(row));
     }
 
+    /// <summary>按可信运行上下文读取模型，避免租户调用 Host 管理查询或跨租户使用模型。</summary>
+    /// <param name="modelConfigId">请求选择的模型。</param>
+    /// <param name="isTenant">调用方可信上下文是否为租户；具体租户标识仍由执行器绑定。</param>
+    /// <param name="cancellationToken">当前操作的取消令牌。</param>
+    internal async Task<Result<AiModelConfigResponse>> GetForAgentRuntimeAsync(
+        Guid modelConfigId, bool isTenant, CancellationToken cancellationToken = default)
+    {
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<AiModelConfigRecord>(
+            isTenant ? AiModelConfigSql.FindForTenantAgentRun : AiModelConfigSql.FindForHostAgentRun,
+            AiSqlParameters.Create(("ModelConfigId", modelConfigId)), cancellationToken).ConfigureAwait(false);
+        return row is null ? NotFoundDetail() : Result<AiModelConfigResponse>.Success(AiModelConfigMapper.MapDetail(row));
+    }
+
     /// <summary>分页查询模型配置列表（脱敏）。</summary>
     /// <param name="page">页码，从 1 开始。</param>
     /// <param name="pageSize">每页条数。</param>

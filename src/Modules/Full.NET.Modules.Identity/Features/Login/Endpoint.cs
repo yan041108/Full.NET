@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>认证会话 Login API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.Login;
 
 internal static class Endpoint

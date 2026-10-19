@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Jobs Backlog Reader。</summary>
 [TestClass]
 public sealed class JobsBacklogReaderTests
 {

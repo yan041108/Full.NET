@@ -13,4 +13,5 @@ namespace Full.NET.Modules.K3Cloud.Serialization;
 [JsonSerializable(typeof(K3CloudDocumentSyncResponse))]
 [JsonSerializable(typeof(CreateK3CloudDocumentSyncRequest))]
 [JsonSerializable(typeof(PagedResult<K3CloudDocumentSyncResponse>))]
+/// <summary>K3Cloud 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class K3CloudJsonSerializerContext : JsonSerializerContext;

@@ -1,3 +1,4 @@
+// 会话上下文切换服务；在租户边界内轮换声明与会话状态。
 using System.Security.Claims;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;

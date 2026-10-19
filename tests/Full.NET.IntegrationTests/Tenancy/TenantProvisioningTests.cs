@@ -33,6 +33,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Tenancy;
 
+/// <summary>集成测试：TenantProvisioning。</summary>
 [TestClass]
 public sealed class TenantProvisioningTests
 {

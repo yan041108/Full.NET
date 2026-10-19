@@ -1,7 +1,9 @@
+// 架构扫描器：跨模块外键与跨 owner 表引用检测。
 using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：跨模块外键与跨 owner 表引用检测。</summary>
 internal static partial class ModuleBoundaryDebtScanner
 {
     public static CrossModuleForeignKey[] ScanCrossModuleForeignKeys(string root)

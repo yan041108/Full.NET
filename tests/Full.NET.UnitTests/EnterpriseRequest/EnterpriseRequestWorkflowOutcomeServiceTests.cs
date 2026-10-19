@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.EnterpriseRequest;
 
+/// <summary>单元测试（EnterpriseRequest）：Enterprise Request Workflow Outcome Service。</summary>
 [TestClass]
 public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
 {

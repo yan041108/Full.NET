@@ -17,6 +17,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Index Reconciliation Service。</summary>
 [TestClass]
 public sealed class AiKnowledgeIndexReconciliationServiceTests
 {

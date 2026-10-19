@@ -2,6 +2,7 @@ using Full.NET.Seeding.Abstractions;
 
 namespace Full.NET.UnitTests.Seeding;
 
+/// <summary>单元测试（种子）：Seed Profile。</summary>
 [TestClass]
 public sealed class SeedProfileTests
 {

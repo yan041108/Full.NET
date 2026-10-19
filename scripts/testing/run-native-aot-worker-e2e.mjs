@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { testOutputDirectory } from './test-output-directory.mjs';
 /** 运行 Worker Native AOT 双库一次性外部进程 E2E。 */
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -46,7 +47,7 @@ let expectedUids;
   console.log(`Worker Native AOT E2E 发现门禁：${count} 项。`);
 }
 
-const resultsDirectory = path.join(repositoryRoot, 'artifacts/native-aot/worker/linux-x64/test-results');
+const resultsDirectory = testOutputDirectory(repositoryRoot, 'native-aot/worker/linux-x64/test-results');
 const policy = process.platform === 'linux'
   ? ['--minimum-expected-tests', String(gate.minimum)]
   : ['--zero-tests-policy', 'allow-skipped'];

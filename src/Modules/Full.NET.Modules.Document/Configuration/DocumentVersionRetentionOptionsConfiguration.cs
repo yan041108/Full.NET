@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
+/// <summary>将配置节绑定到强类型 Options。</summary>
 namespace Full.NET.Modules.Document.Configuration;
 
 internal sealed class DocumentVersionRetentionOptionsPostConfigurer(

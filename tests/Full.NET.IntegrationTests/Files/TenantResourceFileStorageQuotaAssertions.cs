@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Files;
 
+/// <summary>租户资源文件：存储配额与 Files 模块联动。</summary>
 internal static class TenantResourceFileStorageQuotaAssertions
 {
     public static async Task VerifyUploadBlockedWhenStorageQuotaExhaustedAsync(

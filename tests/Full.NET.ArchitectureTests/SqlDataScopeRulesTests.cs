@@ -5,6 +5,7 @@ using Full.NET.Data.Dapper;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：SqlDataScopeRules 约束与回归门禁。</summary>
 [TestClass]
 public sealed class SqlDataScopeRulesTests
 {

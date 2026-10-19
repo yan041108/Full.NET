@@ -3,6 +3,7 @@ using Full.NET.Benchmarks.Kafka;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Kafka Capacity Measurement。</summary>
 [TestClass]
 public sealed class KafkaCapacityMeasurementTests
 {

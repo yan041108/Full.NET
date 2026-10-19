@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace Full.NET.Messaging.Abstractions;
 
 /// <summary>
-/// SHA-256 payload digest for shadow comparison; same algorithm as Inbox.
+/// Shadow 比对用的载荷 SHA-256 摘要；算法与 Inbox 端 PayloadHash 一致，禁止另起哈希实现。
 /// </summary>
 public static class IntegrationEventPayloadHash
 {
@@ -21,7 +21,7 @@ public static class IntegrationEventPayloadHash
 }
 
 /// <summary>
-/// Shadow comparison fingerprint without broker position metadata.
+/// Shadow 比对指纹；只包含 Outbox 权威字段，不含 Broker 位点元数据。
 /// </summary>
 public sealed class ShadowEventFingerprint
 {
@@ -115,7 +115,7 @@ public sealed class ShadowEventFingerprint
 }
 
 /// <summary>
-/// Monotonic CDC or shadow-consumer source position within a provider stream.
+/// Provider 流内的单调 CDC/Shadow 消费位点；用于检测回退与推进游标。
 /// </summary>
 public readonly struct ShadowSourcePosition
     : IComparable<ShadowSourcePosition>, IEquatable<ShadowSourcePosition>
@@ -221,7 +221,7 @@ public enum ShadowComparisonOutcome
 }
 
 /// <summary>
-/// Shadow comparison evidence; never invokes business handlers.
+/// Shadow 比对证据载体；只分类差异，绝不调用业务 Handler 或写入 Inbox。
 /// </summary>
 public sealed class ShadowEventComparisonResult
 {
@@ -349,7 +349,7 @@ public sealed class ShadowEventComparisonResult
 }
 
 /// <summary>
-/// Compares authoritative outbox fingerprints with shadow topic observations.
+/// 将权威 Outbox 指纹与 Shadow Topic 观测逐字段比对；纯函数，无副作用。
 /// </summary>
 public sealed class ShadowEventComparator
 {

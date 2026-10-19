@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Api Key Authentication Service。</summary>
 [TestClass]
 public sealed class ApiKeyAuthenticationServiceTests
 {

@@ -3,13 +3,40 @@ using Full.NET.Caching.Fusion;
 using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Events;
+using Full.NET.Caching.Abstractions;
 
 namespace Full.NET.UnitTests.Caching;
 
+/// <summary>单元测试（缓存）：Cache Reliability Telemetry。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class CacheReliabilityTelemetryTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Unified_invalidator_records_each_attempt_once_and_preserves_failure(bool fail)
+    {
+        using var capture = new MetricCapture();
+        var cache = Substitute.For<IFusionCache>();
+        var original = new InvalidOperationException("fixture");
+        cache.RemoveAsync(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => fail ? ValueTask.FromException(original) : ValueTask.CompletedTask);
+        var invalidator = new FusionCacheInvalidator(cache, CachePolicyRegistry.Create(new CacheOptions()));
+        Exception? observed = null;
+        try { await invalidator.RemoveAsync(CacheEntryNames.GridPreference, "private-key",
+            CacheInvalidationScope.CurrentNodeOnly); }
+        catch (Exception exception) { observed = exception; }
+        Assert.AreSame(fail ? original : null, observed);
+        var durations = capture.DoubleMeasurements.Where(item => item.Name == "fullnet.cache.invalidation.duration").ToArray();
+        Assert.HasCount(1, durations);
+        AssertBoundedTags(durations[0].Tags, "local", fail ? "failure" : "success");
+        Assert.HasCount(fail ? 1 : 0, capture.LongMeasurements.Where(item => item.Name == "fullnet.cache.invalidation.failures").ToArray());
+        var events = capture.LongMeasurements.Where(item => item.Name == "fullnet.cache.policy.events").ToArray();
+        Assert.HasCount(1, events);
+        Assert.IsFalse(events[0].Tags.Any(tag => Equals(tag.Value, "private-key")));
+    }
+
     [TestMethod]
     public void Invalidation_metrics_use_only_bounded_scope_and_outcome_tags()
     {
@@ -197,6 +224,50 @@ public sealed class CacheReliabilityTelemetryTests
         Assert.HasCount(1, recoveries);
         Assert.AreEqual(1L, recoveries[0].Value);
         Assert.HasCount(0, recoveries[0].Tags);
+    }
+
+    [TestMethod]
+    public async Task Real_sdk_monitor_lifecycle_reports_observation_and_unsubscribes_idempotently()
+    {
+        using var capture = new MetricCapture();
+        using var cache = new FusionCache(new FusionCacheOptions { EnableSyncEventHandlersExecution = true });
+        var observation = new CacheRuntimeObservationState();
+        var monitor = new FusionCacheReliabilityMonitor(cache, observation);
+        Assert.AreEqual("unknown", observation.Status);
+        await monitor.StartAsync(CancellationToken.None);
+        await monitor.StartAsync(CancellationToken.None);
+        Assert.AreEqual("observing", observation.Status);
+        await cache.GetOrSetAsync("private-runtime-key", _ => Task.FromResult("value"));
+        await cache.GetOrSetAsync("private-runtime-key", _ => Task.FromResult("unexpected"));
+        var events = capture.LongMeasurements.Where(item => item.Name == "fullnet.cache.runtime.events").ToArray();
+        Assert.HasCount(1, events.Where(item => item.Tags.Any(tag => Equals(tag.Value, "foreground"))).ToArray());
+        Assert.IsTrue(events.Any(item => item.Tags.Any(tag => Equals(tag.Value, "fresh"))));
+        Assert.IsTrue(events.All(item => item.Tags.Select(tag => tag.Key).Order().SequenceEqual(new[] { "layer", "operation", "result" })));
+        Assert.IsFalse(events.Any(item => item.Tags.Any(tag => Equals(tag.Value, "private-runtime-key"))));
+        await monitor.StopAsync(CancellationToken.None);
+        await monitor.StopAsync(CancellationToken.None);
+        Assert.AreEqual("unknown", observation.Status);
+        var count = capture.LongMeasurements.Count;
+        await cache.GetOrSetAsync("after-stop", _ => Task.FromResult("fresh"));
+        Assert.AreEqual(count, capture.LongMeasurements.Count);
+    }
+
+    [TestMethod]
+    public void Batch_and_runtime_metrics_cannot_replace_business_results_when_listener_throws()
+    {
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, active) =>
+            {
+                if (instrument.Meter.Name == CacheReliabilityTelemetry.MeterName) active.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, _, _) => throw new InvalidOperationException("consumer"));
+        listener.SetMeasurementEventCallback<double>((_, _, _, _) => throw new InvalidOperationException("consumer"));
+        listener.Start();
+        CacheReliabilityTelemetry.RecordRuntimeEvent("l1", "hit", "fresh");
+        CacheReliabilityTelemetry.RecordInvalidationBatch(TimeSpan.FromMilliseconds(1), 2, 1, true);
+        CacheReliabilityTelemetry.RecordInvalidationBatchRejection("capacity");
     }
 
     private static void AssertBoundedTags(

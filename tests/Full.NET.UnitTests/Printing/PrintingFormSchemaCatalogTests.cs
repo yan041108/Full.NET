@@ -3,6 +3,7 @@ using Full.NET.Modules.Printing.Domain;
 
 namespace Full.NET.UnitTests.Printing;
 
+/// <summary>单元测试（打印）：Printing Form Schema Catalog。</summary>
 [TestClass]
 public sealed class PrintingFormSchemaCatalogTests
 {

@@ -1,3 +1,4 @@
+// 架构扫描器：跨模块本地事务与不当事务边界检测。
 using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;

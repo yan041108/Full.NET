@@ -826,11 +826,20 @@ export interface CachePolicySummary {
   readonly canInvalidate: boolean;
   readonly consistencyClass: string;
   readonly entryName: string;
+  readonly failSafeEnabled: boolean;
+  readonly failSafeMaxDurationSeconds: null | number | string;
   readonly invalidationOperations: Array<CacheInvalidationOperationSummary>;
+  readonly jitterSeconds: null | number | string;
   readonly l1DurationSeconds: null | number;
   readonly l2DurationSeconds: null | number;
+  readonly maxSerializedBytes: null | number;
+  readonly negativeDurationSeconds: null | number | string;
   readonly ownerModule: string;
   readonly requiresDirectInvalidation: boolean;
+  readonly requiresVersionRecheck: boolean;
+  readonly runtimeStatus: string;
+  readonly snapshotAgeSeconds: null | number | string;
+  readonly snapshotMaxAgeSeconds: null | number | string;
 }
 
 export interface CancelDataApprovalRequestBody {
@@ -2807,6 +2816,12 @@ export interface K3CloudDocumentSyncResponse {
 export interface LocalePreferenceResponse {
   readonly preferredLocale: string;
   readonly profileVersion: number;
+}
+
+export interface LogFileList {
+  readonly isTruncated: boolean;
+  readonly items: Array<LogFileSummary>;
+  readonly scannedEntries: number;
 }
 
 export interface LogFileSummary {

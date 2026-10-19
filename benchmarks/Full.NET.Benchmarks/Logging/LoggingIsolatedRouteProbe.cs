@@ -9,8 +9,12 @@ public static class LoggingIsolatedRouteProbe
 {
     public static async Task RunAsync(string[] args)
     {
-        if (args.Length != 3 || args[1] != "--output" || args[0] is not ("Collector" or "ApplicationKafka"))
-            throw new ArgumentException("用法：logging-route-case <Collector|ApplicationKafka> --output <目录>");
+        if (args.Length is not (3 or 5) || args[1] != "--output" || args[0] is not ("Collector" or "ApplicationKafka")
+            || args.Length == 5 && args[3] != "--capacity-rate")
+            throw new ArgumentException("用法：logging-route-case <Collector|ApplicationKafka> --output <目录> [--capacity-rate <500|1000>]");
+        int? capacityRate = args.Length == 5
+            ? int.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : null;
+        if (capacityRate is { } rate) _ = LoggingRequestLoadProfile.Capacity(rate);
         var route = args[0];
         var directory = Path.GetFullPath(args[2]);
         Directory.CreateDirectory(directory);
@@ -41,7 +45,7 @@ public static class LoggingIsolatedRouteProbe
                     endUtc = DateTimeOffset.UtcNow;
                     Console.Error.WriteLine("FULLNET_MEASUREMENT_END " + endUtc.ToString("O"));
                 }
-            }, deadline.Token);
+            }, deadline.Token, capacityRate);
         await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
         {
             measurementOnly = true, requestProcessId = Environment.ProcessId, route,

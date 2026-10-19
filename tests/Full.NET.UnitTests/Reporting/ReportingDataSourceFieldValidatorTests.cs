@@ -2,6 +2,7 @@ using Full.NET.Modules.Reporting.Domain;
 
 namespace Full.NET.UnitTests.Reporting;
 
+/// <summary>单元测试（报表）：Reporting Data Source Field Validator。</summary>
 [TestClass]
 public sealed class ReportingDataSourceFieldValidatorTests
 {

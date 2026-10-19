@@ -234,13 +234,13 @@ internal sealed class WorkflowInstanceManagementService(
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("CommentSummary", null), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-                    Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                    Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("StepId", firstStepId), ("TransitionKey", "instance.start"),
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-                    Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                    Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                         ("OperationKey", "instance.start"), ("ActorUserId", actorUserId),
                         ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
@@ -653,13 +653,13 @@ internal sealed class WorkflowInstanceManagementService(
                 ("CommentSummary", normalizedReason), ("CreatedAtUtc", now)),
             token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                 ("StepId", activeWork.StepId), ("TransitionKey", transitionKey),
                 ("FromStatusKey", requiredStatus), ("ToStatusKey", nextStatus),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                 ("OperationKey", transitionKey), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
@@ -861,13 +861,13 @@ internal sealed class WorkflowInstanceManagementService(
                 ("CommentSummary", NormalizeReason(request.Reason)), ("CreatedAtUtc", now)),
             token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                 ("StepId", activeWork.StepId), ("TransitionKey", "instance.cancel"),
                 ("FromStatusKey", "active"), ("ToStatusKey", "cancelled"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                 ("OperationKey", "instance.cancel"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),

@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-18T16:36:02.515Z",
+  "pid": 59144,
+  "birth": "134368145243952247",
+  "actualParentExit": 0,
+  "jobFinalActiveProcesses": 0,
+  "sourceHash": "7508654a2c7e1eeab620e64e7f96efb75f57ed976887c0ec867890e0b0b38013",
+  "browserAccepted": "C:/Users/Administrator/AppData/Local/Temp/fullnet-cache-integration-402-f4b1ecf3e28f/browser-live/accepted-browser.json",
+  "componentAccepted": "C:/Users/Administrator/AppData/Local/Temp/fullnet-cache-integration-402-f4b1ecf3e28f/browser-live/worksets/summary.json",
+  "ownedSessions": [
+    {
+      "provider": "SqlServer",
+      "session": "a47a21c1-c932-4d86-88ea-47b7139041fd",
+      "remaining": 0
+    },
+    {
+      "provider": "MySql",
+      "session": "9831cf1c-ff20-4ba1-aab3-a4f67da70269",
+      "remaining": 0
+    }
+  ],
+  "ownedLocks": 0,
+  "physicalReturnConfirmed": true,
+  "unrelatedResourcesUntouched": true
+}

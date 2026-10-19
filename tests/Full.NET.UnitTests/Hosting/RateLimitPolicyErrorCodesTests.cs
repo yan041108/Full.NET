@@ -3,6 +3,7 @@ using Full.NET.Hosting.RateLimiting;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Rate Limit Policy Error Codes。</summary>
 [TestClass]
 public sealed class RateLimitPolicyErrorCodesTests
 {

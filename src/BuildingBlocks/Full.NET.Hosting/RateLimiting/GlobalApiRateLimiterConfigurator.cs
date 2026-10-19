@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Hosting.RateLimiting;
 
+/// <summary>按认证主体分区全局限流；未启用或限额为 0 时不注册 GlobalLimiter。</summary>
 internal sealed class GlobalApiRateLimiterConfigurator(
     IOptions<RateLimitingOptions> options) : IConfigureOptions<RateLimiterOptions>
 {

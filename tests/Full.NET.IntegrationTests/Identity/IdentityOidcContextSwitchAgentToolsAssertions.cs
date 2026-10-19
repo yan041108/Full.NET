@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：Agent 工具调用与 OIDC 作用域。</summary>
 internal static class IdentityOidcContextSwitchAgentToolsAssertions
 {
     public static async Task VerifyAsync(

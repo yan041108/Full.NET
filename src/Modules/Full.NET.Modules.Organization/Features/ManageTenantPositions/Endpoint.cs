@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>TenantPositions管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Organization.Features.ManageTenantPositions;
 
 internal static class Endpoint

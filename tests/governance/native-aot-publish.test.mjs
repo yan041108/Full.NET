@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { apiNativeAotPublishContract } from '../../scripts/testing/api-native-aot-publish-contract.mjs';
 
 const repositoryRoot = path.resolve(
@@ -12,6 +15,69 @@ const repositoryRoot = path.resolve(
 
 async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
+}
+
+const execute = promisify(execFile);
+
+/** 只复制入口脚本与配置到有限夹具；模拟外部 SDK，验证真实入口选择的结果目录及 TRX 参数。 */
+async function assertNativeResultDestination(runner, gateKey, gate, trxName) {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  for (const ci of [false, true]) {
+    const root = await mkdtemp(path.join(tmpdir(), 'fullnet-native-output-contract-'));
+    try {
+      const fixture = path.join(root, 'repo');
+      const scratch = path.join(root, 'temp');
+      const scripts = path.join(fixture, 'scripts/testing');
+      await mkdir(scripts, { recursive: true });
+      await mkdir(path.join(fixture, 'eng/testing'), { recursive: true });
+      await mkdir(scratch);
+      await writeFile(path.join(scripts, 'entry.mjs'), runner);
+      await writeFile(path.join(scripts, 'test-output-directory.mjs'), await read('scripts/testing/test-output-directory.mjs'));
+      await writeFile(path.join(fixture, 'eng/testing/test-matrix.json'), JSON.stringify({
+        integration: { assembly: matrix.integration.assembly }, [gateKey]: gate,
+      }));
+      const capture = path.join(root, 'commands.jsonl');
+      const preload = path.join(root, 'sdk-boundary.mjs');
+      await writeFile(preload, `
+import childProcess from 'node:child_process';
+import { appendFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+childProcess.spawnSync = (command, args) => {
+  appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ command, args }) + '\\n');
+  if (command !== 'dotnet') throw new Error('Unexpected external command');
+  if (args[0] === 'build' && args[1] === ${JSON.stringify(gate.project)})
+    return { status: 0, stdout: '', stderr: '' };
+  if (args[0] !== ${JSON.stringify(matrix.integration.assembly)}) throw new Error('Unexpected assembly');
+  if (args.includes('--list-tests'))
+    return { status: 0, stdout: JSON.stringify({ tests: Array.from({ length: ${gate.minimum} }, (_, index) => ({ uid: String(index) })) }), stderr: '' };
+  if (!args.includes('--report-trx')) throw new Error('Missing test report command');
+  return { status: 0, stdout: '', stderr: '' };
+};
+syncBuiltinESMExports();
+`);
+      await execute(process.execPath, ['--import', pathToFileURL(preload).href, path.join(scripts, 'entry.mjs')], {
+        cwd: fixture, timeout: 10_000,
+        env: { ...process.env, CI: String(ci), TEMP: scratch, TMP: scratch, TMPDIR: scratch },
+      });
+      const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+      const tests = calls.filter(call => call.args.includes('--report-trx'));
+      assert.equal(tests.length, 1);
+      const args = tests[0].args;
+      const directory = args[args.indexOf('--results-directory') + 1];
+      assert.equal(args[args.indexOf('--report-trx-filename') + 1], trxName);
+      assert.equal(args[args.indexOf('--filter') + 1], gate.filter);
+      assert.equal(args[args.indexOf('--timeout') + 1], gate.timeout);
+      if (ci) {
+        assert.equal(directory, path.join(fixture, 'artifacts/native-aot/linux-x64/test-results'));
+      } else {
+        const relative = path.relative(scratch, directory).replaceAll('\\', '/');
+        assert.match(relative, /^fullnet-test-output-[^/]+\/native-aot\/linux-x64\/test-results$/);
+      }
+    } finally {
+      // root 仅来自本函数的 mkdtemp，子进程已退出；不清理真实仓库或其他任务的目录。
+      await rm(root, { recursive: true, force: true });
+    }
+  }
 }
 
 test('package.json 暴露稳定的 linux Native AOT publish 命令', async () => {
@@ -88,15 +154,9 @@ test('publish warning 门禁只接受 ADR 登记的程序集与告警码', async
 /root/.nuget/packages/microsoft.data.sqlclient.internal.logging/7.0.2/Microsoft.Data.SqlClient.Internal.Logging.dll : warning IL2104: trim
 /root/.nuget/packages/system.configuration.configurationmanager/9.0.13/System.Configuration.ConfigurationManager.dll : warning IL2104: trim
 /root/.nuget/packages/confluent.kafka/2.15.0/lib/net10.0/Confluent.Kafka.dll : warning IL2104: trim
-/root/.nuget/packages/serilog.sinks.elasticsearch/10.0.0/Serilog.Sinks.Elasticsearch.dll : warning IL2104: trim
-/root/.nuget/packages/serilog.sinks.elasticsearch/10.0.0/Serilog.Sinks.Elasticsearch.dll : warning IL3053: aot
-/root/.nuget/packages/elasticsearch.net/7.17.5/Elasticsearch.Net.dll : warning IL2104: trim
-/root/.nuget/packages/elasticsearch.net/7.17.5/Elasticsearch.Net.dll : warning IL3053: aot
-ILC : warning IL3000: Elasticsearch.Net.ClientVersionInfo.DetermineClientVersion(Type): reflection
-ILC : warning IL3002: Elasticsearch.Net.RuntimeVersionInfo.TryGetVersionFromAssemblyPath(Assembly,String&): reflection
 /root/.nuget/packages/microsoft.netcore.app.runtime.nativeaot.linux-x64/10.0.12/System.Linq.Expressions.dll : warning IL3053: aot
 `);
-  assert.equal(accepted.length, 16);
+  assert.equal(accepted.length, 10);
 
   assert.throws(
     () => validatePublishWarnings(
@@ -150,10 +210,16 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
     const runner = await read(runnerPath);
     assert.match(runner, /--results-directory/);
     assert.match(runner, /--report-trx/);
-    assert.ok(
-      runner.includes(`Full.NET.IntegrationTests-${reportName}.trx`),
-      `${runnerPath} 必须生成独立 TRX。`
-    );
+    if (reportName === 'native-aot') {
+      // 核心入口每轮生成唯一文件名，防止旧成功报告填补本轮缺失；运行行为另有入口回归覆盖。
+      assert.match(runner, /Full\.NET\.IntegrationTests-native-aot-\$\{randomUUID\(\)\}\.trx/);
+      assert.match(runner, /'--report-trx-filename',\s*reportFilename/);
+    } else {
+      assert.ok(
+        runner.includes(`Full.NET.IntegrationTests-${reportName}.trx`),
+        `${runnerPath} 必须生成独立 TRX。`
+      );
+    }
   }
   assert.match(processHost, /artifacts["'],\s*["']native-aot["']/);
   assert.match(processHost, /test-logs/);
@@ -197,7 +263,8 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
     runner,
     /Full\.NET\.IntegrationTests-native-aot-notifications\.trx/
   );
-  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  await assertNativeResultDestination(runner, 'nativeAotNotificationsIntegration', notificationsGate,
+    'Full.NET.IntegrationTests-native-aot-notifications.trx');
   assert.match(runner, /--minimum-expected-tests/);
 
   assert.match(
@@ -206,7 +273,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   );
   assert.deepEqual(
     matrix.nativeAotIntegration.requiredTestTypes,
-    ['NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeApiKnowledgeIncrementalIndexE2ETests']
+    ['NativeApiCacheE2ETests', 'NativeApiLocalFileMySqlE2ETests', 'NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests', 'NativeApiCacheColdStartE2ETests', 'NativeApiKnowledgeIncrementalIndexE2ETests']
   );
   assert.match(await read('scripts/testing/run-native-aot-e2e.mjs'),
     /discoveredTypes\.has\(requiredType\)/);
@@ -253,7 +320,8 @@ test('Settings/Jobs Native AOT 门禁登记矩阵、脚本、工作流与专用 
     runner,
     /Full\.NET\.IntegrationTests-native-aot-settings-jobs\.trx/
   );
-  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  await assertNativeResultDestination(runner, 'nativeAotSettingsJobsIntegration', settingsJobsGate,
+    'Full.NET.IntegrationTests-native-aot-settings-jobs.trx');
   assert.match(runner, /--minimum-expected-tests/);
 
   assert.match(
@@ -304,7 +372,8 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
     runner,
     /Full\.NET\.IntegrationTests-native-aot-oidc\.trx/
   );
-  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  await assertNativeResultDestination(runner, 'nativeAotOidcIntegration', oidcGate,
+    'Full.NET.IntegrationTests-native-aot-oidc.trx');
   assert.match(runner, /--minimum-expected-tests/);
 
   assert.match(
@@ -313,12 +382,12 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   );
 });
 
-test('Worker Native AOT 发现门禁包含 Kafka、PDF 与旧代次清理原生用例', async () => {
+test('Worker Native AOT 发现门禁包含 Kafka、PDF、旧代次清理与租户准入原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const runner = await read('scripts/testing/run-native-aot-worker-e2e.mjs');
   assert.deepEqual(
     matrix.workerNativeAotIntegration.requiredTestTypes,
-    ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests']
+    ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests']
   );
   assert.match(runner, /discoveredTypes\.has\(requiredType\)/);
 });

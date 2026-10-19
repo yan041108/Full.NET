@@ -1,7 +1,9 @@
+// 架构扫描器：检测领域参数与 SQL 参数所有权违规。
 using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：检测领域参数与 SQL 参数所有权违规。</summary>
 internal static partial class DomainParameterOwnershipScanner
 {
     private static readonly string[] ForbiddenConfigEntryContractTokens =

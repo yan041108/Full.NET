@@ -87,4 +87,5 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(WeChatMiniProgramBindingResponse))]
 [JsonSerializable(typeof(PagedResult<WeChatMiniProgramBindingResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<WeChatMiniProgramBindingResponse>))]
+/// <summary>Notifications 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class NotificationsJsonSerializerContext : JsonSerializerContext;

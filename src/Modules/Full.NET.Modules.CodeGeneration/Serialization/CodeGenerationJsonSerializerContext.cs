@@ -42,5 +42,6 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 [JsonSerializable(typeof(PagedResult<CodeGenerationRunResponse>))]
 [JsonSerializable(typeof(CodeGenerationRelationshipRequest))]
 [JsonSerializable(typeof(UpdateCodeGenerationTemplateRequest))]
+/// <summary>CodeGeneration 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class CodeGenerationJsonSerializerContext
     : JsonSerializerContext;

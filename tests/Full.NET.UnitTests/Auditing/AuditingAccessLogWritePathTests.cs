@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Access Log Write Path。</summary>
 [TestClass]
 public sealed class AuditingAccessLogWritePathTests
 {

@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：新密钥激活与双签过渡期。</summary>
 internal static class IdentityOidcMultiInstanceSigningKeyActivateAssertions
 {
     public static async Task VerifyAsync(

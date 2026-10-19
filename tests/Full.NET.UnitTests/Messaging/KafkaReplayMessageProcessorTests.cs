@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Kafka Replay Message Processor。</summary>
 [TestClass]
 public sealed class KafkaReplayMessageProcessorTests
 {

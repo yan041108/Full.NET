@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
+/// <summary>Host 侧ApiKeys管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 
 internal static class Endpoint

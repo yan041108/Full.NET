@@ -2,6 +2,7 @@ using Full.NET.Modules.Auditing.Features.ExportHostAuditLogs;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Audit Log Workbook Codec。</summary>
 [TestClass]
 public sealed class AuditLogWorkbookCodecTests
 {

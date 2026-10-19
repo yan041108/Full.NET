@@ -2,6 +2,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Auditing.Contracts;
 
+/// <summary>Auditing 模块授权目录贡献者；向 Identity 注册权限、导航与精确动作。</summary>
 namespace Full.NET.Modules.Auditing;
 
 internal sealed class AuditingAuthorizationContributor
@@ -12,6 +13,7 @@ internal sealed class AuditingAuthorizationContributor
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new PermissionDefinition(Features.QueryLogTimeline.LogTimelinePermissions.Read, "查询日志关联时间线", AuthorizationScope.Host),
         new PermissionDefinition(
             AccessLogPermissions.Read,
             "查询访问日志",
@@ -60,6 +62,8 @@ internal sealed class AuditingAuthorizationContributor
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
+        new NavigationDefinition("log-timeline", null, "log-timeline", "/auditing/log-timeline", "log-timeline",
+            "日志时间线", "Log Timeline", "document", 58, Features.QueryLogTimeline.LogTimelinePermissions.Read),
         new NavigationDefinition(
             "authentication-events",
             null,

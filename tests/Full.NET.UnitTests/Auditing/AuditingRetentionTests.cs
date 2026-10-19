@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Retention。</summary>
 [TestClass]
 public sealed class AuditingRetentionTests
 {

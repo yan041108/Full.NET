@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>Identity API：登录、会话与 Host/租户侧核心路由烟雾断言。</summary>
 internal static class IdentityApiAssertions
 {
     public static async Task VerifyLoginAsync(

@@ -1,5 +1,6 @@
 using Serilog.Core;
 using Serilog.Events;
+using Full.NET.Abstractions.Observability;
 
 namespace Full.NET.Hosting.Observability;
 
@@ -19,6 +20,25 @@ internal sealed class LogEventMetadataEnricher : ILogEventEnricher
     {
         ArgumentNullException.ThrowIfNull(logEvent);
         ArgumentNullException.ThrowIfNull(propertyFactory);
+
+        var correlation = LogCorrelationContext.Capture();
+        Add("TraceId", correlation.TraceId);
+        Add("SpanId", correlation.SpanId);
+        Add("ParentSpanId", correlation.ParentSpanId);
+        Add("RequestId", correlation.RequestId);
+        Add("UserId", correlation.UserId);
+        Add("TenantId", correlation.TenantId);
+        Add("SessionId", correlation.SessionId);
+        Add("CenterSessionId", correlation.CenterSessionId);
+        Add("ApplicationSessionId", correlation.ApplicationSessionId);
+        Add("ClientIpFingerprint", correlation.ClientIpFingerprint);
+
+        void Add(string name, object? value)
+        {
+            // 关联键由可信上下文独占；缺失时也要删除调用方同名属性，避免匿名或后台事件误关联。
+            if (value is not null) logEvent.AddOrUpdateProperty(propertyFactory.CreateProperty(name, value));
+            else logEvent.RemovePropertyIfPresent(name);
+        }
 
         List<KeyValuePair<string, string>>? oversizedScalars = null;
         foreach (var property in logEvent.Properties)

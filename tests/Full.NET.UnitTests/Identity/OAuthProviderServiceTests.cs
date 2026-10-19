@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.OAuth;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：OAuth Provider Management Service。</summary>
 [TestClass]
 public sealed class OAuthProviderManagementServiceTests
 {
@@ -42,6 +43,7 @@ public sealed class OAuthProviderManagementServiceTests
     }
 }
 
+/// <summary>单元测试：OAuthPkce。</summary>
 [TestClass]
 public sealed class OAuthPkceTests
 {
@@ -56,6 +58,7 @@ public sealed class OAuthPkceTests
     }
 }
 
+/// <summary>单元测试：OAuthReturnUrlValidator。</summary>
 [TestClass]
 public sealed class OAuthReturnUrlValidatorTests
 {

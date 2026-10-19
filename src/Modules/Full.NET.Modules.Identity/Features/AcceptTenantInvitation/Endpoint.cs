@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using System.Security.Claims;
 
+/// <summary>TenantInvitation受理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 
 internal static class Endpoint

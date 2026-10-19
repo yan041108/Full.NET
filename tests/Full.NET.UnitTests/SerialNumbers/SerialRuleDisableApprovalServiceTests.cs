@@ -12,6 +12,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Rule Disable Approval Service。</summary>
 [TestClass]
 public sealed class SerialRuleDisableApprovalServiceTests
 {

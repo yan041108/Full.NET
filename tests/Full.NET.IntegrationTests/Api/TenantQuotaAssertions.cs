@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>租户配额：预留、消耗与拒绝语义。</summary>
 internal static class TenantQuotaAssertions
 {
     public static async Task VerifyAsync(

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Data;
 
+/// <summary>集成测试：MultiResultQuery。</summary>
 [TestClass]
 public sealed class MultiResultQueryTests
 {

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧DocumentItems管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 internal static class Endpoint

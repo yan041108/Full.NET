@@ -25,7 +25,8 @@ internal static class LogEnvelopeBuilder
     {
         "LogEventId", "Instance", "Application", "log.class", "reliability.class",
         "log.stream", "http.method", "http.route", "http.status_code",
-        "TraceId", "SpanId", "RequestId", "Outcome", "StatusCode", "ExceptionType",
+        "TraceId", "SpanId", "ParentSpanId", "RequestId", "Outcome", "StatusCode", "ExceptionType",
+        "UserId", "SessionId", "CenterSessionId", "ApplicationSessionId", "ClientIpFingerprint",
         "SchemaVersion", "OccurredAtUtc", "ExpiresAtUtc", "IndexRouteVersion",
         "DataClassification", "EventId", "EventName", "SourceContext", "TenantId",
     };
@@ -36,7 +37,9 @@ internal static class LogEnvelopeBuilder
     private static readonly string[] RestrictedMetadataKeys =
     [
         "LogEventId", "Instance", "log.class", "log.stream", "reliability.class",
-        "TraceId", "SpanId", "http.status_code", "StatusCode",
+        "TraceId", "SpanId", "ParentSpanId", "UserId", "TenantId",
+        "SessionId", "CenterSessionId", "ApplicationSessionId", "ClientIpFingerprint",
+        "http.status_code", "StatusCode",
     ];
     private static readonly HashSet<string> HttpOperationOptionalProperties = new(StringComparer.Ordinal)
     {
@@ -51,7 +54,7 @@ internal static class LogEnvelopeBuilder
     {
         "http.method", "http.route", "http.status_code", "StatusCode", "Outcome",
         "log.stream", "DiagnosticGroup", "url", "HttpMethod", "Route",
-        "SourceOriginFingerprint", "ClientIpFingerprint", "EndpointName",
+        "SourceOriginFingerprint", "EndpointName",
         "EndpointDisplayName", "Controller", "Action", "Area", "Scheme",
         "HttpProtocol", "UserAgentSummary", "Culture", "AcceptLanguageSummary",
         "ClientIdFingerprint", "CaptureThreadId", "RequestPayload", "ResponsePayload",
@@ -61,7 +64,6 @@ internal static class LogEnvelopeBuilder
         LogEvent source,
         int maxEventBytes,
         out LogEnvelope? envelope,
-        bool retainLegacyEvent = false,
         HttpOperationLogRecord? trustedHttp = null,
         LogIndexRoutingPolicy? routingPolicy = null)
     {
@@ -77,7 +79,7 @@ internal static class LogEnvelopeBuilder
             envelope = null;
             return false;
         }
-        if (TryFormat(safeEvent, maxEventBytes, retainLegacyEvent, out envelope))
+        if (TryFormat(safeEvent, maxEventBytes, out envelope))
         {
             return true;
         }
@@ -89,7 +91,7 @@ internal static class LogEnvelopeBuilder
             envelope = null;
             return false;
         }
-        return TryFormat(safeEvent, maxEventBytes, retainLegacyEvent, out envelope);
+        return TryFormat(safeEvent, maxEventBytes, out envelope);
     }
 
     private static bool TryFreezeRoute(LogEvent safeEvent, LogIndexRoutingPolicy? policy)
@@ -282,11 +284,19 @@ internal static class LogEnvelopeBuilder
         "log.stream" => value is HttpOperationLogMiddleware.LogStream,
         "reliability.class" => value is "Priority" or "BestEffort",
         "TraceId" => value is string traceId && IsHexId(traceId, 32),
-        "SpanId" => value is string spanId && IsHexId(spanId, 16),
+        "SpanId" or "ParentSpanId" => value is string spanId && IsHexId(spanId, 16),
+        "ClientIpFingerprint" => value is string fingerprint && IsHexId(fingerprint, 64),
+        "UserId" or "TenantId" or "SessionId" or "CenterSessionId" or "ApplicationSessionId" =>
+            value is Guid guid && guid != Guid.Empty
+            || value is string identifier && Guid.TryParseExact(identifier, "D", out var parsed) && parsed != Guid.Empty,
         "http.status_code" or "StatusCode" => value is int statusCode
             && statusCode is >= 100 and <= 599,
         _ => false,
     };
+
+    private static bool IsCorrelationIdentifier(string key, LogEventPropertyValue value) =>
+        key is "SessionId" or "CenterSessionId" or "ApplicationSessionId"
+        && value is ScalarValue scalar && (scalar.Value is Guid || scalar.Value is string text && Guid.TryParseExact(text, "D", out _));
 
     private static bool IsHexId(string value, int length)
     {
@@ -333,6 +343,8 @@ internal static class LogEnvelopeBuilder
                 key,
                 key == "log.class" && value is ScalarValue { Value: LogClassification.Security }
                     ? new ScalarValue(LogClassification.Diagnostic)
+                    : IsCorrelationIdentifier(key, value)
+                    ? CopyValue(value, 0, ref remainingNodes)
                     : HttpOperationLogSanitizer.IsSensitiveKey(key)
                     ? new ScalarValue(HttpOperationLogSanitizer.Redacted)
                     : CopyValue(value, 0, ref remainingNodes)));
@@ -691,7 +703,6 @@ internal static class LogEnvelopeBuilder
     private static bool TryFormat(
         LogEvent safeEvent,
         int maxEventBytes,
-        bool retainLegacyEvent,
         out LogEnvelope? envelope)
     {
         try
@@ -705,19 +716,8 @@ internal static class LogEnvelopeBuilder
                 return false;
             }
 
-            var legacyCharge = retainLegacyEvent
-                ? EstimateLegacyEventCharge(safeEvent)
-                : 0;
-            if (legacyCharge > LogEnvelope.MaxLegacyEventChargeBytes(maxEventBytes))
-            {
-                envelope = null;
-                return false;
-            }
-
             envelope = new LogEnvelope(
                 bytes,
-                retainLegacyEvent ? safeEvent : null,
-                legacyCharge,
                 safeEvent.Properties.TryGetValue("LogEventId", out var eventIdValue)
                 && eventIdValue is ScalarValue { Value: string eventId }
                 && eventId.Length == 36
@@ -732,38 +732,6 @@ internal static class LogEnvelopeBuilder
             return false;
         }
     }
-
-    private static int EstimateLegacyEventCharge(LogEvent safeEvent)
-    {
-        var charge = 256 + safeEvent.MessageTemplate.Text.Length * 2;
-        charge += safeEvent.MessageTemplate.Tokens.Count() * 96;
-        if (safeEvent.Exception is not null)
-        {
-            charge += 256;
-        }
-
-        foreach (var property in safeEvent.Properties)
-        {
-            charge += 96 + property.Key.Length * 2;
-            charge += EstimateValueCharge(property.Value);
-        }
-
-        return charge;
-    }
-
-    private static int EstimateValueCharge(LogEventPropertyValue value) => value switch
-    {
-        ScalarValue { Value: string text } => 64 + text.Length * 2,
-        ScalarValue => 64,
-        SequenceValue sequence => 96 + sequence.Elements.Sum(EstimateValueCharge),
-        StructureValue structure => 96
-            + (structure.TypeTag?.Length ?? 0) * 2
-            + structure.Properties.Sum(property =>
-                96 + property.Name.Length * 2 + EstimateValueCharge(property.Value)),
-        DictionaryValue dictionary => 96 + dictionary.Elements.Sum(entry =>
-            EstimateValueCharge(entry.Key) + EstimateValueCharge(entry.Value)),
-        _ => 64,
-    };
 
     private sealed class BoundedUtf8TextWriter(int maxBytes) : TextWriter
     {

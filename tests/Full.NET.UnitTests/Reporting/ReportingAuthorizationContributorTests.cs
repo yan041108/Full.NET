@@ -4,6 +4,7 @@ using Full.NET.Modules.Reporting.Contracts;
 
 namespace Full.NET.UnitTests.Reporting;
 
+/// <summary>单元测试（报表）：Reporting Authorization Contributor。</summary>
 [TestClass]
 public sealed class ReportingAuthorizationContributorTests
 {

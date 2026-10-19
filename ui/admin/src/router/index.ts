@@ -596,6 +596,11 @@ export function createAppRouter(
         component: () => import('../views/AuthenticationEventsView.vue')
       },
       {
+        name: 'log-timeline',
+        path: '/auditing/log-timeline',
+        component: () => import('../views/LogTimelineView.vue')
+      },
+      {
         name: 'operation-logs',
         path: '/auditing/operation-logs',
         component: () => import('../views/OperationLogsView.vue')

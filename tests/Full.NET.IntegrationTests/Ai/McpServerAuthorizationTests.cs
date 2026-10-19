@@ -20,6 +20,7 @@ public sealed class McpServerAuthorizationSqlServerTests
     }
 }
 
+/// <summary>集成测试：McpServerAuthorizationMySql。</summary>
 [TestClass]
 public sealed class McpServerAuthorizationMySqlTests
 {

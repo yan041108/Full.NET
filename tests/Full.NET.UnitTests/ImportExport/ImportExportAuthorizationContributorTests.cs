@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.UnitTests.ImportExport;
 
+/// <summary>单元测试（导入导出）：Import Export Authorization Contributor。</summary>
 [TestClass]
 public sealed class ImportExportAuthorizationContributorTests
 {

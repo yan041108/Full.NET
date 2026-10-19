@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('API：Elasticsearch 日志管道健康（Serilog 适配，无凭据）（清单 55）', async ({
+test('API：日志入口与 ES 查询配置（无凭据）（清单 55）', async ({
   request
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
@@ -31,14 +31,14 @@ test('API：Elasticsearch 日志管道健康（Serilog 适配，无凭据）（�
   );
   expect(healthResponse.ok()).toBeTruthy();
   const health = await healthResponse.json();
-  expect(health.adapterKind).toBe('serilog-elasticsearch');
-  expect(typeof health.isEnabled).toBe('boolean');
-  expect(typeof health.isSinkRegistered).toBe('boolean');
-  expect(typeof health.indexFormat).toBe('string');
-  expect(Array.isArray(health.nodeEndpoints)).toBeTruthy();
+  expect(['local', 'external-collector', 'application-kafka']).toContain(health.deliveryStatus);
+  expect(health.deliveryConfirmationBoundary).toBe('configuration-only');
+  expect(typeof health.elasticsearchQueryEnabled).toBe('boolean');
+  expect(health.elasticsearchEndpoint === null || typeof health.elasticsearchEndpoint === 'string').toBeTruthy();
+  expect(health.elasticsearchIndexPattern === null || typeof health.elasticsearchIndexPattern === 'string').toBeTruthy();
   expect(typeof health.openTelemetryOtlpEndpointConfigured).toBe('boolean');
-  expect(health.pipelineNotice.length).toBeGreaterThan(0);
-  expect(typeof health.clusterStatus).toBe('string');
+  expect(health).not.toHaveProperty('isSinkRegistered');
+  expect(health).not.toHaveProperty('clusterStatus');
   const serialized = JSON.stringify(health);
   expect(serialized.toLowerCase()).not.toMatch(/apikey|password|secret/);
 });
@@ -53,7 +53,7 @@ test('UI：Elasticsearch 日志管道健康页（清单 55，Vue）', async ({ p
   await expect(page.getByText('Elasticsearch 日志管道', { exact: true }).first()).toBeVisible({
     timeout: 20_000
   });
-  await expect(page.getByText('serilog-elasticsearch', { exact: true })).toBeVisible();
-  await expect(page.getByText('不经 OTel', { exact: false })).toBeVisible();
+  await expect(page.getByText('仅配置，未确认远端投递', { exact: true })).toBeVisible();
+  await expect(page.getByText('ES 时间线查询已启用', { exact: true })).toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
 });

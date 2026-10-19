@@ -1,0 +1,174 @@
+{
+  "measuredAtUtc": "2026-10-18T16:32:33.5099858+00:00",
+  "kind": "Full.NET component L1 working-set measurement",
+  "runtime": ".NET 10.0.13",
+  "os": "Microsoft Windows 10.0.19045",
+  "architecture": "X64",
+  "processorCount": 2,
+  "isServerGc": false,
+  "gcLatencyMode": "Interactive",
+  "sourceAssembly": "G:\\FullNET-build\\cache-ui\\bin\\FullNet.Cache.WorksetProbe\\release\\Full.NET.Caching.Fusion.dll",
+  "capacity": 1024,
+  "payloadBytes": 1024,
+  "maximumKeys": 2048,
+  "capacityStatus": "Capacity-not-verified",
+  "networkOrDatabaseUsed": false,
+  "baseline": {
+    "managedLiveBytes": 279608,
+    "gcHeapBytes": 265736,
+    "gcCommittedBytes": 761856,
+    "workingSetBytes": 31309824,
+    "privateMemoryBytes": 9728000,
+    "allocatedBytes": 421312
+  },
+  "points": [
+    {
+      "keys": 64,
+      "retainedPayloads": 64,
+      "configuredWeightCapacity": 1024,
+      "payloadBytes": 1024,
+      "nominalRetainedPayloadBytes": 65536,
+      "retainedPayloadsAfterCollection": 64,
+      "retainedStableAcrossCollection": true,
+      "factoryCalls": 64,
+      "allocatedBytesIncludingTimingCollection": 183032,
+      "operations": 64,
+      "elapsedMs": 13.8408,
+      "p50Ms": 0.0029,
+      "p95Ms": 0.0056,
+      "p99Ms": 13.3565,
+      "beforeCollection": {
+        "managedLiveBytes": 468760,
+        "gcHeapBytes": 265736,
+        "gcCommittedBytes": 761856,
+        "workingSetBytes": 33738752,
+        "privateMemoryBytes": 10858496,
+        "allocatedBytes": 608856
+      },
+      "afterCollection": {
+        "managedLiveBytes": 377920,
+        "gcHeapBytes": 371672,
+        "gcCommittedBytes": 958464,
+        "workingSetBytes": 34959360,
+        "privateMemoryBytes": 11071488,
+        "allocatedBytes": 648728
+      },
+      "forcedFullCollectionForPostSample": true
+    },
+    {
+      "keys": 256,
+      "retainedPayloads": 256,
+      "configuredWeightCapacity": 1024,
+      "payloadBytes": 1024,
+      "nominalRetainedPayloadBytes": 262144,
+      "retainedPayloadsAfterCollection": 256,
+      "retainedStableAcrossCollection": true,
+      "factoryCalls": 256,
+      "allocatedBytesIncludingTimingCollection": 563664,
+      "operations": 192,
+      "elapsedMs": 0.7002,
+      "p50Ms": 0.0029,
+      "p95Ms": 0.006,
+      "p99Ms": 0.015,
+      "beforeCollection": {
+        "managedLiveBytes": 979392,
+        "gcHeapBytes": 371672,
+        "gcCommittedBytes": 958464,
+        "workingSetBytes": 35274752,
+        "privateMemoryBytes": 11333632,
+        "allocatedBytes": 1245200
+      },
+      "afterCollection": {
+        "managedLiveBytes": 751608,
+        "gcHeapBytes": 748336,
+        "gcCommittedBytes": 1679360,
+        "workingSetBytes": 35749888,
+        "privateMemoryBytes": 11788288,
+        "allocatedBytes": 1364256
+      },
+      "forcedFullCollectionForPostSample": true
+    },
+    {
+      "keys": 1024,
+      "retainedPayloads": 1024,
+      "configuredWeightCapacity": 1024,
+      "payloadBytes": 1024,
+      "nominalRetainedPayloadBytes": 1048576,
+      "retainedPayloadsAfterCollection": 1024,
+      "retainedStableAcrossCollection": true,
+      "factoryCalls": 1024,
+      "allocatedBytesIncludingTimingCollection": 2262464,
+      "operations": 768,
+      "elapsedMs": 2.5722,
+      "p50Ms": 0.0025,
+      "p95Ms": 0.0055,
+      "p99Ms": 0.0172,
+      "beforeCollection": {
+        "managedLiveBytes": 3147224,
+        "gcHeapBytes": 748336,
+        "gcCommittedBytes": 1679360,
+        "workingSetBytes": 37425152,
+        "privateMemoryBytes": 13430784,
+        "allocatedBytes": 3745464
+      },
+      "afterCollection": {
+        "managedLiveBytes": 2247720,
+        "gcHeapBytes": 2258464,
+        "gcCommittedBytes": 5283840,
+        "workingSetBytes": 39395328,
+        "privateMemoryBytes": 15396864,
+        "allocatedBytes": 4208584
+      },
+      "forcedFullCollectionForPostSample": true
+    },
+    {
+      "keys": 2048,
+      "retainedPayloads": 973,
+      "configuredWeightCapacity": 1024,
+      "payloadBytes": 1024,
+      "nominalRetainedPayloadBytes": 996352,
+      "retainedPayloadsAfterCollection": 973,
+      "retainedStableAcrossCollection": true,
+      "factoryCalls": 2048,
+      "allocatedBytesIncludingTimingCollection": 2901872,
+      "operations": 1024,
+      "elapsedMs": 3.3307,
+      "p50Ms": 0.0023,
+      "p95Ms": 0.0045,
+      "p99Ms": 0.0079,
+      "beforeCollection": {
+        "managedLiveBytes": 5634360,
+        "gcHeapBytes": 2258464,
+        "gcCommittedBytes": 5283840,
+        "workingSetBytes": 40058880,
+        "privateMemoryBytes": 16015360,
+        "allocatedBytes": 7574496
+      },
+      "afterCollection": {
+        "managedLiveBytes": 2713288,
+        "gcHeapBytes": 2717504,
+        "gcCommittedBytes": 7905280,
+        "workingSetBytes": 42147840,
+        "privateMemoryBytes": 18116608,
+        "allocatedBytes": 8273832
+      },
+      "forcedFullCollectionForPostSample": true
+    }
+  ],
+  "remainingAfterTagInvalidation": 0,
+  "afterInvalidation": {
+    "managedLiveBytes": 1351320,
+    "gcHeapBytes": 1335048,
+    "gcCommittedBytes": 7241728,
+    "workingSetBytes": 41603072,
+    "privateMemoryBytes": 17453056,
+    "allocatedBytes": 9714992
+  },
+  "limitations": [
+    "JIT component only; not Native API or database throughput",
+    "Keys are not concurrent requests",
+    "Weight units are not a byte/process limit",
+    "Post-GC samples are forced-collection observations; RSS is allocator/runtime dependent",
+    "Only stable retained-count samples may be used for a memory-density fit"
+  ]
+}

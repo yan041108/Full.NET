@@ -5,6 +5,7 @@ using System.Diagnostics.Metrics;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Kafka Log Delivery Lane。</summary>
 [TestClass]
 public sealed class KafkaLogDeliveryLaneTests
 {
@@ -204,6 +205,24 @@ public sealed class KafkaLogDeliveryLaneTests
         Assert.IsTrue(generalClient.LastFlushTimeout < priorityClient.LastFlushTimeout);
         Assert.AreEqual(1, generalClient.DisposeCount);
         Assert.AreEqual(1, priorityClient.DisposeCount);
+    }
+
+    [TestMethod]
+    public void Pair_uses_exhausted_host_deadline_instead_of_its_own_timeout()
+    {
+        var generalClient = new FakeClient();
+        var priorityClient = new FakeClient();
+        using var pair = new KafkaLogProducerPair(
+            new KafkaLogDeliveryLane("logs-general", 1, 1024, 1000, generalClient),
+            new KafkaLogDeliveryLane("logs-priority", 1, 1024, 1000, priorityClient),
+            TimeSpan.FromSeconds(10));
+
+        pair.Stop(new LogShutdownDeadline(TimeSpan.Zero));
+
+        Assert.AreEqual(TimeSpan.Zero, priorityClient.LastFlushTimeout);
+        Assert.AreEqual(TimeSpan.Zero, generalClient.LastFlushTimeout);
+        Assert.AreEqual(1, priorityClient.DisposeCount);
+        Assert.AreEqual(1, generalClient.DisposeCount);
     }
 
     [TestMethod]

@@ -47,6 +47,7 @@ public sealed class JobsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.JobsLogTimelineSources.Register(services);
         RegisterExecutionCore(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,

@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Domain;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Tool Audit Policy。</summary>
 [TestClass]
 public sealed class AiAgentToolAuditPolicyTests
 {

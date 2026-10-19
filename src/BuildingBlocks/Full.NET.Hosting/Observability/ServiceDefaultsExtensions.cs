@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 
@@ -37,16 +38,24 @@ public static class ServiceDefaultsExtensions
         this IHostApplicationBuilder builder,
         Func<IConfiguration, IHostLogSnapshotExporter>? createLogExporter = null)
     {
+        // 失效的直写配置必须显式报错，不能悄悄切换为默认控制台入口。
+        if (builder.Configuration.GetSection($"{LoggingOptions.SectionName}:Elasticsearch").Exists())
+            throw new OptionsValidationException(LoggingOptions.SectionName, typeof(LoggingOptions),
+                ["FullNet:Logging:Elasticsearch is unsupported. Select Local, Collector or ApplicationKafka and configure ES in the independent consumer."]);
+        // 显式 null 不能由配置绑定器转换为枚举零值 Local；只有完全未设置才采用默认入口。
+        foreach (var setting in builder.Configuration.GetSection(LoggingOptions.SectionName).GetChildren())
+        {
+            if ((setting.Key.Equals(nameof(LoggingOptions.DeliveryMode), StringComparison.OrdinalIgnoreCase)
+                 || setting.Key.Equals(nameof(LoggingOptions.ExpectedDeliveryMode), StringComparison.OrdinalIgnoreCase))
+                && string.IsNullOrWhiteSpace(setting.Value))
+                throw new OptionsValidationException(LoggingOptions.SectionName, typeof(LoggingOptions),
+                    [$"Explicit {setting.Key} must not be null or empty."]);
+        }
         var loggingOptions = builder.Configuration
                 .GetSection(LoggingOptions.SectionName)
                 .Get<LoggingOptions>()
             ?? new LoggingOptions();
-        var elasticsearchOptions = builder.Configuration
-                .GetSection(ElasticsearchLoggingOptions.SectionName)
-                .Get<ElasticsearchLoggingOptions>()
-            ?? new ElasticsearchLoggingOptions();
-        if (loggingOptions.DeliveryMode is { } deliveryMode
-            && !Enum.IsDefined(deliveryMode))
+        if (!Enum.IsDefined(loggingOptions.DeliveryMode))
         {
             throw new OptionsValidationException(
                 LoggingOptions.SectionName,
@@ -54,8 +63,7 @@ public static class ServiceDefaultsExtensions
                 ["DeliveryMode must be Local, Collector or ApplicationKafka."]);
         }
 
-        if (loggingOptions.ExpectedDeliveryMode is { } expectedDeliveryMode
-            && !Enum.IsDefined(expectedDeliveryMode))
+        if (!Enum.IsDefined(loggingOptions.ExpectedDeliveryMode))
         {
             throw new OptionsValidationException(
                 LoggingOptions.SectionName,
@@ -63,15 +71,9 @@ public static class ServiceDefaultsExtensions
                 ["ExpectedDeliveryMode must be Local, Collector or ApplicationKafka."]);
         }
 
-        if (loggingOptions.DeliveryMode.HasValue && elasticsearchOptions.Enabled)
-        {
-            throw new OptionsValidationException(
-                LoggingOptions.SectionName,
-                typeof(LoggingOptions),
-                ["DeliveryMode conflicts with the legacy Elasticsearch sink; disable Elasticsearch before selecting a delivery mode."]);
-        }
-
-        if (loggingOptions.DeliveryMode != loggingOptions.ExpectedDeliveryMode)
+        if (loggingOptions.DeliveryMode != loggingOptions.ExpectedDeliveryMode
+            || (builder.Configuration[$"{LoggingOptions.SectionName}:DeliveryMode"] is null)
+                != (builder.Configuration[$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] is null))
         {
             throw new OptionsValidationException(
                 LoggingOptions.SectionName,
@@ -79,13 +81,17 @@ public static class ServiceDefaultsExtensions
                 ["Explicit DeliveryMode requires the same ExpectedDeliveryMode injected by the deployment; neither value may be set alone."]);
         }
 
+        loggingOptions.LocalFile ??= new LocalFileLoggingOptions();
+        loggingOptions.LocalFile.Validate(loggingOptions);
+        // Production 的 Local 投递必须落盘；仅控制台快照无法满足保留与审计边界。
         if (builder.Environment.IsProduction()
-            && loggingOptions.DeliveryMode is LoggingDeliveryMode.Local)
+            && loggingOptions.DeliveryMode is LoggingDeliveryMode.Local
+            && !loggingOptions.LocalFile.Enabled)
         {
             throw new OptionsValidationException(
                 LoggingOptions.SectionName,
                 typeof(LoggingOptions),
-                [$"DeliveryMode={loggingOptions.DeliveryMode} is not qualified for Production in this build."]);
+                ["DeliveryMode=Local requires enabled LocalFile storage in Production."]);
         }
 
         if (loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
@@ -155,33 +161,17 @@ public static class ServiceDefaultsExtensions
                 ["ShutdownFlushTimeout must be greater than zero and no greater than 30 seconds."]);
         }
 
-        var loggingMonitors = new FullNetLoggingMonitors();
-        builder.Services.AddSingleton(loggingMonitors);
+        // 由容器创建并拥有监控器，保证 Host 释放时注销 Meter；预创建实例不由 DI 自动释放。
+        builder.Services.AddSingleton(static _ => new FullNetLoggingMonitors());
         var httpOperationIngress = new HttpOperationLogIngress();
         builder.Services.AddSingleton(httpOperationIngress);
         builder.Services.AddSingleton<ILoggingDeliverySelection>(
-            new LoggingDeliverySelection(
-                loggingOptions.DeliveryMode,
-                elasticsearchOptions.Enabled));
+            new LoggingDeliverySelection(loggingOptions.DeliveryMode));
         var loggingResource = LoggingResourceMetadata.Create(
             builder.Environment.ApplicationName,
             builder.Environment.EnvironmentName);
         builder.Services.AddSingleton(loggingResource);
         builder.Services.AddHostedService<LoggingResourceAnnouncementService>();
-        var elasticsearchRegistration = new ElasticsearchLogPipelineRegistration();
-        builder.Services.AddSingleton(elasticsearchRegistration);
-        builder.Services.AddSingleton<IElasticsearchLogPipelineStatus>(elasticsearchRegistration);
-        builder.Services.AddOptions<ElasticsearchLoggingOptions>()
-            .BindConfiguration(ElasticsearchLoggingOptions.SectionName)
-            .ValidateOnStart();
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<ElasticsearchLoggingOptions>,
-            ElasticsearchLoggingOptionsValidator>());
-        if (elasticsearchOptions.Enabled && !loggingOptions.DeliveryMode.HasValue)
-        {
-            builder.Services.AddHostedService<LegacyElasticsearchLoggingWarningService>();
-        }
-
         if ((loggingOptions.IndexRouteVersion == 0) != (loggingOptions.IndexRetentionDays == 0)
             || loggingOptions.IndexRouteVersion is < 0 or > 9999
             || loggingOptions.IndexRetentionDays is < 0 or > 3650)
@@ -199,39 +189,19 @@ public static class ServiceDefaultsExtensions
                 typeof(LoggingOptions),
                 ["ApplicationKafka requires a frozen IndexRouteVersion and IndexRetentionDays policy."]);
         }
-        if (elasticsearchOptions.Enabled)
-        {
-            var minimumLegacyQueueBytes = LogEnvelope.MaxChargeBytes(
-                loggingOptions.MaxEventBytes,
-                retainLegacyEvent: true);
-            if (loggingOptions.GeneralQueueMaxBytes < minimumLegacyQueueBytes
-                || loggingOptions.HighPriorityQueueMaxBytes < minimumLegacyQueueBytes)
-            {
-                throw new OptionsValidationException(
-                    LoggingOptions.SectionName,
-                    typeof(LoggingOptions),
-                    ["Both queue byte budgets must hold one maximum-sized snapshot and its safe legacy event copy when Elasticsearch is enabled."]);
-            }
-        }
-
-        elasticsearchRegistration.IsEnabled = elasticsearchOptions.Enabled;
-        builder.Services.AddSerilog((_, loggerConfiguration) =>
+        builder.Services.AddSerilog((services, loggerConfiguration) =>
         {
             var effectiveLoggingOptions = builder.Configuration
                 .GetSection(LoggingOptions.SectionName)
-                .Get<LoggingOptions>();
-            var resolvedElasticsearchOptions = builder.Configuration
-                    .GetSection(ElasticsearchLoggingOptions.SectionName)
-                    .Get<ElasticsearchLoggingOptions>()
-                ?? new ElasticsearchLoggingOptions();
+                .Get<LoggingOptions>() ?? new LoggingOptions();
             if (effectiveLoggingOptions?.DeliveryMode != loggingOptions.DeliveryMode
                 || effectiveLoggingOptions?.ExpectedDeliveryMode != loggingOptions.ExpectedDeliveryMode
-                || resolvedElasticsearchOptions.Enabled != elasticsearchOptions.Enabled)
+                || !loggingOptions.LocalFile.Matches(effectiveLoggingOptions?.LocalFile ?? new LocalFileLoggingOptions()))
             {
                 throw new OptionsValidationException(
                     LoggingOptions.SectionName,
                     typeof(LoggingOptions),
-                    ["DeliveryMode, ExpectedDeliveryMode or legacy Elasticsearch Enabled changed after logging registration; restart with a stable delivery configuration."]);
+                    ["DeliveryMode, ExpectedDeliveryMode, LocalFile changed after logging registration; restart with a stable delivery configuration."]);
             }
 
             var exporter = loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
@@ -241,38 +211,36 @@ public static class ServiceDefaultsExtensions
                         typeof(LoggingOptions),
                         ["ApplicationKafka exporter factory returned null."])
                 : null;
+            LocalFileLogStore? localFiles = null;
             try
             {
+                // 目录租约与 Writer 在注册期创建；Serilog 回调失败时必须同步释放，避免孤儿锁占用日志目录。
+                if (loggingOptions.LocalFile.Enabled)
+                    localFiles = new LocalFileLogStore(loggingOptions.LocalFile,
+                        builder.Environment.ContentRootPath, builder.Environment.ApplicationName);
                 FullNetLoggingPipeline.Configure(
                     loggerConfiguration,
                     builder.Environment.ApplicationName,
                     loggingOptions,
-                    loggingMonitors,
-                    _ => { },
-                    _ => { },
-                    writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
-                        writeTo,
-                        resolvedElasticsearchOptions),
-                    writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
-                        writeTo,
-                        resolvedElasticsearchOptions),
+                    services.GetRequiredService<FullNetLoggingMonitors>(),
+                    null,
+                    null,
                     loggingResource,
-                    loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
+                    // 文件或 Kafka 出口已承担持久化/外发时关闭控制台 JSON，防止重复落盘与敏感字段扩散。
+                    loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka || localFiles is not null
                         ? null
                         : LogEnvelopeConsoleWriter.Emit,
-                    resolvedElasticsearchOptions.Enabled,
-                    emitExternalSnapshot: exporter is null ? null : exporter.Emit,
+                    emitExternalSnapshot: exporter is null ? null : exporter.TryEmit,
                     httpOperationIngress: httpOperationIngress,
-                    externalExporter: exporter);
+                    externalExporter: exporter,
+                    localFiles: localFiles);
             }
             catch
             {
+                localFiles?.General.Dispose();
+                localFiles?.Priority.Dispose();
                 exporter?.Dispose();
                 throw;
-            }
-            if (resolvedElasticsearchOptions.Enabled)
-            {
-                elasticsearchRegistration.IsSinkRegistered = true;
             }
         });
 
@@ -305,7 +273,13 @@ public static class ServiceDefaultsExtensions
                 failureStatus: HealthStatus.Degraded,
                 tags: ["ready"]);
 
+        var telemetryServiceName = builder.Configuration["OTEL_SERVICE_NAME"];
+        if (string.IsNullOrWhiteSpace(telemetryServiceName))
+            telemetryServiceName = loggingResource.Application;
         var openTelemetry = builder.Services.AddOpenTelemetry()
+            // 与日志共用实例标识，避免多宿主 Counter/Gauge 合并到同一 Remote Write 时间序列。
+            .ConfigureResource(resource => resource.AddService(
+                telemetryServiceName, serviceInstanceId: loggingResource.Instance))
             .WithMetrics(metrics => metrics
                 .AddMeter(FullNetAsyncLogMonitor.MeterName)
                 .AddMeter("Full.NET.Logging.Kafka")

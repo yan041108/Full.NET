@@ -12,6 +12,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Jwt Access Token Issuer。</summary>
 [TestClass]
 public sealed class JwtAccessTokenIssuerTests
 {

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧RecycleBin查询 API 路由注册。</summary>
 namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
 internal static class Endpoint

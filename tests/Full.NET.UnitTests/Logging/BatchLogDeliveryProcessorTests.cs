@@ -3,9 +3,34 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Batch Log Delivery Processor。</summary>
 [TestClass]
 public sealed class BatchLogDeliveryProcessorTests
 {
+    [TestMethod]
+    public async Task LargerBoundedBatchRetainsPerPartitionConfirmation()
+    {
+        var commits = new List<(int Partition, long Offset)>();
+        var processor = New(Enumerable.Repeat(BulkItemOutcome.Succeeded, 64).ToArray(),
+            _ => throw new AssertFailedException("No DLQ"), input => commits.Add((input.Partition, input.Offset)));
+        var inputs = Enumerable.Range(0, 64).Select(index => Input(index, index % 2)).ToArray();
+        Assert.AreEqual(new BatchLogDeliveryResult(LogDeliveryDisposition.Completed, 64),
+            await processor.ProcessAsync(inputs, () => true));
+        CollectionAssert.AreEquivalent(new[] { (0, 62L), (1, 63L) }, commits);
+    }
+
+    [TestMethod]
+    public async Task AggregateInputBytesAreRejectedBeforeSinkOrCommit()
+    {
+        var processor = new BatchLogDeliveryProcessor(
+            new FakeSink(_ => throw new AssertFailedException("No sink before byte admission")),
+            new FakeDlq(_ => throw new AssertFailedException("No DLQ")),
+            new FakeCommitter(_ => throw new AssertFailedException("No commit")),
+            new Dictionary<int, int> { [2] = 30 }, 65536, new Clock());
+        var inputs = Enumerable.Range(0, 9).Select(index => Input(index) with { Value = new byte[65536] }).ToArray();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processor.ProcessAsync(inputs, () => true));
+    }
+
     private static KafkaLogInput Input(long offset, int partition = 0)
     {
         var id = Guid.CreateVersion7().ToString("D");
@@ -51,7 +76,7 @@ public sealed class BatchLogDeliveryProcessorTests
         CollectionAssert.AreEquivalent(new[] { (0, 14L), (1, 2L) }, commits);
         await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync([Input(10), Input(9)], () => true));
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processor.ProcessAsync([], () => true));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processor.ProcessAsync(Enumerable.Range(0, 9).Select(i => Input(i)).ToArray(), () => true));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processor.ProcessAsync(Enumerable.Range(0, 65).Select(i => Input(i)).ToArray(), () => true));
     }
 
     [TestMethod]

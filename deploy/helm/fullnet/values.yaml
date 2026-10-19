@@ -113,12 +113,23 @@ applicationRateLimiting:
   globalApiPermitLimitPerMinutePerReplica: 100
 
 logging:
-  # Legacy 保留现有行为；Collector 仅发布本地路由标识，采集链仍须单独验证。
+  # Collector 为默认入口；仅发布本地路由标识，采集链仍须单独验证。
   # Collector/ApplicationKafka 本地测试准入后允许生产 API/Worker；Local 仍仅供非生产预览。
-  ingress: Legacy # Legacy | Local | Collector | ApplicationKafka
+  ingress: Collector # Local | Collector | ApplicationKafka
   # 显式成对设置后冻结事件日期索引路由；零值保留未启用状态。
   indexRouteVersion: 0
   indexRetentionDays: 0
+  localFile:
+    # 仅 Local；Kubernetes 必须显式提供持久卷，单副本且禁用 HPA。
+    enabled: false
+    directory: /var/fullnet/logs
+    existingClaimName: ""
+    fileSizeLimitBytes: 67108864
+    retentionDays: 14
+    maxDirectoryBytes: 1073741824
+    # 历史优先日志的保留目标百分比，0–50，0关闭；与普通日志仍共享磁盘，修改须重启。
+    priorityReservePercent: 20
+    flushInterval: "00:00:01"
   kafka:
     # 仅 ApplicationKafka 使用；配置 Secret 按固定键注入，值不进入 Chart。
     configurationSecretName: ""

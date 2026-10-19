@@ -1,3 +1,4 @@
+// 工作流定义管理 API 契约；请求/响应 DTO 与验证边界。
 using System.Text.Json;
 using Full.NET.Modules.Workflow.Domain;
 

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.CompatibilityTests;
 
+/// <summary>兼容性测试：AdminNetApiResultMapper。</summary>
 [TestClass]
 public sealed class AdminNetApiResultMapperTests
 {

@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Data;
 
+/// <summary>集成测试：GuidPrimaryKeyReadPath。</summary>
 [TestClass]
 public sealed class GuidPrimaryKeyReadPathTests
 {
@@ -320,6 +321,7 @@ public sealed class GuidPrimaryKeyReadPathTests
                 ContextTenantId = (Guid?)null,
                 OccurredAtUtc = now,
                 ActorUserId = actorUserId,
+                CorrelationJson = (string?)null,
             });
         await commandExecutor.ExecuteAsync(
             InsertOutbox,

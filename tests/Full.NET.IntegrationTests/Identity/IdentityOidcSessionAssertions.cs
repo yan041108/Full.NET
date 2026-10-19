@@ -13,6 +13,7 @@ using OpenIddict.Abstractions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：中心会话 Cookie、续期与服务器侧会话记录。</summary>
 internal static class IdentityOidcSessionAssertions
 {
     private static readonly IReadOnlyDictionary<string, string?> OidcSettings = new Dictionary<string, string?>

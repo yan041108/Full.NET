@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：多实例会话与令牌视图一致。</summary>
 internal static class IdentityOidcContextSwitchMultiInstanceAssertions
 {
     public static async Task VerifyAsync(

@@ -1221,13 +1221,32 @@ internal static class NativeApiE2EAssertions
                 static item => item.RequestPath == "/api/v1/auditing/exception-probes",
                 cancellationToken)
             .ConfigureAwait(false);
-        _ = await WaitForAuditPageItemAsync<OutboundCallLogResponse>(
+        var outbound = await WaitForAuditPageItemAsync<OutboundCallLogResponse>(
                 client,
                 "/api/v1/auditing/outbound-call-logs?page=1&pageSize=100",
                 accessToken,
                 item => item.ProviderKey == outboundProviderKey,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        // 真实原生进程验证 JSON 源生成与全部所有者的 Dapper 物化闭包。
+        Assert.IsNotNull(outbound.TraceId);
+        using var timelineRequest = Authorized(HttpMethod.Get,
+            "/api/v1/auditing/timeline?traceId=" + Uri.EscapeDataString(outbound.TraceId), accessToken);
+        using var timelineResponse = await client.SendAsync(timelineRequest, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(timelineResponse, HttpStatusCode.OK,
+            "Read Native AOT correlated timeline", cancellationToken).ConfigureAwait(false);
+        var timeline = await timelineResponse.Content
+            .ReadFromJsonAsync<Full.NET.Modules.Auditing.Features.QueryLogTimeline.LogTimelineResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(timeline);
+        var correlated = timeline.Entries.Single(entry => entry.Source == "auditing.outbound.call"
+            && entry.Id == outbound.Id.ToString("D"));
+        Assert.AreEqual(outbound.TraceId, correlated.Correlation.TraceId);
+        Assert.IsNotNull(correlated.Correlation.UserId);
+        Assert.IsNotNull(correlated.Correlation.SessionId);
+        Assert.IsFalse(timeline.Sources.Any(source => !source.Source.StartsWith("runtime.", StringComparison.Ordinal)
+            && source.Status != "available"), "原生数据库来源必须明确读取成功。");
     }
 
     private static async Task<T> WaitForAuditPageItemAsync<T>(

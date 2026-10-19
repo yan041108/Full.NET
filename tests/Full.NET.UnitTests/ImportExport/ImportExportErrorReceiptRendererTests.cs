@@ -3,6 +3,7 @@ using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 
 namespace Full.NET.UnitTests.ImportExport;
 
+/// <summary>单元测试（导入导出）：Import Export Error Receipt Renderer。</summary>
 [TestClass]
 public sealed class ImportExportErrorReceiptRendererTests
 {

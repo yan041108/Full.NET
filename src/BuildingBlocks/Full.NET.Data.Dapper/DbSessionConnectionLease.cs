@@ -9,6 +9,7 @@ namespace Full.NET.Data.Dapper;
 internal sealed class DbSessionConnectionLease : IAsyncDisposable
 {
     private readonly DatabaseConnectionTelemetry? _telemetry;
+    private readonly DatabaseConnectionAccessMode _accessMode;
     private DatabaseAdmissionLease? _admissionLease;
     private DbConnection? _ownedConnection;
     private long _openedAtTimestamp;
@@ -19,7 +20,8 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
         DbTransaction? transaction,
         DatabaseAdmissionLease? admissionLease,
         DatabaseConnectionTelemetry? telemetry,
-        long openedAtTimestamp)
+        long openedAtTimestamp,
+        DatabaseConnectionAccessMode accessMode)
     {
         Connection = connection;
         Transaction = transaction;
@@ -27,6 +29,7 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
         _admissionLease = admissionLease;
         _telemetry = telemetry;
         _openedAtTimestamp = openedAtTimestamp;
+        _accessMode = accessMode;
     }
 
     public DbConnection Connection { get; }
@@ -37,12 +40,14 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
         DbConnection connection,
         DatabaseAdmissionLease admissionLease,
         DatabaseConnectionTelemetry telemetry,
-        long openedAtTimestamp) => new(
+        long openedAtTimestamp,
+        DatabaseConnectionAccessMode accessMode) => new(
             connection,
             transaction: null,
             admissionLease,
             telemetry,
-            openedAtTimestamp);
+            openedAtTimestamp,
+            accessMode);
 
     internal static DbSessionConnectionLease CreateBorrowed(
         DbConnection connection,
@@ -51,7 +56,8 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
             transaction,
             admissionLease: null,
             telemetry: null,
-            openedAtTimestamp: 0);
+            openedAtTimestamp: 0,
+            accessMode: DatabaseConnectionAccessMode.Normal);
 
     public async ValueTask DisposeAsync()
     {
@@ -74,8 +80,9 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
         {
             if (_openedAtTimestamp != 0)
             {
-                _telemetry!.RecordHold(
-                    Stopwatch.GetElapsedTime(_openedAtTimestamp));
+                var elapsed = Stopwatch.GetElapsedTime(_openedAtTimestamp);
+                _telemetry!.RecordHold(elapsed);
+                _telemetry.RecordPhase(DatabaseConnectionPhase.Hold, _accessMode, elapsed);
                 _openedAtTimestamp = 0;
             }
 

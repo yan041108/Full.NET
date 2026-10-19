@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Files.Contracts;
 
+/// <summary>模块内端口适配或空实现；供测试或未启用能力时闭合 DI。</summary>
 namespace Full.NET.Modules.Files.Features.TenantResourceFiles;
 
 internal sealed class NullTenantFileStorageQuotaPort : ITenantFileStorageQuotaPort

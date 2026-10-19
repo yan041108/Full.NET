@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Identity Organization Data Scope Sql Projection。</summary>
 [TestClass]
 public sealed class IdentityOrganizationDataScopeSqlProjectionTests
 {

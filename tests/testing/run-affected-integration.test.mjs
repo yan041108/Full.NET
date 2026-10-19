@@ -32,6 +32,18 @@ test('纯文档和客户端改动不启动 Integration', () => {
   assert.deepEqual(selection.targets, []);
 });
 
+test('ObservabilityAdmin 影响集包含 Elasticsearch 时间线命名空间', () => {
+  for (const changed of [
+    'src/Modules/Full.NET.Modules.ObservabilityAdmin/Endpoints.cs',
+    'tests/Full.NET.IntegrationTests/ObservabilityAdmin/ElasticsearchTimelineIntegrationTests.cs'
+  ]) {
+    assert.deepEqual(classifyChangedPaths([changed]).targets, [{
+      kind: 'filter', name: 'ObservabilityAdmin',
+      filter: 'FullyQualifiedName~ObservabilityAdminApi|FullyQualifiedName~Full.NET.IntegrationTests.ObservabilityAdmin.'
+    }]);
+  }
+});
+
 test('日志 Kafka 请求基准测试选择自身真实 Broker 分片', () => {
   assert.deepEqual(classifyChangedPaths([
     'tests/Full.NET.IntegrationTests/Messaging/KafkaLogSecretBoundaryTests.cs'
@@ -65,6 +77,57 @@ test('纯 benchmarks 改动不启动 Integration', () => {
 
   assert.equal(selection.mode, 'none');
   assert.deepEqual(selection.targets, []);
+});
+
+test('B1 真实指标场景选择独立告警分片，不重复 B2', () => {
+  const targets = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Observability/AuditB1MetricsPipelineTests.cs'
+  ]).targets;
+  assert.deepEqual(targets, [{ kind: 'shard', name: 'auditing-metrics' }]);
+  assert.deepEqual(targetsForPhase(targets, 'inner'), targets);
+});
+
+test('B1 协调器故障用例选择双库整队列分片并进入当前批次', () => {
+  const targets = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Auditing/AuditingCoordinatorFaultTests.cs'
+  ]).targets;
+  assert.deepEqual(targets, [{ kind: 'shard', name: 'auditing-coordinator-faults' }]);
+  assert.deepEqual(targetsForPhase(targets, 'inner'), targets);
+});
+
+test('Host 指标测试与 Collector 配置选择真实指标分片，核心注册保留 Smoke', () => {
+  const b2 = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Observability/HostLoggingMetricsPipelineTests.cs'
+  ]).targets;
+  assert.deepEqual(b2, [{ kind: 'shard', name: 'logging-metrics' }]);
+  for (const changed of [
+    'deploy/observability/otel-collector-values.yaml',
+    'deploy/observability/prometheus-rules.yaml',
+    'eng/testing/otel-collector-config-test.mjs'
+  ]) {
+    const targets = classifyChangedPaths([changed]).targets;
+    assert.deepEqual(targets.map(target => target.name), ['auditing-metrics', 'logging-metrics']);
+    assert.deepEqual(targetsForPhase(targets, 'inner'), targets);
+  }
+  for (const name of ['ServiceDefaultsExtensions', 'FullNetAsyncLogMonitor', 'FullNetLoggingMonitors',
+    'LoggingResourceMetadata', 'FullNetBoundedAsyncSink', 'FullNetLoggingPipelineSink']) {
+    assert.deepEqual(classifyChangedPaths([
+      `src/BuildingBlocks/Full.NET.Hosting/Observability/${name}.cs`
+    ]).targets.map(target => target.name).sort(),
+    name === 'ServiceDefaultsExtensions' ? ['auditing-metrics', 'logging-metrics', 'smoke'] : ['logging-metrics', 'smoke']);
+  }
+});
+
+test('B1 微批及 Meter 注册变化追加正式指标分片，普通查询不扩大到长时告警', () => {
+  for (const changed of ['AuditingModule.cs', 'Features/WriteAuditBatch/AuditMicroBatchTelemetry.cs',
+    'Features/WriteAuditBatch/AuditMicroBatchCoordinator.cs']) {
+    assert.deepEqual(classifyChangedPaths([
+      'src/Modules/Full.NET.Modules.Auditing/' + changed
+    ]).targets.map(target => target.name), ['Auditing', 'auditing-metrics'].sort((a, b) => a.localeCompare(b)));
+  }
+  assert.deepEqual(classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Auditing/Features/QueryHostOperationLogs/Endpoint.cs'
+  ]).targets.map(target => target.name), ['Auditing']);
 });
 
 test('Kafka 部署模板选择 messaging-heavy 分片', () => {
@@ -769,7 +832,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: true,
       snapshotId: null,
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -780,7 +843,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: 'task-123',
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -791,7 +854,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: null,
       includeHeavy: true,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.throws(() => parseArguments([]), /--base/);

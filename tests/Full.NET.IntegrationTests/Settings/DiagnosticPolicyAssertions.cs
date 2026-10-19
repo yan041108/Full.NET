@@ -110,6 +110,24 @@ internal static class DiagnosticPolicyAssertions
                 current.ConfigEntryVersion));
         using var invalidTtlResponse = await client.SendAsync(invalidTtl, cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, invalidTtlResponse.StatusCode);
+
+        // Endpoint 定向采集不能修改实例级容量，避免影响其他请求的准入。
+        using var scopedCapacity = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            "/api/v1/settings/diagnostic-policy",
+            adminToken,
+            new UpdateDiagnosticPolicyRequest(
+                "Normal",
+                [new DiagnosticPolicyRuleRequest(
+                    "Endpoint", "demo/{id}", 1.0, 50, 1024, 2048,
+                    DateTimeOffset.UtcNow.AddMinutes(30))],
+                current.ConfigEntryVersion));
+        using var scopedCapacityResponse = await client.SendAsync(scopedCapacity, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, scopedCapacityResponse.StatusCode);
+        using var scopedCapacityProblem = JsonDocument.Parse(
+            await scopedCapacityResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("settings.diagnostic_policy.scoped_capacity",
+            scopedCapacityProblem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyUpdateRestoreAndDomainAuditAsync(
@@ -139,7 +157,7 @@ internal static class DiagnosticPolicyAssertions
                         "Endpoint",
                         "demo/{id}",
                         1.0,
-                        50,
+                        null,
                         1024,
                         2048,
                         expires),

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>HostDocumentVersionRetention更新 API 路由注册。</summary>
 namespace Full.NET.Modules.Document.Features.UpdateHostDocumentVersionRetention;
 
 internal static class Endpoint

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>HTTP 操作元数据：状态码与耗时投影。</summary>
 [TestClass]
 public sealed class HttpOperationMetadataTests
 {

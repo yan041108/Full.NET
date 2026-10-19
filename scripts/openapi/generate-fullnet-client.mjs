@@ -620,6 +620,10 @@ function guardExpression(schema, valueExpression) {
     if (Array.isArray(schema.enum) && schema.enum.length > 0) {
       return `typeof ${valueExpression} === 'string' && [${schema.enum.map(value => JSON.stringify(value)).join(', ')}].includes(${valueExpression})`;
     }
+    // 浮点数字字符串执行服务器模式约束，但保留原表示，不归一金额或普通字符串。
+    if (['double', 'float'].includes(schema.format) && typeof schema.pattern === 'string') {
+      return `typeof ${valueExpression} === 'string' && new RegExp(${JSON.stringify(schema.pattern)}).test(${valueExpression}) && Number.isFinite(Number(${valueExpression}))`;
+    }
     return `typeof ${valueExpression} === 'string'`;
   }
   if (type === 'integer') {

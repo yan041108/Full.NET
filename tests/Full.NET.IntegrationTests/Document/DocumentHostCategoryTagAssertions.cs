@@ -7,6 +7,7 @@ using Full.NET.Modules.Document.Contracts;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>Host 文档分类与标签：关联与列表投影。</summary>
 internal static class DocumentHostCategoryTagAssertions
 {
     private const string CategoriesPath = "/api/v1/document/host/categories";

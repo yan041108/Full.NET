@@ -3,6 +3,7 @@ using global::MemoryPack;
 
 namespace Full.NET.UnitTests.Serialization;
 
+/// <summary>单元测试（Serialization）：Memory Pack Integration Event Serializer。</summary>
 [TestClass]
 public sealed partial class MemoryPackIntegrationEventSerializerTests
 {
@@ -31,6 +32,7 @@ public sealed partial class MemoryPackIntegrationEventSerializerTests
         CollectionAssert.AreEqual(first, second);
     }
 
+    /// <summary>测试用集成事件契约；字段顺序与 MemoryPack 线格式绑定。</summary>
     [MemoryPackable]
     public partial record TestIntegrationEvent(Guid Id, string Identifier);
 }

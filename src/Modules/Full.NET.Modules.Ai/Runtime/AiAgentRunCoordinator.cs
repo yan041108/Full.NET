@@ -149,6 +149,7 @@ internal sealed class AiAgentRunCoordinator(
         var executionContext = scope.ServiceProvider.GetRequiredService<IAgentRunExecutionContext>();
         AgentWorkflowState? workflowState = null;
         AiModelRunCheckpoint? modelState = null;
+        IDisposable? logCorrelation = null;
         try
         {
             // 读取失败属于状态未知，必须在等待前保留预算；只有成功读到首次空状态才解除保护。
@@ -186,6 +187,7 @@ internal sealed class AiAgentRunCoordinator(
             }
 
             executionContext.SetBinding(binding);
+            logCorrelation = new AiBackgroundLogCorrelation().BeginValidatedScope(binding);
 
             var isWorkflow = record.DefinitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey;
             if (isWorkflow
@@ -626,6 +628,8 @@ internal sealed class AiAgentRunCoordinator(
         }
         finally
         {
+            // 异常日志也属于本次已验证执行，记录完成后才恢复外层上下文。
+            logCorrelation?.Dispose();
             executionContext.Clear();
             tenantWriter.Clear();
         }

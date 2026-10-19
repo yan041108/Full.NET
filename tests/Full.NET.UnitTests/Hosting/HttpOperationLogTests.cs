@@ -10,6 +10,7 @@ using System.Text.Json;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>HTTP 操作日志：采集、脱敏与路由模板。</summary>
 [TestClass]
 public sealed class HttpOperationLogTests
 {

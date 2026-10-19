@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>ExecuteDefinitions 特性 HTTP 端点注册。</summary>
 namespace Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 
 internal static class Endpoint

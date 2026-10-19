@@ -2,6 +2,7 @@ using Full.NET.Hosting.Observability;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Log Queue Byte Budget。</summary>
 [TestClass]
 public sealed class LogQueueByteBudgetTests
 {

@@ -576,7 +576,7 @@ internal sealed class WorkflowDefinitionManagementService(
 
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertDomainAudit,
-            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", null),
                 ("OperationKey", "definition.publish"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "definition"), ("ResourceId", id),

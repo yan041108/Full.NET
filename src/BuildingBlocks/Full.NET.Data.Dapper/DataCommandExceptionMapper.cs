@@ -47,6 +47,7 @@ internal static class DataCommandExceptionMapper
         {
             2601 or 2627 => DataCommandFailureKind.UniqueConstraint,
             1205 => DataCommandFailureKind.Deadlock,
+            515 or 547 or 8152 or 2628 => DataCommandFailureKind.InvalidValue,
             _ => null,
         };
 
@@ -61,6 +62,9 @@ internal static class DataCommandExceptionMapper
             MySqlErrorCode.DuplicateKeyEntry => DataCommandFailureKind.UniqueConstraint,
             MySqlErrorCode.LockDeadlock or MySqlErrorCode.UserLockDeadlock =>
                 DataCommandFailureKind.Deadlock,
+            // 固定服务端错误号：NOT NULL、字段过长、缺少被引用行、CHECK 失败。
+            (MySqlErrorCode)1048 or (MySqlErrorCode)1406 or (MySqlErrorCode)1452 or (MySqlErrorCode)3819 =>
+                DataCommandFailureKind.InvalidValue,
             _ => null,
         };
 }

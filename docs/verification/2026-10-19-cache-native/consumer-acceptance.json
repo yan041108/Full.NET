@@ -1,0 +1,191 @@
+{
+  "at": "2026-10-18T17:56:05.679Z",
+  "accepted": true,
+  "sourceHash": "9bea866fedd21a184f37867dfca16089cfa53d0ebf90f768fd85054d921782b8",
+  "consumerSourceHash": "7508654a2c7e1eeab620e64e7f96efb75f57ed976887c0ec867890e0b0b38013",
+  "actualConsumerStages": [
+    {
+      "name": "sdk",
+      "args": [
+        "--version"
+      ],
+      "startedAt": "2026-10-18T17:44:50.119Z",
+      "actualExit": 0,
+      "signal": null,
+      "finishedAt": "2026-10-18T17:44:50.376Z"
+    },
+    {
+      "name": "consumer-build",
+      "args": [
+        "build",
+        "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+        "--configuration",
+        "Release",
+        "--nologo",
+        "-m:1",
+        "-p:RestoreLockedMode=true",
+        "-p:UseArtifactsOutput=true",
+        "-p:ArtifactsPath=/work/jit",
+        "-p:UseSharedCompilation=false",
+        "-nr:false"
+      ],
+      "startedAt": "2026-10-18T17:45:09.028Z",
+      "actualExit": 0,
+      "signal": null,
+      "finishedAt": "2026-10-18T17:52:36.471Z"
+    },
+    {
+      "name": "profile",
+      "args": [
+        "/work/jit/bin/Full.NET.IntegrationTests/release/Full.NET.IntegrationTests.dll",
+        "--filter",
+        "FullyQualifiedName~Full.NET.IntegrationTests.Infrastructure.NativeContainerResourceProfileTests",
+        "--minimum-expected-tests",
+        "40",
+        "--settings",
+        "/control/sequential.runsettings",
+        "--timeout",
+        "2m",
+        "--no-ansi",
+        "--progress",
+        "off",
+        "--report-trx",
+        "--report-trx-filename",
+        "profile.trx",
+        "--results-directory",
+        "/results"
+      ],
+      "startedAt": "2026-10-18T17:52:56.091Z",
+      "actualExit": 0,
+      "signal": null,
+      "finishedAt": "2026-10-18T17:52:56.770Z"
+    },
+    {
+      "name": "package-audit",
+      "args": [
+        "/control/audit-packages.mjs"
+      ],
+      "startedAt": "2026-10-18T17:53:16.287Z",
+      "actualExit": 0,
+      "signal": null,
+      "finishedAt": "2026-10-18T17:54:21.505Z"
+    }
+  ],
+  "buildRecord": {
+    "schemaVersion": 1,
+    "identity": "6c3007bfdb6de12a6fb197c35fc4b92ca5c0f1fef242b303bc188caa924dc5b8",
+    "output": "c5941423e3156da44028e9855b1e1adc43dbf15d9a51d4b67090d13a879d97ed"
+  },
+  "canonicalDiscovery": {
+    "full": 1332,
+    "partitions": {
+      "api-sqlserver": 202,
+      "api-mysql": 202,
+      "migrations": 560,
+      "infrastructure": 288,
+      "messaging-heavy": 80
+    },
+    "canonicalFunctionsUsed": true
+  },
+  "profile": {
+    "total": 40,
+    "outcomes": {
+      "Passed": 40,
+      "Failed": 0,
+      "Inconclusive": 0,
+      "Skipped": 0,
+      "NotExecuted": 0,
+      "Other": 0
+    },
+    "inconclusiveTests": []
+  },
+  "profileUids": [
+    "132b622b-c5f6-801e-a2d1-912251f401b1",
+    "1cdfb34f-4608-83a9-89f7-244aa5d558a8",
+    "12220e31-004a-8acc-9538-604fb62eb8b7",
+    "192d967f-f204-88c9-9942-549276d565ad",
+    "1dcb0c99-e7c5-8855-830a-d2057c47eb75",
+    "13f24d99-d8ac-8725-a0e7-53f913c97d7f",
+    "16fadc3c-b5e8-82af-b515-c101a9a79611",
+    "1a0125db-3b71-8f09-a371-8fafe2b643d7",
+    "1d8f1117-aa60-8bda-b8fa-55d29391086f",
+    "11ebdf7d-ca10-848f-b808-177c60ba71a5",
+    "11a1f339-75ca-836f-b4da-ed2c1705d4dc",
+    "11d84391-7992-8ded-93aa-28f54bbb3215",
+    "1e8c284b-4ac7-8d26-b43f-e80a6fc9dc68",
+    "1fd84e2a-5b95-8097-8819-7e6bef9c83b2",
+    "18348541-e57c-8d18-aab9-d2d87a0b181c",
+    "12911cef-cb74-8b37-9a24-903fd2b123e0",
+    "13f06edd-7a66-899f-bd90-866f6ef5553a",
+    "1e5370a2-8e1f-8605-8523-c864cbc5899f",
+    "1a4550f7-6ccf-8af7-b802-1bc3dbefc2e2",
+    "10e383b0-f7ff-8add-b6cc-66371b5aee7c",
+    "1b68b4e9-e04c-8c1e-ab80-d052bfc88332",
+    "11d0bc30-bbd7-81e7-86b9-b29e3712837a",
+    "1845c205-3b92-833e-8ef8-2c7fa8030495",
+    "15115af3-2728-8d54-bc33-91faabb776c5",
+    "14d82a63-74ee-8fd8-81e9-c3bae790acd9",
+    "1a838839-d84c-8776-99af-d857c87ffc2f",
+    "1aba4102-018f-8504-a6f0-ef6403f3d945",
+    "14efbbbf-e287-874d-89f3-dd809af1e303",
+    "178882ae-363a-891a-b85f-8c3b4cc24164",
+    "19e81eed-9a1e-8dcb-b0e9-1b7475da8722",
+    "178915ed-5e08-8324-b709-6e02ce28143f",
+    "1a07cbfa-7975-8aa5-b2c6-90312a3c90df",
+    "121748ba-bc9f-88b0-b437-1afd7b1f71f0",
+    "19c9e000-46a7-80df-a2d3-2975fd04d5bd",
+    "17f3b4f3-5c1f-8043-9b63-b1368a9ee58a",
+    "101147f2-3704-8a93-8a6f-096882dd2889",
+    "107633c7-75a0-81cf-9773-d78ba2f3ea4f",
+    "1ee57e1d-c59d-8bf7-9f71-a895196f7b5d",
+    "13ea8ab4-3c6d-8c7d-b0e3-3daebf5dc455",
+    "1ba371bd-82f9-8f5b-a364-87d7d4190716"
+  ],
+  "actualTerminal": {
+    "stopReason": null,
+    "observedViaLiveProcessHandle": true,
+    "jobFinalActiveProcesses": 0,
+    "actualParentPid": 90284,
+    "actualParentExit": 0,
+    "jobAssignedBeforeResume": true,
+    "actualJobPeakBytes": 207257600,
+    "actualParentBirth": "134368190529063486",
+    "budgetStarted": true,
+    "actualExecutionDeadlineUtc": "2026-10-18T18:54:15.0480000+00:00",
+    "jobTotalProcesses": 518,
+    "at": "2026-10-18T17:54:51.4271742Z"
+  },
+  "stoppedSdk": {
+    "id": "9c98193da82ade61a6756c3a1ebf8f3ee3543ce1b0d06f95f879ce80ea6aefdb",
+    "name": "fullnet-cache-publisher-a80a9976-e26e-47fb-81b4-f41fc7b29d14",
+    "owner": "a80a9976-e26e-47fb-81b4-f41fc7b29d14",
+    "image": "sha256:4488e0c3b77341253b127f67fcc8f7940caf19c1c8b69a86d8b5c5c6bea36dc1",
+    "actualPrimaryExit": 137,
+    "actualPublisherExecExit": 0,
+    "stoppedAt": "2026-10-18T17:54:51.129Z",
+    "purpose": "Necessary same-environment consumer and Native/AI/capacity reuse; next start must obtain fresh real resources"
+  },
+  "retainedBuildVolume": {
+    "name": "fullnet-cache-publisher-a80a9976-e26e-47fb-81b4-f41fc7b29d14-work",
+    "owner": "a80a9976-e26e-47fb-81b4-f41fc7b29d14",
+    "consumer": "9c98193da82ade61a6756c3a1ebf8f3ee3543ce1b0d06f95f879ce80ea6aefdb",
+    "consumerStopped": true,
+    "purpose": "Required reusable build output; remove after validation consumers finish"
+  },
+  "reusedNativePublication": {
+    "originalPassed": false,
+    "originalParentExit": 1,
+    "originalJobFinalActiveProcesses": 0,
+    "originalProofSha256": "d84a045341fc0384123fcb3ee8cddde26691d5d833916a49f100e5aae2942bc0",
+    "scope": "Only actual successful API/Worker publication phases, complete bundles and persisted actual ILC/PKCS graphs; original overall failure retained"
+  },
+  "finalSourceVerified": true,
+  "finalConsumerSourceVerified": true,
+  "finalPrivateControlsVerified": true,
+  "cgroupPeakBytes": 3181490176,
+  "cgroupMemoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n",
+  "consumerProofSha256": "ab44d8e5e1d38ec5e614c13d25e8b103206e4ec12eb87bb3f4967f9e92dc9580",
+  "profileTrxSha256": "608ac1e59a60b42cd6be2ae69afd2cbc4dcaa557ad0f18addfdaee1e83934d52",
+  "capacityStatus": "Capacity-not-verified",
+  "nativeRuntimeCoreAcceptance": "Pending actual Core runtime"
+}

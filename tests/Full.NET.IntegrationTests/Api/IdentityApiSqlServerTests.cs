@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：IdentityApiSqlServer。</summary>
 [TestClass]
 public sealed class IdentityApiSqlServerTests
 {

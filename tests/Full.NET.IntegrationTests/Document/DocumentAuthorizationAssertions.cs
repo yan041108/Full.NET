@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>文档授权：Host 侧权限与租户隔离。</summary>
 internal static class DocumentAuthorizationAssertions
 {
     public static async Task VerifyAsync(

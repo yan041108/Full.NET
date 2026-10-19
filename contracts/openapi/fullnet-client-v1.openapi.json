@@ -29643,10 +29643,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/LogFileSummary"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/LogFileList"
                 }
               }
             },
@@ -51690,11 +51687,32 @@
           "entryName": {
             "type": "string"
           },
+          "failSafeEnabled": {
+            "type": "boolean"
+          },
+          "failSafeMaxDurationSeconds": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
           "invalidationOperations": {
             "items": {
               "$ref": "#/components/schemas/CacheInvalidationOperationSummary"
             },
             "type": "array"
+          },
+          "jitterSeconds": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
           },
           "l1DurationSeconds": {
             "format": "int64",
@@ -51714,11 +51732,53 @@
               "string"
             ]
           },
+          "maxSerializedBytes": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "negativeDurationSeconds": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
           "ownerModule": {
             "type": "string"
           },
           "requiresDirectInvalidation": {
             "type": "boolean"
+          },
+          "requiresVersionRecheck": {
+            "type": "boolean"
+          },
+          "runtimeStatus": {
+            "type": "string"
+          },
+          "snapshotAgeSeconds": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "snapshotMaxAgeSeconds": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
           }
         },
         "required": [
@@ -51730,7 +51790,16 @@
           "l2DurationSeconds",
           "requiresDirectInvalidation",
           "canInvalidate",
-          "invalidationOperations"
+          "invalidationOperations",
+          "jitterSeconds",
+          "negativeDurationSeconds",
+          "failSafeEnabled",
+          "failSafeMaxDurationSeconds",
+          "requiresVersionRecheck",
+          "maxSerializedBytes",
+          "runtimeStatus",
+          "snapshotAgeSeconds",
+          "snapshotMaxAgeSeconds"
         ],
         "type": "object"
       },
@@ -61193,6 +61262,33 @@
         "required": [
           "preferredLocale",
           "profileVersion"
+        ],
+        "type": "object"
+      },
+      "LogFileList": {
+        "properties": {
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LogFileSummary"
+            },
+            "type": "array"
+          },
+          "scannedEntries": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "isTruncated",
+          "scannedEntries"
         ],
         "type": "object"
       },

@@ -1,3 +1,4 @@
+// 工作流表单组件目录端点；返回允许的组件类型与安全属性。
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Workflow.Features.ManageForms;
 
+/// <summary>工作流表单组件目录端点；返回允许的组件类型与安全属性。</summary>
 internal static class FormComponentCatalogEndpoint
 {
     public static void Map(RouteGroupBuilder group)

@@ -1,5 +1,6 @@
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：协议错误响应格式，禁止 ProblemDetails 包络。</summary>
 internal static class IdentityOidcErrorResponseAssertions
 {
     private static readonly string[] ForbiddenLeakMarkers =

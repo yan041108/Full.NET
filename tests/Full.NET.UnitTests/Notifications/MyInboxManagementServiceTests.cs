@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：My Inbox Management Service。</summary>
 [TestClass]
 public sealed class MyInboxManagementServiceTests
 {

@@ -8,17 +8,21 @@ internal sealed class LiveCollectorCriBridge : IAsyncDisposable
 {
     private readonly CancellationTokenSource _stopping;
     private readonly Task _pump;
+    private readonly int _maximumRecords;
     private volatile bool _completed;
-    private LiveCollectorCriBridge(string source, string directory, CancellationToken token)
+    private LiveCollectorCriBridge(string source, string directory, CancellationToken token, int maximumRecords)
     {
+        _maximumRecords = maximumRecords;
         _stopping = CancellationTokenSource.CreateLinkedTokenSource(token);
         _pump = PumpAsync(source, directory);
     }
 
-    public static async Task<LiveCollectorCriBridge> StartAsync(string source, string directory, CancellationToken token)
+    public static async Task<LiveCollectorCriBridge> StartAsync(string source, string directory, CancellationToken token, int maximumRecords = 10000)
     {
+        // 短档保留原上限，持续档显式传入预先声明的收据预算，禁止无界回放。
+        if (maximumRecords is < 1 or > 60000) throw new ArgumentOutOfRangeException(nameof(maximumRecords));
         await File.WriteAllTextAsync(source, "", token);
-        return new(source, directory, token);
+        return new(source, directory, token, maximumRecords);
     }
 
     internal static string PodFile(string pod) => $"{pod}_default_api-{new string('a', 64)}.log";
@@ -53,7 +57,7 @@ internal sealed class LiveCollectorCriBridge : IAsyncDisposable
                 }
                 var line = pending.ToString().TrimEnd('\r');
                 pending.Clear();
-                Assert.IsTrue(++records <= 10000);
+                Assert.IsTrue(++records <= _maximumRecords);
                 var json = JsonNode.Parse(line)!.AsObject();
                 var prefix = DateTimeOffset.UtcNow.ToString("O") + " stdout F ";
                 await trusted.WriteLineAsync((prefix + line).AsMemory(), token);

@@ -430,7 +430,7 @@ internal sealed class WorkflowFormManagementService(
 
         await commandExecutor.ExecuteAsync(
                 WorkflowSql.InsertDomainAudit,
-                Parameters(
+                Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                     ("ScopeKey", scope.ScopeKey), ("InstanceId", null),
                     ("OperationKey", "form.publish"), ("ActorUserId", actorUserId),

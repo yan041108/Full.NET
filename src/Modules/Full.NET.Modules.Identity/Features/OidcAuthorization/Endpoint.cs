@@ -1,3 +1,4 @@
+// OIDC 授权端点映射；浏览器授权码流，不承载业务 API。
 using System.Net;
 using System.Globalization;
 using System.Security.Claims;

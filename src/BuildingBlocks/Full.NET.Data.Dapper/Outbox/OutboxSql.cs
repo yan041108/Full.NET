@@ -2,6 +2,9 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
+/// <summary>
+/// Outbox 领取、续租、发布与毒消息处理的显式 SQL；流级查询使用 Global 作用域，不绕过租户守卫。
+/// </summary>
 internal static class OutboxSql
 {
     public static readonly SqlStatement FindLastStreamEventSqlServer = new(

@@ -7,6 +7,7 @@ using Full.NET.Modules.Webhooks.Serialization;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 
+/// <summary>Webhooks 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 
 internal sealed class WebhookEventEnqueueService(

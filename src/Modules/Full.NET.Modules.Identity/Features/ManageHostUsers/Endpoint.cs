@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
+/// <summary>Host 侧Users管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 
 internal static class Endpoint

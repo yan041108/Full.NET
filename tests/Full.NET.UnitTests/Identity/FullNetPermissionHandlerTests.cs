@@ -9,6 +9,7 @@ using Full.NET.Modules.Tenancy;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Full Net Permission Handler。</summary>
 [TestClass]
 public sealed class FullNetPermissionHandlerTests
 {

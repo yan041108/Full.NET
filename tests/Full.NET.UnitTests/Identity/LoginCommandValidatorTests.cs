@@ -3,6 +3,7 @@ using Full.NET.Modules.Identity.Http;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Login Command Validator。</summary>
 [TestClass]
 public sealed class LoginCommandValidatorTests
 {

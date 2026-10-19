@@ -13,6 +13,7 @@ using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Error Resource Completeness。</summary>
 [TestClass]
 public sealed class ErrorResourceCompletenessTests
 {

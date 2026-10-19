@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：多实例下治理变更一致性。</summary>
 internal static class IdentityOidcContextSwitchGovernanceMultiInstanceAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5013/signin-oidc-context-switch-governance";

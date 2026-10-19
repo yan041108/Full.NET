@@ -1,4 +1,5 @@
 using Full.NET.Caching.Abstractions;
+using System.Diagnostics;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.Caching.Fusion;
@@ -19,10 +20,8 @@ internal sealed class FusionCacheInvalidator(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        await cache.RemoveAsync(
-                key,
-                CreateOptions(entryName, scope),
-                token: cancellationToken)
+        await ExecuteAsync(entryName, scope,
+                options => cache.RemoveAsync(key, options, token: cancellationToken))
             .ConfigureAwait(false);
     }
 
@@ -34,18 +33,41 @@ internal sealed class FusionCacheInvalidator(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);
-        await cache.RemoveByTagAsync(
-                tag,
-                CreateOptions(entryName, scope),
-                token: cancellationToken)
+        await ExecuteAsync(entryName, scope,
+                options => cache.RemoveByTagAsync(tag, options, token: cancellationToken))
             .ConfigureAwait(false);
     }
 
-    private FusionCacheEntryOptions CreateOptions(
-        string entryName,
-        CacheInvalidationScope scope)
+    private async ValueTask ExecuteAsync(string entryName, CacheInvalidationScope scope,
+        Func<FusionCacheEntryOptions, ValueTask> execute)
     {
-        var options = policies.CreateEntryOptions(entryName);
+        var policy = policies.GetRequired(entryName);
+        var options = CreateOptions(scope);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+        try
+        {
+            await execute(options).ConfigureAwait(false);
+            succeeded = true;
+        }
+        finally
+        {
+            // 每个键或标签操作只在此处记一次；旁路指标不能覆盖 SDK 原始异常。
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            if (scope == CacheInvalidationScope.CurrentNodeOnly)
+                CacheReliabilityTelemetry.RecordLocalInvalidation(duration, succeeded);
+            else
+                CacheReliabilityTelemetry.RecordDistributedInvalidation(duration, succeeded);
+            CacheReliabilityTelemetry.RecordPolicyEvent(policy.OwnerModule, policy.ConsistencyClassTag,
+                scope == CacheInvalidationScope.CurrentNodeOnly ? "invalidate_local" : "invalidate_distributed",
+                succeeded ? "success" : "failure");
+        }
+    }
+
+    private static FusionCacheEntryOptions CreateOptions(CacheInvalidationScope scope)
+    {
+        // 读写策略不能用于删除：S0 会跳过历史 L1，C0/N0 仍需排空升级前的旧键。
+        var options = new FusionCacheEntryOptions { IsFailSafeEnabled = false };
         switch (scope)
         {
             case CacheInvalidationScope.CurrentNodeOnly:

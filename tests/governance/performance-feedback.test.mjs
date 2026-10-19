@@ -15,8 +15,8 @@ test('本地内循环保持聚焦，完整性能矩阵可在本地分批验收',
     'utf8'
   );
 
-  assert.match(rules, /受影响的 Unit/);
-  assert.match(rules, /1 个 SQL Server smoke 和 1 个 MySQL smoke/);
+  // 执行时机由集中验收规则拥有；不要锁定已经退役的逐编辑固定双库 Smoke 流程。
+  assert.match(rules, /\]\(development-quality\.md#r-20261008-concentrated-acceptance[^)]*\)/u);
   assert.match(rules, /通常保留 2–4 个可比较样本/);
   assert.match(rules, /完整 Outbox 与 Audit 长时矩阵可在本地分批执行并作为验收证据/);
   assert.match(rules, /CI 性能工作流是可选执行方式/);

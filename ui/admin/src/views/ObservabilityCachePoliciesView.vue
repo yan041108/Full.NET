@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -42,6 +42,7 @@ const loading = ref(false);
 const invalidating = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const lastResult = ref<string[]>([]);
+let catalogRequestVersion = 0;
 const canRead = computed(() => session.can('observability.cache_policies.read'));
 const canInvalidate = computed(() => session.can('observability.cache_policies.invalidate'));
 const selectedOperation = computed<CacheInvalidationOperationSummary | undefined>(() =>
@@ -73,7 +74,35 @@ function formatDuration(seconds: number | null | undefined): string {
   return `${Math.round(seconds / 3600)}h`;
 }
 
+function formatPolicyDuration(seconds: number | string | null | undefined): string {
+  if (seconds === undefined) return t('observabilityCachePolicies.unknown');
+  if (seconds === null) return t('observabilityCachePolicies.notApplicable');
+  const value = typeof seconds === 'string' && seconds.trim() === '' ? NaN : Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return t('observabilityCachePolicies.unknown');
+  return `${value}s`;
+}
+
+function formatPolicyBoolean(value: boolean): string {
+  return value ? t('observabilityCachePolicies.yes') : t('observabilityCachePolicies.no');
+}
+
+function formatPayloadBudget(bytes: number | null | undefined): string {
+  if (bytes === undefined) return t('observabilityCachePolicies.unknown');
+  if (bytes === null) return t('observabilityCachePolicies.notApplicable');
+  return `${bytes} B`;
+}
+
+function formatRuntimeStatus(status: string | undefined): string {
+  if (status === 'snapshot_loaded') return t('observabilityCachePolicies.snapshotLoaded');
+  if (status === 'safe_default') return t('observabilityCachePolicies.safeDefault');
+  if (status === 'observing') return t('observabilityCachePolicies.observing');
+  if (status === 'not_applicable') return t('observabilityCachePolicies.notApplicable');
+  return t('observabilityCachePolicies.unknown');
+}
+
 async function loadPolicies(): Promise<void> {
+  if (loading.value) return;
+  const version = ++catalogRequestVersion;
   if (!canRead.value) {
     problem.value = {
       type: 'about:blank',
@@ -87,53 +116,76 @@ async function loadPolicies(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    policies.value = await listObservabilityCachePolicies();
-    if (!selected.value) {
-      selected.value = policies.value[0];
-    }
+    const loaded = await listObservabilityCachePolicies();
+    if (version !== catalogRequestVersion || !canRead.value) return;
+    policies.value = loaded;
+    // 目录刷新必须替换选中对象，避免详情和失效权限仍引用上一轮策略。
+    selected.value = policies.value.find(policy => policy.entryName === selected.value?.entryName)
+      ?? policies.value[0];
     resetOperationForm();
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (version === catalogRequestVersion && canRead.value) problem.value = toProblem(error);
   } finally {
-    loading.value = false;
+    if (version === catalogRequestVersion) loading.value = false;
   }
 }
 
 function selectPolicy(policy: CachePolicySummary): void {
+  if (loading.value || invalidating.value || !canRead.value) return;
   selected.value = policy;
   resetOperationForm();
 }
 
 function resetOperationForm(): void {
+  scope.value = selected.value?.accessKind === 'local_snapshot' ? 'current_node_only' : 'all_layers_synchronous';
   selectedOperationKey.value = selected.value?.invalidationOperations[0]?.operationKey;
   parameterValues.value = {};
   lastResult.value = [];
 }
 
 async function submitInvalidation(): Promise<void> {
-  if (!selected.value || !selectedOperation.value || !canInvalidate.value) {
+  if (loading.value || invalidating.value || !selected.value?.canInvalidate || !selectedOperation.value || !canRead.value || !canInvalidate.value) {
     return;
   }
 
   invalidating.value = true;
   problem.value = undefined;
+  const entryName = selected.value.entryName;
+  const isSnapshot = selected.value.accessKind === 'local_snapshot';
+  const version = catalogRequestVersion;
   try {
     const result = await invalidateObservabilityCachePolicy(
-      selected.value.entryName,
+      entryName,
       {
         operationKey: selectedOperation.value.operationKey,
         parameters: parameterValues.value,
         scope: scope.value
       }
     );
-    lastResult.value = result.invalidatedTargets;
-    ElMessage.success(t('observabilityCachePolicies.invalidateSuccess'));
+    // 权限变化或目录替换后的迟到结果不能显示到另一条目上。
+    if (version === catalogRequestVersion && canRead.value && canInvalidate.value && selected.value?.entryName === entryName) {
+      lastResult.value = result.invalidatedTargets;
+      ElMessage.success(t(isSnapshot ? 'observabilityCachePolicies.snapshotRefreshSuccess' : 'observabilityCachePolicies.invalidateSuccess'));
+    }
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (version === catalogRequestVersion && canRead.value) problem.value = toProblem(error);
   } finally {
     invalidating.value = false;
   }
 }
+
+watch(canRead, allowed => {
+  if (allowed) {
+    void loadPolicies();
+    return;
+  }
+  // 撤销读取权限后清除已有目录，同时让在途响应失效。
+  ++catalogRequestVersion;
+  loading.value = false;
+  policies.value = [];
+  selected.value = undefined;
+  resetOperationForm();
+});
 
 onMounted(() => {
   void loadPolicies();
@@ -152,7 +204,7 @@ onMounted(() => {
 
     <ElCard class="art-card">
       <div class="observability-cache-policies__toolbar">
-        <ElButton type="primary" :loading="loading" @click="loadPolicies">
+        <ElButton v-if="canRead" type="primary" :loading="loading" :disabled="invalidating" @click="loadPolicies">
           {{ t('observabilityCachePolicies.refresh') }}
         </ElButton>
       </div>
@@ -194,10 +246,38 @@ onMounted(() => {
         <ElDescriptionsItem :label="t('observabilityCachePolicies.directInvalidation')">
           {{ selected.requiresDirectInvalidation ? t('observabilityCachePolicies.yes') : t('observabilityCachePolicies.no') }}
         </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.jitter')">
+          <span data-policy-field="jitter">{{ formatPolicyDuration(selected.jitterSeconds) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.negativeDuration')">
+          <span data-policy-field="negative-duration">{{ formatPolicyDuration(selected.negativeDurationSeconds) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.failSafe')">
+          <span data-policy-field="fail-safe">{{ formatPolicyBoolean(selected.failSafeEnabled) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.failSafeRetention')">
+          <span data-policy-field="fail-safe-retention">{{ formatPolicyDuration(selected.failSafeMaxDurationSeconds) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.versionRecheck')">
+          <span data-policy-field="version-recheck">{{ formatPolicyBoolean(selected.requiresVersionRecheck) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.maxBytes')">
+          <span data-policy-field="max-bytes">{{ formatPayloadBudget(selected.maxSerializedBytes) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem :label="t('observabilityCachePolicies.runtimeStatus')">
+          <span data-policy-field="runtime-status">{{ formatRuntimeStatus(selected.runtimeStatus) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem v-if="selected.accessKind === 'local_snapshot'" :label="t('observabilityCachePolicies.snapshotAge')">
+          <span data-policy-field="snapshot-age">{{ formatPolicyDuration(selected.snapshotAgeSeconds) }}</span>
+        </ElDescriptionsItem>
+        <ElDescriptionsItem v-if="selected.accessKind === 'local_snapshot'" :label="t('observabilityCachePolicies.snapshotMaxAge')">
+          {{ formatPolicyDuration(selected.snapshotMaxAgeSeconds) }}
+        </ElDescriptionsItem>
       </ElDescriptions>
+      <p class="art-muted">{{ selected.accessKind === 'local_snapshot' ? t('observabilityCachePolicies.snapshotHint') : t('observabilityCachePolicies.runtimeStatusHint') }}</p>
 
-      <div v-if="selected.canInvalidate && canInvalidate" class="observability-cache-policies__form">
-        <ElForm label-position="top">
+      <div v-if="canRead && selected.canInvalidate && canInvalidate" class="observability-cache-policies__form">
+        <ElForm label-position="top" :disabled="loading || invalidating">
           <ElFormItem :label="t('observabilityCachePolicies.operation')">
             <ElSelect v-model="selectedOperationKey" @change="parameterValues = {}">
               <ElOption
@@ -214,11 +294,12 @@ onMounted(() => {
             :label="parameter.name"
             :required="parameter.required"
           >
-            <ElInput v-model="parameterValues[parameter.name]" />
+            <ElInput v-model="parameterValues[parameter.name]" :maxlength="256" />
           </ElFormItem>
           <ElFormItem :label="t('observabilityCachePolicies.scope')">
             <ElSelect v-model="scope">
               <ElOption
+                v-if="selected.accessKind !== 'local_snapshot'"
                 value="all_layers_synchronous"
                 :label="t('observabilityCachePolicies.scope.all_layers_synchronous')"
               />
@@ -233,7 +314,7 @@ onMounted(() => {
             :loading="invalidating"
             @click="submitInvalidation"
           >
-            {{ t('observabilityCachePolicies.invalidate') }}
+            {{ t(selected.accessKind === 'local_snapshot' ? 'observabilityCachePolicies.refreshSnapshot' : 'observabilityCachePolicies.invalidate') }}
           </ElButton>
         </ElForm>
       </div>

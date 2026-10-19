@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
@@ -21,6 +22,7 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
     private readonly ILogger<AuditMicroBatchCoordinator> _logger;
     private readonly SemaphoreSlim _flushGate = new(1, 1);
     private readonly AuditQueueByteBudget _byteBudget = new();
+    private readonly Meter _meter = new(AuditMicroBatchTelemetry.MeterName);
 
     internal long QueueBytesInUse => _byteBudget.ReservedBytes;
 
@@ -40,6 +42,11 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
                 SingleReader = true,
                 SingleWriter = false,
             });
+        _meter.CreateObservableGauge("fullnet.auditing.microbatch.queue.depth", () => _channel.Reader.Count);
+        _meter.CreateObservableGauge("fullnet.auditing.microbatch.queue.capacity", () => capacity);
+        _meter.CreateObservableGauge("fullnet.auditing.microbatch.queue.bytes", () => _byteBudget.ReservedBytes);
+        _meter.CreateObservableGauge("fullnet.auditing.microbatch.queue.oldest_age",
+            () => _channel.Reader.TryPeek(out var oldest) ? oldest.QueueAgeSeconds : 0, unit: "s");
     }
 
     /// <summary>入队 Operation/Exception（可空）并等待各自批次结果；Access 不得进入。</summary>
@@ -115,6 +122,7 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        envelope.BeginQueueLifetime(options.MaxQueueAge);
         timeout.CancelAfter(options.EnqueueTimeout);
         var accepted = false;
         try
@@ -385,6 +393,14 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
         List<AuditWriteEnvelope> buffer,
         CancellationToken cancellationToken)
     {
+        // 最后一次检查在真正提交前，包含组批和前批执行造成的等待；过期项不启动数据库操作。
+        for (var index = buffer.Count - 1; index >= 0; index--)
+        {
+            if (!buffer[index].QueueExpired) continue;
+            FailOpenEnvelope(buffer[index], "queue_expired");
+            buffer.RemoveAt(index);
+        }
+        if (buffer.Count == 0) return;
         await _flushGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -411,5 +427,11 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
     {
         _channel.Writer.TryComplete();
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public override void Dispose()
+    {
+        _meter.Dispose();
+        base.Dispose();
     }
 }

@@ -50,7 +50,7 @@ public sealed class NativeWorkerKafkaLogMySqlE2ETests
             ["FullNet:Logging:Kafka:ShutdownFlushTimeoutMs"] = "15000",
         };
         using var productionAssets = new ProductionLogHostTestAssets();
-        productionAssets.ApplyTo(settings);
+        await productionAssets.ApplyToAsync(settings).ConfigureAwait(false);
         await using var host = await NativeWorkerProcessHost.StartAsync(
             artifact,
             DatabaseProvider.MySql,

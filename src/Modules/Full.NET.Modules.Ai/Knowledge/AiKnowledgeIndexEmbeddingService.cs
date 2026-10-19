@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Budgets;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Domain;
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Files.Contracts;
@@ -29,7 +30,7 @@ internal sealed record AiKnowledgeIndexEmbeddingBatch(Guid OperationId, int Batc
 internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICurrentTenant tenant, IDataTransactionState transactions, AiKnowledgeIndexTaskStore tasks,
     AiKnowledgeIndexSessionService sessions, AiKnowledgeIndexBudgetService admission, IAiOperationBudgetStore budget, IBackgroundSessionAuthorization authorization,
     IHostFileReferenceReader references, IHostFileContentReader hostFiles, ITenantResourceFileStore tenantFiles,
-    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings)
+    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings, AiBackgroundLogCorrelation? logCorrelation = null)
 {
     private static readonly AiKnowledgeChunkOptions ChunkOptions = new();
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
@@ -56,6 +57,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         var session = await sessions.ReadHeldAsync(binding, taskId, leaseToken, bounded).ConfigureAwait(false);
         if (session is null) return null;
         var state = await CurrentAsync(binding, taskId, leaseToken, session, bounded).ConfigureAwait(false);
+        // 仅持久绑定读取不足以信任身份；完整权限复核成功后才允许日志关联。
+        using var correlation = state is null ? null : (logCorrelation ?? new AiBackgroundLogCorrelation()).BeginValidatedScope(session);
         if (state is null || state.Source.SizeBytes is <= 0 or > AiKnowledgeFilePolicy.MaxBytes
             || state.Source.ContentType is not ("text/plain" or "text/markdown")) return null;
         var factory = factories.SingleOrDefault(item => item.ProviderKey == state.Model.ProviderKey);

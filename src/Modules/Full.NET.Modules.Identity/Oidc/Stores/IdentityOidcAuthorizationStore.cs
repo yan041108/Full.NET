@@ -1,3 +1,4 @@
+// OpenIddict 授权记录 Dapper 存储；授权码与同意状态持久化。
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -9,6 +10,7 @@ using OpenIddict.Abstractions;
 
 namespace Full.NET.Modules.Identity.Oidc.Stores;
 
+/// <summary>OpenIddict 授权记录 Dapper 存储；授权码与同意状态与租户边界一并持久化。</summary>
 internal sealed class IdentityOidcAuthorizationStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

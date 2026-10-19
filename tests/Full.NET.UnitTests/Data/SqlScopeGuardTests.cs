@@ -4,6 +4,7 @@ using Full.NET.Data.Dapper;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Sql Scope Guard。</summary>
 [TestClass]
 public sealed class SqlScopeGuardTests
 {

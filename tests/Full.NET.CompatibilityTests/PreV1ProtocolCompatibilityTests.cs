@@ -4,6 +4,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.CompatibilityTests;
 
+/// <summary>兼容性测试：PreV1ProtocolCompatibility。</summary>
 [TestClass]
 public sealed class PreV1ProtocolCompatibilityTests
 {

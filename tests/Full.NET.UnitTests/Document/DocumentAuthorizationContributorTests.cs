@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.UnitTests.Document;
 
+/// <summary>单元测试（文档）：Document Authorization Contributor。</summary>
 [TestClass]
 public sealed class DocumentAuthorizationContributorTests
 {

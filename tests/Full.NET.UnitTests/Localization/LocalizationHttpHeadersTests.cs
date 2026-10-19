@@ -5,6 +5,7 @@ using Microsoft.Net.Http.Headers;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Localization Http Headers。</summary>
 [TestClass]
 public sealed class LocalizationHttpHeadersTests
 {

@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Settings;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：SettingsApiSqlServer。</summary>
 [TestClass]
 public sealed class SettingsApiSqlServerTests
 {

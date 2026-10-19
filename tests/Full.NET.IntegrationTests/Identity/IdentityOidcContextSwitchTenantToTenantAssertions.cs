@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：租户间切换隔离与 Cookie 更新。</summary>
 internal static class IdentityOidcContextSwitchTenantToTenantAssertions
 {
     public static async Task VerifyAsync(

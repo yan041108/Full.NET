@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Full.NET.Hosting.Observability;
 
@@ -92,8 +91,12 @@ public sealed class KafkaLogProducerPair : IDisposable
 
     /// <summary>先关闭两个入口，再按同一个单调时钟截止时间依次排空优先和普通通道。</summary>
     /// <remarks>Flush 使用共享剩余预算；底层 native Dispose 的实际耗时仍须专项验证。</remarks>
-    public void Dispose()
+    public void Dispose() => Stop(new LogShutdownDeadline(_shutdownTimeout));
+
+    /// <summary>由宿主传入共享截止；排空顺序、提交锁等待均消耗同一剩余预算。</summary>
+    public void Stop(LogShutdownDeadline deadline)
     {
+        ArgumentNullException.ThrowIfNull(deadline);
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
@@ -101,20 +104,13 @@ public sealed class KafkaLogProducerPair : IDisposable
 
         _priority.BeginStop();
         _general.BeginStop();
-        var stopwatch = Stopwatch.StartNew();
         try
         {
-            _priority.Stop(Remaining(stopwatch.Elapsed));
+            _priority.Stop(deadline);
         }
         finally
         {
-            _general.Stop(Remaining(stopwatch.Elapsed));
+            _general.Stop(deadline);
         }
-    }
-
-    private TimeSpan Remaining(TimeSpan elapsed)
-    {
-        var remaining = _shutdownTimeout - elapsed;
-        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }
 }

@@ -17,7 +17,6 @@ internal sealed class TenantBrandingMediaService(
     IClock clock,
     ICurrentTenantContextWriter currentTenantWriter,
     TenantBrandingService brandingService,
-    TenantCacheInvalidator cacheInvalidator,
     IHostFileUploadWriter? hostFileUploadWriter = null,
     IHostFileReferenceClaimService? hostFileReferenceClaimService = null,
     IHostFileDescriptorReader? hostFileDescriptorReader = null,
@@ -216,7 +215,6 @@ internal sealed class TenantBrandingMediaService(
                 .ConfigureAwait(false);
         }
 
-        await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -258,7 +256,6 @@ internal sealed class TenantBrandingMediaService(
             .ConfigureAwait(false);
         await ReleaseLogoClaimAsync(tenantId, fileId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -385,26 +382,6 @@ internal sealed class TenantBrandingMediaService(
         useCurrentTenantScope
             ? TenancyHostExecutionScope.RunAsync(currentTenantWriter, action)
             : action();
-
-    private async Task InvalidateBrandingCacheAsync(
-        Guid tenantId,
-        CancellationToken cancellationToken)
-    {
-        var tenant = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
-                TenantSql.FindById,
-                TenancySqlParameters.Create(("TenantId", tenantId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (tenant is not null)
-        {
-            await cacheInvalidator.InvalidateAfterCommitAsync(
-                    tenant.Id,
-                    tenant.Domain,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-    }
 
     private static Result<T> NotFound<T>() =>
         Result<T>.Failure(new Error(

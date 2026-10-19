@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Images;
 using Full.NET.LogConsumer;
 
 namespace Full.NET.IntegrationTests.Messaging;
@@ -40,8 +41,36 @@ internal sealed class KafkaRequestElasticsearchFixture : IAsyncDisposable
     public string? CaPath { get; }
     public string? ApiKey { get; }
 
-    public static async Task<KafkaRequestElasticsearchFixture> StartTlsAsync(CancellationToken token)
+    /// <summary>为读取验收创建私有 CA 客户端；仍验证信任链与主机名，不安装系统根证书。</summary>
+    public HttpClient CreateTrustedClient()
     {
+        Assert.IsNotNull(CaPath);
+        var policy = new X509ChainPolicy
+        {
+            TrustMode = X509ChainTrustMode.CustomRootTrust,
+            RevocationMode = X509RevocationMode.NoCheck,
+        };
+        policy.CustomTrustStore.Add(X509CertificateLoader.LoadCertificateFromFile(CaPath));
+        var handler = new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false };
+        handler.SslOptions.CertificateChainPolicy = policy;
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+    }
+
+    /// <summary>仅测试数据准备使用管理员连接；返回响应由调用方释放。</summary>
+    public async Task<HttpResponseMessage> SendAdminAsync(HttpMethod method, string path, string json,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, new Uri(_uri, path))
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        };
+        return await _plain.SendAsync(request, cancellationToken);
+    }
+
+    public static async Task<KafkaRequestElasticsearchFixture> StartTlsAsync(CancellationToken token, int cpuCount = 1)
+    {
+        if (cpuCount is < 1 or > 2 || cpuCount != 1 && !SharedDatabaseFixture.BoundedContainers)
+            throw new ArgumentOutOfRangeException(nameof(cpuCount), "两核 ES 只允许在独享有界容量会话中声明。");
         const string password = "fullnet-request-es-test-only";
         using var caKey = RSA.Create(2048);
         var caRequest = new CertificateRequest("CN=FullNET Request ES CA", caKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -69,7 +98,7 @@ internal sealed class KafkaRequestElasticsearchFixture : IAsyncDisposable
         using var server = serverRequest.Create(ca, from.AddMinutes(1), until.AddMinutes(-1), RandomNumberGenerator.GetBytes(16));
         var caPath = Path.Combine(Path.GetTempPath(), $"fullnet-request-es-{Guid.NewGuid():N}.crt");
         await File.WriteAllTextAsync(caPath, ca.ExportCertificatePem(), token);
-        var container = new ContainerBuilder(
+        var builder = new ContainerBuilder(
                 "docker.elastic.co/elasticsearch/elasticsearch@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026")
             .WithResourceMapping(Encoding.UTF8.GetBytes(server.ExportCertificatePem()), "/usr/share/elasticsearch/config/certs/http.crt", 1000, 0)
             .WithResourceMapping(Encoding.UTF8.GetBytes(serverKey.ExportPkcs8PrivateKeyPem()), "/usr/share/elasticsearch/config/certs/http.key", 1000, 0)
@@ -82,9 +111,11 @@ internal sealed class KafkaRequestElasticsearchFixture : IAsyncDisposable
             .WithEnvironment("xpack.ml.enabled", "false")
             .WithEnvironment("ELASTIC_PASSWORD", password)
             .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch", cpuCount))
             .WithPortBinding(9200, assignRandomHostPort: true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200))
-            .Build();
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200));
+        if (SharedDatabaseFixture.BoundedContainers) builder = builder.WithImagePullPolicy(PullPolicy.Never);
+        var container = builder.Build();
         HttpClient? read = null;
         HttpClient? bulk = null;
         try

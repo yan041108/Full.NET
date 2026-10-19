@@ -4,6 +4,7 @@ using Full.NET.Modules.Ocr.Contracts;
 using Full.NET.Modules.Ocr.Persistence;
 using Microsoft.Extensions.Options;
 
+/// <summary>Ocr 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Ocr.Features.ManageIdCardTasks;
 
 internal sealed class OcrIdCardTaskQueryService(

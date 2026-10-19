@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Benchmarks.Auditing;
 
@@ -32,7 +33,8 @@ public class AuditMicroBatchBenchmarks
             _executor,
             new FixedClock(),
             new SequenceIdGenerator(),
-            NullLogger<AuditWriteBatchWriter>.Instance);
+            NullLogger<AuditWriteBatchWriter>.Instance,
+            new FixedBatchOptions());
     }
 
     [Benchmark(Baseline = true)]
@@ -91,6 +93,14 @@ public class AuditMicroBatchBenchmarks
             "bench-trace",
             null,
             "bench.permission");
+
+    // 基准固定配置，排除热更新通知本身的成本；写入仍使用正式执行期限和隔离预算。
+    private sealed class FixedBatchOptions : IOptionsMonitor<AuditMicroBatchOptions>
+    {
+        public AuditMicroBatchOptions CurrentValue { get; } = new();
+        public AuditMicroBatchOptions Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<AuditMicroBatchOptions, string?> listener) => null;
+    }
 
     private sealed class CountingTransaction(Action onExecute) : ICommandTransaction
     {

@@ -1,9 +1,11 @@
+// OIDC 客户端配置解析；合并数据库与配置节，拒绝未登记客户端。
 using Full.NET.Modules.Identity.Configuration;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
+/// <summary>OIDC 客户端配置解析；合并数据库与配置节，拒绝未登记客户端。</summary>
 internal sealed class IdentityOidcClientConfigResolver(
     IOptions<IdentityOidcOptions> oidcOptions,
     IOpenIddictApplicationManager applicationManager)

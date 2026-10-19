@@ -1,3 +1,4 @@
+// HTTP API 宿主入口；组合模块、OpenAPI、Dapper、缓存与 Native AOT 闭包。
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Dapper;

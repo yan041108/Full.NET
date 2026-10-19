@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
 
 internal sealed class OidcAuthorizationQueryService(

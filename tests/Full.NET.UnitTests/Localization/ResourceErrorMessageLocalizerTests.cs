@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Resource Error Message Localizer。</summary>
 [TestClass]
 public sealed class ResourceErrorMessageLocalizerTests
 {

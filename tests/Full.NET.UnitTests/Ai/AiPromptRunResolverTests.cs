@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Prompt Run Resolver。</summary>
 [TestClass]
 public sealed class AiPromptRunResolverTests
 {

@@ -42,4 +42,7 @@ public enum DataCommandFailureKind
     /// 否则可能破坏前置校验、写入与后置读取之间的一致性。
     /// </remarks>
     Deadlock = 2,
+
+    /// <summary>明确的行值不合法：非空、外键/检查约束或字段长度失败；不包含连接、超时或未知错误。</summary>
+    InvalidValue = 3,
 }

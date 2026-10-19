@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>集成测试：NativeApiKafkaReplaySqlServerE2E。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiKafkaReplaySqlServerE2ETests

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Kafka Log Producer Options。</summary>
 [TestClass]
 public sealed class KafkaLogProducerOptionsTests
 {

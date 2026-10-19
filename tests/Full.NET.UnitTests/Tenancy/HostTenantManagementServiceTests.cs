@@ -17,6 +17,7 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Host Tenant Management Service。</summary>
 [TestClass]
 public sealed class HostTenantManagementServiceTests
 {
@@ -129,13 +130,6 @@ public sealed class HostTenantManagementServiceTests
             AuditWriter = Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>();
             var clock = Substitute.For<IClock>();
             clock.UtcNow.Returns(DateTimeOffset.Parse("2026-09-06T00:00:00Z"));
-            var services = new ServiceCollection();
-            services.AddLogging();
-            services.AddFusionCache().AsHybridCache();
-            using var provider = services.BuildServiceProvider();
-            var invalidator = TenantCacheInvalidatorTestFactory.Create(
-                provider.GetRequiredService<IFusionCache>(),
-                new TestHostEnvironment("Testing"));
             var packageBinder = new TenantHostPackageBinder(Query, Command, clock);
             Service = new HostTenantManagementService(
                 Query,
@@ -149,7 +143,6 @@ public sealed class HostTenantManagementServiceTests
                     })),
                 packageBinder,
                 clock,
-                invalidator,
                 AuditWriter);
         }
 

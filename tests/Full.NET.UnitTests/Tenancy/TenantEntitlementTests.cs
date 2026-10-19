@@ -4,6 +4,7 @@ using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenant Entitlement。</summary>
 [TestClass]
 public sealed class TenantEntitlementTests
 {

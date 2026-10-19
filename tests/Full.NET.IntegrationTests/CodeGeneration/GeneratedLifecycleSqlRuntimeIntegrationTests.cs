@@ -5,6 +5,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.CodeGeneration;
 
+/// <summary>集成测试：GeneratedLifecycleSqlRuntimeIntegration。</summary>
 [TestClass]
 public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
 {

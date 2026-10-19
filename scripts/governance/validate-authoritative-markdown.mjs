@@ -1,3 +1,6 @@
+/**
+ * 校验权威 Markdown 为合法 UTF-8 且路径在登记根目录内；供 CI 与治理脚本复用。
+ */
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -198,7 +198,7 @@ public sealed class KafkaLogSecretBoundaryTests
 
     private sealed class RecordingExporter(KafkaLogSnapshotExporter exporter, List<string> captured) : IHostLogSnapshotExporter
     {
-        public void Emit(HostLogSnapshot snapshot)
+        public bool TryEmit(HostLogSnapshot snapshot)
         {
             // 测试只保留三个 owned 快照；在宿主复用缓冲前复制，正式 Producer 仍实际发送。
             lock (captured)
@@ -206,8 +206,9 @@ public sealed class KafkaLogSecretBoundaryTests
                 Assert.IsTrue(captured.Count < 3);
                 captured.Add(Encoding.UTF8.GetString(snapshot.Utf8Json.Span));
             }
-            exporter.Emit(snapshot);
+            return exporter.TryEmit(snapshot);
         }
+        public void Stop(LogShutdownDeadline deadline) => exporter.Stop(deadline);
         public void Dispose() => exporter.Dispose();
     }
 }

@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Full Net Authorization Result Handler。</summary>
 [TestClass]
 public sealed class FullNetAuthorizationResultHandlerTests
 {

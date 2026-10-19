@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-18T19:24:54.502Z",
+  "originalCoreClosed": true,
+  "originalOverallPassed": false,
+  "report": {
+    "total": 44,
+    "outcomes": {
+      "Passed": 43,
+      "Failed": 1,
+      "Inconclusive": 0,
+      "Skipped": 0,
+      "NotExecuted": 0,
+      "Other": 0
+    },
+    "inconclusiveTests": []
+  },
+  "failed": [
+    {
+      "uid": "1a5f46da-9ffc-8c3e-a7c3-fecc8e41b773",
+      "name": "SqlServer_native_worker_retires_superseded_generation (False)"
+    }
+  ],
+  "source": "7508654a2c7e1eeab620e64e7f96efb75f57ed976887c0ec867890e0b0b38013",
+  "nativeSource": "9bea866fedd21a184f37867dfca16089cfa53d0ebf90f768fd85054d921782b8",
+  "terminal": {
+    "jobTotalProcesses": 99,
+    "at": "2026-10-18T19:22:16.6276112Z",
+    "observedViaLiveProcessHandle": true,
+    "actualParentPid": 74492,
+    "jobAssignedBeforeResume": true,
+    "jobFinalActiveProcesses": 0,
+    "actualParentExit": 1,
+    "actualParentBirth": "134368217493440286",
+    "stopReason": null
+  },
+  "rawTrx": "C:/Users/Administrator/AppData/Local/Temp/fullnet-logging-closeout-20261018/core90/shared-results/core-798ad52ab95e49d8ac79113283d359cc/native.trx",
+  "rawTrxSha256": "aa601c49bf9ccd2c8f5f58d25439ddffe0b80e98350c31de64cda53df1267f5d",
+  "postGuardSha256": "5f4af7b51dcb0e3af6db5851e04cecdfb231935c273bbd178bbfcf943d28f73a",
+  "physicalProofSha256": "d036ca1ed793641f87088df7e86a6668b8d9d8a49b59110b793c75481327c2ac",
+  "physicalClosureConfirmed": true,
+  "oldSourceRetained": true
+}

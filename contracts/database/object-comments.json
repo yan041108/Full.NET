@@ -169,6 +169,7 @@
         "ActorUserId": "操作者用户标识",
         "ApprovalId": "Approval标识",
         "ArgumentsHash": "Arguments Hash",
+        "CorrelationJson": "Correlation(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "DurationMs": "耗时(毫秒)",
         "ErrorCode": "错误码",
@@ -704,6 +705,7 @@
       "comment": "审计访问日志表",
       "columns": {
         "ClientIpFingerprint": "客户端 IP 指纹",
+        "CorrelationJson": "Correlation(JSON)",
         "DurationMs": "耗时(毫秒)",
         "HttpMethod": "HTTP 方法",
         "Id": "逻辑主键",
@@ -729,6 +731,7 @@
       "comment": "审计异常日志表",
       "columns": {
         "ClientIpFingerprint": "客户端 IP 指纹",
+        "CorrelationJson": "Correlation(JSON)",
         "ExceptionType": "异常类型",
         "HttpMethod": "HTTP 方法",
         "Id": "逻辑主键",
@@ -747,6 +750,7 @@
         "ActionKey": "操作键",
         "ClientIpFingerprint": "客户端 IP 指纹",
         "ContextJson": "版本化且受限的操作详情 JSON",
+        "CorrelationJson": "Correlation(JSON)",
         "DetailsExpiresAtUtc": "操作详情绝对到期时间(UTC)",
         "DurationMs": "耗时(毫秒)",
         "HttpMethod": "HTTP 方法",
@@ -764,6 +768,7 @@
     "fn_auditing_outbound_call": {
       "comment": "审计出站调用表",
       "columns": {
+        "CorrelationJson": "Correlation(JSON)",
         "DestinationHostCategory": "目标主机类别",
         "DurationMs": "耗时(毫秒)",
         "Id": "逻辑主键",
@@ -907,6 +912,7 @@
         "AccessTypeKey": "访问类型键",
         "ActorUserId": "操作者用户标识",
         "ClientIpFingerprint": "客户端 IP 指纹",
+        "CorrelationJson": "Correlation(JSON)",
         "DocumentItemId": "文档项标识",
         "DocumentTitle": "文档标题",
         "Id": "逻辑主键",
@@ -1059,6 +1065,7 @@
       "comment": "文档版本删除审计表",
       "columns": {
         "ContentHash": "内容哈希",
+        "CorrelationJson": "Correlation(JSON)",
         "DeletedAtUtc": "删除时间(UTC)",
         "DeletedBySourceKey": "删除来源键",
         "DeletedByUserId": "删除人用户标识",
@@ -1225,6 +1232,7 @@
         "CenterSessionId": "Center Session标识",
         "ClientId": "客户端标识",
         "ContextTenantId": "上下文租户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "EventType": "事件类型",
         "Id": "逻辑主键",
         "IpAddress": "IP 地址",
@@ -1754,6 +1762,7 @@
       "comment": "后台任务执行记录表",
       "columns": {
         "AttemptCount": "尝试次数",
+        "CorrelationJson": "Correlation(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "ErrorMessage": "错误消息",
         "FinishedAtUtc": "结束时间(UTC)",
@@ -1855,6 +1864,7 @@
         "ActionKey": "操作键",
         "ActorDisplayName": "操作者显示名",
         "ActorUserId": "操作者用户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "DiffSummaryJson": "差异摘要(JSON)",
         "EntityId": "实体标识",
         "Id": "逻辑主键",
@@ -2057,6 +2067,7 @@
       "comment": "通知投递尝试表",
       "columns": {
         "AttemptNumber": "尝试序号",
+        "CorrelationJson": "Correlation(JSON)",
         "DeliveryId": "投递标识",
         "ErrorCode": "错误码",
         "FinishedAtUtc": "结束时间(UTC)",
@@ -2098,6 +2109,7 @@
       "comment": "通知领域审计表",
       "columns": {
         "ActorUserId": "操作者用户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "DetailJson": "Detail(JSON)",
         "Id": "逻辑主键",
@@ -2928,6 +2940,7 @@
         "ActionKey": "操作键",
         "ActorDisplayName": "操作者显示名",
         "ActorUserId": "操作者用户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "DiffSummaryJson": "差异摘要(JSON)",
         "EntityId": "实体标识",
         "Id": "逻辑主键",
@@ -2956,6 +2969,7 @@
         "ActionKey": "操作键",
         "ActorDisplayName": "操作者显示名",
         "ActorUserId": "操作者用户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "DiffSummaryJson": "差异摘要(JSON)",
         "EntityId": "实体标识",
         "Id": "逻辑主键",
@@ -3258,6 +3272,7 @@
       "comment": "工作流领域审计表",
       "columns": {
         "ActorUserId": "操作者用户标识",
+        "CorrelationJson": "Correlation(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "DetailJson": "审计详情(JSON)",
         "Id": "逻辑主键",
@@ -3273,6 +3288,7 @@
     "fn_workflow_execution_log": {
       "comment": "工作流执行日志表",
       "columns": {
+        "CorrelationJson": "Correlation(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "FromStatusKey": "迁移前状态键",
         "Id": "逻辑主键",

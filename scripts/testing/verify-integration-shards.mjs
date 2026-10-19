@@ -23,6 +23,15 @@ const partitionNames = [
   'messaging-heavy'
 ];
 
+/** 显式选择已验收的隔离程序集，默认路径与既有命令一致。 */
+export function parseAssemblyArguments(args) {
+  if (args.length === 0) return assembly;
+  if (args.length !== 2 || args[0] !== '--assembly' || !args[1]?.trim()) {
+    throw new Error('用法：node scripts/testing/verify-integration-shards.mjs [--assembly 程序集路径]');
+  }
+  return path.resolve(args[1]);
+}
+
 export function verifyPartitionSets(fullTests, partitions) {
   const fullIds = new Set();
   for (const test of fullTests) {
@@ -56,8 +65,8 @@ export function verifyPartitionSets(fullTests, partitions) {
   }
 }
 
-async function discover(filter) {
-  const args = [assembly, '--list-tests', 'json', '--no-ansi', '--progress', 'off'];
+async function discover(filter, selectedAssembly = assembly) {
+  const args = [selectedAssembly, '--list-tests', 'json', '--no-ansi', '--progress', 'off'];
   if (filter) {
     args.push('--filter', filter);
   }
@@ -70,7 +79,8 @@ async function discover(filter) {
 }
 
 async function runCli() {
-  const fullTests = await discover(shards.full.filter);
+  const selectedAssembly = parseAssemblyArguments(process.argv.slice(2));
+  const fullTests = await discover(shards.full.filter, selectedAssembly);
   if (fullTests.length !== shards.full.minimum) {
     throw new Error(
       `全量发现 ${fullTests.length} 项，与 canonical ${shards.full.minimum} 不一致。`
@@ -79,7 +89,7 @@ async function runCli() {
 
   const partitions = {};
   for (const name of partitionNames) {
-    const tests = await discover(shards[name].filter);
+    const tests = await discover(shards[name].filter, selectedAssembly);
     if (tests.length !== shards[name].minimum) {
       throw new Error(
         `${name} 发现 ${tests.length} 项，与配置 ${shards[name].minimum} 不一致。`
@@ -93,7 +103,7 @@ async function runCli() {
   const migrationGroups = {};
   for (const group of ['migrations-legacy', 'migrations-current']) {
     const [target] = targetsForExecutionGroup([{ kind: 'shard', name: 'migrations' }], group);
-    migrationGroups[group] = await discover(target.filter);
+    migrationGroups[group] = await discover(target.filter, selectedAssembly);
     verifyFocusedDiscovery(migrationGroups[group], { phase: 'merge' });
   }
   verifyPartitionSets(partitions.migrations, migrationGroups);

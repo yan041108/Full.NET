@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Contracts;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageHostMenus;
 
 internal sealed class HostNavigationCatalogSyncService(

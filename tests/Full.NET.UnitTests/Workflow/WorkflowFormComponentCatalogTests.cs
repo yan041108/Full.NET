@@ -14,6 +14,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Form Component Catalog。</summary>
 [TestClass]
 public sealed class WorkflowFormComponentCatalogTests
 {

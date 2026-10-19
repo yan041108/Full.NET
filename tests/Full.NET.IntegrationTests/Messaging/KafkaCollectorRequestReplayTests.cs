@@ -8,6 +8,7 @@ using Runner = kafkabenchmarks::Full.NET.Benchmarks.Logging.LoggingRequestLatenc
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaCollectorRequestReplay。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaCollectorRequestReplayTests
@@ -25,8 +26,9 @@ public sealed class KafkaCollectorRequestReplayTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Full.NET.slnx"))) root = root.Parent;
         Assert.IsNotNull(root);
-        var directory = Path.Combine(root.FullName, live ? "artifacts/logging-live-collector" : "artifacts/logging-collector-chain");
-        Directory.CreateDirectory(directory);
+        // 运行产物进入统一测试入口的独立 TEMP，成功由入口回收，失败保留定位记录。
+        var directory = Directory.CreateTempSubdirectory(
+            live ? "fullnet-logging-live-collector-" : "fullnet-logging-collector-chain-").FullName;
         var reportPath = Path.Combine(directory, "result.json");
         File.Delete(reportPath);
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -65,19 +67,29 @@ public sealed class KafkaCollectorRequestReplayTests
                 using var monitoring = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
                 var measuring = 0;
                 var measuredStartedUtc = DateTimeOffset.MaxValue;
+                DateTimeOffset? measuredEndedUtc = null;
+                DateTimeOffset? firstReceiptUtc = null;
+                DateTimeOffset? firstMeasuredReceiptUtc = null;
+                DateTimeOffset? commitConfirmedUtc = null;
+                var commitQueries = 0;
                 var requestTask = Runner.RunCollectorCaseAsync(directory, deadline.Token,
                     active =>
                     {
                         if (active) measuredStartedUtc = DateTimeOffset.UtcNow;
+                        else measuredEndedUtc = DateTimeOffset.UtcNow;
                         Interlocked.Exchange(ref measuring, active ? 1 : 0);
                     });
                 async Task ObserveAsync()
                 {
                     while (!requestTask.IsCompleted && !monitoring.IsCancellationRequested)
                     {
-                        var record = reader.Consume(TimeSpan.FromMilliseconds(20));
-                        if (record is not null)
+                        // 每轮最多取 256 条，避免每条等待 25ms 将观察端限速到约 40 条/秒。
+                        // 首条允许短等待，其余只取已就绪记录；仍定期让出执行权和检查结束状态。
+                        for (var batch = 0; batch < 256 && !monitoring.IsCancellationRequested && !requestTask.IsCompleted; batch++)
                         {
+                            var record = reader.Consume(batch == 0 ? TimeSpan.FromMilliseconds(20) : TimeSpan.Zero);
+                            if (record is null) break;
+                            firstReceiptUtc ??= DateTimeOffset.UtcNow;
                             duringRequests.Add(record);
                             Assert.IsTrue(duringRequests.Count <= 10000, "在途收据须保持有界。");
                             using var json = JsonDocument.Parse(record.Message.Value);
@@ -85,15 +97,20 @@ public sealed class KafkaCollectorRequestReplayTests
                                 && json.RootElement.GetProperty("OccurredAtUtc").GetDateTimeOffset() >= measuredStartedUtc)
                             {
                                 httpDuringRequests++;
+                                firstMeasuredReceiptUtc ??= DateTimeOffset.UtcNow;
                                 measuredHttpPosition ??= new TopicPartitionOffset(record.TopicPartition, record.Offset.Value + 1);
                             }
                         }
                         if (Volatile.Read(ref measuring) == 1 && httpDuringRequests > 0 && committedDuringRequests == 0)
                         {
+                            commitQueries++;
                             var positions = reader.Committed(reader.Assignment, TimeSpan.FromSeconds(2));
                             var confirmed = positions.Single(position => position.TopicPartition == measuredHttpPosition!.TopicPartition);
                             if (Volatile.Read(ref measuring) == 1 && confirmed.Offset.Value >= measuredHttpPosition!.Offset.Value)
+                            {
                                 committedDuringRequests = confirmed.Offset.Value;
+                                commitConfirmedUtc = DateTimeOffset.UtcNow;
+                            }
                         }
                         await Task.Delay(25, monitoring.Token);
                     }
@@ -107,7 +124,15 @@ public sealed class KafkaCollectorRequestReplayTests
                 }
                 await bridge.CompleteAsync();
                 source = await File.ReadAllLinesAsync(Path.Combine(directory, "Projected-1.jsonl"), deadline.Token);
-                Assert.IsTrue(httpDuringRequests > 0 && committedDuringRequests > 0, "必须在请求结束前收到 HTTP 日志并实际提交 Offset。");
+                // 仅记录计数与时刻；失败时可区分收据滞后、实测识别和提交滞后，不保存业务正文。
+                await File.WriteAllTextAsync(Path.Combine(directory, "live-observation.json"), JsonSerializer.Serialize(new
+                {
+                    measuredStartedUtc, measuredEndedUtc, firstReceiptUtc, firstMeasuredReceiptUtc, commitConfirmedUtc,
+                    observed = duringRequests.Count, httpDuringRequests, commitQueries, committedDuringRequests,
+                    expectedCommit = measuredHttpPosition?.Offset.Value,
+                }), deadline.Token);
+                Assert.IsTrue(httpDuringRequests > 0 && committedDuringRequests > 0,
+                    $"必须在请求结束前收到 HTTP 日志并实际提交 Offset。Observed={duringRequests.Count}, MeasuredHttp={httpDuringRequests}, Committed={committedDuringRequests}, Expected={measuredHttpPosition}, MeasurementStart={measuredStartedUtc:O}");
             }
             var originals = source.ToDictionary(line => JsonNode.Parse(line)!["LogEventId"]!.GetValue<string>(), line => JsonNode.Parse(line));
             Assert.IsTrue(originals.Count >= 5200);

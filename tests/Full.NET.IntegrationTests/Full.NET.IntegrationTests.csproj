@@ -8,6 +8,10 @@
     <!-- 集成测试直接使用 JIT Dapper；禁止 Dapper.AOT 顾问规则误伤 TreatWarningsAsErrors。 -->
     <NoWarn>$(NoWarn);DAP005;DAP018;DAP200;DAP223;DAP224;DAP230;DAP241;DAP025;DAP037</NoWarn>
   </PropertyGroup>
+  <!-- 容量实验只在显式配置中编译；日常发现不运行长时压力，也不以跳过冒充通过。 -->
+  <ItemGroup Condition="'$(FullNetLoggingCapacity)' != 'true'">
+    <Compile Remove="Auditing/AuditingSustainedCapacityTests.cs;Messaging/KafkaLogRouteCapacityTests.cs" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\benchmarks\Full.NET.Benchmarks\Full.NET.Benchmarks.csproj" Aliases="kafkabenchmarks" />
     <ProjectReference Include="..\..\src\Tools\Full.NET.CodeGeneration.Cli\Full.NET.CodeGeneration.Cli.csproj" Aliases="codegencli" />

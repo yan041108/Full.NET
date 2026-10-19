@@ -1,3 +1,4 @@
+// 注册邮件挑战发送端点；限流与验证码生命周期由 Identity 策略约束。
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Identity.Features.RegisterAccount;
 
+/// <summary>注册邮件挑战发送端点；限流与验证码生命周期由 Identity 策略约束。</summary>
 internal static class SendEmailChallengeEndpoint
 {
     public static void Map(RouteGroupBuilder group)

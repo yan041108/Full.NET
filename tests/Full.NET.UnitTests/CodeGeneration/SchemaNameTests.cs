@@ -2,6 +2,7 @@ using Full.NET.Data.CodeGeneration.Naming;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Schema Name。</summary>
 [TestClass]
 public sealed class SchemaNameTests
 {

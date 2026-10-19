@@ -218,6 +218,7 @@ internal sealed class SuperAdministratorService(
         var auditRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertSuperAdministratorAudit,
                 IdentitySqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("UserId", targetUserId),
                     ("SessionId", null),

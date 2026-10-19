@@ -8,6 +8,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：Host 侧 OIDC 治理配置与变更门禁。</summary>
 internal static class IdentityOidcGovernanceAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5012/signin-oidc-governance-external";

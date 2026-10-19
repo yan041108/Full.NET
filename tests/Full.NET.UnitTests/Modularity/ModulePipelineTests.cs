@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Modularity;
 
+/// <summary>单元测试（模块化）：Module Pipeline。</summary>
 [TestClass]
 public sealed class ModulePipelineTests
 {

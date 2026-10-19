@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Host Operation Log Details Query。</summary>
 [TestClass]
 public sealed class HostOperationLogDetailsQueryTests
 {

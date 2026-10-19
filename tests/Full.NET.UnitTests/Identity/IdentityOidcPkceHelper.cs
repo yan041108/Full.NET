@@ -3,6 +3,7 @@ using System.Text;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>集成测试辅助：IdentityOidcPkceHelper。</summary>
 internal static class IdentityOidcPkceHelper
 {
     public static (string Verifier, string Challenge) CreatePkcePair()

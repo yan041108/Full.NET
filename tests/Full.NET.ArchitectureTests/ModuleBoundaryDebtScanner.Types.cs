@@ -1,5 +1,7 @@
+// 架构扫描器：模块边界相关的类型引用违规检测。
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：模块边界相关的类型引用违规检测。</summary>
 internal static partial class ModuleBoundaryDebtScanner
 {
     internal sealed record CrossModuleForeignKey(

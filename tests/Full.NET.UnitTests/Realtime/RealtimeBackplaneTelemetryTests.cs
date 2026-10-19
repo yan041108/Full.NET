@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Realtime;
 
+/// <summary>单元测试（实时通信）：Realtime Backplane Telemetry。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class RealtimeBackplaneTelemetryTests

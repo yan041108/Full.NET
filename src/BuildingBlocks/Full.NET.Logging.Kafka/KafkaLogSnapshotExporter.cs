@@ -25,18 +25,22 @@ public sealed class KafkaLogSnapshotExporter : IHostLogSnapshotExporter
     }
 
     /// <inheritdoc />
-    public void Emit(HostLogSnapshot snapshot)
+    public bool TryEmit(HostLogSnapshot snapshot)
     {
         var result = _pair.TryProduce(snapshot);
         if (result == KafkaLogProduceResult.Accepted)
         {
-            return;
+            return true;
         }
 
         KafkaLogDeliveryTelemetry.Rejected.Add(1,
             new KeyValuePair<string, object?>("priority", snapshot.IsHighPriority ? "high" : "general"),
             new KeyValuePair<string, object?>("reason", result.ToString()));
+        return false;
     }
+
+    /// <inheritdoc />
+    public void Stop(LogShutdownDeadline deadline) => _pair.Stop(deadline);
 
     /// <inheritdoc />
     public void Dispose() => _pair.Dispose();

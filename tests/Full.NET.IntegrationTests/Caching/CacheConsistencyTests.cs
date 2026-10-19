@@ -11,6 +11,7 @@ using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion;
@@ -18,38 +19,98 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Caching;
 
+/// <summary>多实例租户准入：验证 C0 权威读取在 Redis 启用、缺失或故障时均立即反映已提交状态。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class CacheConsistencyTests
 {
+    /// <summary>租户解析已改为 C0 权威读；停用后须立即拒绝，不能依赖另一实例的 L1 负缓存。</summary>
     [TestMethod]
-    public async Task SqlServer_provisioning_clears_negative_domain_cache_without_cache_outbox()
+    public async Task SqlServer_disabled_tenant_is_denied_on_secondary_without_backplane()
     {
-        await VerifyProvisioningInvalidatesLocalNegativeCacheAsync(
+        await VerifyDisabledTenantAdmissionAsync(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_disabled_tenant_is_denied_on_secondary_without_backplane()
+    {
+        await VerifyDisabledTenantAdmissionAsync(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    private static async Task VerifyDisabledTenantAdmissionAsync(DatabaseProvider provider, string connectionString)
+    {
+        var identifier = $"authority-{Guid.NewGuid():N}";
+        var domain = $"{identifier}.localhost";
+        using var primary = new FullNetApiFactory(provider, connectionString);
+        using var secondary = primary.CreateIsolatedFactory();
+        await primary.InitializeAsync();
+        await secondary.InitializeAsync();
+        var tenant = await ProvisionTenantAsync(primary, identifier, domain);
+        using var hostClient = secondary.CreateClientForHost("localhost");
+        var token = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(hostClient,
+            await LoginAsHostAdminAsync(hostClient), tenant.Id);
+        using var domainClient = secondary.CreateClientForHost(domain);
+        hostClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        domainClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        foreach (var client in new[] { hostClient, domainClient })
+        {
+            using var warm = await client.GetAsync("/api/v1/me");
+            Assert.AreEqual(HttpStatusCode.OK, warm.StatusCode, await warm.Content.ReadAsStringAsync());
+        }
+
+        // 另一进程提交停用，没有 Redis/Backplane；避免重新登录使会话撤销掩盖租户准入缺陷。
+        await using (var scope = primary.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+            context.SetHost();
+            try
+            {
+                var result = await scope.ServiceProvider.GetRequiredService<HostTenantManagementService>()
+                    .DisableAsync(tenant.Id);
+                Assert.IsTrue(result.IsSuccess);
+            }
+            finally { context.Clear(); }
+        }
+
+        foreach (var client in new[] { hostClient, domainClient })
+        {
+            using var denied = await client.GetAsync("/api/v1/me");
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode, await denied.Content.ReadAsStringAsync());
+            using var problem = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
+            Assert.AreEqual("tenancy.context_mismatch", problem.RootElement.GetProperty("code").GetString());
+        }
+    }
+
+    [TestMethod]
+    public async Task SqlServer_provisioning_is_immediately_visible_on_both_nodes_without_cache_outbox()
+    {
+        await VerifyProvisioningIsImmediatelyVisibleAsync(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
-    public async Task MySql_provisioning_clears_negative_domain_cache_without_cache_outbox()
+    public async Task MySql_provisioning_is_immediately_visible_on_both_nodes_without_cache_outbox()
     {
-        await VerifyProvisioningInvalidatesLocalNegativeCacheAsync(
+        await VerifyProvisioningIsImmediatelyVisibleAsync(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
     [TestMethod]
-    public async Task SqlServer_provisioning_with_redis_backplane_repairs_secondary_without_cache_outbox()
+    public async Task SqlServer_provisioning_and_lifecycle_are_authoritative_with_redis_enabled()
     {
-        await VerifyRedisBackplaneRepairsSecondaryNodeAsync(
+        await VerifyAuthoritativeLifecycleWithRedisAsync(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
-    public async Task MySql_provisioning_with_redis_backplane_repairs_secondary_without_cache_outbox()
+    public async Task MySql_provisioning_and_lifecycle_are_authoritative_with_redis_enabled()
     {
-        await VerifyRedisBackplaneRepairsSecondaryNodeAsync(
+        await VerifyAuthoritativeLifecycleWithRedisAsync(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
@@ -70,7 +131,7 @@ public sealed class CacheConsistencyTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
-    private static async Task VerifyProvisioningInvalidatesLocalNegativeCacheAsync(
+    private static async Task VerifyProvisioningIsImmediatelyVisibleAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
     {
@@ -103,11 +164,12 @@ public sealed class CacheConsistencyTests
         Assert.AreEqual(provisioned.Id, localTenant.Id);
         Assert.AreEqual(identifier, localTenant.Identifier);
 
-        // 无 Redis Backplane 时，第二节点仍可保留负缓存，直到后续跨节点失效路径介入。
-        await AssertTenantMissingAsync(secondaryFactory, domain);
+        // 准入走权威查询；即使没有 Backplane，第二节点也不能保留旧负缓存。
+        var remoteTenant = await AssertTenantFoundAsync(secondaryFactory, domain);
+        Assert.AreEqual(provisioned.Id, remoteTenant.Id);
     }
 
-    private static async Task VerifyRedisBackplaneRepairsSecondaryNodeAsync(
+    private static async Task VerifyAuthoritativeLifecycleWithRedisAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
     {
@@ -116,7 +178,6 @@ public sealed class CacheConsistencyTests
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var identifier = $"redis-{suffix}";
         var domain = $"{identifier}.localhost";
-        var domainCacheKey = CacheKeyBuilder.TenantResolutionByDomain("Testing", domain);
 
         using var primaryFactory = new FullNetApiFactory(
             databaseProvider,
@@ -132,8 +193,6 @@ public sealed class CacheConsistencyTests
 
         await AssertTenantMissingAsync(primaryFactory, domain);
         await AssertTenantMissingAsync(secondaryFactory, domain);
-        primaryFactory.ClearBackplaneEvents();
-        secondaryFactory.ClearBackplaneEvents();
 
         var provisioned = await ProvisionTenantAsync(primaryFactory, identifier, domain);
         Assert.AreEqual(
@@ -143,25 +202,8 @@ public sealed class CacheConsistencyTests
         var localTenant = await AssertTenantFoundAsync(primaryFactory, domain);
         Assert.AreEqual(provisioned.Id, localTenant.Id);
 
-        var secondaryDomainRemove = await WaitForBackplaneObservationAsync(
-            secondaryFactory,
-            "received",
-            domainCacheKey);
-        Assert.IsNotNull(
-            secondaryDomainRemove,
-            "Secondary 节点在提交后直接失效后仍未收到域名解析 key 的 backplane 删除通知。"
-            + Environment.NewLine
-            + $"Primary events: {DescribeBackplaneEvents(primaryFactory)}"
-            + Environment.NewLine
-            + $"Secondary events: {DescribeBackplaneEvents(secondaryFactory)}");
-
-        var secondaryTenant = await WaitForTenantFoundAsync(
-            secondaryFactory,
-            domain,
-            () =>
-                $"Primary events: {DescribeBackplaneEvents(primaryFactory)}"
-                + Environment.NewLine
-                + $"Secondary events: {DescribeBackplaneEvents(secondaryFactory)}");
+        // 租户准入已经退出缓存；提交后的首次读取就必须正确，不能靠轮询等待广播或 TTL 收敛。
+        var secondaryTenant = await AssertTenantFoundAsync(secondaryFactory, domain);
         Assert.AreEqual(provisioned.Id, secondaryTenant.Id);
         Assert.AreEqual(identifier, secondaryTenant.Identifier);
 
@@ -177,11 +219,8 @@ public sealed class CacheConsistencyTests
             cacheOutboxBeforeUpdate,
             await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
             "更新成功后不得再写入租户缓存专用 Outbox。");
-        var secondaryUpdatedTenant = await WaitForTenantAsync(
-            secondaryFactory,
-            domain,
-            tenant => tenant.Name == updated.Name,
-            "Secondary 节点未在提交后直接失效后观察到更新后的名称。");
+        var secondaryUpdatedTenant = await AssertTenantFoundAsync(secondaryFactory, domain);
+        Assert.AreEqual(updated.Name, secondaryUpdatedTenant.Name);
         Assert.AreEqual(updated.Version, secondaryUpdatedTenant.Version);
 
         var cacheOutboxBeforeDisable = await CountTenantCacheOutboxAsync(
@@ -193,10 +232,7 @@ public sealed class CacheConsistencyTests
             cacheOutboxBeforeDisable,
             await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
             "禁用成功后不得再写入租户缓存专用 Outbox。");
-        await WaitForTenantMissingAsync(
-            secondaryFactory,
-            domain,
-            "Secondary 节点未在提交后直接失效后观察到停用状态。");
+        await AssertTenantMissingAsync(secondaryFactory, domain);
     }
 
     private static async Task VerifyPrimaryNodeStaysCorrectWhenRedisIsUnavailableAsync(
@@ -340,105 +376,6 @@ public sealed class CacheConsistencyTests
         return tenant;
     }
 
-    private static async Task<TenantSummary> WaitForTenantFoundAsync(
-        FullNetApiFactory factory,
-        string domain,
-        Func<string>? failureDetailsFactory = null)
-    {
-        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < timeoutAt)
-        {
-            using var client = factory.CreateClientForHost(domain);
-            using var response = await client.GetAsync("/api/v1/tenancy/current");
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                var tenant = JsonSerializer.Deserialize<TenantSummary>(
-                    await response.Content.ReadAsStringAsync(),
-                    new JsonSerializerOptions(JsonSerializerDefaults.Web));
-                Assert.IsNotNull(tenant);
-                return tenant;
-            }
-
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
-            await Task.Delay(250);
-        }
-
-        var details = failureDetailsFactory?.Invoke();
-        Assert.Fail(
-            $"Tenant '{domain}' was not visible on the secondary node within the expected window."
-            + (string.IsNullOrWhiteSpace(details)
-                ? string.Empty
-                : Environment.NewLine + details));
-        return null!;
-    }
-
-    private static async Task<TenantSummary> WaitForTenantAsync(
-        FullNetApiFactory factory,
-        string domain,
-        Func<TenantSummary, bool> predicate,
-        string failureMessage)
-    {
-        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < timeoutAt)
-        {
-            var tenant = await AssertTenantFoundAsync(factory, domain);
-            if (predicate(tenant))
-            {
-                return tenant;
-            }
-
-            await Task.Delay(250);
-        }
-
-        Assert.Fail(failureMessage);
-        return null!;
-    }
-
-    private static async Task WaitForTenantMissingAsync(
-        FullNetApiFactory factory,
-        string domain,
-        string failureMessage)
-    {
-        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < timeoutAt)
-        {
-            using var client = factory.CreateClientForHost(domain);
-            using var response = await client.GetAsync("/api/v1/tenancy/current");
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return;
-            }
-
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            await Task.Delay(250);
-        }
-
-        Assert.Fail(failureMessage);
-    }
-
-    private static async Task<BackplaneEventObservation?> WaitForBackplaneObservationAsync(
-        FullNetApiFactory factory,
-        string direction,
-        string cacheKey)
-    {
-        var timeoutAt = DateTime.UtcNow.AddSeconds(3);
-        while (DateTime.UtcNow < timeoutAt)
-        {
-            var observation = factory.GetBackplaneEventsSnapshot()
-                .LastOrDefault(item =>
-                    string.Equals(item.Direction, direction, StringComparison.Ordinal)
-                    && string.Equals(item.CacheKey, cacheKey, StringComparison.Ordinal));
-            if (observation is not null)
-            {
-                return observation;
-            }
-
-            await Task.Delay(100);
-        }
-
-        return null;
-    }
-
     private static async Task<long> CountTenantCacheOutboxAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -488,17 +425,4 @@ public sealed class CacheConsistencyTests
             "Redis/Backplane 测试必须使用两个不同的 FusionCache 实例；共享同一个 InstanceId 会让节点间失效广播失真。");
     }
 
-    private static string DescribeBackplaneEvents(FullNetApiFactory factory)
-    {
-        var events = factory.GetBackplaneEventsSnapshot();
-        if (events.Count == 0)
-        {
-            return $"none (instance {factory.CacheInstanceId})";
-        }
-
-        return string.Join(
-            " | ",
-            events.Select(item =>
-                $"{item.Direction}:{item.Action}:{item.CacheKey ?? "<null>"}:{item.SourceId}"));
-    }
 }

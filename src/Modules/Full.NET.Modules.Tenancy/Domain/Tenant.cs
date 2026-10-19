@@ -8,7 +8,7 @@ namespace Full.NET.Modules.Tenancy.Domain;
 /// - Domain 全局唯一，用于未认证场景下的域名解析；冲突由开通流程做唯一校验。
 /// - Version 字段用于 HostTenantManagementService.Update/Disable 场景的乐观并发，
 ///   并发更新冲突时返回 VersionConflict 由客户端重读后重试。
-/// - 开通/禁用产生的缓存失效由写入方事务提交后立即触发 TenantCacheInvalidator。
+/// - 开通/禁用后的准入状态直接从权威数据库读取。
 /// </summary>
 /// <param name="Id">租户唯一 ID。</param>
 /// <param name="Identifier">租户短标识，供 API/CLI 做可读引用。</param>

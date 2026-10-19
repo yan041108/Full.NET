@@ -2,9 +2,26 @@ using Full.NET.Hosting.Observability;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Diagnostic Policy Snapshot。</summary>
 [TestClass]
 public sealed class DiagnosticPolicySnapshotTests
 {
+    [TestMethod]
+    public void Payload_rules_use_strictest_matching_live_limit_without_enabling_capture()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new DiagnosticPolicySnapshot(1, LoggingPressureState.Normal,
+            [new(DiagnosticPolicyScopeKind.Endpoint, "/api/items", null, null, 80, 0, now.AddMinutes(1)),
+             new(DiagnosticPolicyScopeKind.Category, LogClassification.HttpOperation, null, null, 120, 200, now.AddMinutes(1)),
+             new(DiagnosticPolicyScopeKind.Endpoint, "/api/other", null, null, 1, 1, now.AddMinutes(1)),
+             new(DiagnosticPolicyScopeKind.Endpoint, "/api/items", null, null, 1, 1, now.AddMinutes(-1))], now, false);
+        Assert.AreEqual(80, snapshot.ResolvePayloadByteLimit(256, false, "/api/items", null, null, now));
+        Assert.AreEqual(0, snapshot.ResolvePayloadByteLimit(256, true, "/api/items", null, null, now));
+        Assert.AreEqual(0, snapshot.ResolvePayloadByteLimit(0, false, "/api/items", null, null, now));
+        Assert.AreEqual(40, snapshot.ResolvePayloadByteLimit(40, false, "/api/items", null, null, now));
+        Assert.AreEqual(2048, snapshot.ResolvePayloadByteLimit(8192, false, "/api/items", null, null, now.AddMinutes(2)));
+    }
+
     [TestMethod]
     public void Pressure_only_shrinks_best_effort_capacity()
     {

@@ -3,6 +3,7 @@ using Full.NET.Modules.Reporting.Domain;
 
 namespace Full.NET.UnitTests.Reporting;
 
+/// <summary>单元测试（报表）：Reporting Query Port Catalog。</summary>
 [TestClass]
 public sealed class ReportingQueryPortCatalogTests
 {

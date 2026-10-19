@@ -73,11 +73,21 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.production (ne .Values.dotnetEnvironment "Production") -}}
   {{- fail "dotnetEnvironment must be Production when production=true." -}}
 {{- end -}}
-{{- if and (not .Values.production) (ne .Values.logging.ingress "Legacy") (eq .Values.dotnetEnvironment "Production") -}}
+{{- if and (not .Values.production) (eq .Values.dotnetEnvironment "Production") -}}
   {{- fail "dotnetEnvironment must be Staging or Development for non-production logging ingress." -}}
 {{- end -}}
-{{- if and .Values.production (eq .Values.logging.ingress "Local") -}}
-  {{- fail "logging.ingress=Local is disabled in production until collector exclusion is verified on the target platform." -}}
+{{- if and .Values.production (eq .Values.logging.ingress "Local") (not .Values.logging.localFile.enabled) -}}
+  {{- fail "logging.ingress=Local requires logging.localFile.enabled in production." -}}
+{{- end -}}
+{{- if .Values.logging.localFile.enabled -}}
+  {{- if ne .Values.logging.ingress "Local" -}}{{- fail "logging.localFile.enabled requires logging.ingress=Local." -}}{{- end -}}
+  {{- if not .Values.logging.localFile.existingClaimName -}}{{- fail "logging.localFile.existingClaimName is required." -}}{{- end -}}
+  {{- if or (and .Values.roles.api (or (ne (.Values.api.replicaCount | int) 1) .Values.api.hpa.enabled)) (and .Values.roles.worker (or (ne (.Values.worker.replicaCount | int) 1) .Values.worker.hpa.enabled)) -}}
+    {{- fail "Local file storage requires one replica per role and API/Worker HPA disabled; use separate releases/volumes for multiple instances." -}}
+  {{- end -}}
+  {{- if lt (.Values.logging.localFile.maxDirectoryBytes | float64) (mul (.Values.logging.localFile.fileSizeLimitBytes | int64) 2 | float64) -}}
+    {{- fail "logging.localFile.maxDirectoryBytes must hold two complete log files." -}}
+  {{- end -}}
 {{- end -}}
 {{- if and (eq .Values.logging.ingress "ApplicationKafka") (not .Values.logging.kafka.configurationSecretName) -}}
   {{- fail "logging.kafka.configurationSecretName is required for ApplicationKafka." -}}
@@ -85,8 +95,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.logging.ingress "ApplicationKafka") (eq (.Values.logging.indexRouteVersion | int) 0) -}}
   {{- fail "logging.ingress=ApplicationKafka requires logging.indexRouteVersion and logging.indexRetentionDays." -}}
 {{- end -}}
-{{- if and (ne .Values.logging.ingress "Legacy") .Values.roles.migrator -}}
-  {{- fail "logging.ingress explicit mode is supported only for API or Worker releases." -}}
+{{- if and (ne .Values.logging.ingress "Collector") .Values.roles.migrator -}}
+  {{- fail "Migrator uses its console output; Local and ApplicationKafka logging ingress are supported only for API or Worker releases." -}}
 {{- end -}}
 {{- if .Values.production -}}
   {{- if ne $roleCount 1 -}}

@@ -1,5 +1,7 @@
+// 租户成员关系查询行；列表与详情 SQL 的只读投影类型。
 namespace Full.NET.Modules.Identity.Features.ManageTenantMembers;
 
+/// <summary>租户成员关系查询行；列表与详情 SQL 的只读投影类型。</summary>
 internal sealed record TenantMemberRecord(
     Guid Id,
     Guid TenantId,

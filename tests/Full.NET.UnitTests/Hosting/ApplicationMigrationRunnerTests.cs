@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Application Migration Runner。</summary>
 [TestClass]
 public sealed class ApplicationMigrationRunnerTests
 {

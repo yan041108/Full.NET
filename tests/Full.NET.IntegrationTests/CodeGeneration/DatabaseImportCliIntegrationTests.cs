@@ -8,6 +8,7 @@ using CodeGenerationCli =
 
 namespace Full.NET.IntegrationTests.CodeGeneration;
 
+/// <summary>集成测试：DatabaseImportCliIntegration。</summary>
 [TestClass]
 public sealed class DatabaseImportCliIntegrationTests
 {

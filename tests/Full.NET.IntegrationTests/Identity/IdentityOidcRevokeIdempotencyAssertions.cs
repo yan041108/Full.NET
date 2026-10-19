@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：吊销操作的幂等与重复请求语义。</summary>
 internal static class IdentityOidcRevokeIdempotencyAssertions
 {
     public static async Task VerifyAsync(

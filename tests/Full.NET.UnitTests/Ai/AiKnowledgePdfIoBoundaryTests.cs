@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Pdf Io Boundary。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class AiKnowledgePdfIoBoundaryTests

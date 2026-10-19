@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 
+/// <summary>有界目录查询结果；达到扫描或返回上限时明确报告列表不完整。</summary>
+public sealed record LogFileList(IReadOnlyList<LogFileSummary> Items, bool IsTruncated, int ScannedEntries);
+
 /// <summary>表示不暴露服务端路径的日志文件摘要。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">日志文件稳定标识；由服务端生成，不暴露磁盘路径。</param>

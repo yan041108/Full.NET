@@ -2,6 +2,7 @@ using Full.NET.Modules.SerialNumbers.Features.ManageHostSerialRules;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Number Rule List Filter。</summary>
 [TestClass]
 public sealed class SerialNumberRuleListFilterTests
 {

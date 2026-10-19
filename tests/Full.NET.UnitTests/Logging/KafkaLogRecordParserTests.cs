@@ -3,6 +3,7 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Kafka Log Record Parser。</summary>
 [TestClass]
 public sealed class KafkaLogRecordParserTests
 {

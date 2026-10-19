@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：OIDC 客户端注册、密钥与回调 URL。</summary>
 internal static class IdentityOidcClientManagementAssertions
 {
     private const string PublicRedirectUri = "https://localhost:5010/signin-oidc-mgmt-public";

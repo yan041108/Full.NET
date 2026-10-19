@@ -1,5 +1,6 @@
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：迁移与 SQL 不得声明跨模块外键或跨 owner 表引用。</summary>
 [TestClass]
 public sealed class ModuleCrossForeignKeyBoundaryTests
 {

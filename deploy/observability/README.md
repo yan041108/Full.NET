@@ -8,7 +8,7 @@ Platform-owned Fluent Bit / OpenTelemetry Collector / Prometheus rules / Grafana
 - The Collector candidate has filesystem buffering, memory limits, one Tail checkpoint, retry limits, and TLS settings. These settings do not prove corrupt-chunk isolation or durable delivery.
 - B2 Best Effort and Priority have separate output budgets. Fixed-version local samples cover routing and classification; node load and downstream failure evidence remain open. B2 S3 archive is only a proposed output.
 - B0/B1 Durable Audit remains in the Audit/module database path; Fluent Bit must not duplicate it as another “Durable log” pipeline.
-- OTel Collector enables `memory_limiter`, `batch`, retry, and `file_storage` queues.
+- OTel Collector pins Contrib 0.163.1 and its image digest, including the [WAL replay fix](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/44467). Trace `otlp_grpc/tempo` uses `sending_queue.storage: file_storage`; `prometheus_remote_write` uses nested `http`, its own `remote_write_queue` and `wal` (see the [component configuration](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/config.go)). Metrics use one consumer and explicitly one request at a time. `UnderscoreEscapingWithSuffixes` preserves alert metric names. Both paths share the mounted `emptyDir`: container restart can retain it, Pod replacement or node loss cannot. WAL is not an end-to-end delivery guarantee. The chart supplies the directory mount; standalone validation must supply it too. A configuration update alone does not confirm end-to-end acceptance; see the active logging remediation plan.
 - Pipeline failures must not recurse into the same sink.
 - The candidate requires nonempty Compact JSON `@t`/`@mt`, application-generated `Instance` and `log.class`, and a UUIDv7 `LogEventId`; records missing these fields are filtered out in the fixed-image local sample. `@l` is omitted for Information; application, trace, stream, reliability, classification, and event names are conditional. The Collector removes `DiagnosticGroup` before outputs.
 - Dynamic `DiagnosticGroup` must not become file names, index names, tenant labels, or Metrics labels.
@@ -91,6 +91,7 @@ kubectl apply -f deploy/observability/prometheus-rules.yaml
 
 ```powershell
 pnpm test:observability-deploy
+node eng/testing/otel-collector-config-test.mjs
 pnpm test:observability-alerts
 pnpm test:observability-forward-tls:live
 pnpm test:observability-enospc:live

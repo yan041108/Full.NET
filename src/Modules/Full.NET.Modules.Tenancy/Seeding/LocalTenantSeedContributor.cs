@@ -1,3 +1,4 @@
+// 本地/开发租户种子贡献者；仅非 Production Overlay，不写入生产 Baseline。
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
@@ -5,6 +6,7 @@ using Full.NET.Seeding.Abstractions;
 
 namespace Full.NET.Modules.Tenancy.Seeding;
 
+/// <summary>本地/开发租户种子贡献者；仅非 Production Overlay，不写入生产 Baseline。</summary>
 internal sealed class LocalTenantSeedContributor(
     IQueryExecutor queryExecutor,
     ITenantProvisioningService provisioningService) : IDataSeedContributor

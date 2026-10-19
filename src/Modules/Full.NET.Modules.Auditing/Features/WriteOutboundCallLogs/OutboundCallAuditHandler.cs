@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Observability;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
@@ -67,6 +68,7 @@ public sealed class OutboundCallAuditHandler
             || (request.TraceId is not null
                 && OutboundCallAuditSanitizer.ContainsSensitiveContent(request.TraceId));
 
+        var correlation = LogCorrelationContext.Capture();
         var record = new OutboundCallLogRecord
         {
             Id = Guid.Empty,
@@ -79,10 +81,12 @@ public sealed class OutboundCallAuditHandler
             Succeeded = request.Succeeded,
             DurationMs = Math.Max(request.DurationMs, 0),
             RetryCount = Math.Max(request.RetryCount, 0),
-            TraceId = OutboundCallAuditSanitizer.SanitizeTraceId(request.TraceId),
+            // 保留显式审计契约；统一时间线优先使用快照中的真实 Activity。
+            TraceId = OutboundCallAuditSanitizer.SanitizeTraceId(request.TraceId) ?? correlation.TraceId,
+            CorrelationJson = (correlation with { UserId = request.UserId ?? correlation.UserId, TenantId = request.TenantId ?? correlation.TenantId }).ToJson(),
             SafeErrorCode = OutboundCallAuditSanitizer.SanitizeSafeErrorCode(request.SafeErrorCode),
-            TenantId = request.TenantId,
-            UserId = request.UserId,
+            TenantId = request.TenantId ?? correlation.TenantId,
+            UserId = request.UserId ?? correlation.UserId,
         };
 
         return new SanitizedOutboundCallAudit(record, hadSensitive);

@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
-  findSeedTenantViaApi,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -12,6 +11,7 @@ import {
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 const tenantResolutionEntry = 'tenancy.tenant-resolution';
+const diagnosticEntry = 'settings.diagnostic-policy';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可列出缓存策略并执行租户解析精确失效（清单 29）', async ({ request }, testInfo) => {
+test('Host 管理员可查看权威读取策略并仅刷新本机诊断快照（清单 29）', async ({ request }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
@@ -36,7 +36,15 @@ test('Host 管理员可列出缓存策略并执行租户解析精确失效（清
   expect(Array.isArray(policies)).toBe(true);
   const tenantPolicy = policies.find(entry => entry.entryName === tenantResolutionEntry);
   expect(tenantPolicy).toBeTruthy();
-  expect(tenantPolicy.canInvalidate).toBe(true);
+  expect(tenantPolicy.canInvalidate).toBe(false);
+  expect(tenantPolicy.accessKind).toBe('authority_read');
+  expect(tenantPolicy.invalidationOperations).toEqual([]);
+  const snapshotPolicy = policies.find(entry => entry.entryName === diagnosticEntry);
+  expect(snapshotPolicy.accessKind).toBe('local_snapshot');
+  expect(snapshotPolicy.l1DurationSeconds).toBeNull();
+  expect(snapshotPolicy.l2DurationSeconds).toBeNull();
+  expect(snapshotPolicy.snapshotAgeSeconds).toBeGreaterThanOrEqual(0);
+  expect(snapshotPolicy.snapshotMaxAgeSeconds).toBeGreaterThan(0);
 
   const serialized = JSON.stringify(policies);
   expect(serialized).not.toMatch(/connectionstring/i);
@@ -48,26 +56,21 @@ test('Host 管理员可列出缓存策略并执行租户解析精确失效（清
   );
   expect(detailResponse.ok()).toBeTruthy();
 
-  const tenant = await findSeedTenantViaApi(request, clientKind, 'local', accessToken);
   const invalidateResponse = await request.post(
-    `${apiBaseUrl}/api/v1/observability/cache-policies/${encodeURIComponent(tenantResolutionEntry)}/invalidations`,
-    {
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      data: {
-        operationKey: 'by-tenant',
-        parameters: {
-          tenantId: tenant.id,
-          domain: 'localhost'
-        },
-        scope: 'all_layers_synchronous'
-      }
-    }
+    `${apiBaseUrl}/api/v1/observability/cache-policies/${diagnosticEntry}/invalidations`,
+    { headers, data: { operationKey: 'global', parameters: {}, scope: 'current_node_only' } }
   );
   expect(invalidateResponse.ok()).toBeTruthy();
   const result = await invalidateResponse.json();
-  expect(result.entryName).toBe(tenantResolutionEntry);
-  expect(Array.isArray(result.invalidatedTargets)).toBe(true);
-  expect(result.invalidatedTargets.length).toBeGreaterThan(0);
+  expect(result.entryName).toBe(diagnosticEntry);
+  expect(result.scope).toBe('current_node_only');
+  expect(result.invalidatedTargets).toEqual([`snapshot:${diagnosticEntry}:current-node`]);
+  for (const [entry, operation, scope] of [[tenantResolutionEntry, 'by-tenant', 'current_node_only'],
+    [diagnosticEntry, 'global', 'all_layers_synchronous']]) {
+    const rejected = await request.post(`${apiBaseUrl}/api/v1/observability/cache-policies/${entry}/invalidations`,
+      { headers, data: { operationKey: operation, parameters: {}, scope } });
+    expect(rejected.status()).toBe(400);
+  }
 });
 
 test('Vue 缓存管理页可查看已登记策略（清单 29）', async ({ page }, testInfo) => {
@@ -82,6 +85,14 @@ test('Vue 缓存管理页可查看已登记策略（清单 29）', async ({ page
   await expect(view.getByText(tenantResolutionEntry, { exact: true })).toBeVisible();
   await view.getByText(tenantResolutionEntry, { exact: true }).click();
   await expect(view.getByRole('heading', { name: tenantResolutionEntry, exact: true })).toBeVisible();
+  await expect(view.locator('.observability-cache-policies__form')).toHaveCount(0);
+  await view.getByText(diagnosticEntry, { exact: true }).click();
+  await expect(view.locator('[data-policy-field="snapshot-age"]')).toBeVisible();
+  const refresh = page.waitForResponse(response => response.url().includes(`${diagnosticEntry}/invalidations`)
+    && response.request().method() === 'POST');
+  await view.getByRole('button', { name: '刷新本机快照', exact: true }).click();
+  expect((await refresh).ok()).toBeTruthy();
+  await expect(view.locator('.observability-cache-policies__result')).toContainText(`snapshot:${diagnosticEntry}:current-node`);
 });
 
 test('受限 Host 账号访问缓存策略 API 被拒绝且导航裁剪', async ({

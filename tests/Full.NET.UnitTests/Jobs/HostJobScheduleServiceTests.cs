@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Host Job Schedule Service。</summary>
 [TestClass]
 public sealed class HostJobScheduleServiceTests
 {

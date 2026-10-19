@@ -2,6 +2,7 @@ using Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Oidc Authorization Management Service。</summary>
 [TestClass]
 public sealed class OidcAuthorizationManagementServiceTests
 {

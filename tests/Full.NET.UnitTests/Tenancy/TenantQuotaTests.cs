@@ -4,6 +4,7 @@ using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenant Quota。</summary>
 [TestClass]
 public sealed class TenantQuotaTests
 {

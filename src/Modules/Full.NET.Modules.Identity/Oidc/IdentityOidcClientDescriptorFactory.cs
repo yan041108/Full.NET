@@ -1,9 +1,11 @@
+// OIDC 客户端描述符工厂；向 OpenIddict 暴露静态元数据视图。
 using Full.NET.Modules.Identity.Configuration;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
+/// <summary>OIDC 客户端描述符工厂；向 OpenIddict 暴露静态元数据视图。</summary>
 internal static class IdentityOidcClientDescriptorFactory
 {
     internal sealed record Input(

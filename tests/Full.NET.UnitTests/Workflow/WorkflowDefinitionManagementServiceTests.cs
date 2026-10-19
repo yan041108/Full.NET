@@ -15,6 +15,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Definition Management Service。</summary>
 [TestClass]
 public sealed class WorkflowDefinitionManagementServiceTests
 {

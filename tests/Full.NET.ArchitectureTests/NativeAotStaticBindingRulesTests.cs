@@ -153,7 +153,7 @@ public sealed class NativeAotStaticBindingRulesTests
         var extensionsSource = File.ReadAllText(extensionsPath);
 
         StringAssert.Contains(serializerSource, "ICacheJsonTypeInfoContributor");
-        StringAssert.Contains(tenancyContextSource, "TenantResolutionCacheEntry");
+        Assert.DoesNotContain("TenantResolutionCacheEntry", tenancyContextSource);
         StringAssert.Contains(settingsContextSource, "GridPreferenceResponse");
         StringAssert.Contains(settingsContextSource, "DiagnosticPolicyDocument");
         StringAssert.Contains(

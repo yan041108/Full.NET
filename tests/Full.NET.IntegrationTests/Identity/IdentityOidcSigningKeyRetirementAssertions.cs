@@ -7,6 +7,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：多实例密钥退役与 JWKS 收敛。</summary>
 internal static class IdentityOidcSigningKeyRetirementAssertions
 {
     public static async Task VerifyAsync(

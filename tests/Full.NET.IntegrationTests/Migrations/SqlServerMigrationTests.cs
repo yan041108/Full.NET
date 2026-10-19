@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：SqlServerMigration。</summary>
 [TestClass]
 public sealed class SqlServerMigrationTests
 {

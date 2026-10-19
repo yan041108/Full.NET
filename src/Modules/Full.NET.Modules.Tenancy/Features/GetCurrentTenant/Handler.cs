@@ -4,6 +4,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 
 internal sealed class Handler(IQueryExecutor queryExecutor)

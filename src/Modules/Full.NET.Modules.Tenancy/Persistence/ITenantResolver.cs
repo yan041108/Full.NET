@@ -7,8 +7,7 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 /// 1) 已认证且存在 TenantId Claim → 优先按 Id 解析（切换后写入的 Claim 优先）；
 /// 2) 未认证但 Host 非白名单 → 按域名解析；
 /// 3) HostDomain 命中 → 进入 Host Scope（不解析任何租户）。
-/// 所有解析结果均通过 HybridCache（L1 内存 + L2 Redis + 标签）做两级缓存，
-/// 失效由 TenantCacheInvalidator 在开通/变更/禁用提交后触发。
+/// 所有准入解析直接读取权威数据库，源故障必须传播，不能使用缓存中的活动状态兜底。
 /// </summary>
 internal interface ITenantResolver
 {

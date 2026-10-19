@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>单元测试分片：LocalePreference。</summary>
 internal static class LocalePreferenceTests
 {
     public static async Task VerifyAsync(

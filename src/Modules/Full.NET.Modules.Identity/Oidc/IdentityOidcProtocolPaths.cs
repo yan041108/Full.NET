@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
-/// <summary>OIDC protocol path detection; protocol endpoints must not use ProblemDetails envelopes.</summary>
+/// <summary>OIDC 协议路径识别；协议端点不得套用 ProblemDetails 包络。</summary>
 internal static class IdentityOidcProtocolPaths
 {
     public static bool IsProtocolPath(PathString path)

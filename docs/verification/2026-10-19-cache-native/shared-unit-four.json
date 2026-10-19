@@ -1,0 +1,44 @@
+{
+  "scope": "Only the four public failure-log coordinator rows",
+  "method": "Full.NET.UnitTests.Ai.AiAgentRunCoordinatorTests.Failure_log_coordinator_preserves_reconciliation_and_budget_when_logger_fails",
+  "uids": [
+    "1525b534-6ef6-805e-a2d3-aba3771cdbb0",
+    "11e61dcb-5e02-8410-92e3-e259d8b06077",
+    "1207b2e0-8ee5-8ebf-84ef-f56f1b409925",
+    "1857b27c-89e8-8801-9ba1-1ee81e64f225"
+  ],
+  "actualBuildRecord": {
+    "schemaVersion": 1,
+    "identity": "09b3eb7736df7bbb25932d3540e436f7ee52f312a9ee75a6d4298dba824889e3",
+    "output": "2e7d9eb37f4a249991792ea01189094133e5c965b6f4fc163f6fc2b87366ec98"
+  },
+  "actualResult": {
+    "total": 4,
+    "outcomes": {
+      "Passed": 4,
+      "Failed": 0,
+      "Inconclusive": 0,
+      "Skipped": 0,
+      "NotExecuted": 0,
+      "Other": 0
+    },
+    "inconclusiveTests": []
+  },
+  "trxSha256": "257d1a324648823b516570f9062488ba041c58b0c8116a9962963cfca2190d73",
+  "actualPublicTestSourceSha256": "c8f5b18ba6cedee80890980cf8fa497691896d7f1e1dfe17456f21bb9eb84865",
+  "actualTerminal": {
+    "at": "2026-10-18T17:58:55.7563767Z",
+    "jobFinalActiveProcesses": 0,
+    "observedViaLiveProcessHandle": true,
+    "stopReason": null,
+    "jobTotalProcesses": 188,
+    "actualParentExit": 0,
+    "actualParentBirth": "134368197271908837",
+    "budgetStarted": true,
+    "actualParentPid": 86540,
+    "actualJobPeakBytes": 200257536,
+    "actualExecutionDeadlineUtc": "2026-10-18T18:15:30.0340000+00:00",
+    "jobAssignedBeforeResume": true
+  },
+  "physicalStoppedAgain": true
+}

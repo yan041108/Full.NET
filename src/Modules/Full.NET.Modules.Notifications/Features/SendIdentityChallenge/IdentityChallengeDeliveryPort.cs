@@ -7,6 +7,7 @@ using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
 using Microsoft.Extensions.Options;
 
+/// <summary>模块内端口适配或空实现；供测试或未启用能力时闭合 DI。</summary>
 namespace Full.NET.Modules.Notifications.Features.SendIdentityChallenge;
 
 internal sealed class IdentityChallengeDeliveryPort(

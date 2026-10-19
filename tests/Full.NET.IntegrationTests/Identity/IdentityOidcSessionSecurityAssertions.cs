@@ -5,6 +5,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成支撑：IdentityOidcSessionTest。</summary>
 internal static class IdentityOidcSessionTestSupport
 {
     public const string AllowedOrigin = "http://localhost";

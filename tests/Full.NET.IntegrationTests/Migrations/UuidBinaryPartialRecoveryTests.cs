@@ -7,6 +7,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：UuidBinaryPartialRecovery。</summary>
 [TestClass]
 public sealed class UuidBinaryPartialRecoveryTests
 {

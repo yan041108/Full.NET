@@ -3,6 +3,7 @@ using Full.NET.Modules.ImportExport.Domain;
 
 namespace Full.NET.UnitTests.ImportExport;
 
+/// <summary>单元测试（导入导出）：Static Import Schema Registry。</summary>
 [TestClass]
 public sealed class StaticImportSchemaRegistryTests
 {

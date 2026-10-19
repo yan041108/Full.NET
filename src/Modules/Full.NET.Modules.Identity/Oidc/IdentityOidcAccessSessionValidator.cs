@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 
+/// <summary>FluentValidation 规则；只校验输入形状，不访问数据库。</summary>
 namespace Full.NET.Modules.Identity.Oidc;
 
 internal sealed class IdentityOidcAccessSessionValidator(
@@ -17,8 +18,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
     IClock clock,
     ICurrentTenantContextWriter tenantContextWriter,
     IOptions<IdentityOidcOptions> oidcOptions,
-    IOptions<IdentityOptions> identityOptions,
-    IDatabaseAuthorizationReadScope? authorizationRead = null)
+    IOptions<IdentityOptions> identityOptions)
 {
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
@@ -71,8 +71,8 @@ internal sealed class IdentityOidcAccessSessionValidator(
         {
             throw;
         }
-        // 保留独立授权通道的容量语义；finally 仍负责恢复可信租户上下文。
-        catch (ServiceCapacityExceededException) when (authorizationRead?.IsActive == true)
+        // OIDC 与普通 JWT 共用可重试容量语义；拒绝本次授权，finally 仍恢复可信租户上下文。
+        catch (ServiceCapacityExceededException)
         {
             throw;
         }

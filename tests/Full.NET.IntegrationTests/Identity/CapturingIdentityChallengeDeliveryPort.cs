@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成测试辅助：CapturingIdentityChallengeDeliveryPort。</summary>
 internal sealed class CapturingIdentityChallengeDeliveryPort : IIdentityChallengeDeliveryPort
 {
     private readonly object _gate = new();

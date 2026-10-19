@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Trusted Proxy Options。</summary>
 [TestClass]
 public sealed class TrustedProxyOptionsTests
 {

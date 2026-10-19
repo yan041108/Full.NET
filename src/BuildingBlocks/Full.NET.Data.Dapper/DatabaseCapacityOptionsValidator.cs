@@ -5,6 +5,7 @@ using MySqlConnector;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>从连接串读取池大小与是否启用池化；供容量选项与启动校验共用。</summary>
 internal static class DatabasePoolConfiguration
 {
     internal static int ReadMaximumPoolSize(DatabaseOptions options) =>
@@ -31,6 +32,7 @@ internal static class DatabasePoolConfiguration
         };
 }
 
+/// <summary>校验进程内准入许可不得超过连接池上限，且关键预留不得挤占普通配额。</summary>
 internal sealed class DatabaseCapacityOptionsValidator(
     IOptions<DatabaseOptions> databaseOptions)
     : IValidateOptions<DatabaseCapacityOptions>

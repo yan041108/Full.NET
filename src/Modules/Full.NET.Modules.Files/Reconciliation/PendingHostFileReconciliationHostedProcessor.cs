@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+/// <summary>Files 模块后台循环任务；停机时遵守宿主取消令牌。</summary>
 namespace Full.NET.Modules.Files.Reconciliation;
 
 internal sealed class PendingHostFileReconciliationHostedProcessor(

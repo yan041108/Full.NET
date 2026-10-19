@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Hosting.Forwarding;
 
+/// <summary>校验已知代理与网段格式；未启用时允许空列表，启用后必须显式声明信任边界。</summary>
 internal sealed class TrustedProxyOptionsValidator : IValidateOptions<TrustedProxyOptions>
 {
     private const int MaximumForwardLimit = 10;

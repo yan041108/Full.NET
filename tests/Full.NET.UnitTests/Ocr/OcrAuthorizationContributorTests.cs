@@ -4,6 +4,7 @@ using Full.NET.Modules.Ocr.Contracts;
 
 namespace Full.NET.UnitTests.Ocr;
 
+/// <summary>单元测试（OCR）：Ocr Authorization Contributor。</summary>
 [TestClass]
 public sealed class OcrAuthorizationContributorTests
 {

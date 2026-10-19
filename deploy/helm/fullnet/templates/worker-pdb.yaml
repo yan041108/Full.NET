@@ -8,7 +8,7 @@ metadata:
     {{- include "fullnet.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker
 spec:
-  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  minAvailable: {{ if .Values.logging.localFile.enabled }}0{{ else }}{{ .Values.worker.pdb.minAvailable }}{{ end }}
   selector:
     matchLabels:
       {{- include "fullnet.selectorLabels" . | nindent 6 }}

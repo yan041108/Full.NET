@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
 
+// Tenancy 模块 Native AOT 友好的 System.Text.Json 源生成上下文；仅注册已审计的契约类型。
 namespace Full.NET.Modules.Tenancy.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
@@ -15,8 +16,6 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(TenantContextTokenResponse))]
 [JsonSerializable(typeof(ProvisionTenantRequest))]
 [JsonSerializable(typeof(UpdateHostTenantRequest))]
-[JsonSerializable(typeof(TenantCachePayload))]
-[JsonSerializable(typeof(TenantResolutionCacheEntry))]
 [JsonSerializable(typeof(AssignHostTenantPackageRequest))]
 [JsonSerializable(typeof(HostTenantMembersPageResponse))]
 [JsonSerializable(typeof(HostTenantAdministratorsPageResponse))]
@@ -61,4 +60,5 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(ReconcileTenantQuotaUsageBaselineResponse))]
 [JsonSerializable(typeof(TenantEntitlementBackfillRequest))]
 [JsonSerializable(typeof(TenantEntitlementBackfillResponse))]
+/// <summary>Tenancy 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class TenancyJsonSerializerContext : JsonSerializerContext;

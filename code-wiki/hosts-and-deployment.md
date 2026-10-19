@@ -1,8 +1,8 @@
 # 宿主与部署
 
-## 1. 三宿主职责分离
+## 1. 运行角色分离
 
-Full.NET 按运行角色分离为三个独立宿主（AppHost 只负责本地编排，不是第四种角色）。
+Full.NET 的业务运行角色是 API、Worker、Migrator。AppHost 只负责本地编排。日志投递另有独立消费进程，不并入业务 Worker。
 
 | 宿主 | 项目位置 | 职责 | 启动要求 |
 |------|----------|------|----------|
@@ -10,6 +10,7 @@ Full.NET 按运行角色分离为三个独立宿主（AppHost 只负责本地编
 | **Worker** | `src/Hosts/Full.NET.Host.Worker/` | Outbox 轮询/发布；Retention 清理；Kafka Consumer；CDC Shadow；本地投影同步 | 数据库就绪；Kafka（仅 CdcKafka 模式） |
 | **Migrator** | `src/Hosts/Full.NET.Host.Migrator/` | DbUp 迁移；可选种子播种（Baseline/Development/Test/Demo）；迁移审计 | 数据库连接 + 执行 DDL 权限；生产仅 Baseline |
 | **AppHost** | `src/Hosts/Full.NET.AppHost/` | .NET Aspire 本地编排：按依赖启动 SQL Server/Redis/Migrator(→API→Worker) | 仅开发/测试；需要 Docker |
+| **LogConsumer** | `src/Hosts/Full.NET.Host.LogConsumer/` | 从 Kafka 读取应用日志，确认连续 Offset 后写入 Elasticsearch | 显式实验开关；不随 ApplicationKafka 入口自动启动 |
 
 ### 1.1 API 宿主注册
 
@@ -198,6 +199,14 @@ builder.AddProject<Projects.Full_NET_Host_Worker>("worker")
 ```
 
 > AppHost 仅作本地开发与测试编排；首次运行时交互输入宿主管理员用户名/密码（Secret Parameter）。`Aspire Dashboard: http://localhost:15200/`。
+
+### 1.5 日志消费进程
+
+> 入口：[`src/Hosts/Full.NET.Host.LogConsumer/Program.cs`](../src/Hosts/Full.NET.Host.LogConsumer/Program.cs)
+> 消费库：[`src/Platform/Full.NET.LogConsumer`](../src/Platform/Full.NET.LogConsumer)
+> 生产者：[`src/BuildingBlocks/Full.NET.Logging.Kafka`](../src/BuildingBlocks/Full.NET.Logging.Kafka)
+
+LogConsumer 是平台日志进程，不是第四种业务角色。它不装配业务模块，不执行 B1 详情清理，也不复用 Worker 的 Outbox 循环。应用选择 `ApplicationKafka` 只表示 API/Worker 可以写日志 Topic；消费者要单独打开，并且当前必须配置 Elasticsearch。四种入口、本地 txt、Topic 和切换步骤见 [日志指南](./logging-guide.md)。
 
 ---
 
@@ -550,6 +559,8 @@ SQL Server/MySQL    Redis           S3 / MinIO
 ---
 
 ## 5. CDC/Kafka 消息栈部署
+
+发布、消费和默认 Legacy 轮询见 [可靠事件交付指南](./reliable-event-delivery.md)。本节只保留部署入口。
 
 > 目录：[`deploy/messaging/`](file:///G:/wwwroot/github_fork/Full.NET/deploy/messaging)
 

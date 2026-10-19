@@ -340,6 +340,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/observability/elasticsearch-health'
   },
   {
+    componentKey: 'log-timeline',
+    routeName: 'log-timeline',
+    path: '/auditing/log-timeline'
+  },
+  {
     componentKey: 'operation-logs',
     routeName: 'operation-logs',
     path: '/auditing/operation-logs'

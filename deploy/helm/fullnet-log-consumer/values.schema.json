@@ -4,7 +4,7 @@
   "additionalProperties": false,
   "required": ["enabled", "experimental", "image", "replicaCount", "environment", "configurationSecretName", "caSecretName", "monitoringNamespace", "podMonitor", "resources"],
   "properties": {
-    "batchMaxRecords": {"type": "integer", "minimum": 1, "maximum": 8},
+    "batchMaxRecords": {"type": "integer", "minimum": 1, "maximum": 64},
     "enabled": {"type": "boolean"},
     "experimental": {"type": "boolean"},
     "environment": {"enum": ["Production", "Staging", "Development"]},

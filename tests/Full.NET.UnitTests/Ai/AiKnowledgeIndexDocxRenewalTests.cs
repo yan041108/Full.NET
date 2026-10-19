@@ -3,6 +3,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexDocxPlanningService。</summary>
 public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
 {
     [TestMethod]

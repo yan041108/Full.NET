@@ -8,6 +8,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：MySqlMigration。</summary>
 [TestClass]
 public sealed class MySqlMigrationTests
 {

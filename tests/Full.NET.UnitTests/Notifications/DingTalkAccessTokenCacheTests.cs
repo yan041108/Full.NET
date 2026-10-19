@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Providers.DingTalk;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Ding Talk Access Token Cache。</summary>
 [TestClass]
 public sealed class DingTalkAccessTokenCacheTests
 {
@@ -63,8 +64,8 @@ public sealed class DingTalkAccessTokenCacheTests
         clock.UtcNow = clock.UtcNow.AddHours(1);
         await cache.GetOrRefreshAsync("new", "secret", CancellationToken.None);
         // 检查持有的条目数，过期后拒绝命中本身不能证明旧对象已经回收。
-        var entries = (System.Collections.IDictionary)typeof(DingTalkAccessTokenCache)
-            .GetField("_tokens", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+        var entries = (Full.NET.Modules.Notifications.Providers.ProviderTokenRefreshCache)typeof(DingTalkAccessTokenCache)
+            .GetField("_cache", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .GetValue(cache)!;
         Assert.AreEqual(1, entries.Count);
     }

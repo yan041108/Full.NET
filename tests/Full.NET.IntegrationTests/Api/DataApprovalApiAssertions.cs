@@ -5,6 +5,7 @@ using Full.NET.Modules.DataApproval.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>数据审批 API：请求生命周期与权限边界。</summary>
 internal static class DataApprovalApiAssertions
 {
     public static async Task VerifyAsync(

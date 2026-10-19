@@ -21,4 +21,5 @@ namespace Full.NET.Modules.Regions.Serialization;
 [JsonSerializable(typeof(PagedResult<AdministrativeRegionResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<AdministrativeRegionChildResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<AdministrativeRegionTreeNodeResponse>))]
+/// <summary>Regions 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class RegionsJsonSerializerContext : JsonSerializerContext;

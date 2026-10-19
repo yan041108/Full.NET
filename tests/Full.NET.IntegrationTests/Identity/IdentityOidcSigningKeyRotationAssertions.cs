@@ -7,6 +7,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：多实例密钥轮换无验签空窗。</summary>
 internal static class IdentityOidcSigningKeyRotationAssertions
 {
     public const string KeyAId = "fixture-oidc-key-a";

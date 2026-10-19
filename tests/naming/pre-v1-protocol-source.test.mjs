@@ -19,7 +19,6 @@ const allowedLegacyFiles = new Set([
   'packages/client-contracts/src/pre-v1-protocol.ts',
   'packages/client-contracts/tests/pre-v1-protocol.test.ts',
   'docs/development/pre-v1-contract-name-migration.md',
-  'src/Modules/Full.NET.Modules.Tenancy/TenantProvisionedCacheInvalidationHandler.cs',
 ].map(item => path.normalize(item)));
 
 const scanRoots = [

@@ -2,40 +2,19 @@ using Full.NET.Abstractions.Time;
 
 namespace Full.NET.Modules.Notifications.Providers.WeChatMiniProgram;
 
-/// <summary>按 appId 缓存小程序 access_token，并在过期前 60 秒主动刷新。</summary>
-internal sealed class WeChatMiniProgramAccessTokenCache(IWeChatMiniProgramTransport transport, IClock clock)
+/// <summary>按完整凭据指纹缓存令牌，合并刷新并在宿主关闭时排空在途请求。</summary>
+internal sealed class WeChatMiniProgramAccessTokenCache(IWeChatMiniProgramTransport transport, IClock clock) : IAsyncDisposable
 {
-    private const int RenewalSkewSeconds = 60;
-    private readonly object _sync = new();
-    private string? _appId;
-    private string? _token;
-    private DateTimeOffset _expiresAtUtc;
+    private readonly ProviderTokenRefreshCache _cache = new(clock);
 
-    /// <summary>返回当前有效 token；过期或 appId 变化时刷新。</summary>
-    public async ValueTask<string> GetOrRefreshAsync(
-        string appId,
-        string appSecret,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        lock (_sync)
+    /// <summary>返回有效令牌；调用者取消只终止自己的等待。</summary>
+    public ValueTask<string> GetOrRefreshAsync(string identity, string secret, CancellationToken cancellationToken) =>
+        _cache.GetAsync(identity, secret, async token =>
         {
-            if (string.Equals(_appId, appId, StringComparison.Ordinal)
-                && _token is { Length: > 0 } cached
-                && clock.UtcNow < _expiresAtUtc.AddSeconds(-RenewalSkewSeconds))
-            {
-                return cached;
-            }
-        }
+            var issued = await transport.GetAccessTokenAsync(identity, secret, token).ConfigureAwait(false);
+            return (issued.Token, issued.ExpiresAtUtc);
+        }, cancellationToken);
 
-        var fresh = await transport.GetAccessTokenAsync(appId, appSecret, cancellationToken)
-            .ConfigureAwait(false);
-        lock (_sync)
-        {
-            _appId = appId;
-            _token = fresh.Token;
-            _expiresAtUtc = fresh.ExpiresAtUtc;
-            return fresh.Token;
-        }
-    }
+    /// <inheritdoc cref="ProviderTokenRefreshCache.DisposeAsync" />
+    public ValueTask DisposeAsync() => _cache.DisposeAsync();
 }

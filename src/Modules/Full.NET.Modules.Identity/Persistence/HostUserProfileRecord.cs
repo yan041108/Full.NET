@@ -1,6 +1,6 @@
 namespace Full.NET.Modules.Identity.Persistence;
 
-/// <summary>Host user profile row mapped to fn_identity_user_profile.</summary>
+/// <summary>Host 用户档案查询行；映射 fn_identity_user_profile 投影列。</summary>
 internal sealed class HostUserProfileRecord
 {
     public Guid UserId { get; set; }

@@ -246,7 +246,8 @@ internal sealed class WorkflowTodoCountersignService(
                 ("CommentSummary", request.Comment?.Trim()), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertExecutionLog,
-            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+            WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", todo.StepId), ("TransitionKey", $"todo.countersign.{direction}"),
                 ("FromStatusKey", "active"), ("ToStatusKey", "active"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),

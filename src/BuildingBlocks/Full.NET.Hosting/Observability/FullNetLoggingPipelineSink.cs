@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
@@ -9,6 +8,9 @@ namespace Full.NET.Hosting.Observability;
 /// <summary>
 /// 将普通与高优先级日志路由到独立队列，并在退出时共享同一排空预算。
 /// </summary>
+/// <remarks>
+/// 启用 <see cref="LocalFileLogStore"/> 时，两路队列各绑定独立 Writer，共享同一目录租约与磁盘预算。
+/// </remarks>
 internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
 {
     private static readonly MessageTemplate HttpTemplate =
@@ -19,23 +21,21 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
     private readonly HttpOperationLogIngress? _httpOperationIngress;
     private readonly Func<HttpOperationLogRecord, LogEventLevel, bool> _emitHttpOperation;
     private readonly LoggingResourceMetadata? _resource;
-    private readonly IDisposable? _externalExporter;
+    private readonly IHostLogSnapshotExporter? _externalExporter;
     private int _disposed;
 
     public FullNetLoggingPipelineSink(
-        ILogEventSink generalSink,
-        ILogEventSink highPrioritySink,
+        Action<LogEnvelope>? generalSink,
+        Action<LogEnvelope>? highPrioritySink,
         LoggingOptions options,
         FullNetLoggingMonitors monitors,
         Action<LogEnvelope>? emitSnapshot = null,
-        bool emitLegacySink = true,
-        Action<HostLogSnapshot>? emitExternalSnapshot = null,
+        Func<HostLogSnapshot, bool>? emitExternalSnapshot = null,
         LoggingResourceMetadata? resource = null,
         HttpOperationLogIngress? httpOperationIngress = null,
-        IDisposable? externalExporter = null)
+        IHostLogSnapshotExporter? externalExporter = null,
+        LocalFileLogStore? localFiles = null)
     {
-        ArgumentNullException.ThrowIfNull(generalSink);
-        ArgumentNullException.ThrowIfNull(highPrioritySink);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(monitors);
 
@@ -53,10 +53,10 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
             options.MaxEventBytes,
             options.GeneralQueueMaxBytes,
             emitSnapshot,
-            emitLegacySink,
             emitExternalSnapshot,
             highPriority: false,
-            routingPolicy: routingPolicy);
+            routingPolicy: routingPolicy,
+            localFile: localFiles?.General);
         _highPriority = new FullNetBoundedAsyncSink(
             highPrioritySink,
             options.HighPriorityAsyncBufferSize,
@@ -65,10 +65,10 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
             options.MaxEventBytes,
             options.HighPriorityQueueMaxBytes,
             emitSnapshot,
-            emitLegacySink,
             emitExternalSnapshot,
             highPriority: true,
-            routingPolicy: routingPolicy);
+            routingPolicy: routingPolicy,
+            localFile: localFiles?.Priority);
         _httpOperationIngress?.Attach(_emitHttpOperation);
     }
 
@@ -122,14 +122,14 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
 
         _httpOperationIngress?.Detach(_emitHttpOperation);
 
-        var stopwatch = Stopwatch.StartNew();
+        var deadline = new LogShutdownDeadline(_shutdownFlushTimeout);
         _general.Complete();
         _highPriority.Complete();
 
         var highPriorityCompleted = _highPriority.WaitForCompletion(
-            GetRemainingTime(stopwatch.Elapsed));
+            deadline.Remaining);
         var generalCompleted = _general.WaitForCompletion(
-            GetRemainingTime(stopwatch.Elapsed));
+            deadline.Remaining);
 
         _highPriority.AbandonPending();
         _general.AbandonPending();
@@ -143,12 +143,6 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
         }
 
         // 外部 Producer 在双通道排空预算结束后关闭；超时未完成的快照按既有停机丢弃语义处理。
-        _externalExporter?.Dispose();
-    }
-
-    private TimeSpan GetRemainingTime(TimeSpan elapsed)
-    {
-        var remaining = _shutdownFlushTimeout - elapsed;
-        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        _externalExporter?.Stop(deadline);
     }
 }

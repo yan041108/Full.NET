@@ -9,6 +9,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：用户授权记录查询与吊销管理 API。</summary>
 internal static class IdentityOidcAuthorizationManagementAssertions
 {
     public static async Task VerifyAsync(

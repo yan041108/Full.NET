@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Host Announcement Audience Validator。</summary>
 [TestClass]
 public sealed class HostAnnouncementAudienceValidatorTests
 {

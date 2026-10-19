@@ -4,6 +4,7 @@ using Full.NET.Modules.Notifications.Providers.WeChatMiniProgram;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：We Chat Mini Program Access Token Cache。</summary>
 [TestClass]
 public sealed class WeChatMiniProgramAccessTokenCacheTests
 {

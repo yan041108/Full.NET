@@ -178,6 +178,7 @@ public sealed class HttpOperationLogMiddleware(
                 }
             }
 
+            var correlation = HttpLogCorrelation.Capture(httpContext);
             var reliability = isPriority ? "Priority" : "BestEffort";
             var fields = new Dictionary<string, object?>
             {
@@ -196,6 +197,11 @@ public sealed class HttpOperationLogMiddleware(
                 ["SourceOriginFingerprint"] = metadata.SourceOriginFingerprint,
                 ["TraceId"] = metadata.TraceId,
                 ["SpanId"] = metadata.SpanId,
+                ["ParentSpanId"] = correlation.ParentSpanId,
+                ["UserId"] = correlation.UserId,
+                ["SessionId"] = correlation.SessionId,
+                ["CenterSessionId"] = correlation.CenterSessionId,
+                ["ApplicationSessionId"] = correlation.ApplicationSessionId,
                 ["RequestId"] = metadata.RequestId,
                 ["ClientIpFingerprint"] = metadata.ClientIpFingerprint,
                 ["EndpointName"] = metadata.EndpointName,

@@ -1,3 +1,4 @@
+/// <summary>模块运行期选项；由配置节绑定并在启动期校验。</summary>
 namespace Full.NET.Modules.Webhooks.Delivery;
 
 internal sealed class WebhookDeliveryWorkerOptions

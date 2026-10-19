@@ -1,6 +1,7 @@
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Jobs.Contracts;
 
+/// <summary>Jobs 模块授权目录贡献者；向 Identity 注册权限、导航与精确动作。</summary>
 namespace Full.NET.Modules.Jobs;
 
 internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContributor

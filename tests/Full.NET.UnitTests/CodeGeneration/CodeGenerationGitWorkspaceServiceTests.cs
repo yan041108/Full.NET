@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Code Generation Git Workspace Service。</summary>
 [TestClass]
 public sealed class CodeGenerationGitWorkspaceServiceTests
 {

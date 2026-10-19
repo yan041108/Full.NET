@@ -10,6 +10,22 @@ namespace Full.NET.UnitTests.Data;
 [TestClass]
 public sealed class DataCommandExceptionMapperTests
 {
+    [TestMethod]
+    [DataRow(515)]
+    [DataRow(547)]
+    [DataRow(8152)]
+    [DataRow(2628)]
+    public void SqlServer_invalid_row_values_can_be_isolated(int number) =>
+        Assert.AreEqual(DataCommandFailureKind.InvalidValue, DataCommandExceptionMapper.ClassifySqlServer(number));
+
+    [TestMethod]
+    [DataRow(1048)]
+    [DataRow(1406)]
+    [DataRow(1452)]
+    [DataRow(3819)]
+    public void MySql_invalid_row_values_can_be_isolated(int number) =>
+        Assert.AreEqual(DataCommandFailureKind.InvalidValue, DataCommandExceptionMapper.ClassifyMySql((MySqlErrorCode)number));
+
     /// <summary>
     /// 验证 SQL Server 死锁编号映射为可重试的死锁类别。
     /// </summary>

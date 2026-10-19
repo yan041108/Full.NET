@@ -1,9 +1,11 @@
+// 工作流领域模型与不变量；定义、实例与节点状态的内部表示。
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+/// <summary>工作流领域模型与不变量；定义、实例与节点状态的内部表示。</summary>
 internal sealed record WorkflowDefinitionDraft(
     int SchemaVersion,
     IReadOnlyList<WorkflowNodeDraft> Nodes);

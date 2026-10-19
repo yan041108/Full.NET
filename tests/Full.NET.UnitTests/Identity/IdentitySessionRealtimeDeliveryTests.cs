@@ -8,6 +8,7 @@ using NSubstitute.ExceptionExtensions;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Session Realtime Delivery。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class IdentitySessionRealtimeDeliveryTests

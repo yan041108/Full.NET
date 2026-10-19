@@ -1,3 +1,4 @@
+// OpenIddict 客户端应用 Dapper 存储；经 IdentityOidcSql 双库访问。
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Globalization;
@@ -11,6 +12,7 @@ using OpenIddict.Abstractions;
 
 namespace Full.NET.Modules.Identity.Oidc.Stores;
 
+/// <summary>OpenIddict 客户端应用 Dapper 存储；写操作经命令执行器，与业务用户表无外键耦合。</summary>
 internal sealed class IdentityOidcApplicationStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

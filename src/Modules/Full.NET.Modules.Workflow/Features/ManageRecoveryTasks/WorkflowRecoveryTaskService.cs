@@ -398,6 +398,7 @@ internal sealed class WorkflowRecoveryTaskService(
         await commandExecutor.ExecuteAsync(
                 WorkflowSql.InsertExecutionLog,
                 WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("InstanceId", task.InstanceId),
                     ("StepId", task.StepId),
@@ -412,6 +413,7 @@ internal sealed class WorkflowRecoveryTaskService(
         await commandExecutor.ExecuteAsync(
                 WorkflowSql.InsertDomainAudit,
                 WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("TenantId", task.TenantId),
                     ("ScopeKey", task.ScopeKey),

@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Messaging;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：MessagingApiSqlServer。</summary>
 [TestClass]
 public sealed class MessagingApiSqlServerTests
 {

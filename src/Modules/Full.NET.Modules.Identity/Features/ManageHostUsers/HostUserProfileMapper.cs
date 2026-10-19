@@ -1,3 +1,4 @@
+// Host 侧用户档案映射；隔离租户字段，仅暴露 Host 管理所需列。
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 

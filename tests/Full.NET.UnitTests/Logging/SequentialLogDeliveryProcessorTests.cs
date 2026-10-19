@@ -3,6 +3,7 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Sequential Log Delivery Processor。</summary>
 [TestClass]
 public sealed class SequentialLogDeliveryProcessorTests
 {

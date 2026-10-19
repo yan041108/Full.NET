@@ -14,8 +14,7 @@ internal sealed class TenantBrandingService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IClock clock,
-    ICurrentTenant currentTenant,
-    TenantCacheInvalidator cacheInvalidator)
+    ICurrentTenant currentTenant)
 {
     /// <summary>Host 作用域按租户标识读取品牌信息。</summary>
     public async Task<Result<TenantBrandingResponse>> GetByTenantIdAsync(
@@ -101,10 +100,6 @@ internal sealed class TenantBrandingService(
                     token),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (result.IsSuccess && result.Value is { } branding)
-        {
-            await InvalidateAfterCommitAsync(tenantId, cancellationToken).ConfigureAwait(false);
-        }
 
         return result;
     }
@@ -146,10 +141,6 @@ internal sealed class TenantBrandingService(
                     token),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (result.IsSuccess)
-        {
-            await InvalidateAfterCommitAsync(tenantId, cancellationToken).ConfigureAwait(false);
-        }
 
         return result;
     }
@@ -198,26 +189,6 @@ internal sealed class TenantBrandingService(
         return updated is null
             ? NotFound<TenantBrandingResponse>()
             : Result<TenantBrandingResponse>.Success(Map(updated));
-    }
-
-    private async Task InvalidateAfterCommitAsync(
-        Guid tenantId,
-        CancellationToken cancellationToken)
-    {
-        var tenant = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
-                TenantSql.FindById,
-                TenancySqlParameters.Create(("TenantId", tenantId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (tenant is not null)
-        {
-            await cacheInvalidator.InvalidateAfterCommitAsync(
-                    tenant.Id,
-                    tenant.Domain,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
     }
 
     private Task<TenantBrandingRecord?> LoadByTenantIdAsync(

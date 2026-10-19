@@ -355,6 +355,8 @@ public sealed record TenantContext(
 
 ## 6. Outbox / Inbox 核心接口
 
+调用顺序、所有权路由和 Handler 注册见 [可靠事件交付指南](./reliable-event-delivery.md)。
+
 ### 6.1 `IOutboxWriter` 业务侧写入
 
 > 文件：[`src/BuildingBlocks/Full.NET.Data.Abstractions/IOutboxWriter.cs`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Data.Abstractions/IOutboxWriter.cs)
@@ -548,7 +550,28 @@ public interface ICacheInvalidator
 }
 ```
 
-`CacheInvalidationScope`：`Local`（本机 L1）与 `AllLevels`（L1 + L2 + Backplane 广播）。
+`CacheInvalidationScope`：`CurrentNodeOnly` 只清当前节点 L1；`AllLayersSynchronous` 同步清 L1 与共享 L2，并等待 Backplane 发布。缓存失效在业务提交后直接执行，不进入事务 Outbox。
+
+### 7.4 `ICacheBatchInvalidator` 有界批次失效
+
+> 文件：[`src/BuildingBlocks/Full.NET.Caching.Abstractions/ICacheBatchInvalidator.cs`](../src/BuildingBlocks/Full.NET.Caching.Abstractions/ICacheBatchInvalidator.cs)
+
+多条精确失效复用单目标语义。调用方传入已隔离的完整键或已登记标签，不能从不受控管理输入直接拼目标。
+
+```csharp
+public interface ICacheBatchInvalidator
+{
+    ValueTask RemoveAsync(IEnumerable<CacheInvalidationTarget> targets, CancellationToken cancellationToken = default);
+}
+
+public sealed record CacheInvalidationTarget(
+    string EntryName,
+    string Target,
+    CacheInvalidationTargetKind Kind,
+    CacheInvalidationScope Scope);
+```
+
+整批先预检并按条目、目标类型和传播范围去重。单个目标失败后仍尝试其余目标，返回时保留最先失败的异常。单个目标最长 1024 个 UTF-8 字节；批次容量到顶立即拒绝。实现是 `FusionCacheBatchInvalidator`，不另开广播链路。
 
 ---
 

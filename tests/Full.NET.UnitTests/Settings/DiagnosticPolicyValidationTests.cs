@@ -4,9 +4,20 @@ using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
 namespace Full.NET.UnitTests.Settings;
 
+/// <summary>单元测试（设置）：Diagnostic Policy Validation。</summary>
 [TestClass]
 public sealed class DiagnosticPolicyValidationTests
 {
+    [TestMethod]
+    public void Payload_limits_allow_explicit_disable_and_reject_values_beyond_projection_ceiling()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var rule = new DiagnosticPolicyRuleRequest("Endpoint", "/api/items", null, null, 0, 2048, now.AddMinutes(5));
+        Assert.IsNull(DiagnosticPolicyManagementService.Validate(new("Normal", [rule], 0), now));
+        Assert.IsNotNull(DiagnosticPolicyManagementService.Validate(new("Normal", [rule with { MaxRequestPayloadBytesOverride = -1 }], 0), now));
+        Assert.IsNotNull(DiagnosticPolicyManagementService.Validate(new("Normal", [rule with { MaxResponsePayloadBytesOverride = 2049 }], 0), now));
+    }
+
     [TestMethod]
     public void Instance_capacity_override_requires_global_http_scope()
     {

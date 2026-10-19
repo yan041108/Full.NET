@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Organization Host User Directory Composition。</summary>
 [TestClass]
 public sealed class OrganizationHostUserDirectoryCompositionTests
 {

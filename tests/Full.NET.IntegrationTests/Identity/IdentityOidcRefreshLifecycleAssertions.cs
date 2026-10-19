@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Oidc;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：刷新令牌轮换、重用检测与吊销。</summary>
 internal static class IdentityOidcRefreshLifecycleAssertions
 {
     public static async Task VerifyAsync(

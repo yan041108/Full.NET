@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Identity.Authorization;
 
 internal sealed class FullNetAuthorizationResultHandler(IApiResultMapper resultMapper)

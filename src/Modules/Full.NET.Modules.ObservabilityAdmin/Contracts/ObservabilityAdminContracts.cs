@@ -70,3 +70,10 @@ public static class ObservabilityAdminErrorCodes
             CacheInvalidationInvalid,
         ]);
 }
+
+/// <summary>集中运行日志摘要查询权限，独立于 ES 健康检查。</summary>
+public static class ObservabilityLogSearchPermissions
+{
+    /// <summary>查询已配置 ES 日志索引的安全摘要。</summary>
+    public const string Read = "observability.log_search.read";
+}

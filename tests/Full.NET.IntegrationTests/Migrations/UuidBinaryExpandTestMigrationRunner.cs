@@ -5,6 +5,7 @@ using Full.NET.Migrations.DbUp;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试辅助：UuidBinaryExpandTestMigrationRunner。</summary>
 internal sealed class UuidBinaryExpandTestMigrationRunner(string connectionString)
     : IDatabaseMigrationRunner
 {

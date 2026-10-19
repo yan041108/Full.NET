@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>SanitizedPayload 投影：请求/响应摘要字节上限。</summary>
 [TestClass]
 public sealed class HttpOperationPayloadProjectionTests
 {
@@ -525,13 +526,46 @@ public sealed class HttpOperationPayloadProjectionTests
         CaptureMaxBytesPerSecond = 2_560,
     };
 
-    private static HttpOperationPayloadProjection CreateService(HttpOperationLogOptions options)
+    [TestMethod]
+    public void Policy_bytes_control_real_capture_and_expired_rules_revert_to_global_limits()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var rule = new DiagnosticPolicyRule(DiagnosticPolicyScopeKind.Endpoint, "/api/items", null, null, 1, 0, now.AddMinutes(5));
+        var store = new CapturePolicyStore(new(1, LoggingPressureState.Normal, [rule], now, false));
+        var options = NewOptions();
+        options.MaxResponsePayloadBytes = 256;
+        var service = CreateService(options, store);
+        Assert.IsTrue(service.TryBeginCapture(NewContext(), HttpLogCaptureTarget.B2InternalSummary,
+            HttpLogCaptureProjectionKeys.Pagination, out var lease));
+        using (lease)
+            Assert.AreEqual(HttpLogCaptureState.BudgetExceeded, lease!.Capture(() => new HttpPaginationLogProjection(1, 20),
+                HttpLogCaptureJsonContext.Default.HttpPaginationLogProjection).State);
+        Assert.IsFalse(service.TryBeginCapture(NewContext(), HttpLogCaptureTarget.B2InternalSummary,
+            HttpLogCaptureProjectionKeys.PaginationResult, out _));
+        store.Current = store.Current with { ActiveRules = [rule with { ExpiresAtUtc = now.AddSeconds(-1) }] };
+        Assert.IsTrue(service.TryBeginCapture(NewContext(), HttpLogCaptureTarget.B2InternalSummary,
+            HttpLogCaptureProjectionKeys.Pagination, out lease));
+        using (lease)
+            Assert.AreEqual(HttpLogCaptureState.Captured, lease!.Capture(() => new HttpPaginationLogProjection(1, 20),
+                HttpLogCaptureJsonContext.Default.HttpPaginationLogProjection).State);
+        Assert.IsFalse(service.TryBeginCapture(NewContext("/api/not-allowed"), HttpLogCaptureTarget.B2InternalSummary,
+            HttpLogCaptureProjectionKeys.Pagination, out _));
+    }
+
+    private sealed class CapturePolicyStore(DiagnosticPolicySnapshot current) : IDiagnosticPolicyStore
+    {
+        public DiagnosticPolicySnapshot Current { get; set; } = current;
+        public ValueTask<DiagnosticPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken) => ValueTask.FromResult(Current);
+        public ValueTask RefreshAsync(long minimumVersion, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    }
+
+    private static HttpOperationPayloadProjection CreateService(HttpOperationLogOptions options, IDiagnosticPolicyStore? store = null)
     {
         var monitor = new StaticOptionsMonitor(options);
         return new HttpOperationPayloadProjection(
             monitor,
             new HttpLogCaptureBudget(TimeProvider.System),
-            new HttpOperationLogEmitter(monitor, new DefaultDiagnosticPolicyStore()),
+            new HttpOperationLogEmitter(monitor, store ?? new DefaultDiagnosticPolicyStore()),
             new ProjectionLogger());
     }
 

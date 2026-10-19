@@ -168,17 +168,25 @@ internal sealed class DbSession(
         var connection = connectionFactory.Create();
         DatabaseAdmissionLease? admissionLease = null;
         var acquisitionStartedAt = Stopwatch.GetTimestamp();
+        var accessMode = authorizationRead?.IsActive == true ? DatabaseConnectionAccessMode.Authorization
+            : admissionPriority.IsCritical ? DatabaseConnectionAccessMode.Critical : DatabaseConnectionAccessMode.Normal;
         try
         {
-            admissionLease = authorizationRead?.IsActive == true
-                ? await admissionGate.AcquireAuthorizationAsync(cancellationToken).ConfigureAwait(false)
-                : admissionPriority.IsCritical
-                ? await admissionGate
-                    .AcquireCriticalAsync(cancellationToken)
-                    .ConfigureAwait(false)
-                : await admissionGate
-                    .AcquireAsync(cancellationToken)
-                    .ConfigureAwait(false);
+            try
+            {
+                admissionLease = accessMode == DatabaseConnectionAccessMode.Authorization
+                    ? await admissionGate.AcquireAuthorizationAsync(cancellationToken).ConfigureAwait(false)
+                    : accessMode == DatabaseConnectionAccessMode.Critical
+                    ? await admissionGate.AcquireCriticalAsync(cancellationToken).ConfigureAwait(false)
+                    : await admissionGate.AcquireAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                // 准入拒绝/取消也记录实际阶段耗时；未进入 OpenAsync 时不制造打开样本。
+                telemetry.RecordPhase(DatabaseConnectionPhase.Admission, accessMode,
+                    Stopwatch.GetElapsedTime(acquisitionStartedAt));
+            }
+            var openStartedAt = Stopwatch.GetTimestamp();
             try
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -198,6 +206,11 @@ internal sealed class DbSession(
                     Stopwatch.GetElapsedTime(acquisitionStartedAt));
                 throw;
             }
+            finally
+            {
+                telemetry.RecordPhase(DatabaseConnectionPhase.Open, accessMode,
+                    Stopwatch.GetElapsedTime(openStartedAt));
+            }
 
             telemetry.RecordAcquisition(
                 DatabaseConnectionAcquireOutcome.Success,
@@ -206,14 +219,22 @@ internal sealed class DbSession(
                 connection,
                 admissionLease,
                 telemetry,
-                Stopwatch.GetTimestamp());
+                Stopwatch.GetTimestamp(),
+                accessMode);
         }
         catch
         {
-            await connection.DisposeAsync().ConfigureAwait(false);
-            if (admissionLease is not null)
+            try
             {
-                await admissionLease.DisposeAsync().ConfigureAwait(false);
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // Provider 释放失败不能吞掉准入许可归还，否则后续请求会永久失去这部分容量。
+                if (admissionLease is not null)
+                {
+                    await admissionLease.DisposeAsync().ConfigureAwait(false);
+                }
             }
 
             throw;

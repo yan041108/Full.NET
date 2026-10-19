@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Workflow Notification Template Provisioner。</summary>
 [TestClass]
 public sealed class WorkflowNotificationTemplateProvisionerTests
 {

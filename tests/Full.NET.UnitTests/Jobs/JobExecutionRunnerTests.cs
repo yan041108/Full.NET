@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Job Execution Runner。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class JobExecutionRunnerTests

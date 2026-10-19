@@ -14,6 +14,7 @@ using Full.NET.Abstractions.Messaging;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Answer History Guard。</summary>
 [TestClass]
 public sealed class AiKnowledgeAnswerHistoryGuardTests
 {

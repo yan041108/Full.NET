@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Deleted Host File Blob Cleanup。</summary>
 [TestClass]
 public sealed class DeletedHostFileBlobCleanupTests
 {

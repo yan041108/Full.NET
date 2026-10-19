@@ -14,7 +14,11 @@ internal sealed record ExceptionLogWriteModel(
     Guid? UserId,
     Guid? TenantId,
     string? TraceId,
-    string? ClientIpFingerprint);
+    string? ClientIpFingerprint)
+{
+    public string? CorrelationJson { get; init; } = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson();
+    public DateTimeOffset CapturedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+}
 
 /// <summary>
 /// 将异常审计摘要写入请求作用域的固定槽位，由外层协调 Middleware 统一同步提交。

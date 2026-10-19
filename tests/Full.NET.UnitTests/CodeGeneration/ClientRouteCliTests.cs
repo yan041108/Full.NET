@@ -4,6 +4,7 @@ using Full.NET.CodeGeneration.Cli;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Client Route Cli。</summary>
 [TestClass]
 public sealed class ClientRouteCliTests
 {

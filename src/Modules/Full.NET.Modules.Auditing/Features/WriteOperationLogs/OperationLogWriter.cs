@@ -24,6 +24,10 @@ internal sealed record OperationLogWriteModel(
     string? ClientIpFingerprint,
     string? PermissionCode)
 {
+    public string? CorrelationJson { get; init; } = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson();
+
+    public DateTimeOffset CapturedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+
     public ImmutableArray<string> RequiredPermissions { get; init; } = [];
 
     public AuditOperationDetails? Details { get; init; }

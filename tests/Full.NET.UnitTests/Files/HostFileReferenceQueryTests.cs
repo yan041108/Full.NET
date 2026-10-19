@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Host File Reference Query。</summary>
 [TestClass]
 public sealed class HostFileReferenceQueryTests
 {

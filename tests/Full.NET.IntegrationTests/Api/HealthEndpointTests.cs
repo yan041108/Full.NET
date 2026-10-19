@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：HealthEndpoint。</summary>
 [TestClass]
 public sealed class HealthEndpointTests
 {

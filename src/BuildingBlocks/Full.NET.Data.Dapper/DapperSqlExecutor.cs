@@ -50,6 +50,7 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            using var commandTiming = DapperTelemetry.BeginCommand(statement.Name, _options.Provider, DapperOperation.Execute);
             DbCommand? command = null;
             var reusable = false;
             try
@@ -114,6 +115,7 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            using var commandTiming = DapperTelemetry.BeginCommand(statement.Name, _options.Provider, DapperOperation.QuerySingle);
             var command = CreateCommand(
                 statement,
                 commandParameters,
@@ -173,6 +175,7 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            using var commandTiming = DapperTelemetry.BeginCommand(statement.Name, _options.Provider, DapperOperation.Query);
             var command = CreateCommand(
                 statement,
                 commandParameters,
@@ -229,6 +232,7 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            using var commandTiming = DapperTelemetry.BeginCommand(statement.Name, _options.Provider, DapperOperation.Execute);
             var command = CreateCommand(
                 statement,
                 commandParameters,
@@ -294,6 +298,7 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            using var commandTiming = DapperTelemetry.BeginCommand(statement.Name, _options.Provider, DapperOperation.QueryMultiple);
             var connection = connectionLease.Connection;
 #if FULLNET_AOT_COMPILE
             return await DapperAotSqlExecution.QueryMultipleAsync(

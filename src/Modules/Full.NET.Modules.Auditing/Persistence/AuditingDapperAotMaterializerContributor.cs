@@ -1,5 +1,6 @@
 #if FULLNET_AOT_COMPILE
 using System.Data.Common;
+using Full.NET.Modularity.Observability;
 using System.Globalization;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
@@ -15,6 +16,7 @@ internal sealed class AuditingDapperAotMaterializerContributor
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<LogTimelineRow>(ReadTimeline);
         registrar.Register<HostAccessLogQueryService.AccessLogRecord>(ReadAccessLog);
         registrar.Register<HostOperationLogQueryService.OperationLogRecord>(ReadOperationLog);
         registrar.Register<HostOperationLogDetailsQueryService.DetailRow>(ReadOperationLogDetails);
@@ -26,6 +28,18 @@ internal sealed class AuditingDapperAotMaterializerContributor
         registrar.Register<AuditDetailsCleanupCheckpointSqlServerRow>(ReadDetailsCheckpointSqlServer);
         registrar.Register<AuditDetailsCleanupCheckpointMySqlRow>(ReadDetailsCheckpointMySql);
     }
+
+    private static LogTimelineRow ReadTimeline(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), OccurredAtUtc = ReadDateTimeOffset(reader, "OccurredAtUtc"),
+        Summary = ReadString(reader, "Summary"), TraceId = ReadNullableString(reader, "TraceId"),
+        UserId = ReadNullableGuid(reader, "UserId"), TenantId = ReadNullableGuid(reader, "TenantId"),
+        ClientIpFingerprint = ReadNullableString(reader, "ClientIpFingerprint"),
+        CorrelationJson = ReadNullableString(reader, "CorrelationJson"),
+        SessionId = ReadNullableGuid(reader, "SessionId"),
+        CenterSessionId = ReadNullableGuid(reader, "CenterSessionId"),
+        ApplicationSessionId = ReadNullableGuid(reader, "ApplicationSessionId"),
+    };
 
     private static HostAccessLogQueryService.AccessLogRecord ReadAccessLog(DbDataReader reader) => new()
     {

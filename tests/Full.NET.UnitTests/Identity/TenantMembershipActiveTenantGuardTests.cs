@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Tenant Membership Active Tenant Guard。</summary>
 [TestClass]
 public sealed class TenantMembershipActiveTenantGuardTests
 {

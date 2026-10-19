@@ -14,11 +14,11 @@ internal static class OperationLogSql
         INSERT INTO fn_auditing_operation_log
             (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode, DurationMs,
              Succeeded, UserId, TenantId, TraceId, ClientIpFingerprint, PermissionCode,
-             ContextJson, DetailsExpiresAtUtc)
+             ContextJson, DetailsExpiresAtUtc, CorrelationJson)
         VALUES
             (@Id, @OccurredAtUtc, @ActionKey, @HttpMethod, @RequestPath, @StatusCode, @DurationMs,
              @Succeeded, @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @PermissionCode,
-             @ContextJson, @DetailsExpiresAtUtc)
+             @ContextJson, @DetailsExpiresAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

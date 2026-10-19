@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>租户订阅：套餐绑定与账单相关 API。</summary>
 internal static class TenantSubscriptionAssertions
 {
     public static async Task VerifyAsync(

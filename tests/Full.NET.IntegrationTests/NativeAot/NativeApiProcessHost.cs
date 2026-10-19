@@ -446,13 +446,16 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             return;
         }
 
-        var content = File.ReadAllText(logFilePath);
-        foreach (var marker in FatalLogMarkers)
+        // 容量场景的日志可能超过进程堆上限；逐行检查保留故障标记语义，避免整文件复制导致诊断自身 OOM。
+        foreach (var line in File.ReadLines(logFilePath))
         {
-            if (content.Contains(marker, StringComparison.Ordinal))
+            foreach (var marker in FatalLogMarkers)
             {
-                Assert.Fail(
-                    $"Native Host.Api 日志包含运行时故障标记 '{marker}'。日志：{logFilePath}");
+                if (line.Contains(marker, StringComparison.Ordinal))
+                {
+                    Assert.Fail(
+                        $"Native Host.Api 日志包含运行时故障标记 '{marker}'。日志：{logFilePath}");
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ using Full.NET.Benchmarks.MixedLoad;
 
 namespace Full.NET.UnitTests.Performance;
 
+/// <summary>单元测试（性能契约）：Mixed Load Contract。</summary>
 [TestClass]
 public sealed class MixedLoadContractTests
 {

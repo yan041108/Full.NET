@@ -1,3 +1,4 @@
+// Aspire AppHost 编排入口；声明 API、Worker、Migrator 与基础设施依赖。
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.Configuration;
 

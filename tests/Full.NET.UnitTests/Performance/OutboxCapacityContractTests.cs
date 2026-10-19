@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.UnitTests.Performance;
 
+/// <summary>单元测试（性能契约）：Outbox Capacity Contract。</summary>
 [TestClass]
 public sealed class OutboxCapacityContractTests
 {

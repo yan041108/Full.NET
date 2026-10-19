@@ -26,6 +26,7 @@ defineOptions({ name: 'ObservabilityLogFilesView' });
 const session = useSessionStore();
 const { t, locale } = useAdminI18n();
 const files = ref<LogFileSummary[]>([]);
+const truncated = ref(false);
 const selected = ref<LogFileSummary>();
 const tail = ref<LogFileTail>();
 const loading = ref(false);
@@ -85,7 +86,9 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    files.value = await listObservabilityLogFiles();
+    const result = await listObservabilityLogFiles();
+    files.value = result.items;
+    truncated.value = result.isTruncated;
     const current = selected.value
       ? files.value.find(file => file.id === selected.value?.id)
       : undefined;
@@ -159,6 +162,9 @@ onMounted(() => {
         </ElButton>
       </div>
 
+      <div v-if="truncated" class="art-inline-alert" role="status">
+        {{ t('observabilityLogFiles.listTruncated') }}
+      </div>
       <div class="observability-log-files__layout">
         <ElTable
           v-loading="loading"

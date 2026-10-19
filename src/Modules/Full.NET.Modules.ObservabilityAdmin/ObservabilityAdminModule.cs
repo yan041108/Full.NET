@@ -1,4 +1,6 @@
 using Full.NET.Hosting.Api;
+using Full.NET.Abstractions.Observability;
+using Full.NET.Modules.ObservabilityAdmin.Features.QueryLogTimeline;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ObservabilityAdmin.Configuration;
@@ -25,9 +27,9 @@ public sealed class ObservabilityAdminModule : IFullNetModule
     public string Name => "ObservabilityAdmin";
 
     /// <summary>
-    /// ObservabilityAdmin 模块依赖 Identity 模块，需在其后加载。
+    /// Identity 提供授权，Settings 提供管理端同步调用的 Grid 偏好失效契约。
     /// </summary>
-    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Settings"];
 
     /// <summary>
     /// 注册 ObservabilityAdmin 模块的应用服务：授权目录、错误资源、ObservabilityAdmin 选项校验、
@@ -49,12 +51,24 @@ public sealed class ObservabilityAdminModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<ObservabilityAdminOptions>,
             ObservabilityAdminOptionsValidator>());
-        services.TryAddSingleton<LogFileControlPlane>();
+        services.TryAddSingleton(provider => new LogFileControlPlane(
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ObservabilityAdminOptions>>(),
+            provider.GetRequiredService<Microsoft.Extensions.Hosting.IHostEnvironment>(),
+            configuration.GetSection(Full.NET.Hosting.Observability.LoggingOptions.SectionName)
+                .Get<Full.NET.Hosting.Observability.LoggingOptions>() ?? new()));
+        services.AddOptions<RuntimeLogTimelineOptions>()
+            .Bind(configuration.GetSection(RuntimeLogTimelineOptions.SectionName))
+            .Validate(value => !value.ElasticsearchEnabled || ElasticsearchTimelineReader.ValidConfiguration(value),
+                "Timeline Elasticsearch requires a credential-free HTTPS root URI and fn-logs- index pattern.")
+            .ValidateOnStart();
+        services.AddScoped<ILogTimelineReader, LocalFileTimelineReader>();
+        services.AddScoped<ILogTimelineReader, ElasticsearchTimelineReader>();
+        services.AddHttpClient(nameof(ElasticsearchTimelineReader))
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(2))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.TryAddSingleton<ServerRuntimeReader>();
         services.TryAddSingleton<ServerMonitorService>();
         services.TryAddSingleton<CachePolicyControlPlane>();
-        services.AddHttpClient(nameof(ElasticsearchLogPipelineHealthService))
-            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(5));
         services.TryAddSingleton<ElasticsearchLogPipelineHealthService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(

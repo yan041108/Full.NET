@@ -1,8 +1,10 @@
+// 工作流表单 Schema 编译；限制字段规模并拒绝可执行扩展键。
 using System.Text.Json;
 using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
+/// <summary>将设计器提交的表单 Schema 编译为可哈希制品；超限时返回稳定错误码而非部分成功。</summary>
 internal static class WorkflowFormCompiler
 {
     private const int MaxSections = 32;

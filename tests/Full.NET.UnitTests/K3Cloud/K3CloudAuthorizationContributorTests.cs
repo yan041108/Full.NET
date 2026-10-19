@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.UnitTests.K3Cloud;
 
+/// <summary>单元测试（K3Cloud）：K3Cloud Authorization Contributor。</summary>
 [TestClass]
 public sealed class K3CloudAuthorizationContributorTests
 {

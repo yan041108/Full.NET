@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>MFA 恢复码：生成、校验与一次性消费。</summary>
 internal static class MfaRecoveryCodeAssertions
 {
     public static async Task VerifyAsync(

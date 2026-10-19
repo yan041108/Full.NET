@@ -1,3 +1,4 @@
+// Identity 模块宿主入口；注册认证、OIDC、账户、导航、会话与数据保留。
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
@@ -65,6 +66,7 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.IdentityLogTimelineSources.Register(services);
         AddMigrationServices(services, configuration);
         services.AddIdentityAuthentication(configuration);
         services.AddIdentityOidc(configuration);
@@ -200,6 +202,11 @@ public sealed class IdentityModule : IFullNetModule
     /// <inheritdoc />
     public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
     {
+        if (stage == ModulePipelineStage.BeforeExceptionHandler)
+        {
+            app.UseMiddleware<LogCorrelationMiddleware>();
+        }
+
         if (stage == ModulePipelineStage.BeforeAuthentication)
         {
             app.UseMiddleware<Middleware.IdentityOidcHostContextMiddleware>();

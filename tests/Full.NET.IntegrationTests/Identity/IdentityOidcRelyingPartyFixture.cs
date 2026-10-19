@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 namespace Full.NET.IntegrationTests.Identity;
 
 
+/// <summary>集成测试辅助：IdentityOidcTokenExchangeResult。</summary>
 internal sealed record IdentityOidcTokenExchangeResult(
     HttpStatusCode StatusCode,
     bool IsSuccessStatusCode,

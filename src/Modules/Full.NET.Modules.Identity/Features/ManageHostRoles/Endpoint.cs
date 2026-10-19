@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
 
+/// <summary>Host 侧Roles管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageHostRoles;
 
 internal static class Endpoint

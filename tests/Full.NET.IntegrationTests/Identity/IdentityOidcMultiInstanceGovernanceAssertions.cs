@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：Host 侧 OIDC 治理配置与变更门禁。</summary>
 internal static class IdentityOidcMultiInstanceGovernanceAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5013/signin-oidc-governance-multi";

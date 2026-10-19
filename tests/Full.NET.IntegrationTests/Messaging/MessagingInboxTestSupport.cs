@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成支撑：MessagingInboxTest。</summary>
 internal static class MessagingInboxTestSupport
 {
     internal const string ConsumerName = "fullnet.messaging.inbox.test";

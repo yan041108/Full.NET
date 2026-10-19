@@ -1,3 +1,4 @@
+// SMTP 通知传输；MailKit 发送，凭据来自受保护配置而非日志。
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;

@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
-/// <summary>为生产环境原生日志测试提供真实密钥配置，不放宽宿主的生产安全校验。</summary>
+/// <summary>为生产环境原生日志测试提供真实 Redis 与密钥配置，不放宽宿主的生产安全校验。</summary>
 internal sealed class ProductionLogHostTestAssets : IDisposable
 {
     private readonly string _root;
@@ -25,8 +25,11 @@ internal sealed class ProductionLogHostTestAssets : IDisposable
             certificate.Export(X509ContentType.Pfx, _password));
     }
 
-    public void ApplyTo(IDictionary<string, string?> settings)
+    public async Task ApplyToAsync(IDictionary<string, string?> settings)
     {
+        // 为生产缓存显式提供真实 Redis；实时通道保持禁用，不以放宽生产准入来通过日志测试。
+        settings["Cache:RedisConnectionString"] = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
+            .ConfigureAwait(false);
         settings["DOTNET_ENVIRONMENT"] = "Production";
         settings["ASPNETCORE_ENVIRONMENT"] = "Production";
         settings["DataProtection:KeyRingPath"] = Path.Combine(_root, "keys");

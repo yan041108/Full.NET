@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：账户权威、锁定与凭据策略。</summary>
 internal static class IdentityOidcAccountAuthorityAssertions
 {
     public static async Task VerifyAsync(

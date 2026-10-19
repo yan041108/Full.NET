@@ -3,6 +3,7 @@ using Full.NET.Hosting.Api;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Named Message Formatter。</summary>
 [TestClass]
 public sealed class NamedMessageFormatterTests
 {

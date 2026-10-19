@@ -3,6 +3,7 @@ using Full.NET.Modules.Auditing.Features.WriteOutboundCallLogs;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Outbound Call Audit Handler。</summary>
 [TestClass]
 public sealed class OutboundCallAuditHandlerTests
 {

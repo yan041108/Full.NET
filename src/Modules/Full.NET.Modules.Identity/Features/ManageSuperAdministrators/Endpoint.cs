@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>SuperAdministrators管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 
 internal static class Endpoint

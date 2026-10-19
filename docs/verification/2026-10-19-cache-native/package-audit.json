@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-18T17:54:21.495Z",
+  "source": "https://api.nuget.org/v3/index.json",
+  "datasets": [
+    {
+      "url": "https://api.nuget.org/v3-vulnerabilities/2026.10.16.05.29.22/vulnerability.base.json",
+      "sha256": "c6826eca2600587a6620f3e69219e4542708c2946a7560d50f532162689af687"
+    },
+    {
+      "url": "https://api.nuget.org/v3-vulnerabilities/2026.10.16.05.29.22/2026.10.18.11.29.34/vulnerability.update.json",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  ],
+  "results": [
+    {
+      "scope": "api-publish",
+      "project": "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj",
+      "assetsSha256": "8103075008ed71b0273a3d5bd8917b80661b98a5fd43e7403881853054f2fc6b",
+      "assetPackageCount": 101,
+      "cliPackageCount": 100,
+      "explicitRidSupplement": [
+        "runtime.linux-x64.microsoft.dotnet.ilcompiler/10.0.13"
+      ],
+      "findings": 0,
+      "assetsUnchanged": true
+    },
+    {
+      "scope": "worker-publish",
+      "project": "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj",
+      "assetsSha256": "c56a1e86188ab48a1e8ffa5c77eda234318335ef3f116e2e0d7cc48d0f3b8285",
+      "assetPackageCount": 100,
+      "cliPackageCount": 99,
+      "explicitRidSupplement": [
+        "runtime.linux-x64.microsoft.dotnet.ilcompiler/10.0.13"
+      ],
+      "findings": 0,
+      "assetsUnchanged": true
+    },
+    {
+      "scope": "integration",
+      "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+      "assetsSha256": "374144336d2de52a0155561019cba3018ff00851bdc6c5154ff09e85c498dc36",
+      "assetPackageCount": 191,
+      "cliPackageCount": 191,
+      "explicitRidSupplement": [],
+      "findings": 0,
+      "assetsUnchanged": true
+    }
+  ],
+  "frameworkRuntimeVulnerabilityAssessmentIncluded": false,
+  "nugetPackageFindings": 0
+}

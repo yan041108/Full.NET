@@ -17,6 +17,10 @@
     "worker",
     "migrator"
   ],
+  "allOf": [{
+    "if": {"properties": {"logging": {"properties": {"localFile": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]}}, "required": ["localFile"]}}},
+    "else": {"properties": {"api": {"properties": {"replicaCount": {"minimum": 2}}}, "worker": {"properties": {"replicaCount": {"minimum": 2}}}}}
+  }],
   "properties": {
     "production": { "type": "boolean" },
     "dotnetEnvironment": {
@@ -29,10 +33,25 @@
       "properties": {
         "ingress": {
           "type": "string",
-          "enum": ["Legacy", "Local", "Collector", "ApplicationKafka"]
+          "enum": ["Local", "Collector", "ApplicationKafka"]
         },
         "indexRouteVersion": { "type": "integer", "minimum": 0, "maximum": 9999 },
         "indexRetentionDays": { "type": "integer", "minimum": 0, "maximum": 3650 },
+        "localFile": {
+          "type": "object",
+          "required": ["enabled", "directory", "existingClaimName", "fileSizeLimitBytes", "retentionDays", "maxDirectoryBytes", "priorityReservePercent", "flushInterval"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "directory": { "type": "string", "pattern": "^/[^\\r\\n]+$", "maxLength": 2048 },
+            "existingClaimName": { "type": "string" },
+            "fileSizeLimitBytes": { "type": "integer", "minimum": 65536, "maximum": 1073741824 },
+            "retentionDays": { "type": "integer", "minimum": 1, "maximum": 3650 },
+            "maxDirectoryBytes": { "type": "integer", "minimum": 131072, "maximum": 1099511627776 },
+            "priorityReservePercent": { "type": "integer", "minimum": 0, "maximum": 50 },
+            "flushInterval": { "type": "string", "pattern": "^00:00:(0[1-9]|[12][0-9]|30)$" }
+          },
+          "additionalProperties": false
+        },
         "kafka": {
           "type": "object",
           "required": ["configurationSecretName"],
@@ -63,6 +82,7 @@
         "workerMaxPoolSize",
         "migrationReserve",
         "healthReserve",
+        "apiAuthorizationReadReserve",
         "workerCriticalReserve",
         "apiPermitLimit",
         "apiQueueLimit",
@@ -77,6 +97,7 @@
         "workerMaxPoolSize": { "type": "integer", "minimum": 1 },
         "migrationReserve": { "type": "integer", "minimum": 0 },
         "healthReserve": { "type": "integer", "minimum": 0 },
+        "apiAuthorizationReadReserve": { "type": "integer", "minimum": 0 },
         "workerCriticalReserve": { "type": "integer", "minimum": 0 },
         "apiPermitLimit": { "type": "integer", "minimum": 1 },
         "apiQueueLimit": { "type": "integer", "minimum": 0, "maximum": 1000 },
@@ -120,7 +141,7 @@
     "api": {
       "type": "object",
       "properties": {
-        "replicaCount": { "type": "integer", "minimum": 2 },
+        "replicaCount": { "type": "integer", "minimum": 1 },
         "kafkaReplay": {
           "type": "object",
           "required": [
@@ -166,12 +187,12 @@
     "worker": {
       "type": "object",
       "properties": {
-        "replicaCount": { "type": "integer", "minimum": 2 },
+        "replicaCount": { "type": "integer", "minimum": 1 },
         "maxConcurrency": { "type": "integer", "const": 1 },
         "databaseCapacityBackoffMilliseconds": { "type": "integer", "minimum": 100, "maximum": 300000 },
         "messaging": {
           "type": "object",
-          "properties": {
+  "properties": {
             "mode": {
               "type": "string",
               "enum": ["LegacyPolling", "ShadowCdc", "CdcKafka"]

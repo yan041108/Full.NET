@@ -1,5 +1,6 @@
 using System.Text;
 using System.Diagnostics;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modules.ObservabilityAdmin.Configuration;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 using Microsoft.Extensions.FileProviders;
@@ -8,9 +9,77 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.ObservabilityAdmin;
 
+/// <summary>单元测试（可观测管理）：Log File Control Plane。</summary>
 [TestClass]
 public sealed class LogFileControlPlaneTests
 {
+    [TestMethod]
+    public async Task Local_writer_and_all_read_operations_share_the_same_application_directory()
+    {
+        using var directory = new TemporaryLogDirectory();
+        var logging = new LoggingOptions { DeliveryMode = LoggingDeliveryMode.Local,
+            LocalFile = new LocalFileLoggingOptions { Enabled = true, Directory = "local-output" } };
+        var environment = new TestHostEnvironment { ContentRootPath = directory.Path, ApplicationName = "Full.NET.Host.Api" };
+        using (var store = new LocalFileLogStore(logging.LocalFile, directory.Path, environment.ApplicationName))
+        {
+            store.General.Emit(new LogEnvelope(Encoding.UTF8.GetBytes("{\"message\":\"local-file-proof\"}\n")));
+            store.General.Dispose();
+            store.Priority.Dispose();
+        }
+        var control = new LogFileControlPlane(Options.Create(new ObservabilityAdminOptions()), environment, logging);
+        var listing = control.List();
+        Assert.IsFalse(listing.IsTruncated);
+        Assert.HasCount(2, listing.Items);
+        var general = listing.Items.Single(item => item.FileName.Contains("-general-", StringComparison.Ordinal));
+        var tail = await control.ReadTailAsync(general.Id, null, null, CancellationToken.None);
+        StringAssert.Contains(tail!.Content, "local-file-proof");
+        var download = control.OpenDownload(general.Id)!;
+        using (download.Content)
+        using (var reader = new StreamReader(download.Content))
+            StringAssert.Contains(await reader.ReadToEndAsync(), "local-file-proof");
+        var timeline = await control.ReadTimelineTailsAsync(CancellationToken.None);
+        Assert.IsTrue(timeline.Any(item => item.Content.Contains("local-file-proof", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void Directory_scan_counts_non_log_entries_and_observes_cancellation()
+    {
+        using var directory = new TemporaryLogDirectory();
+        for (var i = 0; i < 20; i++) directory.Write($"other-{i}.json", "ignored");
+        var control = CreateControlPlane(directory.Path, maximumScanEntries: 3);
+        var result = control.List();
+        Assert.AreEqual(3, result.ScannedEntries);
+        Assert.IsTrue(result.IsTruncated);
+        Assert.IsEmpty(result.Items);
+        Assert.ThrowsExactly<OperationCanceledException>(() => control.List(new CancellationToken(true)));
+    }
+
+    [TestMethod]
+    public void Disabled_local_without_explicit_read_directory_does_not_create_or_scan_directories()
+    {
+        using var directory = new TemporaryLogDirectory();
+        var environment = new TestHostEnvironment { ContentRootPath = directory.Path };
+        var control = new LogFileControlPlane(Options.Create(new ObservabilityAdminOptions()), environment, new LoggingOptions());
+        Assert.IsEmpty(control.List().Items);
+        Assert.IsFalse(Directory.Exists(Path.Combine(directory.Path, "App_Data")));
+    }
+
+    [TestMethod]
+    public async Task Timeline_tail_accepts_local_txt_and_limits_opened_files()
+    {
+        using var directory = new TemporaryLogDirectory();
+        for (var index = 0; index < 12; index++) directory.Write($"fullnet-general-20261017-{index:x32}.txt", "structured-line");
+        directory.Write("ignored.json", "not-a-log");
+        var controlPlane = CreateControlPlane(directory.Path);
+        var tails = await controlPlane.ReadTimelineTailsAsync(CancellationToken.None);
+        Assert.HasCount(10, tails);
+        Assert.IsTrue(tails.All(tail => tail.FileName.EndsWith(".txt", StringComparison.Ordinal)));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
+            await controlPlane.ReadTimelineTailsAsync(cancellation.Token));
+    }
+
     [TestMethod]
     public void List_returns_only_bounded_top_level_log_files_with_stable_ids()
     {
@@ -22,8 +91,8 @@ public sealed class LogFileControlPlaneTests
         File.WriteAllText(Path.Combine(directory.Path, "nested", "nested.log"), "nested");
 
         var controlPlane = CreateControlPlane(directory.Path, maximumListFiles: 1);
-        var first = controlPlane.List();
-        var second = controlPlane.List();
+        var first = controlPlane.List().Items;
+        var second = controlPlane.List().Items;
 
         Assert.HasCount(1, first);
         Assert.IsTrue(first[0].FileName.EndsWith(".log", StringComparison.Ordinal));
@@ -45,7 +114,7 @@ public sealed class LogFileControlPlaneTests
         await writer.FlushAsync();
 
         var controlPlane = CreateControlPlane(directory.Path, maximumTailBytes: 16);
-        var files = controlPlane.List();
+        var files = controlPlane.List().Items;
         Assert.HasCount(1, files);
         var file = files[0];
         var tail = await controlPlane.ReadTailAsync(file.Id, 2, 16, CancellationToken.None);
@@ -73,7 +142,7 @@ public sealed class LogFileControlPlaneTests
         using var directory = new TemporaryLogDirectory();
         var path = directory.Write("api.log", "api");
         var controlPlane = CreateControlPlane(directory.Path);
-        var id = controlPlane.List().Single().Id;
+        var id = controlPlane.List().Items.Single().Id;
         File.Delete(path);
 
         Assert.IsNull(await controlPlane.ReadTailAsync(id, null, null, CancellationToken.None));
@@ -81,7 +150,7 @@ public sealed class LogFileControlPlaneTests
 
         var missingRoot = Path.Combine(directory.Path, "missing");
         var missingControlPlane = CreateControlPlane(missingRoot);
-        Assert.IsEmpty(missingControlPlane.List());
+        Assert.IsEmpty(missingControlPlane.List().Items);
     }
 
     [TestMethod]
@@ -103,7 +172,7 @@ public sealed class LogFileControlPlaneTests
             Assert.Inconclusive("当前文件系统不支持符号链接测试。");
         }
 
-        Assert.IsEmpty(CreateControlPlane(directory.Path).List());
+        Assert.IsEmpty(CreateControlPlane(directory.Path).List().Items);
     }
 
     [TestMethod]
@@ -132,7 +201,7 @@ public sealed class LogFileControlPlaneTests
                     Assert.Inconclusive("当前文件系统不支持符号链接测试。");
                 }
             });
-        var id = controlPlane.List().Single(file => file.FileName == Path.GetFileName(path)).Id;
+        var id = controlPlane.List().Items.Single(file => file.FileName == Path.GetFileName(path)).Id;
 
         Assert.IsNull(controlPlane.OpenDownload(id));
         Assert.IsTrue(replaced);
@@ -169,7 +238,7 @@ public sealed class LogFileControlPlaneTests
                     Assert.Inconclusive("当前文件系统不支持目录符号链接测试。");
                 }
             });
-        var id = controlPlane.List().Single().Id;
+        var id = controlPlane.List().Items.Single().Id;
 
         try
         {
@@ -215,7 +284,7 @@ public sealed class LogFileControlPlaneTests
                     Assert.Inconclusive("当前 Linux 环境无法创建 FIFO。");
                 }
             });
-        var id = controlPlane.List().Single().Id;
+        var id = controlPlane.List().Items.Single().Id;
 
         Assert.IsNull(controlPlane.OpenDownload(id));
     }
@@ -246,7 +315,8 @@ public sealed class LogFileControlPlaneTests
         string root,
         int maximumListFiles = 100,
         int maximumTailBytes = 1024 * 1024,
-        Action<string>? beforeOpenTestHook = null)
+        Action<string>? beforeOpenTestHook = null,
+        int maximumScanEntries = 1000)
     {
         var contentRoot = Directory.Exists(root)
             ? root
@@ -262,9 +332,10 @@ public sealed class LogFileControlPlaneTests
             {
                 LogRootPath = root,
                 MaximumListFiles = maximumListFiles,
+                MaximumScanEntries = maximumScanEntries,
                 MaximumTailBytes = maximumTailBytes,
             }),
-            environment,
+            environment, new Full.NET.Hosting.Observability.LoggingOptions(),
             beforeOpenTestHook);
     }
 

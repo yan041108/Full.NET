@@ -12,6 +12,76 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/262_AuditingLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/263_IdentityLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/264_TenancyLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/265_SettingsLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/266_MessagingLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/267_NotificationsLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/268_WorkflowLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/269_PlatformDocumentLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/270_AiLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/271_JobsLogCorrelation.sql",
+      "reason": "关联快照增量迁移仅以 INFORMATION_SCHEMA 检查列是否存在并选择固定字面量 DDL；表名、列名和注释不接受外部输入。双库半完成重跑场景登记在 Migration262LogCorrelationRecoveryTests，验证状态以本次计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/260_AiKnowledgeIndexRebuild.sql",
       "reason": "260 只按 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 间选择；无外部标识符或业务输入，按独立步骤恢复代次列、说明和约束，保留旧任务及费用历史。",
       "removalMilestone": "M1.0"
@@ -567,13 +637,6 @@
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/019_TenancyTenantPackageAssignment.sql",
       "reason": "MySQL 无 ADD COLUMN/CONSTRAINT IF NOT EXISTS，租户套餐外键列沿用 INFORMATION_SCHEMA + PREPARE 的可重入模式；DDL 常量在脚本内固定，已人工审查无外部输入。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "message_type",
-      "value": "fullnet.tenancy.tenant-provisioned",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/TenantProvisionedCacheInvalidationHandler.cs",
-      "reason": "Worker 路由在旧消息排空前通过 LegacyEventTypes 显式兼容连字符 MessageType。",
       "removalMilestone": "M1.0"
     },
     {

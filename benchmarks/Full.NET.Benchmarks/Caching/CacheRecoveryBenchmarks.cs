@@ -8,7 +8,7 @@ using ZiggyCreatures.Caching.Fusion;
 namespace Full.NET.Benchmarks.Caching;
 
 /// <summary>
-/// 缓存恢复与防击穿基准。输出低基数计数器，不宣称 10K 容量达标（Capacity-not-verified）。
+/// 单进程纯内存微基准：没有 Redis、数据库或第二节点，不能证明故障恢复或容量（Capacity-not-verified）。
 /// </summary>
 [MemoryDiagnoser]
 public class CacheRecoveryBenchmarks
@@ -19,10 +19,10 @@ public class CacheRecoveryBenchmarks
     private long _l1Hits;
     private long _l2Hits;
     private long _factoryCalls;
-    private long _mergedWaiters;
+    private long _memoryMisses;
     private double _invalidationMs;
-    private double _staleWindowMs;
-    private long _redisFailureDbAmplification;
+    private double _localAbsenceProbeMs;
+    private long _coldFactoryCalls;
 
     [GlobalSetup]
     public void Setup()
@@ -33,13 +33,13 @@ public class CacheRecoveryBenchmarks
         _provider = services.BuildServiceProvider();
         _cache = _provider.GetRequiredService<IFusionCache>();
         _options = _provider.GetRequiredService<ICachePolicyRegistry>()
-            .CreateEntryOptions(CacheEntryNames.TenantResolution);
+            .CreateEntryOptions(CacheEntryNames.GridPreference);
         _options.Duration = TimeSpan.FromSeconds(30);
         _options.MemoryCacheDuration = TimeSpan.FromSeconds(30);
 
         _cache.Events.Memory.Hit += (_, _) => Interlocked.Increment(ref _l1Hits);
         _cache.Events.Distributed.Hit += (_, _) => Interlocked.Increment(ref _l2Hits);
-        _cache.Events.Memory.Miss += (_, _) => Interlocked.Increment(ref _mergedWaiters);
+        _cache.Events.Memory.Miss += (_, _) => Interlocked.Increment(ref _memoryMisses);
     }
 
     [GlobalCleanup]
@@ -62,15 +62,15 @@ public class CacheRecoveryBenchmarks
                 _options).AsTask())
             .ToArray();
         await Task.WhenAll(tasks);
-        // Miss 事件近似表示等待合并的旁路流量；真实容量需专用环境认证。
+        // Memory Miss 是未命中事件计数，不能解释为被合并的等待者数量。
         _ = _l1Hits;
         _ = _l2Hits;
         _ = _factoryCalls;
-        _ = _mergedWaiters;
+        _ = _memoryMisses;
     }
 
     [Benchmark]
-    public async Task Invalidate_and_observe_stale_window()
+    public async Task Remove_local_entry_and_verify_absence()
     {
         ResetCounters();
         var key = $"bench-inv-{Guid.NewGuid():N}";
@@ -86,16 +86,16 @@ public class CacheRecoveryBenchmarks
             await Task.Delay(1);
         }
 
-        _staleWindowMs = Stopwatch.GetElapsedTime(staleStarted).TotalMilliseconds;
+        _localAbsenceProbeMs = Stopwatch.GetElapsedTime(staleStarted).TotalMilliseconds;
         _ = _invalidationMs;
-        _ = _staleWindowMs;
+        _ = _localAbsenceProbeMs;
     }
 
     [Benchmark]
-    public async Task Redis_unavailable_amplifies_factory_to_authority()
+    public async Task Local_cold_keys_execute_factories()
     {
         ResetCounters();
-        // 无 Redis 的基准宿主：每次 miss 都回源，用于观察失败放大上界，不声明生产容量。
+        // 无 Redis/数据库的宿主；每个新键执行本地字符串工厂，不能代表 Redis 故障后的数据库放大。
         for (var i = 0; i < 32; i++)
         {
             var key = $"bench-auth-{i}-{Guid.NewGuid():N}";
@@ -104,13 +104,13 @@ public class CacheRecoveryBenchmarks
                 async (_, _) =>
                 {
                     Interlocked.Increment(ref _factoryCalls);
-                    Interlocked.Increment(ref _redisFailureDbAmplification);
+                    Interlocked.Increment(ref _coldFactoryCalls);
                     return "authority";
                 },
                 _options);
         }
 
-        _ = _redisFailureDbAmplification;
+        _ = _coldFactoryCalls;
     }
 
     [IterationCleanup]
@@ -119,8 +119,8 @@ public class CacheRecoveryBenchmarks
         // BenchmarkDotNet 日志侧可观察这些本地计数；标签保持低基数常量。
         Console.WriteLine(
             $"cache_recovery l1_hit={_l1Hits} l2_hit={_l2Hits} factory_call={_factoryCalls} "
-            + $"merged_waiter={_mergedWaiters} invalidation_ms={_invalidationMs:F3} "
-            + $"stale_window_ms={_staleWindowMs:F3} redis_failure_db_amplification={_redisFailureDbAmplification}");
+            + $"memory_miss={_memoryMisses} invalidation_ms={_invalidationMs:F3} "
+            + $"local_absence_probe_ms={_localAbsenceProbeMs:F3} local_cold_factory_call={_coldFactoryCalls}");
     }
 
     private void ResetCounters()
@@ -128,9 +128,9 @@ public class CacheRecoveryBenchmarks
         Interlocked.Exchange(ref _l1Hits, 0);
         Interlocked.Exchange(ref _l2Hits, 0);
         Interlocked.Exchange(ref _factoryCalls, 0);
-        Interlocked.Exchange(ref _mergedWaiters, 0);
+        Interlocked.Exchange(ref _memoryMisses, 0);
         _invalidationMs = 0;
-        _staleWindowMs = 0;
-        Interlocked.Exchange(ref _redisFailureDbAmplification, 0);
+        _localAbsenceProbeMs = 0;
+        Interlocked.Exchange(ref _coldFactoryCalls, 0);
     }
 }

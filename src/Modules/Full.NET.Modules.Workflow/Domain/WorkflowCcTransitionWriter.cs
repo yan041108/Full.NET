@@ -124,6 +124,7 @@ internal sealed class WorkflowCcTransitionWriter(
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertExecutionLog,
             WorkflowSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                 ("Id", idGenerator.NewId()),
                 ("InstanceId", instanceId),
                 ("StepId", stepId),

@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Host Catalog Sql Scope。</summary>
 [TestClass]
 public sealed class HostCatalogSqlScopeTests
 {

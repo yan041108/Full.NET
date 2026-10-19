@@ -13,35 +13,60 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
-/// <summary>独立授权容量拒绝与普通认证失败的边界回归。</summary>
+/// <summary>普通与独立授权的会话容量失败必须保留可重试语义。</summary>
 [TestClass]
 public sealed class IndependentAuthorizationCapacityTests
 {
     [TestMethod]
-    [DataRow(false, false)]
-    [DataRow(false, true)]
-    [DataRow(true, false)]
-    [DataRow(true, true)]
-    public async Task Only_independent_authorization_preserves_capacity_failure(bool oidc, bool independent)
+    [DataRow(false, ServiceCapacityFailureKind.Rejected)]
+    [DataRow(false, ServiceCapacityFailureKind.Timeout)]
+    [DataRow(true, ServiceCapacityFailureKind.Rejected)]
+    [DataRow(true, ServiceCapacityFailureKind.Timeout)]
+    public async Task Session_authorization_preserves_capacity_failure(bool oidc, ServiceCapacityFailureKind kind)
+    {
+        var failure = new ServiceCapacityExceededException(kind, TimeSpan.FromSeconds(1));
+        var fixture = CreateFixture(oidc, failure);
+        var actual = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(
+            () => fixture.Validator.IsValidAsync(fixture.Principal));
+        Assert.AreSame(failure, actual);
+        Assert.AreEqual(fixture.TenantId, fixture.Tenant.Id);
+        Assert.IsFalse(fixture.Tenant.IsHost);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Request_cancellation_is_not_converted_to_invalid_session(bool oidc)
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var failure = new OperationCanceledException(cancellation.Token);
+        var fixture = CreateFixture(oidc, failure);
+        var actual = await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => fixture.Validator.IsValidAsync(fixture.Principal, cancellation.Token));
+        Assert.AreSame(failure, actual);
+        Assert.AreEqual(fixture.TenantId, fixture.Tenant.Id);
+        Assert.IsFalse(fixture.Tenant.IsHost);
+    }
+
+    private static (AccessSessionValidator Validator, ClaimsPrincipal Principal, CurrentTenantAccessor Tenant, Guid TenantId)
+        CreateFixture(bool oidc, Exception failure)
     {
         var query = Substitute.For<IQueryExecutor>();
-        var failure = new ServiceCapacityExceededException(ServiceCapacityFailureKind.Timeout, TimeSpan.FromSeconds(1));
         query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns<RefreshSessionRecord?>(_ => throw failure);
         query.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
             IdentityOidcSessionSql.FindApplicationSessionValidationById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns<IdentityOidcApplicationSessionValidationRecord?>(_ => throw failure);
-        var scope = Substitute.For<IDatabaseAuthorizationReadScope>();
-        scope.IsActive.Returns(independent);
         var tenant = new CurrentTenantAccessor();
         var tenantId = Guid.CreateVersion7();
         tenant.SetTenant(new TenantContext(tenantId, "tenant-a", "Tenant A"));
         var oidcOptions = Options.Create(new IdentityOidcOptions { Enable = oidc, Issuer = "https://localhost/identity" });
         var clock = Substitute.For<IClock>();
         var oidcValidator = new IdentityOidcAccessSessionValidator(query, clock, tenant, oidcOptions,
-            Options.Create(new IdentityOptions { Audience = "Full.NET.Api" }), scope);
-        var validator = new AccessSessionValidator(query, clock, oidcValidator, oidcOptions, scope);
+            Options.Create(new IdentityOptions { Audience = "Full.NET.Api" }));
+        var validator = new AccessSessionValidator(query, clock, oidcValidator, oidcOptions);
         var claims = new List<Claim>
         {
             new("sub", Guid.CreateVersion7().ToString("D")),
@@ -62,17 +87,6 @@ public sealed class IndependentAuthorizationCapacityTests
         }
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "unit-test"));
 
-        if (independent)
-        {
-            var actual = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(
-                () => validator.IsValidAsync(principal));
-            Assert.AreSame(failure, actual);
-        }
-        else
-        {
-            Assert.IsFalse(await validator.IsValidAsync(principal));
-        }
-        Assert.AreEqual(tenantId, tenant.Id);
-        Assert.IsFalse(tenant.IsHost);
+        return (validator, principal, tenant, tenantId);
     }
 }

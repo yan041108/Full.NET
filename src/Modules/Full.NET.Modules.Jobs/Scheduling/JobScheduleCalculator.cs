@@ -1,9 +1,11 @@
+// 作业调度时间计算器；Cron 与下次触发在 UTC 下求值，供 Worker 领取。
 using Cronos;
 using Full.NET.Modules.Jobs.Contracts;
 using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.Modules.Jobs.Scheduling;
 
+/// <summary>作业调度时间计算器；Cron 与下次触发在 UTC 下求值，供 Worker 领取。</summary>
 internal sealed record JobScheduleDueDecision(
     bool CreateExecution,
     DateTimeOffset? ScheduledForUtc,

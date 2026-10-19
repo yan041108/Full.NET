@@ -7,6 +7,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：中心登出协议与 Cookie 清理。</summary>
 internal static class IdentityOidcCenterLogoutProtocolAssertions
 {
     public static async Task VerifyAsync(

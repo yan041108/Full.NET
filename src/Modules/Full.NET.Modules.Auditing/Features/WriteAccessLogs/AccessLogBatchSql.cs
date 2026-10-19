@@ -20,10 +20,10 @@ internal static class AccessLogBatchSql
             """
             INSERT INTO fn_auditing_access_log
                 (Id, OccurredAtUtc, HttpMethod, RequestPath, StatusCode, DurationMs,
-                 UserId, TenantId, TraceId, ClientIpFingerprint, IsAuthenticated)
+                 UserId, TenantId, TraceId, ClientIpFingerprint, IsAuthenticated, CorrelationJson)
             VALUES
             """);
-        var parameters = new Dictionary<string, object?>(rows.Count * 11, StringComparer.Ordinal);
+        var parameters = new Dictionary<string, object?>(rows.Count * 12, StringComparer.Ordinal);
         for (var index = 0; index < rows.Count; index++)
         {
             if (index > 0)
@@ -43,7 +43,7 @@ internal static class AccessLogBatchSql
                 .Append(prefix).Append("_TenantId, @")
                 .Append(prefix).Append("_TraceId, @")
                 .Append(prefix).Append("_ClientIpFingerprint, @")
-                .Append(prefix).Append("_IsAuthenticated)");
+                .Append(prefix).Append("_IsAuthenticated, @").Append(prefix).Append("_CorrelationJson)");
 
             var (id, model) = rows[index];
             parameters[prefix + "_Id"] = id;
@@ -57,6 +57,7 @@ internal static class AccessLogBatchSql
             parameters[prefix + "_TraceId"] = model.TraceId;
             parameters[prefix + "_ClientIpFingerprint"] = model.ClientIpFingerprint;
             parameters[prefix + "_IsAuthenticated"] = model.IsAuthenticated;
+            parameters[prefix + "_CorrelationJson"] = model.CorrelationJson;
         }
 
         return (AccessLogSql.Insert with { Text = sql.ToString() }, parameters);

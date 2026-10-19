@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Full.NET.Caching.Fusion;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -30,6 +32,16 @@ public sealed class CacheConsistencyClassAssertions
         var registry = provider.GetRequiredService<ICachePolicyRegistry>();
         var options = registry.CreateEntryOptions(SharedL2Entry);
         var key = $"s0-{Guid.NewGuid():N}";
+        var memoryOnly = CreateMemoryOnlyOptions(options);
+        var legacyKey = $"{key}-legacy";
+        await cache.SetAsync(legacyKey, "legacy-local", memoryOnly);
+        Assert.AreEqual("legacy-local", (await cache.TryGetAsync<string>(legacyKey, memoryOnly)).Value,
+            "先证明探针可以看到真实 L1，不能用 S0 禁读选项证明 L1 不存在。");
+        var legacyRead = await cache.GetOrSetAsync<string>(legacyKey, async (_, _) => "shared-current", options);
+        Assert.AreEqual("shared-current", legacyRead, "S0 不得复用策略切换前的旧 L1。");
+        var legacyAfterRead = await cache.TryGetAsync<string>(legacyKey, memoryOnly);
+        if (legacyAfterRead.HasValue) Assert.AreEqual("legacy-local", legacyAfterRead.Value,
+            "S0 回源结果不得回填 L1；清理掉旧 L1 也允许。");
 
         var value = await cache.GetOrSetAsync<string>(
             key,
@@ -37,12 +49,206 @@ public sealed class CacheConsistencyClassAssertions
             options);
         Assert.AreEqual("shared-value", value);
 
-        var memoryOnly = options.Duplicate();
-        memoryOnly.SetSkipDistributedCache(skip: true, skipBackplaneNotifications: true);
         var memoryHit = await cache.TryGetAsync<string>(key, memoryOnly);
         Assert.IsFalse(
             memoryHit.HasValue,
             "S0-L2 不得把条目回填到节点 L1，否则多实例会出现不可广播的本地漂移。");
+        await AssertSharedHybridLayerAsync(redis);
+        await AssertSharedHybridExpirationAsync(redis);
+    }
+
+    /// <summary>用两个独立注册、真实 Redis 和无 Backplane 的 Hybrid 路径验证 S0 正常与负缓存。</summary>
+    private static async Task AssertSharedHybridLayerAsync(string redisConnectionString)
+    {
+        await using var primaryProvider = BuildCacheProvider(redisConnectionString, $"s0-p-{Guid.NewGuid():N}");
+        await using var secondaryProvider = BuildCacheProvider(redisConnectionString, $"s0-s-{Guid.NewGuid():N}");
+        var primaryFusion = primaryProvider.GetRequiredService<IFusionCache>();
+        var secondaryFusion = secondaryProvider.GetRequiredService<IFusionCache>();
+        Assert.AreNotSame(primaryFusion, secondaryFusion);
+        Assert.AreNotEqual(primaryFusion.InstanceId, secondaryFusion.InstanceId);
+        // S0 不依赖广播正确性；移除本用例两节点的 Backplane，不能用通知清理掩盖 L1 命中。
+        primaryFusion.RemoveBackplane();
+        secondaryFusion.RemoveBackplane();
+        var primary = primaryProvider.GetRequiredService<HybridCache>();
+        var secondary = secondaryProvider.GetRequiredService<HybridCache>();
+        var registry = primaryProvider.GetRequiredService<ICachePolicyRegistry>();
+        var memoryProbe = CreateMemoryOnlyOptions(registry.CreateEntryOptions(SharedL2Entry));
+        foreach (var lifetime in new[] { CacheEntryLifetime.Normal, CacheEntryLifetime.Negative })
+        {
+            var options = registry.CreateHybridEntryOptions(SharedL2Entry, lifetime);
+            var key = $"s0-hybrid-{lifetime}-{Guid.NewGuid():N}";
+            var factoryCalls = 0;
+            await secondaryFusion.SetAsync(key, "legacy-local", memoryProbe);
+            Assert.AreEqual("legacy-local", (await secondaryFusion.TryGetAsync<string>(key, memoryProbe)).Value);
+            await primary.SetAsync(key, "shared-v1", options);
+            Assert.AreEqual("shared-v1", await secondary.GetOrCreateAsync(key, _ =>
+            {
+                factoryCalls++;
+                return ValueTask.FromResult("unexpected-factory");
+            }, options));
+            Assert.AreEqual(0, factoryCalls, "第二节点必须命中 Redis，而不是回源或旧 L1。");
+            Assert.IsFalse((await primaryFusion.TryGetAsync<string>(key, memoryProbe)).HasValue);
+            var legacy = await secondaryFusion.TryGetAsync<string>(key, memoryProbe);
+            if (legacy.HasValue) Assert.AreEqual("legacy-local", legacy.Value, "共享读取不能回填 L1。");
+
+            await primary.SetAsync(key, "shared-v2", options);
+            Assert.AreEqual("shared-v2", await secondary.GetOrCreateAsync(key, _ =>
+            {
+                factoryCalls++;
+                return ValueTask.FromResult("unexpected-factory");
+            }, options));
+            Assert.AreEqual(0, factoryCalls);
+
+            var factoryKey = $"{key}-factory";
+            Assert.AreEqual("factory-shared", await primary.GetOrCreateAsync(factoryKey, _ =>
+            {
+                factoryCalls++;
+                return ValueTask.FromResult("factory-shared");
+            }, options));
+            Assert.AreEqual("factory-shared", await secondary.GetOrCreateAsync(factoryKey, _ =>
+            {
+                factoryCalls++;
+                return ValueTask.FromResult("unexpected-factory");
+            }, options));
+            Assert.AreEqual(1, factoryCalls);
+            Assert.IsFalse((await primaryFusion.TryGetAsync<string>(factoryKey, memoryProbe)).HasValue);
+            Assert.IsFalse((await secondaryFusion.TryGetAsync<string>(factoryKey, memoryProbe)).HasValue);
+        }
+    }
+
+    /// <summary>同时观察 Redis 物理寿命与真实 Hybrid 回源，避免把本地过期或未缓存的 null 当成共享层过期。</summary>
+    private static async Task AssertSharedHybridExpirationAsync(string redisConnectionString)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var token = deadline.Token;
+        // 实验使用九秒正常寿命、三秒负缓存、零抖动；这些窗口不是生产时效承诺。
+        await using var primaryProvider = BuildCacheProvider(redisConnectionString,
+            $"expiry-primary-{Guid.NewGuid():N}", shortSharedLifetime: true);
+        await using var secondaryProvider = BuildCacheProvider(redisConnectionString,
+            $"expiry-secondary-{Guid.NewGuid():N}", shortSharedLifetime: true);
+        var primaryFusion = primaryProvider.GetRequiredService<IFusionCache>();
+        var secondaryFusion = secondaryProvider.GetRequiredService<IFusionCache>();
+        Assert.AreNotSame(primaryFusion, secondaryFusion);
+        Assert.AreNotEqual(primaryFusion.InstanceId, secondaryFusion.InstanceId);
+        primaryFusion.RemoveBackplane();
+        secondaryFusion.RemoveBackplane();
+        var primary = primaryProvider.GetRequiredService<HybridCache>();
+        var secondary = secondaryProvider.GetRequiredService<HybridCache>();
+        var registry = primaryProvider.GetRequiredService<ICachePolicyRegistry>();
+        var memoryProbe = CreateMemoryOnlyOptions(registry.CreateEntryOptions(SharedL2Entry));
+        await using var mux = await ConnectionMultiplexer.ConnectAsync(redisConnectionString);
+        var database = mux.GetDatabase();
+        var server = mux.GetServers().Single(item => item.IsConnected);
+        var cases = new List<SharedExpirationCase>();
+        foreach (var lifetime in new[] { CacheEntryLifetime.Negative, CacheEntryLifetime.Normal })
+        foreach (var useFactory in new[] { false, true })
+        {
+            var options = registry.CreateHybridEntryOptions(SharedL2Entry, lifetime);
+            var entry = new SharedExpirationCase
+            {
+                Key = $"s0-expiry-{Guid.NewGuid():N}",
+                Lifetime = lifetime,
+                Options = options,
+                OldValue = lifetime == CacheEntryLifetime.Negative ? null : "normal-old",
+                ExpectedDuration = TimeSpan.FromSeconds(lifetime == CacheEntryLifetime.Negative ? 3 : 9),
+            };
+            if (useFactory)
+            {
+                var value = await primary.GetOrCreateAsync<string?>(entry.Key, _ =>
+                {
+                    entry.PrimeFactoryCalls++;
+                    return ValueTask.FromResult(entry.OldValue);
+                }, options, cancellationToken: token);
+                Assert.AreEqual(entry.OldValue, value);
+                Assert.AreEqual(1, entry.PrimeFactoryCalls);
+            }
+            else
+            {
+                await primary.SetAsync<string?>(entry.Key, entry.OldValue, options, cancellationToken: token);
+            }
+
+            var physicalKeys = new List<RedisKey>();
+            await foreach (var physicalKey in server.KeysAsync(database.Database, $"*{entry.Key}*", pageSize: 100)
+                .WithCancellation(token))
+                physicalKeys.Add(physicalKey);
+            Assert.AreEqual(1, physicalKeys.Count, "必须观察此唯一业务键的真实 Redis 记录，不能用工厂结果代替存储证明。");
+            entry.RedisKey = physicalKeys[0];
+            var remaining = await database.KeyTimeToLiveAsync(entry.RedisKey);
+            var elapsed = entry.Clock.Elapsed;
+            Assert.IsTrue(elapsed < TimeSpan.FromSeconds(1), "初始 Redis 寿命观察调度过晚，不能据此判断映射正确。");
+            Assert.IsNotNull(remaining, "共享键必须存在且具有 Redis 物理过期时间。");
+            // 官方 RedisCache 以整秒截断绝对过期差值；下界额外包含不足一秒的物理存储精度。
+            Assert.IsTrue(remaining.Value >= entry.ExpectedDuration - elapsed - TimeSpan.FromMilliseconds(1250)
+                && remaining.Value <= entry.ExpectedDuration + TimeSpan.FromMilliseconds(250),
+                $"{lifetime} Redis TTL 应约为 {entry.ExpectedDuration.TotalSeconds}s，实际 {remaining.Value.TotalSeconds:F3}s。");
+            Assert.AreEqual(entry.OldValue, await secondary.GetOrCreateAsync<string?>(entry.Key, _ =>
+            {
+                entry.ReadFactoryCalls++;
+                return ValueTask.FromResult<string?>("unexpected-before-expiry");
+            }, options, cancellationToken: token));
+            Assert.AreEqual(0, entry.ReadFactoryCalls, "包括 null 在内，第二实例必须命中 Redis 而非再次回源。");
+            Assert.IsFalse((await primaryFusion.TryGetAsync<string?>(entry.Key, memoryProbe, token)).HasValue);
+            Assert.IsFalse((await secondaryFusion.TryGetAsync<string?>(entry.Key, memoryProbe, token)).HasValue);
+            cases.Add(entry);
+        }
+
+        foreach (var entry in cases)
+        {
+            // 只等待物理键自然消失；禁止 DEL/EXPIRE、广播或 Hybrid 读取刷新制造过期。
+            while (await database.KeyExistsAsync(entry.RedisKey))
+            {
+                token.ThrowIfCancellationRequested();
+                Assert.IsTrue(entry.Clock.Elapsed < entry.ExpectedDuration + TimeSpan.FromSeconds(3),
+                    $"{entry.Lifetime} Redis 物理键没有在实验窗口内过期。");
+                await Task.Delay(50, token);
+            }
+            var expiredAt = entry.Clock.Elapsed;
+            Assert.IsTrue(expiredAt >= entry.ExpectedDuration - TimeSpan.FromMilliseconds(1250)
+                && expiredAt < entry.ExpectedDuration + TimeSpan.FromSeconds(3),
+                "寿命观察必须同时满足下界和上界；过早丢失也不能视为通过。");
+            Assert.AreEqual("refilled-current", await secondary.GetOrCreateAsync<string?>(entry.Key, _ =>
+            {
+                entry.ReadFactoryCalls++;
+                return ValueTask.FromResult<string?>("refilled-current");
+            }, entry.Options, cancellationToken: token));
+            Assert.AreEqual(1, entry.ReadFactoryCalls, "物理过期后的第二实例必须只执行本次回源。");
+            Assert.AreEqual("refilled-current", await primary.GetOrCreateAsync<string?>(entry.Key, _ =>
+            {
+                entry.ReadFactoryCalls++;
+                return ValueTask.FromResult<string?>("unexpected-after-refill");
+            }, entry.Options, cancellationToken: token));
+            Assert.AreEqual(1, entry.ReadFactoryCalls, "回源结果必须写回 Redis 并被另一实例共享。");
+            Assert.IsFalse((await primaryFusion.TryGetAsync<string?>(entry.Key, memoryProbe, token)).HasValue);
+            Assert.IsFalse((await secondaryFusion.TryGetAsync<string?>(entry.Key, memoryProbe, token)).HasValue);
+            if (entry.Lifetime == CacheEntryLifetime.Negative)
+            {
+                foreach (var normal in cases.Where(item => item.Lifetime == CacheEntryLifetime.Normal))
+                {
+                    Assert.IsTrue(await database.KeyExistsAsync(normal.RedisKey), "负缓存过期时正常缓存还必须存在。");
+                    Assert.AreEqual(normal.OldValue, await secondary.GetOrCreateAsync<string?>(normal.Key, _ =>
+                    {
+                        normal.ReadFactoryCalls++;
+                        return ValueTask.FromResult<string?>("unexpected-normal-expiry");
+                    }, normal.Options, cancellationToken: token));
+                    Assert.AreEqual(0, normal.ReadFactoryCalls);
+                }
+            }
+            Console.WriteLine($"S0 Redis expiry: lifetime={entry.Lifetime}, factoryPrime={entry.PrimeFactoryCalls}, "
+                + $"expiredAtSeconds={expiredAt.TotalSeconds:F3}, refillCalls={entry.ReadFactoryCalls}");
+        }
+    }
+
+    private sealed class SharedExpirationCase
+    {
+        public required string Key { get; init; }
+        public required CacheEntryLifetime Lifetime { get; init; }
+        public required HybridCacheEntryOptions Options { get; init; }
+        public required TimeSpan ExpectedDuration { get; init; }
+        public string? OldValue { get; init; }
+        public Stopwatch Clock { get; } = Stopwatch.StartNew();
+        public RedisKey RedisKey { get; set; }
+        public int PrimeFactoryCalls { get; set; }
+        public int ReadFactoryCalls { get; set; }
     }
 
     [TestMethod]
@@ -191,6 +397,8 @@ public sealed class CacheConsistencyClassAssertions
         FusionCacheEntryOptions source)
     {
         var options = source.Duplicate();
+        // 这是检查实际 L1 的观察入口，不继承被测策略自身的禁读/禁写开关。
+        options.SetSkipMemoryCache(false);
         options.SetSkipDistributedCache(skip: true, skipBackplaneNotifications: true);
         return options;
     }
@@ -301,7 +509,8 @@ public sealed class CacheConsistencyClassAssertions
 
     private static ServiceProvider BuildCacheProvider(
         string redisConnectionString,
-        string instanceId)
+        string instanceId,
+        bool shortSharedLifetime = false)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -309,7 +518,9 @@ public sealed class CacheConsistencyClassAssertions
                 [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
                 [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:OwnerModule"] = "demo",
                 [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:ConsistencyClass"] = "S0-L2",
-                [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:L2Duration"] = "00:05:00",
+                [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:L2Duration"] = shortSharedLifetime ? "00:00:09" : "00:05:00",
+                [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:NegativeDuration"] = shortSharedLifetime ? "00:00:03" : "00:00:10",
+                [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:Jitter"] = "00:00:00",
                 [$"{CacheOptions.SectionName}:Entries:{SharedL2Entry}:MaxSerializedBytes"] = "65536",
                 [$"{CacheOptions.SectionName}:Entries:{ImportantEntry}:OwnerModule"] = "demo",
                 [$"{CacheOptions.SectionName}:Entries:{ImportantEntry}:ConsistencyClass"] = "S1",

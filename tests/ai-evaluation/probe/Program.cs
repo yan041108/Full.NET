@@ -1,3 +1,4 @@
+/// <summary>RAG 评测探针进程；由实验控制器驱动，不直接暴露凭据。</summary>
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Full.NET.AiRetrieval.Probe;

@@ -2,11 +2,11 @@ using System.Text.Json;
 using Full.NET.Hosting.Observability;
 using Full.NET.LogConsumer;
 using Serilog.Events;
-using Serilog.Formatting.Compact;
 using Serilog.Parsing;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Log Envelope Budget。</summary>
 [TestClass]
 public sealed class LogEnvelopeBudgetTests
 {
@@ -20,7 +20,7 @@ public sealed class LogEnvelopeBudgetTests
             new LogEventProperty("Value", new ScalarValue("opaque-private-credential")),
             new LogEventProperty("Instance", new ScalarValue(instance)),
         ]);
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope, retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         using var json = JsonDocument.Parse(envelope!.Utf8Json);
         Assert.AreEqual(instance, json.RootElement.GetProperty("Instance").GetString());
         AssertEnvelopeOmits(envelope, "opaque-private-credential");
@@ -35,7 +35,7 @@ public sealed class LogEnvelopeBudgetTests
             new LogEventProperty("Value", new ScalarValue("opaque-private-credential")),
             new LogEventProperty("Instance", new ScalarValue(instance)),
         ]);
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope, retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         using var json = JsonDocument.Parse(envelope!.Utf8Json);
         Assert.IsFalse(json.RootElement.TryGetProperty("Instance", out _));
         AssertEnvelopeOmits(envelope, "opaque-private-credential", instance);
@@ -70,7 +70,6 @@ public sealed class LogEnvelopeBudgetTests
             ]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true,
             routingPolicy: new LogIndexRoutingPolicy(2, 30)));
         Assert.IsNotNull(envelope);
         using var json = JsonDocument.Parse(envelope.Utf8Json);
@@ -80,7 +79,6 @@ public sealed class LogEnvelopeBudgetTests
             root.GetProperty("OccurredAtUtc").GetDateTimeOffset());
         Assert.AreEqual(new DateTimeOffset(2026, 10, 30, 15, 30, 0, TimeSpan.Zero),
             root.GetProperty("ExpiresAtUtc").GetDateTimeOffset());
-        Assert.AreEqual(2, ((ScalarValue)envelope.LegacyEvent!.Properties["IndexRouteVersion"]).Value);
     }
 
     [TestMethod]
@@ -157,7 +155,6 @@ public sealed class LogEnvelopeBudgetTests
         ]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true,
             trustedHttp: new HttpOperationLogRecord([
                 new("log.class", LogClassification.HttpOperation),
                 new("ClientIpFingerprint", "safe-fingerprint"),
@@ -186,8 +183,7 @@ public sealed class LogEnvelopeBudgetTests
                     new LogEventProperty("RequestPayload", new ScalarValue("nested-private-body"))])),
             ]);
 
-            Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-                retainLegacyEvent: true));
+            Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
             Assert.IsNotNull(envelope);
             AssertEnvelopeOmits(envelope, "private-body", "private-response", "nested-private-body");
         }
@@ -235,12 +231,10 @@ public sealed class LogEnvelopeBudgetTests
                 new LogEventProperty("RequestPayload", new ScalarValue(rejected)),
             ]);
 
-            Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-                retainLegacyEvent: true));
+            Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
             Assert.IsNotNull(envelope);
             using var json = JsonDocument.Parse(envelope.Utf8Json);
             Assert.IsFalse(json.RootElement.TryGetProperty("RequestPayload", out _));
-            Assert.IsFalse(envelope.LegacyEvent!.Properties.ContainsKey("RequestPayload"));
         }
     }
 
@@ -259,8 +253,7 @@ public sealed class LogEnvelopeBudgetTests
                     new ScalarValue("{\"ResponseBody\":\"private-response\"}"))])),
         ]);
 
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "private-body", "192.0.2.55", "private-response");
     }
@@ -277,8 +270,7 @@ public sealed class LogEnvelopeBudgetTests
             new LogEventProperty("Note", new ScalarValue("safe-note")),
         ]);
 
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope,
             "private-route", "private-url", "private-alias", "http.operation");
@@ -292,8 +284,7 @@ public sealed class LogEnvelopeBudgetTests
         var source = NewEvent(
             "RequestPayload={\"body\":\"private-template-body\"}", []);
 
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "private-template-body");
     }
@@ -311,8 +302,7 @@ public sealed class LogEnvelopeBudgetTests
                     new ScalarValue("ResponseBody"), new ScalarValue("response-secret"))])),
         ]);
 
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "192.0.2.45", "body-secret", "10.0.0.1", "response-secret");
     }
@@ -326,8 +316,7 @@ public sealed class LogEnvelopeBudgetTests
             new LogEventProperty("RequestBody", new ScalarValue("private-body")),
         ]);
 
-        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
-            retainLegacyEvent: true));
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         Assert.AreEqual(eventId, envelope.LogEventId);
         AssertEnvelopeOmits(envelope, "private-body");
@@ -358,8 +347,7 @@ public sealed class LogEnvelopeBudgetTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
             source,
             16_384,
-            out var envelope,
-            retainLegacyEvent: true));
+            out var envelope));
         Assert.IsNotNull(envelope);
         Assert.IsLessThanOrEqualTo(16_384, envelope.Utf8Json.Length);
         using var json = JsonDocument.Parse(envelope.Utf8Json);
@@ -374,10 +362,7 @@ public sealed class LogEnvelopeBudgetTests
             nameof(InvalidOperationException),
             json.RootElement.GetProperty("@x").GetString());
         Assert.IsFalse(envelope.Utf8Json.Span.IndexOf("secret-exception-message"u8) >= 0);
-        Assert.IsNotNull(envelope.LegacyEvent);
-        Assert.AreNotSame(source.Exception, envelope.LegacyEvent.Exception);
-        Assert.IsFalse(envelope.LegacyEvent.Exception!.ToString()
-            .Contains("secret-exception-message", StringComparison.Ordinal));
+
     }
 
     [TestMethod]
@@ -399,14 +384,11 @@ public sealed class LogEnvelopeBudgetTests
             new InvalidOperationException("exception-secret"));
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 16_384, out var envelope, retainLegacyEvent: true));
+            source, 16_384, out var envelope));
         Assert.IsNotNull(envelope);
         var consoleJson = System.Text.Encoding.UTF8.GetString(envelope.Utf8Json.Span);
-        using var writer = new StringWriter();
-        new CompactJsonFormatter().Format(envelope.LegacyEvent!, writer);
-        var legacyJson = writer.ToString();
 
-        foreach (var output in new[] { consoleJson, legacyJson })
+        foreach (var output in new[] { consoleJson })
         {
             Assert.IsFalse(output.Contains("literal-secret", StringComparison.Ordinal));
             Assert.IsFalse(output.Contains("field-secret", StringComparison.Ordinal));
@@ -427,7 +409,7 @@ public sealed class LogEnvelopeBudgetTests
             [new LogEventProperty("Value", new ScalarValue("opaque-secret"))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "opaque-secret");
     }
@@ -449,7 +431,7 @@ public sealed class LogEnvelopeBudgetTests
             ]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope,
             "private-secret", "connection-secret", "nonce-secret", "key-secret",
@@ -469,7 +451,7 @@ public sealed class LogEnvelopeBudgetTests
                 "{\"password\":\"json-secret\"}"))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "json-secret");
     }
@@ -483,7 +465,7 @@ public sealed class LogEnvelopeBudgetTests
                 "{\"pass\\u0077ord\":\"escaped-json-secret\"}"))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "escaped-json-secret");
     }
@@ -497,9 +479,8 @@ public sealed class LogEnvelopeBudgetTests
             [new LogEventProperty("Path", new ScalarValue(path))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
-        Assert.AreEqual(path, ((ScalarValue)envelope.LegacyEvent!.Properties["Path"]).Value);
         using var json = JsonDocument.Parse(envelope.Utf8Json);
         Assert.AreEqual(path, json.RootElement.GetProperty("Path").GetString());
     }
@@ -513,7 +494,7 @@ public sealed class LogEnvelopeBudgetTests
                 "private.key=private-secret; connection.string=connection-secret; api.key=api-secret"))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "private-secret", "connection-secret", "api-secret");
     }
@@ -526,7 +507,7 @@ public sealed class LogEnvelopeBudgetTests
             [new LogEventProperty("Note", new ScalarValue("password[0]=indexed-secret"))]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "indexed-secret");
     }
@@ -542,7 +523,7 @@ public sealed class LogEnvelopeBudgetTests
             ]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "abcdef0123456789abcdef0123456789");
         using var json = JsonDocument.Parse(envelope.Utf8Json);
@@ -585,7 +566,7 @@ public sealed class LogEnvelopeBudgetTests
             ]);
 
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 4096, out var envelope, retainLegacyEvent: true));
+            source, 4096, out var envelope));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "opaque-secret");
         using var json = JsonDocument.Parse(envelope.Utf8Json);
@@ -626,15 +607,11 @@ public sealed class LogEnvelopeBudgetTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
             source,
             1024,
-            out var envelope,
-            retainLegacyEvent: true));
+            out var envelope));
         Assert.IsNotNull(envelope);
         using var json = JsonDocument.Parse(envelope.Utf8Json);
         Assert.AreEqual("[unsupported scalar]", json.RootElement.GetProperty("Value").GetString());
         Assert.AreEqual(0, sentinel.Calls);
-        Assert.AreEqual(
-            "[unsupported scalar]",
-            ((ScalarValue)envelope.LegacyEvent!.Properties["Value"]).Value);
     }
 
     [TestMethod]
@@ -649,7 +626,7 @@ public sealed class LogEnvelopeBudgetTests
     }
 
     [TestMethod]
-    public void Legacy_safe_event_preserves_message_and_properties()
+    public void Snapshot_preserves_message_template_and_properties()
     {
         var source = NewEvent(
             "hello {Name}",
@@ -660,18 +637,14 @@ public sealed class LogEnvelopeBudgetTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
             source,
             1024,
-            out var envelope,
-            retainLegacyEvent: true));
+            out var envelope));
         Assert.IsNotNull(envelope);
 
-        var restored = envelope.LegacyEvent;
-        Assert.IsNotNull(restored);
-
-        Assert.AreEqual("hello \"world\"", restored.RenderMessage());
-        Assert.AreEqual(
-            "event-123",
-            ((ScalarValue)restored.Properties["LogEventId"]).Value);
-        Assert.IsNull(restored.Exception);
+        using var output = JsonDocument.Parse(envelope.Utf8Json);
+        Assert.AreEqual("hello {Name}", output.RootElement.GetProperty("@mt").GetString());
+        Assert.AreEqual("world", output.RootElement.GetProperty("Name").GetString());
+        Assert.AreEqual("event-123", output.RootElement.GetProperty("LogEventId").GetString());
+        Assert.IsFalse(output.RootElement.TryGetProperty("@x", out _));
     }
 
     [TestMethod]
@@ -712,7 +685,7 @@ public sealed class LogEnvelopeBudgetTests
     }
 
     [TestMethod]
-    public void Legacy_adapter_preserves_formatted_date_and_dictionary_semantics()
+    public void Snapshot_preserves_formatted_date_and_dictionary_values()
     {
         var timestamp = new DateTimeOffset(2026, 9, 28, 8, 0, 0, TimeSpan.Zero);
         var source = NewEvent(
@@ -727,20 +700,17 @@ public sealed class LogEnvelopeBudgetTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
             source,
             4096,
-            out var envelope,
-            retainLegacyEvent: true));
+            out var envelope));
         Assert.IsNotNull(envelope);
 
-        var restored = envelope.LegacyEvent;
-        Assert.IsNotNull(restored);
-
-        Assert.AreEqual(source.RenderMessage(), restored.RenderMessage());
-        Assert.IsInstanceOfType<DictionaryValue>(restored.Properties["Metadata"]);
-        Assert.IsInstanceOfType<DateTimeOffset>(((ScalarValue)restored.Properties["Time"]).Value);
+        using var output = JsonDocument.Parse(envelope.Utf8Json);
+        Assert.AreEqual(timestamp, output.RootElement.GetProperty("Time").GetDateTimeOffset());
+        Assert.AreEqual(42, output.RootElement.GetProperty("Metadata").GetProperty("code").GetInt32());
+        Assert.AreEqual("2026", output.RootElement.GetProperty("@r")[0].GetString());
     }
 
     [TestMethod]
-    public void Enum_scalar_remains_bounded_and_keeps_legacy_message_value()
+    public void Enum_scalar_remains_bounded_in_snapshot()
     {
         var source = NewEvent(
             "state {State}",
@@ -748,17 +718,9 @@ public sealed class LogEnvelopeBudgetTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
             source,
             1024,
-            out var envelope,
-            retainLegacyEvent: true));
+            out var envelope));
         Assert.IsNotNull(envelope);
 
-        var restored = envelope.LegacyEvent;
-        Assert.IsNotNull(restored);
-
-        Assert.AreEqual(source.RenderMessage(), restored.RenderMessage());
-        Assert.AreEqual(
-            TestState.Degraded,
-            ((ScalarValue)restored.Properties["State"]).Value);
         using var json = JsonDocument.Parse(envelope.Utf8Json);
         Assert.AreEqual("Degraded", json.RootElement.GetProperty("State").GetString());
     }
@@ -777,13 +739,9 @@ public sealed class LogEnvelopeBudgetTests
     private static void AssertEnvelopeOmits(LogEnvelope envelope, params string[] secrets)
     {
         var console = System.Text.Encoding.UTF8.GetString(envelope.Utf8Json.Span);
-        using var writer = new StringWriter();
-        new CompactJsonFormatter().Format(envelope.LegacyEvent!, writer);
-        var legacy = writer.ToString();
         foreach (var secret in secrets)
         {
             Assert.IsFalse(console.Contains(secret, StringComparison.Ordinal));
-            Assert.IsFalse(legacy.Contains(secret, StringComparison.Ordinal));
         }
     }
 

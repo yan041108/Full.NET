@@ -6,6 +6,7 @@ using Full.NET.Modules.Notifications.Providers.Smtp;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
+/// <summary>集成测试：SmtpNotificationProviderExternal。</summary>
 [TestClass]
 public sealed class SmtpNotificationProviderExternalTests
 {

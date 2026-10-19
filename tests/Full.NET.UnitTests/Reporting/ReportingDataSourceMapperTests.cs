@@ -4,6 +4,7 @@ using Full.NET.Modules.Reporting.Persistence;
 
 namespace Full.NET.UnitTests.Reporting;
 
+/// <summary>单元测试（报表）：Reporting Data Source Mapper。</summary>
 [TestClass]
 public sealed class ReportingDataSourceMapperTests
 {

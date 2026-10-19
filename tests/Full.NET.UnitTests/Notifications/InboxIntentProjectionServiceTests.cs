@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Inbox Intent Projection Service。</summary>
 [TestClass]
 public sealed class InboxIntentProjectionServiceTests
 {

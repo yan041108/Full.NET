@@ -1,3 +1,4 @@
+// Identity OIDC 保留策略 DI 注册；过期令牌与授权清理作业。
 using Full.NET.Abstractions.Time;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Retention;
 
+/// <summary>Identity OIDC 保留策略 DI 注册；过期令牌与授权清理作业。</summary>
 internal static class IdentityOidcRetentionServiceCollectionExtensions
 {
     private const string ObservabilityAdminHostRoleKey = "FullNet:ObservabilityAdmin:HostRole";

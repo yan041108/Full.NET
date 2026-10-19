@@ -16,8 +16,6 @@ public sealed class MemoryPackControlledProtocolRulesTests
 {
     private static readonly Type[] ProductionIntegrationEventTypes =
     [
-        typeof(TenantProvisionedIntegrationEvent),
-        typeof(TenantChangedIntegrationEvent),
         typeof(AnnouncementPublishedIntegrationEvent),
         typeof(InboxMessageReceivedIntegrationEvent),
         typeof(InboxReadStateChangedIntegrationEvent),
@@ -91,22 +89,6 @@ public sealed class MemoryPackControlledProtocolRulesTests
     [TestMethod]
     public void ProductionIntegrationEvents_RoundTripThroughMemoryPackSerializer()
     {
-        RoundTrip(
-            new TenantProvisionedIntegrationEvent(
-                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-111111111111"),
-                "tenant-id",
-                "tenant.example"),
-            (left, right) =>
-                left.TenantId == right.TenantId
-                && left.Identifier == right.Identifier
-                && left.Domain == right.Domain);
-        RoundTrip(
-            new TenantChangedIntegrationEvent(
-                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-222222222222"),
-                "changed.example"),
-            (left, right) =>
-                left.TenantId == right.TenantId
-                && left.Domain == right.Domain);
         RoundTrip(
             new AnnouncementPublishedIntegrationEvent(
                 Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-333333333333"),

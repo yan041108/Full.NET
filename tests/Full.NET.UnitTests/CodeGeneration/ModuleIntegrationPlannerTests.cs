@@ -2,6 +2,7 @@ using Full.NET.Data.CodeGeneration.Integration;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Module Integration Planner。</summary>
 [TestClass]
 public sealed class ModuleIntegrationPlannerTests
 {

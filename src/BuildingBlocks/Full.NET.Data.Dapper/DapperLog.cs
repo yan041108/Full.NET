@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>Dapper 执行路径的结构化日志；语句名来自 <see cref="SqlStatement"/> 稳定标识。</summary>
 internal static partial class DapperLog
 {
     [LoggerMessage(

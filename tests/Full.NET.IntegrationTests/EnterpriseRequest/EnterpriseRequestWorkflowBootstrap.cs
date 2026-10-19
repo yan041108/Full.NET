@@ -6,6 +6,7 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 
 namespace Full.NET.IntegrationTests.EnterpriseRequest;
 
+/// <summary>集成引导：EnterpriseRequestWorkflow。</summary>
 internal static class EnterpriseRequestWorkflowBootstrap
 {
     private const string FormsPath = "/api/v1/workflow/forms";

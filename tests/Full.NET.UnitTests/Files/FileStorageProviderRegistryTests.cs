@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：File Storage Provider Registry。</summary>
 [TestClass]
 public sealed class FileStorageProviderRegistryTests
 {

@@ -1,6 +1,7 @@
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 
+/// <summary>Document 模块授权目录贡献者；向 Identity 注册权限、导航与精确动作。</summary>
 namespace Full.NET.Modules.Document;
 
 internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogContributor

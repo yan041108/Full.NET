@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>集成支撑：CodeGenerationGitWorkspaceTest。</summary>
 internal static class CodeGenerationGitWorkspaceTestSupport
 {
     public static CodeGenerationGitWorkspaceService CreateDisabled(string workspaceRoot) =>

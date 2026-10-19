@@ -49,6 +49,8 @@ public sealed class AuditingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.AuditingLogTimelineSources.Register(services);
+        services.AddScoped<Features.QueryLogTimeline.LogTimelineQueryService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.AuditingDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -148,6 +150,7 @@ public sealed class AuditingModule : IFullNetModule
     /// <summary>映射 Auditing 模块访问/操作/异常/出站调用日志查询、趋势、变更比对与导出的全部受保护 HTTP 路由。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        Features.QueryLogTimeline.Endpoint.Map(endpoints);
         Features.QueryHostAccessLogs.Endpoint.Map(endpoints);
         Features.QueryHostOperationLogs.Endpoint.Map(endpoints);
         Features.QueryHostExceptionLogs.Endpoint.Map(endpoints);

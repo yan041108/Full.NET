@@ -3,9 +3,18 @@ using Full.NET.IntegrationTests.Auditing;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：AuditingApiMySql。</summary>
 [TestClass]
 public sealed class AuditingApiMySqlTests
 {
+    [TestMethod]
+    public async Task Host_log_timeline_correlates_all_sources_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AuditingLogTimelineAssertions.VerifyAsync(factory);
+    }
+
     [TestMethod]
     public async Task Host_access_log_query_follows_contract_with_mysql()
     {
@@ -48,6 +57,30 @@ public sealed class AuditingApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await AuditingBatchRollbackAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Request_audit_blocked_batch_times_out_and_recovers_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AuditingBatchFaultAssertions.VerifyAsync(factory, AuditingBatchFaultAssertions.Failure.BatchDeadline);
+    }
+
+    [TestMethod]
+    public async Task Request_audit_blocked_batch_cancels_and_recovers_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AuditingBatchFaultAssertions.VerifyAsync(factory, AuditingBatchFaultAssertions.Failure.CallerCancellation);
+    }
+
+    [TestMethod]
+    public async Task Request_audit_disconnected_batch_fails_once_and_recovers_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AuditingBatchFaultAssertions.VerifyAsync(factory, AuditingBatchFaultAssertions.Failure.ConnectionLost);
     }
 
     [TestMethod]

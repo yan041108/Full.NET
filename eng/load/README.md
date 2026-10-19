@@ -36,6 +36,11 @@ pnpm test:load-profiles
 
 This validates profile contracts. It does **not** start a load run against local Aspire/AppHost.
 
+For a bounded two-instance cache baseline below certification scale, use the
+[Native cache capacity driver](cache-capacity/README.md). Its C0/S2 curves and
+failure observations retain `Capacity-not-verified`; they do not satisfy the
+2K → 5K → 10K → Soak gates above.
+
 ## Local or dedicated cluster run (manual)
 
 ```bash
@@ -47,6 +52,8 @@ k6 run eng/load/k6/scenarios/read-heavy.js
 ```
 
 Kubernetes Job template: `deploy/load/k6-test-run.yaml`.
+
+缓存场景 `cache-recovery.js` 必须提供 `FULLNET_CACHE_BEARER_TOKEN`（测试账号的有效令牌），实际读取受保护的 Grid 偏好缓存。非 200、传输失败、错误载荷均计为失败。只从 k6 内置 `dropped_iterations` 读取调度丢弃数，不用 HTTP 超时替代；实际在途数必须来自应用采集，缺失时保持 null/Incomplete。脚本自身不注入 Redis 故障，也不执行批量失效；这些操作、恢复时间、数据库放大与双节点陈旧窗口必须由隔离实验另行留证。
 
 Certification evidence template: `docs/verification/high-concurrency-capacity-certification-template.md`.
 

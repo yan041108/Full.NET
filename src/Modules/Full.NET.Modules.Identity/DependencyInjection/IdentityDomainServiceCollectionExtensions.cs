@@ -1,3 +1,4 @@
+// Identity 领域服务 DI 扩展；用户、角色与会话领域组件注册。
 using FluentValidation;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Hosting.Api;

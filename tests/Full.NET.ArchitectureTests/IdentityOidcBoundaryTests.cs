@@ -3,7 +3,7 @@ using Full.NET.Modules.Identity;
 
 namespace Full.NET.ArchitectureTests;
 
-/// <summary>OIDC protocol boundary: no EF, no cross-module implementation refs, no wildcard protocol auth exceptions.</summary>
+/// <summary>OIDC 协议边界：禁止 EF、跨模块实现引用，以及放宽协议授权的例外写法。</summary>
 [TestClass]
 public sealed class IdentityOidcBoundaryTests
 {

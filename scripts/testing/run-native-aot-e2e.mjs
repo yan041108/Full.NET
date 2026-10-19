@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { testOutputDirectory } from './test-output-directory.mjs';
 /**
  * 运行 Native AOT 外部进程集成测试（需先完成 linux-x64 publish）。
  */
@@ -18,10 +19,7 @@ const matrixPath = path.join(repositoryRoot, 'eng/testing/test-matrix.json');
 const matrix = JSON.parse(readFileSync(matrixPath, 'utf8'));
 const nativeGate = matrix.nativeAotIntegration;
 const integrationAssembly = matrix.integration.assembly;
-const resultsDirectory = path.join(
-  repositoryRoot,
-  'artifacts/native-aot/linux-x64/test-results'
-);
+const resultsDirectory = testOutputDirectory(repositoryRoot, 'native-aot/linux-x64/test-results');
 
 const build = spawnSync(
   'dotnet',

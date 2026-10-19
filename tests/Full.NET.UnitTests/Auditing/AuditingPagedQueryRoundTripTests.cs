@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Paged Query Round Trip。</summary>
 [TestClass]
 public sealed class AuditingPagedQueryRoundTripTests
 {

@@ -2,6 +2,7 @@ using Full.NET.Modules.Regions.Domain;
 
 namespace Full.NET.UnitTests.Regions;
 
+/// <summary>单元测试（行政区）：Administrative Region Tree Rules。</summary>
 [TestClass]
 public sealed class AdministrativeRegionTreeRulesTests
 {

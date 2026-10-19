@@ -2,6 +2,7 @@ using Full.NET.Modules.Notifications.Domain;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Recipient Endpoint Verification Code Hasher。</summary>
 [TestClass]
 public sealed class RecipientEndpointVerificationCodeHasherTests
 {

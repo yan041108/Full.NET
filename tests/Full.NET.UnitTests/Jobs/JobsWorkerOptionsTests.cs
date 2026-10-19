@@ -7,6 +7,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Jobs Worker Options。</summary>
 [TestClass]
 public sealed class JobsWorkerOptionsTests
 {

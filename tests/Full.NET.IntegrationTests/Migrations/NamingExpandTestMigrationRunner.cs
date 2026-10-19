@@ -5,6 +5,7 @@ using Full.NET.Migrations.DbUp;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试辅助：NamingExpandTestMigrationRunner。</summary>
 internal static class NamingExpandTestMigrationRunner
 {
     private const string ContractApprovalId = "test-uuid-contract-009";

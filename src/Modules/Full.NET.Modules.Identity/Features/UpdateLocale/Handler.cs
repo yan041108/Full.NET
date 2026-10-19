@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.IdentityModel.JsonWebTokens;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Identity.Features.UpdateLocale;
 
 internal sealed class Handler(

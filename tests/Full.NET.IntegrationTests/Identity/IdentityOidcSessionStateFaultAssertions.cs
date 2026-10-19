@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：会话状态损坏或不同步时的失败语义。</summary>
 internal static class IdentityOidcSessionStateFaultAssertions
 {
     public static async Task VerifyAsync(

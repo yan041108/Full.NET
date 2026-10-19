@@ -6,6 +6,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：进程重启后令牌、会话与授权恢复。</summary>
 internal static class IdentityOidcMultiInstanceRestartAssertions
 {
     public static async Task VerifyStaggeredExchangeAsync(

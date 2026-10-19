@@ -21,4 +21,6 @@
   <data name="auditing.export.time_range_required" xml:space="preserve"><value>Export queries require both a start time and an end time.</value></data>
   <data name="auditing.export.time_range_exceeded" xml:space="preserve"><value>The export query time range exceeds the server limit.</value></data>
   <data name="auditing.export.retention_boundary_exceeded" xml:space="preserve"><value>The export query starts before the retention policy boundary.</value></data>
+  <data name="auditing.timeline.query_invalid" xml:space="preserve"><value>Use a time range up to 24 hours and valid trace, session, user or IP fingerprint.</value></data>
+  <data name="auditing.timeline.host_required" xml:space="preserve"><value>Log timeline requires Host context.</value></data>
 </root>

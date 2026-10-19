@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Platform;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：PlatformApiSqlServer。</summary>
 [TestClass]
 public sealed class PlatformApiSqlServerTests
 {

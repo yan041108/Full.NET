@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 namespace Full.NET.UnitTests.Outbox;
 
+/// <summary>单元测试（Outbox）：Outbox Processor。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class OutboxProcessorTests

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
@@ -12,59 +13,61 @@ namespace Full.NET.Hosting.Observability;
 internal sealed class FullNetBoundedAsyncSink :
     ILogEventSink,
     IAsyncLogEventSinkInspector,
-    ILogByteBudgetInspector
+    ILogByteBudgetInspector,
+    ILogProgressInspector
 {
     private readonly BlockingCollection<LogEnvelope> _queue;
-    private readonly ILogEventSink _sink;
+    private readonly ConcurrentQueue<LogEnvelope> _pending = new();
+    private readonly Action<LogEnvelope>? _emitChannelSnapshot;
     private readonly Action<LogEnvelope>? _emitSnapshot;
-    private readonly Action<HostLogSnapshot>? _emitExternalSnapshot;
+    private readonly Func<HostLogSnapshot, bool>? _emitExternalSnapshot;
     private readonly bool _highPriority;
-    private readonly bool _emitLegacySink;
     private readonly FullNetAsyncLogMonitor _monitor;
     private readonly LogQueueByteBudget _byteBudget;
     private readonly int _maxEventBytes;
     private readonly int _maxAdmissionCharge;
     private readonly LogIndexRoutingPolicy? _routingPolicy;
     private readonly Thread _worker;
+    private readonly LocalFileLogWriter? _localFile;
     private long _droppedMessagesCount;
     private long _oversizeCount;
     private long _byteBudgetDroppedCount;
     private int _completionStarted;
-    private int _monitorStopped;
+    private int _admittedCount;
+    private long _inFlightTimestamp;
 
     public FullNetBoundedAsyncSink(
-        ILogEventSink sink,
+        Action<LogEnvelope>? emitChannelSnapshot,
         int bufferSize,
         string workerName,
         FullNetAsyncLogMonitor monitor,
         int maxEventBytes,
         long queueMaxBytes,
         Action<LogEnvelope>? emitSnapshot = null,
-        bool emitLegacySink = true,
-        Action<HostLogSnapshot>? emitExternalSnapshot = null,
+        Func<HostLogSnapshot, bool>? emitExternalSnapshot = null,
         bool highPriority = false,
-        LogIndexRoutingPolicy? routingPolicy = null)
+        LogIndexRoutingPolicy? routingPolicy = null,
+        LocalFileLogWriter? localFile = null)
     {
-        ArgumentNullException.ThrowIfNull(sink);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bufferSize);
         ArgumentException.ThrowIfNullOrWhiteSpace(workerName);
         ArgumentNullException.ThrowIfNull(monitor);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxEventBytes);
-        var maxAdmissionCharge = LogEnvelope.MaxChargeBytes(maxEventBytes, emitLegacySink);
+        var maxAdmissionCharge = LogEnvelope.MaxChargeBytes(maxEventBytes);
         ArgumentOutOfRangeException.ThrowIfLessThan(queueMaxBytes, maxAdmissionCharge);
 
-        _sink = sink;
+        _emitChannelSnapshot = emitChannelSnapshot;
         _emitSnapshot = emitSnapshot;
         _emitExternalSnapshot = emitExternalSnapshot;
         _highPriority = highPriority;
-        _emitLegacySink = emitLegacySink;
         _monitor = monitor;
         _maxEventBytes = maxEventBytes;
         _maxAdmissionCharge = maxAdmissionCharge;
         _routingPolicy = routingPolicy;
+        _localFile = localFile;
         _byteBudget = new LogQueueByteBudget(queueMaxBytes);
         _queue = new BlockingCollection<LogEnvelope>(
-            new ConcurrentQueue<LogEnvelope>(),
+            _pending,
             bufferSize);
         _worker = new Thread(Consume)
         {
@@ -83,6 +86,16 @@ internal sealed class FullNetBoundedAsyncSink :
     public long DroppedMessagesCount =>
         Interlocked.Read(ref _droppedMessagesCount);
 
+    public double OldestPendingSeconds
+    {
+        get
+        {
+            var oldest = Interlocked.Read(ref _inFlightTimestamp);
+            if (_pending.TryPeek(out var next)) oldest = oldest == 0 ? next.QueuedAtTimestamp : Math.Min(oldest, next.QueuedAtTimestamp);
+            return oldest == 0 ? 0 : Stopwatch.GetElapsedTime(oldest).TotalSeconds;
+        }
+    }
+
     public long ReservedBytes => _byteBudget.ReservedBytes;
 
     public long ByteCapacity => _byteBudget.CapacityBytes;
@@ -100,6 +113,7 @@ internal sealed class FullNetBoundedAsyncSink :
     private bool EmitCore(LogEvent logEvent, HttpOperationLogRecord? trustedHttp)
     {
         ArgumentNullException.ThrowIfNull(logEvent);
+        _monitor.RecordOffered(logEvent.Level);
 
         if (Volatile.Read(ref _completionStarted) != 0)
         {
@@ -107,9 +121,17 @@ internal sealed class FullNetBoundedAsyncSink :
             return false;
         }
 
-        // 先按最大封套预留，避免大量并发调用在队列已满时仍构造临时事件图。
+        // 名额覆盖正在构建及等待消费的事件，避免条数已满但字节有余量时继续构建快照。
+        if (!TryReserveSlot())
+        {
+            Interlocked.Increment(ref _droppedMessagesCount);
+            return false;
+        }
+
+        // 在构建前同时满足条数和最大封套字节预算；任一拒绝都不等待下游。
         if (!_byteBudget.TryReserve(_maxAdmissionCharge))
         {
+            Interlocked.Decrement(ref _admittedCount);
             Interlocked.Increment(ref _byteBudgetDroppedCount);
             Interlocked.Increment(ref _droppedMessagesCount);
             return false;
@@ -126,7 +148,6 @@ internal sealed class FullNetBoundedAsyncSink :
                         logEvent,
                         _maxEventBytes,
                         out envelope,
-                        retainLegacyEvent: _emitLegacySink,
                         trustedHttp: trustedHttp,
                         routingPolicy: _routingPolicy))
                 {
@@ -175,10 +196,22 @@ internal sealed class FullNetBoundedAsyncSink :
             if (!queued)
             {
                 _byteBudget.Release(reservedCharge);
+                Interlocked.Decrement(ref _admittedCount);
             }
         }
 
         return queued;
+    }
+
+    private bool TryReserveSlot()
+    {
+        while (true)
+        {
+            var current = Volatile.Read(ref _admittedCount);
+            if (current >= BufferSize) return false;
+            if (Interlocked.CompareExchange(ref _admittedCount, current + 1, current) == current)
+                return true;
+        }
     }
 
     public void Complete()
@@ -186,6 +219,7 @@ internal sealed class FullNetBoundedAsyncSink :
         if (Interlocked.Exchange(ref _completionStarted, 1) == 0)
         {
             _queue.CompleteAdding();
+            _monitor.WorkerStopping();
         }
     }
 
@@ -203,25 +237,38 @@ internal sealed class FullNetBoundedAsyncSink :
     {
         while (_queue.TryTake(out var envelope))
         {
+            Interlocked.Decrement(ref _admittedCount);
             _byteBudget.Release(envelope.ChargeBytes);
             Interlocked.Increment(ref _droppedMessagesCount);
         }
 
-        if (Interlocked.Exchange(ref _monitorStopped, 1) == 0)
-        {
-            _monitor.StopMonitoring(this);
-        }
+        // 当前下游可能仍在途；保留监控直到真实消费线程结束。
     }
 
     private void Consume()
     {
         try
         {
-            foreach (var envelope in _queue.GetConsumingEnumerable())
+            while (!_queue.IsCompleted)
             {
+                // 文件刷新在原消费线程执行；不占用请求线程，也不为刷新新增无界任务。
+                if (!_queue.TryTake(out var envelope, _localFile is null ? Timeout.Infinite : 100))
+                {
+                    _localFile?.FlushIfDue();
+                    continue;
+                }
+                // 出队即释放等待名额；字节预算仍保留至下游真正结束。
+                Interlocked.Decrement(ref _admittedCount);
                 try
                 {
+                    Interlocked.Exchange(ref _inFlightTimestamp, envelope.QueuedAtTimestamp);
                     var failed = false;
+                    if (_localFile is not null)
+                    {
+                        try { _localFile.Emit(envelope); _localFile.FlushIfDue(); }
+                        // 文件出口已自行限频报告；这里仅累计当前事件丢弃，避免故障日志洪峰。
+                        catch (Exception) { failed = true; }
+                    }
                     if (_emitSnapshot is not null)
                     {
                         try
@@ -240,11 +287,11 @@ internal sealed class FullNetBoundedAsyncSink :
                         try
                         {
                             // 只把经过快照安全投影且 ID 与 JSON 一致的数据交给外部适配器。
-                            _emitExternalSnapshot(new HostLogSnapshot(
+                            if (!_emitExternalSnapshot(new HostLogSnapshot(
                                 envelope.Utf8Json,
                                 envelope.LogEventId ?? throw new InvalidOperationException(
                                     "The external log snapshot requires a validated event ID."),
-                                _highPriority));
+                                _highPriority))) failed = true;
                         }
                         catch (Exception exception)
                         {
@@ -253,13 +300,11 @@ internal sealed class FullNetBoundedAsyncSink :
                         }
                     }
 
-                    if (_emitLegacySink)
+                    if (_emitChannelSnapshot is not null)
                     {
                         try
                         {
-                            _sink.Emit(envelope.LegacyEvent
-                                ?? throw new InvalidOperationException(
-                                    "The legacy logging sink requires a safe event copy."));
+                            _emitChannelSnapshot(envelope);
                         }
                         catch (Exception exception)
                         {
@@ -272,42 +317,39 @@ internal sealed class FullNetBoundedAsyncSink :
                     {
                         Interlocked.Increment(ref _droppedMessagesCount);
                     }
+                    _monitor.RecordConsumed(failed);
                 }
                 finally
                 {
                     // 只有下游调用真正结束后才能归还在途缓冲预算。
                     _byteBudget.Release(envelope.ChargeBytes);
+                    Interlocked.Exchange(ref _inFlightTimestamp, 0);
                 }
             }
         }
         catch (Exception exception)
         {
+            _monitor.WorkerFailed();
+            Complete();
+            AbandonPending();
+            LoggingInternalDiagnostics.Report("worker_stopped", exception);
             SelfLog.WriteLine(
                 "Full.NET asynchronous logging worker stopped unexpectedly with {0}.",
                 exception.GetType().FullName);
         }
         finally
         {
-            if (_sink is IDisposable disposable)
+            // 流最终关闭留在后台线程，磁盘阻塞不得突破宿主共享退出等待预算。
+            try { _localFile?.Dispose(); }
+            catch (Exception exception)
             {
-                try
-                {
-                    disposable.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    // 日志出口释放失败不能从后台线程逸出并终止宿主进程。
-                    SelfLog.WriteLine(
-                        "Full.NET asynchronous logging sink failed to dispose with {0}.",
-                        exception.GetType().FullName);
-                }
+                _monitor.WorkerFailed();
+                LoggingInternalDiagnostics.Report("local_file_dispose", exception);
             }
+            _monitor.StopMonitoring(this);
         }
     }
 
     private static void ReportSinkFailure(Exception exception) =>
-        SelfLog.WriteLine(
-            "Full.NET asynchronous logging sink rejected one event with {0}; "
-            + "the worker will continue.",
-            exception.GetType().FullName);
+        LoggingInternalDiagnostics.Report("sink_rejected", exception);
 }

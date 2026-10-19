@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.DataApproval;
 
+/// <summary>单元测试（数据审批）：Data Approval Worker Registration。</summary>
 [TestClass]
 public sealed class DataApprovalWorkerRegistrationTests
 {

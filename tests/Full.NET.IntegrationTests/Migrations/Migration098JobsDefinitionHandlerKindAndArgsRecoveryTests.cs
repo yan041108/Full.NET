@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：Migration098JobsDefinitionHandlerKindAndArgsRecovery。</summary>
 [TestClass]
 public sealed class Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests
 {

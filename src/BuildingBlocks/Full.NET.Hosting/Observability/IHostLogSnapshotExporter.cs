@@ -6,5 +6,9 @@ public interface IHostLogSnapshotExporter : IDisposable
 {
     /// <summary>在后台消费线程上非阻塞提交快照；实现自行记录拒绝及投递终态。</summary>
     /// <param name="snapshot">不得包含受限详情的宿主快照。</param>
-    void Emit(HostLogSnapshot snapshot);
+    /// <returns>仅表示出口接受；false 必须计入宿主消费失败，不代表 Broker 或最终存储确认。</returns>
+    bool TryEmit(HostLogSnapshot snapshot);
+
+    /// <summary>使用宿主从停止入口开始的同一截止时间关闭出口；完成后 Dispose 不得再次排空。</summary>
+    void Stop(LogShutdownDeadline deadline);
 }

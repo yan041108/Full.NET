@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Organization;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：OrganizationApiMySql。</summary>
 [TestClass]
 public sealed class OrganizationApiMySqlTests
 {

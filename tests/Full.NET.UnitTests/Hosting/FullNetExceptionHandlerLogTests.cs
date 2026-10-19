@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Full Net Exception Handler Log。</summary>
 [TestClass]
 public sealed class FullNetExceptionHandlerLogTests
 {

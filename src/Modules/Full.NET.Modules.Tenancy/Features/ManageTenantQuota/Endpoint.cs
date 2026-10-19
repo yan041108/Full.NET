@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>TenantQuota管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantQuota;
 
 internal static class Endpoint

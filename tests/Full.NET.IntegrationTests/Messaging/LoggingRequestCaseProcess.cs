@@ -29,7 +29,7 @@ internal sealed class LoggingRequestCaseProcess : IAsyncDisposable
     public bool Stopped { get; private set; }
 
     public static LoggingRequestCaseProcess Start(string root, string directory, string route,
-        KafkaLogTlsFixture kafka, string general, string priority)
+        KafkaLogTlsFixture kafka, string general, string priority, int? capacityRate = null)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -40,6 +40,11 @@ internal sealed class LoggingRequestCaseProcess : IAsyncDisposable
         var benchmark = Path.Combine(root, "benchmarks/Full.NET.Benchmarks/bin", output.Parent!.Name, output.Name, "Full.NET.Benchmarks.dll");
         foreach (var argument in new[] { benchmark,
             "logging-route-case", route, "--output", directory }) start.ArgumentList.Add(argument);
+        if (capacityRate is { } rate)
+        {
+            start.ArgumentList.Add("--capacity-rate");
+            start.ArgumentList.Add(rate.ToString(CultureInfo.InvariantCulture));
+        }
         foreach (var (key, value) in new Dictionary<string, string>
         {
             ["BOOTSTRAP_SERVERS"] = kafka.BootstrapServers, ["GENERAL_TOPIC"] = general,

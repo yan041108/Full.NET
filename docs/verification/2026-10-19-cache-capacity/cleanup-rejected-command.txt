@@ -1,0 +1,32 @@
+$cacheOutputPath='C:\Users\ADMINI~1\AppData\Local\Temp\fullnet-cache-capacity-18127590-7c2b-4d97-b729-c525453fe7f3'
+$cacheStagePath='C:\Users\Administrator\AppData\Local\Temp\fullnet-cache-integration-402-f4b1ecf3e28f\capacity-k6-resume\raw-evidence-stage'
+$cacheControlPath='C:\Users\Administrator\AppData\Local\Temp\fullnet-cache-integration-402-f4b1ecf3e28f\capacity-k6-resume'
+$cacheArchivePath='G:\wwwroot\github_fork\Full.NET\docs\verification\2026-10-19-cache-capacity\raw-evidence.zip'
+$cacheArchiveProof=Get-Content -LiteralPath 'G:\wwwroot\github_fork\Full.NET\docs\verification\2026-10-19-cache-capacity\raw-archive-verified.json' -Raw|ConvertFrom-Json
+$cacheMarker=Get-Content -LiteralPath (Join-Path $cacheControlPath 'saved-output-owner.json') -Raw|ConvertFrom-Json
+$cacheOuter=Get-Content -LiteralPath (Join-Path $cacheControlPath 'state.json') -Raw|ConvertFrom-Json
+$cacheTerminal=Get-Content -LiteralPath (Join-Path $cacheControlPath 'terminal.json') -Raw|ConvertFrom-Json
+$cacheSummary=Get-Content -LiteralPath (Join-Path $cacheControlPath 'summary-stream-exit.json') -Raw|ConvertFrom-Json
+if(!$cacheArchiveProof.passed -or (Get-FileHash -LiteralPath $cacheArchivePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $cacheArchiveProof.archiveSha256 -or !$cacheOuter.accepted -or !$cacheOuter.physicalReturnConfirmed -or !$cacheOuter.volumeRemoved -or $cacheTerminal.actualParentExit -ne 0 -or $cacheTerminal.jobFinalActiveProcesses -ne 0 -or !$cacheTerminal.observedViaLiveProcessHandle -or $cacheSummary.actualExit -ne 0){throw 'Actual verification or physical boundary missing'}
+if($cacheMarker.schemaVersion -ne 1 -or $cacheMarker.directory -ine $cacheOutputPath -or $cacheMarker.token -ne '6a92e1c9-0c52-4d7d-982a-476b7d5a2c6f'){throw 'Exact current output ownership differs'}
+$cacheOldParent=Get-Process -Id 90956 -ErrorAction SilentlyContinue
+if($cacheOldParent -and $cacheOldParent.StartTime.ToUniversalTime().ToFileTimeUtc().ToString() -eq '134368310427259021'){throw 'Actual original owner process still active'}
+$cacheOwned=@(& docker ps -aq --filter 'label=fullnet.cache-capacity.owner=fullnet-cache-capacity-18127590-7c2b-4d97-b729-c525453fe7f3')
+if($LASTEXITCODE -ne 0 -or $cacheOwned.Count -ne 0){throw 'Actual current owner container boundary unknown or active'}
+$cacheVolumes=@(& docker volume ls --format '{{.Name}}' --filter 'name=fullnet-cache-capacity-2ef4e6e4-d7db-4cbb-8337-e82506524028-build')
+if($LASTEXITCODE -ne 0 -or $cacheVolumes -contains 'fullnet-cache-capacity-2ef4e6e4-d7db-4cbb-8337-e82506524028-build'){throw 'Actual task build volume remains'}
+foreach($cacheExactPath in @($cacheOutputPath,$cacheStagePath)){
+ $cacheResolved=(Resolve-Path -LiteralPath $cacheExactPath -ErrorAction Stop).ProviderPath
+ if($cacheResolved -ine $cacheExactPath -or $cacheResolved -notmatch '^C:\\Users\\(?:ADMINI~1|Administrator)\\AppData\\Local\\Temp\\'){throw 'Resolved cleanup target is outside the exact intended TEMP boundary'}
+ $cacheItem=Get-Item -LiteralPath $cacheExactPath
+ if($cacheItem.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked cleanup root refused'}
+ if(@(Get-ChildItem -LiteralPath $cacheExactPath -Recurse -Force -ErrorAction Stop|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'Linked cleanup descendant refused'}
+}
+$cacheOutputBytes=[long](Get-ChildItem -LiteralPath $cacheOutputPath -Recurse -File|Measure-Object -Property Length -Sum).Sum
+$cacheStageBytes=[long](Get-ChildItem -LiteralPath $cacheStagePath -Recurse -File|Measure-Object -Property Length -Sum).Sum
+Remove-Item -LiteralPath 'C:\Users\ADMINI~1\AppData\Local\Temp\fullnet-cache-capacity-18127590-7c2b-4d97-b729-c525453fe7f3' -Recurse -Force -ErrorAction Stop
+Remove-Item -LiteralPath 'C:\Users\Administrator\AppData\Local\Temp\fullnet-cache-integration-402-f4b1ecf3e28f\capacity-k6-resume\raw-evidence-stage' -Recurse -Force -ErrorAction Stop
+if((Test-Path -LiteralPath $cacheOutputPath) -or (Test-Path -LiteralPath $cacheStagePath)){throw 'Actual bounded cleanup incomplete'}
+$cacheCleanup=@{at=[DateTimeOffset]::UtcNow.ToString('o');actualExit=0;method='Native PowerShell Remove-Item -LiteralPath after exact resolved ownership/reparse/process/container/volume and raw archive byte verification';output=$cacheOutputPath;stage=$cacheStagePath;outputAbsent=$true;stageAbsent=$true;outputBytes=$cacheOutputBytes;stageBytes=$cacheStageBytes;oldFailedRunsUntouched=$true;previouslyRejectedArchivesUntouched=$true;sharedNativeProducerUntouched=$true;rawArchiveSha256=$cacheArchiveProof.archiveSha256}
+$cacheCleanup|ConvertTo-Json|Set-Content -LiteralPath 'G:\wwwroot\github_fork\Full.NET\docs\verification\2026-10-19-cache-capacity\cleanup.json' -Encoding utf8
+$cacheCleanup|ConvertTo-Json -Compress

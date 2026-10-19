@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Calendar;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：CalendarApiMySql。</summary>
 [TestClass]
 public sealed class CalendarApiMySqlTests
 {

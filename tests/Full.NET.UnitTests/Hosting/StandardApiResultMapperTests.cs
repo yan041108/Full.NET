@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Standard Api Result Mapper。</summary>
 [TestClass]
 public sealed class StandardApiResultMapperTests
 {

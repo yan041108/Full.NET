@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>LogFiles管理 API 路由注册。</summary>
 namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 
 internal static class Endpoint
@@ -15,10 +16,10 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/observability/log-files")
             .WithTags("ObservabilityLogFiles");
 
-        group.MapGet("/", (LogFileControlPlane controlPlane) =>
-                Results.Ok(controlPlane.List()))
+        group.MapGet("/", (LogFileControlPlane controlPlane, CancellationToken cancellationToken) =>
+                Results.Ok(controlPlane.List(cancellationToken)))
             .WithName("observabilityListLogFiles")
-            .Produces<IReadOnlyList<LogFileSummary>>(StatusCodes.Status200OK)
+            .Produces<LogFileList>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -55,9 +56,9 @@ internal static class Endpoint
             string id,
             LogFileControlPlane controlPlane,
             IApiResultMapper mapper,
-            HttpContext httpContext) =>
+            HttpContext httpContext, CancellationToken cancellationToken) =>
         {
-            var result = controlPlane.OpenDownload(id);
+            var result = controlPlane.OpenDownload(id, cancellationToken);
             return result is null
                 ? NotFound(mapper, httpContext)
                 : Results.File(

@@ -2,6 +2,7 @@ namespace Full.NET.UnitTests.Identity;
 
 using Full.NET.Modules.Identity.Security;
 
+/// <summary>单元测试（Identity）：Password Change Requirement Evaluator。</summary>
 [TestClass]
 public sealed class PasswordChangeRequirementEvaluatorTests
 {

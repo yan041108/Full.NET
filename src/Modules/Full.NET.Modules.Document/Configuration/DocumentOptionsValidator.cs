@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 
+/// <summary>启动期校验模块配置；非法组合在宿主启动时失败。</summary>
 namespace Full.NET.Modules.Document.Configuration;
 
 internal sealed class DocumentOptionsValidator : IValidateOptions<DocumentOptions>

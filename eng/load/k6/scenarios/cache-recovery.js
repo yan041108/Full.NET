@@ -2,15 +2,11 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { baseUrl, databaseProvider, assertNeverTreatVuAsInFlight } from '../lib/config.js';
-import {
-  actualActiveRequests,
-  arrivalRateDroppedIterations,
-  httpErrorRate,
-} from '../lib/metrics.js';
+import { httpErrorRate } from '../lib/metrics.js';
 
 /**
- * Cache recovery: batch invalidation and Redis cold-start windows.
- * Dedicated capacity cluster only — not for developer laptops.
+ * 缓存读取负载；Redis 故障/批量失效由隔离环境外部编排并单独留证。
+ * 本地可执行，但不得将脚本完成当作容量或恢复认证。
  */
 const profileName = __ENV.FULLNET_LOAD_PROFILE || '2k';
 const profiles = new SharedArray('profiles', () => [
@@ -27,6 +23,9 @@ assertNeverTreatVuAsInFlight(profile);
 
 const provider = databaseProvider();
 const model = __ENV.FULLNET_LOAD_MODEL || 'closed_loop';
+if (model !== 'open_loop' && model !== 'closed_loop') throw new Error('Unknown load model');
+const bearerToken = __ENV.FULLNET_CACHE_BEARER_TOKEN;
+if (!bearerToken) throw new Error('FULLNET_CACHE_BEARER_TOKEN is required for the protected cache path');
 
 export const options = model === 'open_loop'
   ? {
@@ -48,20 +47,15 @@ export const options = model === 'open_loop'
           executor: 'constant-vus',
           vus: profile.closedLoop.vus,
           duration: profile.phases.steady,
-          startTime: profile.phases.warmup,
         },
       },
       thresholds: profile.thresholds,
     };
 
-const paths = [
-  "/health/ready",
-  "/api/v1/tenancy/current"
-];
-
 export default function () {
-  const url = `${baseUrl()}${paths[Math.floor(Math.random() * paths.length)]}`;
+  const url = `${baseUrl()}/api/v1/me/grid-preferences/identity.users`;
   const response = http.get(url, {
+    headers: { Authorization: `Bearer ${bearerToken}` },
     tags: {
       scenario: 'cache-recovery',
       provider,
@@ -72,15 +66,16 @@ export default function () {
   });
 
   const ok = check(response, {
-    'status is not 5xx': (r) => r.status < 500,
+    'cache read returns expected payload': (r) => {
+      if (r.status !== 200) return false;
+      try {
+        const body = r.json();
+        return body.gridKey === 'identity.users' && Number.isInteger(body.schemaVersion)
+          && Array.isArray(body.columns) && Number.isInteger(body.version);
+      } catch { return false; }
+    },
   });
   httpErrorRate.add(!ok);
-
-  // Placeholder: replace with application-exported actual active requests gauge scrape.
-  actualActiveRequests.add(Number(__ENV.FULLNET_ACTUAL_ACTIVE_REQUESTS || 0));
-  if (model === 'open_loop' && response.status === 0) {
-    arrivalRateDroppedIterations.add(1);
-  }
 
   sleep(profile.thinkTimeSeconds);
 }
@@ -93,6 +88,11 @@ export function handleSummary(data) {
       provider,
       model,
       targetInFlight: profile.targetInFlight,
+      capacityStatus: 'Capacity-not-verified',
+      evidenceStatus: 'Incomplete',
+      actualActiveRequests: null,
+      droppedIterations: data.metrics.dropped_iterations?.values?.count ?? null,
+      faultInjectionEvidence: null,
       note: 'Validate actual active requests separately; do not equate VUs to in-flight.',
       metrics: data.metrics,
     }, null, 2),

@@ -228,6 +228,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
                     await commandExecutor.ExecuteAsync(
                             NotificationPlatformSql.InsertAttempt,
                             NotificationPlatformSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                                 ("Id", idGenerator.NewId()),
                                 ("DeliveryId", delivery.Id),
                                 ("AttemptNumber", attemptNumber),

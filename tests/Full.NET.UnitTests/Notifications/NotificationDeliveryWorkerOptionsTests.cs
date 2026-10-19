@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notification Delivery Worker Options。</summary>
 [TestClass]
 public sealed class NotificationDeliveryWorkerOptionsTests
 {
@@ -41,6 +42,7 @@ public sealed class NotificationDeliveryWorkerOptionsTests
     }
 }
 
+/// <summary>单元测试：NotificationDeliveryHostedProcessor。</summary>
 [TestClass]
 public sealed class NotificationDeliveryHostedProcessorTests
 {

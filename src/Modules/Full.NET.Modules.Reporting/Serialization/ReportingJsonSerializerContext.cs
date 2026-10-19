@@ -34,4 +34,5 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
 [JsonSerializable(typeof(string[]))]
+/// <summary>Reporting 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

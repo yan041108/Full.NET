@@ -9,6 +9,7 @@ using Full.NET.Modules.Calendar.Features.ManageMyPersonalSchedules;
 
 namespace Full.NET.UnitTests.Calendar;
 
+/// <summary>单元测试（Calendar）：Personal Schedule Management Service。</summary>
 [TestClass]
 public sealed class PersonalScheduleManagementServiceTests
 {

@@ -8,6 +8,7 @@ using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>Webhook 投递：订阅管理与出站投递烟雾路径。</summary>
 internal static class WebhookDeliveryAssertions
 {
     public static async Task VerifyAsync(

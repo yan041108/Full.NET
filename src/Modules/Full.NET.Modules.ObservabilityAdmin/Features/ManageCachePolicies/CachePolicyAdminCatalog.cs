@@ -9,27 +9,11 @@ internal static class CachePolicyAdminCatalog
         Operations = new Dictionary<string, IReadOnlyList<CacheInvalidationOperationSummary>>(
             StringComparer.OrdinalIgnoreCase)
         {
-            [CacheEntryNames.TenantResolution] =
-            [
-                new CacheInvalidationOperationSummary(
-                    "by-tenant",
-                    "按租户失效解析缓存",
-                    [
-                        new CacheInvalidationParameterSummary(
-                            "tenantId",
-                            CacheInvalidationParameterTypes.Uuid,
-                            true),
-                        new CacheInvalidationParameterSummary(
-                            "domain",
-                            CacheInvalidationParameterTypes.Domain,
-                            true),
-                    ]),
-            ],
             [CacheEntryNames.DiagnosticPolicy] =
             [
                 new CacheInvalidationOperationSummary(
                     "global",
-                    "失效全局诊断策略快照",
+                    "刷新本机诊断快照（其他节点由权威轮询收敛）",
                     []),
             ],
             [CacheEntryNames.GridPreference] =
@@ -48,13 +32,6 @@ internal static class CachePolicyAdminCatalog
                             true),
                     ]),
             ],
-        };
-
-    /// <summary>当前允许通过管理控制面失效的 Grid 键，需与 Settings 模块目录保持一致。</summary>
-    public static IReadOnlySet<string> AllowedGridKeys { get; } =
-        new HashSet<string>(StringComparer.Ordinal)
-        {
-            "identity.users",
         };
 
     /// <summary>返回指定条目的登记失效操作；未知条目返回空集合。</summary>

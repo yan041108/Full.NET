@@ -3,6 +3,7 @@ using Full.NET.Modules.Jobs;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：JobsSettingsBoundary 约束与回归门禁。</summary>
 [TestClass]
 public sealed class JobsSettingsBoundaryTests
 {

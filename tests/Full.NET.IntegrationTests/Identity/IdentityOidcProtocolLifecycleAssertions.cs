@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：客户端/授权从创建到停用的协议状态机。</summary>
 internal static class IdentityOidcProtocolLifecycleAssertions
 {
     internal sealed class MutableClock : IClock

@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,6 +12,7 @@ using ZiggyCreatures.Caching.Fusion;
 using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion.Health;
 using Full.NET.Caching.Fusion.Serialization;
+using ZiggyCreatures.Caching.Fusion.Backplane;
 #if !FULLNET_AOT_COMPILE
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 #endif
@@ -40,6 +42,21 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration,
         string environment)
+        => AddCachingCore(services, configuration, environment, isMigrator: false);
+
+    /// <summary>为一次性 Migrator 注册模块所需的缓存依赖；不连接 Redis，也不承担跨节点缓存访问。</summary>
+    /// <param name="services">迁移宿主服务集合。</param>
+    /// <param name="configuration">模块策略配置。</param>
+    /// <param name="environment">部署环境名。</param>
+    /// <returns>迁移宿主服务集合。</returns>
+    public static IServiceCollection AddFullNetMigratorCaching(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string environment)
+        => AddCachingCore(services, configuration, environment, isMigrator: true);
+
+    private static IServiceCollection AddCachingCore(
+        IServiceCollection services, IConfiguration configuration, string environment, bool isMigrator)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -48,13 +65,18 @@ public static class ServiceCollectionExtensions
         var cacheOptions = configuration.GetSection(CacheOptions.SectionName).Get<CacheOptions>()
             ?? new CacheOptions();
         var allowSharedRedis = ReadAllowSharedRedisInDevelopment(configuration);
-        cacheOptions.RedisConnectionString = ResolveRedisConnectionString(
+        cacheOptions.RedisConnectionString = isMigrator ? null : ResolveRedisConnectionString(
             configuration,
             cacheOptions,
             environment,
             allowSharedRedis);
 
         Validate(cacheOptions);
+        if (!isMigrator && IsProductionLike(environment) && string.IsNullOrWhiteSpace(cacheOptions.RedisConnectionString))
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache:RedisConnectionString is required in Production/Staging."]);
+        }
         EnsureIsolatedFromRealtime(
             configuration,
             cacheOptions,
@@ -67,37 +89,57 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Options.Create(cacheOptions));
         services.AddSingleton<ICachePolicyRegistry>(policyRegistry);
         services.TryAddSingleton<ICacheInvalidator, FusionCacheInvalidator>();
+        services.TryAddSingleton<ICacheBatchInvalidator, FusionCacheBatchInvalidator>();
+        services.TryAddSingleton<CacheBackplaneHealthState>();
+        services.TryAddSingleton<CacheRuntimeObservationState>();
 
         RegisterRedisDistributedCacheIfConfigured(
             services,
             cacheOptions,
             environment);
 
+        // DI 拥有专属内存存储的生命周期；SDK 使用外部存储时不会代为释放。
+        services.AddSingleton(_ => new FusionCacheMemoryStore(cacheOptions.L1PayloadCapacity));
         var fusionBuilder = services
             .AddFusionCache()
+            .WithMemoryCache(sp => sp.GetRequiredService<FusionCacheMemoryStore>())
             .WithOptions(options =>
             {
                 options.RemoveByTagBehavior = RemoveByTagBehavior.Remove;
+                options.DefaultEntryOptionsProvider = new CachePolicyEntryOptionsProvider(policyRegistry);
+                // 应用与环境必须同时隔离，不能由可选开关回退到共享失效通道。
+                options.BackplaneChannelPrefix = $"fullnet:{environment.ToLowerInvariant()}:{cacheOptions.ApplicationName.ToLowerInvariant()}:v2";
+                options.AutoRecoveryMaxItems = cacheOptions.AutoRecoveryMaxItems;
+                options.AutoRecoveryMaxRetryCount = cacheOptions.AutoRecoveryMaxRetryCount;
             })
             .WithDefaultEntryOptions(options =>
             {
+                options.Size = 1;
                 options.Duration = cacheOptions.DefaultDuration;
                 options.JitterMaxDuration = cacheOptions.Jitter;
                 options.IsFailSafeEnabled = false;
+                options.DistributedCacheHardTimeout = cacheOptions.RedisOperationTimeout;
             });
 
 #if FULLNET_AOT_COMPILE
         fusionBuilder = fusionBuilder.WithSerializer(serviceProvider =>
-            new FullNetFusionCacheJsonSerializer(
-                serviceProvider.GetServices<ICacheJsonTypeInfoContributor>()));
+            new BoundedFusionCacheSerializer(new FullNetFusionCacheJsonSerializer(
+                serviceProvider.GetServices<ICacheJsonTypeInfoContributor>()), cacheOptions.MaxDeserializationBytes));
 #else
-        fusionBuilder = fusionBuilder.WithSystemTextJsonSerializer();
+        fusionBuilder = fusionBuilder.WithSerializer(_ => new BoundedFusionCacheSerializer(
+            new FusionCacheSystemTextJsonSerializer(), cacheOptions.MaxDeserializationBytes));
 #endif
 
         fusionBuilder
             .TryWithRegisteredDistributedCache()
-            .TryWithRegisteredBackplane()
-            .AsHybridCache();
+            .TryWithRegisteredBackplane();
+        if (cacheOptions.RedisConnectionString is not null)
+        {
+            // 保留 SDK 已注册的连接和生命周期，只在工厂边界添加结果观察，避免 DI 装饰递归。
+            fusionBuilder.WithBackplane(sp => new ObservedFusionCacheBackplane(
+                sp.GetRequiredService<IFusionCacheBackplane>(), sp.GetRequiredService<CacheBackplaneHealthState>()));
+        }
+        fusionBuilder.AsHybridCache();
 
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<
@@ -125,11 +167,11 @@ public static class ServiceCollectionExtensions
 
         services.AddStackExchangeRedisCache(options =>
         {
-            options.Configuration = redisConnectionString;
-            options.InstanceName = $"fullnet:{environment.ToLowerInvariant()}:";
+            options.ConfigurationOptions = CreateRedisConfiguration(redisConnectionString, cacheOptions);
+            options.InstanceName = $"fullnet:{environment.ToLowerInvariant()}:{cacheOptions.ApplicationName.ToLowerInvariant()}:v2:";
         });
         services.AddFusionCacheStackExchangeRedisBackplane(options =>
-            options.Configuration = redisConnectionString);
+            options.ConfigurationOptions = CreateRedisConfiguration(redisConnectionString, cacheOptions));
         services.TryAddSingleton<DistributedCacheHealthCheck>();
         services.AddHealthChecks()
             .Add(new HealthCheckRegistration(
@@ -137,6 +179,17 @@ public static class ServiceCollectionExtensions
                 sp => sp.GetRequiredService<DistributedCacheHealthCheck>(),
                 failureStatus: null,
                 tags: ["ready"]));
+    }
+
+    private static ConfigurationOptions CreateRedisConfiguration(string connectionString, CacheOptions options)
+    {
+        var configuration = ConfigurationOptions.Parse(connectionString);
+        var milliseconds = checked((int)options.RedisOperationTimeout.TotalMilliseconds);
+        configuration.AsyncTimeout = milliseconds;
+        configuration.SyncTimeout = milliseconds;
+        configuration.ConnectTimeout = milliseconds;
+        configuration.ConnectRetry = 0;
+        return configuration;
     }
 
     private static string? ResolveRedisConnectionString(
@@ -180,10 +233,11 @@ public static class ServiceCollectionExtensions
             return;
         }
 
-        if (!string.Equals(
-                options.RedisConnectionString.Trim(),
-                realtimeConnectionString.Trim(),
-                StringComparison.OrdinalIgnoreCase))
+        // 数据库编号、密码和连接选项不会改变物理故障域；只要端点集合重叠就拒绝。
+        var cacheEndpoints = GetEffectiveRedisEndpoints(options.RedisConnectionString)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var realtimeEndpoints = GetEffectiveRedisEndpoints(realtimeConnectionString);
+        if (!realtimeEndpoints.Any(cacheEndpoints.Contains))
         {
             return;
         }
@@ -200,6 +254,21 @@ public static class ServiceCollectionExtensions
                 "Cache:RedisConnectionString and Realtime:RedisBackplaneConnectionString must differ in Production/Staging; "
                 + "shared Redis is only allowed in Development/Testing when Realtime:AllowSharedRedisInDevelopment=true.",
             ]);
+    }
+
+    /// <summary>按 SDK 实际连接的端口规则比较配置；不解析 DNS，也不把地址差异当成物理隔离证明。</summary>
+    private static IEnumerable<string?> GetEffectiveRedisEndpoints(string connectionString)
+    {
+        var configuration = ConfigurationOptions.Parse(connectionString);
+        // Parse 为省略端口保留 0，连接时才补全；Sentinel 优先于 TLS，不能一律按 6379 比较。
+        var defaultPort = !string.IsNullOrEmpty(configuration.ServiceName)
+            ? 26379 : configuration.Ssl ? 6380 : 6379;
+        return configuration.EndPoints.Select(endpoint => endpoint switch
+        {
+            DnsEndPoint dns when dns.Port == 0 => new DnsEndPoint(dns.Host, defaultPort, dns.AddressFamily).ToString(),
+            IPEndPoint ip when ip.Port == 0 => new IPEndPoint(ip.Address, defaultPort).ToString(),
+            _ => endpoint.ToString(),
+        });
     }
 
     private static string? ResolveRealtimeConnectionStringForComparison(
@@ -241,6 +310,37 @@ public static class ServiceCollectionExtensions
 
     private static void Validate(CacheOptions options)
     {
+        if (options.L1PayloadCapacity is < 1 or > 1_000_000)
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache:L1PayloadCapacity must be between 1 and 1000000 entry weight units."]);
+
+        if (options.InvalidationMaxBatchItems is < 1 or > 10_000
+            || options.InvalidationMaxBatchBytes is < 1 or > 8 * 1024 * 1024
+            || options.InvalidationMaxConcurrency is < 1 or > 32
+            || options.InvalidationMaxConcurrentBatches is < 1 or > 256)
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache invalidation batch limits must be 1-10000 items, 1-8388608 UTF-8 bytes, 1-32 concurrent operations and 1-256 concurrent batches."]);
+
+        if (options.MaxDeserializationBytes is < 1 or > CacheOptions.MaximumDeserializationBytes)
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache:MaxDeserializationBytes must be between 1 and 67108864 bytes."]);
+
+        if (string.IsNullOrWhiteSpace(options.ApplicationName) || options.ApplicationName.Length > 64
+            || options.ApplicationName.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_' and not '.'))
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache:ApplicationName must contain 1-64 ASCII letters, digits, dot, underscore or hyphen."]);
+        }
+        if (options.InvalidationTimeout < TimeSpan.FromMilliseconds(1) || options.InvalidationTimeout > TimeSpan.FromMinutes(1)
+            // 诊断快照最大年龄与后台轮询周期同量级，防止临时放宽在轮询故障时无限滞留。
+            || options.DiagnosticSnapshotMaxAge < TimeSpan.FromSeconds(30) || options.DiagnosticSnapshotMaxAge > TimeSpan.FromMinutes(5)
+            || options.RedisOperationTimeout < TimeSpan.FromMilliseconds(1) || options.RedisOperationTimeout > TimeSpan.FromSeconds(30)
+            || options.AutoRecoveryMaxItems is < 1 or > 100_000 || options.AutoRecoveryMaxRetryCount is < 1 or > 100)
+        {
+            throw new OptionsValidationException(CacheOptions.SectionName, typeof(CacheOptions),
+                ["Cache invalidation/Redis timeouts and recovery queue/retry limits are outside their supported bounds."]);
+        }
+
         if (options.DefaultDuration <= TimeSpan.Zero)
         {
             throw new OptionsValidationException(

@@ -60,6 +60,7 @@ public sealed class NotificationsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.NotificationsLogTimelineSources.Register(services);
         RegisterRealtimeHandlers(services);
         RegisterWorkflowNotificationProjection(services);
         RegisterDeliveryCore(services, configuration);

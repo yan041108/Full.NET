@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+/// <summary>Identity 模块后台保留清理任务；按配置批量删除过期行，失败退避重试。</summary>
 namespace Full.NET.Modules.Identity.Retention;
 
 internal sealed class IdentityOidcRetentionHostedProcessor(

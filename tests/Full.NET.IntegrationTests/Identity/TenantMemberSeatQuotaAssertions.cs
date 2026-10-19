@@ -9,6 +9,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>租户席位配额：超员拒绝与对账。</summary>
 internal static class TenantMemberSeatQuotaAssertions
 {
     public static async Task VerifyProvisionBlockedWhenSeatsAtCapacityAsync(

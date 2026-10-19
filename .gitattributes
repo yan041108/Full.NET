@@ -1,2 +1,4 @@
 # 固定上游许可包含历史行尾空格；保留原始字节，只对此文件关闭行尾空格检查。
 src/Tools/Full.NET.Ai.PdfParser/licenses/PdfPig.LICENSE.txt -text whitespace=-blank-at-eol
+# 原始验收 TRX 包含框架输出的行尾空格；保留证据原始字节与 SHA256。
+docs/verification/2026-10-19-cache-capacity/lifecycle.trx -text whitespace=-blank-at-eol

@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Host Folder Management Service。</summary>
 [TestClass]
 public sealed class HostFolderManagementServiceTests
 {

@@ -164,20 +164,12 @@ public sealed class TenantBrandingServiceTests
                     3,
                     "zh-CN"));
 
-            var services = new ServiceCollection();
-            services.AddLogging();
-            services.AddFusionCache().AsHybridCache();
-            using var provider = services.BuildServiceProvider();
-            var invalidator = TenantCacheInvalidatorTestFactory.Create(
-                provider.GetRequiredService<IFusionCache>(),
-                new TestHostEnvironment("Testing"));
             Service = new TenantBrandingService(
                 Query,
                 Command,
                 new PassThroughTransaction(),
                 clock,
-                CurrentTenant,
-                invalidator);
+                CurrentTenant);
         }
 
         public void SetupExistingBranding(int version)

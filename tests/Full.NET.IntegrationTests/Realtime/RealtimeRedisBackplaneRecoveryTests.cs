@@ -14,6 +14,7 @@ using Testcontainers.Redis;
 
 namespace Full.NET.IntegrationTests.Realtime;
 
+/// <summary>集成测试：RealtimeRedisBackplaneRecovery。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class RealtimeRedisBackplaneRecoveryTests

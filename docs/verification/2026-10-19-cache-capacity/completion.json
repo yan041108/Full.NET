@@ -1,0 +1,93 @@
+{
+  "at": "2026-10-18T22:04:29.848Z",
+  "verificationComplete": true,
+  "capacityStatus": "Capacity-not-verified",
+  "source": {
+    "pressureObject": "ae04189c45d38049f6d8d0a08f0ed3affcc444bee4ad22917b52990e15464ea6",
+    "pressureEntries": "e746155bbae5892577dd450038a058d1201653deee2aac2dceaa98bd8de27d48",
+    "deliveryObject": "a08477cc03ca7e4b77bdf9d5c4956e8b1d49a7fe573d191bb9ad98452a49ddb8",
+    "native": "9bea866fedd21a184f37867dfca16089cfa53d0ebf90f768fd85054d921782b8"
+  },
+  "formalSamples": 28,
+  "measuredRequests": 1629173,
+  "withinBudget": 26,
+  "budgetExceeded": [
+    {
+      "context": "MySql-S2",
+      "name": "closed-128"
+    },
+    {
+      "context": "MySql-S2",
+      "name": "open-1000"
+    }
+  ],
+  "lifecycle": {
+    "total": 2,
+    "executed": 2,
+    "passed": 2,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "passedButRunAborted": 0,
+    "notRunnable": 0,
+    "notExecuted": 0,
+    "disconnected": 0,
+    "warning": 0,
+    "completed": 0,
+    "inProgress": 0,
+    "pending": 0
+  },
+  "parentTerminal": {
+    "stopReason": null,
+    "at": "2026-10-18T21:45:58.1676277Z",
+    "jobAssignedBeforeResume": true,
+    "actualJobPeakBytes": 647057408,
+    "actualParentExit": 0,
+    "budgetStarted": true,
+    "actualParentBirth": "134368310427259021",
+    "jobTotalProcesses": 6724,
+    "observedViaLiveProcessHandle": true,
+    "jobFinalActiveProcesses": 0,
+    "actualParentPid": 90956,
+    "actualExecutionDeadlineUtc": "2026-10-18T22:59:05.6870000+00:00"
+  },
+  "runtimeResourcesReturned": true,
+  "actualIndependentSummary": {
+    "actualExit": 0,
+    "automaticNodeCleanupSuppressed": true,
+    "at": "2026-10-18T21:52:30.2509456+00:00",
+    "source": "Actual shell LASTEXITCODE of frozen-input independent summarizer with bounded log reader"
+  },
+  "focusedGuards": {
+    "actualExit": 0,
+    "passed": 47,
+    "failed": 0,
+    "skipped": 0
+  },
+  "rawArchive": {
+    "passed": true,
+    "rawIndexSha256": "ab8fbb9adb26aeb91a0f3c37ef9f595e3956d4155bfabb10f24c1155989f44dc",
+    "files": 154,
+    "originalRawPreserved": true,
+    "expandedBytes": 16214270,
+    "archiveSha256": "4fb7d92bc9918c7593dd06b926c170124ee2b8ce97fa97b4bc6830f446fcfe41",
+    "archiveBytes": 558102,
+    "at": "2026-10-18T21:57:22.8797990+00:00",
+    "indexSeparatorsNormalizedForArchiveLookup": true
+  },
+  "cleanup": {
+    "status": "blocked-by-command-policy",
+    "executed": false,
+    "remainingDirectories": 2,
+    "remainingBytes": 4616335344
+  },
+  "finalChecks": {
+    "scopedGitDiffCheckExit": 0,
+    "sourceAndUntrackedWhitespaceFiles": 17,
+    "whitespaceFindings": 0,
+    "nativeSourceUnchanged": true
+  },
+  "committed": false
+}

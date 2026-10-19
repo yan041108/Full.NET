@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>文档分享：令牌、过期与越权拒绝。</summary>
 internal static class DocumentShareSecurityAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";

@@ -332,6 +332,7 @@ import type {
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
   LocalePreferenceResponse,
+  LogFileList,
   LogFileSummary,
   LogFileTail,
   LoginRequest,
@@ -801,6 +802,7 @@ import {
   readK3CloudDocumentSyncResponse,
   readK3cloudListConnectionConfigsResponse,
   readLocalePreferenceResponse,
+  readLogFileList,
   readLogFileTail,
   readModuleCatalogEntryResponse,
   readModuleSelectionAnalysisResponse,
@@ -812,7 +814,6 @@ import {
   readNotificationsListProviderTypesResponse,
   readNotificationTemplateResponse,
   readObservabilityListCachePoliciesResponse,
-  readObservabilityListLogFilesResponse,
   readObservabilityListServerInstancesResponse,
   readOcrIdCardTaskResponse,
   readOcrProviderConfigResponse,
@@ -9435,13 +9436,13 @@ export async function observabilityListLogFiles(
   parameters: ObservabilityListLogFilesParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<LogFileSummary>> {
+): Promise<LogFileList> {
   const path = `/api/v1/observability/log-files`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readObservabilityListLogFilesResponse(value);
+  return readLogFileList(value);
 }
 
 export interface ObservabilityListServerInstancesParameters {

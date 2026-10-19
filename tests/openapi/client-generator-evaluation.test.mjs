@@ -7,6 +7,20 @@ import { fileURLToPath } from 'node:url';
 import { createRequire, stripTypeScriptTypes } from 'node:module';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+test('浮点数字字符串保留表示并执行实际模式约束，不接受非数字或溢出', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Duration: { type: ['null', 'number', 'string'], format: 'double',
+      pattern: '^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$' },
+    Plain: { type: 'string' }
+  } } });
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(files['guards.generated.ts'])).toString('base64')}`);
+  for (const value of [null, 0.5, '0', '0.5', '1e3']) assert.equal(readers.readDuration(value), value);
+  for (const value of ['', 'bad', 'NaN', 'Infinity', '0.5s', '1e999'])
+    assert.throws(() => readers.readDuration(value), /invalid_duration/);
+  assert.equal(readers.readPlain('0.5s'), '0.5s');
+});
 const snapshotPath = path.join(
   repositoryRoot,
   'contracts',

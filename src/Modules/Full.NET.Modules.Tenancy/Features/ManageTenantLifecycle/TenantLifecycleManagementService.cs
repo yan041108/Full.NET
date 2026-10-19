@@ -7,6 +7,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Full.NET.Modules.Tenancy.Persistence;
 
+/// <summary>Tenancy 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantLifecycle;
 
 internal sealed class TenantLifecycleManagementService(
@@ -16,7 +17,6 @@ internal sealed class TenantLifecycleManagementService(
     HostTenantQueryService tenantQueries,
     TenantCommercialReactivateGate commercialReactivateGate,
     IHostUserDirectory users,
-    TenantCacheInvalidator cacheInvalidator,
     IClock clock)
 {
     public async Task<Result<TenantSummary>> SuspendAsync(
@@ -28,7 +28,6 @@ internal sealed class TenantLifecycleManagementService(
                 token => SuspendCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateIfSuccessAsync(result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -41,7 +40,6 @@ internal sealed class TenantLifecycleManagementService(
                 token => ReactivateCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateIfSuccessAsync(result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -54,7 +52,6 @@ internal sealed class TenantLifecycleManagementService(
                 token => CloseCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateIfSuccessAsync(result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -77,7 +74,6 @@ internal sealed class TenantLifecycleManagementService(
                 token => TransferOwnershipCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateIfSuccessAsync(result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -223,20 +219,6 @@ internal sealed class TenantLifecycleManagementService(
 
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private async Task InvalidateIfSuccessAsync(
-        Result<TenantSummary> result,
-        CancellationToken cancellationToken)
-    {
-        if (result.IsSuccess && result.Value is { } tenant)
-        {
-            await cacheInvalidator.InvalidateAfterCommitAsync(
-                    tenant.Id,
-                    tenant.Domain,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
     }
 
     private static Result<TenantSummary> NotFound() =>

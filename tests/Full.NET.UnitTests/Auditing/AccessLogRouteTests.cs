@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Access Log Route。</summary>
 [TestClass]
 public sealed class AccessLogRouteTests
 {

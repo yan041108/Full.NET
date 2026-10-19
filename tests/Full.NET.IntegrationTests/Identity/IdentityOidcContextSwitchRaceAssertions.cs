@@ -9,6 +9,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：并发切换与吊销竞态。</summary>
 internal static class IdentityOidcContextSwitchRaceAssertions
 {
     public static async Task VerifyAsync(

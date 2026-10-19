@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 
 namespace Full.NET.UnitTests.Results;
 
+/// <summary>单元测试（Results）：Result。</summary>
 [TestClass]
 public sealed class ResultTests
 {

@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>租户成员：加入、移除与活跃租户守卫。</summary>
 internal static class TenantMembershipAssertions
 {
     public static async Task VerifyAsync(

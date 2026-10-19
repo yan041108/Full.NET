@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：应用吊销对中心 SSO 会话的影响。</summary>
 internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
 {
     public static async Task VerifyAsync(

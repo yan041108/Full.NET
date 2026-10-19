@@ -1,3 +1,4 @@
+// Host 侧 OIDC 用户授权记录管理 API；查询与吊销已签发的 OpenIddict 授权。
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>OidcAuthorizations管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
 
 internal static class Endpoint

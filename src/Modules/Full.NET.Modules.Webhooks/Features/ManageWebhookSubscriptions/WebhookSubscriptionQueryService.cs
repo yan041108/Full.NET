@@ -4,6 +4,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Webhooks.Contracts;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
 
+/// <summary>Webhooks 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 
 internal sealed class WebhookSubscriptionQueryService(

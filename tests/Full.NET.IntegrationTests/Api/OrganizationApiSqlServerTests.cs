@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Organization;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：OrganizationApiSqlServer。</summary>
 [TestClass]
 public sealed class OrganizationApiSqlServerTests
 {

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageOidcClients;
 
 internal sealed class OidcClientQueryService(

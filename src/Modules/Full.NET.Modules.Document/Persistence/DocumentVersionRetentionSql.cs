@@ -19,10 +19,10 @@ internal static class DocumentVersionRetentionSql
         """
         INSERT INTO fn_document_version_deletion_audit
             (Id, DocumentItemId, VersionId, VersionNumber, FileId, ContentHash, SizeBytes,
-             UploadedByUserId, VersionCreatedAtUtc, DeletedAtUtc, DeletedByUserId, DeletedBySourceKey)
+             UploadedByUserId, VersionCreatedAtUtc, DeletedAtUtc, DeletedByUserId, DeletedBySourceKey, CorrelationJson)
         VALUES
             (@Id, @DocumentItemId, @VersionId, @VersionNumber, @FileId, @ContentHash, @SizeBytes,
-             @UploadedByUserId, @VersionCreatedAtUtc, @DeletedAtUtc, @DeletedByUserId, @DeletedBySourceKey)
+             @UploadedByUserId, @VersionCreatedAtUtc, @DeletedAtUtc, @DeletedByUserId, @DeletedBySourceKey, @CorrelationJson)
         """,
         SqlDataScope.HostOnly);
 

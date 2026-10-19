@@ -8,6 +8,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：UuidBinaryContractMigration。</summary>
 [TestClass]
 public sealed class UuidBinaryContractMigrationTests
 {

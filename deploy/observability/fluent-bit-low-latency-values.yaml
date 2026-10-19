@@ -1,0 +1,32 @@
+# 可选低延迟配置：在 fluent-bit-values.yaml 之后叠加；固定 Fluent Bit 4.1.1。
+# 增加读取进度检查频率，会增加文件系统调用；文件规模与 CPU 需按部署环境验证。
+# 仅覆盖两个完整字符串块，路由、可信标签、输出与持久缓冲策略继续继承基础配置。
+config:
+  service: |
+    [SERVICE]
+        Flush         0.2
+        Daemon        Off
+        Log_Level     info
+        Parsers_File  /fluent-bit/etc/parsers.conf
+        Parsers_File  /fluent-bit/etc/conf/custom_parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        storage.path  /var/fluent-bit/buffer
+        storage.sync  normal
+        storage.checksum off
+        storage.backlog.mem_limit 64MB
+        storage.max_chunks_up 128
+  inputs: |
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*fullnet*.log
+        Multiline.Parser  docker, cri
+        DB                /var/fluent-bit/tail.db
+        Mem_Buf_Limit     48MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+        Progress_Check_Interval 0
+        Progress_Check_Interval_Nsec 200000000
+        storage.type      filesystem

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Totp Algorithm。</summary>
 [TestClass]
 public sealed class TotpAlgorithmTests
 {

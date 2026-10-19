@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.DataApproval;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：DataApprovalRecoveryRestartApiMySql。</summary>
 [TestClass]
 public sealed class DataApprovalRecoveryRestartApiMySqlTests
 {

@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Data.Dapper.Inbox;
 
+/// <summary>Inbox 幂等领取与状态迁移 SQL；Claim 与业务事务分离，由消费者租约续期。</summary>
 internal static class InboxSql
 {
     internal const string StatusProcessing = "processing";

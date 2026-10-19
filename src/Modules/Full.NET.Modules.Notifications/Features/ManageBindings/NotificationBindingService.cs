@@ -295,6 +295,7 @@ internal sealed class NotificationBindingService(
                     ? NotificationPlatformSql.InsertDomainAuditHost
                     : NotificationPlatformSql.InsertDomainAuditTenant,
                 NotificationPlatformSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("OperationKey", "binding.publish"),
                     ("ActorUserId", actorUserId),

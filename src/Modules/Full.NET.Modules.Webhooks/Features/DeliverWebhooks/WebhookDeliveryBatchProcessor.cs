@@ -1,3 +1,4 @@
+// Webhook 投递批处理器；领取出站记录、重试与毒消息隔离。
 using System.Net;
 using System.Net.Http.Headers;
 using Full.NET.Abstractions.Messaging;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 
+/// <summary>Webhook 投递批处理器；领取出站记录、重试与毒消息隔离。</summary>
 internal sealed class WebhookDeliveryBatchProcessor(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

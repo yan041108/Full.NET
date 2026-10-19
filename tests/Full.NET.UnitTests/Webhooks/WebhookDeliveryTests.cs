@@ -22,6 +22,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Webhooks;
 
+/// <summary>单元测试（Webhook）：Webhook Delivery。</summary>
 [TestClass]
 public sealed class WebhookDeliveryTests
 {

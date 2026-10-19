@@ -2,6 +2,9 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
 
+/// <summary>
+/// 租户模块 Dapper 语句；Global 查询只服务准入、种子幂等与已授权切换，业务 CRUD 仍走租户或 Host 作用域。
+/// </summary>
 internal static class TenantSql
 {
     public static readonly SqlStatement FindByIdentifier = new(
@@ -41,7 +44,7 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
-    // 按 ID 的 Global 查询只服务于宿主管理员上下文切换，调用方必须先通过权限策略。
+    // 显式 ID 的全局权威查询用于建立租户准入上下文及已授权的上下文切换；不能用于绕过业务权限。
     public static readonly SqlStatement FindById = new(
         "tenancy.find_by_explicit_id",
         """

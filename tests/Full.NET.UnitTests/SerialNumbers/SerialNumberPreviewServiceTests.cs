@@ -3,6 +3,7 @@ using Full.NET.Modules.SerialNumbers.Features.ManageHostSerialRules;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Number Preview Service。</summary>
 [TestClass]
 public sealed class SerialNumberPreviewServiceTests
 {

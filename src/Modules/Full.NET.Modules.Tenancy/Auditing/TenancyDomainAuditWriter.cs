@@ -42,6 +42,7 @@ internal sealed class TenancyDomainAuditWriter(
                 ["ActorUserId"] = auditWrite.ActorUserId,
                 ["ActorDisplayName"] = auditWrite.ActorDisplayName,
                 ["TraceId"] = traceId,
+                ["CorrelationJson"] = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson(),
                 ["DiffSummaryJson"] = auditWrite.DiffSummaryJson,
                 ["OccurredAtUtc"] = clock.UtcNow,
             };

@@ -3,6 +3,7 @@ using System.Text.Json;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 RAG：Feedback Admission。</summary>
 [TestClass]
 public sealed class RagFeedbackAdmissionTests
 {

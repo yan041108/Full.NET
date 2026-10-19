@@ -3,6 +3,7 @@ using Full.NET.Data.CodeGeneration.Naming;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Contract Name Validator。</summary>
 [TestClass]
 public sealed class ContractNameValidatorTests
 {

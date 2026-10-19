@@ -1,9 +1,11 @@
+// 架构扫描器：SQL 字符串拼接与参数化构造违规。
 using System.Reflection;
 using System.Reflection.Emit;
 using Full.NET.Data.Abstractions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：SQL 字符串拼接与参数化构造违规。</summary>
 internal static class SqlStatementConstructionScanner
 {
     private static readonly OpCode[] OneByteOpCodes = new OpCode[0x100];

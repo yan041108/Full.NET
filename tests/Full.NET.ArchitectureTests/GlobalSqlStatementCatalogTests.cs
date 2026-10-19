@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：全局 SQL 语句目录与模块内 SQL 登记的一致性门禁。</summary>
 [TestClass]
 public sealed class GlobalSqlStatementCatalogTests
 {

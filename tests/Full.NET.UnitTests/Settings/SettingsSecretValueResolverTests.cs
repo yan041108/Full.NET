@@ -6,6 +6,7 @@ using Full.NET.Modules.Settings.Persistence;
 
 namespace Full.NET.UnitTests.Settings;
 
+/// <summary>单元测试（设置）：Settings Secret Value Resolver。</summary>
 [TestClass]
 public sealed class SettingsSecretValueResolverTests
 {

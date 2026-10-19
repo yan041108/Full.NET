@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Routing;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 
+/// <summary>OidcToken 特性 HTTP 端点注册。</summary>
 namespace Full.NET.Modules.Identity.Features.OidcToken;
 
 internal static class Endpoint

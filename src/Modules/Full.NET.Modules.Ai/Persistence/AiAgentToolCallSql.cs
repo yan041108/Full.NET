@@ -36,11 +36,11 @@ internal static class AiAgentToolCallSql
         INSERT INTO fn_ai_agent_tool_call
             (Id, TenantId, ActorUserId, ToolName, PermissionCode, StatusKey, DurationMs,
              InputSummary, OutputSummary, ErrorCode, TraceId, RunId, StepId, ArgumentsHash,
-             ApprovalId, ReceiptId, CreatedAtUtc)
+             ApprovalId, ReceiptId, CreatedAtUtc, CorrelationJson)
         VALUES
             (@Id, @TenantId, @ActorUserId, @ToolName, @PermissionCode, @StatusKey, @DurationMs,
              @InputSummary, @OutputSummary, @ErrorCode, @TraceId, @RunId, @StepId, @ArgumentsHash,
-             @ApprovalId, @ReceiptId, @CreatedAtUtc)
+             @ApprovalId, @ReceiptId, @CreatedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

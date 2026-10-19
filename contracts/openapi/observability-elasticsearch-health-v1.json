@@ -1,14 +1,21 @@
 {
   "id": "observability-elasticsearch-health-v1",
   "version": 1,
-  "description": "Elasticsearch 日志管道健康 HTTP 契约冻结夹具。",
+  "description": "日志入口与 Elasticsearch 查询配置 HTTP 契约，不表示远端投递确认。",
   "paths": [
     {
       "path": "/api/v1/observability/elasticsearch-log-pipeline/health",
       "operations": [
-        { "method": "GET", "permission": "observability.elasticsearch.read", "successStatus": 200 }
+        { "method": "GET", "permission": "observability.elasticsearch.read", "successStatus": 200, "responseSchema": "ElasticsearchLogPipelineHealthResponse" }
       ]
     }
   ],
-  "schemas": {}
+  "schemas": {
+    "ElasticsearchLogPipelineHealthResponse": {
+      "properties": [
+        "deliveryStatus", "deliveryConfirmationBoundary", "elasticsearchQueryEnabled",
+        "elasticsearchEndpoint", "elasticsearchIndexPattern", "openTelemetryOtlpEndpointConfigured"
+      ]
+    }
+  }
 }

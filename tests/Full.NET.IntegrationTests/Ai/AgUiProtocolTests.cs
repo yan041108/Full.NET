@@ -22,6 +22,7 @@ public sealed class AgUiProtocolSqlServerTests
     }
 }
 
+/// <summary>集成测试：AgUiProtocolMySql。</summary>
 [TestClass]
 public sealed class AgUiProtocolMySqlTests
 {

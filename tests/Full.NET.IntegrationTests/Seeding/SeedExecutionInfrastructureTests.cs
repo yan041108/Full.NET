@@ -12,6 +12,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Seeding;
 
+/// <summary>集成测试：SeedExecutionInfrastructure。</summary>
 [TestClass]
 public sealed class SeedExecutionInfrastructureTests
 {

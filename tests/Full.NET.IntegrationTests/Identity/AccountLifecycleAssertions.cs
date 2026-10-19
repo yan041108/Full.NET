@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>账户生命周期：注册、锁定与注销路径。</summary>
 internal static class AccountLifecycleAssertions
 {
     public static async Task VerifyAsync(

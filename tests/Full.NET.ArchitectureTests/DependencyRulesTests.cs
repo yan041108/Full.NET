@@ -16,6 +16,7 @@ using NetArchTest.Rules;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：模块、Host 与 BuildingBlocks 的项目依赖图与禁止引用规则。</summary>
 [TestClass]
 public sealed class DependencyRulesTests
 {
@@ -428,7 +429,6 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantSubscriptionPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingResponse).FullName,
-                typeof(Full.NET.Modules.Tenancy.Contracts.TenantChangedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBackfillRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBackfillResponse).FullName,
@@ -439,7 +439,6 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementTypes).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantLifecycleStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantPackageSummary).FullName,
-                typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisioningStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisioningSteps).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantQuotaDefaults).FullName,

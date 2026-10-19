@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Seeding.Dapper;
 
+/// <summary>写入 fn_seed_run / fn_seed_run_item 审计行；使用显式 SQL 与 Dapper。</summary>
 internal sealed class SeedExecutionStore(IOptions<DatabaseOptions> databaseOptions)
     : ISeedExecutionStore
 {

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Full Net Accept Language Header Request Culture Provider。</summary>
 [TestClass]
 public sealed class FullNetAcceptLanguageHeaderRequestCultureProviderTests
 {

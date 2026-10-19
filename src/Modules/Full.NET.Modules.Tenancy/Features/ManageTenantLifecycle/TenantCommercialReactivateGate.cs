@@ -1,3 +1,4 @@
+// 租户商业复活门禁；欠费或停用租户在复活前必须通过账单校验。
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantLifecycle;
 
+/// <summary>租户商业复活门禁；欠费或停用租户在复活前必须通过账单校验。</summary>
 internal sealed class TenantCommercialReactivateGate(
     IOptions<TenancyCommercialOptions> commercialOptions,
     TenantEntitlementQueryService entitlementQueries,

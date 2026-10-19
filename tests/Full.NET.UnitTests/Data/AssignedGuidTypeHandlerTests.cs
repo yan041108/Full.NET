@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Assigned Guid Type Handler。</summary>
 [TestClass]
 public sealed class AssignedGuidTypeHandlerTests
 {

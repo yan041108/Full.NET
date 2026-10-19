@@ -336,6 +336,7 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.cryptographyGmKeys.title',
     captionKey: 'navigation.cryptographyGmKeys.caption'
   }],
+  ['log-timeline', { titleKey: 'navigation.logTimeline.title', captionKey: 'navigation.logTimeline.caption' }],
   ['operation-logs', {
     titleKey: 'navigation.operationLogs.title',
     captionKey: 'navigation.operationLogs.caption'

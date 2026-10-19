@@ -82,6 +82,7 @@ internal sealed class HostJobTriggerService(
         await commandExecutor.ExecuteAsync(
                 JobSql.InsertExecution,
                 JobsSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", executionId),
                     ("JobDefinitionId", definitionId),
                     ("Status", JobExecutionStatuses.Pending),

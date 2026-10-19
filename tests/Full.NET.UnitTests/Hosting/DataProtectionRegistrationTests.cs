@@ -7,6 +7,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Data Protection Registration。</summary>
 [TestClass]
 public sealed class DataProtectionRegistrationTests
 {

@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：My Inbox Query Service。</summary>
 [TestClass]
 public sealed class MyInboxQueryServiceTests
 {

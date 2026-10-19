@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试：Provider HTTP 遥测只统计传输尝试，不把 HTTP 成功当作模型或结算成功。</summary>
 [TestClass, DoNotParallelize]
 public sealed class AiProviderTelemetryTests
 {

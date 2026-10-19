@@ -215,7 +215,7 @@ public sealed record MySqlBinlogCoordinates(string File, long Position)
     }
 }
 
-/// <summary>SQL Server CDC commit LSN。</summary>
+/// <summary>SQL Server CDC 提交 LSN 坐标。</summary>
 /// <param name="CommitLsn">三段式十六进制 LSN 字符串，格式为 AAAAAAAA:BBBBBBBB:CCCC。</param>
 public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
 {

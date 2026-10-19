@@ -5,6 +5,7 @@ using Full.NET.Modules.Files.Features.HostFileReferenceClaims;
 using Full.NET.Modules.Files.Persistence;
 using Microsoft.Extensions.Options;
 
+/// <summary>后台对账或补偿执行器；单飞与租约由调用方保证。</summary>
 namespace Full.NET.Modules.Files.Reconciliation;
 
 internal sealed record PendingHostFileReferenceClaimReconciliationResult(

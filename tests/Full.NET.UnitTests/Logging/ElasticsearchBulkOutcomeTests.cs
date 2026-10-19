@@ -2,6 +2,7 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Elasticsearch Bulk Outcome。</summary>
 [TestClass]
 public sealed class ElasticsearchBulkOutcomeTests
 {

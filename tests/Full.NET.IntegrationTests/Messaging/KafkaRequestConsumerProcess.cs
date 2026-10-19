@@ -28,7 +28,7 @@ internal sealed class KafkaRequestConsumerProcess : IAsyncDisposable
 
     public static async Task<KafkaRequestConsumerProcess> StartAsync(KafkaLogTlsFixture kafka,
         KafkaRequestElasticsearchFixture es, string general, string priority, string group, string dlq,
-        string directory, CancellationToken token)
+        string directory, CancellationToken token, int batchMaxRecords = 8)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -37,7 +37,7 @@ internal sealed class KafkaRequestConsumerProcess : IAsyncDisposable
         start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Full.NET.Host.LogConsumer.dll"));
         foreach (var (key, value) in new Dictionary<string, string>
         {
-            ["EXPERIMENTAL"] = "true", ["BATCH_MAX_RECORDS"] = "8",
+            ["EXPERIMENTAL"] = "true", ["BATCH_MAX_RECORDS"] = batchMaxRecords.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["BOOTSTRAP_SERVERS"] = kafka.BootstrapServers, ["TOPICS"] = general + "," + priority,
             ["GROUP_ID"] = group, ["DLQ_TOPIC"] = dlq, ["ROUTES"] = "1:30", ["MAX_EVENT_BYTES"] = "16384",
             ["ES_URL"] = es.Url.ToString(), ["ES_API_KEY"] = es.ApiKey!, ["ES_CA_PATH"] = es.CaPath!,

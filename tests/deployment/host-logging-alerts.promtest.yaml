@@ -1,0 +1,62 @@
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_logging_events_dropped_total{job="api",instance="api-1",channel="high_priority"}'
+        values: '0 1 2 3 4 5 5 5 5 5 5 5'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetPriorityLogDrop
+        exp_alerts:
+          - exp_labels: {job: api, instance: api-1, channel: high_priority, severity: critical}
+            exp_annotations: {summary: Priority log queue drops detected}
+      - eval_time: 11m
+        alertname: FullNetPriorityLogDrop
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_logging_worker_state{job="api",instance="api-1",channel="general"}'
+        values: '1 4 4 1'
+      - series: 'fullnet_logging_queue_oldest_age_seconds{job="api",instance="api-2",channel="high_priority"}'
+        values: '0 31 32 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetLogWorkerUnavailable
+        exp_alerts:
+          - exp_labels: {job: api, instance: api-1, channel: general, severity: critical}
+            exp_annotations: {summary: Host log worker faulted or pending delivery stalled}
+          - exp_labels: {job: api, instance: api-2, channel: high_priority, severity: critical}
+            exp_annotations: {summary: Host log worker faulted or pending delivery stalled}
+      - eval_time: 3m
+        alertname: FullNetLogWorkerUnavailable
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_auditing_microbatch_queue_depth{job="api",instance="api-1"}'
+        values: '0 8 8 8 8 8 8 0'
+      - series: 'fullnet_auditing_microbatch_queue_capacity{job="api",instance="api-1"}'
+        values: '10 10 10 10 10 10 10 10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FullNetAuditB1QueuePressure
+        exp_alerts:
+          - exp_labels: {job: api, instance: api-1, severity: warning}
+            exp_annotations: {summary: Audit B1 micro-batch queue pressure}
+      - eval_time: 7m
+        alertname: FullNetAuditB1QueuePressure
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_auditing_microbatch_failed_total{job="api",instance="api-1",outcome="infrastructure"}'
+        values: '0 1 2 3 4 5 6 7 7 7 7 7 7 7'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FullNetAuditB1WaitOrFailure
+        exp_alerts:
+          - exp_labels: {job: api, instance: api-1, outcome: infrastructure, severity: critical}
+            exp_annotations: {summary: Audit B1 wait/failure regression}
+      - eval_time: 13m
+        alertname: FullNetAuditB1WaitOrFailure
+        exp_alerts: []

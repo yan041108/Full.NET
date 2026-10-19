@@ -2,6 +2,7 @@ using Full.NET.Modules.Ocr.Domain;
 
 namespace Full.NET.UnitTests.Ocr;
 
+/// <summary>单元测试（OCR）：Ocr Id Card Masking。</summary>
 [TestClass]
 public sealed class OcrIdCardMaskingTests
 {

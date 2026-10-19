@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：File Storage Provider Catalog Service。</summary>
 [TestClass]
 public sealed class FileStorageProviderCatalogServiceTests
 {

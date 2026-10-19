@@ -6,6 +6,7 @@ using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Persistence;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
@@ -18,7 +19,8 @@ internal sealed class AuditWriteBatchWriter(
     ICommandExecutor commandExecutor,
     IClock clock,
     IIdGenerator idGenerator,
-    ILogger<AuditWriteBatchWriter> logger)
+    ILogger<AuditWriteBatchWriter> logger,
+    IOptionsMonitor<AuditMicroBatchOptions> options)
 {
     /// <summary>
     /// 将一批 B1 信封写入审计库；同批各表共享一次事务。失败时二分隔离毒记录。
@@ -33,50 +35,67 @@ internal sealed class AuditWriteBatchWriter(
             return;
         }
 
-        try
-        {
-            await WriteMicroBatchCoreAsync(envelopes, cancellationToken).ConfigureAwait(false);
-            CompleteAll(envelopes, succeeded: true, poisoned: false);
-            AuditMicroBatchTelemetry.RecordFlushed(
-                envelopes.Count,
-                envelopes.Sum(item => item.EstimatedBytes));
-        }
+        var limits = options.CurrentValue;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(limits.BatchExecutionTimeout);
+        var remainingAttempts = limits.MaxIsolationAttempts;
+        try { await WriteAsync(envelopes).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
-            // 停机或超时取消时必须解除请求等待，保持 B1 fail-open。
+            // 等待实际可取消事务退出；不以取消等待代替取消数据库操作。
+            AuditMicroBatchTelemetry.RecordFailed(cancellationToken.IsCancellationRequested ? "cancelled" : "batch_timeout");
+            if (cancellationToken.IsCancellationRequested) throw;
+        }
+        finally
+        {
+            // 深层取消或隔离预算耗尽也必须终结尚未执行的右侧分支。
             CompleteAll(envelopes, succeeded: false, poisoned: false);
-            throw;
-        }
-        catch (Exception)
-        {
-            logger.LogWarning(
-                "B1 micro-batch of {Count} audit rows failed; isolating poison records.",
-                envelopes.Count);
-            AuditMicroBatchTelemetry.RecordFailed("batch");
-            await IsolatePoisonAsync(envelopes, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task IsolatePoisonAsync(
-        IReadOnlyList<AuditWriteEnvelope> envelopes,
-        CancellationToken cancellationToken)
-    {
-        if (envelopes.Count == 1)
-        {
-            // 单条仍失败：标记为毒记录并 fail-open，不写 Outbox。
-            AuditMicroBatchTelemetry.RecordPoisoned();
-            CompleteAll(envelopes, succeeded: false, poisoned: true);
-            logger.LogWarning(
-                "Poisoned B1 audit row of kind {Kind} was dropped after isolation.",
-                envelopes[0].Kind);
-            return;
         }
 
-        var mid = envelopes.Count / 2;
-        var left = envelopes.Take(mid).ToArray();
-        var right = envelopes.Skip(mid).ToArray();
-        await WriteMicroBatchAsync(left, cancellationToken).ConfigureAwait(false);
-        await WriteMicroBatchAsync(right, cancellationToken).ConfigureAwait(false);
+        async Task WriteAsync(IReadOnlyList<AuditWriteEnvelope> rows)
+        {
+            deadline.Token.ThrowIfCancellationRequested();
+            if (remainingAttempts-- <= 0)
+            {
+                AuditMicroBatchTelemetry.RecordRejected("isolation_budget");
+                CompleteAll(rows, succeeded: false, poisoned: false);
+                return;
+            }
+            try
+            {
+                await WriteMicroBatchCoreAsync(rows, deadline.Token).ConfigureAwait(false);
+                CompleteAll(rows, succeeded: true, poisoned: false);
+                AuditMicroBatchTelemetry.RecordFlushed(rows.Count, rows.Sum(item => item.EstimatedBytes));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception exception) when (deadline.IsCancellationRequested)
+            {
+                // 驱动响应取消时可能返回普通数据库异常；先归一化取消，避免吞掉调用方取消或误标毒记录。
+                throw new OperationCanceledException("B1 audit batch was cancelled.", exception, deadline.Token);
+            }
+            catch (DataCommandException exception) when (exception.Kind is
+                DataCommandFailureKind.InvalidValue or DataCommandFailureKind.UniqueConstraint)
+            {
+                AuditMicroBatchTelemetry.RecordFailed("invalid_row");
+                if (rows.Count == 1)
+                {
+                    AuditMicroBatchTelemetry.RecordPoisoned();
+                    CompleteAll(rows, succeeded: false, poisoned: true);
+                    return;
+                }
+                var middle = rows.Count / 2;
+                await WriteAsync(rows.Take(middle).ToArray()).ConfigureAwait(false);
+                await WriteAsync(rows.Skip(middle).ToArray()).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // 连接、死锁、超时及未知/提交结果不明的故障不能当作毒记录重复提交。
+                remainingAttempts = 0;
+                AuditMicroBatchTelemetry.RecordFailed("infrastructure");
+                CompleteAll(rows, succeeded: false, poisoned: false);
+                logger.LogWarning("B1 audit batch failed open without isolation; {Count} rows were affected.", rows.Count);
+            }
+        }
     }
 
     private async Task WriteMicroBatchCoreAsync(
@@ -160,11 +179,11 @@ internal sealed class AuditWriteBatchWriter(
         int exceptionCount,
         int outboundCount)
     {
-        // Operation≈14、Exception≈10、Outbound≈13，外加共享 OccurredAtUtc。
+        // 每行包含事件发生时间和关联快照；预算必须与实际 SQL 参数数一致。
         var estimated =
-            (operationCount == 0 ? 0 : 1 + operationCount * 14)
-            + (exceptionCount == 0 ? 0 : 1 + exceptionCount * 10)
-            + outboundCount * 13;
+            operationCount * 16
+            + exceptionCount * 12
+            + outboundCount * 14;
         if (estimated > AuditWriteBatchSql.MaxSqlParameters)
         {
             throw new InvalidOperationException(

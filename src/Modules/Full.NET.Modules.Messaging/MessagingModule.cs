@@ -49,6 +49,7 @@ public sealed class MessagingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.MessagingLogTimelineSources.Register(services);
         RegisterMessagingCore(services);
         MessagingNativeKafkaReplayTestHarness.RegisterIfTesting(services, configuration);
         services.AddOptions<DeliveryCutoverOptions>()

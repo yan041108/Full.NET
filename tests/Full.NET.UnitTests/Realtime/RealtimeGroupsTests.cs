@@ -2,6 +2,7 @@ using Full.NET.Realtime;
 
 namespace Full.NET.UnitTests.Realtime;
 
+/// <summary>单元测试（实时通信）：Realtime Groups。</summary>
 [TestClass]
 public sealed class RealtimeGroupsTests
 {

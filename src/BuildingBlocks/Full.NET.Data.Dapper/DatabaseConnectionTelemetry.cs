@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>数据库准入获取结果；Rejected/Timeout 映射为容量异常而非数据库错误。</summary>
 internal enum DatabaseConnectionAcquireOutcome
 {
     Success,
@@ -14,6 +15,13 @@ internal enum DatabaseConnectionAcquireOutcome
     Failure,
 }
 
+/// <summary>真实连接生命周期阶段；持有时间包含业务使用与释放，不等同于 SQL 查询时间。</summary>
+internal enum DatabaseConnectionPhase { Admission, Open, Hold }
+
+/// <summary>调用方选择的准入模式；不表示实际取得了某个预留池的许可。</summary>
+internal enum DatabaseConnectionAccessMode { Normal, Critical, Authorization }
+
+/// <summary>连接准入等待、持有与排队深度的 OpenTelemetry 指标。</summary>
 internal sealed class DatabaseConnectionTelemetry : IDisposable
 {
     internal const string MeterName = "fullnet.data.connection_pool";
@@ -23,6 +31,7 @@ internal sealed class DatabaseConnectionTelemetry : IDisposable
     private readonly Meter _meter = new(MeterName);
     private readonly Histogram<double> _wait;
     private readonly Histogram<double> _hold;
+    private readonly Histogram<double> _phaseDuration;
     private readonly Counter<long> _acquisitions;
     private long _inUse;
     private long _queued;
@@ -41,6 +50,10 @@ internal sealed class DatabaseConnectionTelemetry : IDisposable
             "fullnet.db.connection.hold",
             unit: "s",
             description: "数据库连接成功打开到实际释放的持有秒数。");
+        _phaseDuration = _meter.CreateHistogram<double>(
+            "fullnet.db.connection.phase.duration",
+            unit: "s",
+            description: "按调用方准入模式记录的准入、连接打开与持有阶段耗时，包含失败和取消的实际尝试。");
         _acquisitions = _meter.CreateCounter<long>(
             "fullnet.db.connection.acquire",
             unit: "{acquisition}",
@@ -74,6 +87,27 @@ internal sealed class DatabaseConnectionTelemetry : IDisposable
             { "host_role", _hostRole },
         };
         _hold.Record(elapsed.TotalSeconds, tags);
+    }
+
+    /// <summary>阶段直方图不按成功/失败拆系列，首次失败不会丢失已有阶段的前置基线。</summary>
+    internal void RecordPhase(DatabaseConnectionPhase phase, DatabaseConnectionAccessMode accessMode, TimeSpan elapsed)
+    {
+        var tags = CreateBaseTags();
+        tags.Add("phase", phase switch
+        {
+            DatabaseConnectionPhase.Admission => "admission",
+            DatabaseConnectionPhase.Open => "open",
+            DatabaseConnectionPhase.Hold => "hold",
+            _ => "unknown",
+        });
+        tags.Add("access_mode", accessMode switch
+        {
+            DatabaseConnectionAccessMode.Authorization => "authorization",
+            DatabaseConnectionAccessMode.Critical => "critical",
+            DatabaseConnectionAccessMode.Normal => "normal",
+            _ => "unknown",
+        });
+        _phaseDuration.Record(elapsed.TotalSeconds, tags);
     }
 
     internal void PermitAcquired() => Interlocked.Increment(ref _inUse);

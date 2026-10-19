@@ -2,7 +2,7 @@ groups:
   - name: fullnet-high-concurrency
     rules:
       - alert: FullNetErrorCriticalStorm
-        expr: sum(rate(log_events_total{level=~"Error|Critical",application="Full.NET"}[5m])) > 5
+        expr: sum by (job, instance) (rate(fullnet_logging_events_offered_total{level=~"Error|Critical"}[5m])) > 5
         for: 5m
         labels:
           severity: critical
@@ -10,7 +10,7 @@ groups:
           summary: Full.NET Error/Critical log storm
 
       - alert: FullNetBestEffortLogDrop
-        expr: increase(fullnet_async_log_dropped_total{stream="best_effort"}[5m]) > 0
+        expr: increase(fullnet_logging_events_dropped_total{channel="general"}[5m]) > 0
         for: 2m
         labels:
           severity: warning
@@ -18,12 +18,36 @@ groups:
           summary: B2/Best Effort log queue drops detected
 
       - alert: FullNetPriorityLogDrop
-        expr: increase(fullnet_async_log_dropped_total{stream="priority"}[5m]) > 0
+        expr: increase(fullnet_logging_events_dropped_total{channel="high_priority"}[5m]) > 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: Priority log queue drops detected
+
+      - alert: FullNetLogWorkerUnavailable
+        expr: fullnet_logging_worker_state == 4 or fullnet_logging_queue_oldest_age_seconds > 30
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host log worker faulted or pending delivery stalled
+
+      - alert: FullNetLogAdmissionBudgetRejected
+        expr: increase(fullnet_logging_events_oversize_total[5m]) > 0 or increase(fullnet_logging_events_byte_budget_dropped_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host log event or byte budget rejected records
+
+      - alert: FullNetLocalLogFileFailure
+        expr: increase(fullnet_logging_local_file_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Local log file write or maintenance failed
 
       - alert: FullNetFluentBitForwardQueueCapacityLow
         expr: fluentbit_output_chunk_available_capacity_percent{name=~"fullnet_priority_forward|fullnet_b2_forward"} < 20
@@ -86,7 +110,7 @@ groups:
           summary: Fluent Bit best-effort output discarded log records
 
       - alert: FullNetAuditB1QueuePressure
-        expr: fullnet_audit_microbatch_queue_depth > 3000
+        expr: fullnet_auditing_microbatch_queue_depth / fullnet_auditing_microbatch_queue_capacity > 0.75
         for: 5m
         labels:
           severity: warning
@@ -136,8 +160,9 @@ groups:
 
       - alert: FullNetAuditB1WaitOrFailure
         expr: |
-          increase(fullnet_audit_microbatch_failures_total[5m]) > 0
-          or histogram_quantile(0.99, sum(rate(fullnet_audit_microbatch_wait_seconds_bucket[5m])) by (le)) > 1
+          increase(fullnet_auditing_microbatch_failed_total[5m]) > 0
+          or increase(fullnet_auditing_microbatch_rejected_total[5m]) > 0
+          or histogram_quantile(0.99, sum by (le, job, instance) (rate(fullnet_auditing_microbatch_wait_seconds_bucket[5m]))) > 1
         for: 5m
         labels:
           severity: critical
@@ -145,12 +170,58 @@ groups:
           summary: Audit B1 wait/failure regression
 
       - alert: FullNetCacheInvalidationStaleWindow
-        expr: histogram_quantile(0.99, sum(rate(fullnet_cache_invalidation_duration_ms_bucket[5m])) by (le)) > 500
+        expr: histogram_quantile(0.99, sum(rate(fullnet_cache_invalidation_duration_milliseconds_bucket[5m])) by (le)) > 500
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: Cache invalidation P99 / stale window elevated
+          summary: Cache invalidation P99 exceeds the publisher latency budget
+          description: This measures local/shared deletion and publication latency, not remote-node acknowledgement or business data freshness.
+
+      - alert: FullNetCacheInvalidationFailures
+        expr: sum(increase(fullnet_cache_invalidation_failures_total[5m])) by (scope) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache invalidation failures observed
+          description: Check the originating operation and Redis/Backplane readiness. Committed writes remain committed; C0 decisions must use authority.
+
+      - alert: FullNetCacheBackplaneCircuitOpens
+        expr: sum(increase(fullnet_cache_backplane_circuit_transitions_total{state="open"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache Backplane circuit opened recently
+          description: This is an observed transition, not the current circuit state. Confirm subscription/publication recovery and missed-message TTL convergence.
+
+      - alert: FullNetCacheDistributedCircuitOpens
+        expr: sum(increase(fullnet_cache_runtime_events_total{layer="l2",operation="circuit",result="open"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache L2 circuit opened recently
+          description: Confirm Redis readiness and DB refill pressure; a later close event alone does not prove authority or cross-node convergence.
+
+      - alert: FullNetCacheFactoryFailures
+        expr: sum(increase(fullnet_cache_runtime_events_total{layer="factory",result=~"failure|timeout"}[5m])) by (operation) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache foreground or background factory failures observed
+          description: Check the source dependency. S2 Fail-Safe activation is permitted degradation and is not itself a permission-staleness incident.
+
+      - alert: FullNetCacheBatchRejected
+        expr: sum(increase(fullnet_cache_invalidation_batch_rejections_total{reason=~"capacity|invalid_input|timeout"}[5m])) by (reason) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache invalidation batch rejected by its resource budget
+          description: Check owned target size and batch pressure. Prefer registered resource tags for bulk operations; do not clear the Redis database.
 
       - alert: FullNetRedisReconnectOrEviction
         expr: |

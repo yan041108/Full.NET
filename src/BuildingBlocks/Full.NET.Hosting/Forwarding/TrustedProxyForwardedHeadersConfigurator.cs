@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Hosting.Forwarding;
 
+/// <summary>按配置装配 ForwardedHeaders；禁用时不信任任何代理头，防止客户端伪造来源 IP。</summary>
 internal sealed class TrustedProxyForwardedHeadersConfigurator(
     IOptions<TrustedProxyOptions> options) :
     IConfigureOptions<ForwardedHeadersOptions>

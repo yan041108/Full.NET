@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Jobs;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：JobsApiMySql。</summary>
 [TestClass]
 public sealed class JobsApiMySqlTests
 {

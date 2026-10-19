@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Realtime.SignalR.Health;
 
+/// <summary>Redis Backplane 轻量 Ping；未配置连接串时健康，连续两次失败才 Unhealthy。</summary>
 internal sealed class RealtimeBackplaneHealthCheck(
     IOptions<RealtimeOptions> realtimeOptions,
     IRealtimeBackplaneProbe backplaneProbe) : IHealthCheck

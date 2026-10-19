@@ -4,13 +4,17 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
+using Full.NET.Caching.Fusion.Serialization;
+using Full.NET.Caching.Abstractions;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Settings.Catalogs;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Serialization;
-using Microsoft.Extensions.Caching.Hybrid;
+using ZiggyCreatures.Caching.Fusion;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Settings.Features.ManageMyGridPreferences;
 
@@ -19,11 +23,14 @@ internal sealed class MyGridPreferenceService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    HybridCache cache,
+    IFusionCache cache,
     ICachePolicyRegistry policies,
     IHostEnvironment environment,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ICacheInvalidator invalidator,
+    IOptions<CacheOptions> cacheOptions,
+    ILogger<MyGridPreferenceService> logger)
 {
     public async Task<Result<GridPreferenceResponse>> GetAsync(
         Guid userId,
@@ -35,23 +42,63 @@ internal sealed class MyGridPreferenceService(
             return GridNotFound();
         }
 
-        var response = await cache.GetOrCreateAsync<
-                GridPreferenceLoadState,
-                GridPreferenceResponse>(
+        // 策略降为 C0/N0 或运维关闭缓存时不得再命中 HybridCache，避免展示类条目在强一致窗口内漂移。
+        if (policies.ResolveAccess(CacheEntryNames.GridPreference).Kind != CacheAccessKind.UseCache)
+        {
+            return Result<GridPreferenceResponse>.Success(
+                await LoadAsync(userId, definition, cancellationToken).ConfigureAwait(false));
+        }
+
+        var policy = policies.GetRequired(CacheEntryNames.GridPreference);
+        GridPreferenceResponse? loadedFromAuthority = null;
+        GridPreferenceResponse response;
+        try
+        {
+            response = await cache.GetOrSetAsync<GridPreferenceResponse>(
                 CreateCacheKey(userId, definition),
-                new GridPreferenceLoadState(this, userId, definition),
-                static async (state, token) =>
-                    await state.Service.LoadAsync(
-                            state.UserId,
-                            state.Definition,
-                            token)
-                        .ConfigureAwait(false),
-                policies.CreateHybridEntryOptions(CacheEntryNames.GridPreference),
-                tags: null,
-                cancellationToken: cancellationToken)
+                async (context, token) =>
+                {
+                    var fresh = await LoadAsync(userId, definition, token).ConfigureAwait(false);
+                    if (ExceedsPayloadBudget(fresh, policy))
+                    {
+                        // 仅返回本次权威结果并禁止两层回填；SDK 等待者仍可能再次回源，不保证超限结果只加载一次。
+                        context.Options.SkipMemoryCacheWrite = true;
+                        context.Options.SkipDistributedCacheWrite = true;
+                        RecordPayloadRejection(policy, "fill");
+                    }
+                    loadedFromAuthority = fresh;
+                    return fresh;
+                },
+                options: policies.CreateEntryOptions(CacheEntryNames.GridPreference),
+                token: cancellationToken)
             .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is CacheDeserializationLimitException
+            or FusionCacheSerializationException { InnerException: CacheDeserializationLimitException })
+        {
+            // 原始 L2 超限在 JSON 解析前已拒绝；展示缓存退回权威源，不把此拒绝变成请求失败。
+            RecordPayloadRejection(policy, "read");
+            await InvalidateBestEffortAsync(userId, definition).ConfigureAwait(false);
+            return Result<GridPreferenceResponse>.Success(
+                await LoadAsync(userId, definition, cancellationToken).ConfigureAwait(false));
+        }
+        if (!ReferenceEquals(response, loadedFromAuthority) && ExceedsPayloadBudget(response, policy))
+        {
+            // 配置收紧后旧值可能尚未过期；不向调用方返回超限旧值，也不依赖删除成功才能回源。
+            RecordPayloadRejection(policy, "read");
+            await InvalidateBestEffortAsync(userId, definition).ConfigureAwait(false);
+            response = await LoadAsync(userId, definition, cancellationToken).ConfigureAwait(false);
+        }
         return Result<GridPreferenceResponse>.Success(response);
     }
+
+    private static bool ExceedsPayloadBudget(GridPreferenceResponse response, CacheEntryPolicy policy) =>
+        JsonSerializer.SerializeToUtf8Bytes(response, SettingsJsonSerializerContext.Default.GridPreferenceResponse)
+            .Length > policy.MaxSerializedBytes;
+
+    private static void RecordPayloadRejection(CacheEntryPolicy policy, string operation) =>
+        CacheReliabilityTelemetry.RecordPolicyEvent(policy.OwnerModule, policy.ConsistencyClassTag,
+            $"payload_{operation}", "oversized");
 
     public async Task<Result<GridPreferenceResponse>> PutAsync(
         Guid userId,
@@ -81,10 +128,7 @@ internal sealed class MyGridPreferenceService(
             .ConfigureAwait(false);
         if (result.IsSuccess)
         {
-            await cache.RemoveAsync(
-                    CreateCacheKey(userId, definition),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            await InvalidateBestEffortAsync(userId, definition).ConfigureAwait(false);
         }
 
         return result;
@@ -116,11 +160,28 @@ internal sealed class MyGridPreferenceService(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        await cache.RemoveAsync(
-                CreateCacheKey(userId, definition),
-                CancellationToken.None)
-            .ConfigureAwait(false);
+        await InvalidateBestEffortAsync(userId, definition).ConfigureAwait(false);
         return result;
+    }
+
+    private async Task InvalidateBestEffortAsync(Guid userId, GridPreferenceDefinition definition)
+    {
+        using var cleanup = new CancellationTokenSource(cacheOptions.Value.InvalidationTimeout);
+        var key = CreateCacheKey(userId, definition);
+        foreach (var scope in new[] { CacheInvalidationScope.CurrentNodeOnly, CacheInvalidationScope.AllLayersSynchronous })
+        {
+            try
+            {
+                await invalidator.RemoveAsync(CacheEntryNames.GridPreference, key, scope, cleanup.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                // 提交后写入或旧值拒绝已经确定，清理故障由 TTL 收敛并告警；不掩盖业务结果。
+                logger.LogWarning("Grid 偏好缓存清理失败。Scope={Scope} ExceptionType={ExceptionType}",
+                    scope, exception.GetType().Name);
+            }
+        }
     }
 
     private async Task<GridPreferenceResponse> LoadAsync(
@@ -274,12 +335,7 @@ internal sealed class MyGridPreferenceService(
     private string CreateCacheKey(
         Guid userId,
         GridPreferenceDefinition definition) =>
-        CacheKeyBuilder.ForGlobal(
-            environment.EnvironmentName,
-            "settings",
-            "grid-preference",
-            $"{userId:N}:{definition.GridKey}",
-            $"v{definition.SchemaVersion}");
+        GridPreferenceCacheInvalidator.BuildCacheKey(environment.EnvironmentName, userId, definition);
 
     private static Result<GridPreferenceResponse> GridNotFound() =>
         Result<GridPreferenceResponse>.Failure(new Error(
@@ -293,8 +349,4 @@ internal sealed class MyGridPreferenceService(
             "The Grid preference was updated concurrently.",
             ErrorType.Conflict));
 
-    private sealed record GridPreferenceLoadState(
-        MyGridPreferenceService Service,
-        Guid UserId,
-        GridPreferenceDefinition Definition);
 }

@@ -60,7 +60,7 @@ internal static class HttpOperationLogSampleKey
         return value;
     }
 
-    private static string? ResolveLocallyStartedTraceId()
+    internal static string? ResolveLocallyStartedTraceId()
     {
         var activity = Activity.Current;
         if (activity is null)
@@ -115,6 +115,12 @@ public sealed class HttpOperationLogEmitter
     }
 
     internal DateTimeOffset UtcNow => _timeProvider.GetUtcNow();
+
+    /// <summary>请求热路径只读本地策略；远端可选择的 TraceId 不授予诊断规则资格。</summary>
+    internal int ResolvePayloadByteLimit(HttpContext context, string fullRoute, int configuredLimit, bool response) =>
+        _diagnosticPolicyStore.Current.ResolvePayloadByteLimit(configuredLimit, response, fullRoute,
+            HttpOperationLogSampleKey.ResolveLocallyStartedTraceId(),
+            context.Items.TryGetValue("FullNet.TenantId", out var tenant) && tenant is Guid id ? id : null, UtcNow);
 
     /// <summary>解析成功请求采样率：优先取配置 SuccessSampleRate，否则按 CapacityProfile 推导默认值。</summary>
     public double ResolveSuccessSampleRate()

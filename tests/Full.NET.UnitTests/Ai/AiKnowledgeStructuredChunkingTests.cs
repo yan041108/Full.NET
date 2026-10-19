@@ -5,6 +5,7 @@ using Microsoft.ML.Tokenizers;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Structured Chunking。</summary>
 [TestClass]
 public sealed class AiKnowledgeStructuredChunkingTests
 {

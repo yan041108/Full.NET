@@ -5,6 +5,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：S3Host File Blob Storage。</summary>
 [TestClass]
 public sealed class S3HostFileBlobStorageTests
 {
@@ -118,6 +119,7 @@ public sealed class S3HostFileBlobStorageTests
     }
 }
 
+/// <summary>单元测试：S3FileStorageOptionsValidator。</summary>
 [TestClass]
 public sealed class S3FileStorageOptionsValidatorTests
 {

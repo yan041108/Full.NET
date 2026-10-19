@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Organization Owned Entity Write Authorizer。</summary>
 [TestClass]
 public sealed class OrganizationOwnedEntityWriteAuthorizerTests
 {

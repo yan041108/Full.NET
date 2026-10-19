@@ -8,6 +8,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Images;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -158,6 +159,9 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         }
 
         if (enableCollectorListener) containerBuilder = containerBuilder.WithPortBinding(2020, assignRandomHostPort: true);
+        if (SharedDatabaseFixture.BoundedContainers)
+            containerBuilder = containerBuilder.WithImagePullPolicy(PullPolicy.Never)
+                .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "kafka"));
         NativeContainerResourceProfile.Lease? resourceLease = null;
         IContainer container;
         try

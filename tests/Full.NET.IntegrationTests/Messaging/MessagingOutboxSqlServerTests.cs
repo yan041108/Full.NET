@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：MessagingOutboxSqlServer。</summary>
 [TestClass]
 public sealed class MessagingOutboxSqlServerTests
 {

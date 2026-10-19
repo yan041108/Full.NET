@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：RealtimeApiMySql。</summary>
 [TestClass]
 public sealed class RealtimeApiMySqlTests
 {

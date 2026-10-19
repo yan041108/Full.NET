@@ -9,6 +9,7 @@ using System.Security.Claims;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Host User Field Projection。</summary>
 [TestClass]
 public sealed class HostUserFieldProjectionTests
 {

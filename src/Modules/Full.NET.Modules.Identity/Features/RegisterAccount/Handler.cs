@@ -13,6 +13,7 @@ using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Identity;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Identity.Features.RegisterAccount;
 
 internal sealed class Handler(

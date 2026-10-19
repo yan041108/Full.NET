@@ -4,6 +4,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
 
+/// <summary>Webhooks 持久化相关类型；仅供 Dapper 或内部编排使用。</summary>
 namespace Full.NET.Modules.Webhooks.Persistence;
 
 internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMaterializerContributor

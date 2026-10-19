@@ -13,6 +13,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：Agent 运行与 OIDC 会话协同边界。</summary>
 internal static class IdentityOidcAgentRunLifecycleAssertions
 {
     public static async Task VerifyAsync(

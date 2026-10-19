@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Knowledge;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Index Text Manifest Codec。</summary>
 [TestClass]
 public sealed class AiKnowledgeIndexTextManifestCodecTests
 {

@@ -17,6 +17,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Host Role Management Service。</summary>
 [TestClass]
 public sealed class HostRoleManagementServiceTests
 {

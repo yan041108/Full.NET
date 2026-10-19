@@ -5,6 +5,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Outbox;
 
+/// <summary>单元测试（Outbox）：Outbox Version Retirement Scanner。</summary>
 [TestClass]
 public sealed class OutboxVersionRetirementScannerTests
 {

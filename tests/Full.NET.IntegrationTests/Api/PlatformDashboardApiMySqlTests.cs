@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Identity;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：PlatformDashboardApiMySql。</summary>
 [TestClass]
 public sealed class PlatformDashboardApiMySqlTests
 {

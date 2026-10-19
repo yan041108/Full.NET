@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>集成测试：NativeApiS3MySqlE2E。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiS3MySqlE2ETests

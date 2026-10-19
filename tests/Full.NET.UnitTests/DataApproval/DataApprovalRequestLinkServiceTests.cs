@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.DataApproval;
 
+/// <summary>单元测试（数据审批）：Data Approval Request Link Service。</summary>
 [TestClass]
 public sealed class DataApprovalRequestLinkServiceTests
 {

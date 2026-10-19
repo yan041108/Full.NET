@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>集成测试：NativeApiSignalRJsonE2E。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiSignalRJsonE2ETests

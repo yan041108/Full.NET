@@ -15,11 +15,11 @@ internal static class OutboundCallLogSql
         INSERT INTO fn_auditing_outbound_call
             (Id, OccurredAtUtc, ProviderKey, OperationKey, DestinationHostCategory,
              StatusCode, Succeeded, DurationMs, RetryCount, TraceId, SafeErrorCode,
-             TenantId, UserId)
+             TenantId, UserId, CorrelationJson)
         VALUES
             (@Id, @OccurredAtUtc, @ProviderKey, @OperationKey, @DestinationHostCategory,
              @StatusCode, @Succeeded, @DurationMs, @RetryCount, @TraceId, @SafeErrorCode,
-             @TenantId, @UserId)
+             @TenantId, @UserId, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

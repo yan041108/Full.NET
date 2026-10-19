@@ -2,6 +2,7 @@ using Full.NET.Benchmarks.Kafka;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Kafka Capacity Control Plane。</summary>
 [TestClass]
 public sealed class KafkaCapacityControlPlaneTests
 {

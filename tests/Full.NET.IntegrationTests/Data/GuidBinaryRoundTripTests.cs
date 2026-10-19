@@ -9,6 +9,7 @@ using System.Text.Json;
 
 namespace Full.NET.IntegrationTests.Data;
 
+/// <summary>集成测试：GuidBinaryRoundTrip。</summary>
 [TestClass]
 public sealed class GuidBinaryRoundTripTests
 {

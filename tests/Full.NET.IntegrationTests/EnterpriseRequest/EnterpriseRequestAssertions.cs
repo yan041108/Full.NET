@@ -14,6 +14,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.EnterpriseRequest;
 
+/// <summary>企业流程申请：与工作流引导的 API 烟雾。</summary>
 internal static class EnterpriseRequestAssertions
 {
     private const string BasePath = "/api/v1/enterprise_request/enterprise-requests";

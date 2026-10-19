@@ -182,7 +182,13 @@ public sealed class HttpOperationPayloadProjection
             return false;
         }
 
-        var maxBytes = Math.Min(configuredMaxBytes, 2_048);
+        var maxBytes = _emitter.ResolvePayloadByteLimit(httpContext, fullRoute, configuredMaxBytes,
+            projectionKey == HttpLogCaptureProjectionKeys.PaginationResult);
+        if (maxBytes == 0)
+        {
+            state = HttpLogCaptureState.NotEnabled;
+            return false;
+        }
         if (!_budget.TryReserve(
                 maxBytes,
                 current.CaptureMaxEventsPerSecond,

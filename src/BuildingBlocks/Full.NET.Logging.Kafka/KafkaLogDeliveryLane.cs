@@ -173,6 +173,9 @@ public sealed class KafkaLogDeliveryLane : IDisposable
     }
 
     internal void Stop(TimeSpan flushTimeout)
+        => Stop(new Full.NET.Hosting.Observability.LogShutdownDeadline(flushTimeout < TimeSpan.Zero ? TimeSpan.Zero : flushTimeout));
+
+    internal void Stop(Full.NET.Hosting.Observability.LogShutdownDeadline deadline)
     {
         BeginStop();
         if (Interlocked.Exchange(ref _shutdownStarted, 1) != 0)
@@ -180,14 +183,9 @@ public sealed class KafkaLogDeliveryLane : IDisposable
             return;
         }
 
-        if (flushTimeout < TimeSpan.Zero)
-        {
-            flushTimeout = TimeSpan.Zero;
-        }
-
         try
         {
-            _client.Flush(flushTimeout);
+            _client.Flush(deadline.Remaining);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

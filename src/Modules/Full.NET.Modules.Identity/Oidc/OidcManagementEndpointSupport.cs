@@ -1,9 +1,11 @@
+// OIDC 管理端点支撑；Host 侧客户端与范围维护的共用校验。
 using Full.NET.Modules.Identity.Oidc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.ManageOidcClients;
 
+/// <summary>OIDC 管理端点支撑；Host 侧客户端与范围维护的共用校验。</summary>
 internal static class OidcManagementEndpointSupport
 {
     internal static bool TryResolveActor(HttpContext httpContext, out OidcManagementActorContext actor)

@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 
+/// <summary>Ocr 模块 Dapper 参数工厂；统一命名与空值语义。</summary>
 namespace Full.NET.Modules.Ocr.Persistence;
 
 internal static class OcrSqlParameters

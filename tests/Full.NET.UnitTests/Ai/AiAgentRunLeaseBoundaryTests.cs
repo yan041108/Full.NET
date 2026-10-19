@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Persistence;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Run Lease Boundary。</summary>
 [TestClass]
 public sealed class AiAgentRunLeaseBoundaryTests
 {

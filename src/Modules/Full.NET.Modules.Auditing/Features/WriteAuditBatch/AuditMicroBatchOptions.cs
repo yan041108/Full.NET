@@ -27,6 +27,15 @@ public sealed class AuditMicroBatchOptions
     /// <summary>入队等待上限；超时后 fail-open 并记拒绝指标。</summary>
     public TimeSpan EnqueueTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>接受前开始计时；过期且尚未执行的信封直接 fail-open，不再向数据库提交。</summary>
+    public TimeSpan MaxQueueAge { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>单批所有写入与毒记录隔离共享的取消期限；真实 I/O 结束后才归还预约。</summary>
+    public TimeSpan BatchExecutionTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>单批写入尝试总上限，包含首次写入和全部隔离分支，防止数据故障放大。</summary>
+    public int MaxIsolationAttempts { get; set; } = 15;
+
     /// <summary>停机时最多等待当前队列排空的时间。</summary>
     public TimeSpan ShutdownFlushTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
@@ -42,10 +51,10 @@ internal sealed class AuditMicroBatchOptionsValidator : IValidateOptions<AuditMi
             failures.Add($"{AuditMicroBatchOptions.SectionName}:Capacity must be greater than zero.");
         }
 
-        if (options.MaxBatchRows <= 0 || options.MaxBatchRows > options.Capacity)
+        if (options.MaxBatchRows <= 0 || options.MaxBatchRows > options.Capacity || options.MaxBatchRows > 125)
         {
             failures.Add(
-                $"{AuditMicroBatchOptions.SectionName}:MaxBatchRows must be in (0, Capacity].");
+                $"{AuditMicroBatchOptions.SectionName}:MaxBatchRows must be in (0, min(Capacity, 125)] to fit the SQL parameter budget.");
         }
 
         if (options.MaxBatchBytes <= 0)
@@ -77,6 +86,13 @@ internal sealed class AuditMicroBatchOptionsValidator : IValidateOptions<AuditMi
             failures.Add(
                 $"{AuditMicroBatchOptions.SectionName}:ShutdownFlushTimeout must be greater than zero.");
         }
+
+        if (options.MaxQueueAge <= TimeSpan.Zero || options.MaxQueueAge > TimeSpan.FromMinutes(1))
+            failures.Add($"{AuditMicroBatchOptions.SectionName}:MaxQueueAge must be in (0, 1 minute].");
+        if (options.BatchExecutionTimeout <= TimeSpan.Zero || options.BatchExecutionTimeout > TimeSpan.FromSeconds(30))
+            failures.Add($"{AuditMicroBatchOptions.SectionName}:BatchExecutionTimeout must be in (0, 30 seconds].");
+        if (options.MaxIsolationAttempts is < 1 or > 255)
+            failures.Add($"{AuditMicroBatchOptions.SectionName}:MaxIsolationAttempts must be in [1, 255].");
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success

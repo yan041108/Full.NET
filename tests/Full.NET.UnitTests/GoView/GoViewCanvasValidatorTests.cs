@@ -2,6 +2,7 @@ using Full.NET.Modules.GoView.Domain;
 
 namespace Full.NET.UnitTests.GoView;
 
+/// <summary>单元测试（GoView）：Go View Canvas Validator。</summary>
 [TestClass]
 public sealed class GoViewCanvasValidatorTests
 {

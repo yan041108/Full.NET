@@ -12,6 +12,7 @@ using CrudSchemaDocument =
 
 namespace Full.NET.IntegrationTests.CodeGeneration;
 
+/// <summary>集成测试：ModuleIntegrationCompilation。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class ModuleIntegrationCompilationTests

@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Dapper Integration Event Inbox。</summary>
 [TestClass]
 public sealed class DapperIntegrationEventInboxTests
 {

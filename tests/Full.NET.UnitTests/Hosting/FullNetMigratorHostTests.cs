@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Full Net Migrator Host。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class FullNetMigratorHostTests

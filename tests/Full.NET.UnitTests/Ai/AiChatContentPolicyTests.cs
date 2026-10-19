@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Domain;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：聊天内容与敏感信息边界策略。</summary>
 [TestClass]
 public sealed class AiChatContentPolicyTests
 {

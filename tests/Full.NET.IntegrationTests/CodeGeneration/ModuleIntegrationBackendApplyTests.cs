@@ -10,6 +10,7 @@ using CodeGenerationCli =
 
 namespace Full.NET.IntegrationTests.CodeGeneration;
 
+/// <summary>集成测试：ModuleIntegrationBackendApply。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class ModuleIntegrationBackendApplyTests

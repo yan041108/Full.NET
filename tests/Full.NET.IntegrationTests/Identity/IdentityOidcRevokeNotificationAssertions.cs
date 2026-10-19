@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：吊销后的通知与订阅方回调。</summary>
 internal static class IdentityOidcRevokeNotificationAssertions
 {
     private static readonly string[] ForbiddenNotificationDataKeys =

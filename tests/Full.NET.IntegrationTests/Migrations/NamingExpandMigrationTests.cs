@@ -6,6 +6,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：NamingExpandMigration。</summary>
 [TestClass]
 public sealed class NamingExpandMigrationTests
 {

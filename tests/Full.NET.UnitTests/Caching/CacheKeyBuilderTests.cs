@@ -2,9 +2,20 @@ using Full.NET.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Caching;
 
+/// <summary>缓存键构建：租户与策略段稳定拼接。</summary>
 [TestClass]
 public sealed class CacheKeyBuilderTests
 {
+    [TestMethod]
+    public void Key_rejects_empty_tenant_or_unbounded_segments_without_breaking_grid_compound_id()
+    {
+        Assert.Throws<ArgumentException>(() => CacheKeyBuilder.TenantResolutionById("Testing", Guid.Empty));
+        Assert.Throws<ArgumentException>(() => CacheKeyBuilder.ForGlobal("prod:other", "settings", "grid", "id", "v1"));
+        Assert.Throws<ArgumentException>(() => CacheKeyBuilder.ForGlobal("prod", "settings", "grid", new string('中', 1025), "v1"));
+        Assert.AreEqual("fullnet:prod:host:settings:grid-preference:abc:identity.users:v2",
+            CacheKeyBuilder.ForGlobal("prod", "settings", "grid-preference", "abc:identity.users", "v2"));
+    }
+
     [TestMethod]
     public void ForTenant_BuildsStableTenantIsolatedKey()
     {

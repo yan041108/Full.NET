@@ -17,6 +17,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Authorization Catalog。</summary>
 [TestClass]
 public sealed class AuthorizationCatalogTests
 {
@@ -932,6 +933,7 @@ public sealed class AuthorizationCatalogTests
             actions ?? [];
     }
 
+    /// <summary>构造非法权限目录夹具时使用的故障类别。</summary>
     public enum InvalidCatalogKind
     {
         DuplicatePermission,

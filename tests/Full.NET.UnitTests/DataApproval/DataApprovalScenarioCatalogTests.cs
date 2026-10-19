@@ -4,6 +4,7 @@ using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.UnitTests.DataApproval;
 
+/// <summary>单元测试（数据审批）：Data Approval Scenario Catalog。</summary>
 [TestClass]
 public sealed class DataApprovalScenarioCatalogTests
 {

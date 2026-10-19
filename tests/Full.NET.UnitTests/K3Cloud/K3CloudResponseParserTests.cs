@@ -2,6 +2,7 @@ using Full.NET.Modules.K3Cloud.Domain;
 
 namespace Full.NET.UnitTests.K3Cloud;
 
+/// <summary>单元测试（K3Cloud）：K3Cloud Response Parser。</summary>
 [TestClass]
 public sealed class K3CloudResponseParserTests
 {

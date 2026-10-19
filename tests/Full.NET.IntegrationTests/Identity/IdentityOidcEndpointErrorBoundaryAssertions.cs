@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：协议端点异常与 HTTP 状态边界。</summary>
 internal static class IdentityOidcEndpointErrorBoundaryAssertions
 {
     public static async Task VerifyAsync(

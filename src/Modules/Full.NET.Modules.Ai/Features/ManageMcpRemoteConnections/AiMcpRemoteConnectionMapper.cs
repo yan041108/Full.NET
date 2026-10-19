@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
 
+/// <summary>契约与持久化行之间的映射；不包含授权或副作用。</summary>
 namespace Full.NET.Modules.Ai.Features.ManageMcpRemoteConnections;
 
 internal static class AiMcpRemoteConnectionMapper

@@ -1,5 +1,8 @@
 using Full.NET.IntegrationTests.Infrastructure;
 using Dapper;
+using Docker.DotNet.Models;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Images;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 using Testcontainers.MsSql;
@@ -49,6 +52,17 @@ public static class SharedDatabaseFixture
             "0",
             StringComparison.Ordinal);
 
+    /// <summary>
+    /// 显式有界验收只创建本批容器；启用时必须同时关闭复用，避免改变共享实例。
+    /// </summary>
+    internal static bool BoundedContainers =>
+        string.Equals(
+            Environment.GetEnvironmentVariable("FULLNET_TESTCONTAINERS_BOUNDED"),
+            "1",
+            StringComparison.Ordinal);
+
+    private static string? _boundedSession;
+
     internal static bool IsCiEnvironment =>
         string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
         || string.Equals(
@@ -61,6 +75,27 @@ public static class SharedDatabaseFixture
     {
         // 仅保留程序集级清理生命周期；具体依赖由首个消费者异步启动。
         _ = testContext;
+        if (BoundedContainers && ReuseContainers)
+        {
+            throw new InvalidOperationException(
+                "有界容器验收要求 FULLNET_TESTCONTAINERS_REUSE=0，不能复用共享实例。");
+        }
+
+        if (BoundedContainers)
+        {
+            // 外层有界 Ryuk 必须先完成 ACK；批次标签只用于回收本批资源，不接管共享实例。
+            var session = Environment.GetEnvironmentVariable("FULLNET_BOUNDED_RESOURCE_SESSION");
+            if (!Guid.TryParseExact(session, "D", out var sessionId) || sessionId == Guid.Empty
+                || session != sessionId.ToString("D")
+                || Environment.GetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED") != "true"
+                || Environment.GetEnvironmentVariable("FULLNET_NATIVE_RESOURCE_PROFILE") is not null)
+            {
+                throw new InvalidOperationException("有界验收要求外层独享 Ryuk 会话，且不能混用 Native 资源配置。");
+            }
+
+            _boundedSession = session;
+        }
+
         _ = NativeContainerResourceProfile.Current;
         if (ReuseContainers)
         {
@@ -163,6 +198,34 @@ public static class SharedDatabaseFixture
         return container.GetConnectionString();
     }
 
+    private static void ApplyBoundedOwnership(IDictionary<string, string> labels)
+    {
+        if (_boundedSession is null) throw new InvalidOperationException("有界资源会话尚未初始化。");
+        labels["org.testcontainers.resource-reaper-session"] = _boundedSession;
+        labels["fullnet.bounded-owner"] = _boundedSession;
+    }
+
+    /// <summary>集中日志容量沿用外层独享会话，创建前设置硬限额；不接管既有容器。</summary>
+    internal static void ApplyBoundedLogResources(CreateContainerParameters parameters, string role, int cpuCount = 1)
+    {
+        if (!BoundedContainers) return;
+        if (cpuCount is < 1 or > 2 || role != "elasticsearch" && cpuCount != 1)
+            throw new ArgumentOutOfRangeException(nameof(cpuCount), "只有 ES 容量档允许显式一核或两核。");
+        var budget = role switch
+        {
+            "kafka" => (Memory: 2L << 30, Cpu: 1_000_000_000L),
+            "elasticsearch" => (Memory: 2L << 30, Cpu: cpuCount * 1_000_000_000L),
+            "collector" => (Memory: 512L << 20, Cpu: 500_000_000L),
+            _ => throw new ArgumentException("未知日志测试资源角色。", nameof(role)),
+        };
+        var limits = parameters.HostConfig ??= new();
+        limits.Memory = budget.Memory;
+        limits.MemorySwap = budget.Memory;
+        limits.NanoCPUs = budget.Cpu;
+        ApplyBoundedOwnership(parameters.Labels);
+        if (role == "elasticsearch") parameters.Labels["fullnet.logging.es-cpus"] = cpuCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private static async Task<MsSqlContainer> GetOrStartSqlServerAsync()
     {
         if (_sqlServer is not null)
@@ -179,6 +242,22 @@ public static class SharedDatabaseFixture
             }
 
             var builder = new MsSqlBuilder(SqlServerImage).WithPassword(Password);
+            if (BoundedContainers)
+            {
+                // 限额随创建请求提交，不能等容器启动后再补限额；依赖必须已由外层准备。
+                builder = builder.WithImagePullPolicy(PullPolicy.Never)
+                    // CU14 不识别 cgroup v2 内存预算；保留容器硬上限与 SQL 内部预算之间的余量。
+                    .WithEnvironment("MSSQL_MEMORY_LIMIT_MB", "2048")
+                    .WithCreateParameterModifier(parameters =>
+                    {
+                        var limits = parameters.HostConfig ??= new();
+                        limits.Memory = 3L * 1024 * 1024 * 1024;
+                        limits.MemorySwap = limits.Memory;
+                        limits.NanoCPUs = 2_000_000_000;
+                        ApplyBoundedOwnership(parameters.Labels);
+                    });
+            }
+
             if (ReuseContainers)
             {
                 // 复用同一容器实例，测试库名仍按 GUID 隔离，不共享可变业务数据。
@@ -242,6 +321,20 @@ public static class SharedDatabaseFixture
                 .WithDatabase("fullnet")
                 .WithUsername(MySqlAppUser)
                 .WithPassword(Password);
+            if (BoundedContainers)
+            {
+                // 同时限制内存与交换总量，防止双库并行验收把压力转移到宿主交换空间。
+                builder = builder.WithImagePullPolicy(PullPolicy.Never)
+                    .WithCreateParameterModifier(parameters =>
+                    {
+                        var limits = parameters.HostConfig ??= new();
+                        limits.Memory = 1536L * 1024 * 1024;
+                        limits.MemorySwap = limits.Memory;
+                        limits.NanoCPUs = 1_000_000_000;
+                        ApplyBoundedOwnership(parameters.Labels);
+                    });
+            }
+
             if (ReuseContainers)
             {
                 builder = builder.WithReuse(true).WithName("fullnet-it-mysql");
@@ -296,6 +389,20 @@ public static class SharedDatabaseFixture
             }
 
             var builder = new RedisBuilder(RedisImage);
+            if (BoundedContainers)
+            {
+                // 这是测试容器预算，不修改缓存服务或业务的容量配置。
+                builder = builder.WithImagePullPolicy(PullPolicy.Never)
+                    .WithCreateParameterModifier(parameters =>
+                    {
+                        var limits = parameters.HostConfig ??= new();
+                        limits.Memory = 256L * 1024 * 1024;
+                        limits.MemorySwap = limits.Memory;
+                        limits.NanoCPUs = 500_000_000;
+                        ApplyBoundedOwnership(parameters.Labels);
+                    });
+            }
+
             if (ReuseContainers)
             {
                 builder = builder.WithReuse(true).WithName("fullnet-it-redis");

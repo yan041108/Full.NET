@@ -1,3 +1,4 @@
+// 审计明细清理检查点；记录保留作业进度，失败后可断点续清。
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
@@ -31,6 +32,7 @@ internal interface IAuditDetailsCleanupCheckpointReader
 }
 
 /// <summary>仅在一次清理及积压读取均成功后，刷新 Auditing 自有的共享检查点。</summary>
+/// <summary>审计明细清理检查点存储；单租户单行，更新与保留作业同一事务边界。</summary>
 internal sealed class AuditDetailsCleanupCheckpointStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

@@ -21,6 +21,7 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Session Context Service。</summary>
 [TestClass]
 public sealed class IdentitySessionContextServiceTests
 {

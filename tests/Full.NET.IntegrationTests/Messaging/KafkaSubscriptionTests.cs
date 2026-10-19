@@ -5,6 +5,7 @@ using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaSubscription。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaSubscriptionTests

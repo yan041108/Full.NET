@@ -9,6 +9,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：MessagingOutboxMySql。</summary>
 [TestClass]
 public sealed class MessagingOutboxMySqlTests
 {

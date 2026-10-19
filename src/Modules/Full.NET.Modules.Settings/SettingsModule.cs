@@ -45,6 +45,7 @@ public sealed class SettingsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.SettingsLogTimelineSources.Register(services);
         AddMigrationServices(services, configuration);
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -80,13 +81,14 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogDictGenerationService>();
         services.TryAddScoped<
             Features.ManageMyGridPreferences.MyGridPreferenceService>();
+        services.TryAddSingleton<IGridPreferenceCacheInvalidator,
+            Features.ManageMyGridPreferences.GridPreferenceCacheInvalidator>();
         services.TryAddScoped<
             ITransactionalDomainAuditWriter<DiagnosticPolicyAuditWrite>,
             DiagnosticPolicyAuditWriter>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDomainAuditChangeDiffReader,
             SettingsDomainAuditChangeDiffReader>());
-        services.TryAddScoped<DiagnosticPolicyCacheInvalidator>();
         services.TryAddScoped<DiagnosticPolicyManagementService>();
         services.RemoveAll<IDiagnosticPolicyStore>();
         services.TryAddSingleton<DiagnosticPolicyStore>();

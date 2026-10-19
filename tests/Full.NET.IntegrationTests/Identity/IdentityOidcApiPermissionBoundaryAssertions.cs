@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：OIDC 与业务 API 权限交集边界。</summary>
 internal static class IdentityOidcApiPermissionBoundaryAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5013/signin-oidc-api-boundary";

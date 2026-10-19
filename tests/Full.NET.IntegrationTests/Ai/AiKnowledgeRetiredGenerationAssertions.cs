@@ -198,7 +198,47 @@ internal static class AiKnowledgeRetiredGenerationAssertions
                 using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()); var id = json.RootElement.GetProperty("taskId").GetGuid();
                 var binding = new AiKnowledgeIndexTaskBinding((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, (Guid)row["VersionId"]!, version, 1, owner.UserId);
                 var held = await tasks.AcquireAsync(binding, id, default); Assert.IsNotNull(held);
-                if (!pdf) Assert.IsTrue(await generation.ExecuteTextGenerationAsync(binding, id, held.LeaseToken!.Value, default));
+                if (!pdf)
+                {
+                    var started = System.Diagnostics.Stopwatch.StartNew();
+                    var generated = await generation.ExecuteTextGenerationAsync(binding, id, held.LeaseToken!.Value, default);
+                    var recoveryAttempted = false;
+                    // 完整已计费代次可能在激活前安全拒绝；仅允许原绑定恢复一次，不把已存证明当作激活授权。
+                    if (!generated && await generation.IsTextGenerationStoredAsync(binding, id, held.LeaseToken!.Value, default))
+                    {
+                        recoveryAttempted = true;
+                        var callsBeforeRecovery = model.Calls;
+                        generated = await generation.ExecuteTextGenerationAsync(binding, id, held.LeaseToken!.Value, default);
+                        Assert.AreEqual(callsBeforeRecovery, model.Calls, "已存代次恢复不能再次调用模型。");
+                        Console.WriteLine(JsonSerializer.Serialize(new
+                        {
+                            recovery = "persisted-generation", database, scoped, version, callsBeforeRecovery,
+                            callsAfterRecovery = model.Calls, generated,
+                        }));
+                    }
+                    string? diagnostic = null;
+                    if (!generated)
+                    {
+                        // 仅失败时读取受控状态；不续租、不重试生成，也不输出令牌、SQL、主体或业务载荷。
+                        try
+                        {
+                            var current = await tasks.FindAsync(binding, id, default);
+                            var sessionHeld = await services.GetRequiredService<AiKnowledgeIndexSessionService>()
+                                .ReadHeldAsync(binding, id, held.LeaseToken!.Value, default);
+                            var source = await tasks.ReadDispatchAsync(binding, id, held.LeaseToken!.Value, default);
+                            diagnostic = JsonSerializer.Serialize(new
+                            {
+                                database, scoped, version, recoveryAttempted, elapsedMs = started.Elapsed.TotalMilliseconds,
+                                initialLeaseExpired = held.LeaseExpiresAtUtc <= DateTimeOffset.UtcNow,
+                                state = current?.StateKey, currentLeaseExpired = current?.LeaseExpiresAtUtc <= DateTimeOffset.UtcNow,
+                                sameLease = current?.LeaseToken == held.LeaseToken,
+                                sessionHeld = sessionHeld is not null, sourceAvailable = source is not null,
+                            });
+                        }
+                        catch (Exception exception) { diagnostic = "diagnostic-read-failed:" + exception.GetType().Name; }
+                    }
+                    Assert.IsTrue(generated, diagnostic);
+                }
                 else
                 {
                     // PDF 使用合成单页规划与真实结算/激活，不冒充真实 PDF 解析或云模型派发。

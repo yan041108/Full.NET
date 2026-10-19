@@ -9,6 +9,7 @@ using MySqlConnector;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：My Sql Connection String Policy。</summary>
 [TestClass]
 public sealed class MySqlConnectionStringPolicyTests
 {

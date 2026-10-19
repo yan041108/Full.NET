@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Images;
 using Full.NET.LogConsumer;
 
 namespace Full.NET.IntegrationTests.Messaging;
@@ -51,7 +52,7 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
         await File.WriteAllTextAsync(caPath, ca.ExportCertificatePem());
         try
         {
-            await using var elasticsearch = new ContainerBuilder(
+            var elasticsearchBuilder = new ContainerBuilder(
                 "docker.elastic.co/elasticsearch/elasticsearch@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026")
                 .WithResourceMapping(Encoding.UTF8.GetBytes(server.ExportCertificatePem()),
                     "/usr/share/elasticsearch/config/certs/http.crt", 1000, 0)
@@ -67,8 +68,11 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 .WithEnvironment("ELASTIC_PASSWORD", TestPassword)
                 .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
                 .WithPortBinding(9200, assignRandomHostPort: true)
-                .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200))
-                .Build();
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200));
+            if (SharedDatabaseFixture.BoundedContainers)
+                elasticsearchBuilder = elasticsearchBuilder.WithImagePullPolicy(PullPolicy.Never)
+                    .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch"));
+            await using var elasticsearch = elasticsearchBuilder.Build();
             await elasticsearch.StartAsync();
             var esUri = new UriBuilder("https", elasticsearch.Hostname, elasticsearch.GetMappedPublicPort(9200)).Uri;
             // 临时测试 CA 没有 CRL；仅此测试进程显式关闭吊销检查，生产仍要求在线检查。
@@ -218,7 +222,7 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             };
             start.ArgumentList.Add(hostDll);
             start.Environment["FULLNET_LOG_CONSUMER_EXPERIMENTAL"] = "true";
-            start.Environment["FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS"] = "8";
+            start.Environment["FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS"] = "64";
             start.Environment["FULLNET_LOG_CONSUMER_BOOTSTRAP_SERVERS"] = kafka.BootstrapServers;
             start.Environment["FULLNET_LOG_CONSUMER_TOPICS"] = source;
             start.Environment["FULLNET_LOG_CONSUMER_GROUP_ID"] = group;

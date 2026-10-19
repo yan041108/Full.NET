@@ -5,6 +5,7 @@ using Full.NET.Data.CodeGeneration.Integration;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Integration Commit Boundary。</summary>
 [TestClass]
 public sealed class IntegrationCommitBoundaryTests
 {

@@ -31,6 +31,7 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.IntegrationTests.Seeding;
 
+/// <summary>集成测试：DevelopmentSeed。</summary>
 [TestClass]
 public sealed class DevelopmentSeedTests
 {
@@ -451,7 +452,7 @@ public sealed class DevelopmentSeedTests
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetDapper(configuration, environmentName);
         services.AddFullNetMemoryPack();
-        services.AddFullNetCaching(configuration, environmentName);
+        services.AddFullNetMigratorCaching(configuration, environmentName);
         services.AddFullNetSeeding(configuration);
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Migrator);
         configure?.Invoke(services);

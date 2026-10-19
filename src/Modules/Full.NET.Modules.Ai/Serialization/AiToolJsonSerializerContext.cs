@@ -13,4 +13,5 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(PagedResult<AiChatSessionListItem>))]
 [JsonSerializable(typeof(RenameChatSessionArguments))]
 [JsonSerializable(typeof(RenameChatSessionResult))]
+/// <summary>Ai 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class AiToolJsonSerializerContext : JsonSerializerContext;

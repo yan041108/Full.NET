@@ -5,10 +5,33 @@ using Full.NET.Data.Dapper;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Dapper Telemetry。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class DapperTelemetryTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Command_timing_records_entered_attempts_with_only_stable_labels(bool failure)
+    {
+        var measurements = new List<Measurement>();
+        using var listener = CreateListener(measurements);
+        try
+        {
+            using var timing = DapperTelemetry.BeginCommand("identity.find_refresh_session_by_id",
+                DatabaseProvider.SqlServer, DapperOperation.QuerySingle);
+            Assert.IsFalse(measurements.Any(row => row.Name == "fullnet.data.sql.command.duration"));
+            if (failure) throw new InvalidOperationException("controlled command failure");
+        }
+        catch (InvalidOperationException) when (failure) { }
+        var measurement = measurements.Single(row => row.Name == "fullnet.data.sql.command.duration");
+        Assert.IsTrue(double.IsFinite(measurement.Value) && measurement.Value >= 0);
+        CollectionAssert.AreEquivalent(new[] { "statement_name", "provider", "operation" }, measurement.Tags.Keys.ToArray());
+        Assert.AreEqual("query_single", measurement.Tags["operation"]);
+        Assert.AreEqual("sql_server", measurement.Tags["provider"]);
+    }
+
     [TestMethod]
     public void RecordSucceeded_EmitsDurationAndExecutionWithLowCardinalityTags()
     {
@@ -33,6 +56,28 @@ public sealed class DapperTelemetryTests
         Assert.IsTrue(measurements.Any(measurement =>
             measurement.Name == "fullnet.data.sql.executions"
             && measurement.Value == 1d));
+        // 同一语句首次失败或取消时，总数仍沿用已存在的系列，不依赖失败标签的零基线。
+        DapperTelemetry.Record(
+            "identity.find_refresh_session_by_id",
+            DatabaseProvider.SqlServer,
+            DapperOperation.QuerySingle,
+            TimeSpan.FromMilliseconds(1),
+            new InvalidOperationException("capacity"));
+        DapperTelemetry.Record(
+            "identity.find_refresh_session_by_id",
+            DatabaseProvider.SqlServer,
+            DapperOperation.QuerySingle,
+            TimeSpan.FromMilliseconds(1),
+            new OperationCanceledException());
+        var completed = measurements.Where(measurement =>
+            measurement.Name == "fullnet.data.sql.completed_operations").ToArray();
+        Assert.AreEqual(3, completed.Length);
+        Assert.AreEqual(3d, completed.Sum(measurement => measurement.Value));
+        Assert.IsTrue(completed.All(measurement =>
+            measurement.Tags.Count == 3
+            && measurement.Tags["statement_name"] == "identity.find_refresh_session_by_id"
+            && measurement.Tags["provider"] == "sql_server"
+            && measurement.Tags["operation"] == "query_single"));
         Assert.IsFalse(measurements.Any(measurement =>
             measurement.Tags.ContainsKey("sql")
             || measurement.Tags.ContainsKey("tenant_id")
@@ -59,6 +104,12 @@ public sealed class DapperTelemetryTests
             && measurement.Tags["provider"] == "my_sql"
             && measurement.Tags["operation"] == "execute"
             && measurement.Tags["outcome"] == "canceled"));
+        Assert.IsTrue(measurements.Any(measurement =>
+            measurement.Name == "fullnet.data.sql.completed_operations"
+            && measurement.Value == 1d
+            && measurement.Tags.Count == 3
+            && measurement.Tags["provider"] == "my_sql"
+            && measurement.Tags["operation"] == "execute"));
     }
 
     [TestMethod]

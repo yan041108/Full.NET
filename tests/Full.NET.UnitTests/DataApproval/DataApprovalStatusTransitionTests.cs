@@ -3,6 +3,7 @@ using Full.NET.Modules.DataApproval.Domain;
 
 namespace Full.NET.UnitTests.DataApproval;
 
+/// <summary>单元测试（数据审批）：Data Approval Status Transition。</summary>
 [TestClass]
 public sealed class DataApprovalStatusTransitionTests
 {
@@ -40,6 +41,7 @@ public sealed class DataApprovalStatusTransitionTests
     }
 }
 
+/// <summary>单元测试：DataApprovalScenarioValidator。</summary>
 [TestClass]
 public sealed class DataApprovalScenarioValidatorTests
 {

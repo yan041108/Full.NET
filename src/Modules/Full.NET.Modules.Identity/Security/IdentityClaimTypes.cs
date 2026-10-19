@@ -1,7 +1,9 @@
+// Identity 声明类型常量；与 JWT、Cookie 和 OIDC 映射保持一致。
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Security;
 
+/// <summary>Identity 声明类型常量；与 JWT、Cookie 和 OIDC 映射保持一致。</summary>
 internal static class IdentityClaimTypes
 {
     public const string SessionId = FullNetIdentityClaimTypes.SessionId;

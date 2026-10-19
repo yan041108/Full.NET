@@ -18,6 +18,7 @@ using global::MemoryPack;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成支撑：MessagingOutboxTest。</summary>
 internal static partial class MessagingOutboxTestSupport
 {
     internal const string TestEventType = "fullnet.messaging.outbox.test.event";

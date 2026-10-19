@@ -17,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Document;
 
-/// <summary>Document version references are protected by Files claim state.</summary>
+/// <summary>文档版本文件引用须受 Files 认领状态保护；集成断言共用入口。</summary>
 internal static class DocumentFilesReferenceClaimAssertions
 {
     public static async Task VerifyAsync(

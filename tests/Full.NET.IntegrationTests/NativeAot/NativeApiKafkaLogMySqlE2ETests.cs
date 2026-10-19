@@ -52,7 +52,7 @@ public sealed class NativeApiKafkaLogMySqlE2ETests
             ["Observability:HttpOperation:SlowRequestThreshold"] = "00:00:00",
         };
         using var productionAssets = new ProductionLogHostTestAssets();
-        productionAssets.ApplyTo(settings);
+        await productionAssets.ApplyToAsync(settings).ConfigureAwait(false);
         await using var host = await NativeApiProcessHost.StartAsync(
             artifact,
             DatabaseProvider.MySql,

@@ -5,6 +5,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
 using Microsoft.Extensions.Options;
 
+/// <summary>Tenancy 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements;
 
 internal sealed class TenantEntitlementBackfillService(

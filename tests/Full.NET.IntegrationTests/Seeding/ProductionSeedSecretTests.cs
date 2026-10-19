@@ -139,7 +139,7 @@ public sealed class ProductionSeedSecretTests
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetDapper(configuration, "Production");
         services.AddFullNetMemoryPack();
-        services.AddFullNetCaching(configuration, "Production");
+        services.AddFullNetMigratorCaching(configuration, "Production");
         services.AddFullNetSeeding(configuration);
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Migrator);
 

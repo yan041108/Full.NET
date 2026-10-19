@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiAgentRunCoordinator。</summary>
 public sealed partial class AiAgentRunCoordinatorTests
 {
     [TestMethod]

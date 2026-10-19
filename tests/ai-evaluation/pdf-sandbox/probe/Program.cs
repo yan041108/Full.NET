@@ -1,3 +1,4 @@
+/// <summary>PDF 沙箱对抗探针；独立二进制，仅用于评测管线。</summary>
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;

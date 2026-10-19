@@ -20,12 +20,13 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Host Tenant Cache Invalidation。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class HostTenantCacheInvalidationTests
 {
     [TestMethod]
-    public async Task UpdateAsync_InvalidatesCacheDirectlyAfterCommit_WithoutOutbox()
+    public async Task UpdateAsync_CommitsWithoutTouchingUnusedCacheEntries()
     {
         var invalidationMeasurements = new List<InvalidationMeasurement>();
         using var listener = CreateInvalidationListener(
@@ -111,9 +112,6 @@ public sealed class HostTenantCacheInvalidationTests
                 })),
             packageBinder,
             clock,
-            TenantCacheInvalidatorTestFactory.Create(
-                fusionCache,
-                new TestHostEnvironment(environmentName)),
             // UpdateAsync 不触碰 B0 域内审计写入器；此处只需满足构造函数依赖。
             Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>());
 
@@ -123,34 +121,11 @@ public sealed class HostTenantCacheInvalidationTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(transaction.ObservedBeforeCommit);
-        Assert.AreEqual(
-            "fresh-tenant",
-            await hybridCache.GetOrCreateAsync(
-                tenantKey,
-                _ => ValueTask.FromResult("fresh-tenant")));
-        Assert.AreEqual(
-            "fresh-domain",
-            await hybridCache.GetOrCreateAsync(
-                domainKey,
-                _ => ValueTask.FromResult("fresh-domain")));
-        var distributedSuccess = invalidationMeasurements.Single(item =>
-            item.Tags.Any(tag =>
-                tag.Key == "scope"
-                && Equals(tag.Value, "distributed")));
-        Assert.AreEqual("fullnet.cache.invalidation.duration", distributedSuccess.Name);
-        Assert.AreEqual(
-            "success",
-            distributedSuccess.Tags.Single(tag => tag.Key == "outcome").Value);
-        Assert.IsTrue(
-            invalidationMeasurements.Any(item =>
-                item.Name == "fullnet.cache.invalidation.duration"
-                && item.Tags.Any(tag =>
-                    tag.Key == "scope"
-                    && Equals(tag.Value, "local"))
-                && item.Tags.Any(tag =>
-                    tag.Key == "outcome"
-                    && Equals(tag.Value, "success"))),
-            "提交后失效必须先记录本地 L1 成功指标。");
+        Assert.AreEqual("stale-tenant", await hybridCache.GetOrCreateAsync(tenantKey,
+            _ => ValueTask.FromResult("fresh-tenant")));
+        Assert.AreEqual("stale-domain", await hybridCache.GetOrCreateAsync(domainKey,
+            _ => ValueTask.FromResult("fresh-domain")));
+        Assert.IsEmpty(invalidationMeasurements, "权威读取没有历史缓存副本需要清理。");
     }
 
     private static MeterListener CreateInvalidationListener(

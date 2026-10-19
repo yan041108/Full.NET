@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 
 import { argumentsFor } from './run-integration-shard.mjs';
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
+import { prepareTestBuild } from './test-build-reuse.mjs';
+import { enterHeavyTestPhase, testRunEnvironment, withTestRun } from './test-run-context.mjs';
 
 const execFileAsync = promisify(execFile);
 const testMatrix = loadTestMatrix();
@@ -108,6 +110,9 @@ const immediateTargetNames = new Set([
   'logging-request-kafka',
   'logging-route-comparison',
   'logging-secret-boundary',
+  'logging-metrics',
+  'auditing-coordinator-faults',
+  'auditing-metrics',
   'Realtime',
   'Seeding',
   'Tenancy',
@@ -238,6 +243,12 @@ function addModuleTarget(targets, moduleName) {
     addTarget(targets, filterTarget('Notifications', notificationsFilter));
     return;
   }
+  if (moduleName === 'ObservabilityAdmin') {
+    // 时间线的真实 ES 用例位于模块目录，不遵循历史 Api 夹具类名。
+    addTarget(targets, filterTarget('ObservabilityAdmin',
+      'FullyQualifiedName~ObservabilityAdminApi|FullyQualifiedName~Full.NET.IntegrationTests.ObservabilityAdmin.'));
+    return;
+  }
   addTarget(targets, filterTarget(moduleName));
 }
 
@@ -277,6 +288,13 @@ function migrationDetails(filePath) {
 }
 
 function classifyBuildingBlock(filePath, targets) {
+  if (/^src\/BuildingBlocks\/Full\.NET\.Hosting\/Observability\/(?:ServiceDefaultsExtensions|FullNetAsyncLogMonitor|FullNetLoggingMonitors|LoggingResourceMetadata|FullNetBoundedAsyncSink|FullNetLoggingPipelineSink)\.cs$/u.test(filePath)) {
+    addTarget(targets, { kind: 'shard', name: 'logging-metrics' });
+    if (filePath.endsWith('/ServiceDefaultsExtensions.cs'))
+      addTarget(targets, { kind: 'shard', name: 'auditing-metrics' });
+    addTarget(targets, { kind: 'shard', name: 'smoke' });
+    return '宿主日志指标与共享注册';
+  }
   const migration = migrationDetails(filePath);
   if (migration) {
     const registered = migrationSelections[migration.number];
@@ -347,6 +365,18 @@ function classifyBuildingBlock(filePath, targets) {
 }
 
 function classifyIntegrationPath(filePath, targets) {
+  if (filePath === 'tests/Full.NET.IntegrationTests/Observability/AuditB1MetricsPipelineTests.cs') {
+    addTarget(targets, { kind: 'shard', name: 'auditing-metrics' });
+    return 'B1 真实指标导出与正式告警 Integration';
+  }
+  if (filePath === 'tests/Full.NET.IntegrationTests/Auditing/AuditingCoordinatorFaultTests.cs') {
+    addTarget(targets, { kind: 'shard', name: 'auditing-coordinator-faults' });
+    return 'B1 协调器双库整队列故障 Integration';
+  }
+  if (filePath === 'tests/Full.NET.IntegrationTests/Observability/HostLoggingMetricsPipelineTests.cs') {
+    addTarget(targets, { kind: 'shard', name: 'logging-metrics' });
+    return '宿主真实指标与告警 Integration';
+  }
   const migrationRecovery = filePath.match(
     /^tests\/Full\.NET\.IntegrationTests\/Migrations\/Migration(\d{3})[A-Za-z0-9]*Tests\.cs$/i
   );
@@ -488,6 +518,14 @@ export function classifyChangedPaths(paths) {
     if (isLocalNoise(filePath)) {
       continue;
     }
+    if (filePath === 'deploy/observability/otel-collector-values.yaml'
+      || filePath === 'deploy/observability/prometheus-rules.yaml'
+      || filePath === 'eng/testing/otel-collector-config-test.mjs') {
+      addTarget(targets, { kind: 'shard', name: 'logging-metrics' });
+      addTarget(targets, { kind: 'shard', name: 'auditing-metrics' });
+      reasons.push(`Collector 指标配置：${filePath}`);
+      continue;
+    }
 
     const messagingReason = classifyMessagingPath(filePath, targets);
     if (messagingReason) {
@@ -521,6 +559,9 @@ export function classifyChangedPaths(paths) {
 
     const sourceModule = moduleFromSourcePath(filePath);
     if (sourceModule) {
+      if (sourceModule === 'Auditing'
+        && (filePath.endsWith('/AuditingModule.cs') || filePath.includes('/Features/WriteAuditBatch/')))
+        addTarget(targets, { kind: 'shard', name: 'auditing-metrics' });
       if (
         focusedModules.has(sourceModule)
         || sourceModule === 'Identity'
@@ -761,6 +802,8 @@ export function parseArguments(args) {
   let planOnly = false;
   let includeHeavy = false;
   let executionGroup = 'all';
+  let reuseBuild = false;
+  let noBuild = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -772,6 +815,8 @@ export function parseArguments(args) {
       planOnly = true;
       continue;
     }
+    if (argument === '--reuse-build') { reuseBuild = true; continue; }
+    if (argument === '--no-build') { noBuild = true; continue; }
     if (argument === '--include-heavy') {
       includeHeavy = true;
       continue;
@@ -824,7 +869,8 @@ export function parseArguments(args) {
   }
 
   targetsForExecutionGroup([], executionGroup);
-  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup };
+  if (reuseBuild && noBuild) throw new Error('--reuse-build 与 --no-build 不能同时使用。');
+  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup, reuseBuild, noBuild };
 }
 
 function lines(value) {
@@ -1074,10 +1120,11 @@ export function argumentsForFocused(target, discoveredCount) {
   ];
 }
 
-function runProcess(command, args, cwd) {
+function runProcess(command, args, cwd, env = testRunEnvironment()) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
+      env,
       stdio: 'inherit',
       shell: false
     });
@@ -1111,6 +1158,7 @@ async function discover(filter, cwd) {
     ],
     {
       cwd,
+      env: testRunEnvironment(),
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024
     }
@@ -1182,7 +1230,9 @@ async function runCli(args, cwd = process.cwd()) {
     planOnly,
     snapshotId,
     includeHeavy,
-    executionGroup
+    executionGroup,
+    reuseBuild,
+    noBuild
   } = parseArguments(args);
   const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
@@ -1208,6 +1258,7 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
+  return withTestRun({ cwd }, async () => {
   const toolingTargets = executionTargets.filter(
     target => target.kind === 'tooling'
   );
@@ -1225,18 +1276,20 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
-  await runProcess(
-    'dotnet',
-    [
+  const buildArgs = [
       'build',
       'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj',
       '--configuration',
       'Release',
       '--no-restore',
       '--nologo'
-    ],
-    cwd
-  );
+    ];
+  const buildResult = await prepareTestBuild({
+    cwd, project: buildArgs[1], assembly, args: buildArgs,
+    mode: noBuild ? 'verify' : reuseBuild ? 'reuse' : 'fresh',
+    build: env => runProcess('dotnet', buildArgs, cwd, env)
+  });
+  process.stdout.write(buildResult.reused ? '构建输入和产物一致，复用 Integration Release。\n' : '已登记 Integration Release 构建。\n');
 
   if (toolingScopes.includes('partitions')) {
     await runMatrixVerification(cwd);
@@ -1244,6 +1297,9 @@ async function runCli(args, cwd = process.cwd()) {
   if (integrationTargets.length === 0) {
     return;
   }
+
+  // 编译先使用可并行名额；实际访问共享数据库前转为重型独占，工作区锁始终保留。
+  await enterHeavyTestPhase();
 
   const shardTargets = integrationTargets.filter(
     target => target.kind === 'shard'
@@ -1291,6 +1347,7 @@ async function runCli(args, cwd = process.cwd()) {
       cwd
     );
   }
+  });
 }
 
 if (

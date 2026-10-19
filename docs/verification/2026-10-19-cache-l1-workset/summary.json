@@ -1,0 +1,205 @@
+{
+  "status": "Accepted bounded JIT component workset measurements",
+  "capacityStatus": "Capacity-not-verified",
+  "processes": 12,
+  "measurements": [
+    {
+      "profile": 0,
+      "repeat": 1,
+      "capacity": 1024,
+      "payloadBytes": 1024,
+      "raw": "workset-0-1.json",
+      "sha256": "4903b3b00859a32ff5117abe825286abe37f9dccff524ccb785993b4b383fbb6",
+      "bytesPerRetainedPayload": 1947.8095238095239,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 41324544
+    },
+    {
+      "profile": 0,
+      "repeat": 2,
+      "capacity": 1024,
+      "payloadBytes": 1024,
+      "raw": "workset-0-2.json",
+      "sha256": "79d265c89571964b0b01d096229d0aa3d3bf38503b700456f8e59c39ce0e3251",
+      "bytesPerRetainedPayload": 1947.8095238095239,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 40058880
+    },
+    {
+      "profile": 0,
+      "repeat": 3,
+      "capacity": 1024,
+      "payloadBytes": 1024,
+      "raw": "workset-0-3.json",
+      "sha256": "d96c99942e10992676217fa37d495c28aa01943649bee50fa4140bb536169cf8",
+      "bytesPerRetainedPayload": 1947.8095238095239,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 41213952
+    },
+    {
+      "profile": 1,
+      "repeat": 1,
+      "capacity": 1024,
+      "payloadBytes": 16384,
+      "raw": "workset-1-1.json",
+      "sha256": "729f3a90cc9800e862f98648e714b11d4501f15aa6db64ef271fb5eb3a43c034",
+      "bytesPerRetainedPayload": 17307.488095238095,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 69345280
+    },
+    {
+      "profile": 1,
+      "repeat": 2,
+      "capacity": 1024,
+      "payloadBytes": 16384,
+      "raw": "workset-1-2.json",
+      "sha256": "666a1ba5fff23699c00b31521eea3443272a1373ed5e45f3d5e6f5b57cabdc16",
+      "bytesPerRetainedPayload": 17307.488095238095,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 69337088
+    },
+    {
+      "profile": 1,
+      "repeat": 3,
+      "capacity": 1024,
+      "payloadBytes": 16384,
+      "raw": "workset-1-3.json",
+      "sha256": "5edf4d0587878b3e4a294b9ccfb5071af9269e7d395c1db11fa9f0a26ac2581b",
+      "bytesPerRetainedPayload": 17307.488095238095,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 69345280
+    },
+    {
+      "profile": 2,
+      "repeat": 1,
+      "capacity": 1024,
+      "payloadBytes": 65536,
+      "raw": "workset-2-1.json",
+      "sha256": "8c003f20349af83c3948f65e95cf9834710ee6f66f280acd4799a8b7be498a80",
+      "bytesPerRetainedPayload": 66459.80952380953,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 151486464
+    },
+    {
+      "profile": 2,
+      "repeat": 2,
+      "capacity": 1024,
+      "payloadBytes": 65536,
+      "raw": "workset-2-2.json",
+      "sha256": "85ccd9ccbdaf25791e9bd8110d9f5e6e9c0a42125a6590732b0e6f442e67d1fc",
+      "bytesPerRetainedPayload": 66459.80952380953,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 145371136
+    },
+    {
+      "profile": 2,
+      "repeat": 3,
+      "capacity": 1024,
+      "payloadBytes": 65536,
+      "raw": "workset-2-3.json",
+      "sha256": "dccb3fd5f21e0c800faddb72e8fe47387e0987f1ebdf64fe211de4d0defb5612",
+      "bytesPerRetainedPayload": 66459.80952380953,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 150491136
+    },
+    {
+      "profile": 3,
+      "repeat": 1,
+      "capacity": 10000,
+      "payloadBytes": 1024,
+      "raw": "workset-3-1.json",
+      "sha256": "c0828652805a547c6637940d165c11c461dc9ad5b750f1c1a64bc9ccb6f2bebd",
+      "bytesPerRetainedPayload": 1940.9822476190477,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 80908288
+    },
+    {
+      "profile": 3,
+      "repeat": 2,
+      "capacity": 10000,
+      "payloadBytes": 1024,
+      "raw": "workset-3-2.json",
+      "sha256": "37109b6d1e31d3ac02e9da6ae167719db9a3afd093699290d3b47fc0bad70697",
+      "bytesPerRetainedPayload": 1940.9822476190477,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 81182720
+    },
+    {
+      "profile": 3,
+      "repeat": 3,
+      "capacity": 10000,
+      "payloadBytes": 1024,
+      "raw": "workset-3-3.json",
+      "sha256": "86737876ad858d66bd0c643f778a8e77f9a82e0a894ba5b3fad0b3db72efe12c",
+      "bytesPerRetainedPayload": 1940.9822476190477,
+      "stableFitSamples": 3,
+      "maximumWorkingSetBytes": 80801792
+    }
+  ],
+  "limitations": [
+    "Component post-GC density only; not Native API or concurrent-request capacity",
+    "Three independent fresh processes per profile; RSS includes runtime and allocator",
+    "The probe key/timing bookkeeping is included; the fitted slope is not exclusive cache memory cost",
+    "Configured capacity counts weight units, not bytes or process memory"
+  ],
+  "groups": [
+    {
+      "profile": 0,
+      "capacity": 1024,
+      "payloadBytes": 1024,
+      "repeats": 3,
+      "medianBytesPerRetainedPayload": 1947.8095238095239,
+      "minBytesPerRetainedPayload": 1947.8095238095239,
+      "maxBytesPerRetainedPayload": 1947.8095238095239,
+      "maximumSampledWorkingSetMiB": 39.41015625
+    },
+    {
+      "profile": 1,
+      "capacity": 1024,
+      "payloadBytes": 16384,
+      "repeats": 3,
+      "medianBytesPerRetainedPayload": 17307.488095238095,
+      "minBytesPerRetainedPayload": 17307.488095238095,
+      "maxBytesPerRetainedPayload": 17307.488095238095,
+      "maximumSampledWorkingSetMiB": 66.1328125
+    },
+    {
+      "profile": 2,
+      "capacity": 1024,
+      "payloadBytes": 65536,
+      "repeats": 3,
+      "medianBytesPerRetainedPayload": 66459.80952380953,
+      "minBytesPerRetainedPayload": 66459.80952380953,
+      "maxBytesPerRetainedPayload": 66459.80952380953,
+      "maximumSampledWorkingSetMiB": 144.46875
+    },
+    {
+      "profile": 3,
+      "capacity": 10000,
+      "payloadBytes": 1024,
+      "repeats": 3,
+      "medianBytesPerRetainedPayload": 1940.9822476190477,
+      "minBytesPerRetainedPayload": 1940.9822476190477,
+      "maxBytesPerRetainedPayload": 1940.9822476190477,
+      "maximumSampledWorkingSetMiB": 77.421875
+    }
+  ],
+  "probeSourceSha256": "ccbd45e0f936b7b6bf5ea85ab2f01ea4a522627cb7758ccbd6deddfa098e2248",
+  "sourceHash": "7508654a2c7e1eeab620e64e7f96efb75f57ed976887c0ec867890e0b0b38013",
+  "actualRuntimeExample": ".NET 10.0.13",
+  "actualOs": "Microsoft Windows 10.0.19045",
+  "supervisor": {
+    "jobFinalActiveProcesses": 0,
+    "stopReason": null,
+    "jobTotalProcesses": 526,
+    "observedViaLiveProcessHandle": true,
+    "jobAssignedBeforeResume": true,
+    "actualExecutionDeadlineUtc": "2026-10-18T17:03:48.8960000+00:00",
+    "actualHeavyStarted": true,
+    "at": "2026-10-18T16:32:52.5272559Z",
+    "actualParentPid": 59144,
+    "actualParentBirth": "134368145243952247",
+    "actualParentExit": 0
+  },
+  "scope": "Actual isolated JIT L1 component measurements; not Native/API/database/concurrent tenant capacity"
+}

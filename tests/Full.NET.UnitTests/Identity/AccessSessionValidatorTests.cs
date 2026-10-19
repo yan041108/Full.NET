@@ -12,6 +12,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Access Session Validator。</summary>
 [TestClass]
 public sealed class AccessSessionValidatorTests
 {

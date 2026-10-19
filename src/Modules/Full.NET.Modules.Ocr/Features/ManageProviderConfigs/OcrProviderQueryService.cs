@@ -3,6 +3,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ocr.Contracts;
 using Full.NET.Modules.Ocr.Persistence;
 
+/// <summary>Ocr 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Ocr.Features.ManageProviderConfigs;
 
 internal sealed class OcrProviderQueryService(IQueryExecutor queryExecutor)

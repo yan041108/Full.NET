@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Audit Operation Details Capture。</summary>
 [TestClass]
 public sealed class AuditOperationDetailsCaptureTests
 {

@@ -213,6 +213,16 @@ test('OTel Collector contract: memory_limiter, batch, retry, file_storage', asyn
   assert.match(text, /retry_on_failure:/);
   assert.match(text, /file_storage:/);
   assert.match(text, /storage:\s*file_storage/);
+  const metrics = text.split('    prometheus_remote_write:')[1]?.split('\n  service:')[0];
+  assert.ok(metrics);
+  assert.doesNotMatch(metrics, /sending_queue:|storage:\s*file_storage/);
+  assert.match(metrics, /remote_write_queue:[\s\S]*num_consumers:\s*1/);
+  assert.match(metrics, /http:[\s\S]*endpoint:\s*http:\/\/prometheus\.observability\.svc:9090\/api\/v1\/write/);
+  assert.match(metrics, /max_batch_request_parallelism:\s*1/);
+  assert.match(metrics, /translation_strategy:\s*UnderscoreEscapingWithSuffixes/);
+  assert.match(metrics, /wal:[\s\S]*directory:\s*\/var\/otel-collector\/storage\/prometheus/);
+  assert.match(text, /repository:\s*ghcr\.io\/open-telemetry\/opentelemetry-collector-releases\/opentelemetry-collector-contrib/);
+  assert.match(text, /digest:\s*sha256:[a-f0-9]{64}/);
   assert.match(text, /recursiveSinkWriteback:\s*false/);
   assert.match(text, /durableAuditDuplication:\s*false/);
   assert.match(text, /key:\s*DiagnosticGroup[\s\S]*action:\s*delete/);
@@ -252,6 +262,15 @@ test('Prometheus rules cover required high-concurrency alerts', async () => {
   assert.match(text, /fullnet_db_connection_acquire_total\{outcome="rejected"\}/);
   assert.doesNotMatch(text, /message_id|tenant_id|MessageId|TenantId/);
   assert.doesNotMatch(text, /fullnet_outbox_oldest_message_age_seconds/);
+});
+
+test('缓存失效延迟告警查询实际 Collector 导出的直方图族', async () => {
+  const fixture = await read('tests/deployment/fixtures/cache-invalidation-duration.prom');
+  const family = /^# TYPE (\S+) histogram$/m.exec(fixture)?.[1];
+  assert.ok(family, '缺少真实 Collector 直方图族记录');
+  const rules = await read('deploy/observability/prometheus-rules.yaml');
+  const expression = /alert:\s*FullNetCacheInvalidationStaleWindow\s*\n\s*expr:\s*([^\n]+)/.exec(rules)?.[1];
+  assert.ok(expression?.includes(`${family}_bucket`), '告警查询必须匹配真实出口名称；ms 会被单位映射为 milliseconds');
 });
 
 test('Runbooks cover SLO, DP keys, Redis split, audit fail-open/closed, Expand/Contract', async () => {

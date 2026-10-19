@@ -2,6 +2,7 @@ using Full.NET.Modules.Identity.Features.SelfServiceProfile;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Self Service Profile Media Policy。</summary>
 [TestClass]
 public sealed class SelfServiceProfileMediaPolicyTests
 {

@@ -6,6 +6,7 @@ using System.Text.Json;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 MCP：Client Connection Manager。</summary>
 [TestClass]
 public sealed class McpClientConnectionManagerTests
 {

@@ -4,6 +4,7 @@ using Full.NET.Modules.Jobs.Scheduling;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Job Schedule Calculator。</summary>
 [TestClass]
 public sealed class JobScheduleCalculatorTests
 {

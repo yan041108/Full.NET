@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Modularity;
 
+/// <summary>单元测试（模块化）：Module Registry。</summary>
 [TestClass]
 public sealed class ModuleRegistryTests
 {

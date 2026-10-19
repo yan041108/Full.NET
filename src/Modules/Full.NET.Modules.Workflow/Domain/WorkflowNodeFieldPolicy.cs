@@ -1,3 +1,4 @@
+// 工作流节点字段策略；按节点类型约束可编辑字段与必填规则。
 using System.Text.Json;
 
 namespace Full.NET.Modules.Workflow.Domain;
@@ -7,6 +8,7 @@ internal sealed record WorkflowNodeFormView(
     Dictionary<string, JsonElement> Values,
     Dictionary<string, string> FieldPolicies);
 
+/// <summary>解析节点级字段读写策略；模型输出不能放宽设计器声明的只读/隐藏约束。</summary>
 internal sealed class WorkflowNodeFieldPolicy
 {
     private readonly IReadOnlyDictionary<string, string> _fields;

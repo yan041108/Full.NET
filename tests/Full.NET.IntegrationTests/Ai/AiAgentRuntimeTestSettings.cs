@@ -1,6 +1,6 @@
 ﻿namespace Full.NET.IntegrationTests.Ai;
 
-/// <summary>Integration test Agent Runtime settings.</summary>
+/// <summary>集成测试用 Agent 运行时配置节；拉长轮询避免与生产 Worker 争用。</summary>
 internal static class AiAgentRuntimeTestSettings
 {
     internal static Dictionary<string, string?> ForIntegrationTests() => new()

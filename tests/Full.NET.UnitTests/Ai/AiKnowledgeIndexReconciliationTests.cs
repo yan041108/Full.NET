@@ -2,6 +2,7 @@ using Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Index Reconciliation。</summary>
 [TestClass]
 public sealed class AiKnowledgeIndexReconciliationTests
 {

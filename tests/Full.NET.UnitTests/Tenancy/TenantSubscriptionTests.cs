@@ -3,6 +3,7 @@ using Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenant Subscription。</summary>
 [TestClass]
 public sealed class TenantSubscriptionTests
 {

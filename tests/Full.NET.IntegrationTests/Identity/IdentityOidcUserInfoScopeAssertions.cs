@@ -6,6 +6,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：UserInfo 端点与 scope 授权边界。</summary>
 internal static class IdentityOidcUserInfoScopeAssertions
 {
     public static async Task VerifyAsync(

@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Migrator Workflow。</summary>
 [TestClass]
 public sealed class MigratorWorkflowTests
 {

@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using Full.NET.Data.Abstractions;
 
+/// <summary>Auditing 模块数据保留任务的 OpenTelemetry 指标。</summary>
 namespace Full.NET.Modules.Auditing.Retention;
 
 internal static class AuditingRetentionTelemetry

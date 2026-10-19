@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Localization;
 
+/// <summary>单元测试（多语言）：Locale Normalizer。</summary>
 [TestClass]
 public sealed class LocaleNormalizerTests
 {

@@ -7,6 +7,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Organization Unit Projection Writer。</summary>
 [TestClass]
 public sealed class OrganizationUnitProjectionWriterTests
 {

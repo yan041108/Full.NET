@@ -24,6 +24,7 @@ using WorkerHost = workerhost::Full.NET.Host.Worker;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：Outbox 毒消息、未知版本与恢复路径。</summary>
 [TestClass]
 public sealed partial class OutboxRecoveryTests
 {

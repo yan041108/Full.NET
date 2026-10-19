@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Tenant Invitation Rollback。</summary>
 [TestClass]
 public sealed class TenantInvitationRollbackTests
 {

@@ -11,6 +11,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Tool Loop Approval Resume。</summary>
 [TestClass]
 public sealed class AiAgentToolLoopApprovalResumeTests
 {

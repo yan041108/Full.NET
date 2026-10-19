@@ -25,6 +25,7 @@ using KafkaCapacityConnectorTemplateFactory = kafkabenchmarks::Full.NET.Benchmar
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaOutboxCdcCapacityRunner。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaOutboxCdcCapacityRunnerTests

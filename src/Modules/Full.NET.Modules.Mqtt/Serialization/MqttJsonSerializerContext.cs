@@ -13,4 +13,5 @@ namespace Full.NET.Modules.Mqtt.Serialization;
 [JsonSerializable(typeof(PublishMqttMessageRequest))]
 [JsonSerializable(typeof(IReadOnlyList<MqttClientResponse>))]
 [JsonSerializable(typeof(PagedResult<MqttMessageResponse>))]
+/// <summary>Mqtt 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class MqttJsonSerializerContext : JsonSerializerContext;

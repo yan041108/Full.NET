@@ -4,6 +4,7 @@ using Full.NET.Modules.Ai.Persistence;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Answer Lineage。</summary>
 [TestClass]
 public sealed class AiKnowledgeAnswerLineageTests
 {

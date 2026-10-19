@@ -1,9 +1,11 @@
+// OIDC 存储 SQL 解析；按数据库提供程序选择语句文本。
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Oidc.Stores;
 
+/// <summary>按数据库提供程序解析 OIDC 存储 SQL；不支持的组合在首次访问时失败。</summary>
 internal sealed class IdentityOidcStoreSqlResolver(IOptions<DatabaseOptions> databaseOptions)
 {
     private DatabaseProvider Provider => databaseOptions.Value.Provider;

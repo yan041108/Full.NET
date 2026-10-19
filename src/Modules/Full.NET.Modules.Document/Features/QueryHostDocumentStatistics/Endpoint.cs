@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧DocumentStatistics查询 API 路由注册。</summary>
 namespace Full.NET.Modules.Document.Features.QueryHostDocumentStatistics;
 
 internal static class Endpoint

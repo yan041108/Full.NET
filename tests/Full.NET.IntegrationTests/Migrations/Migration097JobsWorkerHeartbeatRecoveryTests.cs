@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
+/// <summary>集成测试：Migration097JobsWorkerHeartbeatRecovery。</summary>
 [TestClass]
 public sealed class Migration097JobsWorkerHeartbeatRecoveryTests
 {

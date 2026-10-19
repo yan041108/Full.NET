@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Data.Dapper.Inbox;
 
+/// <summary>批量投递前预检 Inbox 状态与 PayloadHash；避免整批因单条重复而回滚。</summary>
 internal static class InboxBatchPrecheckSql
 {
     public static readonly SqlStatement SqlServer = new(

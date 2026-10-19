@@ -5,6 +5,7 @@ using Full.NET.Data.CodeGeneration.Schema;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Module Integration Backend Workspace。</summary>
 [TestClass]
 public sealed class ModuleIntegrationBackendWorkspaceTests
 {

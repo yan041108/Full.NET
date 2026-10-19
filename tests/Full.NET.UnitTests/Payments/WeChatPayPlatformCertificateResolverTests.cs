@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Payments;
 
+/// <summary>单元测试（支付）：We Chat Pay Platform Certificate Resolver。</summary>
 [TestClass]
 public sealed class WeChatPayPlatformCertificateResolverTests
 {

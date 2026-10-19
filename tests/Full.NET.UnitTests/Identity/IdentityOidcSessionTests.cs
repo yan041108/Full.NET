@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Oidc Session。</summary>
 [TestClass]
 public sealed class IdentityOidcSessionTests
 {
@@ -198,6 +199,12 @@ public sealed class IdentityOidcSessionTests
     [DataRow("tenant", "missing")]
     [DataRow("tenant", "outage")]
     [DataRow("tenant", "cancel")]
+    [DataRow("tenant", "capacity-rejected")]
+    [DataRow("tenant", "capacity-timeout")]
+    [DataRow("host", "capacity-rejected")]
+    [DataRow("host", "capacity-timeout")]
+    [DataRow("unresolved", "capacity-rejected")]
+    [DataRow("unresolved", "capacity-timeout")]
     [DataRow("host", "success")]
     [DataRow("unresolved", "success")]
     public async Task Access_validation_restores_caller_context(string context, string outcome)
@@ -215,6 +222,12 @@ public sealed class IdentityOidcSessionTests
             {
                 Assert.IsTrue(fixture.Tenant.IsHost, "权威查询必须在 Host 上下文内执行。");
                 if (outcome == "outage") throw new InvalidOperationException("outage");
+                if (outcome.StartsWith("capacity-", StringComparison.Ordinal))
+                    throw new Full.NET.Abstractions.Results.ServiceCapacityExceededException(
+                        outcome == "capacity-rejected"
+                            ? Full.NET.Abstractions.Results.ServiceCapacityFailureKind.Rejected
+                            : Full.NET.Abstractions.Results.ServiceCapacityFailureKind.Timeout,
+                        TimeSpan.FromMilliseconds(250));
                 if (outcome == "cancel")
                 {
                     cancellation.Cancel();
@@ -225,7 +238,10 @@ public sealed class IdentityOidcSessionTests
         var principal = ValidatorFixture.CreateOidcPrincipal(
             ApplicationSessionId, UserId, "host", "host", "https://localhost/identity", "Full.NET.Api");
 
-        if (outcome == "cancel")
+        if (outcome.StartsWith("capacity-", StringComparison.Ordinal))
+            await Assert.ThrowsExactlyAsync<Full.NET.Abstractions.Results.ServiceCapacityExceededException>(() =>
+                fixture.Validator.IsValidAsync(principal));
+        else if (outcome == "cancel")
             await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
                 fixture.Validator.IsValidAsync(principal, cancellation.Token));
         else

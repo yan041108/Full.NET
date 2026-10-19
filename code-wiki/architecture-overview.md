@@ -97,10 +97,12 @@ src/
 │   ├── Full.NET.Migrations.DbUp             # DbUp 迁移引擎封装
 │   ├── Full.NET.Seeding.Abstractions        # 种子数据贡献者抽象
 │   ├── Full.NET.Seeding.Dapper              # Dapper 种子编排器
-│   ├── Full.NET.Caching.Abstractions        # 缓存失效边界抽象：ICacheInvalidator
-│   ├── Full.NET.Caching.Fusion              # FusionCache 混合缓存实现 + HybridCache 双抽象
+│   ├── Full.NET.Caching.Abstractions        # 缓存失效边界：ICacheInvalidator、ICacheBatchInvalidator
+│   ├── Full.NET.Caching.Fusion              # FusionCache 混合缓存 + 有界序列化 + Backplane
 │   ├── Full.NET.Messaging.Abstractions      # 消息抽象：事件流所有权、订阅目录、Kafka 重放
 │   ├── Full.NET.Messaging.Kafka             # Kafka Consumer/Producer、DLQ、Offset 管理、Connect Admin
+│   ├── Full.NET.Logging.Kafka               # 应用日志直发 Kafka（与业务 Outbox 分离）
+│   ├── Full.NET.Hosting.Migrator            # Migrator 一次性宿主装配；API/Worker 不得引用迁移执行能力
 │   ├── Full.NET.Realtime.Abstractions       # 实时通信抽象
 │   ├── Full.NET.Realtime.SignalR            # SignalR 实现 + Redis Backplane + 探针端点
 │   ├── Full.NET.Serialization.MemoryPack    # MemoryPack 序列化（可靠事件载荷契约）
@@ -175,10 +177,14 @@ src/
 ├── Generators/
 │   └── Full.NET.Messaging.Generators        # 集成事件订阅路由源代码生成器
 │
+├── Platform/
+│   └── Full.NET.LogConsumer                 # Kafka 日志消费、连续 Offset 与 ES 写入
+│
 ├── Hosts/
 │   ├── Full.NET.Host.Api                    # API 宿主（HTTP Endpoint + 实时通信）
 │   ├── Full.NET.Host.Worker                 # Worker 宿主（Outbox/Retention/Shadow/Kafka 后台处理）
 │   ├── Full.NET.Host.Migrator               # Migrator 宿主（数据库迁移 + 种子数据）
+│   ├── Full.NET.Host.LogConsumer            # 独立日志消费进程（不复用业务 Worker）
 │   └── Full.NET.AppHost                     # .NET Aspire 本地编排宿主
 │
 └── Tools/
@@ -216,34 +222,22 @@ src/
 
 ### 3.4 可靠消息交付 (ADR-0006)
 
+发布、消费、两种枚举、默认 Legacy 轮询和 CDC/Kafka 试点边界见 [可靠事件交付指南](./reliable-event-delivery.md)。
+
 ```text
 业务事务 ──同一 DB 事务──► IOutboxWriter.AddAsync
-                              │   (事务内原子追加：fn_messaging_outbox_event)
-                              ▼
-              ┌─────────────────────────────────────────┐
-              │  IEventStreamOwnershipGate 事务级互斥     │
-              │  ├── Producer 锁：阻止切流期 Legacy 写入  │
-              │  ├── Consumer Fence：消费端读 Owner 快照  │
-              │  └── OwnershipChange：切流独占写锁       │
-              └─────────────────────────────────────────┘
                               │
                               ▼
-              ┌─────────────────────────────────────────┐
-              │  EventDeliveryOwner 三种交付所有权        │
-              │  ├── LegacyPolling: Worker 轮询 Outbox   │
-              │  ├── ShadowCdcKafka: 影子比对验证         │
-              │  └── HybridKafka: CDC Relay → Kafka     │
-              │      (CdcKafka 为过时别名，规范化保留一版) │
-              └─────────────────────────────────────────┘
+              DapperRoutedOutboxWriter 按该流有效所有权选一张表
+              ├── LegacyPolling / ShadowCdc → fn_outbox_message
+              └── CdcKafka（必须带 PartitionKey 与 Producer）→ fn_messaging_outbox_event
                               │
                               ▼
-                        Kafka Broker
-                              │
-                              ▼
-                    IIntegrationEventSubscriptionCatalog
-                    ├── 路由键 (ConsumerName, EventType, SchemaVersion)
-                    ├── IIntegrationEventHandler (编译期生成)
-                    └── Inbox Precheck/Claim/MarkProcessed（DB 提交后 Offset）
+              Host.Worker（Messaging:Worker:Mode，默认 LegacyPolling）
+              ├── LegacyPolling：OutboxProcessor 租约领取并调用 Handler
+              ├── ShadowCdc：轮询 + 影子比对，无正式业务消费者
+              └── HybridKafka：已切到 CdcKafka 的流走 CDC Relay → Kafka → Inbox
+                  其余流继续轮询。Worker 模式名 CdcKafka 是 HybridKafka 的过时别名
 ```
 
 ---
@@ -338,11 +332,13 @@ SqlDataScope + SqlTenantBinding 合法矩阵:
 - **一致性分类** `CacheConsistencyClass`：`Weak / Eventual / StrongNoL1`；`StrongNoL1` 禁用 L1，只走 L2 + 权威源
 - **统一键构造** [`CacheKeyBuilder`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Caching.Fusion/CacheKeyBuilder.cs)：7 段格式 `fullnet:{env}:{scope}:{module}:{res}:{id}:{ver}`，`scope` 段区分 `host` 与具体 `TenantId`，禁止业务模块自行拼接
 - **策略注册表** `ICachePolicyRegistry`：按稳定 `entryName` 查询 `CacheEntryPolicy`，禁止手写 TTL；`C0/N0` 路径抛错避免绕过
-- **失效边界** [`ICacheInvalidator`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Caching.Abstractions/ICacheInvalidator.cs)（在 `Full.NET.Caching.Abstractions`）：
-  - `RemoveAsync(entryName, key, scope)` / `RemoveByTagAsync(...)`
-  - `scope` 区分 `Local`（本机 L1）与 `AllLevels`（L1+L2+Backplane）
-- **失效闭环**：提交事务 → 本机同步 L1 删除；Outbox 事件 → 跨节点 Backplane 广播删除；TTL + 版本号 + 权威源兜底
-- **可靠性监控** `FusionCacheReliabilityMonitor` + `CacheReliabilityTelemetry`：失效时延/失败、陈旧命中、Backplane 熔断恢复的低基数指标
+- **失效边界** 在 `Full.NET.Caching.Abstractions`：
+  - `ICacheInvalidator.RemoveAsync` / `RemoveByTagAsync`
+  - `ICacheBatchInvalidator.RemoveAsync`：有界批次，预检去重后逐项复用单目标语义，不另开广播链路
+  - `CacheInvalidationScope.CurrentNodeOnly` 只清当前节点 L1；`AllLayersSynchronous` 同步清 L1 与共享 L2，并等待 Backplane 发布
+- **失效闭环**：业务提交成功后，本实例直接删除 L1/L2，并由 Redis Backplane 通知其他实例。缓存失效不进入事务 Outbox。TTL、版本号和权威源负责兜底。`StrongNoL1` 不使用 L1
+- **写入保护**：`BoundedFusionCacheSerializer` 限制反序列化大小；条目选项来自 `CachePolicyEntryOptionsProvider`，不在调用点手写 TTL
+- **可靠性监控** `FusionCacheReliabilityMonitor` + `CacheReliabilityTelemetry`：失效时延/失败、陈旧命中、Backplane 状态的低基数指标
 
 ---
 

@@ -6,6 +6,7 @@ using Full.NET.Modules.Ai.Persistence;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Index Pdf Plan。</summary>
 [TestClass]
 public sealed class AiKnowledgeIndexPdfPlanTests
 {

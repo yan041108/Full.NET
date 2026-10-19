@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：协议权威元数据、issuer 与发现文档一致性。</summary>
 internal static class IdentityOidcProtocolAuthorityAssertions
 {
     public static async Task VerifyAsync(

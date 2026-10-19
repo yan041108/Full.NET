@@ -34,6 +34,8 @@ Abstractions (零依赖，含 ICommandTransaction / IIntegrationEventHandler / T
     │       └── Messaging.Kafka ──► Messaging.Abstractions + Data.Dapper
     ├── Caching.Abstractions ──► Abstractions
     │       └── Caching.Fusion ──► Caching.Abstractions + Abstractions
+    ├── Logging.Kafka ──► Hosting
+    ├── Hosting.Migrator ──► Migrations.DbUp + Seeding.Dapper + Caching.Fusion + Data.Dapper
     ├── Realtime.Abstractions ──► Abstractions
     │       └── Realtime.SignalR ──► Realtime.Abstractions
     ├── Serialization.MemoryPack ──► Data.Abstractions（实现 IIntegrationEventSerializer）
@@ -288,8 +290,11 @@ CommandDispatcher.SendAsync
 
 | 类型 | 说明 |
 |------|------|
-| `ICacheInvalidator` | 失效接口：`RemoveAsync(entryName, key, scope, ct)` / `RemoveByTagAsync(entryName, tag, scope, ct)` |
-| `CacheInvalidationScope` | 传播范围枚举：`CurrentNodeOnly`（仅本机 L1，不触发 Backplane）/ `AllLayersSynchronous`（L1+L2+Backplane 同步） |
+| `ICacheInvalidator` | 单目标失效：`RemoveAsync(entryName, key, scope, ct)` / `RemoveByTagAsync(entryName, tag, scope, ct)` |
+| `ICacheBatchInvalidator` | 有界批次失效：`RemoveAsync(targets, ct)`。整批预检去重后复用单目标语义；单目标失败仍尝试其余目标，并保留最先失败的异常 |
+| `CacheInvalidationTarget` | 一项精确目标：`EntryName / Target / Kind / Scope` |
+| `CacheInvalidationTargetKind` | `Key` 或 `Tag` |
+| `CacheInvalidationScope` | `CurrentNodeOnly` 只清当前节点 L1；`AllLayersSynchronous` 同步清 L1 与共享 L2，并等待 Backplane 发布 |
 
 ### 7.1 Full.NET.Caching.Fusion — 混合缓存实现
 
@@ -308,7 +313,10 @@ CommandDispatcher.SendAsync
 | `CacheEntryNames` | 稳定缓存条目名常量 |
 | `CachePolicyRegistry` / `ICachePolicyRegistry` | 策略注册表：`GetRequired / ListPolicies / ResolveAccess / CreateEntryOptions / CreateHybridEntryOptions` |
 | `CacheKeyBuilder` | 统一缓存键构造器；按用途分专用方法：`ForTenant / ForGlobal / TenantResolutionByDomain / TenantResolutionById / TenantTag / DomainTag`；键格式 `fullnet:{env}:{scope}:{module}:{res}:{id}:{ver}` |
-| `FusionCacheInvalidator` | `ICacheInvalidator` 的 FusionCache 实现；多实例失效使用直接 L1/L2 删除 + Redis Backplane |
+| `FusionCacheInvalidator` | `ICacheInvalidator` 的 FusionCache 实现。提交后直接删除本实例 L1/L2，并用 Redis Backplane 通知其他实例。缓存失效不写入 Outbox |
+| `FusionCacheBatchInvalidator` | `ICacheBatchInvalidator` 的内部实现。批次容量到顶立即拒绝，不建立另一条广播链路 |
+| `BoundedFusionCacheSerializer` | 有界 FusionCache 序列化器，限制反序列化体积 |
+| `CachePolicyEntryOptionsProvider` | 按策略注册表生成条目选项，调用点不手写 TTL |
 | `FusionCacheReliabilityMonitor` | 可靠性监控：陈旧命中、失效失败、Backplane 状态 |
 | `CacheReliabilityTelemetry` | 低基数指标发射 |
 
@@ -320,6 +328,8 @@ services.AddFullNetCaching(configuration);  // 启用 FusionCache + HybridCache 
 ---
 
 ## 8. Full.NET.Messaging — 消息基础设施
+
+业务侧发布、消费和运维步骤见 [可靠事件交付指南](./reliable-event-delivery.md)。本节只列类型。
 
 ### 8.1 Abstractions 抽象层
 
@@ -434,6 +444,7 @@ KafkaConsumerWorker (BackgroundService)
 | | `HttpOperationLogMiddleware` / `HttpOperationLogEmitter` / `HttpOperationLogOptions` / `HttpOperationLogProfile` / `HttpOperationLogSanitizer`（HTTP 操作审计日志全栈） |
 | | `DiagnosticPolicy` / `IDiagnosticPolicyStore` / `DiagnosticPolicySnapshot`（诊断策略 + 日志降级模式） |
 | | `FullNetBoundedAsyncSink`（有界异步 Serilog Sink，防止日志反压） |
+| | `LocalFileLogStore` / `LocalFileLoggingOptions`（仅 `DeliveryMode=Local` 且显式启用时写受限 JSON 行；不承诺跨崩溃无损） |
 | | `FullNetAsyncLogMonitor` / `FullNetLoggingMonitors` / `HighPriorityLoggingHealthCheck`（异步日志监控与健康检查） |
 | | `HealthEndpointExtensions`（健康检查端点） |
 | | `ElasticsearchSerilogSinkConfigurator` / `ElasticsearchEndpointRedactor` / `ElasticsearchLoggingOptions` / `ElasticsearchLoggingOptionsValidator`（Elasticsearch Sink 安全配置） |
@@ -463,5 +474,7 @@ KafkaConsumerWorker (BackgroundService)
 | [`Full.NET.Serialization.MemoryPack`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Serialization.MemoryPack) | `MemoryPackIntegrationEventSerializer`：实现 `IIntegrationEventSerializer`，`ContentType = application/x-memorypack`；通过 `AddFullNetMemoryPack()` 注册为 Singleton；事件 DTO 须标注 `[MemoryPackable]` 由源生成器产出 AOT 友好格式化器 |
 | `Full.NET.Validation.FluentValidation` | FluentValidation 集成：自动扫描 + `FluentValidationBehavior` 注入 `IDispatchBehavior` 管道 + 统一 `validation.failed` 错误码 |
 | `Full.NET.Localization` | 多语言：`LocaleCatalog`、`CultureScope`、BCP 47 规范化、HTTP Header 协商 |
+| [`Full.NET.Logging.Kafka`](../src/BuildingBlocks/Full.NET.Logging.Kafka) | 应用日志直发 Kafka。配置节 `FullNet:Logging:Kafka`，与业务 Outbox / CDC 事件流分开。入口选择、Topic 和消费者见 [日志指南](./logging-guide.md) |
+| [`Full.NET.Hosting.Migrator`](../src/BuildingBlocks/Full.NET.Hosting.Migrator) | `FullNetMigratorHost` 装配一次性迁移宿主：Dapper、迁移缓存策略表、MemoryPack、DbUp 与播种。模块仍由应用 Composition 按 Migrator Profile 注册。API 与 Worker 不得引用迁移执行能力 |
 
 > 注：`Full.NET.Serialization.MessagePack` 目录下当前无源文件（仅保留 obj 构建产物）；正式事件序列化由 `Full.NET.Serialization.MemoryPack` 提供，文档与代码均以 MemoryPack 为准。

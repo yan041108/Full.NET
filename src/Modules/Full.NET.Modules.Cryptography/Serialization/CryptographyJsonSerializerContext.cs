@@ -13,4 +13,5 @@ namespace Full.NET.Modules.Cryptography.Serialization;
 [JsonSerializable(typeof(Sm2VerifyRequest))]
 [JsonSerializable(typeof(Sm2VerifyResponse))]
 [JsonSerializable(typeof(IReadOnlyList<CryptographyKeyResponse>))]
+/// <summary>Cryptography 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class CryptographyJsonSerializerContext : JsonSerializerContext;

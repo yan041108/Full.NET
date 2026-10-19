@@ -6,6 +6,7 @@ using Full.NET.Modules.Organization.Features.ManageTenantPositions;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Organization Position Workbook Codec。</summary>
 [TestClass]
 public sealed class OrganizationPositionWorkbookCodecTests
 {

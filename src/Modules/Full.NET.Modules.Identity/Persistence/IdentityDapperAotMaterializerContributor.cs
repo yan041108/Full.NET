@@ -1087,6 +1087,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("OccurredAtUtc", audit.OccurredAtUtc);
         parameters.Add("ActorUserId", audit.ActorUserId);
         parameters.Add("TraceId", audit.TraceId);
+        parameters.Add("CorrelationJson", audit.CorrelationJson);
         parameters.Add("AuthenticationMethod", audit.AuthenticationMethod);
         parameters.Add("ClientId", audit.ClientId);
         parameters.Add("CenterSessionId", audit.CenterSessionId);

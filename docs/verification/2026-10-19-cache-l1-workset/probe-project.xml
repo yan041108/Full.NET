@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>FullNet.Cache.WorksetProbe</AssemblyName></PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <Reference Include="Full.NET.Abstractions"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\Full.NET.Abstractions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Full.NET.Caching.Abstractions"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\Full.NET.Caching.Abstractions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Full.NET.Caching.Fusion"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\Full.NET.Caching.Fusion.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Caching.Hybrid"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\Microsoft.Extensions.Caching.Hybrid.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Caching.StackExchangeRedis"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\Microsoft.Extensions.Caching.StackExchangeRedis.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Api"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Api.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Api.ProviderBuilderExtensions"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Api.ProviderBuilderExtensions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Exporter.OpenTelemetryProtocol.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Extensions.Hosting"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Extensions.Hosting.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Instrumentation.AspNetCore"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Instrumentation.AspNetCore.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Instrumentation.Http"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Instrumentation.Http.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTelemetry.Instrumentation.Runtime"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\OpenTelemetry.Instrumentation.Runtime.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="StackExchange.Redis"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\StackExchange.Redis.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="ZiggyCreatures.FusionCache"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\ZiggyCreatures.FusionCache.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="ZiggyCreatures.FusionCache.OpenTelemetry"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\ZiggyCreatures.FusionCache.OpenTelemetry.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson"><HintPath>G:\FullNET-build\cache-ui\bin\Full.NET.Host.Api\release\ZiggyCreatures.FusionCache.Serialization.SystemTextJson.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>

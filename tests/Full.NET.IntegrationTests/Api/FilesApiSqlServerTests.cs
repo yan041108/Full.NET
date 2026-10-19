@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Files;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：FilesApiSqlServer。</summary>
 [TestClass]
 public sealed class FilesApiSqlServerTests
 {

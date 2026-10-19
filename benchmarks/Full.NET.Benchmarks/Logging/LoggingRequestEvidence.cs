@@ -14,13 +14,15 @@ public static class LoggingRequestEvidence
     }
 
     /// <summary>持续档必须达到规定发送跨度；调度延迟另外保留，不能隐藏过载。</summary>
-    public static void ValidateSustainedWindow(int requests, int requestsPerSecond, double elapsedMilliseconds)
+    public static void ValidateSustainedWindow(int requests, int requestsPerSecond, double elapsedMilliseconds, double maximumElapsedMilliseconds = 30000)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(requests, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(requests, 10000);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(requests, 60000);
+        if (!double.IsFinite(maximumElapsedMilliseconds) || maximumElapsedMilliseconds is < 1 or > 90000)
+            throw new ArgumentOutOfRangeException(nameof(maximumElapsedMilliseconds));
         var minimum = ScheduledMilliseconds(requests - 1, requestsPerSecond);
-        if (!double.IsFinite(elapsedMilliseconds) || elapsedMilliseconds < minimum || elapsedMilliseconds > 30000)
-            throw new InvalidOperationException("持续请求发送窗口不足或超过 30 秒预算。");
+        if (!double.IsFinite(elapsedMilliseconds) || elapsedMilliseconds < minimum || elapsedMilliseconds > maximumElapsedMilliseconds)
+            throw new InvalidOperationException("持续请求发送窗口不足或超过指定预算。");
     }
 
     /// <summary>验证有限延迟、预期日志/投影和给定丢弃计数为零后计算实际分位数。</summary>
@@ -28,8 +30,8 @@ public static class LoggingRequestEvidence
         int expectedEvents, int observedEvents, long dropped, int expectedProjections, int observedProjections)
     {
         ArgumentNullException.ThrowIfNull(latencies);
-        if (latencies.Length is < 1 or > 10000 || latencies.Any(value => !double.IsFinite(value) || value < 0))
-            throw new ArgumentException("延迟样本必须有限、非负且不超过一万条。", nameof(latencies));
+        if (latencies.Length is < 1 or > 60000 || latencies.Any(value => !double.IsFinite(value) || value < 0))
+            throw new ArgumentException("延迟样本必须有限、非负且不超过六万条。", nameof(latencies));
         if (unexpectedResponses != 0 || dropped != 0 || expectedEvents < 0 || expectedEvents != observedEvents
             || expectedProjections < 0 || expectedProjections != observedProjections)
             throw new InvalidOperationException("请求响应、日志或投影对账未通过。");

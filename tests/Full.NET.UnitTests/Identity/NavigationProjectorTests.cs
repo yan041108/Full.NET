@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Features.GetNavigation;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Navigation Projector。</summary>
 [TestClass]
 public sealed class NavigationProjectorTests
 {

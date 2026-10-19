@@ -1,5 +1,6 @@
 using Full.NET.Modules.Ai.Contracts;
 namespace Full.NET.UnitTests.Ai;
+/// <summary>单元测试分片：AiKnowledgeIndexRetry。</summary>
 public sealed partial class AiKnowledgeIndexRetryTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]

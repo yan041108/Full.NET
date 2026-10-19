@@ -8,6 +8,7 @@ using System.Text;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 MCP：Network Policy。</summary>
 [TestClass]
 public sealed class McpNetworkPolicyTests
 {

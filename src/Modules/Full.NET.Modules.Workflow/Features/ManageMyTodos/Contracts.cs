@@ -1,3 +1,4 @@
+// 模块 API 契约类型；与 Endpoint 和 Handler 共享的稳定形状。
 namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 
 using System.Text.Json;

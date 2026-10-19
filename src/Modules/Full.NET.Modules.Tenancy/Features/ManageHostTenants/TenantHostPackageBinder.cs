@@ -1,3 +1,4 @@
+// 租户 Host 套餐绑定；开通时固化功能包，变更需显式管理 API。
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -6,6 +7,7 @@ using Full.NET.Modules.Tenancy.Persistence;
 
 namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
+/// <summary>租户 Host 套餐绑定；开通时固化功能包，变更需显式管理 API。</summary>
 internal sealed class TenantHostPackageBinder(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

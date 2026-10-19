@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>BrowseFormSchemas 特性 HTTP 端点注册。</summary>
 namespace Full.NET.Modules.Printing.Features.BrowseFormSchemas;
 
 internal static class Endpoint

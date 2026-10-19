@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：审批消费与 OIDC 上下文一致性。</summary>
 internal static class IdentityOidcContextSwitchApprovalConsumerAssertions
 {
     private static readonly Guid MissingApprovalId = Guid.Parse("01981f2a-1200-7000-8000-000000000099");

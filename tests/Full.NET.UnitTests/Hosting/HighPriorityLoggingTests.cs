@@ -23,6 +23,7 @@ using Serilog.Sinks.Async;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>高优先级日志：队列、降级与健康检查联动。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class HighPriorityLoggingTests
@@ -72,15 +73,15 @@ public sealed class HighPriorityLoggingTests
             new MessageTemplateParser().Parse("bounded event"),
             []);
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 1024, out var sample, retainLegacyEvent: true));
+            source, 1024, out var sample));
         Assert.IsNotNull(sample);
         var sink = new FullNetBoundedAsyncSink(
-            downstream,
+            SnapshotTo(downstream),
             4,
             "test byte budget",
             monitor,
             maxEventBytes: 1024,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(1024, true));
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(1024));
 
         sink.Emit(source);
         Assert.IsTrue(downstream.WaitUntilEntered());
@@ -117,12 +118,12 @@ public sealed class HighPriorityLoggingTests
             parser.Parse("oversized"),
             [new LogEventProperty("LogEventId", new ScalarValue(new string('x', 4096)))]);
         var sink = new FullNetBoundedAsyncSink(
-            downstream,
+            SnapshotTo(downstream),
             bufferSize: 4,
             workerName: "test prebuild admission",
             monitor,
             maxEventBytes: 256,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(256, true));
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(256));
 
         sink.Emit(small);
         Assert.IsTrue(downstream.WaitUntilEntered());
@@ -136,7 +137,45 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Snapshot_consumer_receives_preformatted_bytes_without_legacy_reserialization()
+    public void Count_admission_precedes_snapshot_and_failed_build_returns_slot()
+    {
+        using var monitor = new FullNetAsyncLogMonitor();
+        using var downstream = new BlockingSink();
+        var parser = new MessageTemplateParser();
+        var small = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information,
+            null, parser.Parse("small"), []);
+        var oversized = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information,
+            null, parser.Parse("oversized"),
+            [new LogEventProperty("LogEventId", new ScalarValue(new string('x', 4096)))]);
+        var sink = new FullNetBoundedAsyncSink(SnapshotTo(downstream), 1,
+            "test count prebuild admission", monitor, 256, 1024 * 1024);
+        try
+        {
+            sink.Emit(small);
+            Assert.IsTrue(downstream.WaitUntilEntered());
+            // 构建失败必须归还条数名额，随后的小事件仍能占满唯一的等待槽。
+            sink.Emit(oversized);
+            Assert.AreEqual(1L, sink.OversizeCount);
+            sink.Emit(small);
+            Assert.AreEqual(1, sink.Count);
+            var reserved = sink.ReservedBytes;
+            sink.Emit(oversized);
+            Assert.AreEqual(1L, sink.OversizeCount);
+            Assert.AreEqual(2L, sink.DroppedMessagesCount);
+            Assert.AreEqual(0L, sink.ByteBudgetDroppedCount);
+            Assert.AreEqual(reserved, sink.ReservedBytes);
+        }
+        finally
+        {
+            downstream.Release();
+            sink.Complete();
+            Assert.IsTrue(sink.WaitForCompletion(TimeSpan.FromSeconds(2)));
+        }
+        Assert.AreEqual(0L, sink.ReservedBytes);
+    }
+
+    [TestMethod]
+    public void Snapshot_consumer_receives_preformatted_bytes_without_reserialization()
     {
         using var monitor = new FullNetAsyncLogMonitor();
         var legacy = new CollectingSink();
@@ -150,14 +189,13 @@ public sealed class HighPriorityLoggingTests
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 1024, out var expected));
         Assert.IsNotNull(expected);
         var sink = new FullNetBoundedAsyncSink(
-            legacy,
+            null,
             4,
             "test snapshot output",
             monitor,
             maxEventBytes: 1024,
             queueMaxBytes: 4096,
-            emitSnapshot: envelope => captured.Add(envelope.Utf8Json.ToArray()),
-            emitLegacySink: false);
+            emitSnapshot: envelope => captured.Add(envelope.Utf8Json.ToArray()));
 
         sink.Emit(source);
         sink.Complete();
@@ -168,7 +206,7 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void External_snapshot_contract_carries_matching_event_id_and_priority_without_legacy_event()
+    public void External_snapshot_contract_carries_matching_event_id_and_priority()
     {
         using var monitors = new FullNetLoggingMonitors();
         var snapshots = new ConcurrentBag<HostLogSnapshot>();
@@ -180,8 +218,7 @@ public sealed class HighPriorityLoggingTests
             monitors,
             _ => { },
             _ => { },
-            emitLegacySink: false,
-            emitExternalSnapshot: snapshots.Add);
+            emitExternalSnapshot: snapshot => { snapshots.Add(snapshot); return true; });
 
         using (var logger = configuration.CreateLogger())
         {
@@ -212,14 +249,13 @@ public sealed class HighPriorityLoggingTests
             new MessageTemplateParser().Parse("unenriched"),
             []);
         var sink = new FullNetBoundedAsyncSink(
-            new CollectingSink(),
+            null,
             4,
             "test missing external id",
             monitor,
             maxEventBytes: 1024,
             queueMaxBytes: 4096,
-            emitLegacySink: false,
-            emitExternalSnapshot: captured.Add);
+            emitExternalSnapshot: snapshot => { captured.Add(snapshot); return true; });
 
         sink.Emit(source);
         sink.Complete();
@@ -230,7 +266,7 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Legacy_worker_receives_safe_copy_with_formatted_date_and_dictionary()
+    public void Snapshot_worker_receives_date_and_dictionary_values()
     {
         using var monitor = new FullNetAsyncLogMonitor();
         var downstream = new CollectingSink();
@@ -251,21 +287,21 @@ public sealed class HighPriorityLoggingTests
                         new ScalarValue(42))])),
             ]);
         var sink = new FullNetBoundedAsyncSink(
-            downstream,
+            SnapshotTo(downstream),
             bufferSize: 4,
-            workerName: "test legacy compatibility",
+            workerName: "test snapshot values",
             monitor,
             maxEventBytes: 4096,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(4096, true));
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(4096));
 
         sink.Emit(source);
         sink.Complete();
 
         Assert.IsTrue(sink.WaitForCompletion(TimeSpan.FromSeconds(2)));
         var restored = downstream.Events.Single();
-        Assert.AreEqual(source.RenderMessage(), restored.RenderMessage());
         Assert.IsInstanceOfType<DictionaryValue>(restored.Properties["Metadata"]);
-        Assert.IsInstanceOfType<DateTimeOffset>(((ScalarValue)restored.Properties["Time"]).Value);
+        Assert.AreEqual(new DateTimeOffset(2026, 9, 28, 8, 0, 0, TimeSpan.Zero),
+            DateTimeOffset.Parse((string)((ScalarValue)restored.Properties["Time"]).Value!));
     }
 
     [TestMethod]
@@ -280,15 +316,15 @@ public sealed class HighPriorityLoggingTests
             new MessageTemplateParser().Parse("queued event"),
             []);
         Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
-            source, 1024, out var sample, retainLegacyEvent: true));
+            source, 1024, out var sample));
         Assert.IsNotNull(sample);
         var sink = new FullNetBoundedAsyncSink(
-            downstream,
+            SnapshotTo(downstream),
             4,
             "test abandonment",
             monitor,
             maxEventBytes: 1024,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(1024, true) + sample.ChargeBytes);
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(1024) + sample.ChargeBytes);
 
         sink.Emit(source);
         Assert.IsTrue(downstream.WaitUntilEntered());
@@ -319,12 +355,12 @@ public sealed class HighPriorityLoggingTests
                 "LogEventId",
                 new ScalarValue(new string('x', 4096)))]);
         var sink = new FullNetBoundedAsyncSink(
-            downstream,
+            SnapshotTo(downstream),
             4,
             "test oversize",
             monitor,
             maxEventBytes: 256,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(256, true));
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(256));
 
         sink.Emit(source);
         sink.Complete();
@@ -447,8 +483,8 @@ public sealed class HighPriorityLoggingTests
         using var monitors = new FullNetLoggingMonitors();
         var ingress = new HttpOperationLogIngress();
         using var pipeline = new FullNetLoggingPipelineSink(
-            sink,
-            new CollectingSink(),
+            SnapshotTo(sink),
+            SnapshotTo(new CollectingSink()),
             new LoggingOptions(),
             monitors,
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
@@ -479,8 +515,8 @@ public sealed class HighPriorityLoggingTests
         var priority = new CollectingSink();
         var ingress = new HttpOperationLogIngress();
         using var pipeline = new FullNetLoggingPipelineSink(
-            general,
-            priority,
+            SnapshotTo(general),
+            SnapshotTo(priority),
             new LoggingOptions(),
             monitors,
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
@@ -504,8 +540,8 @@ public sealed class HighPriorityLoggingTests
         var priority = new CollectingSink();
         var ingress = new HttpOperationLogIngress();
         using var pipeline = new FullNetLoggingPipelineSink(
-            general,
-            priority,
+            SnapshotTo(general),
+            SnapshotTo(priority),
             new LoggingOptions(),
             monitors,
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
@@ -539,8 +575,8 @@ public sealed class HighPriorityLoggingTests
                 HighPriorityAsyncBufferSize = 4,
             },
             monitors,
-            sink => sink.Sink(general),
-            sink => sink.Sink(priority),
+            SnapshotTo(general),
+            SnapshotTo(priority),
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
             httpOperationIngress: ingress);
 
@@ -600,8 +636,8 @@ public sealed class HighPriorityLoggingTests
         using var priority = new BlockingSink();
         var ingress = new HttpOperationLogIngress();
         using var pipeline = new FullNetLoggingPipelineSink(
-            new CollectingSink(),
-            priority,
+            SnapshotTo(new CollectingSink()),
+            SnapshotTo(priority),
             new LoggingOptions { HighPriorityAsyncBufferSize = 1 },
             monitors,
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
@@ -653,14 +689,13 @@ public sealed class HighPriorityLoggingTests
         using var monitor = new FullNetAsyncLogMonitor();
         var captured = new ConcurrentBag<byte[]>();
         var sink = new FullNetBoundedAsyncSink(
-            new CollectingSink(),
+            null,
             bufferSize: 1,
             workerName: "test exact event budget",
             monitor,
             maxEventBytes,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(maxEventBytes, false),
-            emitSnapshot: envelope => captured.Add(envelope.Utf8Json.ToArray()),
-            emitLegacySink: false);
+            queueMaxBytes: LogEnvelope.MaxChargeBytes(maxEventBytes),
+            emitSnapshot: envelope => captured.Add(envelope.Utf8Json.ToArray()));
         try
         {
             sink.Emit(exact);
@@ -691,11 +726,10 @@ public sealed class HighPriorityLoggingTests
             "Full.NET.Host.Api",
             new LoggingOptions(),
             monitors,
-            sink => sink.Sink(legacy),
-            sink => sink.Sink(priorityLegacy),
+            SnapshotTo(legacy),
+            SnapshotTo(priorityLegacy),
             resource: LoggingResourceMetadata.Create("Full.NET.Host.Api", "Test"),
             emitSnapshot: envelope => snapshots.Add(envelope.Utf8Json.ToArray()),
-            emitLegacySink: true,
             httpOperationIngress: ingress);
 
         using (var serilog = configuration.CreateLogger())
@@ -1004,38 +1038,25 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Service_defaults_reject_legacy_es_budget_that_cannot_hold_safe_event_copy()
+    public void Service_defaults_accept_one_maximum_snapshot_without_an_object_graph_budget()
     {
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
-        builder.Configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                [$"{ElasticsearchLoggingOptions.SectionName}:Enabled"] = "true",
-                [$"{ElasticsearchLoggingOptions.SectionName}:NodeUris:0"] = "http://localhost:9200",
-                [$"{LoggingOptions.SectionName}:HighPriorityQueueMaxBytes"] = "16512",
-            });
-
-        Assert.ThrowsExactly<OptionsValidationException>(
-            () => builder.AddFullNetServiceDefaults());
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:HighPriorityQueueMaxBytes"] = "16512",
+        });
+        builder.AddFullNetServiceDefaults();
+        using var host = builder.Build();
+        Assert.AreEqual(16512, LogEnvelope.MaxChargeBytes(16384));
     }
 
     [TestMethod]
-    public void Explicit_delivery_mode_rejects_legacy_elasticsearch_sink()
+    public void Delivery_selection_defaults_to_collector_without_external_exporter_creation()
     {
-        foreach (var mode in new[] { "Local", "Collector", "ApplicationKafka" })
-        {
-            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
-            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                [$"{LoggingOptions.SectionName}:DeliveryMode"] = mode,
-                [$"{ElasticsearchLoggingOptions.SectionName}:Enabled"] = "true",
-                [$"{ElasticsearchLoggingOptions.SectionName}:NodeUris:0"] = "http://localhost:9200",
-            });
-
-            var error = Assert.ThrowsExactly<OptionsValidationException>(
-                () => builder.AddFullNetServiceDefaults());
-            StringAssert.Contains(error.Message, "DeliveryMode");
-        }
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+        builder.AddFullNetServiceDefaults(_ => throw new AssertFailedException("Unselected exporter"));
+        using var host = builder.Build();
+        Assert.AreEqual(LoggingDeliveryMode.Collector, host.Services.GetRequiredService<ILoggingDeliverySelection>().Mode);
     }
 
     [TestMethod]
@@ -1208,7 +1229,7 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Explicit_local_and_collector_modes_keep_legacy_sink_disabled()
+    public void Explicit_local_and_collector_modes_register_their_selected_route()
     {
         foreach (var mode in new[] { "Local", "Collector" })
         {
@@ -1225,15 +1246,12 @@ public sealed class HighPriorityLoggingTests
             builder.AddFullNetServiceDefaults();
             using var host = builder.Build();
 
-            Assert.IsFalse(host.Services
-                .GetRequiredService<IElasticsearchLogPipelineStatus>().IsEnabled);
-            Assert.IsFalse(host.Services
-                .GetRequiredService<IElasticsearchLogPipelineStatus>().IsSinkRegistered);
+            Assert.AreEqual(Enum.Parse<LoggingDeliveryMode>(mode), host.Services.GetRequiredService<ILoggingDeliverySelection>().Mode);
         }
     }
 
     [TestMethod]
-    public void Production_host_accepts_collector_without_registering_legacy_elasticsearch_sink()
+    public void Production_host_accepts_collector_without_a_remote_sink()
     {
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
             new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
@@ -1248,8 +1266,7 @@ public sealed class HighPriorityLoggingTests
 
         builder.AddFullNetServiceDefaults();
         using var host = builder.Build();
-        Assert.IsFalse(host.Services.GetRequiredService<IElasticsearchLogPipelineStatus>().IsEnabled);
-        Assert.IsFalse(host.Services.GetRequiredService<IElasticsearchLogPipelineStatus>().IsSinkRegistered);
+        Assert.AreEqual(LoggingDeliveryMode.Collector, host.Services.GetRequiredService<ILoggingDeliverySelection>().Mode);
     }
 
     [TestMethod]
@@ -1306,19 +1323,14 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Legacy_elasticsearch_mode_registers_one_migration_warning()
+    public void Hosting_dependencies_do_not_include_the_removed_es_sink()
     {
+        Assert.IsFalse(typeof(LoggingOptions).Assembly.GetReferencedAssemblies()
+            .Any(name => name.Name == "Serilog.Sinks.Elasticsearch"));
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            [$"{ElasticsearchLoggingOptions.SectionName}:Enabled"] = "true",
-            [$"{ElasticsearchLoggingOptions.SectionName}:NodeUris:0"] = "http://localhost:9200",
-        });
-        builder.AddFullNetServiceDefaults();
-        using var host = builder.Build();
-
-        Assert.AreEqual(1, host.Services.GetServices<IHostedService>()
-            .Count(service => service is LegacyElasticsearchLoggingWarningService));
+        builder.Configuration["FullNet:Logging:Elasticsearch:Enabled"] = "true";
+        var error = Assert.ThrowsExactly<OptionsValidationException>(() => builder.AddFullNetServiceDefaults());
+        StringAssert.Contains(error.Message, "unsupported");
     }
 
     [TestMethod]
@@ -1339,8 +1351,8 @@ public sealed class HighPriorityLoggingTests
     {
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.AddFullNetServiceDefaults();
-        builder.Configuration[$"{ElasticsearchLoggingOptions.SectionName}:Enabled"] = "true";
-        builder.Configuration[$"{ElasticsearchLoggingOptions.SectionName}:NodeUris:0"] = "http://localhost:9200";
+        builder.Configuration[$"{LoggingOptions.SectionName}:DeliveryMode"] = "Local";
+        builder.Configuration[$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "Local";
 
         Assert.ThrowsExactly<OptionsValidationException>(() => builder.Build());
     }
@@ -1412,6 +1424,45 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
+    public void Exporter_receives_only_the_remaining_host_shutdown_budget()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        using var blocker = new BlockingSink();
+        var exporter = new RecordingHostLogExporter();
+        using var pipeline = new FullNetLoggingPipelineSink(
+            SnapshotTo(blocker), SnapshotTo(new CollectingSink()),
+            new LoggingOptions { ShutdownFlushTimeout = TimeSpan.FromMilliseconds(50) },
+            monitors, externalExporter: exporter);
+        using var logger = new LoggerConfiguration().WriteTo.Sink(pipeline).CreateLogger();
+        logger.Information("block before stopping exporter");
+        try
+        {
+            Assert.IsTrue(blocker.WaitUntilEntered());
+            logger.Dispose();
+            Assert.IsNotNull(exporter.StopRemaining);
+            // Thread.Join 的等待精度为整毫秒，超时后可以合法剩余不足一毫秒；不能重新获得完整预算。
+            Assert.IsTrue(exporter.StopRemaining.Value >= TimeSpan.Zero
+                && exporter.StopRemaining.Value < TimeSpan.FromMilliseconds(1));
+        }
+        finally { blocker.Release(); }
+    }
+
+    [TestMethod]
+    public void Exporter_rejection_is_visible_as_a_host_drop_after_shutdown()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        using var pipeline = new FullNetLoggingPipelineSink(
+            null, null, new LoggingOptions(), monitors, emitExternalSnapshot: _ => false);
+        using var logger = new LoggerConfiguration()
+            .Enrich.WithProperty("LogEventId", Guid.CreateVersion7().ToString("D"))
+            .WriteTo.Sink(pipeline).CreateLogger();
+        logger.Information("exporter at capacity");
+        logger.Dispose();
+        Assert.AreEqual(1L, monitors.General.Snapshot.DroppedMessagesCount);
+        Assert.AreEqual(3, monitors.General.WorkerState);
+    }
+
+    [TestMethod]
     public void Logger_disposal_drains_both_channels_before_timeout()
     {
         using var monitors = new FullNetLoggingMonitors();
@@ -1437,24 +1488,6 @@ public sealed class HighPriorityLoggingTests
             highPrioritySink.Events.Single().RenderMessage());
     }
 
-    [TestMethod]
-    public void Worker_exit_survives_legacy_sink_disposal_failure()
-    {
-        using var monitor = new FullNetAsyncLogMonitor();
-        var sink = new FullNetBoundedAsyncSink(
-            new ThrowOnDisposeSink(),
-            bufferSize: 1,
-            workerName: "test throwing sink disposal",
-            monitor,
-            maxEventBytes: 1024,
-            queueMaxBytes: LogEnvelope.MaxChargeBytes(1024, true));
-
-        sink.Complete();
-
-        Assert.IsTrue(sink.WaitForCompletion(TimeSpan.FromSeconds(2)));
-        sink.AbandonPending();
-        Assert.AreEqual(0L, sink.ReservedBytes);
-    }
 
     [TestMethod]
     public void Service_defaults_reject_out_of_range_shutdown_flush_timeout()
@@ -1475,6 +1508,9 @@ public sealed class HighPriorityLoggingTests
                 nameof(LoggingOptions.ShutdownFlushTimeout));
         }
     }
+
+    private static Action<LogEnvelope> SnapshotTo(ILogEventSink sink) =>
+        envelope => sink.Emit(LogSnapshotTestReader.Read(envelope));
 
     private static Serilog.Core.Logger CreateLogger(
         FullNetLoggingMonitors monitors,
@@ -1498,8 +1534,8 @@ public sealed class HighPriorityLoggingTests
                     shutdownFlushTimeout ?? TimeSpan.FromSeconds(5),
             },
             monitors,
-            sink => sink.Sink(generalSink),
-            sink => sink.Sink(highPrioritySink),
+            SnapshotTo(generalSink),
+            SnapshotTo(highPrioritySink),
             resource: resource);
         return configuration.CreateLogger();
     }
@@ -1579,13 +1615,6 @@ public sealed class HighPriorityLoggingTests
         public IDisposable? OnChange(Action<HttpOperationLogOptions, string?> listener) => null;
     }
 
-    private sealed class ThrowOnDisposeSink : ILogEventSink, IDisposable
-    {
-        public void Emit(LogEvent logEvent) { }
-
-        public void Dispose() => throw new InvalidOperationException("simulated disposal failure");
-    }
-
     private sealed class RecordingHostLogExporter : IHostLogSnapshotExporter
     {
         private int _disposed;
@@ -1596,7 +1625,15 @@ public sealed class HighPriorityLoggingTests
         public bool DisposedAfterLastWrite => Volatile.Read(ref _disposed) != 0
             && Volatile.Read(ref _writesAtDispose) == Snapshots.Count;
 
-        public void Emit(HostLogSnapshot snapshot) => Snapshots.Enqueue(snapshot);
+        public bool TryEmit(HostLogSnapshot snapshot) { Snapshots.Enqueue(snapshot); return true; }
+
+        public TimeSpan? StopRemaining { get; private set; }
+
+        public void Stop(LogShutdownDeadline deadline)
+        {
+            StopRemaining = deadline.Remaining;
+            Dispose();
+        }
 
         public void Dispose()
         {

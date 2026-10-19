@@ -4,6 +4,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Oss Host File Blob Storage。</summary>
 [TestClass]
 public sealed class OssHostFileBlobStorageTests
 {
@@ -114,6 +115,7 @@ public sealed class OssHostFileBlobStorageTests
     }
 }
 
+/// <summary>单元测试：OssFileStorageOptionsValidator。</summary>
 [TestClass]
 public sealed class OssFileStorageOptionsValidatorTests
 {

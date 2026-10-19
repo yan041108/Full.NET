@@ -3,6 +3,7 @@ using Full.NET.Modules.DataApproval.Domain;
 
 namespace Full.NET.UnitTests.DataApproval;
 
+/// <summary>单元测试（数据审批）：Data Approval Recovery Rules。</summary>
 [TestClass]
 public sealed class DataApprovalRecoveryRulesTests
 {

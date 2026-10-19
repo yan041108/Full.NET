@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>ProviderConfigs管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Ocr.Features.ManageProviderConfigs;
 
 internal static class Endpoint

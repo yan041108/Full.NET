@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Workflow;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：WorkflowApiSqlServer。</summary>
 [TestClass]
 public sealed class WorkflowApiSqlServerTests
 {

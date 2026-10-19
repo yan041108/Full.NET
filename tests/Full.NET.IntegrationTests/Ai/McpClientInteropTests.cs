@@ -30,6 +30,7 @@ public sealed class McpClientInteropSqlServerTests
     }
 }
 
+/// <summary>集成测试：McpClientInteropMySql。</summary>
 [TestClass]
 public sealed class McpClientInteropMySqlTests
 {

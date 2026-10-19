@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>AuthorizationTree读取 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 
 internal static class Endpoint

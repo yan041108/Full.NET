@@ -9,45 +9,69 @@ using Full.NET.Modules.Settings.Features.ManageHostConfigEntries;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Serialization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ZiggyCreatures.Caching.Fusion;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
-/// <summary>
-/// 诊断策略快照存储：从固定配置键加载 JSON，过期规则剔除后物化为不可变快照。
-/// </summary>
+/// <summary>只读权威配置的进程内快照；后台轮询停滞或回源失败时撤销临时放宽。</summary>
 internal sealed class DiagnosticPolicyStore(
     IServiceScopeFactory scopeFactory,
-    IFusionCache cache,
-    IHostEnvironment environment,
-    ICachePolicyRegistry policies,
     IClock clock,
-    ILogger<DiagnosticPolicyStore> logger) : IDiagnosticPolicyStore
+    ILogger<DiagnosticPolicyStore> logger,
+    IOptions<CacheOptions> options) : IDiagnosticPolicyStore
 {
     private readonly SemaphoreSlim _reloadGate = new(1, 1);
-    private DiagnosticPolicySnapshot _snapshot =
-        DiagnosticPolicySnapshot.CreateDefault(DateTimeOffset.UtcNow);
+    private DiagnosticPolicySnapshot _snapshot = DiagnosticPolicySnapshot.CreateDefault(clock.UtcNow);
 
-    public DiagnosticPolicySnapshot Current => Volatile.Read(ref _snapshot!);
-
-    public ValueTask<DiagnosticPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken) =>
-        ValueTask.FromResult(Volatile.Read(ref _snapshot!));
-
-    public async ValueTask RefreshAsync(long minimumVersion, CancellationToken cancellationToken)
+    public DiagnosticPolicySnapshot Current
     {
-        await ReloadAsync(minimumVersion, cancellationToken).ConfigureAwait(false);
+        get
+        {
+            var snapshot = Volatile.Read(ref _snapshot);
+            var now = clock.UtcNow;
+            // 轮询停滞或时钟回拨时不得无限保留临时放宽；只撤销仍持有同一引用的读者。
+            if (!snapshot.IsDefault && (now < snapshot.LoadedAtUtc
+                || now - snapshot.LoadedAtUtc >= options.Value.DiagnosticSnapshotMaxAge))
+            {
+                var fallback = DiagnosticPolicySnapshot.CreateDefault(now);
+                Interlocked.CompareExchange(ref _snapshot, fallback, snapshot);
+                return Volatile.Read(ref _snapshot);
+            }
+            return snapshot;
+        }
     }
 
-    internal async ValueTask PollAuthorityAsync(CancellationToken cancellationToken)
+    public ValueTask<DiagnosticPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken)
     {
-        await _reloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Current);
+    }
+
+    /// <summary>后台轮询入口；minimumVersion=0 只要求读到当前权威行，不触发缓存失效。</summary>
+    internal ValueTask PollAuthorityAsync(CancellationToken cancellationToken) => RefreshAsync(0, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask RefreshAsync(long minimumVersion, CancellationToken cancellationToken)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(options.Value.InvalidationTimeout);
+        var acquired = false;
         try
         {
-            // 周期刷新只读权威配置，不广播缓存失效或重复回填所有节点的缓存。
-            var document = await LoadDocumentAsync(cancellationToken).ConfigureAwait(false);
-            Volatile.Write(ref _snapshot, Materialize(document, clock.UtcNow));
+            await _reloadGate.WaitAsync(budget.Token).ConfigureAwait(false);
+            acquired = true;
+            var document = await LoadDocumentAsync(budget.Token).ConfigureAwait(false);
+            var snapshot = Materialize(document, clock.UtcNow);
+            if (snapshot.Version < minimumVersion)
+            {
+                document = await LoadDocumentAsync(budget.Token).ConfigureAwait(false);
+                snapshot = Materialize(document, clock.UtcNow);
+                if (snapshot.Version < minimumVersion)
+                    throw new InvalidOperationException("Diagnostic policy authority version is behind the committed version.");
+            }
+            // 直接权威读取已串行化；不向从未读取的 Redis 文档做无效回填或广播。
+            Volatile.Write(ref _snapshot, snapshot);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -55,94 +79,12 @@ internal sealed class DiagnosticPolicyStore(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(
-                "诊断策略后台回源失败；撤销临时规则。异常类型={ExceptionType}",
-                exception.GetType().Name);
+            logger.LogWarning("诊断策略回源失败；回退生产安全默认值。异常类型={ExceptionType}", exception.GetType().Name);
             Volatile.Write(ref _snapshot, DiagnosticPolicySnapshot.CreateDefault(clock.UtcNow));
         }
         finally
         {
-            _reloadGate.Release();
-        }
-    }
-
-    private async Task<DiagnosticPolicySnapshot> ReloadAsync(
-        long minimumVersion,
-        CancellationToken cancellationToken)
-    {
-        await _reloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return await ReloadCoreAsync(minimumVersion, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _reloadGate.Release();
-        }
-    }
-
-    private async Task<DiagnosticPolicySnapshot> ReloadCoreAsync(
-        long minimumVersion,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            _ = policies.GetRequired(CacheEntryNames.DiagnosticPolicy);
-            var key = DiagnosticPolicyCacheInvalidator.BuildCacheKey(environment.EnvironmentName);
-            // 提交后失效由管理服务负责；此处直接回源，避免重复广播缓存失效。
-            var document = await LoadDocumentAsync(cancellationToken).ConfigureAwait(false);
-            var snapshot = Materialize(document, clock.UtcNow);
-            if (snapshot.Version < minimumVersion)
-            {
-                document = await LoadDocumentAsync(cancellationToken).ConfigureAwait(false);
-                snapshot = Materialize(document, clock.UtcNow);
-            }
-
-            var options = policies.CreateEntryOptions(CacheEntryNames.DiagnosticPolicy);
-            try
-            {
-                await cache.SetAsync(key, document, options, token: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception setException)
-            {
-                logger.LogWarning(setException, "诊断策略缓存回填失败；进程内快照仍已更新。");
-            }
-
-            // 每次直接权威回源已串行化；文档版本在恢复默认后可重新从 1 开始。
-            Volatile.Write(ref _snapshot, snapshot);
-            return snapshot;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "诊断策略缓存路径失败；尝试直接回源权威配置。");
-            try
-            {
-                var document = await LoadDocumentAsync(cancellationToken).ConfigureAwait(false);
-                var snapshot = Materialize(document, clock.UtcNow);
-                Volatile.Write(ref _snapshot, snapshot);
-                return snapshot;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception loadException)
-            {
-                logger.LogWarning(loadException, "诊断策略权威回源失败；回退生产安全默认值。");
-                var fallback = DiagnosticPolicySnapshot.CreateDefault(clock.UtcNow);
-                // 权威配置不可用时撤销临时放宽，避免继续使用已失效的诊断规则。
-                Volatile.Write(ref _snapshot, fallback);
-                return fallback;
-            }
+            if (acquired) _reloadGate.Release();
         }
     }
 

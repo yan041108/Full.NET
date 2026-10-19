@@ -5,6 +5,7 @@ using System.Text;
 namespace Full.NET.UnitTests.Ai;
 
 // 复用仓库原创 ToUnicode 合成构造器，不复制第三方字体或 PDF 样例。
+/// <summary>集成测试辅助：PdfFixtures。</summary>
 internal static class PdfFixtures
 {
     internal static byte[] CreatePdf(string text, int pages, bool compressed = false)

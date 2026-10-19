@@ -1,5 +1,6 @@
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：TenantContextMutationBoundary 约束与回归门禁。</summary>
 [TestClass]
 public sealed class TenantContextMutationBoundaryTests
 {

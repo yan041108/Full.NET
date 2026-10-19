@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>集成支撑：CodeGenerationApplyGateTest。</summary>
 internal static class CodeGenerationApplyGateTestSupport
 {
     public static CodeGenerationApplyGate CreateLocalGate(string workspaceRoot) =>

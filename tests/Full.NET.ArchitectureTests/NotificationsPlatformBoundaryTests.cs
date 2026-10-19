@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：Notifications 平台表归属与跨模块边界。</summary>
 [TestClass]
 public sealed partial class NotificationsPlatformBoundaryTests
 {

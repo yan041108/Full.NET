@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：中心登出跨实例传播。</summary>
 internal static class IdentityOidcMultiInstanceCenterLogoutPropagationAssertions
 {
     private const string SigningKeyId = "logout-center-multi-key";

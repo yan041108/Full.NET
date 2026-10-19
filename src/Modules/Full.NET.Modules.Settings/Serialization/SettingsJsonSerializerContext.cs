@@ -5,6 +5,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
+// Settings 模块 Native AOT 友好的 System.Text.Json 源生成上下文；仅注册已审计的契约类型。
 namespace Full.NET.Modules.Settings.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
@@ -47,4 +48,5 @@ namespace Full.NET.Modules.Settings.Serialization;
 [JsonSerializable(typeof(DiagnosticPolicyResponse))]
 [JsonSerializable(typeof(UpdateDiagnosticPolicyRequest))]
 [JsonSerializable(typeof(RestoreDiagnosticPolicyRequest))]
+/// <summary>Settings 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class SettingsJsonSerializerContext : JsonSerializerContext;

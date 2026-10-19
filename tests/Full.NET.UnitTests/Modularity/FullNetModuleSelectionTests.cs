@@ -9,6 +9,7 @@ using System.Text;
 
 namespace Full.NET.UnitTests.Modularity;
 
+/// <summary>单元测试（模块化）：Full Net Module Selection。</summary>
 [TestClass]
 public sealed class FullNetModuleSelectionTests
 {

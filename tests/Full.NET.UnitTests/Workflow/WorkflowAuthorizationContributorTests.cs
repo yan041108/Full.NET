@@ -6,6 +6,7 @@ using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Authorization Contributor。</summary>
 [TestClass]
 public sealed class WorkflowAuthorizationContributorTests
 {

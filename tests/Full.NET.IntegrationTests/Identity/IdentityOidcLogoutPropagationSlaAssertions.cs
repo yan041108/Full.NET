@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：登出传播时延与 SLA 门禁。</summary>
 internal static class IdentityOidcLogoutPropagationSlaAssertions
 {
     public static async Task VerifyAsync(

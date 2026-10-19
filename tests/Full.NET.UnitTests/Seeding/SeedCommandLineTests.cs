@@ -3,6 +3,7 @@ using Full.NET.Seeding.Dapper;
 
 namespace Full.NET.UnitTests.Seeding;
 
+/// <summary>单元测试（种子）：Seed Command Line。</summary>
 [TestClass]
 public sealed class SeedCommandLineTests
 {

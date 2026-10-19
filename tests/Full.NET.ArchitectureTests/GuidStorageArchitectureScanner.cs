@@ -1,8 +1,10 @@
+// 架构扫描器：Guid 列存储类型与读写器一致性。
 using System.Reflection;
 using System.Reflection.Emit;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：Guid 列存储类型与读写器一致性。</summary>
 internal sealed record GuidStorageSourceFile(string Path, string Content);
 
 internal static class GuidStorageArchitectureScanner

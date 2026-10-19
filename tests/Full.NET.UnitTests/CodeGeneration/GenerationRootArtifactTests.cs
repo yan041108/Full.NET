@@ -2,6 +2,7 @@ using Full.NET.Data.CodeGeneration.Generation;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Generation Root Artifact。</summary>
 [TestClass]
 public sealed class GenerationRootArtifactTests
 {

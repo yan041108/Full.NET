@@ -1,3 +1,4 @@
+// 后台 Worker 宿主入口；作业、Outbox、AI Agent 与保留处理器。
 using System.Text.Json;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;

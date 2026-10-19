@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Full.NET.AI.Abstractions.Models;
 namespace Full.NET.AI.Providers.Internal;
 
-/// <summary>Azure OpenAI 聊天传输；deployment 名称来自绑定 ModelId。</summary>
+/// <summary>Azure OpenAI 聊天传输；部署名来自绑定的 ModelId。</summary>
 internal sealed class ProviderChatTransport(HttpClient client)
 {
     internal Task<AiChatCompletionResult> StreamAsync(

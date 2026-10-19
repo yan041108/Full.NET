@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧DocumentShares管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 
 internal static class Endpoint

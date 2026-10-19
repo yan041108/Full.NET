@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace Full.NET.AI.Providers.AzureOpenAI;
 
-/// <summary>Azure OpenAI 目录探测；deployment 可能不在列表中，沿用人工核对语义。</summary>
+/// <summary>Azure OpenAI 目录探测；部署可能不在列表中，沿用人工核对语义。</summary>
 internal static class AzureConnectivityProbe
 {
     internal static async Task<ModelConnectivityResult> TestAsync(

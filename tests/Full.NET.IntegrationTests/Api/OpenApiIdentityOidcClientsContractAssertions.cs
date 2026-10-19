@@ -3,6 +3,7 @@ using System.Text.Json;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成 OpenAPI 契约：Identity Oidc Clients Contract 与 Host.Api 实现一致。</summary>
 internal static class OpenApiIdentityOidcClientsContractAssertions
 {
     public static async Task VerifyAsync(

@@ -6,6 +6,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：JWKS 发布、轮换与验签边界。</summary>
 internal static class IdentityOidcJwksBoundaryAssertions
 {
     private const string BoundaryKeyId = "fixture-oidc-jwks-boundary-key";

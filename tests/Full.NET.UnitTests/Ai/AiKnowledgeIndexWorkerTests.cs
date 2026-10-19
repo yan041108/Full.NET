@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai;
 using Full.NET.Modules.Ai.Knowledge;
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Identity.Contracts;
@@ -42,11 +43,15 @@ public sealed class AiKnowledgeIndexWorkerTests
     public void Background_registration_has_scoped_execution_and_singleton_loop()
     {
         var services = new ServiceCollection(); new AiModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
-        foreach (var type in new[] { typeof(AiKnowledgeIndexWorkerCoordinator), typeof(AiKnowledgeIndexTaskStore), typeof(AiKnowledgeIndexSessionService),
+        foreach (var type in new[] { typeof(AiBackgroundLogCorrelation), typeof(AiKnowledgeIndexWorkerCoordinator), typeof(AiKnowledgeIndexTaskStore), typeof(AiKnowledgeIndexSessionService),
             typeof(AiKnowledgeIndexBatchStore), typeof(AiKnowledgeIndexBudgetService), typeof(AiKnowledgeIndexEmbeddingService), typeof(AiKnowledgeIndexVectorStore),
             typeof(AiKnowledgeIndexTextManifestStore), typeof(AiKnowledgeIndexActivationStore), typeof(AiKnowledgeIndexPersistenceService) })
             Assert.IsTrue(services.Any(d => d.ServiceType == type && d.Lifetime == ServiceLifetime.Scoped), type.Name);
         Assert.IsTrue(services.Any(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(AiKnowledgeIndexHostedProcessor) && d.Lifetime == ServiceLifetime.Singleton));
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var first = provider.CreateScope(); using var second = provider.CreateScope();
+        Assert.AreSame(first.ServiceProvider.GetRequiredService<AiBackgroundLogCorrelation>(), first.ServiceProvider.GetRequiredService<AiBackgroundLogCorrelation>());
+        Assert.AreNotSame(first.ServiceProvider.GetRequiredService<AiBackgroundLogCorrelation>(), second.ServiceProvider.GetRequiredService<AiBackgroundLogCorrelation>());
     }
 
     [TestMethod]

@@ -10,10 +10,14 @@ metadata:
 spec:
   replicas: {{ .Values.api.replicaCount }}
   strategy:
+{{- if .Values.logging.localFile.enabled }}
+    type: Recreate
+{{- else }}
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 0
       maxSurge: 1
+{{- end }}
   selector:
     matchLabels:
       {{- include "fullnet.selectorLabels" . | nindent 6 }}
@@ -45,6 +49,7 @@ spec:
           env:
 {{- include "fullnet.loggingModeEnv" . | nindent 12 }}
 {{- include "fullnet.loggingKafkaEnv" . | nindent 12 }}
+{{- include "fullnet.loggingLocalFileEnv" . | nindent 12 }}
             - name: Database__ConnectionString
               valueFrom:
                 secretKeyRef:
@@ -95,6 +100,7 @@ spec:
 {{- end }}
           volumeMounts:
 {{- include "fullnet.loggingKafkaCaMount" . | nindent 12 }}
+{{- include "fullnet.loggingLocalFileMount" . | nindent 12 }}
             - name: data-protection
               mountPath: /var/fullnet/data-protection-keys
             - name: tmp
@@ -129,6 +135,7 @@ spec:
             {{- toYaml .Values.api.resources | nindent 12 }}
       volumes:
 {{- include "fullnet.loggingKafkaCaVolume" . | nindent 8 }}
+{{- include "fullnet.loggingLocalFileVolume" . | nindent 8 }}
         - name: tmp
           emptyDir: {}
         - name: data-protection

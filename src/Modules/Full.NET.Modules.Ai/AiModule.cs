@@ -1,3 +1,4 @@
+// Ai 模块宿主入口；注册模型、聊天、知识库、Agent、MCP、AgUI 与相关 API。
 using Full.NET.AI.Abstractions.Connectivity;
 using Full.NET.AI.Abstractions.Credentials;
 using Full.NET.AI.Abstractions.Models;
@@ -68,6 +69,7 @@ public sealed class AiModule : IFullNetModule
     /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        Persistence.AiLogTimelineSources.Register(services);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             AiAuthorizationContributor>());
@@ -131,6 +133,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
         services.TryAddScoped<AiPromptRunResolver>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
+        services.TryAddScoped<Diagnostics.AiBackgroundLogCorrelation>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         RegisterKnowledgeGrantServices(services);
         services.TryAddScoped<Features.IncrementalKnowledgeIndexing.AiKnowledgeIndexGrantService>();
@@ -246,6 +249,7 @@ public sealed class AiModule : IFullNetModule
             .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
             .Validate(options => options.PollMilliseconds is >= 250 and <= 60000, "PollMilliseconds must be between 250 and 60000.")
             .ValidateOnStart();
+        services.TryAddScoped<Diagnostics.AiBackgroundLogCorrelation>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexBatchStore>();

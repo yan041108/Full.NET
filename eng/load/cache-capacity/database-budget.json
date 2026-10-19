@@ -1,0 +1,20 @@
+{
+  "Profile": "two-api-pool40-v1",
+  "Version": 1,
+  "ServerConnectionLimit": 151,
+  "Enabled": true,
+  "HostRole": 1,
+  "PermitLimit": 37,
+  "QueueLimit": 64,
+  "AcquireTimeoutMilliseconds": 250,
+  "ExpectedMaxPoolSize": 40,
+  "HealthReserve": 2,
+  "CriticalWorkerReserve": 0,
+  "AuthorizationReadReserve": 1,
+  "ApiMaxReplicas": 2,
+  "ApiMaxPoolSize": 40,
+  "WorkerMaxReplicas": 1,
+  "WorkerMaxPoolSize": 10,
+  "MigrationReserve": 20,
+  "TotalBudget": 110
+}

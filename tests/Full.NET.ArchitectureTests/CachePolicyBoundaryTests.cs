@@ -1,5 +1,6 @@
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：业务模块不得在允许清单外手工构造 CacheEntryOptions。</summary>
 [TestClass]
 public sealed class CachePolicyBoundaryTests
 {

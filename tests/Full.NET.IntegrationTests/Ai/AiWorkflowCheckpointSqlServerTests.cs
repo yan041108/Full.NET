@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Ai;
 
+/// <summary>集成测试：AiWorkflowCheckpointSqlServer。</summary>
 [TestClass]
 public sealed class AiWorkflowCheckpointSqlServerTests
 {

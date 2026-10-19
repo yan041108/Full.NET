@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Settings;
 
+/// <summary>单元测试（设置）：Reserved Diagnostic Policy Config。</summary>
 [TestClass]
 public sealed class ReservedDiagnosticPolicyConfigTests
 {

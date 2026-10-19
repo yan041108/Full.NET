@@ -9,6 +9,7 @@ using Full.NET.Modules.Document.Contracts;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>文档 Admin.NET parity：关键字段与行为对齐。</summary>
 internal static class DocumentAdminNetParityAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";

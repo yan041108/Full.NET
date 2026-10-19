@@ -5,6 +5,7 @@ using Full.NET.Modules.Ai.Knowledge;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Pdf Sandbox Parser。</summary>
 [TestClass]
 public sealed class AiKnowledgePdfSandboxParserTests
 {

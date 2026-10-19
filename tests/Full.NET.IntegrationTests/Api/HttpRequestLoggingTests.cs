@@ -79,6 +79,7 @@ internal static class HttpRequestLoggingAssertions
     }
 }
 
+/// <summary>集成测试：HttpRequestLoggingApiSqlServer。</summary>
 [TestClass]
 public sealed class HttpRequestLoggingApiSqlServerTests
 {
@@ -93,6 +94,7 @@ public sealed class HttpRequestLoggingApiSqlServerTests
     }
 }
 
+/// <summary>集成测试：HttpRequestLoggingApiMySql。</summary>
 [TestClass]
 public sealed class HttpRequestLoggingApiMySqlTests
 {

@@ -276,13 +276,13 @@ internal sealed class WorkflowInstanceRecoveryService(
                 ("IdempotencyKey", idempotencyKey), ("CommentSummary", reason),
                 ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                 ("StepId", todo.StepId), ("TransitionKey", TransitionKey),
                 ("FromStatusKey", "active"), ("ToStatusKey", "active"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
                 ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                 ("OperationKey", "instance.reassign"), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),
@@ -385,13 +385,13 @@ internal sealed class WorkflowInstanceRecoveryService(
                 ("IdempotencyKey", idempotencyKey), ("CommentSummary", reason),
                 ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                 ("StepId", work.StepId), ("TransitionKey", RecoverTransitionKey),
                 ("FromStatusKey", "suspended"), ("ToStatusKey", "active"),
                 ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
                 ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
-            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+            Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                 ("OperationKey", RecoverTransitionKey), ("ActorUserId", actorUserId),
                 ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),

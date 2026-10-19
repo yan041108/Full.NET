@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import {
   ElDescriptions,
   ElDescriptionsItem,
@@ -61,6 +62,12 @@ const open = computed({
 });
 
 const hasTraceId = computed(() => Boolean(props.record?.traceId?.trim()));
+const timelineQuery = computed(() => {
+  const traceId = props.record?.traceId ?? '';
+  const time = Date.parse(props.record?.occurredAtUtc ?? '');
+  if (!Number.isFinite(time) || Math.abs(time) > 8.64e15 - 3600000) return { traceId };
+  return { traceId, fromUtc: new Date(time - 3600000).toISOString(), toUtc: new Date(time + 3600000).toISOString() };
+});
 
 watch(
   () => [props.modelValue, props.record?.id, canReadRestricted.value, activeTab.value] as const,
@@ -221,6 +228,10 @@ function formatFieldValue(value: string | null | undefined): string {
         {{ record.subtitle }}
       </p>
 
+      <RouterLink v-if="record.traceId && can('auditing.timeline.read')"
+        :to="{ name: 'log-timeline', query: timelineQuery }" @click="open = false">
+        {{ t('logTimeline.open') }}
+      </RouterLink>
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t(record.supportsRestrictedDetails ? 'auditAnalytics.tabMessage' : 'auditAnalytics.tabSummary')" name="summary">
           <el-descriptions :column="1" border>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：TrustedProxyForwarding。</summary>
 [TestClass]
 public sealed class TrustedProxyForwardingTests
 {

@@ -4,6 +4,7 @@ using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Persistence;
 using Microsoft.Extensions.Options;
 
+/// <summary>Document 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Document.Features.UpdateHostDocumentVersionRetention;
 
 internal sealed class DocumentVersionRetentionSettingService(

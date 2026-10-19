@@ -24,6 +24,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：JSON/MemoryPack 序列化边界与 Native AOT 源生成约束。</summary>
 [TestClass]
 public sealed class SerializationRulesTests
 {
@@ -40,8 +41,6 @@ public sealed class SerializationRulesTests
 
     private static readonly Type[] ProductionIntegrationEventTypes =
     [
-        typeof(TenantProvisionedIntegrationEvent),
-        typeof(TenantChangedIntegrationEvent),
         typeof(AnnouncementPublishedIntegrationEvent),
         typeof(InboxMessageReceivedIntegrationEvent),
         typeof(InboxReadStateChangedIntegrationEvent),

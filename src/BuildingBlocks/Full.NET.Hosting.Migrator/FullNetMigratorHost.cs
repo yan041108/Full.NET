@@ -28,7 +28,8 @@ public static class FullNetMigratorHost
             builder.Configuration,
             builder.Environment.EnvironmentName);
         builder.Services.AddRouting();
-        builder.Services.AddFullNetCaching(
+        // Migrator 只需策略注册表与失效抽象，禁止连接 Redis 或承担跨节点缓存读写。
+        builder.Services.AddFullNetMigratorCaching(
             builder.Configuration,
             builder.Environment.EnvironmentName);
         builder.Services.AddFullNetMemoryPack();

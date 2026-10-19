@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：停用客户端后的通知与实时推送。</summary>
 internal static class IdentityOidcClientDisableNotificationsAssertions
 {
     private const string ExternalRedirectUri = "https://localhost:5014/signin-oidc-disable-notify";

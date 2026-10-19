@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Tenancy;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：TenancyApiSqlServer。</summary>
 [TestClass]
 public sealed class TenancyApiSqlServerTests
 {

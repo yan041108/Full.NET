@@ -19,8 +19,8 @@ internal static class AuditMicroBatchTelemetry
         Meter.CreateCounter<long>("fullnet.auditing.microbatch.failed");
     private static readonly Counter<long> Poisoned =
         Meter.CreateCounter<long>("fullnet.auditing.microbatch.poisoned");
-    private static readonly Histogram<double> WaitMs =
-        Meter.CreateHistogram<double>("fullnet.auditing.microbatch.wait_ms", unit: "ms");
+    private static readonly Histogram<double> WaitSeconds =
+        Meter.CreateHistogram<double>("fullnet.auditing.microbatch.wait", unit: "s");
     private static readonly Histogram<long> BatchRows =
         Meter.CreateHistogram<long>("fullnet.auditing.microbatch.batch_rows");
     private static readonly Histogram<long> BatchBytes =
@@ -47,7 +47,7 @@ internal static class AuditMicroBatchTelemetry
         Try(() => Poisoned.Add(1));
 
     public static void RecordWait(TimeSpan wait) =>
-        Try(() => WaitMs.Record(wait.TotalMilliseconds));
+        Try(() => WaitSeconds.Record(wait.TotalSeconds));
 
     private static void Try(Action action)
     {

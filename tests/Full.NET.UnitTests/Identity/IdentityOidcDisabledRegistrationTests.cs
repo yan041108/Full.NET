@@ -21,6 +21,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Identity Oidc Disabled Registration。</summary>
 [TestClass]
 public sealed class IdentityOidcDisabledRegistrationTests
 {

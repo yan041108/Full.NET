@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：租户上下文下的 OIDC 行为与跨租户拒绝。</summary>
 internal static class IdentityOidcTenantBoundaryAssertions
 {
     private const string BoundaryKeyId = "fixture-oidc-tenant-boundary-key";

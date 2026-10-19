@@ -2,6 +2,7 @@ using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Kafka Partition Key Slot Selector。</summary>
 [TestClass]
 public sealed class KafkaPartitionKeySlotSelectorTests
 {

@@ -9,6 +9,9 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Host.Worker;
 
+/// <summary>
+/// 轮询领取 Outbox 并调用集成事件分发器；租约续租、毒消息与投递所有权由 Messaging 层解释。
+/// </summary>
 internal sealed class OutboxProcessor(
     IServiceScopeFactory scopeFactory,
     IClock clock,

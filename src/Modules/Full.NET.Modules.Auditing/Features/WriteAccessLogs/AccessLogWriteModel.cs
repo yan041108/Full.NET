@@ -11,4 +11,7 @@ internal sealed record AccessLogWriteModel(
     Guid? TenantId,
     string? TraceId,
     string? ClientIpFingerprint,
-    bool IsAuthenticated);
+    bool IsAuthenticated)
+{
+    public string? CorrelationJson { get; init; } = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson();
+}

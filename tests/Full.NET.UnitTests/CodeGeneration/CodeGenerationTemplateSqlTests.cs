@@ -3,6 +3,7 @@ using Full.NET.Modules.CodeGeneration.Persistence;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
+/// <summary>单元测试（代码生成）：Code Generation Template Sql。</summary>
 [TestClass]
 public sealed class CodeGenerationTemplateSqlTests
 {

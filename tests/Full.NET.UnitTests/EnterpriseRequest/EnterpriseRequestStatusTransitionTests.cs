@@ -2,6 +2,7 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 
 namespace Full.NET.UnitTests.EnterpriseRequest;
 
+/// <summary>单元测试（EnterpriseRequest）：Enterprise Request Status Transition。</summary>
 [TestClass]
 public sealed class EnterpriseRequestStatusTransitionTests
 {

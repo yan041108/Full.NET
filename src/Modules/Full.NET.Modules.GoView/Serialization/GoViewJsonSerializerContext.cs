@@ -13,4 +13,5 @@ namespace Full.NET.Modules.GoView.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<GoViewProjectVersionResponse>))]
 [JsonSerializable(typeof(PreviewGoViewProjectRequest))]
 [JsonSerializable(typeof(GoViewProjectPreviewResponse))]
+/// <summary>GoView 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class GoViewJsonSerializerContext : JsonSerializerContext;

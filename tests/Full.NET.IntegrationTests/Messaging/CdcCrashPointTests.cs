@@ -2,6 +2,7 @@ using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：CdcCrashPoint。</summary>
 [TestClass]
 public sealed class CdcCrashPointTests
 {

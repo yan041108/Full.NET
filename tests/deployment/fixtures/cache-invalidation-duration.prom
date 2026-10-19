@@ -1,0 +1,7 @@
+# 从 2026-10-14 实际 Collector 0.123.0 输出保留的直方图族名和桶值。
+# 来源：cache-performance-runtime-3545c53b/SqlServer-cached/redis-delay-and-recovery-after.prom。
+# 仅保留低基数的 scope/outcome，移除实验服务实例与 SDK 资源标签。
+# TYPE fullnet_cache_invalidation_duration_milliseconds histogram
+fullnet_cache_invalidation_duration_milliseconds_bucket{outcome="success",scope="distributed",le="0"} 0
+fullnet_cache_invalidation_duration_milliseconds_bucket{outcome="success",scope="distributed",le="5"} 0
+fullnet_cache_invalidation_duration_milliseconds_bucket{outcome="success",scope="distributed",le="10"} 1

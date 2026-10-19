@@ -13,6 +13,10 @@ public readonly record struct BatchLogDeliveryResult(LogDeliveryDisposition Disp
 /// <summary>单 Poll 循环中的有界批次协调，逐项确认后按分区提交连续前缀。</summary>
 public sealed class BatchLogDeliveryProcessor
 {
+    /// <summary>只收集已可用消息的条数上限，不要求凑满或并行访问 Consumer。</summary>
+    public const int MaximumRecords = 64;
+    /// <summary>原始 Value 与 Key 的合计预算，为 ES 动作头及有界解析保留余量。</summary>
+    public const int MaximumInputBytes = 512 * 1024;
     private readonly ILogDocumentBatchSink _sink;
     private readonly ILogDeadLetterSink _dlq;
     private readonly ILogOffsetCommitter _committer;
@@ -39,10 +43,11 @@ public sealed class BatchLogDeliveryProcessor
     {
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentNullException.ThrowIfNull(ownsAssignment);
-        if (inputs.Count is < 1 or > 8) throw new ArgumentOutOfRangeException(nameof(inputs));
+        if (inputs.Count is < 1 or > MaximumRecords) throw new ArgumentOutOfRangeException(nameof(inputs));
         cancellationToken.ThrowIfCancellationRequested();
         var batch = inputs.ToArray();
         var lastOffsets = new Dictionary<(string, int), long>();
+        long inputBytes = 0;
         foreach (var input in batch)
         {
             if (string.IsNullOrWhiteSpace(input.Topic) || input.Partition < 0 || input.Offset is < 0 or long.MaxValue)
@@ -53,6 +58,9 @@ public sealed class BatchLogDeliveryProcessor
             lastOffsets[key] = input.Offset;
             if (input.Value.Length > _maxEventBytes || input.RawKey.Length > 36)
                 throw new ArgumentOutOfRangeException(nameof(inputs), "超限记录须走单条隔离路径。");
+            inputBytes += input.Value.Length + (long)input.RawKey.Length;
+            if (inputBytes > MaximumInputBytes)
+                throw new ArgumentOutOfRangeException(nameof(inputs), "批次原始字节超过 512KiB 预算。");
         }
         if (!ownsAssignment()) return new(LogDeliveryDisposition.Retry, 0);
         var writes = new List<LogDocumentWrite>(batch.Length);

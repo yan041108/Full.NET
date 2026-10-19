@@ -115,6 +115,21 @@ public sealed record DiagnosticPolicySnapshot(
         return (rate, nextExpiryUtc);
     }
 
+    /// <summary>匹配规则取最小非负上限；零关闭当前方向，不能放宽全局上限或启用已禁用的捕获。</summary>
+    internal int ResolvePayloadByteLimit(int configuredLimit, bool response, string endpoint,
+        string? trustedTraceId, Guid? tenantId, DateTimeOffset utcNow)
+    {
+        var limit = Math.Max(0, configuredLimit);
+        foreach (var rule in ActiveRules)
+        {
+            if (rule.ExpiresAtUtc <= utcNow
+                || !Matches(rule, LogClassification.HttpOperation, endpoint, trustedTraceId, tenantId)) continue;
+            var value = response ? rule.MaxResponsePayloadBytesOverride : rule.MaxRequestPayloadBytesOverride;
+            if (value is >= 0) limit = Math.Min(limit, value.Value);
+        }
+        return Math.Min(limit, 2048);
+    }
+
     private static bool Matches(
         DiagnosticPolicyRule rule,
         string? diagnosticGroup,

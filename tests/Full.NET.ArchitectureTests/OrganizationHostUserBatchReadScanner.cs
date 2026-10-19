@@ -1,7 +1,9 @@
+// 架构扫描器：Organization Host 用户批量读取边界。
 using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：Organization Host 用户批量读取边界。</summary>
 internal static partial class OrganizationHostUserBatchReadScanner
 {
     public static string[] ScanOrganizationListCompositionViolations(string root)

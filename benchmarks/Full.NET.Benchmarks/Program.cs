@@ -9,7 +9,19 @@ using Full.NET.Benchmarks.Logging;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
-if (args.FirstOrDefault() is "logging-route-case")
+if (args.FirstOrDefault() is "logging-local-capacity")
+{
+    await LoggingLocalCapacityRunner.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "logging-admission-matrix")
+{
+    await LoggingAdmissionMatrixRunner.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "logging-local-maintenance")
+{
+    await LocalFileMaintenanceRunner.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "logging-route-case")
 {
     await LoggingIsolatedRouteProbe.RunAsync(args.Skip(1).ToArray());
 }
@@ -136,6 +148,7 @@ else
             typeof(CacheAccessBoundaryBenchmarks),
             typeof(DapperAotCommandReuseBenchmarks),
             typeof(LoggingHotPathBenchmarks),
+            typeof(LoggingSaturatedQueueBenchmarks),
         ])
         .Run(args);
 }

@@ -128,4 +128,5 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(RevokeAiAgentDelegationRequest))]
 [JsonSerializable(typeof(AiAgentDelegationResponse))]
 [JsonSerializable(typeof(IReadOnlyList<AiAgentDelegationResponse>))]
+/// <summary>Ai 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class AiJsonSerializerContext : JsonSerializerContext;

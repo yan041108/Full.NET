@@ -2,6 +2,7 @@ using Full.NET.Modularity.Modules;
 
 namespace Full.NET.UnitTests.Modularity;
 
+/// <summary>单元测试（模块化）：Module Lifecycle。</summary>
 [TestClass]
 public sealed class ModuleLifecycleTests
 {

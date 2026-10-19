@@ -22,6 +22,7 @@ const SHARED_STEMS = new Set([
   'OutboxDeadLetter',
   'MessagingOutboxInboxExpand',
   'MessagingDomainAudit',
+  'MessagingLogCorrelation',
   'MessagingStreamOwnership',
   'MessagingStreamOwnershipConvergence',
   'MessagingDomainAuditRequestedOutcome',

@@ -1,5 +1,7 @@
 # ADR-0008：Host.Api Native AOT 运行时边界
 
+2026-10-17 日志修订：Hosting 移除旧 Serilog ES Sink 依赖，发布告警白名单同步删除 Serilog.Sinks.Elasticsearch、Elasticsearch.Net 及其 ILC IL3000/IL3002 项。历史验证记录保留；新修订尚需重新发布和原生运行，不能将依赖删除等同于 AOT 已通过。
+
 - 状态：已批准
 - 决策日期：2026-08-23
 - 适用范围：`Full.NET.Host.Api` 及其 net10.0 完整项目引用闭包（Composition、BuildingBlocks、Modules）；不覆盖 Worker、Migrator、AppHost、CLI 与 netstandard2.0 源码生成器

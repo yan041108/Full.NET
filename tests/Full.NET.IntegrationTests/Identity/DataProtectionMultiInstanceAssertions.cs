@@ -153,6 +153,7 @@ internal static class DataProtectionMultiInstanceAssertions
     }
 }
 
+/// <summary>集成测试：DataProtectionMultiInstance。</summary>
 [TestClass]
 public sealed class DataProtectionMultiInstanceTests
 {

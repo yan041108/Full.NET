@@ -29,6 +29,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.IntegrationTests.DataApproval;
 
+/// <summary>数据审批恢复：重启后状态与收件箱一致性。</summary>
 internal static class DataApprovalRecoveryRestartAssertions
 {
     public static async Task VerifyAsync(

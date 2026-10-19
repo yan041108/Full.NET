@@ -1,3 +1,4 @@
+// OIDC 会话相关 SQL 文本；与 Identity 主库表协同，禁止跨模块 JOIN。
 using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Identity.Persistence;

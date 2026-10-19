@@ -18,6 +18,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Oidc;
 
 internal sealed class IdentityOidcAuthorizationService(

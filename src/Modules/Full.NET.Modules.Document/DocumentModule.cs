@@ -50,6 +50,7 @@ public sealed class DocumentModule : IFullNetModule
     /// </summary>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        Persistence.DocumentLogTimelineSources.Register(services);
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
             .RegisterMaterializers(

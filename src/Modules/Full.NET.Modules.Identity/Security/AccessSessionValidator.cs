@@ -17,8 +17,7 @@ internal sealed class AccessSessionValidator(
     IQueryExecutor queryExecutor,
     IClock clock,
     IdentityOidcAccessSessionValidator oidcSessionValidator,
-    IOptions<IdentityOidcOptions> oidcOptions,
-    IDatabaseAuthorizationReadScope? authorizationRead = null)
+    IOptions<IdentityOidcOptions> oidcOptions)
 {
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
 
@@ -65,8 +64,8 @@ internal sealed class AccessSessionValidator(
         {
             throw;
         }
-        // 独立授权容量不足必须回滚调用方事务并返回可重试拒绝，不能伪装成令牌失效。
-        catch (ServiceCapacityExceededException) when (authorizationRead?.IsActive == true)
+        // 普通 JWT 与独立授权都必须保留容量拒绝，交由宿主返回可重试的 503；不得伪装成令牌失效。
+        catch (ServiceCapacityExceededException)
         {
             throw;
         }

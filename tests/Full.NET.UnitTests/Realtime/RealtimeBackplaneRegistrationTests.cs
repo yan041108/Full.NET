@@ -15,6 +15,7 @@ using OpenTelemetry.Metrics;
 
 namespace Full.NET.UnitTests.Realtime;
 
+/// <summary>单元测试（实时通信）：Realtime Backplane Registration。</summary>
 [TestClass]
 public sealed class RealtimeBackplaneRegistrationTests
 {

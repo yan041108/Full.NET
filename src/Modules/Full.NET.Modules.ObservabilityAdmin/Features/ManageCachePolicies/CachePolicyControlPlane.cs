@@ -1,7 +1,9 @@
-using System.Diagnostics;
 using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion;
-using Microsoft.Extensions.Hosting;
+using Full.NET.Hosting.Observability;
+using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Abstractions.Time;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 
@@ -9,21 +11,33 @@ namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 internal sealed class CachePolicyControlPlane
 {
     private readonly ICachePolicyRegistry _policies;
-    private readonly ICacheInvalidator _cacheInvalidator;
-    private readonly IHostEnvironment _environment;
+    private readonly IClock _clock;
+    private readonly IOptions<CacheOptions> _options;
+    private readonly IDiagnosticPolicyStore _diagnosticPolicyStore;
+    private readonly IGridPreferenceCacheInvalidator? _gridPreferences;
+    private readonly CacheRuntimeObservationState? _observation;
 
     /// <summary>创建缓存策略控制面。</summary>
     /// <param name="policies">受治理缓存策略注册表。</param>
-    /// <param name="cacheInvalidator">受治理缓存失效边界。</param>
-    /// <param name="environment">宿主环境，用于构造环境隔离键。</param>
+    /// <param name="clock">快照年龄的同源时钟。</param>
+    /// <param name="options">真实快照最大年龄配置。</param>
+    /// <param name="diagnosticPolicyStore">实际生效的本机诊断快照边界。</param>
+    /// <param name="gridPreferences">可选 Settings 所有者入口；模块缺席时不提供 Grid 失效。</param>
+    /// <param name="observation">当前节点的实际 SDK 事件观察生命周期，不代表集群健康。</param>
     public CachePolicyControlPlane(
         ICachePolicyRegistry policies,
-        ICacheInvalidator cacheInvalidator,
-        IHostEnvironment environment)
+        IClock clock,
+        IOptions<CacheOptions> options,
+        IDiagnosticPolicyStore diagnosticPolicyStore,
+        IGridPreferenceCacheInvalidator? gridPreferences = null,
+        CacheRuntimeObservationState? observation = null)
     {
         _policies = policies;
-        _cacheInvalidator = cacheInvalidator;
-        _environment = environment;
+        _clock = clock;
+        _options = options;
+        _diagnosticPolicyStore = diagnosticPolicyStore;
+        _gridPreferences = gridPreferences;
+        _observation = observation;
     }
 
     /// <summary>返回有界策略目录，不包含缓存值或连接凭据。</summary>
@@ -66,7 +80,7 @@ internal sealed class CachePolicyControlPlane
             return null;
         }
 
-        var normalizedEntry = entryName.Trim();
+        var normalizedEntry = entryName.Trim().ToLowerInvariant();
         var summary = Get(normalizedEntry);
         if (summary is null || !summary.CanInvalidate)
         {
@@ -81,8 +95,10 @@ internal sealed class CachePolicyControlPlane
             return null;
         }
 
-        var scope = ParseScope(request.Scope);
-        if (scope is null)
+        var scope = ParseScope(request.Scope ?? (normalizedEntry == CacheEntryNames.DiagnosticPolicy
+            ? CacheInvalidationScopeNames.CurrentNodeOnly : null));
+        if (scope is null || (normalizedEntry == CacheEntryNames.DiagnosticPolicy
+            && scope != CacheInvalidationScope.CurrentNodeOnly))
         {
             return null;
         }
@@ -95,12 +111,7 @@ internal sealed class CachePolicyControlPlane
 
         var invalidatedTargets = normalizedEntry switch
         {
-            CacheEntryNames.TenantResolution => await InvalidateTenantResolutionAsync(
-                validated,
-                scope.Value,
-                cancellationToken).ConfigureAwait(false),
             CacheEntryNames.DiagnosticPolicy => await InvalidateDiagnosticPolicyAsync(
-                scope.Value,
                 cancellationToken).ConfigureAwait(false),
             CacheEntryNames.GridPreference => await InvalidateGridPreferenceAsync(
                 validated,
@@ -123,106 +134,47 @@ internal sealed class CachePolicyControlPlane
     private CachePolicySummary ToSummary(CacheEntryPolicy policy)
     {
         var access = _policies.ResolveAccess(policy.EntryName);
-        var operations = CachePolicyAdminCatalog.GetOperations(policy.EntryName);
+        var operations = string.Equals(policy.EntryName, CacheEntryNames.GridPreference, StringComparison.OrdinalIgnoreCase)
+            && _gridPreferences is null
+            ? Array.Empty<CacheInvalidationOperationSummary>()
+            : CachePolicyAdminCatalog.GetOperations(policy.EntryName);
+        var isSnapshot = policy.EntryName == CacheEntryNames.DiagnosticPolicy;
+        var snapshot = isSnapshot ? _diagnosticPolicyStore.Current : null;
         var canUseCache = access.Kind == CacheAccessKind.UseCache;
         return new CachePolicySummary(
             policy.EntryName,
             policy.OwnerModule,
             policy.ConsistencyClassTag,
-            ToAccessKindName(access.Kind),
+            isSnapshot ? CachePolicyAccessKinds.LocalSnapshot : ToAccessKindName(access.Kind),
             canUseCache && policy.ConsistencyClass != CacheConsistencyClass.SharedL2Only
                 ? (long)policy.L1Duration.TotalSeconds
                 : null,
             canUseCache ? (long)policy.L2Duration.TotalSeconds : null,
             policy.RequiresDirectInvalidation,
-            canUseCache && operations.Count > 0,
-            operations);
-    }
-
-    private async Task<IReadOnlyList<string>?> InvalidateTenantResolutionAsync(
-        IReadOnlyDictionary<string, string> parameters,
-        CacheInvalidationScope scope,
-        CancellationToken cancellationToken)
-    {
-        if (!Guid.TryParse(parameters["tenantId"], out var tenantId) || tenantId == Guid.Empty)
+            // 权威读取没有待失效的副本；快照仅提供真实本机刷新。
+            operations.Count > 0,
+            operations)
         {
-            return null;
-        }
-
-        var domain = parameters["domain"];
-        var environmentName = _environment.EnvironmentName;
-        var targets = new List<string>
-        {
-            $"key:{CacheEntryNames.TenantResolution}:by-id",
-            $"key:{CacheEntryNames.TenantResolution}:by-domain",
-            $"tag:{CacheEntryNames.TenantResolution}:tenant",
-            $"tag:{CacheEntryNames.TenantResolution}:domain",
+            JitterSeconds = canUseCache ? policy.Jitter.TotalSeconds : null,
+            NegativeDurationSeconds = canUseCache ? policy.NegativeDuration?.TotalSeconds : null,
+            FailSafeEnabled = canUseCache && policy.FailSafeEnabled,
+            FailSafeMaxDurationSeconds = canUseCache && policy.FailSafeEnabled
+                ? policy.FailSafeMaxDuration?.TotalSeconds : null,
+            RequiresVersionRecheck = policy.RequiresVersionRecheck,
+            MaxSerializedBytes = canUseCache ? policy.MaxSerializedBytes : null,
+            RuntimeStatus = isSnapshot ? snapshot is null ? "unknown" : snapshot.IsDefault ? "safe_default" : "snapshot_loaded"
+                : canUseCache ? _observation?.Status ?? "unknown" : "not_applicable",
+            SnapshotAgeSeconds = snapshot is null ? null : Math.Max(0, (_clock.UtcNow - snapshot.LoadedAtUtc).TotalSeconds),
+            SnapshotMaxAgeSeconds = isSnapshot ? _options.Value.DiagnosticSnapshotMaxAge.TotalSeconds : null,
         };
-
-        await ExecuteInvalidationAsync(
-                CacheEntryNames.TenantResolution,
-                "tenancy",
-                scope,
-                async token =>
-                {
-                    await _cacheInvalidator.RemoveAsync(
-                            CacheEntryNames.TenantResolution,
-                            CacheKeyBuilder.TenantResolutionById(environmentName, tenantId),
-                            scope,
-                            token)
-                        .ConfigureAwait(false);
-                    await _cacheInvalidator.RemoveAsync(
-                            CacheEntryNames.TenantResolution,
-                            CacheKeyBuilder.TenantResolutionByDomain(environmentName, domain),
-                            scope,
-                            token)
-                        .ConfigureAwait(false);
-                    await _cacheInvalidator.RemoveByTagAsync(
-                            CacheEntryNames.TenantResolution,
-                            CacheKeyBuilder.TenantTag(tenantId),
-                            scope,
-                            token)
-                        .ConfigureAwait(false);
-                    await _cacheInvalidator.RemoveByTagAsync(
-                            CacheEntryNames.TenantResolution,
-                            CacheKeyBuilder.DomainTag(domain),
-                            scope,
-                            token)
-                        .ConfigureAwait(false);
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return targets;
     }
 
     private async Task<IReadOnlyList<string>?> InvalidateDiagnosticPolicyAsync(
-        CacheInvalidationScope scope,
         CancellationToken cancellationToken)
     {
-        var targets = new List<string>
-        {
-            $"key:{CacheEntryNames.DiagnosticPolicy}:global",
-        };
-
-        await ExecuteInvalidationAsync(
-                CacheEntryNames.DiagnosticPolicy,
-                "settings",
-                scope,
-                token => _cacheInvalidator.RemoveAsync(
-                    CacheEntryNames.DiagnosticPolicy,
-                    CacheKeyBuilder.ForGlobal(
-                        _environment.EnvironmentName,
-                        "settings",
-                        "diagnostic-policy",
-                        "current",
-                        "v1"),
-                    scope,
-                    token),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return targets;
+        // 其他节点由各自权威轮询收敛；本操作不发布无消费者的缓存通知。
+        await _diagnosticPolicyStore.RefreshAsync(0, cancellationToken).ConfigureAwait(false);
+        return [$"snapshot:{CacheEntryNames.DiagnosticPolicy}:current-node"];
     }
 
     private async Task<IReadOnlyList<string>?> InvalidateGridPreferenceAsync(
@@ -236,89 +188,17 @@ internal sealed class CachePolicyControlPlane
         }
 
         var gridKey = parameters["gridKey"];
-        if (!CachePolicyAdminCatalog.AllowedGridKeys.Contains(gridKey))
+        if (_gridPreferences is null || !await _gridPreferences.InvalidateAsync(userId, gridKey,
+                scope == CacheInvalidationScope.AllLayersSynchronous, cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
-
-        var schemaVersion = gridKey switch
-        {
-            "identity.users" => 2,
-            _ => 0,
-        };
-        if (schemaVersion <= 0)
-        {
-            return null;
-        }
-
-        var key = CacheKeyBuilder.ForGlobal(
-            _environment.EnvironmentName,
-            "settings",
-            "grid-preference",
-            $"{userId:N}:{gridKey}",
-            $"v{schemaVersion}");
         var targets = new List<string>
         {
             $"key:{CacheEntryNames.GridPreference}:by-user-grid",
         };
 
-        await ExecuteInvalidationAsync(
-                CacheEntryNames.GridPreference,
-                "settings",
-                scope,
-                token => _cacheInvalidator.RemoveAsync(
-                    CacheEntryNames.GridPreference,
-                    key,
-                    scope,
-                    token),
-                cancellationToken)
-            .ConfigureAwait(false);
-
         return targets;
-    }
-
-    private static async Task ExecuteInvalidationAsync(
-        string entryName,
-        string ownerModule,
-        CacheInvalidationScope scope,
-        Func<CancellationToken, ValueTask> execute,
-        CancellationToken cancellationToken)
-    {
-        var startedAt = Stopwatch.GetTimestamp();
-        try
-        {
-            await execute(cancellationToken).ConfigureAwait(false);
-            RecordInvalidation(ownerModule, scope, Stopwatch.GetElapsedTime(startedAt), succeeded: true);
-        }
-        catch
-        {
-            RecordInvalidation(ownerModule, scope, Stopwatch.GetElapsedTime(startedAt), succeeded: false);
-            throw;
-        }
-    }
-
-    private static void RecordInvalidation(
-        string ownerModule,
-        CacheInvalidationScope scope,
-        TimeSpan duration,
-        bool succeeded)
-    {
-        if (scope == CacheInvalidationScope.AllLayersSynchronous)
-        {
-            CacheReliabilityTelemetry.RecordDistributedInvalidation(duration, succeeded);
-        }
-        else
-        {
-            CacheReliabilityTelemetry.RecordLocalInvalidation(duration, succeeded);
-        }
-
-        CacheReliabilityTelemetry.RecordPolicyEvent(
-            ownerModule,
-            "admin",
-            scope == CacheInvalidationScope.AllLayersSynchronous
-                ? "invalidate_admin_distributed"
-                : "invalidate_admin_local",
-            succeeded ? "success" : "failure");
     }
 
     private static bool TryValidateParameters(
@@ -341,12 +221,15 @@ internal sealed class CachePolicyControlPlane
                 continue;
             }
 
-            normalized[definition.Name] = definition.ValueType switch
+            var value = raw.Trim();
+            // 在构造键或访问缓存前拒绝无界、控制字符及分隔符输入。
+            if (value.Length == 0 || raw.Length > 1_024 || value.Length > 253
+                || value.Any(character => char.IsControl(character) || char.IsWhiteSpace(character) || character == ':'))
             {
-                CacheInvalidationParameterTypes.Domain => raw.Trim().TrimEnd('.').ToLowerInvariant(),
-                CacheInvalidationParameterTypes.GridKey => raw.Trim(),
-                _ => raw.Trim(),
-            };
+                validated = normalized;
+                return false;
+            }
+            normalized[definition.Name] = value;
         }
 
         if (parameters.Keys.Any(key => operation.Parameters.All(parameter => parameter.Name != key)))

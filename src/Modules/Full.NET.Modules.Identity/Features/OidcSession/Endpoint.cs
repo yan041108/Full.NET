@@ -1,3 +1,4 @@
+// OIDC 会话端点映射；与会话 Cookie 协同的静默续期与退出。
 using System.Security.Claims;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;

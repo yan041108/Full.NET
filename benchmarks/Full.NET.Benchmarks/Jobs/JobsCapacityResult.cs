@@ -2,6 +2,7 @@ using Full.NET.Benchmarks.MixedLoad;
 
 namespace Full.NET.Benchmarks.Jobs;
 
+/// <summary>Jobs 容量基准单次运行的汇总指标与正确性门禁判定。</summary>
 public sealed record JobsCapacityRunResult(
     string Provider,
     JobsCapacityScenario Scenario,

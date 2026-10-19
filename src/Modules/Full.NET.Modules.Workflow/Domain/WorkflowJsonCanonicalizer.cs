@@ -1,3 +1,4 @@
+// 工作流 JSON 规范化；稳定排序与空白剔除，供哈希与 diff 比较。
 using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
@@ -5,6 +6,7 @@ using System.Text.Json;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
+/// <summary>生成确定性 JSON 与 SHA-256 摘要；键排序与数字格式固定，供版本比对与防篡改校验。</summary>
 internal static class WorkflowJsonCanonicalizer
 {
     public static WorkflowCompiledArtifact Compile(JsonElement value)

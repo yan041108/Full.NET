@@ -3,6 +3,7 @@ using Full.NET.Modules.Document.Domain;
 
 namespace Full.NET.UnitTests.Document;
 
+/// <summary>单元测试（文档）：Document Office Preview Source Policy。</summary>
 [TestClass]
 public sealed class DocumentOfficePreviewSourcePolicyTests
 {

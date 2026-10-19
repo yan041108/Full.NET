@@ -1,3 +1,4 @@
+// OpenIddict 令牌 Dapper 存储；访问/刷新令牌生命周期与吊销。
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -9,6 +10,7 @@ using OpenIddict.Abstractions;
 
 namespace Full.NET.Modules.Identity.Oidc.Stores;
 
+/// <summary>OpenIddict 令牌 Dapper 存储；访问/刷新令牌吊销与过期清理由保留作业协同。</summary>
 internal sealed class IdentityOidcTokenStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

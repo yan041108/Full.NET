@@ -44,4 +44,9 @@ test('Elasticsearch 日志管道健康 OpenAPI 夹具与端点一致', async () 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/observability\/elasticsearch-log-pipeline"\)/u);
   assert.match(endpointSource, /WithName\("observabilityGetElasticsearchLogPipelineHealth"\)/u);
   assert.match(contractsSource, /record ElasticsearchLogPipelineHealthResponse/u);
+  assert.equal(contract.paths[0].operations[0].responseSchema, 'ElasticsearchLogPipelineHealthResponse');
+  assert.deepEqual(contract.schemas.ElasticsearchLogPipelineHealthResponse.properties, [
+    'deliveryStatus', 'deliveryConfirmationBoundary', 'elasticsearchQueryEnabled',
+    'elasticsearchEndpoint', 'elasticsearchIndexPattern', 'openTelemetryOtlpEndpointConfigured'
+  ]);
 });

@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Tenant User Position Management Service。</summary>
 [TestClass]
 public sealed class TenantUserPositionManagementServiceTests
 {

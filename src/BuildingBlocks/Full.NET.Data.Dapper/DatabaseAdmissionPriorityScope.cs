@@ -2,6 +2,9 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>
+/// 异步调用链上的关键优先级标记；嵌套 <see cref="EnterCritical"/> 时走 Worker 预留许可。
+/// </summary>
 internal sealed class DatabaseAdmissionPriorityScope
     : IDatabaseAdmissionPriorityScope
 {

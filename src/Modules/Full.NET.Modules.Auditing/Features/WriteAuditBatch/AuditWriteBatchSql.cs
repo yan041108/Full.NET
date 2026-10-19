@@ -22,12 +22,12 @@ internal static class AuditWriteBatchSql
         INSERT INTO fn_auditing_operation_log
             (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode,
              DurationMs, Succeeded, UserId, TenantId, TraceId,
-             ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc)
+             ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc, CorrelationJson)
         VALUES
-        (@o0_Id, @OccurredAtUtc, @o0_ActionKey, @o0_HttpMethod, @o0_RequestPath, @o0_StatusCode,
+        (@o0_Id, @o0_OccurredAtUtc, @o0_ActionKey, @o0_HttpMethod, @o0_RequestPath, @o0_StatusCode,
          @o0_DurationMs, @o0_Succeeded, @o0_UserId, @o0_TenantId, @o0_TraceId,
          @o0_ClientIpFingerprint, @o0_PermissionCode, @o0_ContextJson,
-         @o0_DetailsExpiresAtUtc)
+         @o0_DetailsExpiresAtUtc, @o0_CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -37,11 +37,11 @@ internal static class AuditWriteBatchSql
         INSERT INTO fn_auditing_exception_log
             (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
              HttpMethod, RequestPath, UserId, TenantId, TraceId,
-             ClientIpFingerprint)
+             ClientIpFingerprint, CorrelationJson)
         VALUES
-        (@e0_Id, @OccurredAtUtc, @e0_ExceptionType, @e0_Message, @e0_StackTrace,
+        (@e0_Id, @e0_OccurredAtUtc, @e0_ExceptionType, @e0_Message, @e0_StackTrace,
          @e0_HttpMethod, @e0_RequestPath, @e0_UserId, @e0_TenantId, @e0_TraceId,
-         @e0_ClientIpFingerprint)
+         @e0_ClientIpFingerprint, @e0_CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -51,11 +51,11 @@ internal static class AuditWriteBatchSql
         INSERT INTO fn_auditing_outbound_call
             (Id, OccurredAtUtc, ProviderKey, OperationKey, DestinationHostCategory,
              StatusCode, Succeeded, DurationMs, RetryCount, TraceId, SafeErrorCode,
-             TenantId, UserId)
+             TenantId, UserId, CorrelationJson)
         VALUES
         (@b0_Id, @b0_OccurredAtUtc, @b0_ProviderKey, @b0_OperationKey, @b0_DestinationHostCategory,
          @b0_StatusCode, @b0_Succeeded, @b0_DurationMs, @b0_RetryCount, @b0_TraceId, @b0_SafeErrorCode,
-         @b0_TenantId, @b0_UserId)
+         @b0_TenantId, @b0_UserId, @b0_CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -74,7 +74,7 @@ internal static class AuditWriteBatchSql
             INSERT INTO fn_auditing_operation_log
                 (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode,
                  DurationMs, Succeeded, UserId, TenantId, TraceId,
-                 ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc)
+                 ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc, CorrelationJson)
             VALUES
             """);
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -89,7 +89,7 @@ internal static class AuditWriteBatchSql
             sql.AppendLine()
                 .Append("(@")
                 .Append(prefix)
-                .Append("_Id, @OccurredAtUtc, @")
+                .Append("_Id, @").Append(prefix).Append("_OccurredAtUtc, @")
                 .Append(prefix)
                 .Append("_ActionKey, @")
                 .Append(prefix)
@@ -115,10 +115,12 @@ internal static class AuditWriteBatchSql
                 .Append(prefix)
                 .Append("_ContextJson, @")
                 .Append(prefix)
-                .Append("_DetailsExpiresAtUtc)");
+                .Append("_DetailsExpiresAtUtc, @")
+                .Append(prefix).Append("_CorrelationJson)");
 
             var (id, model) = rows[i];
             parameters[prefix + "_Id"] = id;
+            parameters[prefix + "_OccurredAtUtc"] = model.CapturedAtUtc;
             parameters[prefix + "_ActionKey"] = model.ActionKey;
             parameters[prefix + "_HttpMethod"] = model.HttpMethod;
             parameters[prefix + "_RequestPath"] = model.RequestPath;
@@ -128,13 +130,13 @@ internal static class AuditWriteBatchSql
             parameters[prefix + "_UserId"] = model.UserId;
             parameters[prefix + "_TenantId"] = model.TenantId;
             parameters[prefix + "_TraceId"] = model.TraceId;
+            parameters[prefix + "_CorrelationJson"] = model.CorrelationJson;
             parameters[prefix + "_ClientIpFingerprint"] = model.ClientIpFingerprint;
             parameters[prefix + "_PermissionCode"] = model.PermissionCode;
             parameters[prefix + "_ContextJson"] = model.Details?.ContextJson;
             parameters[prefix + "_DetailsExpiresAtUtc"] = model.Details?.ExpiresAtUtc;
         }
 
-        parameters["OccurredAtUtc"] = occurredAtUtc;
         var statement = OperationPrototype with { Text = sql.ToString() };
         return (statement, parameters, parameters.Count);
     }
@@ -154,7 +156,7 @@ internal static class AuditWriteBatchSql
             INSERT INTO fn_auditing_exception_log
                 (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
                  HttpMethod, RequestPath, UserId, TenantId, TraceId,
-                 ClientIpFingerprint)
+                 ClientIpFingerprint, CorrelationJson)
             VALUES
             """);
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -169,7 +171,7 @@ internal static class AuditWriteBatchSql
             sql.AppendLine()
                 .Append("(@")
                 .Append(prefix)
-                .Append("_Id, @OccurredAtUtc, @")
+                .Append("_Id, @").Append(prefix).Append("_OccurredAtUtc, @")
                 .Append(prefix)
                 .Append("_ExceptionType, @")
                 .Append(prefix)
@@ -187,10 +189,12 @@ internal static class AuditWriteBatchSql
                 .Append(prefix)
                 .Append("_TraceId, @")
                 .Append(prefix)
-                .Append("_ClientIpFingerprint)");
+                .Append("_ClientIpFingerprint, @")
+                .Append(prefix).Append("_CorrelationJson)");
 
             var (id, model) = rows[i];
             parameters[prefix + "_Id"] = id;
+            parameters[prefix + "_OccurredAtUtc"] = model.CapturedAtUtc;
             parameters[prefix + "_ExceptionType"] = model.ExceptionType;
             parameters[prefix + "_Message"] = model.Message;
             parameters[prefix + "_StackTrace"] = model.StackTrace;
@@ -199,10 +203,10 @@ internal static class AuditWriteBatchSql
             parameters[prefix + "_UserId"] = model.UserId;
             parameters[prefix + "_TenantId"] = model.TenantId;
             parameters[prefix + "_TraceId"] = model.TraceId;
+            parameters[prefix + "_CorrelationJson"] = model.CorrelationJson;
             parameters[prefix + "_ClientIpFingerprint"] = model.ClientIpFingerprint;
         }
 
-        parameters["OccurredAtUtc"] = occurredAtUtc;
         var statement = ExceptionPrototype with { Text = sql.ToString() };
         return (statement, parameters, parameters.Count);
     }
@@ -221,7 +225,7 @@ internal static class AuditWriteBatchSql
             INSERT INTO fn_auditing_outbound_call
                 (Id, OccurredAtUtc, ProviderKey, OperationKey, DestinationHostCategory,
                  StatusCode, Succeeded, DurationMs, RetryCount, TraceId, SafeErrorCode,
-                 TenantId, UserId)
+                 TenantId, UserId, CorrelationJson)
             VALUES
             """);
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -260,7 +264,8 @@ internal static class AuditWriteBatchSql
                 .Append(prefix)
                 .Append("_TenantId, @")
                 .Append(prefix)
-                .Append("_UserId)");
+                .Append("_UserId, @")
+                .Append(prefix).Append("_CorrelationJson)");
 
             var model = rows[i];
             parameters[prefix + "_Id"] = model.Id;
@@ -273,6 +278,7 @@ internal static class AuditWriteBatchSql
             parameters[prefix + "_DurationMs"] = model.DurationMs;
             parameters[prefix + "_RetryCount"] = model.RetryCount;
             parameters[prefix + "_TraceId"] = model.TraceId;
+            parameters[prefix + "_CorrelationJson"] = model.CorrelationJson;
             parameters[prefix + "_SafeErrorCode"] = model.SafeErrorCode;
             parameters[prefix + "_TenantId"] = model.TenantId;
             parameters[prefix + "_UserId"] = model.UserId;

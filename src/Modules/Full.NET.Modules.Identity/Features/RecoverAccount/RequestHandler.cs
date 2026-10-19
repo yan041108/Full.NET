@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Persistence;
 
+/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
 namespace Full.NET.Modules.Identity.Features.RecoverAccount;
 
 internal sealed class RequestHandler(

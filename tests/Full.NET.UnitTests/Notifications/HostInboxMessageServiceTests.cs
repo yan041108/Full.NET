@@ -14,6 +14,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Host Inbox Message Service。</summary>
 [TestClass]
 public sealed class HostInboxMessageServiceTests
 {

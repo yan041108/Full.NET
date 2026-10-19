@@ -32,6 +32,7 @@ using KafkaCapacityWorkerContracts = kafkabenchmarks::Full.NET.Benchmarks.Kafka.
 
 namespace Full.NET.IntegrationTests.Messaging;
 
+/// <summary>集成测试：KafkaCapacityRunner。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class KafkaCapacityRunnerTests

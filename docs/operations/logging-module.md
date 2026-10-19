@@ -1,10 +1,78 @@
 # Full.NET 日志模块说明
 
-> 更新：2026-10-02，已纳入本地验收标准与 Collector/ApplicationKafka 生产入口准入。初次阅读基线为 `006ca78f1fff66a6bfe37627264ee527e3d9c673`，两路线文档更新基线为 `32fc0330757dc74b614e8c1b54e57e8824c0537b`。本文区分当前实现与后续扩展；未通过的投递或容量不得标为已验证。
+> 更新：2026-10-19，已纳入本地验收标准与 Collector/ApplicationKafka 生产入口准入。初次阅读基线为 `006ca78f1fff66a6bfe37627264ee527e3d9c673`，两路线文档更新基线为 `32fc0330757dc74b614e8c1b54e57e8824c0537b`。本文区分当前实现与后续扩展；未通过的投递或容量不得标为已验证。
 
 ## 1. 阅读入口与状态
 
-配置选型与日常使用请先读 [Code Wiki 日志指南](../../code-wiki/logging-guide.md)：覆盖四种入口、环境/Secret 要求、HTTP 与 B1 详情设置、故障和切换步骤；本文保留实现沿革与详细验证边界，历史计划示例不是当前 Chart 接口。
+本手册维护当前实现、配置与部署边界。最新本地验收、原生失败及分批复验结果统一见[整改计划](../superpowers/plans/2026-10-17-logging-remediation.md)；历史段落保留当时证据，不用发布、预检或局部通过替代整批验收。未测业务规模与容量保持 `Capacity-not-verified`。
+
+### 2026-10-19 当前容量结论与配置
+
+B1 持续写库及 Collector/ApplicationKafka 的有限本地容量余项已完成。B1 使用真实 Host 协调器、Dapper 与 SQL Server/MySQL，八组各 30 秒，实测写入 98,410 条 Operation、9,838 条 Exception，调用等待 P99 最大 88.8923ms；非预期失败/拒绝为零，结束预约字节及队列归零。这是写入尝试的等待时间，默认 fail-open 语义不变，不代表完整业务 HTTP P99。
+
+集中投递的接受范围包括每路线 500/1000 请求每秒、各两轮，共八组、180,000 个实测请求；另有 1,600 个预热请求及 48 条生命周期日志，ES 181,648 个文档逐条、位点与零 DLQ 完整对账。HTTP P99 为 2.6971–4.4718ms，含调度等待的计划完成 P99 为 15.8261–116.3962ms，窗口内确认最低 96.98%。实际 Kestrel 在途峰值为 8，载荷正文约 1.5–1.6KiB，不能把目标 1000 请求/秒当成 1000 同时在途。
+
+| 接受档位 | ES 容器 | Windows 测试进程树 | 必要显式配置 |
+| --- | --- | --- | --- |
+| 两路线 500/s | 1CPU / 2GiB | 2CPU / 6GiB | Consumer 批次 64；Collector 叠加低延迟配置 |
+| Collector 1000/s | 2CPU / 2GiB | 2CPU / 6GiB | Consumer 批次 64，叠加低延迟配置 |
+| ApplicationKafka 1000/s | 2CPU / 2GiB | 4CPU / 6GiB | Consumer 批次 64 |
+
+测试树包含发生器、Kestrel、独立 Consumer 和观察端；每个 .NET 进程 `DOTNET_PROCESSOR_COUNT=2`，整树 CPU 配额不能描述为应用进程独享配额。Kafka 为 1CPU/2GiB，Fluent Bit 为 0.5CPU/512MiB，依赖在同机 Docker 内运行。原 ES 一核高档及两核共享树的 ApplicationKafka 高档确实超预算；接受结果由未变范围复用和定向复验组成，原失败保留，不是同轮全部绿色或最低硬件保证。
+
+Consumer 通过 Helm `batchMaxRecords: 64` 或独立宿主环境变量 `FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS=64` 启用容量档，支持 1–64、默认仍 1；每批原始 Value＋Key 总预算 512KiB，ES/DLQ 成功确认后才提交分区连续前缀。图表默认 `enabled: false`、`experimental: false` 不改，部署仍须显式配置入口、认证及各组件。Collector 低延迟是可选文件 [fluent-bit-low-latency-values.yaml](../../deploy/observability/fluent-bit-low-latency-values.yaml)，在 [基础配置](../../deploy/observability/fluent-bit-values.yaml)之后以 `-f` 叠加：
+
+```text
+helm upgrade --install <release> <fluent-bit-chart> -f deploy/observability/fluent-bit-values.yaml -f deploy/observability/fluent-bit-low-latency-values.yaml
+```
+
+该配置只覆盖完整 `service`/`inputs` 字符串块，把输出 Flush 与 Tail 进度检查设为 200ms，继承基础路由和持久缓冲；增加文件系统检查频率，大文件数需另测。未启用的默认批次、默认 Collector 周期和 ES 一核不自动继承高档结论；模拟 CRI 文件的链路验收也不代替真实 kubelet 的所有行为。
+
+相关 Unit 53/53、Helm 契约 6/6、真实 Consumer 可靠性 9/9、原短档四轮通过；最终默认 Release 0 警告/错误，正式分片 1,332 项完整互斥。资源、CPU/内存、字节吞吐、原失败、各次 TRX 与来源详见[本批验收记录](../verification/2026-10-19-logging-remaining-capacity.md)。本结论不覆盖完整认证业务 HTTP、Linux/AOT 容量、多实例 HA、长期 Soak 或 2K/5K/10K；这些规模仍为 `Capacity-not-verified`。以下按日期保留历史验证及当时待办，以本节和计划最新状态为准。
+
+2026-10-19 新增 Local `.txt` 本地容量验收：真实 Kestrel/B2 在 CPU2/4GiB 的进程树预算内，以 500→1000 请求/秒、每档 30 秒运行 Disabled/Summary/Projected 正反序矩阵，12/12 样本、270,000 实测请求通过。开启日志的 180,000 条实测 HTTP 日志及 1,600 条预热日志全部完成文件对账，非预期响应和丢弃均为 0；HTTP P99 为 2.5552–3.4427ms，包含调度等待后的计划完成 P99 为 15.9104–17.6353ms。共享客户端/服务端进程两核 CPU 最高占比 14.66%，进程寿命工作集峰值 275.17MiB。环境、命令、完整分位数、原始失败与收据见[验收记录](../verification/2026-10-19-logging-local-capacity.md)。
+
+该 Local 批次仅覆盖本机、固定载荷、单宿主 B2 与 Local `.txt`；实际服务端在途峰值为 3–6，不能把 1000 请求/秒当成 1000 同时在途。它自身不证明磁盘 fsync、完整业务 API P99、B1 持续写库或集中投递容量；后续 B1 与集中投递验证见上节。2K/5K/10K/Soak 等未测规模仍为 `Capacity-not-verified`。复测入口是 Benchmark 的 `logging-local-capacity --output <新的系统临时子目录>`，需按正式资源池、实际 CPU/内存限制执行；不会修改生产日志配置。
+
+2026-10-18 19:41（上海时间）续验：当前 Integration 编译实际成功，0 警告/错误，耗时 10 分 22.74 秒；后续产物复制与正式登记超出 12 分钟准备预算，Core 未启动，不计通过。本轮容器、进程和自有锁已实际归还。下一候选将准备预算按实测增加至 18 分钟，保留原定完整 45 分钟 Core 门禁，等待共享资源交接；不重复已通过且输入未变的原生发布、Unit 或性能组。
+
+2026-10-18 20:25（上海时间）历史续验：准备阶段已通过，Integration 当前源码构建、复制和正式登记完成，编译 0 警告/错误、耗时 8 分 33.19 秒。Core 发现 44 项，实际前 2 项因测试环境将原生日志父目录挂为只读而失败，随后取消，其余未验，不能计为通过。资源已实际归还；新候选让测试日志目录可写，保持发布目录和清单只读，并在真实夹具前增加实际权限及完整哈希探针。控制回归 29/29 通过，等待新窗口重验 Core，详见上述整改计划。
+
+本地 CPU2 的 HTTP 探针约 500 请求/秒，Summary/Projected 请求 P99 为 2.35–2.92ms；它不是完整业务 API 或未测规模容量。9,900 文件、每组 16,384 普通/100 优先事件的配额对照中，20% 保护保留 100 条优先记录，关闭时为 2 条，最终普通记录少 99–105 条；部分普通文件出口 P99 约 1.02 秒、优先约 250ms，丢弃亦有波动。默认 20% 是优先诊断历史的取舍，0 可关闭；不保证提升吞吐、消除共同磁盘暂停或 fsync 持久化。
+
+2026-10-18 Local 文件维护修订完成 Windows 定向验证：Local 18 项回归全通过，日志组 403 通过、1 项 Linux FIFO 跳过，AOT 架构 73/73；有序闭合索引、每次最多 16 次删除及 `LocalFile.PriorityReservePercent`（默认 20，0–50，修改重启）已接通。16/1,000/9,900 文件、四种维护阶段正反序共 24 场景对账完成。大目录到期的单次维护调用由约 4.8–6.7 秒降至 3.9–4.1 ms，优先事件入队至出口返回 P99 由约 4.8–6.7 秒降至 143–155 ms；部分普通日志丢弃仍存在，大目录配额第二轮还出现普通丢弃增加，不将该结果解释为全面吞吐改善、业务请求 P99 或容量通过。全局治理修正旧路径断言后 84/84；共享夹具导入修复后的 Integration 重编、当前修订 AOT 分析及默认 JIT 还原已通过；后续正式分片 1,323 项完整互斥、Linux 日志 404/404 已通过；核心原生因缺少 JIT Migrator 前置而中止，补齐后待重新验收。配置见 [Local 知识库](../../code-wiki/logging-guide.md#local服务器本地-txt-文件)，原始证据与完整边界见[本批验证](../superpowers/plans/2026-10-17-logging-remediation.md#f07-候选集中验证2026-10-18)。
+
+2026-10-18 B1 整队列故障验收 6/6 通过、0 失败/跳过：SQL Server 与 MySQL 均覆盖批次期限、连接丢失和协调器停止；真实锁等待期间的入队超时、请求取消后的已接受任务等待、过期项跳过、实际 I/O 退出与预约字节归零均按断言验证，期限/断连解除后原协调器恢复，停止后新写入拒绝。进程内真实 Meter 检查通过；B1 的 OTLP→Collector→Prometheus 告警闭环随后由独立专项 1/1 通过，两条正式告警按原窗口触发并恢复；Linux/AOT、性能余项与未测容量仍待完成或验收。实现和证据见[本批计划](../superpowers/plans/2026-10-17-logging-remediation.md#b1-整队列故障验证批次2026-10-18)。
+
+2026-10-17 Collector 最新修订完成本地链路验收：静态 CRI 回放、实时采集及四轮路线对比 3/3 通过，实时场景额外两次复验各 1/1 通过，均无失败或跳过。测试观察端原逐条等待 25 ms、最多约 40 条/秒，现按有界批量读取以跟上 500 请求/秒的发送档；原实时确认断言保留。三次 Offset 确认分别发生在测量开始后约 2.58 / 2.65 / 6.19 秒，均早于 10 秒请求窗口结束。
+
+四轮每轮 5,000 条实测记录完成 ES/Offset/DLQ 对账，宿主丢弃为 0；修订后请求 P99 为 4.22 / 3.97 / 4.20 / 4.46 ms。证据限定于 Windows 托管进程、同机 Docker 和模拟 CRI，不扩展为完整业务 API、Linux/AOT 或未测规模容量结论。原首次失败与修订后结果分别保留，状态和原始证据见[整改计划](../superpowers/plans/2026-10-17-logging-remediation.md#collector-当前修订链路与路线对比)。
+
+2026-10-17 消费者与真实 ES 验收 9/9 通过：私有 CA/API Key、ES 确认后提交、持久 DLQ 确认、重平衡限制、重启重放及相同文档 ID 去重均有当前修订实测。包含 Windows 独立消费者在 ES 写入后、回执交付前被强制结束的恢复窗口；不等同 Linux SIGKILL/原生验收，也不覆盖 Collector 采集器链路或容量。详细范围见整改计划。
+
+2026-10-17 当前修订的真实 Kafka 生产者投递测试 6/6 通过：TLS/SASL、Topic ACL、双优先级投递、Broker ACK 后可消费及中断恢复均有实测。该结果的确认边界是 Broker，不代表独立消费者已写入 ES；DLQ/Offset、重平衡和原生链路仍按整改计划验收。
+
+2026-10-17 B1 定向双库验收：回滚/毒记录隔离、详情授权与到期、保留期公平分批和积压检查点共 4 项通过，0 失败、0 跳过。仅代表这些场景已验证，不代替数据库断网/长阻塞、真实 Kafka/ES、原生及性能剩余矩阵；完整状态见整改计划。
+
+B1 故障补充已完成 Writer 边界本地验收：双库真实表锁下的批次期限、调用方取消、专用写入会话中断，加既有毒记录隔离，共 8/8 通过；日志整改单测 125/125 通过，均无跳过/失败。实测修复了取消后驱动返回普通数据库异常而被吞掉取消的问题；以已触发的令牌统一取消语义，不误标毒、不拆批重试，并核对实际调用退出、无迟到写入及恢复。准备阶段与故障执行预算已分开。本组不覆盖整队列全部故障、真实指标导出或 Linux/AOT。
+
+2026-10-17 条数准入修订：普通与高优先级管道在快照构建前先原子预留条数名额，再预留字节预算。条数容量覆盖正在构建及等待消费的事件，出队即归还；字节预算仍覆盖下游在途事件。条数满时直接丢弃并计数，不等待下游、不继续构建快照。该修订已通过定向日志单测，饱和短基准的调用分配下降；耗时样本不足以确认稳定提速，尚不代表请求 P99 或容量验收，见[验证记录](../verification/2026-10-17-logging-count-admission.md)。
+
+2026-10-17 出口收敛修订：宿主与 Helm 仅支持 Local、Collector、ApplicationKafka，默认 Collector；移除旧 Serilog ES Sink、失效选项/注册状态/告警和 `LogEnvelope.LegacyEvent`，队列仅持有安全 JSON。旧 ES 配置节拒绝启动。管理页面的 ES 配置来自时间线查询选项，不返回密钥、不探测集群、确认边界固定 `configuration-only`。独立 LogConsumer 的写入、Offset/DLQ 和 ES 授权查询保留。新修订的验收以整改计划为准，历史原生和链路结论不自动继承。
+
+2026-10-17 最新审查确认告警指标契约、B1 故障拆批与总预算、跨出口停机预算、诊断配置及 Local 文件管理仍需整改；当前不能仅以补跑已有测试宣布整个模块收尾。用户已授权按[日志模块整改计划](../superpowers/plans/2026-10-17-logging-remediation.md)连续执行。整改采用开发底座直接演进规则，不保留仅服务历史实现的旧 ES 兼容出口；尚未实现或验收的整改不得计为通过。
+
+整改第二批已接通诊断请求/响应投影字节限制（命中规则与全局取最小值，0 关闭，TTL 到期失效），并统一 Local 文件写入和管理的应用目录。未配置 `LogRootPath` 时跟随已启用 Local，其他模式不自动读取文件；显式目录优先。文件列表改为 `items/isTruncated/scannedEntries`，全部目录项扫描默认上限 1000，页面明确提示截断；尾读、下载和时间线共用自有 `.txt` 识别及路径防护。配置详情见 [Wiki](../../code-wiki/logging-guide.md)，实际验证范围见整改计划。旧 ES 出口删除已进入实现与定向验证，后续性能优化仍未完成，不能把前述实现作为整个模块收尾结论。
+
+整改批次 A 已落地 B1 排队/执行/隔离预算、故障分类、宿主与 Kafka 共享退出期限、丢弃与消费者状态指标及正式告警修正。定向 Unit 121/121 通过；日志投递回归 380 通过、1 项 Linux FIFO 在 Windows 跳过，两组有重叠。Release 0 警告/0 错误，部署契约与 Promtool 告警测试通过。双库、真实指标导出与链路、Architecture、AOT/原生尚未验证；诊断 Payload 配置、本地文件管理、旧 ES 出口移除及性能整改仍按计划推进，不能据此宣布整体收尾。
+
+2026-10-16 新增关联采集与 Host 日志时间线扩展：事件产生时冻结 Trace/Span、请求、用户、租户、三类会话和 IP 指纹，按可获取范围保存；B1 按各事件发生时间写入。各模块日志表通过 262–271 增量迁移增加可空 `CorrelationJson`，旧数据不回填，回退旧版时保留扩展列。迁移由 Migrator 在 API/Worker 升级前执行。新增读取器不改变 B0/B1/B2 的投递与可靠性边界。
+
+时间线通过各数据所有者固定 SQL 合并 16 个数据库来源；可选本地结构化文本及 ES 元数据读取，分别授权、限时和报告覆盖状态。新能力的配置、筛选语义、权限、文件扫描边界见 [Wiki 日志关联时间线](../../code-wiki/logging-guide.md#日志关联时间线2026-10-16-扩展)；实际开发与验证状态见[本次计划](../superpowers/plans/2026-10-16-log-correlation-timeline.md)。下文“本期收尾”指原投递功能，不自动涵盖这次新增扩展。最新修订的日志与相关 AI 回归单测通过 1220 项、0 失败，另 1 项 Linux FIFO 用例在 Windows 跳过，构建为 0 警告、0 错误。普通诊断日志的关联键现在由可信上下文独占，缺失时删除调用方同名属性，防止时间线误归属；新增 4 项回归通过。修复后的模块回归、真实日志链路、Linux 原生与 FIFO 验证仍待集中验收；此前修订的通过及中断记录保留在计划中，不自动升级为最新修订验收。
+
+2026-10-10 增加可配置 `FullNet:Logging:LocalFile`：仅显式 Local 可启用，在原后台双通道写受限 JSON 行 txt；支持目录、UTC 日期/大小滚动、自有文件保留/目录预算及定期刷新。生产 Local 必须启用文件，Kubernetes 要求预置 PVC、单副本和 Recreate；不承诺持久队列或跨崩溃无损。完整配置与故障边界见 [Wiki 本地文件](../../code-wiki/logging-guide.md#local服务器本地-txt-文件)。
+
+配置选型与日常使用请先读 [Code Wiki 日志指南](../../code-wiki/logging-guide.md)：覆盖三种入口、环境/Secret 要求、HTTP 与 B1 详情设置、故障和切换步骤；本文保留实现沿革与详细验证边界，历史计划示例不是当前 Chart 接口。
 
 本期日志开发已按本地标准完成收尾。真实浏览器验收覆盖三页签、按需读取、服务端分页、到期/历史数据、撤权后新会话与 API 403；SQL Server 4/4、MySQL 含访问/异常页面回归 8/8。实测修复了小视口分页遮住详情按钮的布局问题。最终范围、审查与回归见[收尾验收](../verification/2026-10-02-logging-module-closeout.md)。归档、旧兼容包迁移及扩大容量等后续扩展不阻断本期，未测规模保持 `Capacity-not-verified`。
 
@@ -22,7 +90,7 @@ Collector 与 ApplicationKafka 的同负载比较已有独立执行入口 `pnpm 
 | `ILogger<T>` / Serilog | 已有结构化日志、Console Compact JSON、独立条数/字节有界普通与高优先级快照队列；生产容量尚未认证 | 保留；高频固定模板使用 LoggerMessage，补齐分类和字段 |
 | HTTP 汇总 | B2 Summary、采样、显式请求投影入口；列表服务端分页与操作日志 B1 受限详情已接通 | 其他业务路由的受控投影可按需要扩展 |
 | Auditing | B1 Operation/Exception/Outbound 微批，独立条数/字节预算；双库详情授权/到期；默认关闭的 B2 Access 入库 | 保持 B0/B1/B2 边界及配置默认关闭的原始详情策略 |
-| Elasticsearch | 核心 Hosting 仍引用兼容旧 Sink；开关默认关闭；新集中链路由独立消费者写入 | 旧包移出核心须单独做兼容迁移，不阻断新入口本地验收 |
+| Elasticsearch | 核心 Hosting 已移除旧 Sink；集中链路由独立消费者写入，时间线查询使用独立配置 | 旧 ES 配置节拒绝启动；Kafka ACK 不等于 ES 可查询 |
 | Fluent Bit | 固定镜像的解析、标签准入、普通/优先分流、缓冲与局部故障已实际验证；Collector Kafka 实时链路已接通 | 生产部署按故障窗口选择存储，emptyDir 不承诺节点丢失后恢复 |
 | 日志 Kafka | API/Worker 与 Helm 已允许显式生产 ApplicationKafka 配置；本地真实 Broker 覆盖 TLS/SASL/ACL，生产原生运行结果见[准入验证](../verification/2026-09-30-application-kafka-production-admission.md) | 两入口可配置选择，容量与下游确认按实际范围验证；不复用业务 Outbox/Inbox 或 Producer 预算 |
 | 容量/投递保障 | 有局部测试和历史证据，不等于全链生产认证 | 保持 `Capacity-not-verified`，按最终拓扑验证 |
@@ -87,7 +155,7 @@ HTTP Payload 上限不能替代整个 ILogger 管道的保护。所有应用日�
 
 预算预留、释放已覆盖入队拒绝、正常消费、失败和退出时放弃待消费事件；阻塞 Sink 未返回不会回收其快照。并发/真实宿主故障和性能场景仍须验证，调用方预先构造的参数、GC 和兼容适配额外分配仍需单独测量。热路径继续使用 LoggerMessage/IsEnabled，不能为精确计费先无限格式化再截断。
 
-普通结构化日志的入队快照现对已知敏感属性名、嵌套成员与字典键做整值替换；原始 IP、端口、地址、请求/返回 Body、Header、Query 等已知受限详情字段在顶层及嵌套层移除。HTTP Operation 的可选属性只接受中间件固定摘要字段名单，其他属性不复制；名单中的受控 RequestPayload/ResponsePayload 仍须经过两阶段投影许可，单靠属性名不能证明来源可信。自由文本中出现 Bearer/Basic、密码、Token、API Key、私钥、连接串或签名等明确赋值格式（包括 JSON、带点或索引式字段名）时整块替换；包含合法 JSON Unicode 转义与赋值分隔符的字符串也整块移除，以防转义键绕过明文匹配，因此可能移除无秘密的编码文本；普通 Windows 路径的 `\U` 不属于合法转义。危险属性名和类型标签也不保留原文。模板本身含敏感语境时，通用占位符值一并丢弃；只有未被模板引用且通过固定值或格式校验的分类、流、可靠性、Trace/Span ID、状态码及 LogEventId 可以保留。模板过长或 token 过多时只保留经校验的关联/路由元数据，尤其保持已生成的 LogEventId，不复制任意属性。普通可选属性最多扫描 256 个，先按固定键取必要属性，避免大量无效属性拖长请求线程。Console 快照与旧 ES 兼容事件使用同一受限副本，出口字节负例已覆盖已知字段；这属于已知格式防护，无法识别没有标记的任意秘密，也不能替代调用方禁止记录凭据的约束。每条字符串先受既有长度上限，再做匹配；新增扫描成本仍需与请求 P99/分配基线比较。
+普通结构化日志的入队快照现对已知敏感属性名、嵌套成员与字典键做整值替换；原始 IP、端口、地址、请求/返回 Body、Header、Query 等已知受限详情字段在顶层及嵌套层移除。HTTP Operation 的可选属性只接受中间件固定摘要字段名单，其他属性不复制；名单中的受控 RequestPayload/ResponsePayload 仍须经过两阶段投影许可，单靠属性名不能证明来源可信。自由文本中出现 Bearer/Basic、密码、Token、API Key、私钥、连接串或签名等明确赋值格式（包括 JSON、带点或索引式字段名）时整块替换；包含合法 JSON Unicode 转义与赋值分隔符的字符串也整块移除，以防转义键绕过明文匹配，因此可能移除无秘密的编码文本；普通 Windows 路径的 `\U` 不属于合法转义。危险属性名和类型标签也不保留原文。模板本身含敏感语境时，通用占位符值一并丢弃；只有未被模板引用且通过固定值或格式校验的分类、流、可靠性、Trace/Span ID、状态码及 LogEventId 可以保留。模板过长或 token 过多时只保留经校验的关联/路由元数据，尤其保持已生成的 LogEventId，不复制任意属性。普通可选属性最多扫描 256 个，先按固定键取必要属性，避免大量无效属性拖长请求线程。Console、本地文件与 Kafka 使用同一受限 UTF-8 快照，出口字节负例已覆盖已知字段；这属于已知格式防护，无法识别没有标记的任意秘密，也不能替代调用方禁止记录凭据的约束。每条字符串先受既有长度上限，再做匹配；新增扫描成本仍需与请求 P99/分配基线比较。
 
 `RequestPayload`/`ResponsePayload` 的封套出口现额外校验当前分页投影的精确数值 JSON 结构、范围和 2048 字节上限；其他同名属性及嵌套副本移除。自由文本若含已知受限详情键的赋值形态，包括 JSON 字符串或模板字面量，会整块移除。该检查阻止这些已知形态进入输出，但不证明调用者取得了投影许可，来源和预算仍由两阶段入口负责。新增解析只在字段实际出现时运行；启用后的 P99/分配成本仍待测量。
 
@@ -120,7 +188,7 @@ HTTP Middleware 的构造现要求 `HttpOperationLogIngress`；定制宿主必�
 | 后台消费 | 逐条输出、stdout 或兼容 Sink 重建/发送速度 | 深度、在途量、最老事件年龄及丢弃 |
 | 共用节点资源 | CPU、运行时日志文件、磁盘和网络竞争 | 请求延迟与采集积压同时升高 |
 
-当前 LogEnvelope 已在入队前完成有界 UTF-8 快照，代价是序列化进入调用线程。LG02/LG08 必须与此前后台格式化基线同环境比较请求尾延迟和分配；只有结果达标才能确认这一取舍适合生产。Console 消费已有快照；旧 ES 开启时携带安全事件拷贝，其额外成本需纳入比较。没有证据前不以替换队列容器、增加线程或增大缓冲作为吞吐结论；不得为优化取消字节/对象边界。
+当前 LogEnvelope 已在入队前完成有界 UTF-8 快照，代价是序列化进入调用线程。LG02/LG08 必须与此前后台格式化基线同环境比较请求尾延迟和分配；只有结果达标才能确认这一取舍适合生产。所有后台出口消费已有快照；旧 ES 专用安全事件副本和额外对象图计费已删除，实际分配变化仍须同载荷测量。没有证据前不以替换队列容器、增加线程或增大缓冲作为吞吐结论；不得为优化取消字节/对象边界。
 
 对单个通道，设日志输入速率为 λ、持续处理速率为 μ，剩余条数容量为 Q。当 λ > μ 时，理想化填满时间约为 `Q / (λ - μ)`；字节预算可能更早触顶。假设空普通队列 Q=10000，输入 20000 条/秒、处理 15000 条/秒，则约 2 秒填满。这只是说明机制的算例，不是项目实测。扩大队列延长缓冲时间，不增加持续处理能力，且可能增加内存、日志延迟和停机排空成本。
 
@@ -167,7 +235,7 @@ OTel Trace/Metrics -> Collector -> 相应后端（不重复导出同一份日志
 | CentralKafka | Collector | 开启 | 开启 | 独立可选 | Broker 故障缓冲；采集/消费积压告警 |
 | ApplicationKafka | ApplicationKafka | 不采集同一应用日志流 | 开启 | 独立可选 | 仅适配已准入的构建可选；Broker 故障时有界拒绝/超时 |
 
-Collector 与 ApplicationKafka 两入口均已按本地测试准入；默认仍为 Legacy，采集器与后台直发可显式配置选择。相同负载的正反序比较未形成稳定性能胜者，不根据瞬时负载自动切换。Kafka 档的 ES 可关闭，但必须有其他有效消费目的地。独立消费者的实验部署开关与应用入口准入分别管理。
+Collector 与 ApplicationKafka 两入口均已按本地测试准入；默认改为 Collector，采集器与后台直发可显式配置选择。相同负载的正反序比较未形成稳定性能胜者，不根据瞬时负载自动切换。Kafka 档的 ES 可关闭，但必须有其他有效消费目的地。独立消费者的实验部署开关与应用入口准入分别管理。
 
 应用 `FullNet:Logging` 管理 DeliveryMode、等级、条数/字节预算、Console/File 与退出预算；HTTP 捕获和 Auditing 详情边界不变。平台 `logPipeline.ingress` 区分 Collector/ApplicationKafka，`transport` 的 Direct/Kafka 仅表示是否经过 Broker，Direct 不表示应用直发。发布清单将同一档位渲染为 Pod 的不可变路由标识与应用预期模式；应用只校验自身配置和注入预期值，不能在启动时核实采集器真实规则。发布模板校验加固定版本采集器的行为测试证明端到端匹配。Collector 档应用不持有平台凭据；ApplicationKafka 档只注入日志 Producer 最小写权限的连接/TLS/认证配置，不获得消费、ES 或集群管理凭据。
 
@@ -207,20 +275,20 @@ logPipeline:
 
 上例为 Collector/CentralKafka。ApplicationKafka 档的应用配置为 `FullNet:Logging:DeliveryMode=ApplicationKafka`，平台改为 `ingress: ApplicationKafka`、`transport: Kafka`、`collector.enabled: false`；Kafka 仍启用，单独向具备适配能力的应用注入 Producer Secret。采集器可采集其他工作负载，但必须排除同一应用日志流。每个 Pod 按其发布时的路由标识独立筛选；旧版 Collector Pod 与新版 ApplicationKafka Pod 混合存在时仍应各走一条入口。当前 Fluent Bit 候选已添加标签准入，非生产 Helm 可预览直发；目标平台的真实路由、元数据缺失、滚动发布与 Console 镜像负例、Broker ACK 和下游恢复证据齐全前不开放对应确认档；Collector/ApplicationKafka 的生产入口配置准入按下方本地验收执行。
 
-旧配置迁移优先级须先落地并测试：
+当前只支持三种入口，不保留 Legacy 或宿主 ES Sink 兼容分支：
 
-| 新 DeliveryMode | 旧 Elasticsearch.Enabled | 生效行为/处理 |
-| --- | --- | --- |
-| 未指定 | false/未指定 | 保持既有 Console 与已有平台采集行为；显示 `legacy-console` 状态，不暗示 Local 零远程 |
-| 未指定 | true | 保留旧 ES 直写并告警，显示 `legacy-direct`；迁移完成前不删除依赖 |
-| 显式 Local | false | 应用内仅写 Console；部署采集器必须排除该流，当前尚未验证远程零投递 |
-| 显式 Collector | false | 应用内仅写 Console；实际采集入口、路由和目的地须由平台交付并验证 |
-| 显式 ApplicationKafka | false | 宿主注册静态适配器且 TLS/双 Topic/冻结路由配置完整时可在 Production 启动；缺少适配器或必需配置时拒绝 |
-| 任意显式模式 | true | 启动拒绝，要求先迁移或关闭旧 Sink；不能静默忽略或同时投递 |
+| DeliveryMode / ExpectedDeliveryMode | 生效行为 |
+| --- | --- |
+| 两项均未配置 | 默认 Collector，应用输出 Console，由平台另行采集 |
+| 两项均为 Local | Console/本地 txt 按 LocalFile 配置；生产必须启用文件，平台排除同一流的远程采集 |
+| 两项均为 Collector | 应用写 Console，采集入口、路由和目的地由平台配置及验证 |
+| 两项均为 ApplicationKafka | 注册静态适配器，配置 TLS、双 Topic 与冻结路由；缺少必需项则拒绝启动 |
+| 仅配置一项、空/null 或两项不一致 | 拒绝启动，不能静默回退 |
+| 残留旧宿主 ES Sink 配置节 | 拒绝启动；独立 ES 查询与 LogConsumer 配置不属于该退役配置节 |
 
-当前 LG05 首批代码已加入强类型 `FullNet:Logging:DeliveryMode` 与启动校验：未设置时保持旧 Console/ES 分支，旧 ES 直写会在宿主启动时输出一次固定迁移告警；显式模式与旧 ES 开启冲突时拒绝启动。显式模式还要求同值的 `FullNet:Logging:ExpectedDeliveryMode`，后者由发布清单注入；缺少、孤立或不一致时拒绝启动。注册服务与构建 Serilog 之间若切换任一模式值或旧 ES 开关也拒绝启动，避免校验、告警和 Sink 分叉；运行中切换仍需重启。应用的同值校验只覆盖本地配置，不能证明平台采集器行为。
+强类型配置位于 `FullNet:Logging`，注册与构建间发生入口漂移也拒绝启动；运行中切换须重启。同值校验覆盖本地配置，不证明平台采集器行为。
 
-Helm Chart 的 `logging.ingress` 默认 `Legacy`，不注入两个新模式键，保留旧行为。2026-09-30 按用户批准的全项目本地验收标准，**生产 API/Worker 可显式选择 `Collector` 或 `ApplicationKafka`**，并保持 `production=true`、`dotnetEnvironment=Production`；非生产仍可预览 `Local`、`Collector` 或 `ApplicationKafka`，使用 `production=false` 与 `dotnetEnvironment=Staging`（或 `Development`）。Chart 将环境写入 ConfigMap，把入口模式、同值预期模式及 `fullnet.io/log-ingress` 标签固定在同一 Pod 模板；旧 Pod 重启不会因共享 ConfigMap 更新而改用新路由。生产 Local 继续拒绝；ApplicationKafka 必须注册静态适配器、配置双 Topic/TLS 和冻结路由，Helm 要求专用 Producer Secret，可选只读 CA Secret；Collector 应用不注入 Kafka/ES 凭据。
+Helm Chart 的 `logging.ingress` 默认 `Collector`。按全项目本地验收标准，生产 API/Worker 可配置 `Collector` 或 `ApplicationKafka`，并保持 `production=true`、`dotnetEnvironment=Production`；非生产可使用 `Local`、`Collector` 或 `ApplicationKafka`，配合 `production=false` 与 `dotnetEnvironment=Staging`（或 `Development`）。Chart 将环境写入 ConfigMap，把入口模式、同值预期模式及 `fullnet.io/log-ingress` 标签固定在同一 Pod 模板；旧 Pod 重启不会因共享 ConfigMap 更新而改用新路由。生产 Local 必须启用 LocalFile，Chart 还要求 PVC/单副本/关闭 API HPA，并使用 Recreate；ApplicationKafka 必须注册静态适配器、配置双 Topic/TLS 和冻结路由，Helm 要求专用 Producer Secret，可选只读 CA Secret；Collector 应用不注入 Kafka/ES 凭据。历史入口准入不替代本期修订尚未通过的核心原生回归。
 
 直发仍须指定 `logging.kafka.configurationSecretName` 的固定 `bootstrapServers`、`generalTopic`、`priorityTopic`、`securityProtocol` 键，SASL 模式提供 `saslMechanism`、`saslUsername`、`saslPassword`；私有 CA 可设 `logging.kafka.caSecretName` 的 `ca.crt`。Chart 只在直发模式挂入证书并显式映射固定配置键，不通过 `envFrom` 覆盖模式。凭据与 CA 轮换后滚动重启；TLS/SASL Secret 不进入 Chart/ConfigMap。
 
@@ -239,10 +307,10 @@ logging:
 ```
 
 版本/保留天数须与下游受控映射一致。Secret 在目标命名空间预置，Producer 仅授予指定日志 Topic 的 Write/Describe 权限；CA 只包含公钥证书。普通 Kafka Producer、日志配置 Secret 和消费者凭据不共用；此示例不安装 Broker/ES，不触发自动切流。
-ApplicationKafka 入口在本地通过生产 Host/Helm 配置、TLS/SASL/ACL Broker 投递/拒绝与中断恢复、预算/关闭以及 API/Worker 原生运行后准入；不以完整容量矩阵或独立消费进程投产为启动前置。普通与优先使用两个长生命周期 Producer，`acks=all`、幂等及条数/字节/SDK 在途预算保持启用。请求不等 Broker ACK，无应用磁盘 Spool；入队 Accepted 不等于 Broker 确认，崩溃会丢未确认事件，重启不会自动重放。该入口用于 B2/运行诊断，不替代 B0/B1 审计。Broker 确认也不表示 ES 已索引；可选下游消费者按自己的确认/恢复契约验收。默认依旧 Legacy，不自动切流，容量和 P99 不由入口开关推导。
+ApplicationKafka 入口在本地通过生产 Host/Helm 配置、TLS/SASL/ACL Broker 投递/拒绝与中断恢复、预算/关闭以及 API/Worker 原生运行后准入；不以完整容量矩阵或独立消费进程投产为启动前置。普通与优先使用两个长生命周期 Producer，`acks=all`、幂等及条数/字节/SDK 在途预算保持启用。请求不等 Broker ACK，无应用磁盘 Spool；入队 Accepted 不等于 Broker 确认，崩溃会丢未确认事件，重启不会自动重放。该入口用于 B2/运行诊断，不替代 B0/B1 审计。Broker 确认也不表示 ES 已索引；可选下游消费者按自己的确认/恢复契约验收。默认为 Collector，修改配置须重启，不自动切流，容量和 P99 不由入口开关推导。
 Collector 开关的准入验证在本地执行 Host/Helm、固定镜像路由、TLS/ACK 与故障场景，不再要求 CI 终态、专用生产等价集群或先完成完整 10K 容量矩阵。应用内继续写 Console 双通道，旧 ES Sink 不启用；平台采集与下游须另行配置，`configuration-only` 不表示端到端已确认。当前 kind 路由实测使用 stdout 测试出口；Forward/Kafka/ES、持久确认及恢复组合按自身的本地实际测试验收。已知有限重试/满盘/Pod 临时卷丢失属于日志损失边界，B0/B1 审计不依赖该链。未测 P99/规模保持 `Capacity-not-verified`，不对真实生产硬件外推。
 
-现有受 `observability.elasticsearch.read` 保护的 Elasticsearch 管道健康响应已追加 `deliveryStatus` 与 `deliveryConfirmationBoundary`，不改变原字段和路由。状态从宿主启动时冻结的配置计算：未指定新模式且旧 ES 关闭为 `legacy-console`，旧 ES 开启为 `legacy-direct`，显式 Local 为 `disabled`，Collector 为 `external-collector`；直发注册后为 `application-kafka`。确认边界当前只有 `configuration-only`，或旧 ES Sink 确实注册时的 `sink-registered-only`，两者都不表示远端已收到、持久化或可查询。ES 关闭时管理查询不连接 ES；Vue 在非兼容模式只显示入口状态和确认边界，不把旧版 ES Sink 未注册、索引或集群诊断呈现为当前路线故障。旧版服务未提供新增字段时，Vue 保留兼容诊断并显示“旧版服务未提供”。运行时管理状态只反映当前宿主，不聚合所有 Pod，也不替代平台采集器与消费端验证。
+受 `observability.elasticsearch.read` 保护的监控响应报告入口和独立 ES 查询配置。`deliveryStatus` 为 `local`、`external-collector` 或 `application-kafka`，`deliveryConfirmationBoundary` 固定 `configuration-only`；不返回凭据、不探测集群，不保留旧 Sink 状态或前端兼容诊断。状态只反映当前宿主，不聚合其他 Pod，也不能证明 Broker 已确认、ES 已索引或平台采集器已收到；实际投递与恢复须查对应指标和验收证据。
 
 关闭组件不创建客户端、不连接、不探测，不暴露秘密。显式新模式与旧直写冲突、发布预期模式不匹配、ApplicationKafka 配 Direct、缺少静态适配或必需配置、Kafka 传输但 kafka.enabled=false、集中档没有目的地、缓冲无容量等组合须拒绝。日志与业务 Kafka 使用独立配置、Producer、ACL、Topic、配额和消费组；不自动启用 Messaging HybridKafka/CDC。当前宿主已移除 `ReadFrom.Services` 根级隐式 Sink 注册；未来新增第三方出口必须显式进入同一管道并核验单一所有权。
 
@@ -254,7 +322,7 @@ Hosting 核心不引用日志 Kafka 客户端，但仍引用 `Serilog.Sinks.Elas
 
 **独立消费进程试验切片（2026-09-30）：**`Full.NET.Host.LogConsumer` 已实现顺序 `Kafka Consume → 线格式/冻结路由校验 → 单项 ES Bulk 或受限 Kafka DLQ → 同步提交 nextOffset`。消费组关闭自动提交/自动存储位点；ES 只有逐项状态成功且回执 `_index`/`_id` 与本次目标完全一致才算确认；缺失或错配保留位点，400/409/413/422 逐项确定性失败需 DLQ `acks=all` 且投递报告为 `Persisted`，404/429/5xx 与未知响应保留位点。无效、过期、未知路由记录也只在 DLQ 确认后提交。ES 与 DLQ 失败或提交异常退出进程，监督器退避重启后从原位点重放；固定 `_id=LogEventId` 保持同一日期索引内幂等。ES 禁止跨主机自动重定向，整次 Bulk 请求及响应读取有 30 秒截止。真实 TLS Kafka 测试已验证正常记录、无效 UTF-8 key 和 DLQ 记录及连续提交至 Offset 3；固定镜像 Elasticsearch 9.5.4 与真实 Kafka 的集成测试又验证了 ES 写入成功而 Offset 提交失败时，重建同组 Consumer 后同一 ID 只有一份可查询文档，并最终提交 Offset 1。另一固定镜像用例使用真实 ES 映射拒绝（逐项 400）：隔离未确认时重建同组 Consumer 仍从 Offset 0 重放，受限 Kafka DLQ 收到原始记录后才提交 Offset 1，坏文档在 ES 中计数为零。前两项测试在传输层把受控 HTTPS 测试地址转到容器 HTTP 端口。新增固定版 ES HTTPS 测试验证：无受信 CA 时握手失败、无效 API Key 不确认写入、有效的最小写权限 API Key 可完成 Bulk 并查询文档；测试自签 CA 不发布 CRL；独立消费进程在 Development 显式配置 NoCheck 后，从真实 TLS Kafka 取记录，以私有 CA 和最小写权限 API Key 写入 ES 并提交 Offset 1。Production 或未指定 DOTNET_ENVIRONMENT 时对 NoCheck 配置拒绝启动。独立进程使用无效 ES API Key 时延期投递，来源 Offset 未提交且目标文档不存在；修正凭据后同组重启，原记录写入并提交 Offset 1。生产在线吊销检查和正式 CA/CRL/OCSP 仍未验证。独立进程的真实 TLS Kafka 用例已验证：DLQ Topic 不存在时进程退出且来源 Offset 未提交；修复 Topic 后重启，原始坏记录进入受限 DLQ 并提交 Offset 1。该用例不触发 ES 写入，也不是 SIGKILL 窗口验证。新增受控 HTTPS 代理只在真实 ES 逐项写入成功后暂扣回执：此时 SIGKILL 独立 Consumer，来源 Offset 仍为 1；等待 Kafka Group 会话失效并重启后原记录重放，Offset 到 2，同一 LogEventId 在 ES 仅保留一份文档。另以 TLS Kafka 验证成员离组后的分区交接：旧成员的迟到提交失败，新成员从原 Offset 处理并提交。另以测试专用 9 秒 MaxPoll 迫使处理中旧成员退出 Group：新成员重取原 Offset，旧成员迟到提交被 Broker 拒绝，新成员确认后提交。上述证据详见[故障与交接验证](../verification/2026-09-30-log-consumer-crash-handoff.md)；它不覆盖生产默认 Poll 预算下的全部撤销时序、Kubernetes 部署或吞吐预算，不能宣称生产准入。
 
-试验进程默认拒绝启动，须显式设 `FULLNET_LOG_CONSUMER_EXPERIMENTAL=true`。必填配置：`FULLNET_LOG_CONSUMER_BOOTSTRAP_SERVERS`、`TOPICS`（逗号分隔，不能含 DLQ）、`GROUP_ID`、`DLQ_TOPIC`、`ROUTES`（例如 `1:30,2:30`，版本到保留天数的不可变映射）、`MAX_EVENT_BYTES`（256–65536）、`ES_URL`（HTTPS 根地址）、`ES_API_KEY`（已编码的 API Key）、`SECURITY_PROTOCOL`（`Ssl` 或 `SaslSsl`）。这些键均带共同前缀 `FULLNET_LOG_CONSUMER_`；可选 `SSL_CA_LOCATION`、`ES_CA_PATH`（仅包含公钥证书的 PEM/DER 文件；自定义 CA 默认执行在线吊销检查，证书链及 CRL/OCSP 必须可用）、`ES_REVOCATION_MODE`（仅 Online 或 NoCheck，须同时配置 ES_CA_PATH；NoCheck 仅供 DOTNET_ENVIRONMENT=Development 测试，其他环境拒绝启动），SASL 模式额外必填 `SASL_MECHANISM`、`SASL_USERNAME`、`SASL_PASSWORD`。生产凭据应以独立 Secret 提供；Consumer 只读来源 Topic 和提交所属 Group，DLQ Producer 只写隔离 Topic，ES 凭据只允许固定日志索引写入。DLQ 保存原始坏记录，可能含敏感内容，必须有独立 ACL、加密、保留与回放操作。ES 输出新增 `WriteBatchAsync`，最多 64 条、完整 NDJSON 请求 1 MiB、响应 64 KiB，返回严格对应 index/ID 的逐项结果；混合成功/重试/隔离和真实 HTTPS ES 批量重放已验证，见[Bulk 传输记录](../verification/2026-10-01-log-consumer-bulk-transport.md)。该传输 API 不提交 Offset 或确认 DLQ。宿主新增可选 `FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS`（1..8，默认 1）；Helm 对应 `batchMaxRecords`。大于 1 时单 Poll 循环只收集已可用记录，不等待凑批、不并行调用 Consumer。`BatchLogDeliveryProcessor` 在完整逐项回执后按交付顺序等待必要的可靠 DLQ ACK，首个未确认项之后全部留待重放；每分区只提交此前已确认前缀的末条下一 Offset。收集及异步阶段检查分配代数，Broker 拒绝失去成员资格的迟到提交作为最终兜底。超大载荷或超过 36 字节的原始 Key 走原单条隔离路径。本批合法原始载荷最多 8×65536 字节，ES 仍受 1 MiB 请求/64 KiB 响应预算；这不限制 SDK 缓冲或整个进程 RSS。ES/DLQ 按逐项计数，Offset confirmed 指标按提交操作计数，不能再当作事件条数；提交异常可能使健康摘要暂时少计已成功提交的部分分区，权威进度仍以 Broker Offset 为准。默认仍为单条和关闭实验部署。见[批次协调验证](../verification/2026-10-01-log-consumer-batch-coordinator.md)。另以批次 8、500m/256Mi 在本地持续发送 3000 条、每条 2048 字节 JSON：实际 48.89 条/秒、61.366 秒；ES 暂停 10.354 秒后观测积压并在输入继续时追平，最终 Offset=3003/lag=0、逐 ID 内容一致、DLQ 不新增且无额外重启。这个有限场景可按本地标准验收，不代表长期容量或请求 P99，见[持续输入验收](../verification/2026-10-01-log-consumer-sustained.md)。2026-10-01 本地单分区突发基线已对账 1000 条、每条 2048 字节 JSON，耗时 25.924 秒、观察速率 38.57 条/秒、最终 Offset=1003/lag=0、DLQ 未新增；计时包含 CLI 和提交观察开销，不代表持续容量或请求 P99，见[吞吐基线](../verification/2026-10-01-log-consumer-throughput.md)。满额/超大且无法写入 DLQ 会保留原 Offset 并停止推进，而非丢弃。退出码 2 表示门禁关闭，3 表示可重试的投递延期，1 表示其他错误；监督器必须设置退避与告警。
+试验进程默认拒绝启动，须显式设 `FULLNET_LOG_CONSUMER_EXPERIMENTAL=true`。必填配置：`FULLNET_LOG_CONSUMER_BOOTSTRAP_SERVERS`、`TOPICS`（逗号分隔，不能含 DLQ）、`GROUP_ID`、`DLQ_TOPIC`、`ROUTES`（例如 `1:30,2:30`，版本到保留天数的不可变映射）、`MAX_EVENT_BYTES`（256–65536）、`ES_URL`（HTTPS 根地址）、`ES_API_KEY`（已编码的 API Key）、`SECURITY_PROTOCOL`（`Ssl` 或 `SaslSsl`）。这些键均带共同前缀 `FULLNET_LOG_CONSUMER_`；可选 `SSL_CA_LOCATION`、`ES_CA_PATH`（仅包含公钥证书的 PEM/DER 文件；自定义 CA 默认执行在线吊销检查，证书链及 CRL/OCSP 必须可用）、`ES_REVOCATION_MODE`（仅 Online 或 NoCheck，须同时配置 ES_CA_PATH；NoCheck 仅供 DOTNET_ENVIRONMENT=Development 测试，其他环境拒绝启动），SASL 模式额外必填 `SASL_MECHANISM`、`SASL_USERNAME`、`SASL_PASSWORD`。生产凭据应以独立 Secret 提供；Consumer 只读来源 Topic 和提交所属 Group，DLQ Producer 只写隔离 Topic，ES 凭据只允许固定日志索引写入。DLQ 保存原始坏记录，可能含敏感内容，必须有独立 ACL、加密、保留与回放操作。ES 输出新增 `WriteBatchAsync`，最多 64 条、完整 NDJSON 请求 1 MiB、响应 64 KiB，返回严格对应 index/ID 的逐项结果；混合成功/重试/隔离和真实 HTTPS ES 批量重放已验证，见[Bulk 传输记录](../verification/2026-10-01-log-consumer-bulk-transport.md)。该传输 API 不提交 Offset 或确认 DLQ。宿主新增可选 `FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS`（1..64，默认 1）；Helm 对应 `batchMaxRecords`。大于 1 时单 Poll 循环只收集已可用记录，不等待凑批、不并行调用 Consumer。`BatchLogDeliveryProcessor` 在完整逐项回执后按交付顺序等待必要的可靠 DLQ ACK，首个未确认项之后全部留待重放；每分区只提交此前已确认前缀的末条下一 Offset。收集及异步阶段检查分配代数，Broker 拒绝失去成员资格的迟到提交作为最终兜底。超大载荷或超过 36 字节的原始 Key 走原单条隔离路径。本批原始 Value 与 Key 合计最多 512KiB，超过预算的下一记录留到下批；64 条上限与字节预算同时生效，ES 仍受 1 MiB 请求/64 KiB 响应预算；这不限制 SDK 缓冲或整个进程 RSS。ES/DLQ 按逐项计数，Offset confirmed 指标按提交操作计数，不能再当作事件条数；提交异常可能使健康摘要暂时少计已成功提交的部分分区，权威进度仍以 Broker Offset 为准。默认仍为单条和关闭实验部署。见[批次协调验证](../verification/2026-10-01-log-consumer-batch-coordinator.md)。另以批次 8、500m/256Mi 在本地持续发送 3000 条、每条 2048 字节 JSON：实际 48.89 条/秒、61.366 秒；ES 暂停 10.354 秒后观测积压并在输入继续时追平，最终 Offset=3003/lag=0、逐 ID 内容一致、DLQ 不新增且无额外重启。这个有限场景可按本地标准验收，不代表长期容量或请求 P99，见[持续输入验收](../verification/2026-10-01-log-consumer-sustained.md)。2026-10-01 本地单分区突发基线已对账 1000 条、每条 2048 字节 JSON，耗时 25.924 秒、观察速率 38.57 条/秒、最终 Offset=1003/lag=0、DLQ 未新增；计时包含 CLI 和提交观察开销，不代表持续容量或请求 P99，见[吞吐基线](../verification/2026-10-01-log-consumer-throughput.md)。满额/超大且无法写入 DLQ 会保留原 Offset 并停止推进，而非丢弃。退出码 2 表示门禁关闭，3 表示可重试的投递延期，1 表示其他错误；监督器必须设置退避与告警。
 
 ### 独立消费者运维与部署
 
@@ -404,6 +472,16 @@ LogEventId 映射 document_id，使用 index 动作，使同一事件重试始�
 应用内存崩溃、磁盘满、节点丢失、源文件轮转、保留超期都可能形成缺口；用 LogEventId 和故障窗口对账。节点本地磁盘只能承诺该节点可恢复，PV 的节点/区域失败能力也须实测。应用无限故障、资源有界、非阻塞和绝不丢失不能同时保证；B0/B1 不因外部日志系统失败降低语义。
 
 ## 7. 告警与验收
+
+宿主 Trace/Metrics 的参考 overlay 固定 Contrib Collector 0.163.1 与镜像摘要，使用 OTLP 接收，并包含 WAL 重复重放修复。Trace 出口通过 `otlp_grpc/tempo.sending_queue.storage: file_storage` 缓冲；Metrics 出口通过 `prometheus_remote_write.http.endpoint` 指定地址，使用 `remote_write_queue`（单消费者、1024 批）与 `wal.directory`，不能照搬 Trace 的 `sending_queue`。请求并行显式设为 1，名称转换显式使用 `UnderscoreEscapingWithSuffixes`，保持现行告警指标名。两者共享 `/var/otel-collector/storage` 的 2 GiB emptyDir：容器重启可以保留，Pod 替换、节点丢失会丢失，不能据此承诺指标持久投递。平台须配置实际 Tempo/Prometheus 地址、TLS 和目录权限，Prometheus 须开启 Remote Write 接收或使用支持该协议的后端。配置修订与真实链路验收状态分别以整改计划记录为准。
+
+2026-10-18 已在 Windows x64 进程及本地 Docker 完成真实 Host B2→OTel→Prometheus 的双通道指标与优先丢弃告警触发/恢复验收，使用正式五分钟统计窗口和一分钟持续条件；固定版本配置也经真实二进制 validate。此结果不覆盖 B1 全部指标、Tempo 下游、Linux/AOT 或未测容量，详细证据见活动整改计划。
+
+2026-10-18 B1 指标独立专项 `auditing-metrics` 已 1/1 通过、0 失败/跳过：真实 API Host 与 SQL Server 产生健康、约束失败和超大拒绝指标，经固定 Collector 写入 Prometheus；`FullNetAuditB1QueuePressure`、`FullNetAuditB1WaitOrFailure` 保持正式五分钟窗口和持续条件，均验证 firing/resolved。停止负载后所有接受调用完成、数据库与计数对账、队列/在途字节归零及低基数标签检查通过。夹具的固定并发与可取消等待仅用于维持压力，不是默认配置或容量结果；详细边界和原始证据见[验收计划](../superpowers/plans/2026-10-17-logging-remediation.md#b1-正式指标与告警闭环批次)。
+
+`node eng/testing/otel-collector-config-test.mjs` 使用固定镜像严格校验 overlay 中的实际 `config`，并模拟存储挂载；它不渲染或安装第三方 Helm Chart，也不证明下游收到指标。集成聚焦集 `logging-metrics` 通过真实 Host 队列阻塞/丢弃、OTLP 和 Prometheus 验证字段及优先丢弃告警的触发/恢复，`auditing-metrics` 独立验证 B1；具体状态见活动整改计划，不以静态字段匹配代替真实导出。
+
+Host 的 Trace/Metrics `service.instance.id` 与日志 `Instance` 共用同一启动标识，服务名默认取宿主名，可通过 `OTEL_SERVICE_NAME` 覆盖；保留平台配置的 `service.namespace`。指标不附加用户、租户、IP 或 URL 标签。监控器通过 DI 工厂创建并由 Host 释放，完全释放后注销仪器；Logger 停止期间仍保留终态累计计数。真实指标测试隔离运行机的 OTLP 地址、认证头及资源覆盖，仅向自有本地容器发送样本，并按部署 WAL 周期计算观察预算。
 
 记录应用深度/容量/丢弃、采集缓冲字节/最老年龄、Producer 成功/失败、Kafka Lag/最老年龄/保留余量、ES 每项写入失败/延迟、隔离数、恢复追赶速度。Fluent Bit 候选的三路输出已设稳定别名，Priority 与 B2 分别以 `fluentbit_output_dropped_records_total` 和 `fluentbit_output_retries_failed_total` 建立丢失告警；这两个指标分别计记录和重试耗尽的 chunk，不能相加解释为事件数。Priority 无限重试可能长期没有这两类丢失计数，因此另以五分钟窗口内重试增加且成功计数不增加、持续两分钟的条件建立 `FullNetFluentBitPriorityOutputRetryWithoutProgress`。该规则识别输出整体没有进展，若其他 Priority 记录仍成功则不能证明某条记录没有卡住；也不替代缓冲最老年龄、磁盘使用和事件 ID 对账。采集器的 `up=0` 只能发现仍被服务发现保留的目标；`FullNetFluentBitDaemonSetUnavailable` 另以 kube-state-metrics 的不可用副本数发现 DaemonSet 存在时的 Pod 缺失。DaemonSet 整体被删除、期望副本为零及 kube-state-metrics 自身不可用仍需平台独立监控。固定镜像故障探针已从采集器本地指标端点读取两路丢弃与重试耗尽计数，并与删除源日志后的缺失 ID 对账；固定 Prometheus 的 `promtool` 规则测试覆盖丢弃触发、Priority 仅重试不触发丢失告警、持续无进展触发新告警、成功后不误报、DaemonSet 不可用与恢复以及归档别名。专项 CI 烟测以真实 Prometheus 抓取不可达 Forward 的两路输出指标并检查丢失 firing 告警，新无进展及 DaemonSet 规则仍待目标平台抓取与通知实测。即使烟测通过，目标平台抓取、标签和通知仍须故障注入验收。标签不含原 URL、用户、租户、异常消息或 LogEventId；关联字段可在受保护日志中查询。
 

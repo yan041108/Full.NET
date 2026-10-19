@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Images;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -16,12 +17,15 @@ internal sealed class KafkaRequestCollectorFixture : IAsyncDisposable
 
     public static async Task<KafkaRequestCollectorFixture> StartAsync(string root, string directory,
         KafkaLogTlsFixture kafka, string general, string priority, IReadOnlyList<string> source, CancellationToken token,
-        string? liveCriDirectory = null)
+        string? liveCriDirectory = null, bool lowLatency = false)
     {
         var values = await File.ReadAllTextAsync(Path.Combine(root, "deploy/observability/fluent-bit-values.yaml"), token);
+        var timingValues = lowLatency ? await File.ReadAllTextAsync(Path.Combine(root,
+            "deploy/observability/fluent-bit-low-latency-values.yaml"), token) : values;
         string Block(string name)
         {
-            var match = Regex.Match(values, $@"^  {name}: \|\r?\n([\s\S]*?)(?=^  [A-Za-z]+: \||^extraVolumes:|\z)", RegexOptions.Multiline);
+            var selected = name is "service" or "inputs" ? timingValues : values;
+            var match = Regex.Match(selected, $@"^  {name}: \|\r?\n([\s\S]*?)(?=^  [A-Za-z]+: \||^extraVolumes:|\z)", RegexOptions.Multiline);
             Assert.IsTrue(match.Success);
             return Regex.Replace(match.Groups[1].Value, "^    ", "", RegexOptions.Multiline).TrimEnd();
         }
@@ -60,6 +64,7 @@ internal sealed class KafkaRequestCollectorFixture : IAsyncDisposable
         var config = service + "\n\n" + inputs + "\n\n" + filters + "\n\n" + Output("priority", priority, "False", "256MB")
             + "\n" + Output("b2", general, "3", "512MB");
         var builder = new ContainerBuilder("cr.fluentbit.io/fluent/fluent-bit:4.1.1@sha256:2a5cb41f99b7c5f3386bb34d42ce3b19eb47fbef6d93b64c0bd4afe9e6ec389c")
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "collector"))
             // 与测试 Broker 共享网络，仅在其额外 SSL 监听上连接，不依赖 Docker Desktop host 网络开关。
             .WithCreateParameterModifier(parameters => (parameters.HostConfig ??= new()).NetworkMode = "container:" + kafka.ContainerId)
             .WithResourceMapping(Encoding.UTF8.GetBytes(config), "/work/fluent-bit.conf")
@@ -67,6 +72,7 @@ internal sealed class KafkaRequestCollectorFixture : IAsyncDisposable
             .WithResourceMapping(await File.ReadAllBytesAsync(kafka.CaPath, token), "/work/kafka-ca.crt")
             .WithResourceMapping(Encoding.UTF8.GetBytes("local-test-only"), "/work/token")
             .WithCommand("-c", "/work/fluent-bit.conf");
+        if (SharedDatabaseFixture.BoundedContainers) builder = builder.WithImagePullPolicy(PullPolicy.Never);
         foreach (var (pod, ingress) in new[] { ("fullnet-collector", "collector"), ("fullnet-mirror", "applicationkafka") })
         {
             var cri = new StringBuilder();

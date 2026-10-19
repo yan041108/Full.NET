@@ -13,6 +13,7 @@ using Full.NET.Modules.Workflow;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Host Dashboard Query Service。</summary>
 [TestClass]
 public sealed class HostDashboardQueryServiceTests
 {

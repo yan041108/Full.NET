@@ -3,6 +3,7 @@ using Full.NET.Modules.Jobs.Execution;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Http Job Args Validator。</summary>
 [TestClass]
 public sealed class HttpJobArgsValidatorTests
 {

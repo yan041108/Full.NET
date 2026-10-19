@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：访问/刷新令牌签发、校验与越权拒绝。</summary>
 internal static class IdentityOidcTokenBoundaryAssertions
 {
     private const string BoundaryKeyId = "fixture-oidc-boundary-key";

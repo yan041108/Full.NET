@@ -1,8 +1,5 @@
 namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 
-/// <remarks>
-/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
-/// </remarks>
 /// <summary>表示一条已登记缓存策略的只读摘要。</summary>
 /// <param name="EntryName">稳定缓存条目名。</param>
 /// <param name="OwnerModule">所属模块键。</param>
@@ -22,7 +19,44 @@ public sealed record CachePolicySummary(
     long? L2DurationSeconds,
     bool RequiresDirectInvalidation,
     bool CanInvalidate,
-    IReadOnlyList<CacheInvalidationOperationSummary> InvalidationOperations);
+    IReadOnlyList<CacheInvalidationOperationSummary> InvalidationOperations)
+{
+    /// <summary>有效 TTL 抖动上限秒数；不可缓存时为 null，保留亚秒精度。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public double? JitterSeconds { get; init; }
+
+    /// <summary>有效负缓存寿命秒数；不可缓存或未启用负缓存时为 null。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public double? NegativeDurationSeconds { get; init; }
+
+    /// <summary>当前访问路径是否启用 Fail-Safe；不表示正在返回旧值。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public bool FailSafeEnabled { get; init; }
+
+    /// <summary>有效 Fail-Safe 最大保留秒数；未启用时为 null。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public double? FailSafeMaxDurationSeconds { get; init; }
+
+    /// <summary>登记策略是否要求命中后版本复核。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public bool RequiresVersionRecheck { get; init; }
+
+    /// <summary>缓存业务载荷的序列化字节预算；不可缓存时为 null，不包含 SDK 封装元数据。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public int? MaxSerializedBytes { get; init; }
+
+    /// <summary>真实缓存为 observing/unknown，本机快照为 snapshot_loaded/safe_default/unknown，权威读取为 not_applicable；不代表集群健康。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public string RuntimeStatus { get; init; } = "unknown";
+
+    /// <summary>本机诊断快照自加载后的年龄；其他读取方式为 null，不代表跨节点版本差。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public double? SnapshotAgeSeconds { get; init; }
+
+    /// <summary>本机诊断快照撤销临时放宽的最大年龄；其他读取方式为 null。</summary>
+    [System.Text.Json.Serialization.JsonRequired]
+    public double? SnapshotMaxAgeSeconds { get; init; }
+}
 
 /// <summary>表示一条精确失效操作的参数说明。</summary>
 /// <param name="OperationKey">稳定操作键。</param>
@@ -45,7 +79,7 @@ public sealed record CacheInvalidationParameterSummary(
 /// <summary>表示一次精确失效请求。</summary>
 /// <param name="OperationKey">要执行的登记操作键。</param>
 /// <param name="Parameters">操作参数；仅允许目录声明的键。</param>
-/// <param name="Scope">失效传播范围，默认全层同步。</param>
+/// <param name="Scope">缓存失效默认全层同步；诊断快照仅支持当前节点刷新。</param>
 public sealed record CacheInvalidationRequest(
     string OperationKey,
     IReadOnlyDictionary<string, string>? Parameters,
@@ -65,6 +99,9 @@ public sealed record CacheInvalidationResult(
 /// <summary>缓存访问语义常量。</summary>
 public static class CachePolicyAccessKinds
 {
+    /// <summary>本机权威读取快照，由轮询、显式刷新与最大年龄约束，不使用 FusionCache。</summary>
+    public const string LocalSnapshot = "local_snapshot";
+
     /// <summary>优先读写缓存层；命中后回填 L1，未命中穿透至权威源。</summary>
     public const string UseCache = "use_cache";
 
@@ -81,7 +118,7 @@ public static class CacheInvalidationScopeNames
     /// <summary>仅失效当前节点 L1，不传播到 L2 与其他节点；用于节点本地临时数据。</summary>
     public const string CurrentNodeOnly = "current_node_only";
 
-    /// <summary>同步失效 L1、L2 并通过 Redis Backplane 广播至所有节点；保证最终一致。</summary>
+    /// <summary>等待当前节点 L1/L2 清理和 Backplane 发布完成；不提供其他节点确认，通知丢失由 TTL/权威源兜底。</summary>
     public const string AllLayersSynchronous = "all_layers_synchronous";
 }
 
@@ -90,9 +127,6 @@ public static class CacheInvalidationParameterTypes
 {
     /// <summary>UUID 标识参数；用于按实体主键精确失效。</summary>
     public const string Uuid = "uuid";
-
-    /// <summary>领域键参数；用于按业务维度（租户、模块）失效。</summary>
-    public const string Domain = "domain";
 
     /// <summary>网格键参数；用于按数据分片或区域失效。</summary>
     public const string GridKey = "grid_key";

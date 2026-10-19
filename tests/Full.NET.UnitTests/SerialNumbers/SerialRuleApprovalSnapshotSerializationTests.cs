@@ -4,6 +4,7 @@ using Full.NET.Modules.SerialNumbers.Serialization;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Rule Approval Snapshot Serialization。</summary>
 [TestClass]
 public sealed class SerialRuleApprovalSnapshotSerializationTests
 {

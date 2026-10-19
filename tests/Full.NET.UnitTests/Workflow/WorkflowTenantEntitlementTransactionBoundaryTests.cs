@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Tenant Entitlement Transaction Boundary。</summary>
 [TestClass]
 public sealed class WorkflowTenantEntitlementTransactionBoundaryTests
 {

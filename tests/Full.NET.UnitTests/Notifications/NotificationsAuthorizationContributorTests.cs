@@ -4,6 +4,7 @@ using Full.NET.Modules.Notifications.Contracts;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notifications Authorization Contributor。</summary>
 [TestClass]
 public sealed class NotificationsAuthorizationContributorTests
 {

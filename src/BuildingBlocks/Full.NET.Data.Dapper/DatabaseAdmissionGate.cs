@@ -5,6 +5,9 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>
+/// 进程内数据库连接准入：限制并发许可、排队上限与 Worker 关键预留；拒绝与超时映射为容量异常。
+/// </summary>
 internal sealed class DatabaseAdmissionGate : IDisposable
 {
     private readonly DatabaseCapacityOptions _options;
@@ -92,6 +95,7 @@ internal sealed class DatabaseAdmissionGate : IDisposable
             return CreateLease(usesCriticalReserve, usesAuthorizationReserve);
         }
 
+        // QueueLimit=0 表示不排队，许可耗尽立即拒绝，避免无界等待拖垮线程池。
         if (_options.QueueLimit == 0
             || Interlocked.Increment(ref _queued) > _options.QueueLimit)
         {
@@ -176,6 +180,7 @@ internal sealed class DatabaseAdmissionGate : IDisposable
         TimeSpan.FromMilliseconds(_options.AcquireTimeoutMilliseconds));
 }
 
+/// <summary>释放时归还许可；异步释放避免在 finally 中阻塞线程池。</summary>
 internal sealed class DatabaseAdmissionLease(
     DatabaseAdmissionGate? owner,
     bool usesCriticalReserve, bool usesAuthorizationReserve = false) : IAsyncDisposable

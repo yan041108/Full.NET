@@ -9,6 +9,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
+/// <summary>OidcUserInfo 特性 HTTP 端点注册。</summary>
 namespace Full.NET.Modules.Identity.Features.OidcUserInfo;
 
 internal static class Endpoint

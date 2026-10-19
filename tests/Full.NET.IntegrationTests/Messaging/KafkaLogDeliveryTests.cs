@@ -486,13 +486,17 @@ public sealed class KafkaLogDeliveryTests
 
         public int RejectedCount => Volatile.Read(ref _rejectedCount);
 
-        public void Emit(HostLogSnapshot snapshot)
+        public bool TryEmit(HostLogSnapshot snapshot)
         {
             if (pair.TryProduce(snapshot) != KafkaLogProduceResult.Accepted)
             {
                 Interlocked.Increment(ref _rejectedCount);
+                return false;
             }
+            return true;
         }
+
+        public void Stop(LogShutdownDeadline deadline) => pair.Stop(deadline);
 
         public void Dispose() => pair.Dispose();
     }

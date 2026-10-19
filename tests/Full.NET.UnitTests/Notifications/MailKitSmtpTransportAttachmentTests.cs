@@ -4,6 +4,7 @@ using MimeKit;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Mail Kit Smtp Transport Attachment。</summary>
 [TestClass]
 public sealed class MailKitSmtpTransportAttachmentTests
 {

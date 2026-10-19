@@ -14,10 +14,10 @@ internal static class AccessLogSql
         """
         INSERT INTO fn_auditing_access_log
             (Id, OccurredAtUtc, HttpMethod, RequestPath, StatusCode, DurationMs,
-             UserId, TenantId, TraceId, ClientIpFingerprint, IsAuthenticated)
+             UserId, TenantId, TraceId, ClientIpFingerprint, IsAuthenticated, CorrelationJson)
         VALUES
             (@Id, @OccurredAtUtc, @HttpMethod, @RequestPath, @StatusCode, @DurationMs,
-             @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @IsAuthenticated)
+             @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @IsAuthenticated, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

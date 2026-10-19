@@ -182,6 +182,7 @@ internal sealed class DocumentVersionDeletionService(
         await commandExecutor.ExecuteAsync(
                 DocumentVersionRetentionSql.InsertDeletionAudit,
                 DocumentSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
                     ("DocumentItemId", itemId),
                     ("VersionId", targetVersion.Id),

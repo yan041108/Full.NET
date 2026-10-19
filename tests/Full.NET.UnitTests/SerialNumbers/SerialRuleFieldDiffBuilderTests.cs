@@ -3,6 +3,7 @@ using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Rule Field Diff Builder。</summary>
 [TestClass]
 public sealed class SerialRuleFieldDiffBuilderTests
 {

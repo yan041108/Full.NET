@@ -1,5 +1,7 @@
+// 文档条目持久化行映射；仅供 Document 模块 Dapper 读写。
 namespace Full.NET.Modules.Document.Persistence;
 
+/// <summary>文档列表/详情查询行；列集与 SQL 投影一致，不承载写入语义。</summary>
 internal sealed class DocumentItemRecord
 {
     public Guid Id { get; init; }

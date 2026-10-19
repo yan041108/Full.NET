@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 
+/// <summary>Tenancy 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ReserveTenantQuota;
 
 internal sealed class TenantQuotaReservationService(

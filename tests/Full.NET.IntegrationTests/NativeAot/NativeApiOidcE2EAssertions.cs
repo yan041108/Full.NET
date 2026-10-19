@@ -11,6 +11,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>Native AOT API：OIDC 端到端烟雾与发布闭包。</summary>
 internal static class NativeApiOidcE2EAssertions
 {
     private const string ContextSwitchGovernanceRedirectUri =

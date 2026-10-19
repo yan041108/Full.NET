@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Seeding.Dapper;
 
+/// <summary>通过数据库提供程序锁实现单飞播种；释放连接时自动解锁。</summary>
 internal sealed class SeedExecutionLease(
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<SeedOptions> seedOptions) : ISeedExecutionLeaseProvider

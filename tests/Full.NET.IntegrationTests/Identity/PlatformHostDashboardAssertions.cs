@@ -153,7 +153,8 @@ internal static class PlatformHostDashboardAssertions
                 ("TenantId", null),
                 ("TraceId", "dashboard-integration-probe"),
                 ("ClientIpFingerprint", null),
-                ("IsAuthenticated", true)),
+                ("IsAuthenticated", true),
+                ("CorrelationJson", null)),
             cancellationToken);
     }
 

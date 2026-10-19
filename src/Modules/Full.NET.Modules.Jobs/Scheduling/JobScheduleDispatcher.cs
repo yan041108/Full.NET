@@ -79,6 +79,7 @@ internal sealed class JobScheduleDispatcher(
                 await commandExecutor.ExecuteAsync(
                         JobSql.InsertScheduledExecution,
                         JobsSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                             ("Id", idGenerator.NewId()),
                             ("JobDefinitionId", schedule.JobDefinitionId),
                             ("JobScheduleId", schedule.Id),

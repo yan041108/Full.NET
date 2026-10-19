@@ -8,9 +8,28 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Caching;
 
+/// <summary>Fusion 失效：L1/L2 删除与 Backplane 键。</summary>
 [TestClass]
 public sealed class FusionCacheInvalidatorTests
 {
+    [TestMethod]
+    public async Task S0_invalidation_removes_legacy_L1_even_when_policy_skips_memory_reads()
+    {
+        var policies = CachePolicyRegistry.Create(new CacheOptions
+        {
+            Entries = { ["security.shared"] = new CacheEntryDefinitionOptions
+            {
+                OwnerModule = "identity", ConsistencyClass = "S0-L2", L2Duration = TimeSpan.FromMinutes(1),
+            } },
+        });
+        await using var provider = CreateServices().BuildServiceProvider();
+        var hybrid = provider.GetRequiredService<HybridCache>();
+        await hybrid.SetAsync("old-l1", "stale");
+        var invalidator = new FusionCacheInvalidator(provider.GetRequiredService<IFusionCache>(), policies);
+        await invalidator.RemoveAsync("security.shared", "old-l1", CacheInvalidationScope.CurrentNodeOnly);
+        Assert.AreEqual("fresh", await hybrid.GetOrCreateAsync("old-l1", _ => ValueTask.FromResult("fresh")));
+    }
+
     [TestMethod]
     public void AddFullNetCaching_registers_cache_invalidator_contract()
     {

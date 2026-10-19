@@ -10,6 +10,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Ldap Connection Management Service。</summary>
 [TestClass]
 public sealed class LdapConnectionManagementServiceTests
 {
@@ -71,6 +72,7 @@ public sealed class LdapConnectionManagementServiceTests
     }
 }
 
+/// <summary>单元测试：LdapDnScopeValidator。</summary>
 [TestClass]
 public sealed class LdapDnScopeValidatorTests
 {
@@ -99,6 +101,7 @@ public sealed class LdapDnScopeValidatorTests
     }
 }
 
+/// <summary>单元测试：LdapConnectionOperationsService。</summary>
 [TestClass]
 public sealed class LdapConnectionOperationsServiceTests
 {

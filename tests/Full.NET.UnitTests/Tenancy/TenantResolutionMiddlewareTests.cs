@@ -12,11 +12,57 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenant Resolution Middleware。</summary>
 [TestClass]
 public sealed class TenantResolutionMiddlewareTests
 {
     private static readonly Guid TenantId =
         Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf294");
+
+    [TestMethod]
+    [DataRow("authenticated-id")]
+    [DataRow("authenticated-domain")]
+    [DataRow("anonymous-domain")]
+    public async Task Authority_failure_does_not_enter_the_business_pipeline(string path)
+    {
+        var resolver = CreateResolver();
+        var failure = new InvalidOperationException("authority unavailable");
+        resolver.ById[TenantId] = CreateTenant(TenantId, "acme", "acme.localhost");
+        resolver.ByDomain["acme.localhost"] = resolver.ById[TenantId];
+        if (path == "authenticated-id") resolver.IdFailure = failure;
+        else resolver.DomainFailure = failure;
+        var fixture = CreateFixture(path == "authenticated-id" ? "admin.localhost" : "acme.localhost",
+            path == "anonymous-domain" ? new ClaimsPrincipal(new ClaimsIdentity()) : CreateAuthenticatedPrincipal(TenantId), resolver);
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.InvokeAsync());
+        Assert.AreSame(failure, error);
+        Assert.IsFalse(fixture.NextCalled);
+        Assert.IsFalse(fixture.CurrentTenant.IsAvailable);
+    }
+
+    [TestMethod]
+    [DataRow("authenticated-id")]
+    [DataRow("authenticated-domain")]
+    [DataRow("anonymous-domain")]
+    public async Task Request_cancellation_is_forwarded_to_authority_and_does_not_enter_business(string path)
+    {
+        var resolver = CreateResolver();
+        resolver.ById[TenantId] = CreateTenant(TenantId, "acme", "acme.localhost");
+        resolver.ByDomain["acme.localhost"] = resolver.ById[TenantId];
+        var fixture = CreateFixture(path == "authenticated-id" ? "admin.localhost" : "acme.localhost",
+            path == "anonymous-domain" ? new ClaimsPrincipal(new ClaimsIdentity()) : CreateAuthenticatedPrincipal(TenantId), resolver);
+        using var request = new CancellationTokenSource();
+        fixture.HttpContext.RequestAborted = request.Token;
+        // 已认证租户域名路径先完成 ID 读取，再取消并进入域名读取，确保两个边界分别被覆盖。
+        if (path == "authenticated-domain") resolver.AfterIdLookup = request.Cancel;
+        else request.Cancel();
+        var error = await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.InvokeAsync());
+        Assert.AreEqual(request.Token, error.CancellationToken);
+        Assert.AreEqual(path == "authenticated-domain" ? 2 : 1, resolver.ObservedTokens.Count);
+        Assert.IsTrue(resolver.ObservedTokens.All(token => token == request.Token));
+        if (path != "authenticated-id") Assert.AreEqual(1, resolver.DomainResolutionCount);
+        Assert.IsFalse(fixture.NextCalled);
+        Assert.IsFalse(fixture.CurrentTenant.IsAvailable);
+    }
 
     [TestMethod]
     public async Task Authenticated_tenant_claim_resolves_tenant_on_host_domain()
@@ -262,11 +308,19 @@ public sealed class TenantResolutionMiddlewareTests
 
         public int DomainResolutionCount { get; private set; }
 
+        public Exception? IdFailure { get; set; }
+        public Exception? DomainFailure { get; set; }
+        public Action? AfterIdLookup { get; set; }
+        public List<CancellationToken> ObservedTokens { get; } = [];
+
         public Task<TenantSummary?> ResolveByDomainAsync(
             string domain,
             CancellationToken cancellationToken = default)
         {
             DomainResolutionCount++;
+            ObservedTokens.Add(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (DomainFailure is not null) return Task.FromException<TenantSummary?>(DomainFailure);
             ByDomain.TryGetValue(domain, out var tenant);
             return Task.FromResult(tenant);
         }
@@ -276,7 +330,11 @@ public sealed class TenantResolutionMiddlewareTests
             CancellationToken cancellationToken = default)
         {
             IdResolutionCount++;
+            ObservedTokens.Add(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IdFailure is not null) return Task.FromException<TenantSummary?>(IdFailure);
             ById.TryGetValue(tenantId, out var tenant);
+            AfterIdLookup?.Invoke();
             return Task.FromResult(tenant);
         }
 

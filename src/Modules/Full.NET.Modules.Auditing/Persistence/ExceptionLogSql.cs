@@ -14,10 +14,10 @@ internal static class ExceptionLogSql
         """
         INSERT INTO fn_auditing_exception_log
             (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
-             HttpMethod, RequestPath, UserId, TenantId, TraceId, ClientIpFingerprint)
+             HttpMethod, RequestPath, UserId, TenantId, TraceId, ClientIpFingerprint, CorrelationJson)
         VALUES
             (@Id, @OccurredAtUtc, @ExceptionType, @Message, @StackTrace,
-             @HttpMethod, @RequestPath, @UserId, @TenantId, @TraceId, @ClientIpFingerprint)
+             @HttpMethod, @RequestPath, @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

@@ -5,6 +5,7 @@ using MySqlConnector;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：External Database Access Policy。</summary>
 [TestClass]
 public sealed class ExternalDatabaseAccessPolicyTests
 {

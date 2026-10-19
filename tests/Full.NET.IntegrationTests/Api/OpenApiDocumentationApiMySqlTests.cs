@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.Migrations;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：OpenApiDocumentationApiMySql。</summary>
 [TestClass]
 public sealed class OpenApiDocumentationApiMySqlTests
 {

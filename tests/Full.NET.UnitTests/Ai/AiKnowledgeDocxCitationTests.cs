@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Knowledge Docx Citation。</summary>
 [TestClass]
 public sealed class AiKnowledgeDocxCitationTests
 {

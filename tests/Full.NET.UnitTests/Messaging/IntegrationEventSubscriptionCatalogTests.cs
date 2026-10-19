@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.UnitTests.Messaging;
 
+/// <summary>单元测试（消息/Kafka）：Integration Event Subscription Catalog。</summary>
 [TestClass]
 public sealed class IntegrationEventSubscriptionCatalogTests
 {

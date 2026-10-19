@@ -8,9 +8,33 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Db Session Capacity。</summary>
 [TestClass]
 public sealed class DbSessionCapacityTests
 {
+    [TestMethod]
+    public async Task Failed_open_releases_admission_even_when_connection_disposal_also_fails()
+    {
+        var connection = CreateOpenableConnection();
+        connection.OpenAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("open failed")));
+        connection.DisposeAsync()
+            .Returns(ValueTask.FromException(new InvalidOperationException("dispose failed")));
+        var factory = Substitute.For<IDbConnectionFactory>();
+        factory.Create().Returns(connection);
+        using var telemetry = CreateTelemetry();
+        using var gate = CreateGate(telemetry);
+        await using var session = new DbSession(factory, gate, telemetry, new DatabaseAdmissionPriorityScope());
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => session.AcquireConnectionAsync(CancellationToken.None));
+
+        Assert.AreEqual(0, gate.InUseCount);
+        // 只检查计数不足以证明信号量已归还；下一次真实准入必须仍能取得唯一许可。
+        await using var recovered = await gate.AcquireAsync(CancellationToken.None);
+        Assert.AreEqual(1, gate.InUseCount);
+        Assert.AreEqual(1, connection.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbConnection.DisposeAsync)));
+    }
+
     [TestMethod]
     public async Task AcquireConnectionAsync_ReleasesEachNonTransactionalLeaseImmediately()
     {

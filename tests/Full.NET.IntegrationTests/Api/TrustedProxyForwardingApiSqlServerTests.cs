@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Migrations;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：TrustedProxyForwardingApiSqlServer。</summary>
 [TestClass]
 public sealed class TrustedProxyForwardingApiSqlServerTests
 {

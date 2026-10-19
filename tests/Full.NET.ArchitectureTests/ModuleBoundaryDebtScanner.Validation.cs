@@ -1,7 +1,9 @@
+// 架构扫描器：模块边界校验与守卫遗漏检测。
 using System.Text.Json;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构扫描器：模块边界校验与守卫遗漏检测。</summary>
 internal static partial class ModuleBoundaryDebtScanner
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Operation Log Middleware。</summary>
 [TestClass]
 public sealed class OperationLogMiddlewareTests
 {

@@ -1,3 +1,4 @@
+// AG-UI 协议 JSON 源生成上下文；SSE 与重放载荷在 Native AOT 下序列化。
 using System.Text.Json.Serialization;
 
 namespace Full.NET.AgenticWeb.AgUi.Serialization;

@@ -1,0 +1,143 @@
+# 使用真实出口族名；覆盖无告警、持有期、触发和恢复，不代表通知已送达。
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: cache-invalidation-normal-latency
+    interval: 1m
+    input_series:
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="100"}'
+        values: '0+100x20'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="500"}'
+        values: '0+100x20'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="1000"}'
+        values: '0+100x20'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="+Inf"}'
+        values: '0+100x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: FullNetCacheInvalidationStaleWindow
+        exp_alerts: []
+  - name: cache-invalidation-slow-then-recovers
+    interval: 1m
+    input_series:
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="100"}'
+        values: '0+0x12 100+100x12'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="500"}'
+        values: '0+0x12 100+100x12'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="1000"}'
+        values: '0+100x25'
+      - series: 'fullnet_cache_invalidation_duration_milliseconds_bucket{scope="distributed",outcome="success",le="+Inf"}'
+        values: '0+100x25'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: FullNetCacheInvalidationStaleWindow
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: FullNetCacheInvalidationStaleWindow
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: Cache invalidation P99 exceeds the publisher latency budget
+              description: This measures local/shared deletion and publication latency, not remote-node acknowledgement or business data freshness.
+      - eval_time: 20m
+        alertname: FullNetCacheInvalidationStaleWindow
+        exp_alerts: []
+  - name: cache-failure-counters-hold-fire-and-recover
+    interval: 1m
+    input_series:
+      - series: 'fullnet_cache_invalidation_failures_total{scope="distributed",outcome="failure"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_cache_backplane_circuit_transitions_total{state="open"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_cache_runtime_events_total{layer="l2",operation="circuit",result="open"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_cache_runtime_events_total{layer="factory",operation="background",result="failure"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_cache_invalidation_batch_rejections_total{reason="capacity"}'
+        values: '0+1x6 6+0x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetCacheInvalidationFailures
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetCacheInvalidationFailures
+        exp_alerts:
+          - exp_labels: {scope: distributed, severity: warning}
+            exp_annotations:
+              summary: Cache invalidation failures observed
+              description: Check the originating operation and Redis/Backplane readiness. Committed writes remain committed; C0 decisions must use authority.
+      - eval_time: 12m
+        alertname: FullNetCacheInvalidationFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetCacheBackplaneCircuitOpens
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetCacheBackplaneCircuitOpens
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: Cache Backplane circuit opened recently
+              description: This is an observed transition, not the current circuit state. Confirm subscription/publication recovery and missed-message TTL convergence.
+      - eval_time: 12m
+        alertname: FullNetCacheBackplaneCircuitOpens
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetCacheDistributedCircuitOpens
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetCacheDistributedCircuitOpens
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: Cache L2 circuit opened recently
+              description: Confirm Redis readiness and DB refill pressure; a later close event alone does not prove authority or cross-node convergence.
+      - eval_time: 12m
+        alertname: FullNetCacheDistributedCircuitOpens
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetCacheFactoryFailures
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetCacheFactoryFailures
+        exp_alerts:
+          - exp_labels: {operation: background, severity: warning}
+            exp_annotations:
+              summary: Cache foreground or background factory failures observed
+              description: Check the source dependency. S2 Fail-Safe activation is permitted degradation and is not itself a permission-staleness incident.
+      - eval_time: 12m
+        alertname: FullNetCacheFactoryFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetCacheBatchRejected
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetCacheBatchRejected
+        exp_alerts:
+          - exp_labels: {reason: capacity, severity: warning}
+            exp_annotations:
+              summary: Cache invalidation batch rejected by its resource budget
+              description: Check owned target size and batch pressure. Prefer registered resource tags for bulk operations; do not clear the Redis database.
+      - eval_time: 12m
+        alertname: FullNetCacheBatchRejected
+        exp_alerts: []
+  - name: permitted-failsafe-and-circuit-close-are-not-factory-failure
+    interval: 1m
+    input_series:
+      - series: 'fullnet_cache_runtime_events_total{layer="cache",operation="fail_safe",result="activated"}'
+        values: '0+1x12'
+      - series: 'fullnet_cache_runtime_events_total{layer="l2",operation="circuit",result="closed"}'
+        values: '0+1x12'
+      - series: 'fullnet_cache_backplane_circuit_transitions_total{state="closed"}'
+        values: '0+1x12'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FullNetCacheFactoryFailures
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: FullNetCacheDistributedCircuitOpens
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: FullNetCacheBackplaneCircuitOpens
+        exp_alerts: []

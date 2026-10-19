@@ -5,6 +5,7 @@ using Full.NET.Modules.Document.Security;
 
 namespace Full.NET.UnitTests.Document;
 
+/// <summary>兼容性测试：DocumentContractCompatibility。</summary>
 [TestClass]
 public sealed class DocumentContractCompatibilityTests
 {

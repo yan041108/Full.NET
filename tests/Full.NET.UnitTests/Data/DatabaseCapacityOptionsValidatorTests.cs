@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Database Capacity Options Validator。</summary>
 [TestClass]
 public sealed class DatabaseCapacityOptionsValidatorTests
 {

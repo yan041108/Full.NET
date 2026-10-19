@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.SerialNumbers;
 
+/// <summary>单元测试（流水号）：Serial Numbers Module Worker Registration。</summary>
 [TestClass]
 public sealed class SerialNumbersModuleWorkerRegistrationTests
 {

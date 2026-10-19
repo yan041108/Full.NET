@@ -4,6 +4,7 @@ using Full.NET.Modules.Printing.Contracts;
 
 namespace Full.NET.UnitTests.Printing;
 
+/// <summary>单元测试（打印）：Printing Authorization Contributor。</summary>
 [TestClass]
 public sealed class PrintingAuthorizationContributorTests
 {

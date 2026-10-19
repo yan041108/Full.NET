@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Data;
 
+/// <summary>单元测试（数据访问）：Database Admission Gate。</summary>
 [TestClass]
 public sealed class DatabaseAdmissionGateTests
 {

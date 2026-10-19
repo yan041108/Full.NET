@@ -4,6 +4,7 @@ using Full.NET.Modules.Jobs.Features.ManageHostJobDefinitions;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Host Job Definition Management Service。</summary>
 [TestClass]
 public sealed class HostJobDefinitionManagementServiceTests
 {

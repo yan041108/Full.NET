@@ -25,7 +25,7 @@ public static class LoggingRequestLatencyRunner
     /// <summary>独立请求进程只测量响应和出口丢弃；收据明确交给外部父进程验收。</summary>
     public static Task<object> RunIsolatedRouteCaseAsync(string directory, string route,
         IReadOnlyDictionary<string, string?>? kafkaConfiguration, Func<IConfiguration, IHostLogSnapshotExporter>? createExporter,
-        Action<bool> measurementStateChanged, CancellationToken token)
+        Action<bool> measurementStateChanged, CancellationToken token, int? capacityRate = null)
     {
         if (route is not ("Collector" or "ApplicationKafka")
             || (route == "ApplicationKafka" && (kafkaConfiguration is null || createExporter is null))
@@ -33,9 +33,14 @@ public static class LoggingRequestLatencyRunner
             || kafkaConfiguration?.Keys.Any(key => !key.StartsWith("FullNet:Logging:Kafka:", StringComparison.Ordinal)) == true)
             throw new ArgumentException("独立请求档仅允许受控 Collector/ApplicationKafka 配置。");
         ArgumentNullException.ThrowIfNull(measurementStateChanged);
+        var load = capacityRate is { } rate ? LoggingRequestLoadProfile.Capacity(rate) : LoggingRequestLoadProfile.Comparison;
         Directory.CreateDirectory(directory);
-        return RunCaseAsync(directory, "Projected", 1, 5000, 500, token, kafkaConfiguration, createExporter,
-            deliveryMode: route, measurementStateChanged: measurementStateChanged, externalReconciliation: true);
+        if (File.Exists(Path.Combine(directory, LoggingRequestWarmupBarrier.FileName)))
+            throw new InvalidOperationException("独立探针不得复用旧预热确认。");
+        return RunCaseAsync(directory, "Projected", 1, load.Requests, load.RequestsPerSecond, token, kafkaConfiguration, createExporter,
+            deliveryMode: route, measurementStateChanged: measurementStateChanged, externalReconciliation: true,
+            maximumSendMilliseconds: load.SendBudgetMilliseconds,
+            waitForWarmup: cancellation => LoggingRequestWarmupBarrier.WaitAsync(directory, cancellation));
     }
 
     /// <summary>独立采集回放使用真实 Collector 入口生成固定请求档，不持有 Kafka 凭据。</summary>
@@ -65,6 +70,17 @@ public static class LoggingRequestLatencyRunner
         Directory.CreateDirectory(directory);
         return RunCaseAsync(directory, mode, 1, 5000, 500, cancellationToken,
             kafkaConfiguration, createExporter, readBrokerReceipts, receiptTimeout);
+    }
+
+    /// <summary>容量档显式使用实际 Local 文件，固定发送三十秒并保留原短档的行为。</summary>
+    public static Task<object> RunLocalFileCapacityCaseAsync(string directory, string mode, int round,
+        int requestsPerSecond, CancellationToken cancellationToken)
+    {
+        if (mode is not ("Disabled" or "Summary" or "Projected") || round is < 1 or > 2
+            || requestsPerSecond is not (500 or 1000))
+            throw new ArgumentException("Local 容量只允许既定捕获档、两轮及 500/1000 每秒。");
+        return RunCaseAsync(directory, mode, round, requestsPerSecond * 30, requestsPerSecond,
+            cancellationToken, localFile: true);
     }
 
     /// <summary>运行固定正反序两轮并在全部对账后保存通过报告；输出目录必须显式指定。</summary>
@@ -102,7 +118,8 @@ public static class LoggingRequestLatencyRunner
         IReadOnlyDictionary<string, string?>? kafkaConfiguration = null,
         Func<IConfiguration, IHostLogSnapshotExporter>? createExporter = null,
         Func<CancellationToken, Task<IReadOnlyList<string>>>? readBrokerReceipts = null, TimeSpan? receiptTimeout = null,
-        string? deliveryMode = null, Action<bool>? measurementStateChanged = null, bool externalReconciliation = false)
+        string? deliveryMode = null, Action<bool>? measurementStateChanged = null, bool externalReconciliation = false, bool localFile = false,
+        int? maximumSendMilliseconds = null, Func<CancellationToken, Task>? waitForWarmup = null)
     {
         var logPath = Path.Combine(directory, $"{mode}-{round}.jsonl");
         await using var output = new StreamWriter(logPath, false, new UTF8Encoding(false), 16384) { AutoFlush = true };
@@ -111,6 +128,8 @@ public static class LoggingRequestLatencyRunner
         var latencies = new double[requests];
         var dispatchDelays = new double[requests];
         var unexpected = 0;
+        var activeRequests = 0;
+        var maximumActiveRequests = 0;
         long preDisposalDroppedMessages = 0;
         long allocated = 0;
         double cpuMilliseconds = 0;
@@ -139,15 +158,30 @@ public static class LoggingRequestLatencyRunner
                 ["Observability:HttpOperation:CaptureMaxBytesPerSecond"] = "67108864",
                 ["Observability:HttpOperation:PayloadRouteAllowList:0"] = Route,
             });
+            if (localFile) builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FullNet:Logging:LocalFile:Enabled"] = "true",
+                ["FullNet:Logging:LocalFile:Directory"] = Path.Combine(directory, "local"),
+            });
             if (kafkaConfiguration is not null) builder.Configuration.AddInMemoryCollection(kafkaConfiguration);
             builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
             builder.AddFullNetServiceDefaults(createExporter);
             app = builder.Build();
+            if (localFile || externalReconciliation) app.Use(async (context, next) =>
+            {
+                // 在真实服务端包围完整请求，不能把八个发送循环当作实际在途数。
+                var current = Interlocked.Increment(ref activeRequests);
+                int previous;
+                while (current > (previous = Volatile.Read(ref maximumActiveRequests))
+                    && Interlocked.CompareExchange(ref maximumActiveRequests, current, previous) != previous) { }
+                try { await next(context); }
+                finally { Interlocked.Decrement(ref activeRequests); }
+            });
             app.UseFullNetRequestLogging();
             app.MapGet(Route, (int sequence, HttpContext context, HttpOperationPayloadProjection projection) =>
             {
                 // 隔离比较按请求身份划分阶段，避免预热响应完成后才发出的日志混入实测。
-                if (externalReconciliation)
+                if (externalReconciliation || localFile)
                     context.TraceIdentifier = $"logging-probe:{context.Request.Query["phase"]}:{sequence}";
                 context.Response.StatusCode = sequence % 10 == 0 ? 500 : 200;
                 // 每档调用相同入口；未取得许可时不得提前构造投影。
@@ -190,7 +224,7 @@ public static class LoggingRequestLatencyRunner
                             dispatchDelays[sequence] = Math.Max(0, Stopwatch.GetElapsedTime(scheduleStarted).TotalMilliseconds - due);
                         }
                         var started = Stopwatch.GetTimestamp();
-                        var phase = externalReconciliation ? $"?phase={(timings is null ? "warmup" : "measured")}" : "";
+                        var phase = externalReconciliation || localFile ? $"?phase={(timings is null ? "warmup" : "measured")}" : "";
                         using var response = await client.GetAsync($"/api/logging-probe/{sequence}{phase}", sendToken);
                         var body = await response.Content.ReadAsStringAsync(sendToken);
                         if ((int)response.StatusCode != (sequence % 10 == 0 ? 500 : 200) || body != "logging-probe")
@@ -201,11 +235,14 @@ public static class LoggingRequestLatencyRunner
                 return errors;
             }
             if (await SendAsync(Warmup, null, cancellationToken) != 0) throw new InvalidOperationException("预热响应对账失败。");
+            if (waitForWarmup is not null) await waitForWarmup(cancellationToken);
+            Interlocked.Exchange(ref maximumActiveRequests, 0);
             using var process = Process.GetCurrentProcess();
             var cpuBefore = process.TotalProcessorTime;
             var allocatedBefore = GC.GetTotalAllocatedBytes(true);
             using var sendDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            if (requestsPerSecond > 0) sendDeadline.CancelAfter(TimeSpan.FromSeconds(30));
+            var sendBudgetMilliseconds = maximumSendMilliseconds ?? (localFile ? 50000 : 30000);
+            if (requestsPerSecond > 0) sendDeadline.CancelAfter(TimeSpan.FromMilliseconds(sendBudgetMilliseconds));
             var clock = Stopwatch.StartNew();
             measurementStateChanged?.Invoke(true);
             try { unexpected = await SendAsync(requests, latencies, sendDeadline.Token); }
@@ -213,7 +250,7 @@ public static class LoggingRequestLatencyRunner
             clock.Stop();
             process.Refresh();
             elapsedMilliseconds = clock.Elapsed.TotalMilliseconds;
-            if (requestsPerSecond > 0) LoggingRequestEvidence.ValidateSustainedWindow(requests, requestsPerSecond, elapsedMilliseconds);
+            if (requestsPerSecond > 0) LoggingRequestEvidence.ValidateSustainedWindow(requests, requestsPerSecond, elapsedMilliseconds, sendBudgetMilliseconds);
             cpuMilliseconds = (process.TotalProcessorTime - cpuBefore).TotalMilliseconds;
             endOfSendWorkingSetBytes = process.WorkingSet64;
             allocated = GC.GetTotalAllocatedBytes(true) - allocatedBefore;
@@ -228,6 +265,13 @@ public static class LoggingRequestLatencyRunner
         await output.FlushAsync(cancellationToken);
         // Windows 的只读共享打开不能与仍持有写句柄的输出文件并存，先完成释放再对账。
         await output.DisposeAsync();
+        if (localFile || externalReconciliation)
+            await File.WriteAllTextAsync(Path.Combine(directory, "measurement.json"), JsonSerializer.Serialize(new
+            {
+                mode, round, requests, requestsPerSecond, unexpected, preDisposalDroppedMessages,
+                elapsedMilliseconds, sharedProcessCpuMilliseconds = cpuMilliseconds, endOfSendWorkingSetBytes,
+                latencyMilliseconds = latencies, dispatchDelayMilliseconds = dispatchDelays,
+            }), cancellationToken);
         var receiptPath = logPath;
         if (readBrokerReceipts is not null)
         {
@@ -240,10 +284,17 @@ public static class LoggingRequestLatencyRunner
             await File.WriteAllLinesAsync(receiptPath, receipts.Select(line => line.TrimEnd('\r', '\n')), receiptDeadline.Token);
         }
         var records = 0;
+        var measuredRecords = 0;
+        long measuredJsonPayloadBytes = 0;
         var projections = 0;
         var requestIds = new HashSet<string>(StringComparer.Ordinal);
         var expectedErrors = 0;
-        foreach (var line in externalReconciliation ? Array.Empty<string>() : File.ReadLines(receiptPath))
+        var receiptPaths = localFile
+            ? Directory.EnumerateFiles(Path.Combine(directory, "local"), "*.txt", SearchOption.AllDirectories)
+                .Where(file => LocalLogFileLayout.IsOwnedFileName(Path.GetFileName(file))).Order().ToArray()
+            : new[] { receiptPath };
+        if (localFile && receiptPaths.Length == 0) throw new InvalidOperationException("Local 容量档没有实际日志文件。");
+        foreach (var line in externalReconciliation ? Array.Empty<string>() : receiptPaths.SelectMany(File.ReadLines))
         {
             using var json = JsonDocument.Parse(line);
             if (!json.RootElement.TryGetProperty("@mt", out var template) || template.GetString() != "HttpOperationCompleted") continue;
@@ -254,6 +305,23 @@ public static class LoggingRequestLatencyRunner
             var status = json.RootElement.GetProperty("http.status_code").GetInt32();
             if (status == 500) expectedErrors++;
             else if (status != 200) throw new InvalidOperationException("HTTP 日志状态码异常。");
+            if (localFile)
+            {
+                var parts = requestId.Split(':');
+                if (parts.Length != 3 || parts[0] != "logging-probe"
+                    || parts[1] is not ("warmup" or "measured")
+                    || !int.TryParse(parts[2], System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var sequence)
+                    || sequence < 0 || sequence >= (parts[1] == "warmup" ? Warmup : requests)
+                    || status != (sequence % 10 == 0 ? 500 : 200))
+                    throw new InvalidOperationException("Local 日志阶段、请求序号或状态不匹配。");
+                if (parts[1] == "measured")
+                {
+                    measuredRecords++;
+                    // 只统计实测 HTTP JSON 内容，不把预热、系统事件或行尾算作吞吐。
+                    measuredJsonPayloadBytes += Encoding.UTF8.GetByteCount(line);
+                }
+            }
             if (mode == "Summary" && (json.RootElement.TryGetProperty("RequestPayload", out _)
                 || json.RootElement.TryGetProperty("ResponsePayload", out _)))
                 throw new InvalidOperationException("Summary 不得携带任一 Payload。");
@@ -269,16 +337,28 @@ public static class LoggingRequestLatencyRunner
             }
         }
         var expected = externalReconciliation || mode == "Disabled" ? 0 : requests + Warmup;
+        if (localFile && measuredRecords != (mode == "Disabled" ? 0 : requests))
+            throw new InvalidOperationException("Local 实测 HTTP 日志数量不完整。");
         if (expectedErrors != expected / 10) throw new InvalidOperationException("预期 500 日志数量对账失败。");
         var statistics = LoggingRequestEvidence.Calculate(latencies, unexpected, expected, records, preDisposalDroppedMessages,
             mode == "Projected" ? expected : 0, projections);
+        using var completedProcess = Process.GetCurrentProcess();
         return new { mode, round, deliveryMode = deliveryMode ?? (kafkaConfiguration is null ? "Local" : "ApplicationKafka"),
             statistics, unexpected, observedLogEvents = records, projectedEvents = projections,
             receiptVerificationDeferred = externalReconciliation, endOfSendWorkingSetBytes,
             preDisposalDroppedMessages, uniqueRequestIds = requestIds.Count, expectedErrorEvents = expectedErrors, elapsedMilliseconds, observedRequestsPerSecond = requests * 1000 / elapsedMilliseconds,
             sharedProcessCpuMilliseconds = cpuMilliseconds, sharedProcessAllocatedBytes = allocated,
             consoleJsonBytes = new FileInfo(logPath).Length, latencyMilliseconds = latencies,
-            receiptJsonBytes = new FileInfo(receiptPath).Length,
+            receiptJsonBytes = receiptPaths.Sum(file => new FileInfo(file).Length),
+            measuredLocalHttpEvents = localFile ? measuredRecords : (int?)null,
+            measuredLocalHttpJsonPayloadBytes = localFile ? measuredJsonPayloadBytes : (long?)null,
+            localFileEnabled = localFile, observedServerActiveRequestsPeak = localFile || externalReconciliation ? maximumActiveRequests : (int?)null,
+            processLifetimePeakWorkingSetBytes = completedProcess.PeakWorkingSet64,
+            receiptFiles = localFile ? receiptPaths.Select(file => new { name = Path.GetFileName(file),
+                bytes = new FileInfo(file).Length,
+                sha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))) }).ToArray() : null,
+            plannedCompletionStatistics = requestsPerSecond > 0
+                ? LoggingRequestEvidence.Calculate(latencies.Zip(dispatchDelays, (http, delay) => http + delay).ToArray(), 0, 0, 0, 0, 0, 0) : null,
             dispatchDelayStatistics = requestsPerSecond > 0 ? LoggingRequestEvidence.Calculate(dispatchDelays, 0, 0, 0, 0, 0, 0) : null,
             dispatchDelayMilliseconds = requestsPerSecond > 0 ? dispatchDelays : null };
     }

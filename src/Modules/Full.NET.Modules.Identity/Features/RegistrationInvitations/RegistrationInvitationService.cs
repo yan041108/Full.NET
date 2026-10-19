@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Persistence;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.RegistrationInvitations;
 
 internal sealed class RegistrationInvitationService(

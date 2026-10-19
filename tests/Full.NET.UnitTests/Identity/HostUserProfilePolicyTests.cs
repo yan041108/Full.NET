@@ -3,6 +3,7 @@ using Full.NET.Modules.Identity.Features.ManageHostUsers;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Host User Profile Policy。</summary>
 [TestClass]
 public sealed class HostUserProfilePolicyTests
 {

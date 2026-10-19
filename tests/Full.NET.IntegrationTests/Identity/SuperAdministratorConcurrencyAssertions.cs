@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>超级管理员：并发变更与最后一名保护。</summary>
 internal static class SuperAdministratorConcurrencyAssertions
 {
     public static async Task VerifyAsync(

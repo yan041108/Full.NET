@@ -1,3 +1,4 @@
+// OpenIddict 范围 Dapper 存储；API 范围定义与租户隔离。
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Globalization;
@@ -10,6 +11,7 @@ using OpenIddict.Abstractions;
 
 namespace Full.NET.Modules.Identity.Oidc.Stores;
 
+/// <summary>OpenIddict API 范围 Dapper 存储；范围定义由 Host 管理，租户侧只消费。</summary>
 internal sealed class IdentityOidcScopeStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

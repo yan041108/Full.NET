@@ -8,6 +8,7 @@ using Full.NET.Modules.Regions.Contracts;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Host Scoped Management Navigation。</summary>
 [TestClass]
 public sealed class HostScopedManagementNavigationTests
 {

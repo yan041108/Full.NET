@@ -10,6 +10,7 @@ namespace Full.NET.IntegrationTests.Messaging;
 
 
 
+/// <summary>集成测试：MySqlBinlogShadow。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class MySqlBinlogShadowTests

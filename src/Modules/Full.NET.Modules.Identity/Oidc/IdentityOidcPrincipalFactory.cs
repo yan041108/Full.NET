@@ -1,8 +1,10 @@
+// OIDC 主体工厂；把已认证用户映射为 OpenIddict ClaimsPrincipal。
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
+/// <summary>OIDC 主体工厂；把已认证用户映射为 OpenIddict ClaimsPrincipal。</summary>
 internal enum IdentityOidcPrincipalPurpose
 {
     ResourceApi,

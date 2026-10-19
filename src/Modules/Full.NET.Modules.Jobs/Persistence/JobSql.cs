@@ -145,13 +145,13 @@ internal static class JobSql
             "jobs.insert_host_execution",
             """
             INSERT INTO fn_jobs_execution
-                (Id, TenantId, JobDefinitionId, Status, TriggerKind,
+            (Id, TenantId, JobDefinitionId, Status, TriggerKind,
                  ErrorMessage, StartedAtUtc, FinishedAtUtc,
                  LeaseId, LeaseExpiresAtUtc, NextAttemptAtUtc,
-                 AttemptCount, CreatedAtUtc)
+                 AttemptCount, CreatedAtUtc, CorrelationJson)
             VALUES
-                (@Id, NULL, @JobDefinitionId, @Status, @TriggerKind,
-                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc)
+            (@Id, NULL, @JobDefinitionId, @Status, @TriggerKind,
+                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc, @CorrelationJson)
             """,
             SqlDataScope.HostOnly);
 
@@ -472,15 +472,15 @@ internal static class JobSql
             "jobs.insert_scheduled_host_execution",
             """
             INSERT INTO fn_jobs_execution
-                (Id, TenantId, JobDefinitionId, JobScheduleId,
+            (Id, TenantId, JobDefinitionId, JobScheduleId,
                  Status, TriggerKind, ScheduledForUtc,
                  ErrorMessage, StartedAtUtc, FinishedAtUtc,
                  LeaseId, LeaseExpiresAtUtc, NextAttemptAtUtc,
-                 AttemptCount, CreatedAtUtc)
+                 AttemptCount, CreatedAtUtc, CorrelationJson)
             VALUES
-                (@Id, NULL, @JobDefinitionId, @JobScheduleId,
+            (@Id, NULL, @JobDefinitionId, @JobScheduleId,
                  @Status, @TriggerKind, @ScheduledForUtc,
-                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc)
+                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc, @CorrelationJson)
             """,
             SqlDataScope.HostOnly);
 

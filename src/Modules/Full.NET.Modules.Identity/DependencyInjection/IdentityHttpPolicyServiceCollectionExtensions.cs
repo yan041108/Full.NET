@@ -1,3 +1,4 @@
+// Identity HTTP 策略 DI 扩展；CORS、限流与会话突变保护。
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.RateLimiting;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.DependencyInjection;
 
+/// <summary>Identity HTTP 策略 DI 扩展；CORS、限流与会话突变保护。</summary>
 internal static class IdentityHttpPolicyServiceCollectionExtensions
 {
     internal static IServiceCollection AddIdentityHttpPolicies(

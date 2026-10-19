@@ -54,7 +54,7 @@
 
 ## 8. 验证梯度与门禁
 
-1. 开发内循环先运行受影响 Unit、Architecture 和 governance 测试；新增规则必须先有可失败的防漂移验证。
+1. 执行时机统一遵守 [集中验收与构建复用](development-quality.md#r-20261008-concentrated-acceptance模块批次集中验收与测试资源复用)：功能批次完成后先运行受影响 Unit、Architecture 和 governance，再执行下列适用门禁；开发中仅按需运行消除实现不确定性的最小检查。新增可自动化门禁须有能识别违规的防漂移验证，纯文字规则不为匹配措辞新增测试。
 2. 修改 Host.Api 可达代码、AOT 编译条件、JSON/配置源生成、Dapper AOT 或第三方闭包时，至少运行：
    - `pnpm test:aot:analyzers`
    - `pnpm test:dotnet:architecture --selection api-native-aot`

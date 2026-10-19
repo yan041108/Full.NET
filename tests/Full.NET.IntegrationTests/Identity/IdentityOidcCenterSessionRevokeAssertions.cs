@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：中心会话吊销与传播。</summary>
 internal static class IdentityOidcCenterSessionRevokeAssertions
 {
     public static async Task VerifyAsync(

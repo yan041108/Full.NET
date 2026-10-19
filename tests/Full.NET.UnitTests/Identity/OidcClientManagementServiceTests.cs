@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Features.ManageOidcClients;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Oidc Client Management Service。</summary>
 [TestClass]
 public sealed class OidcClientManagementServiceTests
 {

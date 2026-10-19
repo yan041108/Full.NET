@@ -3,6 +3,7 @@ using Full.NET.Modules.Workflow.Domain;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Form Subtable Rules。</summary>
 [TestClass]
 public sealed class WorkflowFormSubtableRulesTests
 {

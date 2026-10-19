@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Logout Handler。</summary>
 [TestClass]
 public sealed class LogoutHandlerTests
 {

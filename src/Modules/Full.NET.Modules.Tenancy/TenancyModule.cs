@@ -1,10 +1,10 @@
+// Tenancy 模块宿主入口；注册租户解析、开通、Host 管理与商业状态门禁。
 using FluentValidation;
 using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
-using Full.NET.Caching.Fusion.Serialization;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
@@ -34,7 +34,7 @@ namespace Full.NET.Modules.Tenancy;
 
 /// <summary>
 /// Tenancy 多租户模块入口。负责租户开通（Provision）、租户上下文解析、
-/// 授权用户跨租户切换、Host 侧租户管理与禁用、以及租户变更时的 FusionCache 多级缓存失效。
+/// 授权用户跨租户切换、Host 侧租户管理与禁用、以及基于权威源的租户准入。
 /// 解析管道在 BeforeAuthorization 阶段注册，早于授权建立 ICurrentTenant 上下文；
 /// 依赖 Identity 模块作为用户与会话的底层基座。
 /// </summary>
@@ -52,12 +52,13 @@ public sealed class TenancyModule : IFullNetModule
     /// <summary>
     /// 注册 Tenancy 模块的应用服务：租户解析与上下文、租户开通、租户生命周期/配额/订阅/权益管理、
     /// 租户品牌、跨租户切换查询/命令处理器、租户目录投影与 Host 侧管理服务，以及授权目录、
-    /// 错误资源、缓存 JSON 类型信息与 AOT 物化器。
+    /// 错误资源与 AOT 物化器。
     /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
     {
+        Persistence.TenancyLogTimelineSources.Register(services);
         AddMigrationServices(services, configuration);
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -66,9 +67,6 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             TenancyErrorResourceSource>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            ICacheJsonTypeInfoContributor,
-            TenancyCacheJsonTypeInfoContributor>());
         AddBackgroundServices(services, configuration);
         services.AddScoped<
             IQueryHandler<GetCurrentTenantQuery, TenantSummary>,
@@ -139,7 +137,7 @@ public sealed class TenancyModule : IFullNetModule
 
     /// <summary>
     /// 注册 Migrator/Seed 阶段所需的 Tenancy 服务：租户上下文访问器、Tenancy 选项校验、
-    /// Saas 默认引导、租户开通命令与服务、租户缓存失效器及本地租户种子贡献者。
+    /// Saas 默认引导、租户开通命令与服务及本地租户种子贡献者。
     /// </summary>
     public void AddMigrationServices(
         IServiceCollection services,
@@ -170,7 +168,6 @@ public sealed class TenancyModule : IFullNetModule
             ICommandHandler<ProvisionTenantCommand, TenantSummary>,
             Features.ProvisionTenant.Handler>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
-        services.TryAddScoped<TenantCacheInvalidator>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             LocalTenantSeedContributor>());
@@ -222,13 +219,6 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<IActiveTenantContextResolver>(provider =>
             (TenantResolver)provider.GetRequiredService<ITenantResolver>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            TenantProvisionedCacheInvalidationHandler>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            TenantChangedCacheInvalidationHandler>());
-        services.TryAddScoped<TenantCacheInvalidator>();
         // 文件恢复在 Worker 使用原操作键确认配额，不能回退到 Files 的空端口。
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();

@@ -21,6 +21,11 @@ if (process.argv.includes('--help')) {
   const base = ['run', '--rm', '--entrypoint', '/bin/promtool', '--mount', mount, image];
   docker([...base, 'check', 'rules', '/work/deploy/observability/prometheus-rules.yaml']);
   docker([
+    'run', '--rm', '--cpus', '1', '--memory', '256m', '--entrypoint', '/bin/promtool', '--mount', mount,
+    '--workdir', '/work/tests/deployment', image,
+    'test', 'rules', 'host-logging-alerts.promtest.yaml',
+  ]);
+  docker([
     'run', '--rm', '--entrypoint', '/bin/promtool', '--mount', mount,
     '--mount', `type=bind,source=${root},target=/rules,readonly`, image,
     'check', 'config', '/work/tests/deployment/fluent-bit-prometheus-scrape.yml',
@@ -34,5 +39,10 @@ if (process.argv.includes('--help')) {
     'run', '--rm', '--entrypoint', '/bin/promtool', '--mount', mount,
     '--workdir', '/work/tests/deployment', image,
     'test', 'rules', 'log-consumer-alerts.promtest.yaml',
+  ]);
+  docker([
+    'run', '--rm', '--cpus', '1', '--memory', '256m', '--entrypoint', '/bin/promtool', '--mount', mount,
+    '--workdir', '/work/tests/deployment', image,
+    'test', 'rules', 'cache-alerts.promtest.yaml',
   ]);
 }

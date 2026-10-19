@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>TenantUnits管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Organization.Features.ManageTenantUnits;
 
 internal static class Endpoint

@@ -40,6 +40,7 @@ using WorkerHost = workerhost::Full.NET.Host.Worker;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
+/// <summary>集成测试：NotificationsRealtimeRepair。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NotificationsRealtimeRepairTests

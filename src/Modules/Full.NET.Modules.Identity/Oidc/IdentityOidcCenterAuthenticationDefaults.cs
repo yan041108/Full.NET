@@ -1,6 +1,6 @@
 namespace Full.NET.Modules.Identity.Oidc;
 
-/// <summary>OIDC center login cookie authentication scheme constants.</summary>
+/// <summary>OIDC 中心登录 Cookie 认证方案与声明类型常量。</summary>
 internal static class IdentityOidcCenterAuthenticationDefaults
 {
     public const string AuthenticationScheme = "Identity.Oidc.Center";

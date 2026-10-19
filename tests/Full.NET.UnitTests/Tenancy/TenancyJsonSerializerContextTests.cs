@@ -4,6 +4,7 @@ using Full.NET.Modules.Tenancy.Serialization;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Tenancy Json Serializer Context。</summary>
 [TestClass]
 public sealed class TenancyJsonSerializerContextTests
 {

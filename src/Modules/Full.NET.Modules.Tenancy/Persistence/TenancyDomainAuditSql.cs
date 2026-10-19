@@ -12,10 +12,10 @@ internal static class TenancyDomainAuditSql
         """
         INSERT INTO fn_tenancy_domain_audit
             (Id, TenantId, ActionKey, EntityId, Outcome, ActorUserId, ActorDisplayName,
-             TraceId, DiffSummaryJson, OccurredAtUtc)
+             TraceId, DiffSummaryJson, OccurredAtUtc, CorrelationJson)
         VALUES
             (@Id, @TenantId, @ActionKey, @EntityId, @Outcome, @ActorUserId, @ActorDisplayName,
-             @TraceId, @DiffSummaryJson, @OccurredAtUtc)
+             @TraceId, @DiffSummaryJson, @OccurredAtUtc, @CorrelationJson)
         """,
         SqlDataScope.HostOnly);
 }

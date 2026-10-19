@@ -4,6 +4,7 @@ using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>集成测试：NativeApiSmoke。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiSmokeTests

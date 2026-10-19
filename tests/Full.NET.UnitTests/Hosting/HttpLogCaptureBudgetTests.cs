@@ -3,6 +3,7 @@ using Full.NET.Hosting.Observability;
 
 namespace Full.NET.UnitTests.Hosting;
 
+/// <summary>单元测试（Hosting）：Http Log Capture Budget。</summary>
 [TestClass]
 public sealed class HttpLogCaptureBudgetTests
 {

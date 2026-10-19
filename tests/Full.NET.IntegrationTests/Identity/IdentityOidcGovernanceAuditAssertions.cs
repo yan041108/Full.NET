@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Oidc;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：治理操作审计与不可篡改记录。</summary>
 internal static class IdentityOidcGovernanceAuditAssertions
 {
     private const string RedirectUri = "https://localhost:5013/signin-oidc-audit";

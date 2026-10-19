@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Outbox;
 
+/// <summary>单元测试（Outbox）：Outbox Retention。</summary>
 [TestClass]
 public sealed class OutboxRetentionTests
 {

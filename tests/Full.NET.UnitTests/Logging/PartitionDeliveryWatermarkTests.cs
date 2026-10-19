@@ -2,6 +2,7 @@ using Full.NET.LogConsumer;
 
 namespace Full.NET.UnitTests.Logging;
 
+/// <summary>单元测试（日志）：Partition Delivery Watermark。</summary>
 [TestClass]
 public sealed class PartitionDeliveryWatermarkTests
 {

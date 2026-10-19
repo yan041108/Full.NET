@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Auditing;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Domain Audit Change Diff Parser。</summary>
 [TestClass]
 public sealed class DomainAuditChangeDiffParserTests
 {

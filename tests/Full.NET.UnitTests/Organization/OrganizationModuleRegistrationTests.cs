@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Organization Module Registration。</summary>
 [TestClass]
 public sealed class OrganizationModuleRegistrationTests
 {

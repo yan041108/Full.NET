@@ -10,10 +10,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_domain_audit
             (Id, TenantId, ScopeKey, InstanceId, OperationKey, ActorUserId,
-             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc)
+             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc, CorrelationJson)
         VALUES
             (@Id, @TenantId, @ScopeKey, @InstanceId, @OperationKey, @ActorUserId,
-             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc)
+             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 
@@ -750,10 +750,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_execution_log
             (Id, InstanceId, StepId, TransitionKey, FromStatusKey, ToStatusKey,
-             IdempotencyKey, Summary, CreatedAtUtc)
+             IdempotencyKey, Summary, CreatedAtUtc, CorrelationJson)
         VALUES
             (@Id, @InstanceId, @StepId, @TransitionKey, @FromStatusKey, @ToStatusKey,
-             @IdempotencyKey, @Summary, @CreatedAtUtc)
+             @IdempotencyKey, @Summary, @CreatedAtUtc, @CorrelationJson)
         """,
         SqlDataScope.Global);
 

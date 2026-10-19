@@ -2,6 +2,7 @@ using Full.NET.Modules.Files.Storage;
 
 namespace Full.NET.UnitTests.Files;
 
+/// <summary>单元测试（文件）：Local File Storage Options Validator。</summary>
 [TestClass]
 public sealed class LocalFileStorageOptionsValidatorTests
 {

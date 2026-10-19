@@ -2,6 +2,7 @@ using System.Xml.Linq;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>架构测试：BuildingBlocks 项目引用须符合分层，业务模块不得反向依赖基础设施内部实现。</summary>
 [TestClass]
 public sealed class BuildingBlockProjectDependencyBoundaryTests
 {

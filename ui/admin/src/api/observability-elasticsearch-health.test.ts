@@ -10,17 +10,12 @@ vi.mock('./http', () => ({
 const requestMock = vi.mocked(request);
 
 const health = {
-  adapterKind: 'serilog-elasticsearch',
-  isEnabled: false,
-  isSinkRegistered: false,
-  indexFormat: 'fullnet-logs-{0:yyyy.MM.dd}',
-  nodeEndpoints: [],
-  openTelemetryOtlpEndpointConfigured: false,
-  pipelineNotice: 'pipeline notice',
-  clusterStatus: 'disabled',
-  clusterName: null,
-  numberOfNodes: null,
-  probeErrorMessage: null
+  deliveryStatus: 'external-collector',
+  deliveryConfirmationBoundary: 'configuration-only',
+  elasticsearchQueryEnabled: false,
+  elasticsearchEndpoint: null,
+  elasticsearchIndexPattern: null,
+  openTelemetryOtlpEndpointConfigured: false
 };
 
 describe('observability-elasticsearch-health api', () => {

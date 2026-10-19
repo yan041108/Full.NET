@@ -36,8 +36,9 @@
       "title": "Audit B1 queue / failures",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
-        { "expr": "fullnet_audit_microbatch_queue_depth" },
-        { "expr": "rate(fullnet_audit_microbatch_failures_total[5m])" }
+        { "expr": "fullnet_auditing_microbatch_queue_depth" },
+        { "expr": "rate(fullnet_auditing_microbatch_failed_total[5m])" },
+        { "expr": "rate(fullnet_auditing_microbatch_rejected_total[5m])" }
       ]
     },
     {
@@ -45,8 +46,8 @@
       "title": "Async log drops (priority vs best effort)",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "targets": [
-        { "expr": "rate(fullnet_async_log_dropped_total{stream=\"priority\"}[5m])" },
-        { "expr": "rate(fullnet_async_log_dropped_total{stream=\"best_effort\"}[5m])" }
+        { "expr": "rate(fullnet_logging_events_dropped_total{channel=\"high_priority\"}[5m])" },
+        { "expr": "rate(fullnet_logging_events_dropped_total{channel=\"general\"}[5m])" }
       ]
     },
     {

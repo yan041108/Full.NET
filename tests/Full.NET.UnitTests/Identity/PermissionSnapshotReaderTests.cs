@@ -7,6 +7,7 @@ using Full.NET.Modules.Tenancy;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Permission Snapshot Reader。</summary>
 [TestClass]
 public sealed class PermissionSnapshotReaderTests
 {

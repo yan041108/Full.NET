@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>单元测试（工作流）：Workflow Cross Module Port Registration。</summary>
 [TestClass]
 public sealed class WorkflowCrossModulePortRegistrationTests
 {

@@ -6,6 +6,7 @@ using Full.NET.Modules.Files.Contracts;
 
 
 
+/// <summary>Files 模块 ProblemDetails 错误码的嵌入式资源映射。</summary>
 namespace Full.NET.Modules.Files.Resources;
 
 

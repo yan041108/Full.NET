@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Document.Contracts;
 
+// Document 模块 Native AOT 友好的 System.Text.Json 源生成上下文；仅注册已审计的契约类型。
 namespace Full.NET.Modules.Document.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
@@ -60,4 +61,5 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(HostDocumentStatisticsCategoryItem))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentStatisticsTypeItem>))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentStatisticsCategoryItem>))]
+/// <summary>Document 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class DocumentJsonSerializerContext : JsonSerializerContext;

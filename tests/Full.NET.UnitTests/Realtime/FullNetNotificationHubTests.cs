@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Realtime;
 
+/// <summary>单元测试（实时通信）：Full Net Notification Hub。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class FullNetNotificationHubTests

@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Auditing Write Path。</summary>
 [TestClass]
 public sealed class AuditingWritePathTests
 {
@@ -72,8 +73,8 @@ public sealed class AuditingWritePathTests
 
         var result = await envelope.Completion.Task;
         Assert.IsFalse(result.Succeeded);
-        Assert.IsTrue(result.Poisoned);
-        Assert.IsTrue(transaction.ExecutionCount >= 1);
+        Assert.IsFalse(result.Poisoned);
+        Assert.AreEqual(1, transaction.ExecutionCount);
     }
 
     [TestMethod]
@@ -83,7 +84,8 @@ public sealed class AuditingWritePathTests
         var executor = new RecordingCommandExecutor
         {
             PoisonToken = "POISON",
-            Exception = new InvalidOperationException("constraint"),
+            Exception = new DataCommandException(DataCommandFailureKind.InvalidValue,
+                new InvalidOperationException("constraint")),
         };
         var writer = CreateWriter(transaction, executor);
         var healthy = AuditWriteEnvelope.ForOperation(CreateOperationModel("healthy"));
@@ -239,7 +241,7 @@ public sealed class AuditingWritePathTests
         StringAssert.Contains(built.Statement.Text, "ContextJson, DetailsExpiresAtUtc");
         Assert.AreEqual(contextJson, built.Parameters["o0_ContextJson"]);
         Assert.AreEqual(expiresAtUtc, built.Parameters["o0_DetailsExpiresAtUtc"]);
-        Assert.AreEqual(15, built.ParameterCount);
+        Assert.AreEqual(16, built.ParameterCount);
         Assert.IsGreaterThan(
             AuditWriteEnvelope.ForOperation(summary).EstimatedBytes,
             AuditWriteEnvelope.ForOperation(detailed).EstimatedBytes);
@@ -894,15 +896,114 @@ public sealed class AuditingWritePathTests
         }
     }
 
+    [TestMethod]
+    public async Task Infrastructure_failure_does_not_split_a_full_batch()
+    {
+        var transaction = new RecordingCommandTransaction();
+        var executor = new RecordingCommandExecutor { Exception = new TimeoutException("database unavailable") };
+        var writer = CreateWriter(transaction, executor);
+        var batch = Enumerable.Range(0, 64).Select(i => AuditWriteEnvelope.ForOperation(CreateOperationModel($"op-{i}"))).ToArray();
+        await writer.WriteMicroBatchAsync(batch, CancellationToken.None);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+        foreach (var row in batch)
+        {
+            var result = await row.Completion.Task;
+            Assert.IsFalse(result.Succeeded);
+            Assert.IsFalse(result.Poisoned);
+        }
+    }
+
+    [TestMethod]
+    public async Task Poison_isolation_shares_one_attempt_limit()
+    {
+        var transaction = new RecordingCommandTransaction();
+        var executor = new RecordingCommandExecutor
+        {
+            Exception = new DataCommandException(DataCommandFailureKind.InvalidValue, new InvalidOperationException()),
+        };
+        var writer = CreateWriter(transaction, executor, new AuditMicroBatchOptions { MaxIsolationAttempts = 3 });
+        var batch = Enumerable.Range(0, 64).Select(i => AuditWriteEnvelope.ForOperation(CreateOperationModel($"op-{i}"))).ToArray();
+        await writer.WriteMicroBatchAsync(batch, CancellationToken.None);
+        Assert.AreEqual(3, transaction.ExecutionCount);
+        Assert.IsTrue(batch.All(row => row.Completion.Task.IsCompletedSuccessfully));
+        foreach (var row in batch) Assert.IsFalse((await row.Completion.Task).Poisoned);
+    }
+
+    [TestMethod]
+    public async Task Batch_deadline_cancels_the_actual_transaction_and_completes_every_row()
+    {
+        var transaction = new RecordingCommandTransaction(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        var executor = new RecordingCommandExecutor();
+        var writer = CreateWriter(transaction, executor, new AuditMicroBatchOptions { BatchExecutionTimeout = TimeSpan.FromMilliseconds(50) });
+        var row = AuditWriteEnvelope.ForOperation(CreateOperationModel("slow"));
+        await writer.WriteMicroBatchAsync([row], CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.IsFalse((await row.Completion.Task).Succeeded);
+        Assert.AreEqual(0, executor.ExecutionCount);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+    }
+
+    [TestMethod]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    public async Task Microbatch_cancelled_provider_failure_uses_cancellation_semantics(bool callerCancellation, bool classifiedFailure)
+    {
+        var transaction = new RecordingCommandTransaction();
+        var executor = new CancelledProviderExecutor(classifiedFailure);
+        var writer = CreateWriter(transaction, executor, new AuditMicroBatchOptions
+        {
+            BatchExecutionTimeout = callerCancellation ? TimeSpan.FromSeconds(2) : TimeSpan.FromMilliseconds(100),
+        });
+        using var caller = new CancellationTokenSource();
+        var row = AuditWriteEnvelope.ForOperation(CreateOperationModel("cancelled-provider"));
+        var writing = writer.WriteMicroBatchAsync([row], caller.Token);
+        await executor.Started.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        if (callerCancellation)
+        {
+            await caller.CancelAsync();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => writing.WaitAsync(TimeSpan.FromSeconds(3)));
+        }
+        else
+        {
+            await writing.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        Assert.IsTrue(executor.Exited);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+        var result = await row.Completion.Task;
+        Assert.IsFalse(result.Succeeded);
+        Assert.IsFalse(result.Poisoned, "取消后的提供者错误不得将健康记录标毒。");
+    }
+
+    [TestMethod]
+    public async Task Expired_queued_row_is_not_submitted_after_a_slow_batch()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var harness = await MicroBatchHarness.CreateAsync(new AuditMicroBatchOptions
+        {
+            MaxBatchRows = 1, MaxQueueAge = TimeSpan.FromMilliseconds(60), BatchExecutionTimeout = TimeSpan.FromSeconds(2),
+        }, gate);
+        var first = harness.Coordinator.FlushImportantAsync(CreateOperationModel("first"), null, CancellationToken.None);
+        await WaitUntilAsync(() => harness.Transaction.ExecutionCount == 1, TimeSpan.FromSeconds(2));
+        var second = harness.Coordinator.FlushImportantAsync(CreateOperationModel("expired"), null, CancellationToken.None);
+        await Task.Delay(100);
+        gate.TrySetResult();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.AreEqual(1, harness.Transaction.ExecutionCount);
+        await WaitUntilAsync(() => harness.Coordinator.QueueBytesInUse == 0, TimeSpan.FromSeconds(2));
+    }
+
     private static AuditWriteBatchWriter CreateWriter(
         ICommandTransaction transaction,
-        ICommandExecutor executor) =>
+        ICommandExecutor executor,
+        AuditMicroBatchOptions? options = null) =>
         new(
             transaction,
             executor,
             new FixedClock(),
             new SequenceIdGenerator(),
-            NullLogger<AuditWriteBatchWriter>.Instance);
+            NullLogger<AuditWriteBatchWriter>.Instance,
+            new StaticOptionsMonitor(options ?? new AuditMicroBatchOptions()));
 
     private static OperationLogWriteModel CreateOperationModel(string actionKey) =>
         new(
@@ -967,7 +1068,7 @@ public sealed class AuditingWritePathTests
         {
             var transaction = new RecordingCommandTransaction(flushGate);
             var executor = new RecordingCommandExecutor();
-            var writer = CreateWriter(transaction, executor);
+            var writer = CreateWriter(transaction, executor, options);
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddSingleton<IOptionsMonitor<AuditMicroBatchOptions>>(
@@ -991,6 +1092,7 @@ public sealed class AuditingWritePathTests
         public async ValueTask DisposeAsync()
         {
             await Coordinator.StopAsync(CancellationToken.None);
+            Coordinator.Dispose();
             await Provider.DisposeAsync();
         }
     }
@@ -1025,6 +1127,30 @@ public sealed class AuditingWritePathTests
         public AuditMicroBatchOptions Get(string? name) => CurrentValue;
 
         public IDisposable? OnChange(Action<AuditMicroBatchOptions, string?> listener) => null;
+    }
+
+    /// <summary>模拟驱动在响应取消时返回非取消异常，保持调用已实际退出的断言。</summary>
+    private sealed class CancelledProviderExecutor(bool classifiedFailure) : ICommandExecutor
+    {
+        public readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool Exited { get; private set; }
+
+        public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return 1;
+            }
+            catch (OperationCanceledException exception)
+            {
+                if (classifiedFailure)
+                    throw new DataCommandException(DataCommandFailureKind.InvalidValue, exception);
+                throw new InvalidOperationException("Provider returned a non-cancellation error after cancellation.", exception);
+            }
+            finally { Exited = true; }
+        }
     }
 
     private sealed class RecordingCommandTransaction(TaskCompletionSource? flushGate = null)

@@ -8,6 +8,7 @@ using static OpenIddict.Abstractions.OpenIddictExceptions;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：OpenIddict Dapper 存储读写与一致性。</summary>
 internal static class IdentityOidcStoreAssertions
 {
     private static readonly IReadOnlyDictionary<string, string?> OidcSettings = new Dictionary<string, string?>

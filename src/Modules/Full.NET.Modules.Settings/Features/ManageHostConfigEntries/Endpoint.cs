@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧ConfigEntries管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Settings.Features.ManageHostConfigEntries;
 
 internal static class Endpoint

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Host.Worker;
 
+/// <summary>单次 Outbox 保留清理的聚合结果；空运行返回 <see cref="Empty"/>。</summary>
 internal sealed record OutboxRetentionResult(
     int DeletedRows,
     int BatchesExecuted)
@@ -13,6 +14,7 @@ internal sealed record OutboxRetentionResult(
     public static OutboxRetentionResult Empty { get; } = new(0, 0);
 }
 
+/// <summary>按配置批量删除已投递 Outbox 历史行；与发布路径隔离，失败只告警并退避。</summary>
 internal sealed class OutboxRetentionProcessor(
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<OutboxRetentionOptions> options,

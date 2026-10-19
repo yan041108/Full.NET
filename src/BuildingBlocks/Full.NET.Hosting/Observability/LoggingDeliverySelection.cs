@@ -1,18 +1,11 @@
 namespace Full.NET.Hosting.Observability;
 
-/// <summary>
-/// 宿主启动时确定的日志入口配置事实；不代表平台或远端已完成投递。
-/// </summary>
+/// <summary>宿主启动时固定的入口配置，不代表外部采集、Broker ACK 或 ES 写入成功。</summary>
 public interface ILoggingDeliverySelection
 {
-    /// <summary>显式入口；为空时沿用旧版配置。</summary>
-    LoggingDeliveryMode? Mode { get; }
-
-    /// <summary>启动时旧 Elasticsearch Sink 是否声明启用。</summary>
-    bool LegacyElasticsearchEnabled { get; }
+    /// <summary>实际选用的 Local、Collector 或 ApplicationKafka 入口。</summary>
+    LoggingDeliveryMode Mode { get; }
 }
 
-/// <summary>固定启动快照，避免管理面随配置热变而误报实际 Sink 选择。</summary>
-internal sealed record LoggingDeliverySelection(
-    LoggingDeliveryMode? Mode,
-    bool LegacyElasticsearchEnabled) : ILoggingDeliverySelection;
+/// <summary>启动快照，管理面不能以热变配置冒充已构建出口。</summary>
+internal sealed record LoggingDeliverySelection(LoggingDeliveryMode Mode) : ILoggingDeliverySelection;

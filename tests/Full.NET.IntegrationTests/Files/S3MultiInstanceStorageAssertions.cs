@@ -128,6 +128,7 @@ internal static class S3MultiInstanceStorageAssertions
     }
 }
 
+/// <summary>集成测试：S3MultiInstanceStorage。</summary>
 [TestClass]
 public sealed class S3MultiInstanceStorageTests
 {

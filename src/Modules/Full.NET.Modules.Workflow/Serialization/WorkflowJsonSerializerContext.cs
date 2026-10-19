@@ -1,3 +1,4 @@
+// Workflow 模块 JSON 源生成上下文；Native AOT 绑定契约类型，避免反射序列化。
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Modules.Workflow.Domain;
@@ -85,4 +86,5 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+/// <summary>Workflow 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

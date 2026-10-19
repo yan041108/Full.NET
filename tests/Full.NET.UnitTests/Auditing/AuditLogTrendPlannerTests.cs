@@ -3,6 +3,7 @@ using Full.NET.Modules.Auditing.Contracts;
 
 namespace Full.NET.UnitTests.Auditing;
 
+/// <summary>单元测试（审计）：Audit Log Trend Planner。</summary>
 [TestClass]
 public sealed class AuditLogTrendPlannerTests
 {

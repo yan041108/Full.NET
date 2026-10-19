@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications.Providers;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notification Provider Type Catalog。</summary>
 [TestClass]
 public sealed class NotificationProviderTypeCatalogTests
 {

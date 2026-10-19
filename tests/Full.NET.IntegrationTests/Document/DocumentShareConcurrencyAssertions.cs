@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Document;
 
+/// <summary>文档分享：并发创建与幂等边界。</summary>
 internal static class DocumentShareConcurrencyAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";

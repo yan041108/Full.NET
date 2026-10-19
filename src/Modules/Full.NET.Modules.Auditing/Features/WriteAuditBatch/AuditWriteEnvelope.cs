@@ -1,4 +1,5 @@
 using System.Text;
+using System.Diagnostics;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Persistence;
@@ -22,6 +23,18 @@ internal readonly record struct AuditWriteResult(bool Succeeded, bool Poisoned =
 internal sealed class AuditWriteEnvelope
 {
     private int _queueBudgetReleased;
+    private long _queuedAt;
+    private TimeSpan _maxQueueAge;
+
+    /// <summary>使用单调时钟冻结本条排队期限，热更新不能延长已接受记录的寿命。</summary>
+    public void BeginQueueLifetime(TimeSpan maximumAge)
+    {
+        _queuedAt = Stopwatch.GetTimestamp();
+        _maxQueueAge = maximumAge;
+    }
+
+    public bool QueueExpired => _queuedAt != 0 && Stopwatch.GetElapsedTime(_queuedAt) >= _maxQueueAge;
+    public double QueueAgeSeconds => _queuedAt == 0 ? 0 : Stopwatch.GetElapsedTime(_queuedAt).TotalSeconds;
 
     private AuditWriteEnvelope(
         AuditMicroBatchKind kind,
@@ -87,7 +100,7 @@ internal sealed class AuditWriteEnvelope
                 model.RequiredPermissions.IsDefaultOrEmpty
                     ? null
                     : string.Join('|', model.RequiredPermissions),
-                model.Details?.ContextJson));
+                model.Details?.ContextJson, model.CorrelationJson));
     }
 
     public static AuditWriteEnvelope ForException(ExceptionLogWriteModel model)
@@ -105,7 +118,7 @@ internal sealed class AuditWriteEnvelope
                 model.HttpMethod,
                 model.RequestPath,
                 model.TraceId,
-                model.ClientIpFingerprint));
+                model.ClientIpFingerprint, model.CorrelationJson));
     }
 
     public static AuditWriteEnvelope ForOutbound(OutboundCallLogRecord model)
@@ -121,7 +134,7 @@ internal sealed class AuditWriteEnvelope
                 model.OperationKey,
                 model.DestinationHostCategory,
                 model.SafeErrorCode,
-                model.TraceId));
+                model.TraceId, model.CorrelationJson));
     }
 
     private static int Estimate(params string?[] parts)

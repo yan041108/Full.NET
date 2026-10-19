@@ -1,3 +1,4 @@
+// Messaging 模块 JSON 源生成上下文；Native AOT 绑定契约类型，避免反射序列化。
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
@@ -32,4 +33,5 @@ namespace Full.NET.Modules.Messaging.Serialization;
 [JsonSerializable(typeof(OutboxBacklogSummaryResponse))]
 [JsonSerializable(typeof(PagedResult<DeadLetterResponse>))]
 [JsonSerializable(typeof(ReplayDeadLetterRequest))]
+/// <summary>Messaging 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class MessagingJsonSerializerContext : JsonSerializerContext;

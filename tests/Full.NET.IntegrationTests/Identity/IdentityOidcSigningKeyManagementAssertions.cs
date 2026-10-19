@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC：签名密钥创建、激活与元数据。</summary>
 internal static class IdentityOidcSigningKeyManagementAssertions
 {
     public static async Task VerifyAsync(

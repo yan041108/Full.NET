@@ -1,8 +1,12 @@
+/// <summary>日志消费实验 Host；需 FULLNET_LOG_CONSUMER_EXPERIMENTAL=true 才连接 Kafka。</summary>
+// 日志消费实验进程入口；需 FULLNET_LOG_CONSUMER_EXPERIMENTAL=true 才连接 Kafka。
 using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Confluent.Kafka;
 using Full.NET.LogConsumer;
+
+// 独立实验进程：从 Kafka 消费应用日志快照；默认关闭，需 FULLNET_LOG_CONSUMER_EXPERIMENTAL=true。
 
 return await RunAsync();
 
@@ -22,8 +26,8 @@ static async Task<int> RunAsync()
             throw new ArgumentException("运维端口须为 0 或 1024..65535。");
         var runtime = new ConsumerRuntimeState();
         if (!int.TryParse(Environment.GetEnvironmentVariable("FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS") ?? "1", out var batchMaxRecords)
-            || batchMaxRecords is < 1 or > 8)
-            throw new ArgumentException("批次条数须为 1..8。");
+            || batchMaxRecords is < 1 or > BatchLogDeliveryProcessor.MaximumRecords)
+            throw new ArgumentException("批次条数须为 1..64。");
         var bootstrap = Required("FULLNET_LOG_CONSUMER_BOOTSTRAP_SERVERS");
         var topics = Required("FULLNET_LOG_CONSUMER_TOPICS")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -163,14 +167,18 @@ static async Task<int> RunAsync()
                 {
                     // 只取已可用消息，不等待凑批；异常大记录留给原单条隔离，限制本批次持有的原始字节。
                     var batch = new List<KafkaLogInput>(batchMaxRecords) { input };
+                    var batchBytes = input.Value.Length + input.RawKey.Length;
                     while (batch.Count < batchMaxRecords)
                     {
                         var next = consumer.Consume(TimeSpan.Zero);
                         if (assignmentEpoch != epoch) { runtime.Deferred(); return 3; }
                         if (next is null || next.IsPartitionEOF) break;
                         var nextInput = ToInput(next);
-                        if (nextInput.Value.Length > maxBytes || nextInput.RawKey.Length > 36) { pending = next; break; }
+                        if (nextInput.Value.Length > maxBytes || nextInput.RawKey.Length > 36
+                            || nextInput.Value.Length + nextInput.RawKey.Length > BatchLogDeliveryProcessor.MaximumInputBytes - batchBytes)
+                        { pending = next; break; }
                         batch.Add(nextInput);
+                        batchBytes += nextInput.Value.Length + nextInput.RawKey.Length;
                     }
                     var result = await batchProcessor.ProcessAsync(batch, () => assignmentEpoch == epoch, stoppingToken);
                     disposition = result.Disposition;
@@ -241,6 +249,7 @@ static IReadOnlyDictionary<int, int> ParseRoutes(string specification)
     return routes;
 }
 
+/// <summary>日志消费实验进程入口；需 FULLNET_LOG_CONSUMER_EXPERIMENTAL=true 才连接 Kafka。</summary>
 internal sealed class KafkaLogDeadLetterSink(
     IProducer<string, byte[]> producer, string topic) : ILogDeadLetterSink
 {

@@ -212,7 +212,8 @@ public sealed class TotpStrongReauthTests
         services.AddFullNetModularity();
         services.AddFullNetDapper(configuration, "Production");
         services.AddFullNetMemoryPack();
-        services.AddFullNetCaching(configuration, "Production");
+        // 本夹具验证 Production 身份策略；缓存使用无 Redis 的测试实例，不模拟生产缓存准入。
+        services.AddFullNetCaching(configuration, "Testing");
         services.AddFullNetSeeding(configuration);
         services.AddSingleton<
             ITenantOrganizationUnitDirectory,

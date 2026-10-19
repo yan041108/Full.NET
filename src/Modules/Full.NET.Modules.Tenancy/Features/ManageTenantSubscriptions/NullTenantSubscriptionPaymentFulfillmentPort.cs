@@ -1,5 +1,6 @@
 using Full.NET.Modules.Tenancy.Contracts;
 
+/// <summary>模块内端口适配或空实现；供测试或未启用能力时闭合 DI。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions;
 
 internal sealed class NullTenantSubscriptionPaymentFulfillmentPort : ITenantSubscriptionPaymentFulfillmentPort

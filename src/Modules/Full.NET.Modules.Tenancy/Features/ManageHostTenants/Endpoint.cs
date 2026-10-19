@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
+/// <summary>Host 侧Tenants管理 API 路由注册。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
 internal static class Endpoint

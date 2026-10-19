@@ -5,6 +5,7 @@ using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.UnitTests.Organization;
 
+/// <summary>单元测试（组织）：Host User Management Reference Endpoint。</summary>
 [TestClass]
 public sealed class HostUserManagementReferenceEndpointTests
 {

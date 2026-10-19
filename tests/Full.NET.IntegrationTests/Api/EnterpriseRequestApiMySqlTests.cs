@@ -3,6 +3,7 @@ using Full.NET.IntegrationTests.EnterpriseRequest;
 
 namespace Full.NET.IntegrationTests.Api;
 
+/// <summary>集成测试：EnterpriseRequestApiMySql。</summary>
 [TestClass]
 public sealed class EnterpriseRequestApiMySqlTests
 {

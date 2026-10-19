@@ -2,6 +2,7 @@ using Full.NET.Modules.Ocr.Contracts;
 using Full.NET.Modules.Ocr.Domain;
 using Full.NET.Modules.Ocr.Persistence;
 
+/// <summary>契约与持久化行之间的映射；不包含授权或副作用。</summary>
 namespace Full.NET.Modules.Ocr.Features.ManageIdCardTasks;
 
 internal static class OcrIdCardTaskMapper

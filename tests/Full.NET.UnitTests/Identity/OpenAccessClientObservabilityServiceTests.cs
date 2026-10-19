@@ -2,6 +2,7 @@ using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 
 namespace Full.NET.UnitTests.Identity;
 
+/// <summary>单元测试（Identity）：Open Access Client Observability Service。</summary>
 [TestClass]
 public sealed class OpenAccessClientObservabilityServiceTests
 {

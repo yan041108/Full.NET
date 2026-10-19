@@ -35,6 +35,7 @@ using ApiProgram = apiHost::Program;
 
 namespace Full.NET.Benchmarks.MixedLoad;
 
+/// <summary>混合负载基准驱动：编排 API、数据库与容器观测并输出可比对快照。</summary>
 public static class MixedLoadRunner
 {
     private const string TestPassword = "FullNet_MixedLoad!2026";
@@ -974,6 +975,7 @@ internal sealed class MixedLoadAuditWriteCapturePolicy(
     }
 }
 
+/// <summary>混合负载基准期间的 Dapper 语句计数与失败观测。</summary>
 public sealed class MixedLoadDapperTelemetry : IDisposable
 {
     private const string MeterName = "fullnet.data.dapper";

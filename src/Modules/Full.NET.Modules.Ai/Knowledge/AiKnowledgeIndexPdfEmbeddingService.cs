@@ -3,6 +3,7 @@ using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Budgets;
+using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Modules.Ai.Security;
 using Microsoft.Extensions.AI;
 
@@ -16,7 +17,7 @@ internal sealed record AiKnowledgeIndexPdfEmbeddingBatch(Guid OperationId, int O
 internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPlanningService planning,
     AiKnowledgeIndexPdfManifestStore manifests, AiKnowledgeIndexBudgetService admission,
     IAiOperationBudgetStore budget, IDataTransactionState transactions,
-    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings)
+    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings, AiBackgroundLogCorrelation? logCorrelation = null)
 {
     /// <summary>只派发新预留；未知或重复操作交给对账，不重试、不续租、不改为 ready。</summary>
     internal Task<AiKnowledgeIndexPdfEmbeddingBatch?> ExecuteAsync(AiKnowledgeIndexTaskBinding binding,
@@ -35,6 +36,8 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
         if (prepared is null || ordinal >= prepared.Plan.Batches.Count) return null;
         var model = await planning.ReadCurrentModelAsync(binding, taskId, leaseToken, prepared, bounded).ConfigureAwait(false);
         if (model is null) return null;
+        // 规划与当前模型均已重验会话，后续模型调用和结算共享冻结身份。
+        using var correlation = (logCorrelation ?? new AiBackgroundLogCorrelation()).BeginValidatedScope(prepared.Session);
         var factory = factories.SingleOrDefault(f => f.ProviderKey == model.ProviderKey);
         if (factory is null) return null;
         Check(bounded);

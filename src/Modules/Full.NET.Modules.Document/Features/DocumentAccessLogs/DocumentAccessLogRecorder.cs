@@ -46,6 +46,7 @@ internal sealed class DocumentAccessLogRecorder(
                 await commandExecutor.ExecuteAsync(
                         DocumentAccessLogSql.Insert,
                         DocumentSqlParameters.Create(
+                    ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                             ("Id", idGenerator.NewId()),
                             ("DocumentItemId", documentItemId),
                             ("DocumentTitle", documentTitle.Trim()),

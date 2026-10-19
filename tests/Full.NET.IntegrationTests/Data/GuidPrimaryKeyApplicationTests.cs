@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Data;
 
+/// <summary>集成测试：GuidPrimaryKeyApplication。</summary>
 [TestClass]
 public sealed class GuidPrimaryKeyApplicationTests
 {

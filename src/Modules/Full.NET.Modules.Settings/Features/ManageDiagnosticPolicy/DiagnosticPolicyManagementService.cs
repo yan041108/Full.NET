@@ -14,13 +14,12 @@ using Full.NET.Modules.Settings.Serialization;
 
 namespace Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
-/// <summary>Host 限时诊断策略读写；更新与 B0 审计同事务，提交后直接刷新缓存。</summary>
+/// <summary>Host 限时诊断策略读写；更新与 B0 审计同事务，提交后直接刷新本机权威快照。</summary>
 internal sealed class DiagnosticPolicyManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     ITransactionalDomainAuditWriter<DiagnosticPolicyAuditWrite> domainAuditWriter,
-    DiagnosticPolicyCacheInvalidator cacheInvalidator,
     IDiagnosticPolicyStore policyStore,
     IClock clock,
     IIdGenerator idGenerator)
@@ -59,8 +58,6 @@ internal sealed class DiagnosticPolicyManagementService(
 
         if (committed is { IsSuccess: true })
         {
-            await cacheInvalidator.InvalidateAfterCommitAsync(CancellationToken.None)
-                .ConfigureAwait(false);
             await policyStore.RefreshAsync(committed.Value!.Version, CancellationToken.None)
                 .ConfigureAwait(false);
         }
@@ -85,8 +82,6 @@ internal sealed class DiagnosticPolicyManagementService(
 
         if (committed is { IsSuccess: true })
         {
-            await cacheInvalidator.InvalidateAfterCommitAsync(CancellationToken.None)
-                .ConfigureAwait(false);
             await policyStore.RefreshAsync(0, CancellationToken.None).ConfigureAwait(false);
         }
 
@@ -292,10 +287,10 @@ internal sealed class DiagnosticPolicyManagementService(
             }
 
             if ((rule.BestEffortCapacityOverride is int bec && bec <= 0)
-                || (rule.MaxRequestPayloadBytesOverride is int mreq && mreq <= 0)
-                || (rule.MaxResponsePayloadBytesOverride is int mres && mres <= 0))
+                || rule.MaxRequestPayloadBytesOverride is < 0 or > 2048
+                || rule.MaxResponsePayloadBytesOverride is < 0 or > 2048)
             {
-                return new Error("settings.diagnostic_policy.invalid_budget", "Capacity and byte budgets must be positive when set.", ErrorType.Validation);
+                return new Error("settings.diagnostic_policy.invalid_budget", "Capacity must be positive; payload byte limits must be in [0,2048], where zero disables capture.", ErrorType.Validation);
             }
 
             if (rule.BestEffortCapacityOverride is not null

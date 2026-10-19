@@ -13,6 +13,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试 AI：Agent Run Cancellation。</summary>
 [TestClass]
 public sealed class AiAgentRunCancellationTests
 {

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>单元测试（后台作业）：Jobs Capacity Benchmark。</summary>
 [TestClass]
 public sealed class JobsCapacityBenchmarkTests
 {

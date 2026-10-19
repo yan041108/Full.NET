@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 多实例：批量吊销与会话清空。</summary>
 internal static class IdentityOidcMultiInstanceRevokeAllAssertions
 {
     public static async Task VerifyAsync(

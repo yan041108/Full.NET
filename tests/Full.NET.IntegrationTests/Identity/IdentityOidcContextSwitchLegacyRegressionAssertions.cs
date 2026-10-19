@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+/// <summary>集成 OIDC 上下文切换：遗留客户端与切换路径回归。</summary>
 internal static class IdentityOidcContextSwitchLegacyRegressionAssertions
 {
     public static async Task VerifyAsync(

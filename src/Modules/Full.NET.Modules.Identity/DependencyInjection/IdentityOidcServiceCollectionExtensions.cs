@@ -1,3 +1,4 @@
+// Identity OIDC 服务器 DI 扩展；OpenIddict 存储与端点管线注册。
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
 using Full.NET.Modules.Identity.Features.ManageOidcClients;

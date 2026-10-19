@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Notification Realtime Integration Event Handler。</summary>
 [TestClass]
 public sealed class NotificationRealtimeIntegrationEventHandlerTests
 {

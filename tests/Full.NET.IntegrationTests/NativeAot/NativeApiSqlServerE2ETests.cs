@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>集成测试：NativeApiSqlServerE2E。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiSqlServerE2ETests

@@ -79,8 +79,7 @@ internal sealed class AccessLogMiddleware(RequestDelegate next)
         // 路由模板避免把路径中的用户标识或其他动态片段写入日志。
         var path = ResolveRouteTemplate(httpContext);
         var method = HttpOperationLogSanitizer.Truncate(httpContext.Request.Method, 16);
-        var traceId = Activity.Current?.TraceId.ToString()
-            ?? httpContext.TraceIdentifier;
+        var traceId = HttpLogCorrelation.Capture(httpContext).TraceId;
         var fingerprint = HttpOperationLogSanitizer.FingerprintClientIp(
             httpContext.Connection.RemoteIpAddress?.ToString());
         var durationMs = elapsed.TotalMilliseconds > int.MaxValue
@@ -95,9 +94,12 @@ internal sealed class AccessLogMiddleware(RequestDelegate next)
             durationMs,
             userId,
             tenantId,
-            HttpOperationLogSanitizer.Truncate(traceId, 64),
+            traceId,
             string.IsNullOrWhiteSpace(fingerprint) ? null : fingerprint,
-            authenticated);
+            authenticated)
+        {
+            CorrelationJson = HttpLogCorrelation.Capture(httpContext).ToJson(),
+        };
     }
 
     internal static string ResolveRouteTemplate(HttpContext httpContext)

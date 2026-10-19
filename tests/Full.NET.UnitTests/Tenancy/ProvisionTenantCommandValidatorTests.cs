@@ -2,6 +2,7 @@ using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Provision Tenant Command Validator。</summary>
 [TestClass]
 public sealed class ProvisionTenantCommandValidatorTests
 {

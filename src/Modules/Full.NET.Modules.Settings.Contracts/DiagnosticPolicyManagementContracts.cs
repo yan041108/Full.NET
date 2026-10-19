@@ -38,8 +38,8 @@ public sealed record DiagnosticPolicyResponse(
 /// <param name="ScopeValue">作用域值；按 ScopeKind 解析为目标实体或维度。</param>
 /// <param name="SuccessSampleRateOverride">成功采样率覆盖值；null 表示沿用生产安全默认。</param>
 /// <param name="BestEffortCapacityOverride">兜底容量覆盖值；null 表示沿用生产安全默认。</param>
-/// <param name="MaxRequestPayloadBytesOverride">请求体字节上限覆盖值；null 表示沿用生产安全默认。</param>
-/// <param name="MaxResponsePayloadBytesOverride">响应体字节上限覆盖值；null 表示沿用生产安全默认。</param>
+/// <param name="MaxRequestPayloadBytesOverride">请求投影字节限制，范围 0—2048；null 沿用全局，0 禁用；命中规则与全局取最小值。</param>
+/// <param name="MaxResponsePayloadBytesOverride">响应投影字节限制，范围 0—2048；null 沿用全局，0 禁用；不扩大采集权限。</param>
 /// <param name="ExpiresAtUtc">规则失效时间（UTC）；过期后不再生效。</param>
 public sealed record DiagnosticPolicyRuleResponse(
     string ScopeKind,
@@ -66,8 +66,8 @@ public sealed record UpdateDiagnosticPolicyRequest(
 /// <param name="ScopeValue">作用域值；按 ScopeKind 解析为目标实体或维度。</param>
 /// <param name="SuccessSampleRateOverride">成功采样率覆盖值；null 表示沿用生产安全默认。</param>
 /// <param name="BestEffortCapacityOverride">兜底容量覆盖值；null 表示沿用生产安全默认。</param>
-/// <param name="MaxRequestPayloadBytesOverride">请求体字节上限覆盖值；null 表示沿用生产安全默认。</param>
-/// <param name="MaxResponsePayloadBytesOverride">响应体字节上限覆盖值；null 表示沿用生产安全默认。</param>
+/// <param name="MaxRequestPayloadBytesOverride">请求投影字节限制，范围 0—2048；null 沿用全局，0 禁用；命中规则与全局取最小值。</param>
+/// <param name="MaxResponsePayloadBytesOverride">响应投影字节限制，范围 0—2048；null 沿用全局，0 禁用；不扩大采集权限。</param>
 /// <param name="ExpiresAtUtc">规则失效时间（UTC）；过期后不再生效。</param>
 public sealed record DiagnosticPolicyRuleRequest(
     string ScopeKind,

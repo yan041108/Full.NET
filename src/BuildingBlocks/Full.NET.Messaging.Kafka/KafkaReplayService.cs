@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Messaging.Kafka;
 
+/// <summary>Kafka 手工回放单条消息的处理结果；Rejected 表示契约或 Inbox 拒绝，不推进位点。</summary>
 internal enum KafkaReplayMessageOutcome
 {
     Processed = 0,
@@ -43,6 +44,9 @@ internal interface IKafkaReplayConsumer : IAsyncDisposable
 
 }
 
+/// <summary>
+/// 按时间窗口从 Kafka 只读回放集成事件；经 Inbox 幂等处理，不直接调用业务 Handler。
+/// </summary>
 internal sealed class KafkaReplayService(
     IIntegrationEventSubscriptionCatalog catalog,
     IKafkaReplayConsumerFactory consumerFactory,

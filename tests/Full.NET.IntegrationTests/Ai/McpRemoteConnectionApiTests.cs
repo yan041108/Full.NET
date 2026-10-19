@@ -22,6 +22,7 @@ public sealed class McpRemoteConnectionApiSqlServerTests
     }
 }
 
+/// <summary>集成测试：McpRemoteConnectionApiMySql。</summary>
 [TestClass]
 public sealed class McpRemoteConnectionApiMySqlTests
 {

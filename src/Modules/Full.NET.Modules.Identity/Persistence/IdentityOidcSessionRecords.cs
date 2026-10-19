@@ -1,3 +1,4 @@
+/// <summary>Identity 持久化相关类型；仅供 Dapper 或内部编排使用。</summary>
 namespace Full.NET.Modules.Identity.Persistence;
 
 internal sealed class IdentityOidcCenterSession

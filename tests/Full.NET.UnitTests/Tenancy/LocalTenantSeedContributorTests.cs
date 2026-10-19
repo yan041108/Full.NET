@@ -12,6 +12,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Tenancy;
 
+/// <summary>单元测试（多租户）：Local Tenant Seed Contributor。</summary>
 [TestClass]
 public sealed class LocalTenantSeedContributorTests
 {

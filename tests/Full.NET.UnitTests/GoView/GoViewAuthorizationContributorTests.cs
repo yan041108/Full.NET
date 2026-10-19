@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.UnitTests.GoView;
 
+/// <summary>单元测试（GoView）：Go View Authorization Contributor。</summary>
 [TestClass]
 public sealed class GoViewAuthorizationContributorTests
 {

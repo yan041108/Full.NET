@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.UnitTests.Notifications;
 
+/// <summary>单元测试（通知）：Ding Talk Approval Sync Callback Verifier。</summary>
 [TestClass]
 public sealed class DingTalkApprovalSyncCallbackVerifierTests
 {

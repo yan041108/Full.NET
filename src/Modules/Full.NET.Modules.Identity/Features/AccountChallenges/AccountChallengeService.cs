@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Notifications.Contracts;
 
+/// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.AccountChallenges;
 
 internal sealed class AccountChallengeService(
