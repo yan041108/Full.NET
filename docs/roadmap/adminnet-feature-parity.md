@@ -118,14 +118,14 @@
 | MemoryPack 可靠事件载荷 | Messaging + Outbox | Core | M1 | **Build-verified**（具体 MemoryPack Integration Event、版本路由、Outbox/Inbox 与 Native AOT 静态契约已有构建和测试门禁；首个真实非加法版本升级演练仍待真实事件触发） |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
 | SignalR、JSON Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |
-| 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Mapped |
-| Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Mapped（需独立安全/AOT Spec：静态 Tool 目录、源生成参数/结果、逐工具权限、租户隔离、人审高影响操作与审计；禁止本机 HTTP 回环转发调用方身份） |
+| 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Build-verified（中立契约、三个适配器及受控测试已实现；真实供应商见 AI-A01） |
+| Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Build-verified（[专项设计](../superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md)及实现已存在；标准互操作/Native/容量按下表分范围记录，不再列为仅 Mapped） |
 
 ## 4. 插件能力基线
 
 | Admin.NET.Pro 插件 | 关键能力 | Full.NET 归属 | 形态 | 状态 |
 |---|---|---|---|---|
-| `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
+| `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Build-verified（Full.NET 自有实现；未验证范围见 §4.3，不代表复制 Admin.NET 插件） |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
 | `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（一期/二期 Host 能力已合入；2026-09-22 governance/openapi/admin-parity WCAG fresh 通过；**Verified** 仍待 admin-real-stack 双库 E2E + 运行时 OpenAPI snapshot；Office 转 PDF 为有意差异） |
@@ -171,21 +171,23 @@ Document 队列 #1 功能已于 2026-09 收口（分享筛选、标签 assignmen
 
 AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还包括 `Microsoft.Extensions.AI` 供应商中立抽象、模型/Token/费用配额、显式 Tool 权限、Agent 会话与步骤、人工审批、MCP Client/Server、AG-UI 或等价标准 Web 协议、租户隔离和可靠审计。预览协议包必须封装在独立适配器中，不能成为核心稳定 API。
 
-### 4.3 AI / Agentic Web 能力状态（2026-09-12）
+### 4.3 AI / Agentic Web 能力状态（2026-10-19 核对）
 
 下列状态只反映当前仓库证据；**Build-verified** 不等于生产 **Verified**，也禁止用目录存在或计划勾选直接升档。详细实施记录见 [`2026-09-08-ai-agentic-web-alignment`](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。
 
 | 能力 | 状态 | 已验证范围 | 未关闭项 |
 | --- | --- | --- | --- |
-| AI Chat（中立 Provider、配额、流式） | Build-verified | 单元/架构门禁；Ollama/OpenAI 受控协议测试 | 双库 real-stack、付费供应商、旧 SSE 公开退役公告 |
-| Agent Runtime（Run/租约/检查点/审批） | Build-verified | 单元 + 租约/检查点集成切片；Native Worker Agent 心跳探针 | 双库审批恢复 E2E、服务重启全链路、容量认证 |
-| 显式工作流 / 多 Agent 示例 | Build-verified | `fullnet-chat-rename-workflow-v1` 静态图、子步骤预算隔离、检查点恢复单元/集成 | 并行节点、生产 Baseline 注册、完整故障矩阵 |
-| MCP Server | Build-verified | 标准元数据端点、互操作/授权集成测试（需 Docker） | Linux 原生 publish 运行、标准外部客户端 CI 证据 |
-| MCP Client（远端连接） | Build-verified | 管理 API、策略、统一执行器、迁移 215 | 故障矩阵、双库 API、真实远端服务验收 |
-| AG-UI | Build-verified | 协议映射与持久事件单元/集成切片 | 标准客户端重连、Native AOT 可达路径 |
-| Embedding | Build-verified | OpenAI/Ollama/Azure 适配、测试端点、预算 | 生产模型验收、双库费用结算 |
-| Azure OpenAI Provider | Build-verified | Chat/Embedding/连通性切片 | 真实 Azure 部署验收、密钥轮换演练 |
-| 知识库检索/解析选型 | 决策完成；正式能力 Planned | R03 独立原生实验比较双库与 Qdrant；首版选用 SQL 有界精确检索，文本 PDF 候选 PdfPig 0.1.16，见 [ADR-0013](../architecture/adr/ADR-0013-ai-retrieval-provider.md) | R04–R06 正式授权/入库/检索、真实模型与宿主 AOT；Qdrant 未生产启用；Capacity-not-verified |
+| AI Chat（中立 Provider、配额、流式） | Build-verified | 中立 Provider、双库/受控协议、预算与取消、精确输入批准切片 | AI-A01 真实供应商计量；AI-A03 真实页面；保留仍有消费者的 SSE，不新增泛化兼容退役前置 |
+| Agent Runtime（Run/租约/检查点/审批） | Build-verified | 双库状态/租约/审批恢复、受控故障、原生 Worker 与完整回执对账的已列证据 | AI-D02 跨模块模拟接收方；AI-A06 未核证恢复组合；AI-A07 专项容量 |
+| 显式工作流 / 多 Agent 示例 | Build-verified（线性示例） | 四节点静态图、共享预算、审批与检查点恢复 | AI-D01 并行节点/持久汇合尚缺；AI-A06 部分并行与故障恢复；测试/Overlay 示例不要求无消费者的 Production Baseline 注册 |
+| MCP Server | Build-verified | 标准 C# SDK 的双库初始化、工具/资源/提示互操作、授权回归；Native 目录/元数据探针 | AI-A04 未核证的 Origin/session/audience 等完整对抗矩阵；不把元数据探针当作全部原生协议认证 |
+| MCP Client（远端连接） | Build-verified | 管理 API、批准能力、统一执行器、双库受控远端 ping、连接生命周期与网络策略 | AI-A04 刷新/撤销、超限/恶意响应、Schema 漂移和超时断流组合差集 |
+| AG-UI | Build-verified | 官方事件语义映射、持久 SSE 与双库重放、取消/终态回归 | AI-A04 标准客户端真实重连/慢消费者；AI-A03 页面；AI-A05 未覆盖 Native 联动 |
+| Embedding | Build-verified | OpenAI/Ollama/Azure 适配、管理员能力测试、双库账本与受控计量 | AI-A01 真实模型计量；AI-A05 原生完整成功联动；AI-A07 专项容量 |
+| Azure OpenAI Provider | Build-verified（合同/受控范围） | Chat/Embedding/连通性、deployment/endpoint 与凭据边界切片 | AI-A01 真实 Azure 部署、认证与换钥；不由适配器存在升级为生产 Verified |
+| 知识库检索/解析选型 | Build-verified（正式功能已实现） | ADR-0013 的双库有界精确检索、TXT/Markdown/PDF/DOCX、索引/重建、权限问答与来源依赖；后续 R04–R11 切片及最终范围已交付 | AI-A01/A02 真实模型质量、AI-A03 页面、AI-A05 原生完整联动及 AI-A07 容量；Qdrant/OCR/外部连接器未生产启用且不属于当前待办 |
+
+本节剩余编号统一指向[AI 唯一活动计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)的 2026-10-19 清单；旧 2026-09-12 表中的已实现/已验证事项不再重复排队。任何 Build-verified 都不表示真实云模型质量、全页面或平台容量已通过。
 
 Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR JSON Hub Protocol、连接鉴权、租户分组和 Redis Backplane；M3 的 Notifications 再消费该抽象实现公告、站内信、未读数和多渠道通知。业务模块不得直接持有 `IHubContext`。
 

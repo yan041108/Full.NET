@@ -10,6 +10,63 @@
 
 ## 0. 状态、授权与代码基线
 
+### AI 当前状态与真实剩余清单（2026-10-19）
+
+本节是当前待办唯一入口；下方各日期摘要、T00–T15 和 R01–R12 原排期保留历史事实，不再各自构成待执行队列。本次按用户“先核实并清理历史未勾选任务”授权核对，基线为 main `cad1998fd711f0125f487781dae0804213405517`，只修改计划和 AI 路线图，不修改运行代码、不重跑 SDK/双库/Native。
+
+原 97 个未勾选条目现按原文逐项处理：**74 项关闭，21 项拆出未完成条件并合并去重，2 项由后续验证或现行规则替代**。关闭表示实现及原记录明确覆盖的测试条件已完成；不是本次重新执行测试，也不把原记录扩大到真实云模型、当前整个脏工作区或生产容量。证据仍按原输入与 UID 范围适用，最新规定批次见[交付验收](../../verification/2026-10-19-ai-final-development-acceptance.md)。
+
+**真正剩余为 9 个工作组：功能开发 1、测试实现/核证 1、验收 7。** 这不是 9 个固定用例，也不把未拆清的旧复合条件算成通过。最近五项关联开发与来源目录本身已收口；下述差距来自整个 AI 规划，不能被该批完成声明覆盖。
+
+- [ ] **AI-D01｜并行工作流/多 Agent 的有界编排（功能开发）**。来源 T14：当前 `AgentWorkflowDefinition`/节点边只支持线性顺序，示例也为串行四节点。完成条件：实现静态并行分支、持久汇合/部分完成恢复，父预算/主体权限不放大，重复回执不重跑，失败或取消不越过审批写节点；对应 Unit、双库及实际 Native 影响集通过。若不建设，须有明确的新范围决定，不能靠本次清理退役它。
+- [ ] **AI-D02｜跨模块写工具的受控接收方与回执故障测试（测试实现/待核证）**。来源 T09：当前本模块重命名、工具未知结果与知识库元数据 Outbox 测试已有；未找到“跨模块写工具→Outbox→幂等接收→回执”的完整模拟接收方测试。先核证现有覆盖，缺失才补有界测试夹具；完成条件为重复投递、业务成功响应丢失、未知结果、回执重放/对账均有原始通过结果，且不开放付款/删除/外发生产 Handler。
+- [ ] **AI-A01｜真实 Provider/部署和计量验收**。来源 T13/R12：提供获准的实际模型配置和费用额度，验证选定 Provider 的 Chat、Embedding、精确计数资格、实际/未知用量和预算结算，Azure deployment/认证与部署换钥分别记录。受控合同测试已通过的内容复用；真实配置缺失时保持未验收，不能用模拟响应认证供应商账单或数据保留承诺。
+- [ ] **AI-A02｜冻结语料的真实 RAG 质量与策略比较**。来源 R02/R06/R09：依赖 AI-A01 的所选模型，在相同语料/来源/Prompt/索引版本运行检索和回答，记录 Recall@K、引用有效性、拒答、人工语义支持、泄漏、用量与耗时。基础/融合/重排按相同输入比较；安全失败为零，未满足阈值保留失败样例且不激活无证据策略，不能把人工参考结果当模型结果。
+- [ ] **AI-A03｜真实双库页面、人工流程与可访问性**。来源 T10/T15/R07/R12：按 R12 已有页面清单覆盖模型、聊天、知识库、来源预览、运行/审批、Prompt、反馈、增量授权；真实 API/SQL Server/MySQL、权限拒绝、取消/重连/迟到响应、移动布局、键盘/辅助阅读分别留证。既有组件、类型检查和受控 HTTP 浏览器结果保留，但不足以把所有页面升为 Verified；人工部分单独记录实际完成者和范围。
+- [ ] **AI-A04｜外部协议客户端及完整故障矩阵**。来源 T10–T12/T15：MCP 标准 C# SDK 的双库 list/call/read 与受控远端 ping 已有后续结果，不重复列为缺失。补齐 AG-UI 标准客户端实际重连/去重/慢消费者/过期游标；MCP 只补未核证的 Origin/session/audience、令牌刷新/撤销、恶意/超限响应、Schema 漂移、注入、超时断流组合，记录准确客户端/协议版本和原始结果，不要求 CI 作为本地通过的额外前置。
+- [ ] **AI-A05｜原生真实解析和成功生成的完整联动**。来源 T15/R12：现有 API/Worker 发布、受控原生拒绝/恢复和 Core44 分组覆盖保持。补真实文件隔离解析→规划→受控模型实际派发→收费→向量/清单持久化→激活/检索的 Native Worker 连通证据；真实云模型另归 AI-A01。对夹具 `persisted-generation` 恢复分支作定向注入，证明确实触发且不重派/重复收费；未触发的旧 TRX 不充当该分支证据。仅按真实变更/缺口运行影响集，不无条件重发 Native 或重跑整个 Core。
+- [ ] **AI-A06｜剩余跨实例/灾难恢复组合矩阵**。来源 T04/T07/T14/T15/R12：先按现有租约、检查点、预算、审批及删除/重建回归做逐场景差集；只补没有原始证据的进程/数据库在关键边界失败、跨实例取消与迟到提交、备份恢复、密钥/网络策略改变及应用失败恢复。双库同语义，核对未知用量、原操作/版本、事件/账本及已完成步骤不重跑。旧代码读兼容、强制 expand-contract 与旧窗口/CI 排队不是当前开发义务；不能因此省略数据完整性和失败恢复。
+- [ ] **AI-A07｜AI 专项本地容量/长时运行**。来源 R12：定义有界多租户、索引/Agent Worker、模型延迟、队列积压及恢复场景，记录实际硬件/配额、吞吐、错误、P95/P99、预算/连接与积压年龄；按实际达到规模报告。已有 28 样本缓存热键实验不覆盖 AI 容量，也不要求先达到一万在途才能做本地验收。未测规模保持 `Capacity-not-verified`，不承诺生产容量。
+
+执行顺序：先做 AI-D02/AI-A04/AI-A05/AI-A06 的现有证据差集与必要局部实现；AI-D01 的并行语义先明确设计再实现。AI-A03 与这些独立准备可连续推进；AI-A01 获得实际配置后进入 AI-A02；AI-A07 在关联实现稳定后集中测量。同一模块批次合并重叠检查，复用未变输入的有效结果，不新增逐任务完整测试、审批或提交门槛。当前用户已有 main 限定提交、不推送授权继续有效。
+
+不另计为待开发：默认关闭的索引授权/重建/PDF/DOCX/自动对账开关，OCR、外部文件连接器、任意动态插件、通用付款/外发 Handler、Qdrant 生产启用和微服务拆分。它们分别是部署选择或明确范围外能力，不能借清理历史清单扩张范围。仍有实际 Vue 消费者的聊天 SSE 也不因旧退役措辞被删除。
+
+#### 历史 97 项核对索引
+
+下表“关闭/拆分/替代”之和必须为 97；每个原条目均在原位置保留核对编号。测试代码存在只证明覆盖场景已写入，通过结论沿用相应历史执行记录和最终验收的明确范围；未找到的条件进入上方待办，没有静默勾选。
+
+| 核对编号 | 原项数 | 关闭 / 拆分 / 替代 | 实现、测试或记录及结论边界 |
+| --- | ---: | --- | --- |
+| E-T00 | 5 | 4 / 0 / 1 | [专项设计](../specs/2026-09-08-ai-agentic-web-security-runtime-design.md)、[第三方声明](../../../THIRD-PARTY-NOTICES)、[中央版本](../../../Directory.Packages.props)、[最终发布记录](../../verification/2026-10-19-ai-final-development-acceptance.md)；真实 Host 发布替代早期最小实验；本地验收替代 Actions 强制前置。 |
+| E-T02 | 4 | 4 / 0 / 0 | [模型工厂契约](../../../src/AI/Full.NET.AI.Abstractions/Models/IAiModelClientFactory.cs)、[架构守卫](../../../tests/Full.NET.ArchitectureTests/AiDependencyBoundaryTests.cs)；原 T02 实施记录已给出 Unit、架构及分析结果；不外推真实付费 Provider。 |
+| E-T03 | 5 | 5 / 0 / 0 | [凭据边界回归](../../../tests/Full.NET.UnitTests/Ai/AiCredentialBoundaryTests.cs)、[HTTP Provider](../../../src/AI/Full.NET.AI.Providers.Http)；T03 与 R11a 网络记录覆盖受控协议、凭据及网络边界；真实部署轮换归 AI-A01。 |
+| E-T04 | 1 | 0 / 1 / 0 | [聊天执行回归](../../../tests/Full.NET.UnitTests/Ai/AiChatExecutionTests.cs)、[生成生命周期](../../../tests/Full.NET.UnitTests/Ai/AiChatGenerationLifecycleTests.cs)；实现和受控取消已有；未逐阶段核实的真实跨实例故障仍归 AI-A06。 |
+| E-T05 | 2 | 2 / 0 / 0 | [统一工具执行器](../../../src/AI/Full.NET.Agents/Tools/AgentToolExecutor.cs)、[工具双库测试](../../../tests/Full.NET.IntegrationTests/Ai)；只关闭静态目录、精确授权及受控双库能力；不启用付款、外发等 Handler。 |
+| E-T06 | 3 | 3 / 0 / 0 | [预算存储](../../../src/Modules/Full.NET.Modules.Ai/Budgets/AiOperationBudgetStore.cs)、[双库预算断言](../../../tests/Full.NET.IntegrationTests/Ai/AiOperationBudgetAssertions.cs)；原 T06、R10 与最终批次记账幂等、月份/范围及回滚证据保留；不认证供应商账单。 |
+| E-T07 | 6 | 5 / 1 / 0 | [运行协调器](../../../src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs)、[状态回归](../../../tests/Full.NET.UnitTests/Ai/AiAgentRunStateTests.cs)；持久租约、检查点、事件、心跳准入已有；逐进程/数据库故障矩阵余项归 AI-A06。 |
+| E-T08 | 4 | 4 / 0 / 0 | [工具循环](../../../src/AI/Full.NET.Agents/Runtime/AgentToolLoop.cs)、[逐步凭证回归](../../../tests/Full.NET.UnitTests/Ai/AiAgentToolLoopCursorTests.cs)；原 T08、R10u–R10y 覆盖稳定操作身份、累计预算与恢复；不宣称并行工作流已实现。 |
+| E-T09 | 5 | 4 / 1 / 0 | [审批消费](../../../src/Modules/Full.NET.Modules.Ai/Features/ManageAgentApprovals/AiAgentApprovalConsumption.cs)、[对账回归](../../../tests/Full.NET.UnitTests/Ai/AiAgentReconciliationTests.cs)；本模块写入、审批及未知结果对账已交付；未找到跨模块写工具 Outbox/Inbox 模拟接收方完整证据，归 AI-D02。 |
+| E-T10 | 5 | 4 / 1 / 0 | [AG-UI 协议测试](../../../tests/Full.NET.IntegrationTests/Ai/AgUiProtocolTests.cs)、[工作台](../../../ui/admin/src/views/AiAgentRunsView.vue)；持久 SSE 及组件/类型检查有原结果；标准客户端、完整页面认证分别归 AI-A04/AI-A03。 |
+| E-T11 | 5 | 3 / 2 / 0 | [标准 MCP SDK 双库互操作](../../../tests/Full.NET.IntegrationTests/Ai/McpServerInteropTests.cs)、[授权测试](../../../tests/Full.NET.IntegrationTests/Ai/McpServerAuthorizationTests.cs)；旧 T15 后续记录已有标准 SDK 实测；Origin/session/audience 等完整对抗矩阵未逐项核证，归 AI-A04。 |
+| E-T12 | 4 | 3 / 1 / 0 | [MCP 连接生命周期](../../../tests/Full.NET.UnitTests/Ai/McpClientConnectionManagerTests.cs)、[双库批准工具调用](../../../tests/Full.NET.IntegrationTests/Ai/McpClientInteropTests.cs)；已有受控远端 ping、策略、连接取消与释放；刷新/撤销、断流及恶意响应的完整组合矩阵归 AI-A04。 |
+| E-T13 | 4 | 3 / 1 / 0 | [Embedding 合同回归](../../../tests/Full.NET.UnitTests/Ai/AiEmbeddingProviderContractTests.cs)、[能力测试入口](../../../src/Modules/Full.NET.Modules.Ai/Features/TestEmbeddings/Endpoint.cs)；三个适配器与预算接线已实现；Azure 真实部署和实收费不由受控合同测试关闭。 |
+| E-T14 | 4 | 2 / 2 / 0 | [线性工作流定义](../../../src/AI/Full.NET.Agents/Workflows/AgentWorkflowDefinition.cs)、[工作流回归](../../../tests/Full.NET.UnitTests/Ai/AgentWorkflowRunnerTests.cs)；四节点静态示例存在；并行节点/部分汇合没有实现证明，保留 AI-D01，恢复故障归 AI-A06。 |
+| E-T15 | 6 | 1 / 4 / 1 | [最终 Native 记录](../../verification/2026-10-19-ai-final-development-acceptance.md)、[现行规则](../../../rules/development-quality.md)；原 T15 后续已有迁移与协议双库结果；这里只转移真实余项，不重复做已通过的元数据/心跳探针。历史兼容义务按现行直接演进规则处理。 |
+| E-R02 | 1 | 0 / 1 / 0 | [评估说明](../../../tests/ai-evaluation/README.md)；离线人工参考不是端到端模型基线；AI-A02 保留 not_measured。 |
+| E-R05 | 4 | 4 / 0 / 0 | [索引执行](../../../src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeIndexPersistenceService.cs)、[索引与清理运维](../../operations/ai-knowledge-bases.md)；R05 各后续切片及最终 Native 覆盖已交付解析、租约、收费、重试与删除；真实完整原生联动仍归 AI-A05。 |
+| E-R06 | 4 | 3 / 1 / 0 | [问答与历史实现](../../../src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgePaidAnswerService.cs)、[来源依赖回归](../../../tests/Full.NET.UnitTests/Ai/AiKnowledgeAnswerLineageTests.cs)；授权、引用和传播已实现；质量门槛按 AI-A02 单独关闭。 |
+| E-R06b2 | 5 | 5 / 0 / 0 | [历史来源守卫](../../../tests/Full.NET.UnitTests/Ai/AiKnowledgeAnswerHistoryGuardTests.cs)、[原生 AI 入口断言](../../../tests/Full.NET.IntegrationTests/NativeAot/NativeApiE2EAssertions.cs)；R06b2c/d 后续公开接线、依赖传播、双库与原生拒绝路径已有记录；不把原生拒绝探针写成成功云回答。 |
+| E-R07 | 3 | 3 / 0 / 0 | [Vue 知识目录](../../../ui/admin/src/components/AiKnowledgeDirectory.vue)、[最终客户端记录](../../verification/2026-10-19-ai-final-development-acceptance.md)；页面实现、组件、类型与受控 HTTP 已完成；真实双库页面、人工及可访问性仍归 AI-A03。 |
+| E-R08 | 4 | 4 / 0 / 0 | [元数据事件计划](2026-10-16-ai-document-metadata-events.md)、[自动恢复计划](2026-10-16-ai-incremental-auto-recovery.md)、[目录收口](2026-10-16-ai-incremental-change-directory.md)；后续独立重建、意图、历史恢复、可靠事件、DOCX 和收费授权均有切片交付；OCR 与外部连接器保持范围外。 |
+| E-R09 | 3 | 2 / 1 / 0 | [Prompt 管理](../../../src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/AiPromptManagementService.cs)、[反馈准入](../../../src/Modules/Full.NET.Modules.Ai/Features/ManageAnswerFeedbackReview/AiFeedbackEvaluationService.cs)；不可变版本、策略绑定及受控样例准入已交付；真实质量比较和策略激活证据归 AI-A02。 |
+| E-R10 | 3 | 3 / 0 / 0 | [节点凭证](../../../src/AI/Full.NET.Agents/Workflows/AgentWorkflowNodeReceipt.cs)、[完整回执对账](../../../src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentCompletedReceiptReconciliation.cs)；R10a–R10y、最终关联批次已覆盖本条实现与受控回归；跨模块模拟接收方不借此关闭。 |
+| E-R11 | 2 | 2 / 0 / 0 | [路由边界](../../operations/ai-task-routing.md)、[最终批次](../../verification/2026-10-19-ai-final-development-acceptance.md)；分类、私网失败关闭及阶段观测已随 R11 后续切片交付；专家群聊、动态插件、微服务拆分不是本批待办。 |
+| E-R12 | 4 | 0 / 4 / 0 | [最终验收与边界](../../verification/2026-10-19-ai-final-development-acceptance.md)；已通过的 API/Worker 发布及 Core44 分组证据保留；真实 Provider、完整联动、人工、故障矩阵和容量仍按清单逐组闭合。 |
+| E-R11u | 1 | 1 / 0 / 0 | [最终关联批次收口](../../verification/2026-10-19-ai-final-development-acceptance.md)；原双库/架构/Native 排队项已由后续规定范围证据收口；不复活旧窗口或把 40+4 写成同轮 44 全绿。 |
+
+下方历史的“尚未实现”“待窗口”“Actions 前置”等仅代表当时输入。当前本地验收规则及开发底座直接演进规则分别替代旧环境前置和泛化向后兼容义务；本节不改变权限、隔离、账本、双库、可靠事件和 Native AOT 门禁。
+
 ### 2026-10-02 开发交付摘要
 
 - 当前用户明确要求“根据 AI 开发计划，进入开发交付”，随后要求“提交代码（以后每一项完成开发就提交）并继续下一项执行”；按任务完成验证后提交，再顺序推进，不自动推送或派生代理。
@@ -224,11 +281,11 @@ public interface IAgentRunStore
 
 **文件：** Create `docs/superpowers/specs/2026-09-08-ai-agentic-web-security-runtime-design.md`；Modify 总体规格 §18（仅补链接及实际批准的澄清）、`Directory.Packages.props`、`tests/Full.NET.ArchitectureTests/AiDependencyBoundaryTests.cs`（新增）、`eng/testing/test-matrix.json`。临时依赖实验使用任务专属 `artifacts/ai-agentic-dependency-probe/`，不纳入正式 solution 或发布物；有效测试随后迁入对应纵向切片。T00 不依赖 T02 项目存在。
 
-- [ ] 将本文 §2 的所有权、审批、身份、外发、MCP OAuth、协议版本、保留策略和迁移决定整理为专项 Spec，记录当前用户授权、适用范围与未验证限制。
-- [ ] 核对微软 AI/Agent Framework、MCP SDK、AG-UI 的具体 NuGet 版本、稳定/预览、维护/许可与传递依赖，集中锁定并更新实际第三方许可清单；不复制不明版本代码。
-- [ ] 在临时最小 net10.0 宿主中用现有聊天的流式请求样本与一个静态工具验证 JSON 源生成、DI、FunctionCall 内容和 Checkpoint 格式的静态闭包。实验结束时记录准确包版本、告警与运行结果；这只是依赖候选证据，T02/T07/T10/T11 接入真实宿主后仍验证实际可达闭包。任何无法验证的供应商能力保持未验证。
-- [ ] 为后续真实测试新增 `ai-provider`、`ai-runtime`、`ai-tools`、`ai-protocols`、`ai-agentic-boundaries` 的矩阵聚焦集；只在对应测试已存在时登记，最低发现数按真实测试维护，不统一写 1。
-- [ ] 执行候选依赖 AOT 分析与已有架构测试；Linux publish/原生测试按 §5 交给 Actions。远端未授权或不可用时允许继续本地实现，但不得关闭该原生验证门禁或声明兼容。若必须改变 Host.Api/Worker 运行边界，先列出替代方案和 ADR 决策，不默默引入 JIT 网关或关闭原有能力。
+- [x] 将本文 §2 的所有权、审批、身份、外发、MCP OAuth、协议版本、保留策略和迁移决定整理为专项 Spec，记录当前用户授权、适用范围与未验证限制。 【2026-10-19 核对：E-T00。】
+- [x] 核对微软 AI/Agent Framework、MCP SDK、AG-UI 的具体 NuGet 版本、稳定/预览、维护/许可与传递依赖，集中锁定并更新实际第三方许可清单；不复制不明版本代码。 【2026-10-19 核对：E-T00。】
+- **已替代**：在临时最小 net10.0 宿主中用现有聊天的流式请求样本与一个静态工具验证 JSON 源生成、DI、FunctionCall 内容和 Checkpoint 格式的静态闭包。实验结束时记录准确包版本、告警与运行结果；这只是依赖候选证据，T02/T07/T10/T11 接入真实宿主后仍验证实际可达闭包。任何无法验证的供应商能力保持未验证。 【2026-10-19 核对：E-T00。】 最小依赖候选实验被真实API/Worker发布与静态闭包证据替代，不宣称补跑旧实验。
+- [x] 为后续真实测试新增 `ai-provider`、`ai-runtime`、`ai-tools`、`ai-protocols`、`ai-agentic-boundaries` 的矩阵聚焦集；只在对应测试已存在时登记，最低发现数按真实测试维护，不统一写 1。 【2026-10-19 核对：E-T00。】
+- [x] 执行候选依赖 AOT 分析与已有架构测试；Linux publish/原生测试按 §5 交给 Actions。远端未授权或不可用时允许继续本地实现，但不得关闭该原生验证门禁或声明兼容。若必须改变 Host.Api/Worker 运行边界，先列出替代方案和 ADR 决策，不默默引入 JIT 网关或关闭原有能力。 【2026-10-19 核对：E-T00。】 当前执行位置以开发质量 §11 的本地验收规则为准，不恢复历史 Actions 前置。
 
 **拒绝条件：** 抽象依赖具体业务模块、Full.NET 公共 API 泄漏 SDK 对象、依赖只能依靠无界反射或通配 linker root 运行。
 
@@ -278,11 +335,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create §2.1 中 Abstractions、OpenAI 项目；Create `Models/ModelBinding.cs`、`Models/IAiModelClientFactory.cs`、`Full.NET.AI.Providers.OpenAI/OpenAiModelClientFactory.cs`；Modify `Full.NET.slnx`、`src/Composition/Full.NET.Composition/Full.NET.Composition.csproj`、`src/Modules/Full.NET.Modules.Ai/Full.NET.Modules.Ai.csproj`、`AiModule.cs`、`Features/ManageChatSessions/AiChatStreamService.cs`；Create `tests/Full.NET.UnitTests/Ai/AiModelClientFactoryTests.cs`。
 
-- [ ] 以假 `IChatClient` 证明现有聊天只依赖中立响应/用量类型；测试禁用模型、未知 Provider、错租户模型、客户端取消和释放。
-- [ ] 实现 §3 工厂签名，模型选择在 Ai 中产生已授权 ModelBinding；不让业务模块传任意 Endpoint 或密钥给工具。
+- [x] 以假 `IChatClient` 证明现有聊天只依赖中立响应/用量类型；测试禁用模型、未知 Provider、错租户模型、客户端取消和释放。 【2026-10-19 核对：E-T02。】
+- [x] 实现 §3 工厂签名，模型选择在 Ai 中产生已授权 ModelBinding；不让业务模块传任意 Endpoint 或密钥给工具。 【2026-10-19 核对：E-T02。】
 - [x] OpenAI 官方与兼容网关按能力配置区分，未知能力失败关闭，不默认每个兼容服务都支持 usage、tools 和 embeddings。当前真实开放能力仅为文本与显式流式用量；其他能力不宣告可用。
-- [ ] 将现有 ProviderKey、配置 ID 和聊天路由保持不变；核心聊天代码不再 switch ProviderKey。架构测试拒绝 Modules.Ai 中出现供应商 SDK 调用或供应商 URL 拼装。
-- [ ] 运行 `ai-provider` 与 `ai-agentic-boundaries`；同一源码下重复套件使用 `--no-build`。
+- [x] 将现有 ProviderKey、配置 ID 和聊天路由保持不变；核心聊天代码不再 switch ProviderKey。架构测试拒绝 Modules.Ai 中出现供应商 SDK 调用或供应商 URL 拼装。 【2026-10-19 核对：E-T02。】
+- [x] 运行 `ai-provider` 与 `ai-agentic-boundaries`；同一源码下重复套件使用 `--no-build`。 【2026-10-19 核对：E-T02。】
 
 ### T03：迁移 Ollama、凭据和网络/错误边界
 
@@ -298,11 +355,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create Ollama 项目及 `OllamaModelClientFactory.cs`、`OllamaChatClient.cs`；Create `src/AI/Full.NET.AI.Abstractions/Credentials/IProtectedModelCredentialStore.cs`、`src/Modules/Full.NET.Modules.Ai/Providers/AiProtectedModelCredentialStore.cs`、`Providers/AiModelAccessPolicy.cs`；Modify 既有 `Security/AiApiKeySecretProtector.cs`、模型配置与连通性服务；Create `tests/Full.NET.UnitTests/Ai/AiProviderCredentialIsolationTests.cs`、`AiProviderEndpointPolicyTests.cs`。响应读取/错误映射实现随 Provider 归属，确有共享消费者再抽共享辅助类。
 
-- [ ] 为旧 purpose 密文、密钥轮换、两个租户并发、客户端释放、没有凭据和解密失败建立测试；断言密钥只出现在目标 Provider 请求，模型/审计/日志均不携带。
-- [ ] 将 T01 的协议测试迁至 Provider；Ollama 按 NDJSON 增量实现中立接口，错误、结束标志和 usage 做明确映射。
-- [ ] 用受控 HTTP handler/解析器测试允许地址、拒绝元数据地址、重定向到禁区、DNS 变化、超大响应、挂起流和取消；生产连接策略必须约束实际连接而非仅第一次 DNS 查询。
-- [ ] 将凭据保护/解保护行为移到 Provider 边界；配置入口保留原格式兼容。新增网络与外发策略使用 Ai 强类型自有配置；必要持久化使用 AiProviderPolicy 双库新增迁移。
-- [ ] 切换新 Provider 后删除旧重复协议代码及无调用者 DI，保留兼容适配直到聚焦测试通过。未知外部错误统一映射机器码，不向前端回显原始正文。
+- [x] 为旧 purpose 密文、密钥轮换、两个租户并发、客户端释放、没有凭据和解密失败建立测试；断言密钥只出现在目标 Provider 请求，模型/审计/日志均不携带。 【2026-10-19 核对：E-T03。】
+- [x] 将 T01 的协议测试迁至 Provider；Ollama 按 NDJSON 增量实现中立接口，错误、结束标志和 usage 做明确映射。 【2026-10-19 核对：E-T03。】
+- [x] 用受控 HTTP handler/解析器测试允许地址、拒绝元数据地址、重定向到禁区、DNS 变化、超大响应、挂起流和取消；生产连接策略必须约束实际连接而非仅第一次 DNS 查询。 【2026-10-19 核对：E-T03。】
+- [x] 将凭据保护/解保护行为移到 Provider 边界；配置入口保留原格式兼容。新增网络与外发策略使用 Ai 强类型自有配置；必要持久化使用 AiProviderPolicy 双库新增迁移。 【2026-10-19 核对：E-T03。】
+- [x] 切换新 Provider 后删除旧重复协议代码及无调用者 DI，保留兼容适配直到聚焦测试通过。未知外部错误统一映射机器码，不向前端回显原始正文。 【2026-10-19 核对：E-T03。】
 
 ### T04：拆分聊天预检、执行和传输
 
@@ -312,7 +369,7 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 - [x] 增加测试（双库 API 用例已编译，真实执行待 CI）：响应开始前无权限 403、无会话 404、重复生成 409、输入错误 422；配额拒绝保留既有策略状态并使用稳定错误码。响应开始后用 SSE 错误事件，不修改已发送状态码。
 - [x] 将预检/获取执行槽位置于 StartAsync 前，模型执行不持有 HttpContext；现有 JSON/SSE DTO 与 OpenAPI 必要变更同步生成。
-- [ ] 测试跨实例取消、租约丢失、HTTP 断开、最终写入失败和结算失败；独立清理必须有截止时间，不能覆盖新代次。当前单元测试已覆盖租约丢失、断开、写入零行/异常、结算/释放异常与忽略取消的驱动；真实跨实例/双库执行仍待验收。
+- **部分完成，余项归并至 `AI-A06`**：测试跨实例取消、租约丢失、HTTP 断开、最终写入失败和结算失败；独立清理必须有截止时间，不能覆盖新代次。当前单元测试已覆盖租约丢失、断开、写入零行/异常、结算/释放异常与忽略取消的驱动；真实跨实例/双库执行仍待验收。 【2026-10-19 核对：E-T04。】
 - [x] Vue 同时识别 ProblemDetails 与流错误，不把 403/409 当流解析失败；同步类型与聚焦组件测试。
 
 ### T05：交付统一工具执行器与真实只读工具
@@ -323,11 +380,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create Agents 项目及 `Tools/IAgentToolExecutor.cs`、`Tools/AgentToolExecutor.cs`、`Tools/AgentToolRegistry.cs`；Create `src/AI/Full.NET.AI.Abstractions/Tools/ToolInvocation.cs`；Modify Ai 的 `Domain/AiAgentToolCatalog.cs`、`Features/ManageAgentTools/AiAgentToolCallAuditWriter.cs`、`AiModule.cs`；Create `Features/ManageAgentTools/Handlers/PingToolHandler.cs`、`ListModelsToolHandler.cs`、`ListChatSessionsToolHandler.cs`；Create `tests/Full.NET.UnitTests/Ai/AiToolExecutionSecurityTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AiToolExecutionAssertions.cs` 及同名 SqlServer/MySql 测试包装。
 
-- [ ] 建立调用计数测试：未知/禁用工具、无 Handler、额外参数、跨租户、非本人、无权限、身份失效时 Handler 调用次数必须为 0，拒绝原因有安全审计。
+- [x] 建立调用计数测试：未知/禁用工具、无 Handler、额外参数、跨租户、非本人、无权限、身份失效时 Handler 调用次数必须为 0，拒绝原因有安全审计。 【2026-10-19 核对：E-T05。】
 - [x] 实现 §3 ExecuteAsync；三种 Handler 使用 Ai 既有查询/所有权能力，所有参数使用静态 JsonTypeInfo；目录中的 planned 不进入可调用列表。
 - [x] 所有调用绑定 OperationId，设置耗时、次数、输出尺寸限制；返回值标为不可信数据，不能被拼接为系统授权指令。
 - [x] 审计写入失败时不得继续未派发的调用；已执行调用回执写入失败须明确失败状态，不伪造 succeeded。T09 前只允许只读工具。
-- [ ] 双库验证当前用户只能看自己的会话；人工绕过前端或从模型直接构造参数也不能读取他人数据。
+- [x] 双库验证当前用户只能看自己的会话；人工绕过前端或从模型直接构造参数也不能读取他人数据。 【2026-10-19 核对：E-T05。】
 
 ### T06：统一模型调用预算、价格与审计
 
@@ -337,10 +394,10 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create `src/AI/Full.NET.AI.Abstractions/Budgets/AiExecutionBudget.cs`、`Budgets/IAiOperationBudgetStore.cs`；Modify `src/Modules/Full.NET.Modules.Ai/Streaming/AiChatQuotaGuard.cs`、`Persistence/AiQuotaReservationSql.cs`、`Features/ManageTenantQuotas/`；Create `Persistence/AiOperationBudgetSql.cs`、`Persistence/AiModelPriceSql.cs`；AiOperationBudget 双库迁移；Create `tests/Full.NET.UnitTests/Ai/AiOperationBudgetTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AiOperationBudgetAssertions.cs` 及 SqlServer/MySql 包装。
 
-- [ ] 测试同一 OperationId 重复预留只扣一次；请求摘要不同返回冲突；跨月结算回到原预留月份，Host/Tenant 不串账。
-- [ ] 原子检查并预留 Token、请求数和金额；费用使用价格版本及币种，结算重复/乱序不得重复调整。取消/缺失 usage 保守保留并可对账。
+- [x] 测试同一 OperationId 重复预留只扣一次；请求摘要不同返回冲突；跨月结算回到原预留月份，Host/Tenant 不串账。 【2026-10-19 核对：E-T06。】
+- [x] 原子检查并预留 Token、请求数和金额；费用使用价格版本及币种，结算重复/乱序不得重复调整。取消/缺失 usage 保守保留并可对账。 【2026-10-19 核对：E-T06。】
 - [x] 绑定单 Run、单租户和 Host 默认上限；没有硬费用计量条件时拒绝要求硬费用上限的运行，而不是当作免费。
-- [ ] 测试两实例竞争最后一个预算名额、数据库中断、结算失败重放、负数/溢出用量；错误帧不能释放可能已消耗的全部预留。
+- [x] 测试两实例竞争最后一个预算名额、数据库中断、结算失败重放、负数/溢出用量；错误帧不能释放可能已消耗的全部预留。 【2026-10-19 核对：E-T06。】
 - [x] 增加低基数模型调用量、失败、拒绝和费用指标；用户/租户/RunId 仅进受控 Trace/审计，不能作为无界 Metrics label。
 
 ### T07：持久化 Run/Step/Checkpoint/事件与 Worker
@@ -349,12 +406,12 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create `src/AI/Full.NET.Agents/Runtime/AgentRunCoordinator.cs`、`AgentRunLease.cs`、`Persistence/IAgentRunStore.cs`、`Framework/AgentFrameworkAdapter.cs`；Create `src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunStore.cs`、`AiAgentRunWorker.cs`、`Persistence/AiAgentRunSql.cs`、`AiAgentStepSql.cs`、`AiAgentCheckpointSql.cs`、`AiAgentEventSql.cs`、`Serialization/AiAgentJsonSerializerContext.cs`；Modify AiModule、Composition/Host Profile；AiAgentRuntime 双库迁移；Create `tests/Full.NET.UnitTests/Ai/AiAgentRunStateTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AiAgentRecoveryAssertions.cs` 及双库包装。
 
-- [ ] 为 §2.4 全部状态转换建立表驱动测试；终态不可重开，旧租约不能提交，新 Worker 不重做已提交步骤。
-- [ ] 实现受控版本化 DTO、Dapper 双库存储和源生成物化；原子提交状态、步骤、Checkpoint 与有序事件，外部模型/工具不进入事务。
-- [ ] Agent Framework 类型仅在 Framework 目录内部使用；以框架支持的 C# 持久化扩展接入自有 Store，检查点写入失败不能报告步骤已可恢复。
-- [ ] API 创建 Run 幂等返回 RunId；Worker claim/renew/release、取消、重启恢复使用可信新作用域，不持有请求级数据库连接或令牌。
-- [ ] 在“预算预留后、模型完成后、步骤提交前、事件发送前”注入进程/数据库失败，逐个验证费用、回执和事件状态；两 Worker 对同一 Run 只有一个有效执行者。
-- [ ] Worker 健康状态必须反映租约/数据库及所需依赖；运行能力禁用或不可用时拒绝新 Run，不接受后永久排队。
+- [x] 为 §2.4 全部状态转换建立表驱动测试；终态不可重开，旧租约不能提交，新 Worker 不重做已提交步骤。 【2026-10-19 核对：E-T07。】
+- [x] 实现受控版本化 DTO、Dapper 双库存储和源生成物化；原子提交状态、步骤、Checkpoint 与有序事件，外部模型/工具不进入事务。 【2026-10-19 核对：E-T07。】
+- [x] Agent Framework 类型仅在 Framework 目录内部使用；以框架支持的 C# 持久化扩展接入自有 Store，检查点写入失败不能报告步骤已可恢复。 【2026-10-19 核对：E-T07。】
+- [x] API 创建 Run 幂等返回 RunId；Worker claim/renew/release、取消、重启恢复使用可信新作用域，不持有请求级数据库连接或令牌。 【2026-10-19 核对：E-T07。】
+- **部分完成，余项归并至 `AI-A06`**：在“预算预留后、模型完成后、步骤提交前、事件发送前”注入进程/数据库失败，逐个验证费用、回执和事件状态；两 Worker 对同一 Run 只有一个有效执行者。 【2026-10-19 核对：E-T07。】
+- [x] Worker 健康状态必须反映租约/数据库及所需依赖；运行能力禁用或不可用时拒绝新 Run，不接受后永久排队。 【2026-10-19 核对：E-T07。】
 
 ### T08：单 Agent 工具循环与版本化恢复
 
@@ -362,10 +419,10 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create `src/AI/Full.NET.Agents/Definitions/AgentDefinitionRegistry.cs`、`Runtime/AgentToolLoop.cs`、`Runtime/AgentCheckpointCompatibility.cs`；Create `src/Modules/Full.NET.Modules.Ai/Features/ManageAgentRuns/Endpoint.cs` 与管理服务；Create `tests/Full.NET.UnitTests/Ai/AiAgentToolLoopTests.cs`、`AiCheckpointCompatibilityTests.cs`。
 
-- [ ] 用脚本化 `IChatClient` 响应产生工具调用，断言只经过统一执行器、工具 CallId 和 OperationId 稳定、输出按工具消息传回，未注册工具不会执行。
-- [ ] 覆盖无限工具循环、并行工具总次数、步骤预算、Token/费用耗尽、模型改写 TenantId、工具输出伪造系统指令；服务端权限结果不受模型文本改变。
-- [ ] 固化 Definition/Tool/Model/Framework/Checkpoint 格式版本；不兼容版本停止恢复并返回明确错误，不自动用新工作流解释旧状态。
-- [ ] 模型流中断只保留实际收到的部分结果和失败 Attempt；再次生成作为新的、可审计 Attempt，不能伪装为原流续传。
+- [x] 用脚本化 `IChatClient` 响应产生工具调用，断言只经过统一执行器、工具 CallId 和 OperationId 稳定、输出按工具消息传回，未注册工具不会执行。 【2026-10-19 核对：E-T08。】
+- [x] 覆盖无限工具循环、并行工具总次数、步骤预算、Token/费用耗尽、模型改写 TenantId、工具输出伪造系统指令；服务端权限结果不受模型文本改变。 【2026-10-19 核对：E-T08。】
+- [x] 固化 Definition/Tool/Model/Framework/Checkpoint 格式版本；不兼容版本停止恢复并返回明确错误，不自动用新工作流解释旧状态。 【2026-10-19 核对：E-T08。】
+- [x] 模型流中断只保留实际收到的部分结果和失败 Attempt；再次生成作为新的、可审计 Attempt，不能伪装为原流续传。 【2026-10-19 核对：E-T08。】
 
 ### T09：人工审批、委托和副作用恢复
 
@@ -373,11 +430,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create `src/AI/Full.NET.Agents/Approvals/AgentApprovalGate.cs`；Create Ai 的 `Features/ManageAgentApprovals/Endpoint.cs`、审批/委托服务、`Features/ManageAgentTools/Handlers/RenameChatSessionToolHandler.cs`、`Persistence/AiAgentApprovalSql.cs`、`AiAgentDelegationSql.cs`；AiAgentApproval 双库迁移；Modify `AiAuthorizationContributor.cs` 和对应权限/序列化；Create `tests/Full.NET.UnitTests/Ai/AiApprovalBindingTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AiApprovalRecoveryAssertions.cs` 及双库包装。
 
-- [ ] 请求审批时保存完整受保护执行参数和规范化 ArgumentsHash；审批端返回人能理解的动作、目标、变更、范围、费用上界和有效期，不只显示不可读哈希。
-- [ ] 审批绑定 Run/Operation/主体/租户/工具版本/参数哈希/策略版本/期限；决定重复提交幂等，参数或版本变化重新申请。未授权审批人、过期、已消费和被撤销授权必须拒绝。
-- [ ] 首个写工具在 Ai 同一事务中消费审批、记录操作回执并重命名会话；审批同意不能绕过会话所有权。持久委托创建/撤销有独立权限和审计。
-- [ ] 覆盖两实例同时消费审批、执行成功后响应丢失、批准后权限撤销、请求会话过期、取消与审批竞争；相同操作最多产生一次本地业务变更。
-- [ ] 为跨模块写工具建立 Outbox/幂等回执的模拟接收方测试：结果未知进入 reconciliation_required；付款/外发等尚无生产 Handler 的工具保持拒绝，不创建虚假的通用付款工具。
+- [x] 请求审批时保存完整受保护执行参数和规范化 ArgumentsHash；审批端返回人能理解的动作、目标、变更、范围、费用上界和有效期，不只显示不可读哈希。 【2026-10-19 核对：E-T09。】
+- [x] 审批绑定 Run/Operation/主体/租户/工具版本/参数哈希/策略版本/期限；决定重复提交幂等，参数或版本变化重新申请。未授权审批人、过期、已消费和被撤销授权必须拒绝。 【2026-10-19 核对：E-T09。】
+- [x] 首个写工具在 Ai 同一事务中消费审批、记录操作回执并重命名会话；审批同意不能绕过会话所有权。持久委托创建/撤销有独立权限和审计。 【2026-10-19 核对：E-T09。】
+- [x] 覆盖两实例同时消费审批、执行成功后响应丢失、批准后权限撤销、请求会话过期、取消与审批竞争；相同操作最多产生一次本地业务变更。 【2026-10-19 核对：E-T09。】
+- **部分完成，余项归并至 `AI-D02`**：为跨模块写工具建立 Outbox/幂等回执的模拟接收方测试：结果未知进入 reconciliation_required；付款/外发等尚无生产 Handler 的工具保持拒绝，不创建虚假的通用付款工具。 【2026-10-19 核对：E-T09。】
 
 ### T10：标准 AG-UI 与 Vue 工作台
 
@@ -385,11 +442,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create AG-UI 项目及 `AgUiEndpoint.cs`、`AgUiEventMapper.cs`；Create `ui/admin/src/api/ai-agent-runs.ts`、`ui/admin/src/views/AiAgentRunsView.vue`、`AiAgentRunsView.test.ts`；Modify AiChatView/工具页按实际入口复用；Create `tests/Full.NET.UnitTests/Ai/AgUiEventContractTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AgUiProtocolTests.cs`。
 
-- [ ] 使用官方事件契约测试 run/message/tool 生命周期顺序、错误、取消、审批等待/恢复；不把自定义 event 名称当作标准。
-- [ ] 映射 T07 的持久事件，确保重连不触发重跑工具；重复事件去重、有界缓冲、慢客户端和过期游标均有明确行为。
-- [ ] 请求身份只来自认证边界；AG-UI 输入中的 messages、tools、state 和审批信息均不扩大服务端注册目录或授权。
-- [ ] Vue 页面显示 Run 状态、步骤摘要、Token/费用及 unknown、审批操作和稳定错误；逐按钮权限来自同一权威目录。无权限时直接 API 仍拒绝。
-- [ ] `pnpm --filter @fullnet/admin typecheck` 与聚焦组件测试通过；真实 AG-UI 客户端互操作进入 Actions，页面集中验收前不升级 Verified。
+- [x] 使用官方事件契约测试 run/message/tool 生命周期顺序、错误、取消、审批等待/恢复；不把自定义 event 名称当作标准。 【2026-10-19 核对：E-T10。】
+- [x] 映射 T07 的持久事件，确保重连不触发重跑工具；重复事件去重、有界缓冲、慢客户端和过期游标均有明确行为。 【2026-10-19 核对：E-T10。】
+- [x] 请求身份只来自认证边界；AG-UI 输入中的 messages、tools、state 和审批信息均不扩大服务端注册目录或授权。 【2026-10-19 核对：E-T10。】
+- [x] Vue 页面显示 Run 状态、步骤摘要、Token/费用及 unknown、审批操作和稳定错误；逐按钮权限来自同一权威目录。无权限时直接 API 仍拒绝。 【2026-10-19 核对：E-T10。】
+- **部分完成，余项归并至 `AI-A03`、`AI-A04`**：`pnpm --filter @fullnet/admin typecheck` 与聚焦组件测试通过；真实 AG-UI 客户端互操作进入 Actions，页面集中验收前不升级 Verified。 【2026-10-19 核对：E-T10。】
 
 ### T11：MCP Server 的工具、资源、提示和标准授权
 
@@ -397,11 +454,11 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create MCP 项目及 `Server/McpServerRegistration.cs`、`McpToolAdapter.cs`、`McpResourceAdapter.cs`、`McpPromptAdapter.cs`、`McpAuthorizationOptions.cs`；Modify Composition 的 API 装配；Create `tests/Full.NET.UnitTests/Ai/McpExposurePolicyTests.cs`、`tests/Full.NET.IntegrationTests/Ai/McpServerAuthorizationTests.cs`、`McpServerInteropTests.cs`。
 
-- [ ] 核对 SDK 支持的协议版本与 Streamable HTTP，配置正确 audience/resource、metadata/challenge、授权服务器发现、Origin/会话边界；不转发用户 Token 到本机 HTTP 或外部服务。
-- [ ] 映射 T05 的三个工具，list/call 独立授权；写工具只有在其异步审批结果能用明确协议契约表达后才暴露，不能长时间挂住 tools/call 假装已执行。
-- [ ] 首个资源为当前主体可访问的会话摘要 URI；首个提示为参数受限的静态摘要模板。resources/read、prompts/get 同样复核权限，非法 URI/参数失败关闭。
-- [ ] 标准客户端执行 initialize、能力协商、list、call、资源读取和提示读取；覆盖错误 audience、过期令牌、另一租户 session id、权限撤销、畸形 JSON-RPC 和超限请求。
-- [ ] 确认 MCP 错误/结果格式未被管理 API ProblemDetails 或 Admin.NET 包络破坏。协议能力只能声明真正实现且验证的集合。
+- **部分完成，余项归并至 `AI-A04`**：核对 SDK 支持的协议版本与 Streamable HTTP，配置正确 audience/resource、metadata/challenge、授权服务器发现、Origin/会话边界；不转发用户 Token 到本机 HTTP 或外部服务。 【2026-10-19 核对：E-T11。】
+- [x] 映射 T05 的三个工具，list/call 独立授权；写工具只有在其异步审批结果能用明确协议契约表达后才暴露，不能长时间挂住 tools/call 假装已执行。 【2026-10-19 核对：E-T11。】
+- [x] 首个资源为当前主体可访问的会话摘要 URI；首个提示为参数受限的静态摘要模板。resources/read、prompts/get 同样复核权限，非法 URI/参数失败关闭。 【2026-10-19 核对：E-T11。】
+- **部分完成，余项归并至 `AI-A04`**：标准客户端执行 initialize、能力协商、list、call、资源读取和提示读取；覆盖错误 audience、过期令牌、另一租户 session id、权限撤销、畸形 JSON-RPC 和超限请求。 【2026-10-19 核对：E-T11。】
+- [x] 确认 MCP 错误/结果格式未被管理 API ProblemDetails 或 Admin.NET 包络破坏。协议能力只能声明真正实现且验证的集合。 【2026-10-19 核对：E-T11。】
 
 ### T12：MCP Client 与外部能力治理
 
@@ -409,10 +466,10 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create MCP 的 `Client/McpClientConnectionManager.cs`、`McpRemoteToolAdapter.cs`、`McpRemoteCapabilityPolicy.cs`；Create Ai 的远端连接管理服务/强类型策略；Create `tests/Full.NET.UnitTests/Ai/McpRemoteCapabilityPolicyTests.cs`、`tests/Full.NET.IntegrationTests/Ai/McpClientInteropTests.cs`。
 
-- [ ] 外部服务器地址、凭据引用、OAuth scopes 和允许能力分别配置；沿用 Provider 网络策略，不允许模型任意指定 URL、stdio 命令或程序参数。
-- [ ] 将批准的远端 Schema/version/hash 固化为本地注册项，远端只读声明不足以获得豁免。变化项自动不可执行并要求管理员重新批准。
-- [ ] 用独立测试 MCP Server 验证重连、令牌刷新/撤销、过大响应、Schema 漂移、工具提示注入、超时和断流；不需要生产外部凭据。
-- [ ] 远端调用同样经过统一身份、预算、审批和审计入口；严格禁止用户 access token/Cookie 透传。外部结果未知的写工具继续保持禁用。
+- [x] 外部服务器地址、凭据引用、OAuth scopes 和允许能力分别配置；沿用 Provider 网络策略，不允许模型任意指定 URL、stdio 命令或程序参数。 【2026-10-19 核对：E-T12。】
+- [x] 将批准的远端 Schema/version/hash 固化为本地注册项，远端只读声明不足以获得豁免。变化项自动不可执行并要求管理员重新批准。 【2026-10-19 核对：E-T12。】
+- **部分完成，余项归并至 `AI-A04`**：用独立测试 MCP Server 验证重连、令牌刷新/撤销、过大响应、Schema 漂移、工具提示注入、超时和断流；不需要生产外部凭据。 【2026-10-19 核对：E-T12。】
+- [x] 远端调用同样经过统一身份、预算、审批和审计入口；严格禁止用户 access token/Cookie 透传。外部结果未知的写工具继续保持禁用。 【2026-10-19 核对：E-T12。】
 
 ### T13：Embedding 与 Azure Provider 完整切片
 
@@ -420,10 +477,10 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create AzureOpenAI 项目及 `AzureOpenAiModelClientFactory.cs`；扩展现有两个 Provider 的 Embedding factory；Create `src/Modules/Full.NET.Modules.Ai/Features/TestEmbeddings/Endpoint.cs` 与测试服务；Create `tests/Full.NET.UnitTests/Ai/AiEmbeddingProviderContractTests.cs`、`AzureOpenAiProviderTests.cs`；模型配置/精确权限/Vue 能力测试入口同步。
 
-- [ ] 对一个输入和一个批量输入测试中立 Embedding 返回、维度一致性、输入规模限制、取消、计量和配额；不支持 Embedding 的模型显式拒绝，不返回假向量。
-- [ ] 提供受权的管理员能力测试用例作为真实消费者；不借此新增向量库或 RAG 平台。输出大小与访问权限受限。
-- [ ] Azure 区分 deployment 与 model、认证方式、endpoint 和兼容能力；凭据生命周期测试沿用隔离原则。没有真实 Azure 环境时只报告合同/模拟验证，不声明生产 Provider Verified。
-- [ ] OpenAI/Ollama/Azure 适配使用同一预算/外发/Trace 管道，普通业务模块不因新增供应商改变引用。
+- [x] 对一个输入和一个批量输入测试中立 Embedding 返回、维度一致性、输入规模限制、取消、计量和配额；不支持 Embedding 的模型显式拒绝，不返回假向量。 【2026-10-19 核对：E-T13。】
+- [x] 提供受权的管理员能力测试用例作为真实消费者；不借此新增向量库或 RAG 平台。输出大小与访问权限受限。 【2026-10-19 核对：E-T13。】
+- **部分完成，余项归并至 `AI-A01`**：Azure 区分 deployment 与 model、认证方式、endpoint 和兼容能力；凭据生命周期测试沿用隔离原则。没有真实 Azure 环境时只报告合同/模拟验证，不声明生产 Provider Verified。 【2026-10-19 核对：E-T13。】
+- [x] OpenAI/Ollama/Azure 适配使用同一预算/外发/Trace 管道，普通业务模块不因新增供应商改变引用。 【2026-10-19 核对：E-T13。】
 
 ### T14：显式工作流与多 Agent 的有界示例
 
@@ -431,10 +488,10 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Create `src/AI/Full.NET.Agents/Workflows/AgentWorkflowDefinition.cs`、`AgentWorkflowRegistry.cs`、`AgentWorkflowRunner.cs`；Create `tests/Full.NET.UnitTests/Ai/AiMultiAgentBudgetTests.cs`、`tests/Full.NET.IntegrationTests/Ai/AiWorkflowCheckpointTests.cs`；示例在测试/环境 Overlay 静态注册，不加入 Production Baseline。
 
-- [ ] 定义“读取当前会话 → 摘要 Agent → 校验 Agent → 人工确认重命名”的版本化显式图；节点与边静态白名单，不开放任意代码或无限动态子 Agent。
-- [ ] 所有子节点共享根预算与原主体的权限交集，禁止逐跳权限放大；并行节点汇总按持久状态推进，失败节点不能触发后继写操作。
-- [ ] 在节点边界保存/恢复 Framework Checkpoint；验证服务重启、版本不兼容、部分并行完成、重复审批恢复、根取消及预算耗尽传播。
-- [ ] 与 Workflow/DataApproval 保持职责分离；需要业务审批时调用其 Contract/可靠事件，不直接 JOIN 审批表或复制其状态机。
+- [x] 定义“读取当前会话 → 摘要 Agent → 校验 Agent → 人工确认重命名”的版本化显式图；节点与边静态白名单，不开放任意代码或无限动态子 Agent。 【2026-10-19 核对：E-T14。】
+- **部分完成，余项归并至 `AI-D01`**：所有子节点共享根预算与原主体的权限交集，禁止逐跳权限放大；并行节点汇总按持久状态推进，失败节点不能触发后继写操作。 【2026-10-19 核对：E-T14。】
+- **部分完成，余项归并至 `AI-D01`、`AI-A06`**：在节点边界保存/恢复 Framework Checkpoint；验证服务重启、版本不兼容、部分并行完成、重复审批恢复、根取消及预算耗尽传播。 【2026-10-19 核对：E-T14。】
+- [x] 与 Workflow/DataApproval 保持职责分离；需要业务审批时调用其 Contract/可靠事件，不直接 JOIN 审批表或复制其状态机。 【2026-10-19 核对：E-T14。】
 
 ### T15：迁移演练、协议验收与旧实现退役
 
@@ -442,12 +499,12 @@ public async Task Ollama_repeated_chunks_are_not_deduplicated_async()
 
 **文件：** Modify `tests/Full.NET.IntegrationTests/NativeAot/NativeApiE2EAssertions.cs`、对应 Worker 原生测试、`.github/workflows/ci.yml`、`api-native-aot-linux.yml`、`worker-native-aot-linux.yml`（仅补实际影响路径）、`eng/testing/test-matrix.json`、`docs/roadmap/adminnet-feature-parity.md`、`docs/roadmap/client-delivery-roadmap.md`、OpenAPI/客户端生成物及配置说明。
 
-- [ ] 双库演练历史数据升级、DDL 部分完成重跑、回填中断、旧版本读兼容、密钥轮换/旧密文读取、Checkpoint 版本拒绝与备份恢复；不通过 down migration 删除运行历史来回滚。
-- [ ] Linux 原生进程验证真实依赖闭包下的 Chat、Tool、Run、审批恢复、MCP、AG-UI；Worker 运行路径同时遵守当前 Worker AOT 基线，不能外推 API 证据。
-- [ ] 使用标准客户端而非仅自写客户端进行 MCP/AG-UI 验收；模型协议自动测试用确定性受控服务，真实付费供应商验收另行按环境证据标注。
-- [ ] 集中验收 Vue 模型配置、聊天、工具审计、运行与审批页面，检查精确权限、错误、取消、重连、移动布局与可访问性；冻结 Layui 不改动。
-- [ ] 只有旧 Provider 路径无调用者、兼容测试与回滚演练通过后删除重复实现；旧 SSE 端点的公开退役另有版本公告，不随内部迁移直接删除。
-- [ ] 路线图分别记录 AI Chat、Agent Runtime、MCP Server、MCP Client、AG-UI、Embedding、Azure、多 Agent 状态；目录存在、编译成功或测试计划勾选均不能直接升级 Verified。
+- **部分完成，余项归并至 `AI-A06`**：双库演练历史数据升级、DDL 部分完成重跑、回填中断、旧版本读兼容、密钥轮换/旧密文读取、Checkpoint 版本拒绝与备份恢复；不通过 down migration 删除运行历史来回滚。 【2026-10-19 核对：E-T15。】
+- **部分完成，余项归并至 `AI-A04`、`AI-A05`**：Linux 原生进程验证真实依赖闭包下的 Chat、Tool、Run、审批恢复、MCP、AG-UI；Worker 运行路径同时遵守当前 Worker AOT 基线，不能外推 API 证据。 【2026-10-19 核对：E-T15。】
+- **部分完成，余项归并至 `AI-A04`**：使用标准客户端而非仅自写客户端进行 MCP/AG-UI 验收；模型协议自动测试用确定性受控服务，真实付费供应商验收另行按环境证据标注。 【2026-10-19 核对：E-T15。】
+- **部分完成，余项归并至 `AI-A03`**：集中验收 Vue 模型配置、聊天、工具审计、运行与审批页面，检查精确权限、错误、取消、重连、移动布局与可访问性；冻结 Layui 不改动。 【2026-10-19 核对：E-T15。】
+- **已替代**：只有旧 Provider 路径无调用者、兼容测试与回滚演练通过后删除重复实现；旧 SSE 端点的公开退役另有版本公告，不随内部迁移直接删除。 【2026-10-19 核对：E-T15。】 依R-20261017-direct-evolution取消泛化历史兼容/退役前置；当前仍有真实Vue消费者的SSE不因旧计划删除。
+- [x] 路线图分别记录 AI Chat、Agent Runtime、MCP Server、MCP Client、AG-UI、Embedding、Azure、多 Agent 状态；目录存在、编译成功或测试计划勾选均不能直接升级 Verified。 【2026-10-19 核对：E-T15。】
 
 ## 5. 验证命令、执行位置与停止条件
 
@@ -569,7 +626,7 @@ R01 实施记录（2026-09-27）：任务基线 `4c171501b3d5ab9ff6d13a57bc8a149
 - [x] 建立覆盖中文术语、编号、表格、跨段落、冲突版本、无答案、跨租户/撤权、注入的合成语料；本轮全部原创合成，不含真实敏感信息，采用仓库 MIT 许可。
 - [x] 对 Recall@K、引用来源有效性、拒答与泄漏评分编写固定输入输出测试；语义支持情况由标注/受控评审单独记录，不能用“有引用”自动判定正确。
 - [x] 记录初始离线参考基线与冻结质量门槛；安全失败要求为零，候选必须使用相同版本、摘要、策略和完整样例。真实端到端状态为 `not_measured`。
-- [ ] R06 接入后在相同冻结语料上生成首份真实检索/模型端到端基线；本项是后续集成门禁，不将人工参考答案当作 RAG 验收。
+- **部分完成，余项归并至 `AI-A02`**：R06 接入后在相同冻结语料上生成首份真实检索/模型端到端基线；本项是后续集成门禁，不将人工参考答案当作 RAG 验收。 【2026-10-19 核对：E-R02。】
 
 R02 实施记录（2026-10-02）：实现与契约见 [`tests/ai-evaluation/README.md`](../../../tests/ai-evaluation/README.md)。评分器和严格 JSON 加载均在单元测试项目中；未新增生产依赖或模型调用。报告独立显示安全失败与安全子集结果，完整生成依赖也需授权；重复候选不能提高召回，缺失/重复样例直接拒绝，未知用量不记零，不同币种不直接求和。人工参考结果的质量指标为 1、安全失败为零，属于离线评分器基线。
 
@@ -1170,10 +1227,10 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-worker-r05f4b --phase slice 退出 0，Ai 双 Provider 68/68，零失败/跳过（23m 18s 789ms）。正式 TRX 与冻结发现全部 UID/FQN 一致；1125 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1174 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。原始证据在忽略目录 artifacts/r05f4b/ 及同名前缀日志。
   - 环境与未验证项：基线 b6577d6e82f3a0818123a260b17060eb4e9b761f，Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2，保留漏洞审计。历史复用数据库保持停止且数据保留。已接入 opt-in Hosted 循环、生产 DI 和内部实际消费；原会话 API 入队、公开 ready、完整 Worker 进程/真实外部联动与云计量、检索、完整 Host/Worker Native 发布运行及容量实测尚未完成。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一切片继续原会话 API 入队和公开状态边界。
 
-- [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
-- [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
-- [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
-- [ ] 交付 R07 所需的受授权失败重试端点、最小索引删除/文件释放任务和崩溃恢复；重复删除幂等，清理失败仍禁止访问。R08 只扩展批量重建、增量更新和代次切换，不承接首版必需的删除安全与重试。
+- [x] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。 【2026-10-19 核对：E-R05。】
+- [x] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。 【2026-10-19 核对：E-R05。】
+- [x] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。 【2026-10-19 核对：E-R05。】
+- [x] 交付 R07 所需的受授权失败重试端点、最小索引删除/文件释放任务和崩溃恢复；重复删除幂等，清理失败仍禁止访问。R08 只扩展批量重建、增量更新和代次切换，不承接首版必需的删除安全与重试。 【2026-10-19 核对：E-R05。】
 
 ### R06：按权限检索、问答及可信引用（P1，依赖 R02/R05）
 
@@ -1183,10 +1240,10 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 
 **历史与传输契约：** 为知识库派生答案/摘要记录完整候选来源依赖，历史显示/导出/再送模型时复核，依赖撤权则隐藏正文并剔除上下文；普通聊天历史保持原语义。首期生成有界缓冲，引用校验与派发前授权通过才返回，不复用 `AiChatCompletionStreamer` 的逐 Token `onDelta` 输出。记录授权判定点，不承诺召回已发送数据。
 
-- [ ] 覆盖租户/角色/组织/文档授权、先检索后撤权、伪造引用、无答案、注入文本、来源删除与旧索引命中。
-- [ ] 覆盖生成期间撤权、旧答案历史展示/导出、后续追问、摘要复用和未引用但参与生成的来源撤权；通过可控门闩确认派发前撤权不输出正文，拒绝时仍按实际/未知模型用量结算。
-- [ ] 实现服务端过滤、候选批量权威复核、有界上下文、引用允许集校验和独立来源授权；拒绝无证据回答及未经授权的工具动作。
-- [ ] 对 R02 冻结评估集生成基线；安全泄漏零容忍，未满足质量门槛保持未验收并记录失败样例。
+- [x] 覆盖租户/角色/组织/文档授权、先检索后撤权、伪造引用、无答案、注入文本、来源删除与旧索引命中。 【2026-10-19 核对：E-R06。】
+- [x] 覆盖生成期间撤权、旧答案历史展示/导出、后续追问、摘要复用和未引用但参与生成的来源撤权；通过可控门闩确认派发前撤权不输出正文，拒绝时仍按实际/未知模型用量结算。 【2026-10-19 核对：E-R06。】
+- [x] 实现服务端过滤、候选批量权威复核、有界上下文、引用允许集校验和独立来源授权；拒绝无证据回答及未经授权的工具动作。 【2026-10-19 核对：E-R06。】
+- **部分完成，余项归并至 `AI-A02`**：对 R02 冻结评估集生成基线；安全泄漏零容忍，未满足质量门槛保持未验收并记录失败样例。 【2026-10-19 核对：E-R06。】
 
 #### R06a 合批执行：权限召回、上下文和引用流水线
 
@@ -1237,12 +1294,12 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 
 复用 R06b1 执行器，按依赖分批交付。R06b2a 已实现下述内部持久化与统一复核基础；公开入口和所有已确认的历史消费者仍待接线及验收，不能据此关闭 R06b2 或完整 RAG。
 
-- [ ] 先建立来源未引用但参与生成、等待期间撤权、删除/版本变化、损坏依赖记录及跨租户的失败用例；证明历史正文、引用摘要与后续模型输入都不会绕过来源复核。普通聊天无来源依赖时保持原语义。
+- [x] 先建立来源未引用但参与生成、等待期间撤权、删除/版本变化、损坏依赖记录及跨租户的失败用例；证明历史正文、引用摘要与后续模型输入都不会绕过来源复核。普通聊天无来源依赖时保持原语义。 【2026-10-19 核对：E-R06b2。】
 - [x] 在 AI 自有持久化边界增加成对迁移、静态 SQL 和最小完整来源依赖/引用记录，绑定答案消息与服务器确认的位置。保存版本化受控元数据，不保存临时检索快照、向量或受保护密钥；未知或损坏依赖拒绝释放正文。
-- [ ] 增加 `Features/AskKnowledge/` 与源生成公开契约，通过可信主体和精确权限接入已授权知识库、模型选择及 R06b1 执行器。复用聊天生成槽位、原范围独立清理、租约监视与跨实例取消，外部模型调用不入事务；短事务按本代租约保存答案及全部依赖，不能先发送正文再补历史。
-- [ ] 统一历史来源复核：`AiChatSessionQueryService.GetByIdAsync` 的详情映射、通过该查询取摘要的 `AiMcpSessionSummaryReader`，以及 `AiChatStreamService.LoadRecentMessagesAsync` 的模型输入。撤权消息隐藏正文/引用并从后续模型上下文剔除，稳定机器码说明不可用状态；新增出口必须复用同一边界。普通聊天若消费知识答案，其回复及后代必须继承全部来源依赖闭包，并缓冲输出、在落库及交付前复核；超过依赖上限必须拒绝，不能截断。完整传播尚未实现时，普通聊天必须始终排除所有派生历史，不能把转述保存成无来源标记的普通消息。
-- [ ] 使用真实生产 SQL/账本及受控模型，成对覆盖 Host/Tenant、TXT/PDF、重复并发、取消/租约失效、落库失败和完整依赖撤权。同步 DI、物化/JSON 静态闭包、OpenAPI 及新增 HTTP 可达路径 Native 发布/运行证据，保持云质量与容量未验收。
-- [ ] 合批运行完整 AI、受影响双库及新增 Native 路径，核对当前输入和原始报告，在 main 提交；仅关闭有实际证据的 R06 子项，继续 R07 页面交付。
+- [x] 增加 `Features/AskKnowledge/` 与源生成公开契约，通过可信主体和精确权限接入已授权知识库、模型选择及 R06b1 执行器。复用聊天生成槽位、原范围独立清理、租约监视与跨实例取消，外部模型调用不入事务；短事务按本代租约保存答案及全部依赖，不能先发送正文再补历史。 【2026-10-19 核对：E-R06b2。】
+- [x] 统一历史来源复核：`AiChatSessionQueryService.GetByIdAsync` 的详情映射、通过该查询取摘要的 `AiMcpSessionSummaryReader`，以及 `AiChatStreamService.LoadRecentMessagesAsync` 的模型输入。撤权消息隐藏正文/引用并从后续模型上下文剔除，稳定机器码说明不可用状态；新增出口必须复用同一边界。普通聊天若消费知识答案，其回复及后代必须继承全部来源依赖闭包，并缓冲输出、在落库及交付前复核；超过依赖上限必须拒绝，不能截断。完整传播尚未实现时，普通聊天必须始终排除所有派生历史，不能把转述保存成无来源标记的普通消息。 【2026-10-19 核对：E-R06b2。】
+- [x] 使用真实生产 SQL/账本及受控模型，成对覆盖 Host/Tenant、TXT/PDF、重复并发、取消/租约失效、落库失败和完整依赖撤权。同步 DI、物化/JSON 静态闭包、OpenAPI 及新增 HTTP 可达路径 Native 发布/运行证据，保持云质量与容量未验收。 【2026-10-19 核对：E-R06b2。】
+- [x] 合批运行完整 AI、受影响双库及新增 Native 路径，核对当前输入和原始报告，在 main 提交；仅关闭有实际证据的 R06 子项，继续 R07 页面交付。 【2026-10-19 核对：E-R06b2。】
 
 **R06b2a 内部来源依赖与落库合批（2026-10-07，本地内部验收完成）：**
 
@@ -1299,9 +1356,9 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 
 **新增：** `ui/admin/src/views/AiKnowledgeBasesView.vue`、`AiKnowledgeDocumentsView.vue` 及对应 `.test.ts`；扩展 `ui/admin/src/views/AiChatView.vue` 与共享生成客户端。路由/菜单按现有机制登记，禁止修改冻结 Layui。
 
-- [ ] 增加知识库/文档管理、导入状态、失败原因、重试、版本与来源预览；问答页展示可点击引用和明确拒答。
-- [ ] 覆盖无权限、索引未就绪、文档已撤权、模型/索引不可用、取消、空态及重复提交；前端隐藏不代替 API 授权。
-- [ ] 完成类型检查、受影响组件测试、规范语言资源；页面自动化/人工验收条目登记到 R12，不能提前标记 Verified。
+- [x] 增加知识库/文档管理、导入状态、失败原因、重试、版本与来源预览；问答页展示可点击引用和明确拒答。 【2026-10-19 核对：E-R07。】
+- [x] 覆盖无权限、索引未就绪、文档已撤权、模型/索引不可用、取消、空态及重复提交；前端隐藏不代替 API 授权。 【2026-10-19 核对：E-R07。】
+- [x] 完成类型检查、受影响组件测试、规范语言资源；页面自动化/人工验收条目登记到 R12，不能提前标记 Verified。 【2026-10-19 核对：E-R07。】
 
 #### R07a：目录、文件版本与公开 Ask 页面合批（2026-10-07，Build-verified）
 
@@ -1385,10 +1442,10 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 
 **修改：** R04/R05 新增目录、Ai 持久任务/事件入口；新增 `tests/Full.NET.IntegrationTests/Ai/AiKnowledgeIndexRecoveryTests.cs`，以双库测试方法覆盖相同场景。
 
-- [ ] 以本系统文件替换/文档更新事件建立幂等增量任务；业务可靠事件沿事务 Outbox，缓存失效沿既有直接删除/Backplane，不把缓存通知写入 Outbox。
-- [ ] 在 R04/R05 最小删除/恢复基础上扩展完整新代次校验后切换、旧代次批量清理、死信运维和索引对账/重建；撤权先由权威源生效，复用首版 tombstone 与重试机制。
-- [ ] 验证乱序、重复、更新与删除竞争、模型换维度、同维度换模型、切换中崩溃与回退；记录恢复操作和保留策略。
-- [ ] 后续格式切片增加 DOCX 并覆盖表格/位置与资源上限；扫描件 OCR、外部文件服务器连接器继续保持范围外，不在页面承诺支持。
+- [x] 以本系统文件替换/文档更新事件建立幂等增量任务；业务可靠事件沿事务 Outbox，缓存失效沿既有直接删除/Backplane，不把缓存通知写入 Outbox。 【2026-10-19 核对：E-R08。】
+- [x] 在 R04/R05 最小删除/恢复基础上扩展完整新代次校验后切换、旧代次批量清理、死信运维和索引对账/重建；撤权先由权威源生效，复用首版 tombstone 与重试机制。 【2026-10-19 核对：E-R08。】
+- [x] 验证乱序、重复、更新与删除竞争、模型换维度、同维度换模型、切换中崩溃与回退；记录恢复操作和保留策略。 【2026-10-19 核对：E-R08。】
+- [x] 后续格式切片增加 DOCX 并覆盖表格/位置与资源上限；扫描件 OCR、外部文件服务器连接器继续保持范围外，不在页面承诺支持。 【2026-10-19 核对：E-R08。】
 
 #### R08a：旧代次保留与自动清理合批（2026-10-07，本地专项已验证）
 
@@ -1490,9 +1547,9 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。
 
-- [ ] 实现不可变 Prompt 版本，绑定模型策略、语言、输入输出 Schema、工具允许集与检索策略；Run 固化版本，支持停用与回滚。
-- [ ] 反馈绑定真实回答/引用、可信用户范围与权限；反馈脱敏审核后才能进入评估集，禁止直接信任反馈指令。
-- [ ] 在同一评估集比较基础检索、关键词/向量融合和重排，记录质量、用量与耗时；仅启用有证据收益的策略，失败保留旧策略。
+- [x] 实现不可变 Prompt 版本，绑定模型策略、语言、输入输出 Schema、工具允许集与检索策略；Run 固化版本，支持停用与回滚。 【2026-10-19 核对：E-R09。】
+- [x] 反馈绑定真实回答/引用、可信用户范围与权限；反馈脱敏审核后才能进入评估集，禁止直接信任反馈指令。 【2026-10-19 核对：E-R09。】
+- **部分完成，余项归并至 `AI-A02`**：在同一评估集比较基础检索、关键词/向量融合和重排，记录质量、用量与耗时；仅启用有证据收益的策略，失败保留旧策略。 【2026-10-19 核对：E-R09。】
 
 #### R09a：真实回答反馈、版本冲突及撤回合批（2026-10-09，本批验收完成）
 
@@ -1646,9 +1703,9 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。
 
-- [ ] 先复核既有租约/检查点/审批实现，复用已满足的能力；新增节点完成后崩溃、长模型调用、租约失效、取消和版本不兼容的回归用例。
-- [ ] 定义并持久化节点输入/输出摘要、定义/模型/Prompt 版本及 OperationId；已知完成不重跑，未知外部副作用进入对账，不能从 checkpoint 缺失推断未执行。
-- [ ] 审批恢复复核当前会话/权限、参数摘要、工具/策略版本及业务状态；全节点预算和 deadline 必须约束实际派发，未知用量不得计零。
+- [x] 先复核既有租约/检查点/审批实现，复用已满足的能力；新增节点完成后崩溃、长模型调用、租约失效、取消和版本不兼容的回归用例。 【2026-10-19 核对：E-R10。】
+- [x] 定义并持久化节点输入/输出摘要、定义/模型/Prompt 版本及 OperationId；已知完成不重跑，未知外部副作用进入对账，不能从 checkpoint 缺失推断未执行。 【2026-10-19 核对：E-R10。】
+- [x] 审批恢复复核当前会话/权限、参数摘要、工具/策略版本及业务状态；全节点预算和 deadline 必须约束实际派发，未知用量不得计零。 【2026-10-19 核对：E-R10。】
 
 #### R10a：累计用量保真与取消派发边界合批（2026-10-10，本批本地验收完成）
 
@@ -2136,9 +2193,9 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
 
 - [x] 首个路由只允许“知识库问答”和“现有授权工具任务”；封闭意图枚举、独立工具允许集，未知意图澄清/拒绝，保留顺序执行和总预算。
-- [ ] 将数据分类策略应用于 Embedding、重排、生成及遥测；私有化模式故障不得切换公网 Provider，测试每个阶段的拒绝行为。
+- [x] 将数据分类策略应用于 Embedding、重排、生成及遥测；私有化模式故障不得切换公网 Provider，测试每个阶段的拒绝行为。 【2026-10-19 核对：E-R11。】
 - [x] 关联 Run/Step/Trace 的阶段耗时、调用量、拒答、预算拒绝与错误；日志脱敏、指标低基数，不将文档正文或用户/租户 ID 放入 Metrics 标签。
-- [ ] 不增加专家群聊、任意动态插件或微服务拆分；出现真实业务收益证据后另修订本计划。
+- [x] 不增加专家群聊、任意动态插件或微服务拆分；出现真实业务收益证据后另修订本计划。 【2026-10-19 核对：E-R11。】
 
 #### R11a：Provider 私有化网络闭包（2026-10-12，本批受影响验收完成）
 
@@ -2262,15 +2319,15 @@ Windows共享Unit/AI输出在本次完整运行完成后发生变化，不把后
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。
 
-- [ ] 汇总并补齐各切片的原生产物证据，覆盖真实 Embedding/索引写入、带权限检索、删除、解析、工具及审批恢复；同时覆盖确定性测试 Provider 与获准环境的选定真实 Provider，明确各自证明范围。此项不允许把 R05/R06 的 AOT 兼容检查延后。
-- [ ] 演练索引丢失重建、Provider 故障、文档撤权、任务重复派发、密钥/网络策略变化与应用回退；核对双库同语义。
-- [ ] 集中收敛页面自动化与人工验收；分别测量 API、Worker、向量库、模型服务的资源和延迟，不引用文章的百分比作为验收结果。
+- **部分完成，余项归并至 `AI-A01`、`AI-A05`**：汇总并补齐各切片的原生产物证据，覆盖真实 Embedding/索引写入、带权限检索、删除、解析、工具及审批恢复；同时覆盖确定性测试 Provider 与获准环境的选定真实 Provider，明确各自证明范围。此项不允许把 R05/R06 的 AOT 兼容检查延后。 【2026-10-19 核对：E-R12。】
+- **部分完成，余项归并至 `AI-A06`**：演练索引丢失重建、Provider 故障、文档撤权、任务重复派发、密钥/网络策略变化与应用回退；核对双库同语义。 【2026-10-19 核对：E-R12。】
+- **部分完成，余项归并至 `AI-A03`、`AI-A07`**：集中收敛页面自动化与人工验收；分别测量 API、Worker、向量库、模型服务的资源和延迟，不引用文章的百分比作为验收结果。 【2026-10-19 核对：E-R12。】
 
   R07a 页面验收清单：两页目录/分页/CRUD 精确权限、网络结果不明上传重试、导入失败刷新/重试、octet-stream 的 TXT/MD 授权预览与 PDF 下载、实时及历史引用来源选择、明确拒答与空历史回答、索引/模型不可用、取消到终态刷新、重复提交、路由库参数变化、租户切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
   R07b 页面验收清单：独立策略权限、原模型审批保留及显式版本升级/成对撤销、模型候选分页；库/文档两层用户/角色/组织读取与全量替换、候选读取独立权限及分页、只读和资源所有者错误、空集合撤销、100 项上限及无效/重复 UUID、409 保留输入、关闭/撤权/租户或资源/类别切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
   R07c 页面验收清单：精确文件版本索引状态/入队/原任务重试、组合权限、202 仅代表接受、未知结果先刷新、原会话及失败/超期条件由服务端裁决；1–8 库跨页选择与请求集合冻结、引用显式来源选择及请求范围/授权目录交集、历史引用缺少库绑定的选择、关闭/候选集合/资源/会话变化及卸载晚到结果。PDF 画布预览见 R07d；实际双库页面和人工证据完成后才升级页面 Verified。
   R07d 页面验收清单：真实授权端点返回的 PDF、引用页定位/翻页/缩放、关闭及撤权清画布、损坏/加密/超限/引用页不存在、字体兼容与辅助阅读下载退路。本批模拟 HTTP 的真实浏览器 Worker 冒烟不替代真实双库页面与人工验收。
-- [ ] 按规定范围的本地实际测试及精确输入核对验收结果，更新能力矩阵和运维文档；未执行、失败或跳过的项目保持待验收，保留 `Capacity-not-verified`。
+- **部分完成，余项归并至 `AI-A01`、`AI-A02`、`AI-A03`、`AI-A04`、`AI-A05`、`AI-A06`、`AI-A07`**：按规定范围的本地实际测试及精确输入核对验收结果，更新能力矩阵和运维文档；未执行、失败或跳过的项目保持待验收，保留 `Capacity-not-verified`。 【2026-10-19 核对：E-R12。】
 
 ### 执行与验证入口
 
@@ -3016,7 +3073,7 @@ R11 整体、剩余分类/跨重启 Trace、其他 Provider/Chat 请求前精确
 - [x] 实现 Vue 人工核证面板、规范双语言、取消/迟到响应保护和回归用例；用量未知不提交零值，成功关闭不重放。
 - [x] 实现精确输入不可用时的显式失败关闭门禁；默认兼容。此项不关闭供应商/Chat 请求前精确 Token 计数任务。
 - [x] 从本批真实双库运行时 OpenAPI 导出并完成生成客户端接线；重复生成零漂移，保留共享缓存契约增量。
-- [ ] 完成原 Ai + Identity + Smoke 双库、架构及 Native 集中验收；原中断与补验分别记录，不提前升级 Verified。
+- [x] 完成原 Ai + Identity + Smoke 双库、架构及 Native 集中验收；原中断与补验分别记录，不提前升级 Verified。 【2026-10-19 核对：E-R11u。】
 
 只读安全复查已收敛本轮确定阻断：独立授权不借用父事务；专用预留避免持有普通许可后等待自身；授权容量异常回滚并映射 503，权限撤销为 403。复查未运行构建或测试，不能代替集中验收。当前仍开放精确输入正向计数、未知外部自动对账与 R12 Native 发布/运行、生成应用、浏览器、恢复、真实 RAG 质量和容量证据；父项不因代码存在升级 Verified。
 
