@@ -109,6 +109,9 @@
     <Project Path="src/Modules/Full.NET.Modules.Ocr/Full.NET.Modules.Ocr.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Ocr.Contracts/Full.NET.Modules.Ocr.Contracts.csproj" />
   </Folder>
+  <Folder Name="/samples/enterprise-request/">
+    <Project Path="samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />
     <Project Path="tests/Full.NET.CompatibilityTests/Full.NET.CompatibilityTests.csproj" />
