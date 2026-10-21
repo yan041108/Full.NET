@@ -27,6 +27,7 @@ internal static class IdentityRoleManagementAssertions
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifySystemRoleUpdateRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleLifecycleAsync(client, cancellationToken);
+        await VerifyMemberCandidateQueryAsync(factory, client, cancellationToken);
         await VerifyExactRoleActionPermissionBoundariesAsync(
             factory,
             client,
@@ -223,13 +224,15 @@ internal static class IdentityRoleManagementAssertions
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, allowedDisableResponse.StatusCode);
 
+        var currentRole = await IntegrationTestAuthHelper.ReadCurrentHostRoleAsync(client, adminToken, role.Id, cancellationToken);
+        Assert.IsTrue(currentRole.Version > grantedRole.Version, "成员编辑必须推进角色并发版本。");
         using var revokeRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{role.Id:D}/permissions",
             adminToken,
             new ReplaceHostRolePermissionsRequest(
                 [IdentityUserManagementPermissions.Read],
-                grantedRole.Version));
+                currentRole.Version));
         using var revokeResponse = await client.SendAsync(revokeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
 
@@ -498,6 +501,93 @@ internal static class IdentityRoleManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
+    }
+
+    /// <summary>通过真实 HTTP 绑定验证缺省、空标记和原始预算，不以直接调用 Service 替代。</summary>
+    private static async Task VerifyMemberCandidateQueryAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        // 只记录经验证的隔离库名，供结束后的精确归属清理；禁止输出连接凭据。
+        var connection = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = factory.ConnectionString };
+        var hasName = connection.TryGetValue("Database", out var databaseName) || connection.TryGetValue("Initial Catalog", out databaseName);
+        var name = hasName ? databaseName?.ToString() : null;
+        Assert.IsNotNull(name);
+        Assert.IsTrue(name.StartsWith("fullnet_it_", StringComparison.Ordinal)
+            && Guid.TryParseExact(name[11..], "N", out _));
+        Console.WriteLine($"role_query_cleanup provider={factory.Provider} database={name}");
+        var token = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var create = CreateBearerJsonRequest(HttpMethod.Post, "/api/v1/identity/roles", token,
+            new CreateHostRoleRequest($"candidate-query-{Guid.NewGuid():N}", "候选查询回归"));
+        using var createdResponse = await client.SendAsync(create, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createdResponse.StatusCode);
+        var role = await createdResponse.Content.ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(role);
+        var first = await CreateHostUserForRoleTestAsync(client, token, $"candidate-a-{Guid.NewGuid():N}",
+            Api.FullNetApiFactory.TestPassword, cancellationToken);
+        var unseen = await CreateHostUserForRoleTestAsync(client, token, $"candidate-b-{Guid.NewGuid():N}",
+            Api.FullNetApiFactory.TestPassword, cancellationToken);
+        var path = $"/api/v1/identity/roles/{role.Id:D}/members";
+        using (var replace = CreateBearerJsonRequest(HttpMethod.Put, path, token,
+            new ReplaceHostRoleMembersRequest([first.Id, unseen.Id], role.Version)))
+        using (var replaced = await client.SendAsync(replace, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, replaced.StatusCode);
+        }
+        await ReadAsync("", [first.Id, unseen.Id]);
+        var candidates = await ReadAsync($"?userIds={first.Id:D}", [first.Id]);
+        var partial = new ReplaceHostRoleMembersRequest([], candidates.Version) { CandidateUserIds = [first.Id] };
+        using (var save = CreateBearerJsonRequest(HttpMethod.Put, path, token, partial))
+        using (var savedResponse = await client.SendAsync(save, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, savedResponse.StatusCode);
+            var saved = await savedResponse.Content.ReadFromJsonAsync<HostRoleMembersAssignmentResponse>(cancellationToken);
+            Assert.IsNotNull(saved);
+            CollectionAssert.AreEquivalent(new[] { unseen.Id }, saved.UserIds.ToArray());
+        }
+        await ReadAsync("", [unseen.Id]);
+        await ReadAsync($"?userIds={first.Id:D}", []);
+        await ReadAsync($"?userIds={Guid.Empty:D}", []);
+        await ReadAsync($"?userIds={unseen.Id:D}", [unseen.Id]);
+        await ReadAsync($"?userIds={Guid.Empty:D}&userIds={unseen.Id:D}", [unseen.Id]);
+        foreach (var query in new[]
+        {
+            "?userIds=not-a-guid",
+            "?" + string.Join("&", Enumerable.Repeat($"userIds={Guid.Empty:D}", 101)),
+        })
+        {
+            using var invalid = new HttpRequestMessage(HttpMethod.Get, path + query);
+            invalid.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var rejected = await client.SendAsync(invalid, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.BadRequest, rejected.StatusCode);
+        }
+        using (var stale = CreateBearerJsonRequest(HttpMethod.Put, path, token, partial))
+        using (var rejected = await client.SendAsync(stale, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.Conflict, rejected.StatusCode);
+        using (var anonymous = factory.CreateClientForHost("localhost"))
+        using (var denied = await anonymous.GetAsync(path, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.Unauthorized, denied.StatusCode);
+        using (var noPermission = new HttpRequestMessage(HttpMethod.Get, path))
+        {
+            noPermission.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
+                await factory.CreateHostAccessTokenAsync(["platform.dashboard.read"], cancellationToken));
+            using var denied = await client.SendAsync(noPermission, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        }
+
+        async Task<HostRoleMembersPageResponse> ReadAsync(string query, Guid[] expected)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path + query);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var page = await response.Content.ReadFromJsonAsync<HostRoleMembersPageResponse>(cancellationToken);
+            Assert.IsNotNull(page);
+            Assert.AreEqual(expected.LongLength, page.Total);
+            CollectionAssert.AreEquivalent(expected, page.Items.Select(member => member.UserId).ToArray());
+            return page;
+        }
     }
 
     private static async Task VerifyExactRoleActionPermissionBoundariesAsync(

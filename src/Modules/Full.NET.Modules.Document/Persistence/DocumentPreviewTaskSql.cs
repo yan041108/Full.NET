@@ -32,16 +32,18 @@ internal static class DocumentPreviewTaskSql
 
     public static readonly SqlStatement PageSqlServer = new(
         "document.preview_task.page.sqlserver",
-        """
+        $$"""
         SELECT COUNT(1)
         FROM fn_document_preview_task
-        WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId);
+        WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_preview_task.DocumentItemId", StringComparison.Ordinal)}};
 
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
                CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
         FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_preview_task.DocumentItemId", StringComparison.Ordinal)}}
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
         """,
@@ -49,16 +51,18 @@ internal static class DocumentPreviewTaskSql
 
     public static readonly SqlStatement PageMySql = new(
         "document.preview_task.page.mysql",
-        """
+        $$"""
         SELECT COUNT(1)
         FROM fn_document_preview_task
-        WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId);
+        WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_preview_task.DocumentItemId", StringComparison.Ordinal)}};
 
         SELECT Id, DocumentItemId, VersionId, DocumentTitle, SourceFileId, SourceFileName, SourceMimeType,
                OutputFileId, StatusKey, ProviderKey, ErrorCode, RequestedByUserId,
                CreatedAtUtc, StartedAtUtc, CompletedAtUtc, Version
         FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_preview_task.DocumentItemId", StringComparison.Ordinal)}}
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset;
         """,
@@ -69,8 +73,8 @@ internal static class DocumentPreviewTaskSql
         """
         WITH candidates AS (
             SELECT TOP (@BatchSize) Id
-            FROM fn_document_preview_task
-            WHERE StatusKey = 'pending'
+            FROM fn_document_preview_task WITH (UPDLOCK, ROWLOCK, READPAST)
+            WHERE StatusKey = 'pending' OR (StatusKey = 'processing' AND StartedAtUtc <= @ExpiredBefore)
             ORDER BY CreatedAtUtc, Id
         )
         UPDATE task
@@ -92,9 +96,10 @@ internal static class DocumentPreviewTaskSql
         """
         SELECT Id
         FROM fn_document_preview_task
-        WHERE StatusKey = 'pending'
+        WHERE StatusKey = 'pending' OR (StatusKey = 'processing' AND StartedAtUtc <= @ExpiredBefore)
         ORDER BY CreatedAtUtc, Id
         LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED
         """,
         SqlDataScope.HostOnly);
 
@@ -105,7 +110,7 @@ internal static class DocumentPreviewTaskSql
         SET StatusKey = 'processing',
             StartedAtUtc = @Now,
             Version = Version + 1
-        WHERE StatusKey = 'pending'
+        WHERE (StatusKey = 'pending' OR (StatusKey = 'processing' AND StartedAtUtc <= @ExpiredBefore))
           AND Id IN @Ids
         """,
         SqlDataScope.HostOnly);
@@ -122,6 +127,14 @@ internal static class DocumentPreviewTaskSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>批次排队后重新确认领取版本，过期所有者不得继续调用转换器。</summary>
+    public static readonly SqlStatement RenewLease = new(
+        "document.preview_task.renew_lease",
+        """
+        UPDATE fn_document_preview_task SET StartedAtUtc = @Now
+        WHERE Id = @Id AND Version = @Version AND StatusKey = 'processing' AND StartedAtUtc > @ExpiredBefore
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement MarkSucceeded = new(
         "document.preview_task.mark_succeeded",
         """
@@ -132,7 +145,7 @@ internal static class DocumentPreviewTaskSql
             CompletedAtUtc = @CompletedAtUtc,
             Version = Version + 1
         WHERE Id = @Id
-          AND StatusKey = 'processing'
+          AND StatusKey = 'processing' AND Version = @Version AND StartedAtUtc > @ExpiredBefore
         """,
         SqlDataScope.HostOnly);
 
@@ -145,7 +158,7 @@ internal static class DocumentPreviewTaskSql
             CompletedAtUtc = @CompletedAtUtc,
             Version = Version + 1
         WHERE Id = @Id
-          AND StatusKey = 'processing'
+          AND StatusKey = 'processing' AND Version = @Version AND StartedAtUtc > @ExpiredBefore
         """,
         SqlDataScope.HostOnly);
 }

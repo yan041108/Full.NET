@@ -49,7 +49,7 @@ internal sealed class NotificationDeliveryService(
         var items = new List<NotificationDeliveryResponse>(rows.Count);
         foreach (var row in rows)
         {
-            items.Add(await MapAsync(row, includeReceipts: false, cancellationToken).ConfigureAwait(false));
+            items.Add(await MapAsync(row, includeDetails: false, cancellationToken).ConfigureAwait(false));
         }
 
         return Result<PagedResult<NotificationDeliveryResponse>>.Success(
@@ -64,7 +64,7 @@ internal sealed class NotificationDeliveryService(
         return record is null
             ? NotFound()
             : Result<NotificationDeliveryResponse>.Success(
-                await MapAsync(record, includeReceipts: true, cancellationToken).ConfigureAwait(false));
+                await MapAsync(record, includeDetails: true, cancellationToken).ConfigureAwait(false));
     }
 
     public Task<Result<NotificationDeliveryResponse>> RetryAsync(
@@ -152,16 +152,17 @@ internal sealed class NotificationDeliveryService(
 
     private async Task<NotificationDeliveryResponse> MapAsync(
         NotificationDeliveryRecord record,
-        bool includeReceipts,
+        bool includeDetails,
         CancellationToken cancellationToken)
     {
-        var attempts = await queryExecutor.QueryAsync<NotificationDeliveryAttemptRecord>(
+        // 列表只返回投递行；用户打开详情时才加载重试和回执历史。
+        IReadOnlyList<NotificationDeliveryAttemptRecord> attempts = includeDetails
+            ? await queryExecutor.QueryAsync<NotificationDeliveryAttemptRecord>(
                 NotificationPlatformSql.ListAttemptsByDelivery,
-                NotificationPlatformSqlParameters.Create(("DeliveryId", record.Id)),
-                cancellationToken)
-            .ConfigureAwait(false);
+                NotificationPlatformSqlParameters.Create(("DeliveryId", record.Id)), cancellationToken).ConfigureAwait(false)
+            : [];
         IReadOnlyList<NotificationDeliveryReceiptResponse> receipts = [];
-        if (includeReceipts)
+        if (includeDetails)
         {
             var receiptRows = await queryExecutor.QueryAsync<NotificationReceiptRecord>(
                     NotificationPlatformSql.ListReceiptsByDelivery,

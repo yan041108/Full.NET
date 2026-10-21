@@ -1,3 +1,4 @@
+using Full.NET.UnitTests.TestInfrastructure;
 using System.Security.Claims;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
@@ -97,6 +98,22 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.AreEqual(0, fixture.GenerateCount);
     }
 
+    [TestMethod]
+    public async Task Inactive_candidate_page_does_not_starve_next_active_tenant()
+    {
+        var fixture = CreateFixture();
+        for (var i = 1; i <= 20; i++)
+        {
+            var tenantId = Guid.Parse($"00000000-0000-0000-0000-{i:000000000000}");
+            var id = Guid.NewGuid();
+            fixture.Store.Tasks[id] = CreateTask(fixture, id, ReportingExportTaskStatusKeys.Queued, null, null, null, tenantId);
+        }
+        var activeId = Guid.NewGuid(); fixture.Store.Tasks[activeId] = CreateTask(fixture, activeId, ReportingExportTaskStatusKeys.Queued, null, null, null);
+        Assert.AreEqual(0, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.IsGreaterThan(0, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(20, fixture.Store.Tasks.Values.Count(task => task.TenantId != fixture.TenantId));
+    }
+
     private static Fixture CreateFixture()
     {
         var tenantId = Guid.NewGuid();
@@ -130,7 +147,7 @@ public sealed class ReportingExportTaskRecoveryTests
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new OptionsMonitorStub<ReportingExportOptions>(options));
+            new OptionsMonitorStub<ReportingExportOptions>(options), new PendingTenantScanState(), new LeaseTestScopeFactory(resolver, store));
         return new Fixture(store, runner, workbook, files, clock, tenantId, () => generateCount);
     }
 
@@ -162,11 +179,11 @@ public sealed class ReportingExportTaskRecoveryTests
         string statusKey,
         Guid? outputFileId,
         Guid? leaseId,
-        DateTimeOffset? leaseExpiresAtUtc) =>
+        DateTimeOffset? leaseExpiresAtUtc, Guid? tenantId = null) =>
         new()
         {
             Id = taskId,
-            TenantId = fixture.TenantId,
+            TenantId = tenantId ?? fixture.TenantId,
             DefinitionId = Guid.NewGuid(),
             VersionNumber = 1,
             DefinitionKey = "demo",
@@ -267,7 +284,11 @@ public sealed class ReportingExportTaskRecoveryTests
             if (statement.Name == ReportingExportTaskSql.ListPendingTenantIdsSqlServer.Name)
             {
                 var tenants = Tasks.Values.Where(task => IsClaimable(task, now))
-                    .Select(task => task.TenantId).Distinct().Cast<T>().ToArray();
+                    .Select(task => task.TenantId).Distinct()
+                    .OrderBy(id => new System.Data.SqlTypes.SqlGuid(id))
+                    .Where(id => values.GetValueOrDefault("AfterTenantId") is not Guid after
+                        || new System.Data.SqlTypes.SqlGuid(id).CompareTo(new System.Data.SqlTypes.SqlGuid(after)) > 0)
+                    .Take((int)values["BatchSize"]!).Cast<T>().ToArray();
                 return Task.FromResult<IReadOnlyList<T>>(tenants);
             }
 
@@ -296,6 +317,13 @@ public sealed class ReportingExportTaskRecoveryTests
                 || !string.Equals(current.StatusKey, ReportingExportTaskStatusKeys.Processing, StringComparison.Ordinal))
             {
                 return Task.FromResult(0);
+            }
+
+            if (current.LeaseExpiresAtUtc <= (DateTimeOffset)values["NowUtc"]!) return Task.FromResult(0);
+            if (statement.Name == ReportingExportTaskSql.RenewExecutionLease.Name)
+            {
+                current.LeaseExpiresAtUtc = (DateTimeOffset)values["LeaseExpiresAtUtc"]!;
+                return Task.FromResult(1);
             }
 
             if (statement.Name == ReportingExportTaskSql.CompleteSucceeded.Name

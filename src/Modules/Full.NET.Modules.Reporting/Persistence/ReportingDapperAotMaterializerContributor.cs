@@ -14,7 +14,55 @@ internal sealed class ReportingDapperAotMaterializerContributor
     {
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
         registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
+        registrar.Register<ReportingGroupRecord>(ReadGroup);
+        registrar.Register<ReportingDefinitionRecord>(ReadDefinition);
+        registrar.Register<ReportingDefinitionVersionRecord>(ReadDefinitionVersion);
     }
+
+    // 以下序号与分组、定义和版本的完整/摘要投影一致；摘要 SQL 不读取大正文列。
+    private static ReportingGroupRecord ReadGroup(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        ParentId = AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+        Name = reader.GetString(2),
+        SortOrder = AotDataReaderExtensions.ReadInt32(reader, 3),
+        IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 4),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
+        Version = AotDataReaderExtensions.ReadInt32(reader, 7),
+    };
+
+    private static ReportingDefinitionRecord ReadDefinition(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        GroupId = reader.GetGuid(1),
+        DataSourceId = reader.GetGuid(2),
+        DefinitionKey = reader.GetString(3),
+        Name = reader.GetString(4),
+        Description = AotDataReaderExtensions.ReadNullableString(reader, 5),
+        QueryPortKey = reader.GetString(6),
+        ParameterSchemaJson = reader.GetString(7),
+        LayoutConfigJson = reader.GetString(8),
+        LatestPublishedVersionNumber = AotDataReaderExtensions.ReadInt32(reader, 9),
+        IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 10),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12),
+        Version = AotDataReaderExtensions.ReadInt32(reader, 13),
+    };
+
+    private static ReportingDefinitionVersionRecord ReadDefinitionVersion(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        DefinitionId = reader.GetGuid(1),
+        VersionNumber = AotDataReaderExtensions.ReadInt32(reader, 2),
+        DataSourceId = reader.GetGuid(3),
+        QueryPortKey = reader.GetString(4),
+        ParameterSchemaJson = reader.GetString(5),
+        LayoutConfigJson = reader.GetString(6),
+        ChangeNote = AotDataReaderExtensions.ReadNullableString(reader, 7),
+        PublishedByUserId = reader.GetGuid(8),
+        PublishedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+    };
 
     private static ReportingDataSourceRecord ReadDataSource(DbDataReader reader) => new()
     {

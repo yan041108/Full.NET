@@ -1,6 +1,7 @@
 using FluentValidation;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Observability;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -44,6 +45,7 @@ using Full.NET.Modules.Identity.HostUsers;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.OAuth;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Retention;
 using Full.NET.Modules.Identity.Directory;
 using Full.NET.Modules.Identity.RateLimiting;
@@ -121,6 +123,7 @@ public sealed class IdentityModuleRegistrationTests
         var module = new IdentityModule();
 
         module.AddServices(moduleServices, configuration);
+        IdentityLogTimelineSources.Register(splitServices);
         module.AddMigrationServices(splitServices, configuration);
         splitServices.AddIdentityAuthentication(configuration);
         splitServices.AddIdentityOidc(configuration);
@@ -133,7 +136,8 @@ public sealed class IdentityModuleRegistrationTests
         CollectionAssert.AreEqual(
             SnapshotIdentityOwnedRegistrations(moduleServices),
             SnapshotIdentityOwnedRegistrations(splitServices.Where(descriptor =>
-                descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor))));
+                descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor)
+                && descriptor.ImplementationType != typeof(Full.NET.Modules.Identity.Retention.IdentityEphemeralStateRetentionHostedService))));
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(moduleServices));
@@ -239,15 +243,23 @@ public sealed class IdentityModuleRegistrationTests
         environment.EnvironmentName.Returns("Testing");
         services.AddSingleton(environment);
         services.AddLogging();
+        var foreignReader = Substitute.For<ILogTimelineReader>();
+        services.AddScoped<ILogTimelineReader>(_ => foreignReader);
+        services.AddScoped<IQueryExecutor>(_ => Substitute.For<IQueryExecutor>());
 
         module.AddServices(services, configuration);
         module.AddServices(services, configuration);
 
+        Assert.AreEqual(2, services.Count(descriptor => descriptor.ServiceType == typeof(ILogTimelineReader)));
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(services));
 
         using var provider = services.BuildServiceProvider();
+        var readers = provider.GetServices<ILogTimelineReader>().ToArray();
+        Assert.HasCount(2, readers);
+        Assert.AreSame(foreignReader, readers[0]);
+        Assert.AreEqual("identity.auth.audit", readers[1].Source);
         var authentication = provider
             .GetRequiredService<IOptions<AuthenticationOptions>>()
             .Value;
@@ -335,6 +347,7 @@ public sealed class IdentityModuleRegistrationTests
 
     private static RegistrationExpectation[] ExpectedIdentityOwnedRegistrations() =>
     [
+        RegistrationExpectation.Factory<ILogTimelineReader>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IValidateOptions<IdentityOptions>,
             IdentityOptionsValidator>(ServiceLifetime.Singleton),
@@ -377,6 +390,7 @@ public sealed class IdentityModuleRegistrationTests
             IdentityAuthenticationRegistrationMarker>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<AccessSessionValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ICurrentSessionAuthorization, CurrentSessionAuthorization>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIndependentCurrentSessionAuthorization, IndependentCurrentSessionAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IBackgroundSessionAuthorization, BackgroundSessionAuthorization>(ServiceLifetime.Scoped),
@@ -660,6 +674,10 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<OrganizationUnitProjectionBackfillService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OrganizationUnitProjectionReconciliationService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OrganizationUserUnitChangedIntegrationEventHandler>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIntegrationEventHandler, OrganizationUserUnitChangedIntegrationEventHandler>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OrganizationUnitChangedIntegrationEventHandler>(
             ServiceLifetime.Scoped),

@@ -7,4 +7,5 @@
   <data name="files.file.not_found" xml:space="preserve"><value>The file was not found or has been deleted.</value></data>
   <data name="files.file.invalid_upload" xml:space="preserve"><value>The uploaded file is invalid.</value></data>
   <data name="files.file.too_large" xml:space="preserve"><value>The uploaded file exceeds the allowed size.</value></data>
+  <data name="files.folder.query_limit_exceeded" xml:space="preserve"><value>Too many child folders; narrow the folder scope.</value></data>
 </root>

@@ -1,3 +1,4 @@
+using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
@@ -27,13 +28,29 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     FileStorageProviderRegistry storageProviders,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    HostFileScanCursor<DeletedHostFileBlobCleanupRunner>? cursor = null)
 {
+    private readonly HostFileScanCursor<DeletedHostFileBlobCleanupRunner> _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
 
     public async Task<DeletedHostFileBlobCleanupResult> RunOnceAsync(
         DeletedHostFileBlobCleanupOptions options,
         CancellationToken cancellationToken)
+    {
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cursor.Gate.Release();
+        }
+    }
+
+    private async Task<DeletedHostFileBlobCleanupResult> RunCoreAsync(
+        DeletedHostFileBlobCleanupOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled)
@@ -46,9 +63,9 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
         var blobFailures = 0;
         var concurrentlyCompleted = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterDeletedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
+        var hasCursor = _cursor.Id is not null;
+        var afterDeletedAtUtc = _cursor.Timestamp;
+        Guid? afterId = _cursor.Id;
 
         while (batches < options.MaxBatchesPerRun)
         {
@@ -66,6 +83,7 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -124,8 +142,11 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
             hasCursor = true;
             afterDeletedAtUtc = last.DeletedAtUtc;
             afterId = last.Id;
+            _cursor.Timestamp = afterDeletedAtUtc;
+            _cursor.Id = afterId;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }

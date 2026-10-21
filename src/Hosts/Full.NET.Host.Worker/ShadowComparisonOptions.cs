@@ -31,12 +31,17 @@ public sealed class ShadowComparisonOptions
     /// 单次轮询超时时间（毫秒）；默认 1000，启用时不得小于 100。
     /// </summary>
     public int PollTimeoutMilliseconds { get; set; } = 1_000;
+
+    /// <summary>单次完整观测最多保存的不同事件数；达到预算终止观测并标记不完整，禁止逐出后仍宣称完整去重。</summary>
+    public int MaximumObservedEvents { get; set; } = 100_000;
 }
 
 internal sealed class ShadowComparisonOptionsValidator : IValidateOptions<ShadowComparisonOptions>
 {
     public ValidateOptionsResult Validate(string? name, ShadowComparisonOptions options)
     {
+        if (options.MaximumObservedEvents is < 1 or > 1_000_000)
+            return ValidateOptionsResult.Fail("Messaging:ShadowComparison:MaximumObservedEvents must be between 1 and 1000000.");
         if (!options.Enabled)
         {
             return ValidateOptionsResult.Success;

@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Notifications.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
@@ -9,7 +12,8 @@ namespace Full.NET.Modules.Notifications.Features.ManageMyHostAnnouncements;
 /// <summary>当前 Host 用户收到的公告列表、详情与未读计数。</summary>
 internal sealed class MyHostAnnouncementQueryService(
     IQueryExecutor queryExecutor,
-    HostAnnouncementRecipientGuard recipientGuard)
+    HostAnnouncementRecipientGuard recipientGuard,
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
     /// <summary>分页列出当前用户可见的已发布公告。</summary>
     public async Task<Result<PagedResult<ReceivedHostAnnouncementListItemResponse>>> ListAsync(
@@ -21,24 +25,15 @@ internal sealed class MyHostAnnouncementQueryService(
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var visible = await LoadVisibleAnnouncementsAsync(userId, cancellationToken)
+        var parameters = await BuildReadParametersAsync(userId, filter, cancellationToken).ConfigureAwait(false);
+        parameters["Offset"] = checked((page - 1) * pageSize);
+        parameters["PageSize"] = pageSize;
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(CountStatement(), parameters, cancellationToken)
             .ConfigureAwait(false);
-        var filtered = ApplyFilter(visible, filter)
-            .OrderByDescending(item => item.PublishedAtUtc)
-            .ThenBy(item => item.Id)
-            .ToArray();
-        var offset = (page - 1) * pageSize;
-        var pageItems = filtered
-            .Skip(offset)
-            .Take(pageSize)
-            .Select(MapListItem)
-            .ToArray();
+        var rows = await queryExecutor.QueryAsync<ReceivedHostAnnouncementRecord>(ListStatement(), parameters, cancellationToken)
+            .ConfigureAwait(false);
         return Result<PagedResult<ReceivedHostAnnouncementListItemResponse>>.Success(
-            new PagedResult<ReceivedHostAnnouncementListItemResponse>(
-                pageItems,
-                page,
-                pageSize,
-                filtered.Length));
+            new(rows.Select(MapListItem).ToArray(), page, pageSize, total));
     }
 
     /// <summary>查询单条可见公告详情。</summary>
@@ -70,48 +65,29 @@ internal sealed class MyHostAnnouncementQueryService(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var visible = await LoadVisibleAnnouncementsAsync(userId, cancellationToken)
+        var parameters = await BuildReadParametersAsync(userId, null, cancellationToken).ConfigureAwait(false);
+        parameters["IsRead"] = 0;
+        var count = await queryExecutor.QuerySingleOrDefaultAsync<int>(CountStatement(), parameters, cancellationToken)
             .ConfigureAwait(false);
-        var unreadCount = visible.Count(item => item.ReadAtUtc is null);
-        return Result<HostAnnouncementUnreadCountResponse>.Success(
-            new HostAnnouncementUnreadCountResponse(unreadCount));
+        return Result<HostAnnouncementUnreadCountResponse>.Success(new(count));
     }
 
-    private async Task<IReadOnlyList<ReceivedHostAnnouncementRecord>> LoadVisibleAnnouncementsAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
+    private SqlStatement CountStatement() => databaseOptions?.Value.Provider == DatabaseProvider.MySql
+        ? AnnouncementReadReceiptSql.CountReceivedMySql : AnnouncementReadReceiptSql.CountReceivedSqlServer;
+
+    private SqlStatement ListStatement() => databaseOptions?.Value.Provider == DatabaseProvider.MySql
+        ? AnnouncementReadReceiptSql.ListReceivedMySql : AnnouncementReadReceiptSql.ListReceivedSqlServer;
+
+    private async Task<Dictionary<string, object?>> BuildReadParametersAsync(
+        Guid userId, ReceivedHostAnnouncementListFilter? filter, CancellationToken cancellationToken)
     {
         var parameters = BuildUserParameters(userId);
-        var directRows = await queryExecutor.QueryAsync<ReceivedHostAnnouncementRecord>(
-                AnnouncementReadReceiptSql.ListDirectAudienceCandidates,
-                parameters,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var organizationRows = await queryExecutor.QueryAsync<ReceivedHostAnnouncementRecord>(
-                AnnouncementReadReceiptSql.ListOrganizationAudienceCandidates,
-                parameters,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (organizationRows.Count == 0)
-        {
-            return directRows.ToArray();
-        }
-
-        var targets = await LoadTargetsAsync(
-                organizationRows.Select(row => row.Id).ToArray(),
-                cancellationToken)
-            .ConfigureAwait(false);
-        var visibleOrganizationIds = await recipientGuard.FilterVisibleOrganizationAnnouncementsAsync(
-                userId,
-                organizationRows.ToArray(),
-                targets,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return directRows
-            .Concat(organizationRows.Where(row => visibleOrganizationIds.Contains(row.Id)))
-            .GroupBy(row => row.Id)
-            .Select(group => group.First())
-            .ToArray();
+        var memberships = await recipientGuard.ListMembershipsAsync(userId, cancellationToken).ConfigureAwait(false);
+        parameters["Memberships"] = JsonSerializer.Serialize(memberships,
+            NotificationsJsonSerializerContext.Default.IReadOnlyListTenantOrganizationMembershipEntry);
+        parameters["Title"] = string.IsNullOrWhiteSpace(filter?.Title) ? null : $"%{filter.Title.Trim().ToLowerInvariant().Replace("!", "!!").Replace("%", "!%").Replace("_", "!_").Replace("[", "![")}%";
+        parameters["IsRead"] = filter?.IsRead is { } isRead ? (isRead ? 1 : 0) : null;
+        return parameters;
     }
 
     private async Task<bool> IsVisibleAsync(
@@ -121,13 +97,9 @@ internal sealed class MyHostAnnouncementQueryService(
     {
         if (record.AudienceKind is AnnouncementAudienceKinds.All or AnnouncementAudienceKinds.Users)
         {
-            var parameters = BuildUserParameters(userId);
-            var directRows = await queryExecutor.QueryAsync<ReceivedHostAnnouncementRecord>(
-                    AnnouncementReadReceiptSql.ListDirectAudienceCandidates,
-                    parameters,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return directRows.Any(row => row.Id == record.Id);
+            if (record.AudienceKind == AnnouncementAudienceKinds.All) return true;
+            var directTargets = await LoadTargetsAsync([record.Id], cancellationToken).ConfigureAwait(false);
+            return directTargets.GetUserIds(record.Id).Contains(userId);
         }
 
         var targets = await LoadTargetsAsync([record.Id], cancellationToken)
@@ -166,32 +138,6 @@ internal sealed class MyHostAnnouncementQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
         return AnnouncementTargetBundle.From(users, organizations);
-    }
-
-    private static IEnumerable<ReceivedHostAnnouncementRecord> ApplyFilter(
-        IReadOnlyList<ReceivedHostAnnouncementRecord> rows,
-        ReceivedHostAnnouncementListFilter? filter)
-    {
-        var title = string.IsNullOrWhiteSpace(filter?.Title) ? null : filter!.Title.Trim();
-        return rows.Where(row =>
-        {
-            if (title is not null
-                && !row.Title.Contains(title, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (filter?.IsRead is bool isRead)
-            {
-                var rowIsRead = row.ReadAtUtc is not null;
-                if (rowIsRead != isRead)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        });
     }
 
     private static Dictionary<string, object?> BuildUserParameters(

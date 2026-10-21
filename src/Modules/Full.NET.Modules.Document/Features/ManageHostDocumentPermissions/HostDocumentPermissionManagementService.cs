@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Document.Serialization;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -19,20 +22,20 @@ internal sealed class HostDocumentPermissionManagementService(
     ICommandTransaction transaction,
     HostDocumentPermissionQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public Task<Result<IReadOnlyList<HostDocumentPermissionResponse>>> SetPermissionsAsync(
         SetHostDocumentPermissionsRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.DocumentId == Guid.Empty || request.Permissions is null)
+        if (request.DocumentId == Guid.Empty || request.Permissions is null || request.Permissions.Count > 100)
         {
             return Task.FromResult(Invalid());
         }
 
         foreach (var perm in request.Permissions)
         {
-            if (perm.UserId == Guid.Empty || string.IsNullOrWhiteSpace(perm.PermissionLevel))
+            if (perm.UserId == Guid.Empty || perm.PermissionLevel is not ("read" or "write" or "delete" or "share" or "manage"))
             {
                 return Task.FromResult(Invalid());
             }
@@ -66,14 +69,16 @@ internal sealed class HostDocumentPermissionManagementService(
             .ConfigureAwait(false);
 
         var now = clock.UtcNow;
-        foreach (var perm in request.Permissions)
+        if (request.Permissions.Count > 0)
         {
-            var id = idGenerator.NewId();
+            var rows = request.Permissions.Select(perm =>
+                new DocumentPermissionInsertRow(idGenerator.NewId(), perm.UserId, perm.PermissionLevel.Trim())).ToArray();
             await commandExecutor.ExecuteAsync(
-                    DocumentPermissionSql.Insert,
-                    DocumentSqlParameters.Create(("Id", id), ("DocumentId", request.DocumentId), ("UserId", perm.UserId), ("PermissionLevel", perm.PermissionLevel.Trim()), ("CreatedAtUtc", now)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                    ? DocumentPermissionSql.InsertBatchMySql : DocumentPermissionSql.InsertBatchSqlServer,
+                DocumentSqlParameters.Create(("DocumentId", request.DocumentId), ("CreatedAtUtc", now),
+                    ("Rows", JsonSerializer.Serialize(rows, DocumentJsonSerializerContext.Default.DocumentPermissionInsertRowArray))),
+                cancellationToken).ConfigureAwait(false);
         }
 
         return await queries.ListByDocumentAsync(request.DocumentId, cancellationToken)
@@ -92,3 +97,6 @@ internal sealed class HostDocumentPermissionManagementService(
     private static Error DocumentNotFoundError() =>
         new(DocumentErrorCodes.PermissionDocumentNotFound, "The document for permissions was not found.", ErrorType.NotFound);
 }
+
+/// <summary>有界 ACL 替换的数据库输入；标识由应用生成 UUID v7。</summary>
+internal sealed record DocumentPermissionInsertRow(Guid Id, Guid UserId, string PermissionLevel);

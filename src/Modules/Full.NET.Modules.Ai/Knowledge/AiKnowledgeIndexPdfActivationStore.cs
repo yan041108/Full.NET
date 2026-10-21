@@ -161,8 +161,12 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         if (currentSession is null || Snapshot(currentSession) != session || manifestRow is null || manifestRow.PayloadHash != expectedManifest.PayloadHash) return null;
         if (manifestRow.Id != (Guid)p["TaskId"]! || manifestRow.Payload.Length is < 8 or > AiKnowledgeIndexPdfManifestCodec.MaxPayloadBytes) return null;
         manifestRow = manifestRow with { Payload = manifestRow.Payload.ToArray() };
-        var decoded = DecodeManifest(manifestRow, token);
-        if (decoded is null || decoded.Identity != expectedManifest.Manifest.Identity || decoded.Summary != expectedManifest.Manifest.Summary
+        AiKnowledgeIndexPdfVerifiedManifest verified;
+        try { verified = AiKnowledgeIndexPdfVerifiedManifest.Capture(manifestRow.Payload, token); }
+        catch (InvalidDataException) { return null; }
+        if (verified.PayloadHash != manifestRow.PayloadHash) return null;
+        var decoded = verified.Manifest;
+        if (decoded.Identity != expectedManifest.Manifest.Identity || decoded.Summary != expectedManifest.Manifest.Summary
             || !decoded.Batches.SequenceEqual(expectedManifest.Manifest.Batches)) return null;
         var batches = await query.QueryAsync<AiKnowledgeIndexBatchRecord>(Choose(AiKnowledgeIndexActivationSql.BatchesSqlServerHost,
             AiKnowledgeIndexActivationSql.BatchesSqlServerTenant, AiKnowledgeIndexActivationSql.BatchesMySqlHost, AiKnowledgeIndexActivationSql.BatchesMySqlTenant), p, token).ConfigureAwait(false);
@@ -187,7 +191,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
             row = row with { Payload = row.Payload.ToArray() };
             if (row.PayloadHash != Convert.ToHexString(SHA256.HashData(row.Payload)) || Receipt(row) != expected[ordinal]) return null;
             AiKnowledgeIndexPdfVectorSnapshot payload;
-            try { payload = AiKnowledgeIndexPdfVectorCodec.ReadBatch(manifestRow.Payload, ordinal, row.Payload, token); }
+            try { payload = AiKnowledgeIndexPdfVectorCodec.ReadBatch(verified, ordinal, row.Payload, token); }
             catch (InvalidDataException) { return null; }
             if (payload.Payload.Dimensions != row.Dimensions || payload.Payload.Chunks.Count != row.InputCount
                 || row.RequestHash != AiOperationBudgetStore.Fingerprint(AiEmbeddingBudgetRequest.Create(row.Id, model,
@@ -231,10 +235,9 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         if (frozen is null || frozen.Generation < 0 || frozen.IndexTaskId != taskId || Snapshot(frozen) != session) return false;
         // 读取历史活动代次另走读取者授权；写入或恢复重建必须继续保有原重建权限。
         string[] required = frozen.Generation > 0 ? [.. Permissions, AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild] : Permissions;
-        foreach (var permission in required)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => authorization.AuthorizeAsync(session, permission, ct), token).ConfigureAwait(false);
+            var actor = await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => authorization.AuthorizeAllAsync(session, required, ct), token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return false;
         }
         token.ThrowIfCancellationRequested(); NoTransaction(); return session.TenantId == tenant.Id;

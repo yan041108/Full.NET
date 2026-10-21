@@ -334,29 +334,6 @@
         "TenantScopeKey": "租户作用域唯一键"
       }
     },
-    "demo_enterprise_request_enterprise_request": {
-      "comment": "企业申请示例主表",
-      "columns": {
-        "ApplicantUserId": "申请人用户标识",
-        "RequestNumber": "申请单号",
-        "TotalAmount": "申请总金额",
-        "DeletedById": "删除人标识",
-        "TenantId": "所属租户标识"
-      }
-    },
-    "demo_enterprise_request_enterprise_request_line": {
-      "comment": "企业申请示例明细表",
-      "columns": {
-        "ItemDescription": "申请项目说明",
-        "LineAmount": "明细金额",
-        "LineNumber": "明细行号",
-        "Quantity": "数量",
-        "RequestId": "所属申请标识",
-        "UnitPrice": "单价",
-        "DeletedById": "删除人标识",
-        "TenantId": "所属租户标识"
-      }
-    },
     "fn_tenancy_entitlement_catalog": {
       "comment": "租户权益目录表",
       "columns": {
@@ -537,6 +514,31 @@
         "WasPublished": "是否曾经显式发布；不因停用清除",
         "CreatedByUserId": "版本创建者",
         "CreatedAtUtc": "版本创建 UTC 时间"
+      }
+    },
+    "fn_organization_user_unit": {
+      "columns": {
+        "PublishedProjectionVersion": "已发布读投影源版本"
+      }
+    },
+    "fn_identity_organization_user_unit_projection": {
+      "comment": "身份模块机构隶属读投影",
+      "columns": {
+        "TenantId": "租户标识",
+        "AssignmentId": "源隶属标识",
+        "UserId": "用户标识",
+        "UnitId": "部门标识",
+        "IsActive": "是否启用",
+        "SourceVersion": "源版本",
+        "SourceUpdatedAtUtc": "源更新时间 UTC"
+      }
+    },
+    "fn_webhooks_fanout_budget": {
+      "comment": "Webhook 事件流扇出容量",
+      "columns": {
+        "TenantId": "租户标识",
+        "EventType": "事件类型",
+        "UsedCount": "已保留订阅数量"
       }
     }
   }

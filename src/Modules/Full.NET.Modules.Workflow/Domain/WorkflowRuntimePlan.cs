@@ -64,7 +64,7 @@ internal sealed class WorkflowRuntimePlan
         out WorkflowRuntimePlan? plan)
     {
         plan = null;
-        if (draft.Nodes.Count < 3 ||
+        if (draft.Nodes.Count < 3 || draft.Nodes.Count > WorkflowDefinitionCompiler.MaximumNodes ||
             draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return false;

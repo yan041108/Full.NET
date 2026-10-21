@@ -31,6 +31,11 @@ internal sealed class DbSession(
     /// <summary>
     /// 获取当前活动的数据库事务；若未开启事务则为 null。
     /// </summary>
+    /// <summary>内层失败一旦标记，当前本地事务只能回滚。</summary>
+    public bool IsRollbackOnly { get; private set; }
+
+    public void MarkRollbackOnly() => IsRollbackOnly = true;
+
     public DbTransaction? Transaction => _transaction;
 
     /// <summary>
@@ -78,6 +83,7 @@ internal sealed class DbSession(
             connectionLease.Transaction = transaction;
             _transactionConnectionLease = connectionLease;
             _transaction = transaction;
+            IsRollbackOnly = false;
         }
         catch
         {
@@ -95,6 +101,9 @@ internal sealed class DbSession(
     {
         var transaction = _transaction ?? throw new InvalidOperationException(
             "No database transaction is active.");
+
+        if (IsRollbackOnly)
+            throw new InvalidOperationException("The transaction is marked for rollback.");
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         _transaction = null;

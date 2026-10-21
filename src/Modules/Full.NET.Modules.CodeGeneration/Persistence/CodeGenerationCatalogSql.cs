@@ -8,6 +8,22 @@ namespace Full.NET.Modules.CodeGeneration.Persistence;
 /// </summary>
 internal static class CodeGenerationCatalogSql
 {
+    public static readonly SqlStatement FindTableSqlServer = new(
+        "codegen.catalog.find_table.sqlserver",
+        DatabaseCatalogQueries.FindTableSqlServer, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindTableMySql = new(
+        "codegen.catalog.find_table.mysql",
+        DatabaseCatalogQueries.FindTableMySql, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindViewSqlServer = new(
+        "codegen.catalog.find_view.sqlserver",
+        DatabaseCatalogQueries.FindViewSqlServer, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindViewMySql = new(
+        "codegen.catalog.find_view.mysql",
+        DatabaseCatalogQueries.FindViewMySql, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListTablesSqlServer = new(
         "codegen.catalog.list_tables.sql_server",
         DatabaseCatalogQueries.ListTablesSqlServer,

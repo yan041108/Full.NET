@@ -181,6 +181,30 @@ internal static class AiChatSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListMessageWindowSqlServer = new(
+        "ai.chat.message_window.sqlserver",
+        $"""
+        SELECT {MessageColumns}
+        FROM fn_ai_chat_message AS message
+        WHERE message.SessionId = @SessionId
+          AND (@HasBefore = 0 OR message.CreatedAtUtc < @BeforeCreatedAtUtc
+               OR (message.CreatedAtUtc = @BeforeCreatedAtUtc AND message.Id < @BeforeMessageId))
+        ORDER BY message.CreatedAtUtc DESC, message.Id DESC
+        OFFSET 0 ROWS FETCH NEXT @Take ROWS ONLY
+        """, SqlDataScope.Global);
+
+    public static readonly SqlStatement ListMessageWindowMySql = new(
+        "ai.chat.message_window.mysql",
+        $"""
+        SELECT {MessageColumns}
+        FROM fn_ai_chat_message AS message
+        WHERE message.SessionId = @SessionId
+          AND (@HasBefore = 0 OR message.CreatedAtUtc < @BeforeCreatedAtUtc
+               OR (message.CreatedAtUtc = @BeforeCreatedAtUtc AND message.Id < @BeforeMessageId))
+        ORDER BY message.CreatedAtUtc DESC, message.Id DESC
+        LIMIT @Take
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement ListRecentMessagesForModel = new(
         "ai.list_recent_chat_messages_for_model",
         $"""

@@ -19,6 +19,18 @@ internal sealed class HostFileQueryService(
         HostFileListFilter filter,
         CancellationToken cancellationToken = default)
     {
+        if (filter.FileNameContains is { Length: > 128 })
+            return Result<PagedResult<HostFileResponse>>.Failure(new Error(
+                ValidationErrorCodes.Failed, "File name filter exceeds 128 characters.", ErrorType.Validation));
+        if (filter.FileNameContains is not null)
+        {
+            var end = filter.ToUtc ?? DateTimeOffset.UtcNow;
+            filter = filter with { FromUtc = filter.FromUtc ?? end.AddDays(-1), ToUtc = end };
+        }
+        if ((filter.FromUtc.HasValue != filter.ToUtc.HasValue)
+            || (filter.FromUtc.HasValue && (filter.ToUtc <= filter.FromUtc || filter.ToUtc - filter.FromUtc > TimeSpan.FromDays(31))))
+            return Result<PagedResult<HostFileResponse>>.Failure(new Error(
+                ValidationErrorCodes.Failed, "Provide a time window of at most 31 days.", ErrorType.Validation));
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -224,7 +236,10 @@ internal sealed class HostFileQueryService(
             ["ApplyFolderFilter"] = filter.ApplyFolderFilter ? 1 : 0,
             ["RootOnly"] = filter.RootOnly ? 1 : 0,
             ["FolderId"] = filter.FolderId,
-            ["FileNameContains"] = filter.FileNameContains,
+            ["FileNameContains"] = filter.FileNameContains is null ? null
+                : $"%{filter.FileNameContains.Replace("!", "!!", StringComparison.Ordinal).Replace("%", "!%", StringComparison.Ordinal).Replace("_", "!_", StringComparison.Ordinal).Replace("[", "![", StringComparison.Ordinal)}%",
+            ["FromUtc"] = filter.FromUtc,
+            ["ToUtc"] = filter.ToUtc,
         };
 
     private static Result<HostFileResponse> NotFound() =>
@@ -241,6 +256,9 @@ internal readonly record struct HostFileListFilter(
     Guid? FolderId,
     string? FileNameContains)
 {
+    public DateTimeOffset? FromUtc { get; init; }
+    public DateTimeOffset? ToUtc { get; init; }
+
     public static HostFileListFilter All => new(false, false, null, null);
 
     public static HostFileListFilter UncategorizedOnly => new(true, true, null, null);
@@ -249,11 +267,11 @@ internal readonly record struct HostFileListFilter(
         new(true, false, folderId, null);
 
     public HostFileListFilter WithFileNameContains(string? fileNameContains) =>
-        new(ApplyFolderFilter, RootOnly, FolderId, NormalizeContains(fileNameContains));
+        this with { FileNameContains = NormalizeContains(fileNameContains) };
 
     private static string? NormalizeContains(string? value)
     {
         var trimmed = value?.Trim();
-        return trimmed is { Length: > 0 and <= 128 } ? trimmed : null;
+        return trimmed is { Length: > 0 } ? trimmed : null;
     }
 }

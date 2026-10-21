@@ -110,6 +110,8 @@ export interface PublishReportingDefinitionRequest {
 }
 
 export interface ReportingDefinitionListQuery {
+  page?: number;
+  pageSize?: number;
   groupId?: string;
   nameContains?: string;
 }
@@ -219,4 +221,36 @@ export function isReportingDefinitionVersionList(value: unknown): value is Repor
 
 export function isReportingQueryPortList(value: unknown): value is ReportingQueryPortDefinition[] {
   return Array.isArray(value) && value.every(isReportingQueryPortDefinition);
+}
+
+export type ReportingDefinitionSummary = Omit<ReportingDefinition, 'parameterSchema' | 'layoutConfigJson'>;
+
+export function isReportingDefinitionSummary(value: unknown): value is ReportingDefinitionSummary {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.groupId)
+    && isGuid(value.dataSourceId)
+    && typeof value.definitionKey === 'string'
+    && typeof value.name === 'string'
+    && isNullableString(value.description)
+    && typeof value.queryPortKey === 'string'
+    && typeof value.latestPublishedVersionNumber === 'number'
+    && typeof value.isEnabled === 'boolean'
+    && typeof value.createdAtUtc === 'string'
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
+    && typeof value.version === 'number';
+}
+
+export type ReportingDefinitionVersionSummary = Omit<ReportingDefinitionVersion, 'parameterSchema' | 'layoutConfigJson'>;
+
+export function isReportingDefinitionVersionSummary(value: unknown): value is ReportingDefinitionVersionSummary {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.definitionId)
+    && typeof value.versionNumber === 'number'
+    && isGuid(value.dataSourceId)
+    && typeof value.queryPortKey === 'string'
+    && isNullableString(value.changeNote)
+    && isGuid(value.publishedByUserId)
+    && typeof value.publishedAtUtc === 'string';
 }

@@ -11,7 +11,9 @@ const normalize = file => path.relative(root, path.resolve(root, file))
   .replaceAll('\\', '/');
 
 test('solution includes every repository project referenced by its build graph', () => {
-  const projects = [...readXml('Full.NET.slnx').matchAll(/<Project\b[^>]*\bPath="([^"]+)"/gu)]
+  const projects = [...readXml('Full.NET.slnx').matchAll(/<Project\b[^>]*\bPath="([^"]+)"[^>]*>/gu)]
+    // Website 项是解决方案中的文档目录，不是可解析 ProjectReference 的 MSBuild 项目。
+    .filter(match => !/\bType="Website"/u.test(match[0]))
     .map(match => normalize(match[1]));
   assert.ok(projects.length > 0, '解决方案没有项目，不能验证构建依赖。');
   const included = new Set(projects);

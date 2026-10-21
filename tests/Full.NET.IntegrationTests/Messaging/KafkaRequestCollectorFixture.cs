@@ -64,7 +64,7 @@ internal sealed class KafkaRequestCollectorFixture : IAsyncDisposable
         var config = service + "\n\n" + inputs + "\n\n" + filters + "\n\n" + Output("priority", priority, "False", "256MB")
             + "\n" + Output("b2", general, "3", "512MB");
         var builder = new ContainerBuilder("cr.fluentbit.io/fluent/fluent-bit:4.1.1@sha256:2a5cb41f99b7c5f3386bb34d42ce3b19eb47fbef6d93b64c0bd4afe9e6ec389c")
-            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "collector"))
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "collector"))
             // 与测试 Broker 共享网络，仅在其额外 SSL 监听上连接，不依赖 Docker Desktop host 网络开关。
             .WithCreateParameterModifier(parameters => (parameters.HostConfig ??= new()).NetworkMode = "container:" + kafka.ContainerId)
             .WithResourceMapping(Encoding.UTF8.GetBytes(config), "/work/fluent-bit.conf")

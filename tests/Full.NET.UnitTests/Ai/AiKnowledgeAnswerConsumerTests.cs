@@ -66,7 +66,7 @@ public sealed class AiKnowledgeAnswerConsumerTests
     private sealed class Query(AiChatSessionRecord session, AiChatMessageRecord[] messages) : IQueryExecutor
     {
         public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
-            => Task.FromResult((IReadOnlyList<T>)(object)messages);
+            => Task.FromResult((IReadOnlyList<T>)(object)messages.Reverse().ToArray());
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
             => Task.FromResult((T?)(object)session);
     }

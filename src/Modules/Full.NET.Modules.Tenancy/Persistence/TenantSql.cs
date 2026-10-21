@@ -406,4 +406,15 @@ internal static class TenantSql
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountHostTenantsFiltered = new(
+        "tenancy.counthosttenants.filtered",
+        CountHostTenants.Text + " WHERE (@Identifier IS NULL OR Identifier LIKE @Identifier ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Domain IS NULL OR Domain LIKE @Domain ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountHostTenants.Scope, CountHostTenants.TenantBinding);
+    public static readonly SqlStatement ListHostTenantsSqlServerFiltered = new(
+        "tenancy.listhosttenantssqlserver.filtered",
+        ListHostTenantsSqlServer.Text.Replace("ORDER BY", " WHERE (@Identifier IS NULL OR tenant.Identifier LIKE @Identifier ESCAPE '!') AND (@Name IS NULL OR tenant.Name LIKE @Name ESCAPE '!') AND (@Domain IS NULL OR tenant.Domain LIKE @Domain ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND tenant.IsActive = 1) OR (@Status = 'inactive' AND tenant.IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostTenantsSqlServer.Scope, ListHostTenantsSqlServer.TenantBinding);
+    public static readonly SqlStatement ListHostTenantsMySqlFiltered = new(
+        "tenancy.listhosttenantsmysql.filtered",
+        ListHostTenantsMySql.Text.Replace("ORDER BY", " WHERE (@Identifier IS NULL OR tenant.Identifier LIKE @Identifier ESCAPE '!') AND (@Name IS NULL OR tenant.Name LIKE @Name ESCAPE '!') AND (@Domain IS NULL OR tenant.Domain LIKE @Domain ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND tenant.IsActive = 1) OR (@Status = 'inactive' AND tenant.IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostTenantsMySql.Scope, ListHostTenantsMySql.TenantBinding);
 }

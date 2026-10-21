@@ -25,6 +25,7 @@ internal sealed class HostJobHealthQueryService(
         var workers = await queryExecutor
             .QueryAsync<JobWorkerInstanceRecord>(
                 JobSql.ListWorkerInstances,
+                JobsSqlParameters.Create(("RecentSinceUtc", now.AddHours(-24))),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var staleThreshold = TimeSpan.FromMilliseconds(

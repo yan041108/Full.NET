@@ -33,6 +33,9 @@ const packageDefinition = JSON.parse(rootPackage);
 assert.equal(packageDefinition.private, true);
 assert.match(packageDefinition.packageManager, /^pnpm@10\./);
 assert.equal(packageDefinition.engines.node, '>=24 <25');
+assert.equal(packageDefinition.scripts['test:workspace'],
+  'node --test tests/client-workspace.test.mjs tests/client-audit-policy.test.mjs tests/client-braces-security.test.mjs tests/client-toolchain-compatibility.test.mjs',
+  '工作区入口必须在 CI 同时执行依赖审计策略和实际工具链安全回归');
 assert.equal(
   packageDefinition.scripts['test:localization'],
   'node --test tests/localization-contract.test.mjs'
@@ -74,23 +77,37 @@ assert.equal(
 assert.deepEqual(packageDefinition.pnpm.overrides, {
   glob: '10.5.0',
   '@intlify/message-compiler': '9.14.5',
-  '@dcloudio/uni-cli-shared>@intlify/core-base': '9.1.11',
+  '@dcloudio/uni-cli-shared>@intlify/core-base': '9.14.5',
+  '@dcloudio/uni-cli-shared>@intlify/shared': '9.14.5',
   '@intlify/message-resolver@9.1.9': '9.1.11',
   '@intlify/message-resolver@9.1.10': '9.1.11',
   '@jimp/jpeg>jpeg-js': '0.4.4',
   '@dcloudio/uni-mp-weixin>ws': '8.21.0',
   '@dcloudio/uni-cli-shared>adm-zip': '0.6.1',
-  '@dcloudio/uni-nvue-styler>postcss': '8.5.19',
   browserslist: '4.28.8',
   nanoid: '3.3.18',
-  'express@4.20.0>path-to-regexp': '0.1.13',
   undici: '7.29.1',
-  'brace-expansion': '2.1.6',
-  '@grpc/grpc-js': '1.14.5'
+  'brace-expansion': '2.1.7',
+  '@grpc/grpc-js': '1.14.5',
+  braces: 'workspace:@fullnet/braces@0.1.0',
+  vue: '3.5.42',
+  '@vue/server-renderer': '3.5.42',
+  'source-map-js': '1.2.2',
+  'proxy-addr': '2.0.8',
+  '@dcloudio/vite-plugin-uni>@vitejs/plugin-legacy': '6.1.1',
+  '@dcloudio/vite-plugin-uni>@vitejs/plugin-vue-jsx': '4.2.0',
+  '@dcloudio/uni-cli-shared>esbuild': '0.25.12',
+  '@dcloudio/vite-plugin-uni>express': '4.22.3',
+  '@babel/core@7.25.2': '7.29.7',
+  postcss: '8.5.23',
+  'postcss-selector-parser': '7.1.6',
+  qs: '6.16.1',
+  'dockerode>uuid': '11.1.1',
+  '@dcloudio/uni-mp-weixin>jimp': '1.6.1'
 });
 assert.deepEqual(packageDefinition.pnpm.peerDependencyRules, {
   allowedVersions: {
-    '@dcloudio/vite-plugin-uni>vite': '5.4.21'
+    '@dcloudio/vite-plugin-uni>vite': '6.4.4'
   }
 });
 
@@ -104,8 +121,10 @@ assert.equal(uniappDefinition.scripts['build:h5'], 'uni build -p h5');
 assert.equal(uniappDefinition.scripts['build:mp-weixin'], 'uni build -p mp-weixin');
 assert.equal(uniappDefinition.scripts['build:mp-alipay'], 'uni build -p mp-alipay');
 assert.equal(uniappDefinition.dependencies['vue-i18n'], '9.14.5');
-assert.equal(uniappDefinition.devDependencies.vite, '5.4.21');
-assert.equal(uniappDefinition.devDependencies.vitest, '3.2.6');
+assert.equal(uniappDefinition.devDependencies.vite, '6.4.4');
+assert.equal(uniappDefinition.devDependencies.vitest, '4.1.11');
+// 小程序内置 CSS 插件按 sass 名称加载，与 H5 共用同版 Embedded 实现。
+assert.equal(uniappDefinition.devDependencies.sass, 'npm:sass-embedded@1.100.0');
 
 const uniappE2eDefinition = JSON.parse(uniappE2ePackage);
 assert.equal(uniappE2eDefinition.name, '@fullnet/uniapp-h5-e2e');

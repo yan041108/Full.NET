@@ -106,10 +106,9 @@ internal sealed class AiKnowledgeIndexGrantService(AiKnowledgeIndexGrantStore gr
     {
         var permissions = paid ? Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService.Permissions.Append(permission).ToArray()
             : new[] { AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, permission };
-        foreach (var code in permissions)
         {
             Outside(token); if (!Same(original)) return false;
-            var actor = await authorization.AuthorizeAsync(original, code, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(original, permissions, token).ConfigureAwait(false);
             Outside(token);
             if (!Same(original) || actor?.UserId != original.UserId || actor.TenantId != original.TenantId || actor.SessionId != original.SessionId) return false;
         }

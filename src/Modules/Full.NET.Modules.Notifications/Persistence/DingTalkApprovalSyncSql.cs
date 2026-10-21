@@ -89,7 +89,9 @@ internal static class DingTalkApprovalSyncSql
                CreatedAtUtc, UpdatedAtUtc, CreatedByUserId
         FROM fn_notifications_dingtalk_approval_sync
         WHERE StatusKey IN (@PendingOutbound, @OutboundFailed, @Running)
-        ORDER BY UpdatedAtUtc ASC, CreatedAtUtc ASC
+          AND (@HasCursor = 0 OR CreatedAtUtc > @AfterCreatedAtUtc
+               OR (CreatedAtUtc = @AfterCreatedAtUtc AND Id > @AfterId))
+        ORDER BY CreatedAtUtc ASC, Id ASC
         """,
         SqlDataScope.Global);
 
@@ -102,7 +104,9 @@ internal static class DingTalkApprovalSyncSql
                CreatedAtUtc, UpdatedAtUtc, CreatedByUserId
         FROM fn_notifications_dingtalk_approval_sync
         WHERE StatusKey IN (@PendingOutbound, @OutboundFailed, @Running)
-        ORDER BY COALESCE(UpdatedAtUtc, CreatedAtUtc) ASC
+          AND (@HasCursor = 0 OR CreatedAtUtc > @AfterCreatedAtUtc
+               OR (CreatedAtUtc = @AfterCreatedAtUtc AND Id > @AfterId))
+        ORDER BY CreatedAtUtc ASC, Id ASC
         LIMIT @BatchSize
         """,
         SqlDataScope.Global);

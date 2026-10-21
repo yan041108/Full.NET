@@ -5,31 +5,46 @@ using Full.NET.Modules.Identity.Contracts;
 namespace Full.NET.Modules.Identity.Directory;
 
 /// <summary>基于 <see cref="System.DirectoryServices.Protocols"/> 的 LDAP 目录客户端。</summary>
-internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient
+internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient, IDisposable
 {
+    private readonly LdapBlockingExecutor _executor = new();
+
+    public Task<LdapConnectionTestOutcome> TestConnectionAsync(LdapConnectionRuntimeSettings settings, CancellationToken cancellationToken = default) =>
+        _executor.InvokeAsync(token => TestConnectionCore(settings, token), cancellationToken);
+
+    public Task<LdapAuthenticationTestOutcome> TestAuthenticationAsync(LdapConnectionRuntimeSettings settings,
+        string account, string password, CancellationToken cancellationToken = default) =>
+        _executor.InvokeAsync(token => TestAuthenticationCore(settings, account, password, token), cancellationToken);
+
+    public Task<IReadOnlyList<LdapDirectoryEntrySnapshot>> PreviewEntriesAsync(LdapConnectionRuntimeSettings settings,
+        string searchBaseDn, int maxEntries, CancellationToken cancellationToken = default) =>
+        _executor.InvokeAsync(token => PreviewEntriesCore(settings, searchBaseDn, maxEntries, token), cancellationToken);
+
+    public void Dispose() => _executor.Dispose();
+
     /// <inheritdoc />
-    public Task<LdapConnectionTestOutcome> TestConnectionAsync(
+    private static LdapConnectionTestOutcome TestConnectionCore(
         LdapConnectionRuntimeSettings settings,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            using var connection = CreateBoundServiceConnection(settings);
-            return Task.FromResult(new LdapConnectionTestOutcome(
+            using var connection = CreateBoundServiceConnection(settings, cancellationToken);
+            return new LdapConnectionTestOutcome(
                 true,
-                "Connection and service account bind succeeded."));
+                "Connection and service account bind succeeded.");
         }
         catch (Exception exception)
         {
-            return Task.FromResult(new LdapConnectionTestOutcome(
+            return new LdapConnectionTestOutcome(
                 false,
-                SanitizeMessage(exception)));
+                SanitizeMessage(exception));
         }
     }
 
     /// <inheritdoc />
-    public Task<LdapAuthenticationTestOutcome> TestAuthenticationAsync(
+    private static LdapAuthenticationTestOutcome TestAuthenticationCore(
         LdapConnectionRuntimeSettings settings,
         string account,
         string password,
@@ -38,47 +53,56 @@ internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            using var serviceConnection = CreateBoundServiceConnection(settings);
-            var userDn = FindUserDn(serviceConnection, settings, account);
+            using var serviceConnection = CreateBoundServiceConnection(settings, cancellationToken);
+            var userDn = FindUserDn(serviceConnection, settings, account, cancellationToken);
             if (userDn is null)
             {
-                return Task.FromResult(new LdapAuthenticationTestOutcome(
+                return new LdapAuthenticationTestOutcome(
                     false,
                     null,
-                    "No directory user matched the supplied account."));
+                    "No directory user matched the supplied account.");
             }
 
             using var userConnection = CreateConnection(settings);
+            using var registration = cancellationToken.Register(userConnection.Dispose);
             userConnection.Bind(new System.Net.NetworkCredential(userDn, password));
-            return Task.FromResult(new LdapAuthenticationTestOutcome(
+            return new LdapAuthenticationTestOutcome(
                 true,
                 userDn,
-                "User bind succeeded."));
+                "User bind succeeded.");
         }
         catch (Exception exception)
         {
-            return Task.FromResult(new LdapAuthenticationTestOutcome(
+            return new LdapAuthenticationTestOutcome(
                 false,
                 null,
-                SanitizeMessage(exception)));
+                SanitizeMessage(exception));
         }
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<LdapDirectoryEntrySnapshot>> PreviewEntriesAsync(
+    private static IReadOnlyList<LdapDirectoryEntrySnapshot> PreviewEntriesCore(
         LdapConnectionRuntimeSettings settings,
         string searchBaseDn,
         int maxEntries,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var connection = CreateBoundServiceConnection(settings);
+        maxEntries = Math.Clamp(maxEntries, 1, 200);
+        using var connection = CreateBoundServiceConnection(settings, cancellationToken);
         var request = new SearchRequest(
             searchBaseDn,
             "(|(objectClass=user)(objectClass=person)(objectClass=inetOrgPerson)(objectClass=organizationalUnit))",
             SearchScope.OneLevel,
-            BuildPreviewAttributes(settings));
-        var response = (SearchResponse)connection.SendRequest(request);
+            BuildPreviewAttributes(settings)) { SizeLimit = maxEntries, TimeLimit = TimeSpan.FromSeconds(15) };
+        using var registration = cancellationToken.Register(connection.Dispose);
+        SearchResponse response;
+        try { response = (SearchResponse)connection.SendRequest(request); }
+        catch (DirectoryOperationException exception) when (exception.Response is SearchResponse partial
+            && partial.ResultCode == ResultCode.SizeLimitExceeded)
+        {
+            response = (SearchResponse)exception.Response;
+        }
         var entries = new List<LdapDirectoryEntrySnapshot>(Math.Min(maxEntries, response.Entries.Count));
         foreach (SearchResultEntry entry in response.Entries)
         {
@@ -91,14 +115,20 @@ internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient
             entries.Add(MapPreviewEntry(entry, settings));
         }
 
-        return Task.FromResult<IReadOnlyList<LdapDirectoryEntrySnapshot>>(entries);
+        return entries;
     }
 
-    private static LdapConnection CreateBoundServiceConnection(LdapConnectionRuntimeSettings settings)
+    private static LdapConnection CreateBoundServiceConnection(LdapConnectionRuntimeSettings settings, CancellationToken cancellationToken)
     {
         var connection = CreateConnection(settings);
-        connection.Bind(new System.Net.NetworkCredential(settings.BindDn, settings.BindPassword));
-        return connection;
+        try
+        {
+            using var registration = cancellationToken.Register(connection.Dispose);
+            connection.Bind(new System.Net.NetworkCredential(settings.BindDn, settings.BindPassword));
+            cancellationToken.ThrowIfCancellationRequested();
+            return connection;
+        }
+        catch { connection.Dispose(); throw; }
     }
 
     private static LdapConnection CreateConnection(LdapConnectionRuntimeSettings settings)
@@ -124,7 +154,7 @@ internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient
     private static string? FindUserDn(
         LdapConnection connection,
         LdapConnectionRuntimeSettings settings,
-        string account)
+        string account, CancellationToken cancellationToken)
     {
         var filter = string.Format(
             System.Globalization.CultureInfo.InvariantCulture,
@@ -135,6 +165,7 @@ internal sealed class DirectoryServicesLdapClient : ILdapDirectoryClient
             filter,
             SearchScope.Subtree,
             "distinguishedName");
+        using var registration = cancellationToken.Register(connection.Dispose);
         var response = (SearchResponse)connection.SendRequest(request);
         if (response.Entries.Count == 0)
         {

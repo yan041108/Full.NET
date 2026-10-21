@@ -25,13 +25,12 @@ internal sealed class DeliveryStatusQueryService(
     public async Task<Result<DeliveryStatusResponse>> GetAsync(CancellationToken cancellationToken)
     {
         var backlog = await backlogReader.ReadBacklogAsync(cancellationToken).ConfigureAwait(false);
+        var owners = await ownerResolver.GetDeliveryOwnersAsync(_topics, cancellationToken).ConfigureAwait(false);
         var streams = new List<EventStreamStatusResponse>(_topics.Count);
         foreach (var topic in _topics.OrderBy(t => t.EventType, StringComparer.Ordinal)
             .ThenBy(t => t.SchemaVersion))
         {
-            var owner = await ownerResolver
-                .GetDeliveryOwnerAsync(topic.EventType, topic.SchemaVersion, cancellationToken)
-                .ConfigureAwait(false);
+            var owner = owners[(topic.EventType, topic.SchemaVersion)];
             streams.Add(new EventStreamStatusResponse(
                 topic.EventType,
                 topic.SchemaVersion,

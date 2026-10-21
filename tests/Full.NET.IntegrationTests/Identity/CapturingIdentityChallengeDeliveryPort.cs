@@ -1,3 +1,4 @@
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Notifications.Contracts;
 

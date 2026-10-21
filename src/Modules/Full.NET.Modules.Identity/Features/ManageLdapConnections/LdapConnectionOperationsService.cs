@@ -34,10 +34,19 @@ internal sealed class LdapConnectionOperationsService(
             return Result<TestLdapConnectionResult>.Failure(settingsResult.Error!);
         }
 
-        var outcome = await ldapDirectoryClient.TestConnectionAsync(
+        LdapConnectionTestOutcome outcome;
+        try
+        {
+            outcome = await ldapDirectoryClient.TestConnectionAsync(
                 settingsResult.Value!,
                 cancellationToken)
             .ConfigureAwait(false);
+        }
+        catch (LdapOperationCapacityException)
+        {
+            return Result<TestLdapConnectionResult>.Failure(new Error("identity.ldap.operation_budget_exceeded",
+                "LDAP directory operation capacity is temporarily exhausted.", ErrorType.RateLimited));
+        }
         return Result<TestLdapConnectionResult>.Success(
             new TestLdapConnectionResult(outcome.Succeeded, outcome.Message));
     }
@@ -68,12 +77,21 @@ internal sealed class LdapConnectionOperationsService(
             return Result<TestLdapAuthenticationResult>.Failure(settingsResult.Error!);
         }
 
-        var outcome = await ldapDirectoryClient.TestAuthenticationAsync(
+        LdapAuthenticationTestOutcome outcome;
+        try
+        {
+            outcome = await ldapDirectoryClient.TestAuthenticationAsync(
                 settingsResult.Value!,
                 account,
                 request.Password,
                 cancellationToken)
             .ConfigureAwait(false);
+        }
+        catch (LdapOperationCapacityException)
+        {
+            return Result<TestLdapAuthenticationResult>.Failure(new Error("identity.ldap.operation_budget_exceeded",
+                "LDAP directory operation capacity is temporarily exhausted.", ErrorType.RateLimited));
+        }
         return Result<TestLdapAuthenticationResult>.Success(
             new TestLdapAuthenticationResult(
                 outcome.Succeeded,
@@ -114,12 +132,21 @@ internal sealed class LdapConnectionOperationsService(
             request.MaxEntries ?? DefaultPreviewMaxEntries,
             1,
             AbsolutePreviewMaxEntries);
-        var entries = await ldapDirectoryClient.PreviewEntriesAsync(
+        IReadOnlyList<LdapDirectoryEntrySnapshot> entries;
+        try
+        {
+            entries = await ldapDirectoryClient.PreviewEntriesAsync(
                 settings,
                 searchBaseDn,
                 maxEntries,
                 cancellationToken)
             .ConfigureAwait(false);
+        }
+        catch (LdapOperationCapacityException)
+        {
+            return Result<PreviewLdapSyncResponse>.Failure(new Error("identity.ldap.operation_budget_exceeded",
+                "LDAP directory operation capacity is temporarily exhausted.", ErrorType.RateLimited));
+        }
         return Result<PreviewLdapSyncResponse>.Success(
             new PreviewLdapSyncResponse(
                 searchBaseDn,

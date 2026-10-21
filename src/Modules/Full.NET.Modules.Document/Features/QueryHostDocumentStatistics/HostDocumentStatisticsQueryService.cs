@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -13,7 +14,7 @@ namespace Full.NET.Modules.Document.Features.QueryHostDocumentStatistics;
 /// </summary>
 internal sealed class HostDocumentStatisticsQueryService(
     IQueryExecutor queryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<HostDocumentStatisticsResponse>> GetAsync(
         CancellationToken cancellationToken = default)
@@ -42,28 +43,28 @@ internal sealed class HostDocumentStatisticsQueryService(
         var summary = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentStatisticsSummaryRecord>(
                 summaryStatement,
-                null,
+                new Dictionary<string, object?> { ["ActorUserId"] = accessPolicy.ActorUserId },
                 cancellationToken)
             .ConfigureAwait(false) ?? new DocumentStatisticsSummaryRecord();
 
         var byType = await queryExecutor
             .QueryAsync<DocumentStatisticsByTypeRecord>(
                 byTypeStatement,
-                null,
+                new Dictionary<string, object?> { ["ActorUserId"] = accessPolicy.ActorUserId },
                 cancellationToken)
             .ConfigureAwait(false);
 
         var byCategory = await queryExecutor
             .QueryAsync<DocumentStatisticsByCategoryRecord>(
                 DocumentItemSql.StatisticsByCategory,
-                null,
+                new Dictionary<string, object?> { ["ActorUserId"] = accessPolicy.ActorUserId },
                 cancellationToken)
             .ConfigureAwait(false);
 
         var shareCounts = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentStatisticsShareCountRecord>(
                 shareCountStatement,
-                null,
+                new Dictionary<string, object?> { ["ActorUserId"] = accessPolicy.ActorUserId },
                 cancellationToken)
             .ConfigureAwait(false) ?? new DocumentStatisticsShareCountRecord();
 

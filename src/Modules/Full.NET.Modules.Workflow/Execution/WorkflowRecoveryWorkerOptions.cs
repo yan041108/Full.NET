@@ -14,6 +14,9 @@ internal sealed class WorkflowRecoveryWorkerOptions
     /// <summary>未满批时两次轮询之间的等待毫秒数。</summary>
     public int PollMilliseconds { get; set; } = 1000;
 
+    /// <summary>一轮候选扫描未满后再次扫描的间隔秒数；消费积压不触发重复扫描。</summary>
+    public int ScanIntervalSeconds { get; set; } = 15;
+
     /// <summary>领取后租约有效秒数。</summary>
     public int LeaseSeconds { get; set; } = 120;
 
@@ -44,6 +47,8 @@ internal sealed class WorkflowRecoveryWorkerOptionsValidator
     public ValidateOptionsResult Validate(string? name, WorkflowRecoveryWorkerOptions options)
     {
         var failures = new List<string>();
+        if (options.ScanIntervalSeconds is < 1 or > 3600)
+            failures.Add("Workflow:RecoveryWorker:ScanIntervalSeconds must be between 1 and 3600.");
         if (options.BatchSize is < 1 or > 50)
         {
             failures.Add("Workflow:RecoveryWorker:BatchSize must be between 1 and 50.");

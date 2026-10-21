@@ -5866,36 +5866,93 @@
       ]
     },
     {
-      "statementName": "workflow.recovery.scan_expired_leases",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanExpiredLeases",
+      "statementName": "workflow.recovery.scan_expired_leases.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanExpiredLeasesMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Recovery Worker 必须扫描全部作用域的过期租约；该语句不加当前租户过滤，管理 API 不得复用。",
       "requiredSqlFragments": [
         "fn_workflow_instance",
-        "@Now"
+        "@Now",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "LIMIT @BatchSize"
       ]
     },
     {
-      "statementName": "workflow.recovery.scan_incomplete_steps",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanIncompleteSteps",
+      "statementName": "workflow.recovery.scan_expired_leases.sql_server",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanExpiredLeasesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域的过期租约；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@Now",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "TOP (@BatchSize)"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_incomplete_steps.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanIncompleteStepsMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Recovery Worker 必须扫描全部作用域缺少活动待办的人工步骤；该语句不加当前租户过滤，管理 API 不得复用。",
       "requiredSqlFragments": [
         "fn_workflow_step",
-        "human.approval"
+        "human.approval",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "LIMIT @BatchSize"
       ]
     },
     {
-      "statementName": "workflow.recovery.scan_stuck_instances",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanStuckInstances",
+      "statementName": "workflow.recovery.scan_incomplete_steps.sql_server",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanIncompleteStepsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域缺少活动待办的人工步骤；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "human.approval",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "TOP (@BatchSize)"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_stuck_instances.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanStuckInstancesMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Recovery Worker 必须扫描全部作用域的卡住实例；该语句不加当前租户过滤，管理 API 不得复用。",
       "requiredSqlFragments": [
         "fn_workflow_instance",
-        "fn_workflow_todo"
+        "fn_workflow_todo",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "LIMIT @BatchSize"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_stuck_instances.sql_server",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanStuckInstancesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域的卡住实例；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "fn_workflow_todo",
+        "OpenOccupancyKey",
+        "'pending','failed','dead_lettered'",
+        "ORDER BY instance.Id",
+        "TOP (@BatchSize)"
       ]
     },
     {
@@ -6412,6 +6469,279 @@
         "AdmittedDocuments<DocumentLimit",
         "Id>@AfterId",
         "ORDER BY Id"
+      ]
+    },
+    {
+      "statementName": "ai.chat.message_window.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.ListMessageWindowSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "verified_identity",
+      "reason": "已授权会话的有界历史窗口；调用方先验证当前会话所有权与知识依赖，后续边界重验，不将游标当授权。",
+      "requiredSqlFragments": [
+        "message.SessionId = @SessionId",
+        "message.CreatedAtUtc DESC, message.Id DESC",
+        "FETCH NEXT @Take"
+      ]
+    },
+    {
+      "statementName": "ai.chat.message_window.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.ListMessageWindowMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "verified_identity",
+      "reason": "已授权会话的有界历史窗口；调用方先验证当前会话所有权与知识依赖，后续边界重验，不将游标当授权。",
+      "requiredSqlFragments": [
+        "message.SessionId = @SessionId",
+        "message.CreatedAtUtc DESC, message.Id DESC",
+        "LIMIT @Take"
+      ]
+    },
+    {
+      "statementName": "identity.delete_expired_signature_nonces.sqlserver",
+      "declaration": "Full.NET.Modules.Identity.Persistence.SignatureNonceSql.DeleteExpiredSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/SignatureNonceSql.cs",
+      "category": "verified_identity",
+      "reason": "独立 Host 后台仅回收按可信 UTC 时钟已过期的防重放状态；每语句最多500、每类每轮最多10批，不删除仍生效的 Nonce。",
+      "requiredSqlFragments": [
+        "fn_identity_signature_nonce",
+        "ExpiresAtUtc <= @NowUtc",
+        "DELETE TOP (500)"
+      ]
+    },
+    {
+      "statementName": "identity.delete_expired_signature_nonces.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.SignatureNonceSql.DeleteExpiredMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/SignatureNonceSql.cs",
+      "category": "verified_identity",
+      "reason": "独立 Host 后台仅回收按可信 UTC 时钟已过期的防重放状态；每语句最多500、每类每轮最多10批，不删除仍生效的 Nonce。",
+      "requiredSqlFragments": [
+        "fn_identity_signature_nonce",
+        "ExpiresAtUtc <= @NowUtc",
+        "LIMIT 500"
+      ]
+    },
+    {
+      "statementName": "identity.organization_user_unit_projection.apply.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUserUnitChangedIntegrationEventHandler.SqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUserUnitChangedIntegrationEventHandler.cs",
+      "category": "reliable_event_sink",
+      "reason": "受信 Organization Outbox 隶属事件维护 Identity 自有筛选投影；租户与源隶属组成幂等键，版本只前进；投影不用于授权。",
+      "requiredSqlFragments": [
+        "MERGE fn_identity_organization_user_unit_projection WITH (HOLDLOCK)",
+        "target.TenantId = source.TenantId",
+        "target.AssignmentId = source.AssignmentId",
+        "target.SourceVersion < @SourceVersion"
+      ]
+    },
+    {
+      "statementName": "identity.organization_user_unit_projection.apply.mysql",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUserUnitChangedIntegrationEventHandler.MySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUserUnitChangedIntegrationEventHandler.cs",
+      "category": "reliable_event_sink",
+      "reason": "受信 Organization Outbox 隶属事件维护 Identity 自有筛选投影；租户与源隶属组成幂等键，逐字段受版本约束且最后推进版本，不用于授权。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_organization_user_unit_projection",
+        "@TenantId,@AssignmentId",
+        "IF(SourceVersion < @SourceVersion",
+        "GREATEST(SourceVersion,@SourceVersion)"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_invitations.count_pending_for_invitee",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence.TenantMembershipSql.CountPendingInvitationsForInvitee",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/Persistence/TenantMembershipSql.cs",
+      "category": "verified_identity",
+      "reason": "登录受邀人按权威用户标识与规范化邮箱读取自己的未过期待处理邀请；跨租户目录只读，接受邀请仍需独立令牌与租户资格校验。",
+      "requiredSqlFragments": [
+        "TargetUserId = @UserId",
+        "Status = @PendingStatus",
+        "ExpiresAtUtc > @NowUtc",
+        "COUNT(1)"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_invitations.list_pending_page.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence.TenantMembershipSql.ListPendingInvitationsPageSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/Persistence/TenantMembershipSql.cs",
+      "category": "verified_identity",
+      "reason": "登录受邀人按权威用户标识与规范化邮箱读取自己的未过期待处理邀请；跨租户目录只读，接受邀请仍需独立令牌与租户资格校验。",
+      "requiredSqlFragments": [
+        "TargetUserId = @UserId",
+        "Status = @PendingStatus",
+        "ExpiresAtUtc > @NowUtc",
+        "FETCH NEXT @PageSize"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_invitations.list_pending_page.mysql",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence.TenantMembershipSql.ListPendingInvitationsPageMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/Persistence/TenantMembershipSql.cs",
+      "category": "verified_identity",
+      "reason": "登录受邀人按权威用户标识与规范化邮箱读取自己的未过期待处理邀请；跨租户目录只读，接受邀请仍需独立令牌与租户资格校验。",
+      "requiredSqlFragments": [
+        "TargetUserId = @UserId",
+        "Status = @PendingStatus",
+        "ExpiresAtUtc > @NowUtc",
+        "LIMIT @PageSize OFFSET @Offset"
+      ]
+    },
+    {
+      "statementName": "identity.workflow.list_active_host_role_members_by_role_ids.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs",
+      "category": "host_catalog",
+      "reason": "Workflow 有界批量解析已授权 Host 角色成员；角色与用户必须为 Host、活动且排除超级管理员，不跨读租户身份行。",
+      "requiredSqlFragments": [
+        "userRole.RoleId IN @RoleIds",
+        "roleObject.ScopeKey = 'host'",
+        "roleObject.TenantId IS NULL",
+        "roleObject.IsSuperAdministrator = 0",
+        "identityUser.TenantId IS NULL",
+        "identityUser.IsActive = 1",
+        "LIMIT @MemberLimit"
+      ]
+    },
+    {
+      "statementName": "jobs.countdefinitions.filtered",
+      "declaration": "Full.NET.Modules.Jobs.Persistence.JobSql.CountDefinitionsFiltered",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Persistence/JobSql.cs",
+      "category": "host_catalog",
+      "reason": "Host Jobs 管理页以相同参数执行筛选计数与数据库分页；仅 TenantId NULL 定义，GroupName 精确匹配，端点仍需稳定管理权限。",
+      "requiredSqlFragments": [
+        "fn_jobs_definition",
+        "TenantId IS NULL",
+        "GroupName = @GroupName",
+        "COUNT(*)"
+      ]
+    },
+    {
+      "statementName": "jobs.listdefinitionssqlserver.filtered",
+      "declaration": "Full.NET.Modules.Jobs.Persistence.JobSql.ListDefinitionsSqlServerFiltered",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Persistence/JobSql.cs",
+      "category": "host_catalog",
+      "reason": "Host Jobs 管理页以相同参数执行筛选计数与数据库分页；仅 TenantId NULL 定义，GroupName 精确匹配，端点仍需稳定管理权限。",
+      "requiredSqlFragments": [
+        "fn_jobs_definition",
+        "TenantId IS NULL",
+        "GroupName = @GroupName",
+        "FETCH NEXT @PageSize"
+      ]
+    },
+    {
+      "statementName": "jobs.listdefinitionsmysql.filtered",
+      "declaration": "Full.NET.Modules.Jobs.Persistence.JobSql.ListDefinitionsMySqlFiltered",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Persistence/JobSql.cs",
+      "category": "host_catalog",
+      "reason": "Host Jobs 管理页以相同参数执行筛选计数与数据库分页；仅 TenantId NULL 定义，GroupName 精确匹配，端点仍需稳定管理权限。",
+      "requiredSqlFragments": [
+        "fn_jobs_definition",
+        "TenantId IS NULL",
+        "GroupName = @GroupName",
+        "LIMIT @PageSize OFFSET @Offset"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.list_locales_by_keys",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListTemplateLocalesByKeys",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "host_tenant_catalog",
+      "reason": "仅批量查询当前页模板的语言投影；TenantScopeKey 从可信 Host/Tenant 范围产生，模板键来自已筛选页，不读取模板正文。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey",
+        "TemplateKey IN @TemplateKeys",
+        "ORDER BY TemplateKey, LocaleTag, Id"
+      ]
+    },
+    {
+      "statementName": "organization.membership.count_distinct_active_users.sqlserver",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.CountDistinctActiveUsersSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host 公告接收范围校验只聚合已验证且最多100个租户/机构目标；在 Organization 自有表按完整租户机构键匹配并去重活动用户，不跨模块读表。",
+      "requiredSqlFragments": [
+        "COUNT(DISTINCT membership.UserId)",
+        "membership.IsActive = 1",
+        "@Targets",
+        "target.TenantId = membership.TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.membership.count_distinct_active_users.mysql",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.CountDistinctActiveUsersMySql",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host 公告接收范围校验只聚合已验证且最多100个租户/机构目标；在 Organization 自有表按完整租户机构键匹配并去重活动用户，不跨模块读表。",
+      "requiredSqlFragments": [
+        "COUNT(DISTINCT membership.UserId)",
+        "membership.IsActive = 1",
+        "@Targets",
+        "UNHEX(REPLACE(target.TenantId, '-', '')) = membership.TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.units.count_active_targets.sqlserver",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.CountActiveTargetUnitsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host 公告仅批量校验已验证且最多100个租户/机构目标的活动机构；匹配租户与机构完整键，数量不符则拒绝发布。",
+      "requiredSqlFragments": [
+        "fn_organization_unit",
+        "unitObject.IsActive = 1",
+        "@Targets",
+        "target.TenantId = unitObject.TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.units.count_active_targets.mysql",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.CountActiveTargetUnitsMySql",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host 公告仅批量校验已验证且最多100个租户/机构目标的活动机构；匹配租户与机构完整键，数量不符则拒绝发布。",
+      "requiredSqlFragments": [
+        "fn_organization_unit",
+        "unitObject.IsActive = 1",
+        "@Targets",
+        "UNHEX(REPLACE(target.TenantId, '-', '')) = unitObject.TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.user_unit_projection.find_unpublished.sql_server",
+      "declaration": "Full.NET.Modules.Organization.Features.ManageTenantUserUnits.UserUnitProjectionPublicationHostedService.FindSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/UserUnitProjectionPublicationHostedService.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "后台从 Organization 自有持久隶属记录扫描最多100个未发布版本锚点；按数据库原生游标推进，每条另绑定可信租户后以源版本 CAS 与 Outbox 原子发布。",
+      "requiredSqlFragments": [
+        "fn_organization_user_unit",
+        "PublishedProjectionVersion < Version",
+        "@AfterId",
+        "ORDER BY Id",
+        "TOP (100)"
+      ]
+    },
+    {
+      "statementName": "organization.user_unit_projection.find_unpublished.mysql",
+      "declaration": "Full.NET.Modules.Organization.Features.ManageTenantUserUnits.UserUnitProjectionPublicationHostedService.FindMySql",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/UserUnitProjectionPublicationHostedService.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "后台从 Organization 自有持久隶属记录扫描最多100个未发布版本锚点；按数据库原生游标推进，每条另绑定可信租户后以源版本 CAS 与 Outbox 原子发布。",
+      "requiredSqlFragments": [
+        "fn_organization_user_unit",
+        "PublishedProjectionVersion < Version",
+        "@AfterId",
+        "ORDER BY Id",
+        "LIMIT 100"
+      ]
+    },
+    {
+      "statementName": "organization.user_unit_projection.find_source_units",
+      "declaration": "Full.NET.Modules.Organization.Features.ManageTenantUserUnits.UserUnitProjectionPublicationHostedService.FindUnits",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/UserUnitProjectionPublicationHostedService.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅为当前最多100条持久隶属锚点读取同租户机构快照；两个自有表按完整租户机构键连接，输入来自上一步受控扫描。",
+      "requiredSqlFragments": [
+        "assignment.TenantId=unit.TenantId",
+        "assignment.UnitId=unit.Id",
+        "assignment.Id IN @AssignmentIds"
       ]
     }
   ]

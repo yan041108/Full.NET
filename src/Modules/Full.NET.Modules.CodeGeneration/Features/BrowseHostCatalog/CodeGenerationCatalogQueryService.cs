@@ -284,31 +284,23 @@ internal sealed class CodeGenerationCatalogQueryService(
                 ErrorType.Validation));
         }
 
-        var tables = await ReadObjectNamesAsync(
-                CodeGenerationCatalogObjectKinds.Table,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var tableMatch = tables.FirstOrDefault(candidate =>
-            string.Equals(candidate, objectName, StringComparison.Ordinal));
-        if (tableMatch is not null)
+        foreach (var kind in new[] { CodeGenerationCatalogObjectKinds.Table, CodeGenerationCatalogObjectKinds.View })
         {
-            return Result<(string Name, string Kind)>.Success(
-                (tableMatch, CodeGenerationCatalogObjectKinds.Table));
+            var statement = (databaseOptions.Value.Provider, kind) switch
+            {
+                (DatabaseProvider.SqlServer, CodeGenerationCatalogObjectKinds.Table) => CodeGenerationCatalogSql.FindTableSqlServer,
+                (DatabaseProvider.MySql, CodeGenerationCatalogObjectKinds.Table) => CodeGenerationCatalogSql.FindTableMySql,
+                (DatabaseProvider.SqlServer, CodeGenerationCatalogObjectKinds.View) => CodeGenerationCatalogSql.FindViewSqlServer,
+                (DatabaseProvider.MySql, CodeGenerationCatalogObjectKinds.View) => CodeGenerationCatalogSql.FindViewMySql,
+                _ => throw new InvalidOperationException("The configured database provider is not supported."),
+            };
+            var row = await queryExecutor.QuerySingleOrDefaultAsync<CodeGenerationCatalogTableRow>(
+                statement, new Dictionary<string, object?> { ["TableName"] = objectName }, cancellationToken).ConfigureAwait(false);
+            if (row is not null && string.Equals(row.TableName, objectName, StringComparison.Ordinal))
+                return Result<(string Name, string Kind)>.Success((row.TableName, kind));
         }
-
-        var views = await ReadObjectNamesAsync(
-                CodeGenerationCatalogObjectKinds.View,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var viewMatch = views.FirstOrDefault(candidate =>
-            string.Equals(candidate, objectName, StringComparison.Ordinal));
-        return viewMatch is null
-            ? Result<(string Name, string Kind)>.Failure(new Error(
-                CodeGenerationCatalogErrorCodes.ObjectNotFound,
-                "The catalog object was not found.",
-                ErrorType.NotFound))
-            : Result<(string Name, string Kind)>.Success(
-                (viewMatch, CodeGenerationCatalogObjectKinds.View));
+        return Result<(string Name, string Kind)>.Failure(new Error(
+            CodeGenerationCatalogErrorCodes.ObjectNotFound, "The catalog object was not found.", ErrorType.NotFound));
     }
 
     private async Task<IReadOnlyList<string>> ReadObjectNamesAsync(

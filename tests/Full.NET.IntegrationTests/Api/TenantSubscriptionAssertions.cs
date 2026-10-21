@@ -69,10 +69,11 @@ internal static class TenantSubscriptionAssertions
         listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
-        var list = await listResponse.Content.ReadFromJsonAsync<IReadOnlyList<TenantSubscriptionResponse>>(
+        var list = await listResponse.Content.ReadFromJsonAsync<PagedResult<TenantSubscriptionResponse>>(
             cancellationToken);
         Assert.IsNotNull(list);
-        Assert.IsTrue(list!.Any(item => item.Id == created.Id));
+        Assert.IsTrue(list.Total >= 1);
+        Assert.IsTrue(list.Items.Any(item => item.Id == created.Id));
 
         using var cancelRequest = new HttpRequestMessage(
             HttpMethod.Post,

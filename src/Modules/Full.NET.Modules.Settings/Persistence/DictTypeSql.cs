@@ -186,4 +186,15 @@ internal static class DictTypeSql
         WHERE DictTypeId = @DictTypeId
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountHostDictTypesFiltered = new(
+        "settings.counthostdicttypes.filtered",
+        CountHostDictTypes.Text + " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountHostDictTypes.Scope, CountHostDictTypes.TenantBinding);
+    public static readonly SqlStatement ListHostDictTypesSqlServerFiltered = new(
+        "settings.listhostdicttypessqlserver.filtered",
+        ListHostDictTypesSqlServer.Text.Replace("ORDER BY", " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostDictTypesSqlServer.Scope, ListHostDictTypesSqlServer.TenantBinding);
+    public static readonly SqlStatement ListHostDictTypesMySqlFiltered = new(
+        "settings.listhostdicttypesmysql.filtered",
+        ListHostDictTypesMySql.Text.Replace("ORDER BY", " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostDictTypesMySql.Scope, ListHostDictTypesMySql.TenantBinding);
 }

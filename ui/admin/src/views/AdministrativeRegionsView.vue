@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -24,7 +24,7 @@ import type { FormInstance, UploadFile } from 'element-plus';
 import type {
   AdministrativeRegion,
   AdministrativeRegionDatasetManifest,
-  AdministrativeRegionTreeNode,
+  AdministrativeRegionChild,
   FullNetProblemDetails,
   ImportAdministrativeRegionsPreview,
   ImportAdministrativeRegionsRequest
@@ -44,7 +44,7 @@ import {
   createAdministrativeRegion,
   deleteAdministrativeRegion,
   getAdministrativeRegion,
-  getAdministrativeRegionTree,
+  listAdministrativeRegionChildren,
   getLatestAdministrativeRegionDatasetManifest,
   previewAdministrativeRegionImport,
   updateAdministrativeRegion
@@ -54,7 +54,7 @@ defineOptions({ name: 'AdministrativeRegionsView' });
 
 type EditorMode = 'create' | 'edit';
 
-interface TreeRow extends AdministrativeRegionTreeNode {
+interface TreeRow extends AdministrativeRegionChild {
   version?: number;
 }
 
@@ -62,6 +62,9 @@ const session = useSessionStore();
 const { t, locale } = useAdminI18n();
 const inHostContext = computed(() => !session.currentUser?.tenantId);
 const treeRows = ref<TreeRow[]>([]);
+const treeGeneration = ref(0);
+let treeController = new AbortController();
+onBeforeUnmount(() => treeController.abort());
 const manifest = ref<AdministrativeRegionDatasetManifest | null>(null);
 const loading = ref(false);
 const changing = ref(false);
@@ -119,19 +122,39 @@ async function load(): Promise<void> {
   if (!inHostContext.value) {
     return;
   }
+  treeController.abort();
+  treeController = new AbortController();
+  const generation = ++treeGeneration.value;
+  const signal = treeController.signal;
+  treeRows.value = [];
   loading.value = true;
   problem.value = undefined;
   try {
-    const [tree, latestManifest] = await Promise.all([
-      getAdministrativeRegionTree(undefined, 5),
-      getLatestAdministrativeRegionDatasetManifest()
+    const [roots, latestManifest] = await Promise.all([
+      listAdministrativeRegionChildren(undefined, signal),
+      getLatestAdministrativeRegionDatasetManifest(undefined, signal)
     ]);
-    treeRows.value = tree;
+    if (generation !== treeGeneration.value || signal.aborted) return;
+    treeRows.value = roots;
     manifest.value = latestManifest;
   } catch (error: unknown) {
-    problem.value = resolveProblem(error);
+    if (generation === treeGeneration.value && !signal.aborted) problem.value = resolveProblem(error);
   } finally {
-    loading.value = false;
+    if (generation === treeGeneration.value) loading.value = false;
+  }
+}
+
+async function loadChildren(row: TreeRow, _node: unknown, resolve: (rows: TreeRow[]) => void): Promise<void> {
+  const generation = treeGeneration.value;
+  const signal = treeController.signal;
+  if (!inHostContext.value) { resolve([]); return; }
+  try {
+    const children = await listAdministrativeRegionChildren(row.id, signal);
+    // 刷新会重建表格并取消旧请求，迟到的展开结果不得写入新一代树。
+    resolve(generation === treeGeneration.value && !signal.aborted ? children : []);
+  } catch (error: unknown) {
+    if (generation === treeGeneration.value && !signal.aborted) problem.value = resolveProblem(error);
+    resolve([]);
   }
 }
 
@@ -424,10 +447,12 @@ function formatDateTime(value: string): string {
         <div class="art-table" :class="{ 'is-empty': treeRows.length === 0 }">
           <el-table
             v-loading="loading"
+            :key="treeGeneration"
             :data="treeRows"
             row-key="id"
-            :tree-props="{ children: 'children' }"
-            default-expand-all
+            lazy
+            :load="loadChildren"
+            :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"

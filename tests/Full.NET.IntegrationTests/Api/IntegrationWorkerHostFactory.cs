@@ -100,6 +100,9 @@ internal static class IntegrationWorkerHostFactory
 
     private sealed class EmptyTenantOrganizationUnitDirectory : ITenantOrganizationUnitDirectory
     {
+        public Task<bool> AreActiveUnitsAsync(IReadOnlyCollection<TenantOrganizationMembershipTarget> targets,
+            CancellationToken cancellationToken = default) => Task.FromResult(targets.Count == 0);
+
         public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
             Guid tenantId,
             Guid unitId,

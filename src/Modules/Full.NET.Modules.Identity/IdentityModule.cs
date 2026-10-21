@@ -56,7 +56,7 @@ public sealed class IdentityModule : IFullNetModule
     public IReadOnlyCollection<string> Dependencies => [];
 
     /// <summary>用户头像与签名通过 Files 合同读写；Files 未启用时自助资料媒体能力不可用。</summary>
-    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files", "Notifications"];
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files"];
 
     /// <summary>
     /// 注册 Identity 模块的 HTTP 宿主服务：迁移/选项校验、认证/OIDC、认证事件保留、
@@ -238,6 +238,8 @@ public sealed class IdentityModule : IFullNetModule
         AddOrganizationUnitProjection(services);
         // Workflow 通知事件必须按可信 Host/Tenant 作用域批量校验收件人，只注册所需目录而不装配完整 HTTP 身份域。
         services.AddNotificationRecipientDirectories();
+        services.TryAddScoped<OrganizationUserUnitChangedIntegrationEventHandler>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, OrganizationUserUnitChangedIntegrationEventHandler>());
         services.TryAddScoped<OrganizationUnitChangedIntegrationEventHandler>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -272,6 +274,7 @@ public sealed class IdentityModule : IFullNetModule
         services.AddIdentityOidcRetentionBackgroundService(configuration);
         if (workerHost)
         {
+            services.AddHostedService<Retention.IdentityEphemeralStateRetentionHostedService>();
             services.AddAuthenticationEventRetentionBackgroundService(configuration);
         }
     }
@@ -288,6 +291,10 @@ public sealed class IdentityModule : IFullNetModule
 
     internal static void RegisterOrganizationUnitChangedTopic(IServiceCollection services)
     {
+        var userUnitTopic = IntegrationEventTopicDefinition.Create("organization.user-unit-changed.v1",
+            IdentityOrganizationUserUnitEventTypes.Changed, 1, EventDeliveryOwner.LegacyPolling);
+        if (!services.Any(descriptor => descriptor.ImplementationInstance is IntegrationEventTopicDefinition value && value.TopicCode == userUnitTopic.TopicCode))
+            services.AddSingleton(userUnitTopic);
         var topic = IdentityIntegrationEventTopicDefinitions.OrganizationUnitChanged;
         if (!services.Any(descriptor =>
                 descriptor.ServiceType == typeof(IntegrationEventTopicDefinition)

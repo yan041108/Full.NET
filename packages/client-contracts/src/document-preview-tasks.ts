@@ -4,6 +4,8 @@ export interface CreateHostDocumentPreviewTaskRequest {
 }
 
 export interface HostDocumentPreviewTaskResponse {
+  previewGrant?: string | null;
+  previewPollUntilUtc?: string | null;
   id: string;
   documentItemId: string;
   documentTitle: string;
@@ -13,7 +15,7 @@ export interface HostDocumentPreviewTaskResponse {
   statusKey: string;
   providerKey: string;
   errorCode: string | null;
-  requestedByUserId: string;
+  requestedByUserId: string | null;
   createdAtUtc: string;
   startedAtUtc: string | null;
   completedAtUtc: string | null;
@@ -85,7 +87,7 @@ export function isHostDocumentPreviewTaskResponse(
     && typeof value.statusKey === 'string'
     && typeof value.providerKey === 'string'
     && isNullableString(value.errorCode)
-    && isGuid(value.requestedByUserId)
+    && isNullableGuid(value.requestedByUserId)
     && typeof value.createdAtUtc === 'string'
     && isNullableString(value.startedAtUtc)
     && isNullableString(value.completedAtUtc)

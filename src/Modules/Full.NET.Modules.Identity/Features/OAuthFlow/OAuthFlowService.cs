@@ -81,12 +81,6 @@ internal sealed class OAuthFlowService(
             return ProviderUnavailable();
         }
 
-        await commandExecutor.ExecuteAsync(
-                OAuthAuthorizationStateSql.DeleteExpired,
-                IdentitySqlParameters.Create(("NowUtc", clock.UtcNow)),
-                cancellationToken)
-            .ConfigureAwait(false);
-
         var stateId = idGenerator.NewId();
         var codeVerifier = OAuthPkce.CreateCodeVerifier();
         var codeChallenge = OAuthPkce.CreateCodeChallenge(codeVerifier);

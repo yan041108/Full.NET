@@ -79,23 +79,21 @@ internal sealed class HostJobExecutionQueryService(
     /// 清空指定作业定义下的终态执行记录（succeeded/failed/cancelled），对应 Admin.NET ClearJobTriggerRecord。
     /// 保留 pending/running/cancelling 记录以避免丢失正在运行的任务证据。
     /// </summary>
-    public Task<Result<bool>> ClearAsync(
-        Guid jobDefinitionId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => ClearCoreAsync(jobDefinitionId, token),
-            cancellationToken);
-
-    private async Task<Result<bool>> ClearCoreAsync(
-        Guid jobDefinitionId,
-        CancellationToken cancellationToken)
+    public async Task<Result<bool>> ClearAsync(
+        Guid jobDefinitionId, CancellationToken cancellationToken = default)
     {
-        await commandExecutor.ExecuteAsync(
-                JobSql.ClearExecutionsByDefinition,
-                JobsSqlParameters.Create(("JobDefinitionId", jobDefinitionId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return Result<bool>.Success(true);
+        var cutoff = DateTimeOffset.UtcNow;
+        var statement = databaseOptions.Value.Provider == DatabaseProvider.MySql
+            ? JobSql.ClearExecutionsByDefinitionMySql : JobSql.ClearExecutionsByDefinition;
+        var parameters = JobsSqlParameters.Create(("JobDefinitionId", jobDefinitionId), ("CutoffUtc", cutoff));
+        // 每批独立提交，清理故障可重试；清理开始后的新执行不进入本次历史集合。
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var deleted = await transaction.ExecuteAsync(
+                token => commandExecutor.ExecuteAsync(statement, parameters, token), cancellationToken).ConfigureAwait(false);
+            if (deleted < 500) return Result<bool>.Success(true);
+        }
     }
 
     internal static HostJobExecutionResponse MapExecution(JobExecutionRecord record) =>

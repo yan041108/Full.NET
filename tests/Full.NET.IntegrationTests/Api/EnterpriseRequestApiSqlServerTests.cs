@@ -18,7 +18,7 @@ public sealed class EnterpriseRequestApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(), includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantCrudContractAsync(factory);
     }
@@ -28,7 +28,7 @@ public sealed class EnterpriseRequestApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(), includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantSubmitForApprovalWhenDefinitionPublishedAsync(factory);
     }
@@ -39,7 +39,7 @@ public sealed class EnterpriseRequestApiSqlServerTests
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
-            ImportExportSyncSettings);
+            ImportExportSyncSettings, includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
     }

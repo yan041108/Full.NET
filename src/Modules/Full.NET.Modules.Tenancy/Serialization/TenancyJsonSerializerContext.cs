@@ -43,6 +43,7 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(UpdateTenantEntitlementEnforcementRequest))]
 [JsonSerializable(typeof(TenantSubscriptionResponse))]
 [JsonSerializable(typeof(TenantSubscriptionResponse[]))]
+[JsonSerializable(typeof(PagedResult<TenantSubscriptionResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<TenantSubscriptionResponse>))]
 [JsonSerializable(typeof(CreateTenantSubscriptionRequest))]
 [JsonSerializable(typeof(CancelTenantSubscriptionRequest))]

@@ -42,6 +42,8 @@ const { t } = useAdminI18n();
 const problem = ref<FullNetProblemDetails>();
 const pendingTenantId = ref<string | null>();
 const myInvitations = ref<MyTenantInvitation[]>([]);
+const invitationPage = ref(1);
+const invitationTotal = ref(0);
 const loadingInvitations = ref(false);
 const acceptingInvitationId = ref<string | null>(null);
 const invitationToken = ref('');
@@ -94,7 +96,9 @@ watchLoading(loading);
 async function loadMyInvitations(): Promise<void> {
   loadingInvitations.value = true;
   try {
-    myInvitations.value = await listMyTenantInvitations();
+    const result = await listMyTenantInvitations(invitationPage.value, 20);
+    myInvitations.value = result.items;
+    invitationTotal.value = result.total;
   } catch {
     myInvitations.value = [];
   } finally {
@@ -333,6 +337,9 @@ function toProblem(error: unknown): FullNetProblemDetails {
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-model:current-page="invitationPage" :page-size="20" :total="invitationTotal"
+        layout="prev, pager, next, total" @current-change="loadMyInvitations" />
+
 
       <div class="tenant-context-view__token-row">
         <span>{{ t('tenant.invitationTokenTitle') }}</span>

@@ -21,6 +21,9 @@ public sealed class ImportExportOptions
     /// <summary>单次 worker 迭代处理的 valid 行数上限，默认 50。</summary>
     public int BatchSize { get; init; } = 50;
 
+    /// <summary>单次执行的总时间预算；续租不能延长该截止时间。</summary>
+    public int ExecutionTimeoutSeconds { get; init; } = 900;
+
     /// <summary>单次执行租约秒数，默认 120 秒；到期后允许其他 Worker 重领。</summary>
     public int LeaseSeconds { get; init; } = 120;
 

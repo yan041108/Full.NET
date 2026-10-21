@@ -31,7 +31,7 @@ internal static class FilesTestSupport
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(exists ? 1L : 0L);
-        return new HostFolderQueryService(queryExecutor);
+        return new HostFolderQueryService(queryExecutor, Microsoft.Extensions.Options.Options.Create(new DatabaseOptions()));
     }
 
     public static HostFileDetailRecord CreateDetailRecord(

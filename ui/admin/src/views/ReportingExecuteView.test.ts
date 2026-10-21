@@ -22,7 +22,7 @@ function mountView() {
 
 describe('ReportingExecuteView', () => {
   beforeEach(() => {
-    definitionsMock.mockResolvedValue([]);
+    definitionsMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   });
 
   it('disables run action without definitions', async () => {

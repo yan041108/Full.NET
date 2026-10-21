@@ -45,6 +45,10 @@ public sealed class OcrModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<OcrApiKeyProtector>();
+        services.AddHttpClient("Full.NET.Ocr.Recognize", client => client.Timeout = TimeSpan.FromSeconds(30))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
+        services.AddHttpClient("Full.NET.Ocr.Health", client => client.Timeout = TimeSpan.FromSeconds(10))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
         services.TryAddSingleton<PaddleOcrIdCardClient>();
         services.TryAddSingleton<IPaddleOcrIdCardClient>(static provider =>
             provider.GetRequiredService<PaddleOcrIdCardClient>());

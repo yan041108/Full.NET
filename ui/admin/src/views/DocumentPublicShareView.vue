@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput } from 'element-plus';
 import type { FullNetProblemDetails, HostDocumentShareAccessResponse } from '@fullnet/client-contracts';
@@ -22,7 +22,6 @@ const { t } = useAdminI18n();
 const loading = ref(false);
 const contentLoading = ref(false);
 const initialLoaded = ref(false);
-const accessStarted = ref(false);
 const password = ref('');
 const access = ref<HostDocumentShareAccessResponse>();
 const problem = ref<FullNetProblemDetails>();
@@ -62,28 +61,48 @@ function shareAccessBody() {
   return { password: password.value.trim() || null };
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => {
-    window.setTimeout(resolve, ms);
+let previewController: AbortController | undefined;
+let accessController: AbortController | undefined;
+let shareGeneration = 0;
+onUnmounted(() => { shareGeneration += 1; accessController?.abort(); previewController?.abort(); });
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const aborted = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+    const timer = window.setTimeout(() => { signal.removeEventListener('abort', aborted); resolve(); }, ms);
+    signal.addEventListener('abort', aborted, { once: true });
   });
 }
 
-async function loadOfficePreview(): Promise<void> {
-  const task = await createDocumentSharePreviewTaskByCode(shareCode.value, shareAccessBody());
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const status = await getDocumentSharePreviewTaskByCode(shareCode.value, task.id, shareAccessBody());
-    if (status.statusKey === 'failed') {
-      throw new Error('document.public_share.preview_task_failed');
+async function loadOfficePreview(generation: number, code: string): Promise<void> {
+  if (generation !== shareGeneration || code !== shareCode.value) return;
+  previewController?.abort();
+  const controller = new AbortController(); previewController = controller;
+  // 取消不保证已完成请求的 continuation 不再执行；旧任务不能触发共享预览的清理或替换。
+  const isCurrent = () => !controller.signal.aborted && generation === shareGeneration && code === shareCode.value;
+  const task = await createDocumentSharePreviewTaskByCode(code,
+    { ...shareAccessBody(), previewGrant: access.value?.previewGrant }, controller.signal);
+  if (!isCurrent()) return;
+  if (!task.previewGrant || !task.previewPollUntilUtc) throw new Error('document.public_share.preview_grant_missing');
+  const until = Date.parse(task.previewPollUntilUtc);
+  const body = { previewGrant: task.previewGrant };
+  while (isCurrent() && Date.now() < until) {
+    try {
+      const status = await getDocumentSharePreviewTaskByCode(code, task.id, body, controller.signal);
+      if (!isCurrent()) return;
+      if (status.statusKey === 'failed') throw new Error('document.public_share.preview_task_failed');
+      if (status.statusKey === 'succeeded') {
+        await loadPreview(() => loadDocumentSharePreviewTaskContentByCode(code, task.id, body, controller.signal));
+        return;
+      }
+      await delay(Math.min(5000, Math.max(1, until - Date.now())), controller.signal);
+    } catch (error) {
+      if (!isFullNetProblemDetails(error) || error.status !== 429) throw error;
+      await delay(Math.min((error.retryAfterSeconds ?? 10) * 1000, Math.max(1, until - Date.now())), controller.signal);
     }
-    if (status.statusKey === 'succeeded') {
-      await loadPreview(() =>
-        loadDocumentSharePreviewTaskContentByCode(shareCode.value, task.id, shareAccessBody())
-      );
-      return;
-    }
-    await delay(1500);
   }
-  throw new Error('document.public_share.preview_task_timeout');
+  if (isCurrent()) throw new Error('document.public_share.preview_task_timeout');
 }
 
 const remainingAccessLabel = computed(() => {
@@ -97,7 +116,7 @@ const remainingAccessLabel = computed(() => {
   return String(remaining);
 });
 
-async function loadContent() {
+async function loadContent(generation = shareGeneration, code = shareCode.value, signal = accessController?.signal) {
   if (!shareCode.value || !access.value) {
     return;
   }
@@ -105,11 +124,12 @@ async function loadContent() {
   contentProblem.value = undefined;
   try {
     if (needsOfficePreview.value) {
-      await loadOfficePreview();
+      await loadOfficePreview(generation, code);
     } else {
-      await loadPreview(() => loadDocumentShareContentByCode(shareCode.value, shareAccessBody()));
+      await loadPreview(() => loadDocumentShareContentByCode(code, shareAccessBody(), signal));
     }
   } catch (error) {
+    if (generation !== shareGeneration || signal?.aborted) return;
     if (isFullNetProblemDetails(error)) {
       contentProblem.value = error;
     } else {
@@ -120,7 +140,7 @@ async function loadContent() {
       };
     }
   } finally {
-    contentLoading.value = false;
+    if (generation === shareGeneration) contentLoading.value = false;
   }
 }
 
@@ -141,42 +161,38 @@ function downloadContent() {
 }
 
 async function submitAccess() {
-  if (!shareCode.value || loading.value) {
-    return;
-  }
-  loading.value = true;
-  problem.value = undefined;
-  contentProblem.value = undefined;
+  const code = shareCode.value;
+  if (!code || loading.value) return;
+  const generation = ++shareGeneration;
+  accessController?.abort();
+  const controller = new AbortController(); accessController = controller;
+  loading.value = true; problem.value = undefined; contentProblem.value = undefined;
   clearPreview();
-  if (!password.value.trim()) {
-    passwordRequired.value = false;
-  }
+  if (!password.value.trim()) passwordRequired.value = false;
   try {
-    access.value = await accessDocumentShareByCode(shareCode.value, {
-      password: password.value.trim() || null
-    });
-    passwordRequired.value = false;
-    await loadContent();
+    const value = await accessDocumentShareByCode(code, { password: password.value.trim() || null }, controller.signal);
+    if (generation !== shareGeneration || code !== shareCode.value) return;
+    access.value = value; passwordRequired.value = false;
+    await loadContent(generation, code, controller.signal);
   } catch (error) {
+    if (generation !== shareGeneration || controller.signal.aborted) return;
     access.value = undefined;
     problem.value = isFullNetProblemDetails(error) ? error : undefined;
     if (problem.value?.code === 'document.host_share.password_required') {
-      passwordRequired.value = true;
-      problem.value = undefined;
+      passwordRequired.value = true; problem.value = undefined;
     }
   } finally {
-    loading.value = false;
-    initialLoaded.value = true;
+    if (generation === shareGeneration) { loading.value = false; initialLoaded.value = true; }
   }
 }
 
 watch(
   shareCode,
   code => {
-    if (!code || accessStarted.value) {
-      return;
-    }
-    accessStarted.value = true;
+    if (!code) return;
+    shareGeneration += 1; accessController?.abort(); previewController?.abort();
+    loading.value = false; contentLoading.value = false; initialLoaded.value = false;
+    access.value = undefined; password.value = ''; clearPreview();
     void submitAccess();
   },
   { immediate: true }

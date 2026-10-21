@@ -74,6 +74,7 @@ the complete license texts.
   https://github.com/dotnet/aspnetcore
 - uni-app/DCloud — Apache-2.0
   https://github.com/dcloudio/uni-app
+  Full.NET patch updates the Weixin automator image read call for the named Jimp 1.6 API.
 - uni-ui 1.5.12 — Apache-2.0
   https://github.com/dcloudio/uni-ui
 
@@ -95,13 +96,20 @@ the complete license texts.
   https://github.com/vform666/variant-form3-vite @ c67479e496bab56a93a3dff168a4f529d8293c67
 - Workflow-Vue3 (adapted designer core in ui/admin/src/workflow/vendor/workflow-vue3) — source repository notice retained
   https://github.com/StavinLi/Workflow-Vue3 @ 8d81e61edc495d07ae5fdc21e3f24aacc7f32991
-- Vite — MIT
+- braces 3.0.3 (private bounded-recursion security fork in packages/braces) — MIT
+  https://github.com/micromatch/braces @ 74b2db2938fad48a2ea54a9c8bf27a37a62c350d
+  Original LICENSE retained; Full.NET adds fixed parser/AST depth guards for GHSA-vfj7-8cjw-p6xm.
+- Vite 6.4.4 (uni-app), 8.1.5 (Vue admin) — MIT
   https://github.com/vitejs/vite
-- Vitest — MIT
+- Vitest 4.1.11 — MIT
   https://github.com/vitest-dev/vitest
 - jsdom — MIT
   https://github.com/jsdom/jsdom
-- DOMPurify — Apache-2.0 (selected from MPL-2.0 OR Apache-2.0)
+- Jimp 1.6.1 — MIT
+  https://github.com/jimp-dev/jimp
+- UUID 11.1.1 (Dockerode toolchain) — MIT
+  https://github.com/uuidjs/uuid
+- DOMPurify 3.4.17 — Apache-2.0 (selected from MPL-2.0 OR Apache-2.0)
   https://github.com/cure53/DOMPurify
 - pnpm — MIT
   https://github.com/pnpm/pnpm

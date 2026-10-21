@@ -33,12 +33,34 @@ internal sealed class RealtimeBackplaneProbe : IRealtimeBackplaneProbe
         configuration.ConnectRetry = 0;
         configuration.ConnectTimeout = 1000;
         configuration.AsyncTimeout = 1000;
-        await using var connection = await ConnectionMultiplexer
-            .ConnectAsync(configuration)
-            .WaitAsync(cancellationToken);
+        var pendingConnection = ConnectionMultiplexer.ConnectAsync(configuration);
+        ConnectionMultiplexer connection;
+        try
+        {
+            connection = await pendingConnection.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // WaitAsync 仅取消等待；连接任务仍由收尾函数拥有，迟到的连接也必须释放。
+            _ = DisposeLateConnectionAsync(pendingConnection);
+            throw;
+        }
+        await using var ownedConnection = connection;
         _ = await connection
             .GetDatabase()
             .PingAsync()
             .WaitAsync(cancellationToken);
+    }
+
+    private static async Task DisposeLateConnectionAsync(Task<ConnectionMultiplexer> pendingConnection)
+    {
+        try
+        {
+            await using var connection = await pendingConnection.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // 原探针已向调用方传播失败；这里只观察连接任务并收敛其资源所有权。
+        }
     }
 }

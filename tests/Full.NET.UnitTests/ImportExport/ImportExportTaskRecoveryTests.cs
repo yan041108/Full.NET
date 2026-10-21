@@ -1,3 +1,4 @@
+using Full.NET.UnitTests.TestInfrastructure;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -152,6 +153,22 @@ public sealed class ImportExportTaskRecoveryTests
     }
 
     /// <summary>组装使用内存存储的生产 Runner。</summary>
+    [TestMethod]
+    public async Task Inactive_candidate_page_does_not_starve_next_active_tenant()
+    {
+        var fixture = CreateFixture();
+        for (var i = 1; i <= 50; i++)
+        {
+            var tenantId = Guid.Parse($"00000000-0000-0000-0000-{i:000000000000}");
+            var id = Guid.NewGuid();
+            fixture.Store.Tasks[id] = CreateTask(fixture, id, ImportExportTaskStatusKeys.Queued, 0, 0, null, null, tenantId: tenantId);
+        }
+        SeedQueuedTask(fixture);
+        Assert.AreEqual(0, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.IsGreaterThan(0, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(50, fixture.Store.Tasks.Values.Count(task => task.TenantId != fixture.TenantId));
+    }
+
     private static Fixture CreateFixture()
     {
         var tenantId = Guid.NewGuid();
@@ -203,7 +220,7 @@ public sealed class ImportExportTaskRecoveryTests
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new OptionsMonitorStub<ImportExportOptions>(options.Value));
+            new OptionsMonitorStub<ImportExportOptions>(options.Value), new PendingTenantScanState(), new LeaseTestScopeFactory(resolver, store));
         return new Fixture(store, runner, handler, files, clock, tenantId, () => invocations);
     }
 
@@ -258,11 +275,11 @@ public sealed class ImportExportTaskRecoveryTests
         int succeededRowCount,
         Guid? leaseId,
         DateTimeOffset? leaseExpiresAtUtc,
-        int validRowCount = 2) =>
+        int validRowCount = 2, Guid? tenantId = null) =>
         new()
         {
             Id = taskId,
-            TenantId = fixture.TenantId,
+            TenantId = tenantId ?? fixture.TenantId,
             SchemaKey = "organization.tenant_positions",
             SchemaDisplayName = "positions",
             WorksheetKey = "positions",
@@ -369,7 +386,11 @@ public sealed class ImportExportTaskRecoveryTests
             if (statement.Name == ImportExportTaskSql.ListPendingTenantIdsSqlServer.Name)
             {
                 var tenants = Tasks.Values.Where(task => IsClaimable(task, now))
-                    .Select(task => task.TenantId).Distinct().Cast<T>().ToArray();
+                    .Select(task => task.TenantId).Distinct()
+                    .OrderBy(id => new System.Data.SqlTypes.SqlGuid(id))
+                    .Where(id => values.GetValueOrDefault("AfterTenantId") is not Guid after
+                        || new System.Data.SqlTypes.SqlGuid(id).CompareTo(new System.Data.SqlTypes.SqlGuid(after)) > 0)
+                    .Take((int)values["BatchSize"]!).Cast<T>().ToArray();
                 return Task.FromResult<IReadOnlyList<T>>(tenants);
             }
 
@@ -390,6 +411,42 @@ public sealed class ImportExportTaskRecoveryTests
             if (!Tasks.TryGetValue((Guid)values["Id"]!, out var current))
             {
                 return Task.FromResult(0);
+            }
+
+            if (current.LeaseExpiresAtUtc <= (DateTimeOffset)values["NowUtc"]!) return Task.FromResult(0);
+            if (statement.Name == ImportExportTaskSql.RenewExecutionLease.Name)
+            {
+                Tasks[current.Id] = new ImportExportTaskRecord
+                {
+                    Id = current.Id,
+                    TenantId = current.TenantId,
+                    SchemaKey = current.SchemaKey,
+                    SchemaDisplayName = current.SchemaDisplayName,
+                    WorksheetKey = current.WorksheetKey,
+                    SourceFileId = current.SourceFileId,
+                    SourceFileName = current.SourceFileName,
+                    StatusKey = current.StatusKey,
+                    TotalRows = current.TotalRows,
+                    ValidRowCount = current.ValidRowCount,
+                    InvalidRowCount = current.InvalidRowCount,
+                    PreviewRowsJson = current.PreviewRowsJson,
+                    ErrorCode = current.ErrorCode,
+                    RequestedByUserId = current.RequestedByUserId,
+                    CreatedAtUtc = current.CreatedAtUtc,
+                    PreviewCompletedAtUtc = current.PreviewCompletedAtUtc,
+                    ProcessedRowCount = current.ProcessedRowCount,
+                    SucceededRowCount = current.SucceededRowCount,
+                    ExecutionFailedRowCount = current.ExecutionFailedRowCount,
+                    NextLineNumber = current.NextLineNumber,
+                    ExecutionRowsJson = current.ExecutionRowsJson,
+                    ErrorReceiptFileId = current.ErrorReceiptFileId,
+                    ExecutionStartedAtUtc = current.ExecutionStartedAtUtc,
+                    ExecutionCompletedAtUtc = current.ExecutionCompletedAtUtc,
+                    LeaseId = current.LeaseId,
+                    LeaseExpiresAtUtc = (DateTimeOffset)values["LeaseExpiresAtUtc"]!,
+                    Version = current.Version
+                };
+                return Task.FromResult(1);
             }
 
             if (statement.Name == ImportExportTaskSql.UpdateExecutionProgress.Name)

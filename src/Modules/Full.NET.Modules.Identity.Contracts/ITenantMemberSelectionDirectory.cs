@@ -21,6 +21,13 @@ public interface ITenantMemberSelectionDirectory
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    /// <summary>批量校验当前租户内最多 100 个活动成员。</summary>
+    /// <param name="userIds">已去重的用户标识。</param>
+    /// <param name="cancellationToken">请求取消。</param>
+    /// <returns>仍属于当前租户的活动成员。</returns>
+    Task<IReadOnlyDictionary<Guid, TenantUserDirectoryEntry>> FindActiveTenantMembersAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default);
+
     /// <summary>查找当前 Tenant 内指定用户是否仍为活动成员。</summary>
     /// <param name="userId">待校验的稳定用户标识。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>

@@ -15,30 +15,35 @@ internal sealed class HostConfigEntryQueryService(
     public async Task<Result<PagedResult<ConfigEntryResponse>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostConfigEntryListFilter? filter = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = offset, ["PageSize"] = pageSize,
+            ["ConfigKey"] = SqlSearchPattern.ContainsLiteral(filter?.ConfigKey),
+            ["DisplayName"] = SqlSearchPattern.ContainsLiteral(filter?.DisplayName),
+            ["GroupName"] = filter?.GroupName?.Trim() is { Length: > 0 } groupName ? groupName : null,
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+            ["ReservedConfigKey"] = DiagnosticPolicyLimits.ConfigKey,
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                ConfigEntrySql.CountHostConfigEntries,
-                SettingsSqlParameters.Create(("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)),
+                ConfigEntrySql.CountHostConfigEntriesFiltered,
+                parameters,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => ConfigEntrySql.ListHostConfigEntriesSqlServer,
-            DatabaseProvider.MySql => ConfigEntrySql.ListHostConfigEntriesMySql,
+            DatabaseProvider.SqlServer => ConfigEntrySql.ListHostConfigEntriesSqlServerFiltered,
+            DatabaseProvider.MySql => ConfigEntrySql.ListHostConfigEntriesMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<ConfigEntryRecord>(
                 statement,
-                SettingsSqlParameters.Create(
-                    ("Offset", offset),
-                    ("PageSize", pageSize),
-                    ("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)
-                ),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -174,3 +179,6 @@ internal sealed record ConfigEntryIdentityRecord(
     int DisplayOrder,
     bool IsActive,
     int Version);
+
+/// <summary>分页列表的显式筛选条件。</summary>
+internal sealed record HostConfigEntryListFilter(string? ConfigKey = null, string? DisplayName = null, string? GroupName = null, string? Status = null);

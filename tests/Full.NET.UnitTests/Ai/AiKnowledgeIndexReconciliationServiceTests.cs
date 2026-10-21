@@ -149,7 +149,7 @@ public sealed class AiKnowledgeIndexReconciliationServiceTests
             var model = Guid.CreateVersion7();
             Row = new() { KnowledgeBaseId = Knowledge, DocumentId = Document, VersionId = Version, OwnerUserId = Actor,
                 DocumentVersion = 1, KnowledgeBaseVersion = 1, ContentType = "text/plain", ModelConfigId = model, ModelConfigVersion = 1 };
-            var auth = Substitute.For<ICurrentSessionAuthorization>();
+            var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Assert.IsFalse(Transactions.HasTransaction); var permission = call.ArgAt<string>(0);

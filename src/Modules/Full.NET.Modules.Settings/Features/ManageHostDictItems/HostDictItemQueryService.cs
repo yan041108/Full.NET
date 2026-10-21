@@ -16,11 +16,20 @@ internal sealed class HostDictItemQueryService(
         Guid dictTypeId,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostDictItemListFilter? filter = null)
     {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = ((long)Math.Max(page, 1) - 1) * Math.Clamp(pageSize, 1, 100),
+            ["PageSize"] = Math.Clamp(pageSize, 1, 100),
+            ["Label"] = SqlSearchPattern.ContainsLiteral(filter?.Label),
+            ["Value"] = SqlSearchPattern.ContainsLiteral(filter?.Value),
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+            ["DictTypeId"] = dictTypeId,
+        };
         var typeExists = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         if (typeExists is null)
@@ -30,26 +39,21 @@ internal sealed class HostDictItemQueryService(
 
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                DictItemSql.CountByTypeId,
-                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
+                DictItemSql.CountByTypeIdFiltered,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => DictItemSql.ListByTypeIdSqlServer,
-            DatabaseProvider.MySql => DictItemSql.ListByTypeIdMySql,
+            DatabaseProvider.SqlServer => DictItemSql.ListByTypeIdSqlServerFiltered,
+            DatabaseProvider.MySql => DictItemSql.ListByTypeIdMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<DictItemRecord>(
                 statement,
-                SettingsSqlParameters.Create(
-                    ("DictTypeId", dictTypeId),
-                    ("Offset", offset),
-                    ("PageSize", pageSize)
-                ),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -145,3 +149,6 @@ internal sealed record DictItemIdentityRecord(
     int DisplayOrder,
     bool IsActive,
     int Version);
+
+/// <summary>字典目录分页筛选。</summary>
+internal sealed record HostDictItemListFilter(string? Label = null, string? Value = null, string? Status = null);

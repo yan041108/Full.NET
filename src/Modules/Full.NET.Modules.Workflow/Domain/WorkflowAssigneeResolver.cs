@@ -34,6 +34,7 @@ internal sealed class WorkflowAssigneeResolver(
         CancellationToken cancellationToken = default)
     {
         var resolved = new List<Guid>();
+        var seen = new HashSet<Guid>();
         foreach (var source in assigneePolicy.Sources)
         {
             var sourceResult = await ResolveSourceAsync(
@@ -49,18 +50,20 @@ internal sealed class WorkflowAssigneeResolver(
 
             foreach (var userId in sourceResult.Value!)
             {
-                if (!resolved.Contains(userId))
+                if (seen.Add(userId))
                 {
                     resolved.Add(userId);
+                    if (resolved.Count > MaximumResolvedUsers) return Failure();
                 }
             }
         }
 
         foreach (var userId in explicitApproverUserIds)
         {
-            if (!resolved.Contains(userId))
+            if (seen.Add(userId))
             {
                 resolved.Add(userId);
+                if (resolved.Count > MaximumResolvedUsers) return Failure();
             }
         }
 
@@ -120,7 +123,7 @@ internal sealed class WorkflowAssigneeResolver(
             case WorkflowAssigneePolicy.RoleMembers:
             {
                 var members = await roleMemberDirectory
-                    .FindActiveMemberUserIdsByRoleIdsAsync(source.RoleIds, cancellationToken)
+                    .FindActiveMemberUserIdsByRoleIdsAsync(source.RoleIds, MaximumResolvedUsers + 1, cancellationToken)
                     .ConfigureAwait(false);
                 if (source.RoleIds.Any(roleId => !members.ContainsKey(roleId)) ||
                     members.Values.All(userIds => userIds.Count == 0))
@@ -129,7 +132,7 @@ internal sealed class WorkflowAssigneeResolver(
                 }
 
                 return Result<IReadOnlyList<Guid>>.Success(
-                    members.Values.SelectMany(userIds => userIds).Distinct().ToArray());
+                    members.Values.SelectMany(userIds => userIds).Distinct().Take(MaximumResolvedUsers + 1).ToArray());
             }
             case WorkflowAssigneePolicy.OrganizationUnitLeader:
                 if (!scope.TenantId.HasValue || source.UnitId is not { } unitId)

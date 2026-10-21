@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Organization.Serialization;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Persistence;
@@ -5,7 +8,7 @@ using Full.NET.Modules.Organization.Persistence;
 namespace Full.NET.Modules.Organization.HostDashboard;
 
 /// <summary>为通知公告等机构受众场景提供用户隶属只读判断。</summary>
-internal sealed class TenantOrganizationUserMembershipReader(IQueryExecutor queryExecutor)
+internal sealed class TenantOrganizationUserMembershipReader(IQueryExecutor queryExecutor, IOptions<DatabaseOptions>? databaseOptions = null)
     : ITenantOrganizationUserMembershipReader
 {
     /// <inheritdoc />
@@ -51,24 +54,12 @@ internal sealed class TenantOrganizationUserMembershipReader(IQueryExecutor quer
             return 0;
         }
 
-        var distinctUsers = new HashSet<Guid>();
-        foreach (var target in organizationTargets
-                     .DistinctBy(item => (item.TenantId, item.OrganizationUnitId)))
-        {
-            var rows = await queryExecutor.QueryAsync<OrganizationMembershipUserRecord>(
-                    OrganizationMembershipSql.ListActiveUsersByTenantAndUnit,
-                    OrganizationSqlParameters.Create(
-                        ("TenantId", target.TenantId),
-                        ("OrganizationUnitId", target.OrganizationUnitId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            foreach (var row in rows)
-            {
-                distinctUsers.Add(row.UserId);
-            }
-        }
-
-        return distinctUsers.Count;
+        var targets = organizationTargets.DistinctBy(item => (item.TenantId, item.OrganizationUnitId)).ToArray();
+        return await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? OrganizationMembershipSql.CountDistinctActiveUsersMySql : OrganizationMembershipSql.CountDistinctActiveUsersSqlServer,
+            OrganizationSqlParameters.Create(("Targets", JsonSerializer.Serialize(targets,
+                OrganizationJsonSerializerContext.Default.TenantOrganizationMembershipTargetArray))), cancellationToken).ConfigureAwait(false);
     }
 }
 

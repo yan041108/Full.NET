@@ -42,7 +42,7 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('ReportingExportTasksView', () => {
   beforeEach(() => {
-    definitionsMock.mockResolvedValue([]);
+    definitionsMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
     tasksMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   });
 

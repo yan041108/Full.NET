@@ -58,6 +58,7 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
         var kafkaExternalHostPort = AllocateAvailableHostPort();
 
         var kafka = new ContainerBuilder(KafkaImage)
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "kafka"))
             .WithNetwork(network)
             .WithNetworkAliases(KafkaAlias)
             .WithPortBinding(kafkaExternalHostPort, KafkaExternalPort)
@@ -86,6 +87,7 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
 
         var javaCryptoPolicy = ResolveJavaCryptoPolicyPath();
         var connect = new ContainerBuilder(DebeziumImage)
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "connect"))
             .WithNetwork(network)
             .WithExtraHost("host.docker.internal", "host-gateway")
             .WithPortBinding(8083, true)

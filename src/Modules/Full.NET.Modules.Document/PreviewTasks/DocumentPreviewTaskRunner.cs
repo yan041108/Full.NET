@@ -48,15 +48,21 @@ internal sealed class DocumentPreviewTaskRunner(
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var owned = await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.RenewLease,
+            DocumentSqlParameters.Create(("Id", task.Id), ("Version", task.Version), ("Now", now),
+                ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))), cancellationToken).ConfigureAwait(false);
+        if (owned != 1) return;
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        attempt.CancelAfter(TimeSpan.FromSeconds(options.CurrentValue.TimeoutSeconds));
         string? workingDirectory = null;
         try
         {
             var sourceResult = await hostFileContentReader
-                .OpenReadyContentAsync(task.SourceFileId, cancellationToken)
+                .OpenReadyContentAsync(task.SourceFileId, attempt.Token)
                 .ConfigureAwait(false);
             if (!sourceResult.IsSuccess)
             {
-                await MarkFailedAsync(task.Id, sourceResult.Error!.Code, now, cancellationToken).ConfigureAwait(false);
+                await MarkFailedAsync(task, sourceResult.Error!.Code, now, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -66,7 +72,7 @@ internal sealed class DocumentPreviewTaskRunner(
                 if (source.Content.CanSeek && source.Content.Length > options.CurrentValue.MaxInputBytes)
                 {
                     await MarkFailedAsync(
-                        task.Id,
+                        task,
                         DocumentErrorCodes.OfficePreviewInputTooLarge,
                         now,
                         cancellationToken).ConfigureAwait(false);
@@ -83,11 +89,11 @@ internal sealed class DocumentPreviewTaskRunner(
                             source.Content,
                             source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxInputBytes),
                         workingDirectory,
-                        cancellationToken)
+                        attempt.Token)
                     .ConfigureAwait(false);
                 if (!conversionResult.IsSuccess)
                 {
-                    await MarkFailedAsync(task.Id, conversionResult.Error!.Code, now, cancellationToken)
+                    await MarkFailedAsync(task, conversionResult.Error!.Code, now, cancellationToken)
                         .ConfigureAwait(false);
                     return;
                 }
@@ -95,18 +101,32 @@ internal sealed class DocumentPreviewTaskRunner(
                 var output = conversionResult.Value!;
                 try
                 {
+                    // 匿名访问没有用户身份；派生文件归属文档所有者，任务仍保留匿名发起事实。
+                    var outputOwner = task.RequestedByUserId;
+                    if (outputOwner is null)
+                    {
+                        var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                            DocumentItemSql.FindActiveById, DocumentSqlParameters.Create(("Id", task.DocumentItemId)),
+                            attempt.Token).ConfigureAwait(false);
+                        if (item is null)
+                        {
+                            await MarkFailedAsync(task, DocumentErrorCodes.NotFound, now, cancellationToken).ConfigureAwait(false);
+                            return;
+                        }
+                        outputOwner = item.CreatedByUserId;
+                    }
                     var uploadResult = await hostFileUploadWriter
                         .UploadAsync(
-                            task.RequestedByUserId,
+                            outputOwner.Value,
                             BuildOutputFileName(task),
                             "application/pdf",
                             output.PdfContent,
                             output.PdfLength,
-                            cancellationToken)
+                            attempt.Token)
                         .ConfigureAwait(false);
                     if (!uploadResult.IsSuccess)
                     {
-                        await MarkFailedAsync(task.Id, uploadResult.Error!.Code, now, cancellationToken)
+                        await MarkFailedAsync(task, uploadResult.Error!.Code, now, cancellationToken)
                             .ConfigureAwait(false);
                         return;
                     }
@@ -116,7 +136,8 @@ internal sealed class DocumentPreviewTaskRunner(
                             DocumentSqlParameters.Create(
                                 ("Id", task.Id),
                                 ("OutputFileId", uploadResult.Value!.FileId),
-                                ("CompletedAtUtc", now)),
+                                ("Version", task.Version), ("ExpiredBefore", clock.UtcNow.AddSeconds(-LeaseSeconds)),
+                                ("CompletedAtUtc", clock.UtcNow)),
                             cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -130,10 +151,11 @@ internal sealed class DocumentPreviewTaskRunner(
                 await source.Content.DisposeAsync().ConfigureAwait(false);
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception)
         {
             await MarkFailedAsync(
-                task.Id,
+                task,
                 DocumentErrorCodes.OfficePreviewConversionFailed,
                 now,
                 cancellationToken).ConfigureAwait(false);
@@ -155,20 +177,20 @@ internal sealed class DocumentPreviewTaskRunner(
     }
 
     private async Task MarkFailedAsync(
-        Guid taskId,
+        DocumentPreviewTaskRecord task,
         string errorCode,
         DateTimeOffset completedAtUtc,
         CancellationToken cancellationToken) =>
         await commandExecutor.ExecuteAsync(
                 DocumentPreviewTaskSql.MarkFailed,
                 DocumentSqlParameters.Create(
-                    ("Id", taskId),
+                    ("Id", task.Id), ("Version", task.Version), ("ExpiredBefore", clock.UtcNow.AddSeconds(-LeaseSeconds)),
                     ("ErrorCode", errorCode),
                     ("CompletedAtUtc", completedAtUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
 
-    private async Task<IReadOnlyList<DocumentPreviewTaskRecord>> ClaimAsync(
+    internal async Task<IReadOnlyList<DocumentPreviewTaskRecord>> ClaimAsync(
         int batchSize,
         CancellationToken cancellationToken)
     {
@@ -177,7 +199,7 @@ internal sealed class DocumentPreviewTaskRunner(
         {
             return await queryExecutor.QueryAsync<DocumentPreviewTaskRecord>(
                     DocumentPreviewTaskSql.ClaimPendingSqlServer,
-                    DocumentSqlParameters.Create(("BatchSize", batchSize), ("Now", now)),
+                    DocumentSqlParameters.Create(("BatchSize", batchSize), ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -187,7 +209,7 @@ internal sealed class DocumentPreviewTaskRunner(
                 {
                     var ids = await queryExecutor.QueryAsync<Guid>(
                             DocumentPreviewTaskSql.SelectClaimableIdsMySql,
-                            DocumentSqlParameters.Create(("BatchSize", batchSize)),
+                            DocumentSqlParameters.Create(("BatchSize", batchSize), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))),
                             token)
                         .ConfigureAwait(false);
                     if (ids.Count == 0)
@@ -197,7 +219,7 @@ internal sealed class DocumentPreviewTaskRunner(
 
                     await commandExecutor.ExecuteAsync(
                             DocumentPreviewTaskSql.ClaimByIdsMySql,
-                            DocumentSqlParameters.Create(("Ids", ids.ToArray()), ("Now", now)),
+                            DocumentSqlParameters.Create(("Ids", ids.ToArray()), ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))),
                             token)
                         .ConfigureAwait(false);
                     return await queryExecutor.QueryAsync<DocumentPreviewTaskRecord>(
@@ -209,6 +231,9 @@ internal sealed class DocumentPreviewTaskRunner(
                 cancellationToken)
             .ConfigureAwait(false);
     }
+
+    // 覆盖整个读源、转换和上传预算，并为保存终态保留余量。
+    private int LeaseSeconds => Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600) + 60;
 
     private static string CreateWorkingDirectory(DocumentOfficePreviewConversionOptions options)
     {

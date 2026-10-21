@@ -38,7 +38,6 @@ internal sealed class AiAgentRunCoordinator(
 {
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken = default)
     {
-        await heartbeat.UpsertAsync(cancellationToken).ConfigureAwait(false);
         var now = clock.UtcNow;
         var runIds = await store.ScanQueuedAsync(runtimeOptions.Value.BatchSize, now, cancellationToken).ConfigureAwait(false);
         var processed = 0;

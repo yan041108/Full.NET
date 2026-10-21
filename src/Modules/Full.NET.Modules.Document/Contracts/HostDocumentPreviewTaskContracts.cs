@@ -69,7 +69,7 @@ public sealed record CreateHostDocumentPreviewTaskRequest(
 /// <param name="StatusKey">任务状态键，取值见 <see cref="HostDocumentPreviewTaskStatusKeys"/>。</param>
 /// <param name="ProviderKey">转换 Provider 键，取值见 <see cref="DocumentOfficePreviewConversionProviderKeys"/>。</param>
 /// <param name="ErrorCode">失败时的稳定错误码；成功或进行中为 <see langword="null"/>。</param>
-/// <param name="RequestedByUserId">发起任务的用户标识。</param>
+/// <param name="RequestedByUserId">发起任务的用户标识；匿名分享预览为空。</param>
 /// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
 /// <param name="StartedAtUtc">Worker 开始转换时间（UTC）；未开始为 <see langword="null"/>。</param>
 /// <param name="CompletedAtUtc">转换完成时间（UTC）；未完成为 <see langword="null"/>。</param>
@@ -84,8 +84,14 @@ public sealed record HostDocumentPreviewTaskResponse(
     string StatusKey,
     string ProviderKey,
     string? ErrorCode,
-    Guid RequestedByUserId,
+    Guid? RequestedByUserId,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? CompletedAtUtc,
-    long Version);
+    long Version)
+{
+    /// <summary>仅供本次匿名分享任务状态与输出读取的短期凭据。</summary>
+    public string? PreviewGrant { get; init; }
+    /// <summary>服务端允许客户端等待的截止时间；超出后用户可显式重试。</summary>
+    public DateTimeOffset? PreviewPollUntilUtc { get; init; }
+}

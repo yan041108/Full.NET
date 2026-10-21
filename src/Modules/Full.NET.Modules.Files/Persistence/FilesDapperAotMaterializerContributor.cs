@@ -12,12 +12,20 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<Full.NET.Modules.Files.Features.TenantResourceFiles.TenantStorageUsageRow>(reader => new(reader.GetGuid(0),
+            System.Convert.ToInt64(reader.GetValue(1), System.Globalization.CultureInfo.InvariantCulture)));
         registrar.Register<TenantResourceFileRecord>(ReadTenantResourceFileRecord);
         registrar.Register<TenantResourceFileReadyRecord>(ReadTenantResourceFileReadyRecord);
         registrar.Register<TenantResourceFileReconciliationRecord>(ReadTenantResourceFileReconciliationRecord);
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);
         registrar.Register<HostFileDetailRecord>(ReadHostFileDetailRecord);
         registrar.Register<HostFolderRecord>(ReadHostFolderRecord);
+        registrar.Register<HostFolderChildRecord>(reader => new HostFolderChildRecord
+        {
+            Id = reader.GetGuid(0), ParentId = AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            Name = reader.GetString(2), DisplayOrder = reader.GetInt32(3), Revision = reader.GetInt64(4),
+            HasChildren = AotDataReaderExtensions.ReadBoolean(reader, 5),
+        });
         registrar.Register<DeletedHostFileBlobRecord>(ReadDeletedHostFileBlobRecord);
         registrar.Register<PendingHostFileRecord>(ReadPendingHostFileRecord);
         registrar.Register<HostFileReferenceClaimRecord>(ReadHostFileReferenceClaimRecord);

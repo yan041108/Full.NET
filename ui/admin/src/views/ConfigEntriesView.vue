@@ -34,7 +34,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtClientPagination,
+  useArtServerPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -115,39 +115,9 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const filteredEntries = computed(() => {
-  let rows = allEntries.value;
-  const filters = appliedFilters.value;
 
-  if (filters.configKey.trim()) {
-    const keyword = filters.configKey.trim().toLowerCase();
-    rows = rows.filter(entry => entry.configKey.toLowerCase().includes(keyword));
-  }
 
-  if (filters.displayName.trim()) {
-    const keyword = filters.displayName.trim().toLowerCase();
-    rows = rows.filter(entry => entry.displayName.toLowerCase().includes(keyword));
-  }
-
-  // 分组筛选：空字符串表示全部分组；null 分组的项归入"无分组"虚拟桶由下拉显式选项表达。
-  if (filters.groupName) {
-    if (filters.groupName === '__none__') {
-      rows = rows.filter(entry => !entry.groupName);
-    } else {
-      rows = rows.filter(entry => entry.groupName === filters.groupName);
-    }
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(entry => entry.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(entry => !entry.isActive);
-  }
-
-  return rows;
-});
-
-const { page, pageSize, total, pagedItems: pagedEntries, resetPage } = useArtClientPagination(filteredEntries);
+const { page, pageSize, total, pagedItems: pagedEntries, resetPage } = useArtServerPagination(allEntries, load);
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
@@ -287,28 +257,23 @@ function applyFieldErrors(): boolean {
     && !fieldErrors.displayOrder;
 }
 
-async function fetchAllEntries(): Promise<SettingsConfigEntry[]> {
-  const pageLimit = 100;
-  const firstPage = await listSettingsConfigEntries(1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listSettingsConfigEntries(current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
 
+
+let listVersion = 0;
 async function load(): Promise<void> {
+  const version = ++listVersion;
   loading.value = true;
   problem.value = undefined;
   try {
-    allEntries.value = await fetchAllEntries();
+    const result = await listSettingsConfigEntries(page.value, pageSize.value, undefined, appliedFilters.value);
+    if (version !== listVersion) return;
+    allEntries.value = result.items; total.value = result.total;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (version !== listVersion) return;
     problem.value = toProblem(error, 'configEntries.loadFailed');
   } finally {
-    loading.value = false;
+    if (version === listVersion) loading.value = false;
   }
 }
 

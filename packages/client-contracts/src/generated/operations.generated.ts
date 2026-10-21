@@ -240,7 +240,9 @@ import type {
   FieldProjectionSensitivity,
   GoViewProjectPreviewResponse,
   GoViewProjectResponse,
+  GoViewProjectSummaryResponse,
   GoViewProjectVersionResponse,
+  GoViewProjectVersionSummaryResponse,
   GrantSuperAdministratorRequest,
   HostAnnouncementReadReceiptResponse,
   HostAnnouncementReadStatsResponse,
@@ -332,10 +334,14 @@ import type {
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
   LocalePreferenceResponse,
+  LogCorrelationSnapshot,
   LogFileList,
   LogFileSummary,
   LogFileTail,
   LoginRequest,
+  LogTimelineCoverage,
+  LogTimelineEntry,
+  LogTimelineResponse,
   ModuleCatalogEntryResponse,
   ModuleSelectionAnalysisResponse,
   ModuleSelectionIssueResponse,
@@ -389,6 +395,8 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGoViewProjectSummaryResponse,
+  PagedResultOfGoViewProjectVersionSummaryResponse,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -396,6 +404,7 @@ import type {
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentPreviewTaskResponse,
   PagedResultOfHostDocumentShareResponse,
+  PagedResultOfHostDocumentVersionResponse,
   PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostJobDefinitionResponse,
@@ -427,8 +436,12 @@ import type {
   PagedResultOfPaymentOrderListItem,
   PagedResultOfPaymentRefundListItem,
   PagedResultOfPersonalScheduleResponse,
+  PagedResultOfPrintingTemplateSummaryResponse,
+  PagedResultOfPrintingTemplateVersionSummaryResponse,
   PagedResultOfReceivedHostAnnouncementListItemResponse,
   PagedResultOfReportingDataSourceListItem,
+  PagedResultOfReportingDefinitionSummaryResponse,
+  PagedResultOfReportingDefinitionVersionSummaryResponse,
   PagedResultOfReportingExportTaskResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
@@ -453,7 +466,9 @@ import type {
   PrintingFormSchemaDefinition,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
+  PrintingTemplateSummaryResponse,
   PrintingTemplateVersionResponse,
+  PrintingTemplateVersionSummaryResponse,
   ProblemDetails,
   ProvisionTenantRequest,
   PublishGoViewProjectRequest,
@@ -480,7 +495,9 @@ import type {
   ReportingDataSourceListItem,
   ReportingDataSourceResponse,
   ReportingDefinitionResponse,
+  ReportingDefinitionSummaryResponse,
   ReportingDefinitionVersionResponse,
+  ReportingDefinitionVersionSummaryResponse,
   ReportingExecutionColumnDefinition,
   ReportingExecutionPageResponse,
   ReportingExecutionParameterValue,
@@ -731,7 +748,6 @@ import {
   readDocumentHostDeleteTagResponse,
   readDocumentHostListCategoriesResponse,
   readDocumentHostListDocumentPermissionsResponse,
-  readDocumentHostListItemVersionsResponse,
   readDocumentHostListTagsResponse,
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
@@ -740,8 +756,6 @@ import {
   readEnumCatalogDictGenerationPreview,
   readEnumCatalogDictGenerationResult,
   readFilesGetHostFolderTreeResponse,
-  readGoviewListProjectsResponse,
-  readGoviewListProjectVersionsResponse,
   readGoViewProjectPreviewResponse,
   readGoViewProjectResponse,
   readGoViewProjectVersionResponse,
@@ -804,6 +818,7 @@ import {
   readLocalePreferenceResponse,
   readLogFileList,
   readLogFileTail,
+  readLogTimelineResponse,
   readModuleCatalogEntryResponse,
   readModuleSelectionAnalysisResponse,
   readMyReleaseNoteResponse,
@@ -844,6 +859,8 @@ import {
   readPagedResultOfDictTypeResponse,
   readPagedResultOfEnterpriseRequestResponse,
   readPagedResultOfExceptionLogResponse,
+  readPagedResultOfGoViewProjectSummaryResponse,
+  readPagedResultOfGoViewProjectVersionSummaryResponse,
   readPagedResultOfHostAnnouncementReadReceiptResponse,
   readPagedResultOfHostAnnouncementResponse,
   readPagedResultOfHostApiKeyResponse,
@@ -851,6 +868,7 @@ import {
   readPagedResultOfHostDocumentItemResponse,
   readPagedResultOfHostDocumentPreviewTaskResponse,
   readPagedResultOfHostDocumentShareResponse,
+  readPagedResultOfHostDocumentVersionResponse,
   readPagedResultOfHostFileReferenceClaimResponse,
   readPagedResultOfHostFileResponse,
   readPagedResultOfHostJobDefinitionResponse,
@@ -882,8 +900,12 @@ import {
   readPagedResultOfPaymentOrderListItem,
   readPagedResultOfPaymentRefundListItem,
   readPagedResultOfPersonalScheduleResponse,
+  readPagedResultOfPrintingTemplateSummaryResponse,
+  readPagedResultOfPrintingTemplateVersionSummaryResponse,
   readPagedResultOfReceivedHostAnnouncementListItemResponse,
   readPagedResultOfReportingDataSourceListItem,
+  readPagedResultOfReportingDefinitionSummaryResponse,
+  readPagedResultOfReportingDefinitionVersionSummaryResponse,
   readPagedResultOfReportingExportTaskResponse,
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
@@ -897,8 +919,6 @@ import {
   readPersonalScheduleResponse,
   readPrintingFormSchemaDefinition,
   readPrintingListFormSchemasResponse,
-  readPrintingListTemplatesResponse,
-  readPrintingListTemplateVersionsResponse,
   readPrintingTemplatePreviewResponse,
   readPrintingTemplateResponse,
   readPrintingTemplateVersionResponse,
@@ -915,8 +935,6 @@ import {
   readReportingExecutionPageResponse,
   readReportingExportTaskDetailResponse,
   readReportingGroupResponse,
-  readReportingListDefinitionsResponse,
-  readReportingListDefinitionVersionsResponse,
   readReportingListGroupsResponse,
   readReportingListQueryPortsResponse,
   readReportingQueryPortDefinition,
@@ -1608,6 +1626,8 @@ export async function aiGetAgentTool(
 
 export interface AiGetChatSessionParameters {
   readonly sessionId: string;
+  readonly beforeCreatedAtUtc?: string;
+  readonly beforeMessageId?: string;
 }
 
 export async function aiGetChatSession(
@@ -1616,7 +1636,14 @@ export async function aiGetChatSession(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<AiChatSessionResponse> {
-  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
+  const query = new URLSearchParams();
+  if (parameters.beforeCreatedAtUtc !== undefined) {
+    query.set('beforeCreatedAtUtc', String(parameters.beforeCreatedAtUtc));
+  }
+  if (parameters.beforeMessageId !== undefined) {
+    query.set('beforeMessageId', String(parameters.beforeMessageId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}` : `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -3397,6 +3424,52 @@ export async function auditingListHostOutboundCallLogs(
   return readPagedResultOfOutboundCallLogResponse(value);
 }
 
+export interface AuditingQueryLogTimelineParameters {
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+  readonly traceId?: string;
+  readonly sessionId?: string;
+  readonly userId?: string;
+  readonly clientIpFingerprint?: string;
+  readonly limit?: number;
+}
+
+export async function auditingQueryLogTimeline(
+  http: HttpClient,
+  parameters: AuditingQueryLogTimelineParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<LogTimelineResponse> {
+  const query = new URLSearchParams();
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  if (parameters.traceId !== undefined) {
+    query.set('traceId', String(parameters.traceId));
+  }
+  if (parameters.sessionId !== undefined) {
+    query.set('sessionId', String(parameters.sessionId));
+  }
+  if (parameters.userId !== undefined) {
+    query.set('userId', String(parameters.userId));
+  }
+  if (parameters.clientIpFingerprint !== undefined) {
+    query.set('clientIpFingerprint', String(parameters.clientIpFingerprint));
+  }
+  if (parameters.limit !== undefined) {
+    query.set('limit', String(parameters.limit));
+  }
+  const path = query.size === 0 ? `/api/v1/auditing/timeline` : `/api/v1/auditing/timeline?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readLogTimelineResponse(value);
+}
+
 export interface CalendarCreateMyPersonalScheduleParameters {
   readonly body: CreatePersonalScheduleRequest;
 }
@@ -4702,6 +4775,8 @@ export async function documentHostListItems(
 
 export interface DocumentHostListItemVersionsParameters {
   readonly itemId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function documentHostListItemVersions(
@@ -4709,13 +4784,20 @@ export async function documentHostListItemVersions(
   parameters: DocumentHostListItemVersionsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<HostDocumentVersionResponse>> {
-  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions`;
+): Promise<PagedResultOfHostDocumentVersionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions` : `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readDocumentHostListItemVersionsResponse(value);
+  return readPagedResultOfHostDocumentVersionResponse(value);
 }
 
 export interface DocumentHostListRecycleBinItemsParameters {
@@ -5436,7 +5518,7 @@ export async function filesGetHostFile(
 }
 
 export interface FilesGetHostFolderTreeParameters {
-
+  readonly parentId?: string;
 }
 
 export async function filesGetHostFolderTree(
@@ -5445,7 +5527,11 @@ export async function filesGetHostFolderTree(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<Array<HostFolderTreeNode>> {
-  const path = `/api/v1/files/host-folders/tree`;
+  const query = new URLSearchParams();
+  if (parameters.parentId !== undefined) {
+    query.set('parentId', String(parameters.parentId));
+  }
+  const path = query.size === 0 ? `/api/v1/files/host-folders/tree` : `/api/v1/files/host-folders/tree?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -5485,6 +5571,8 @@ export interface FilesListHostFilesParameters {
   readonly pageSize?: number;
   readonly folderId?: string;
   readonly fileNameContains?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
 }
 
 export async function filesListHostFiles(
@@ -5505,6 +5593,12 @@ export async function filesListHostFiles(
   }
   if (parameters.fileNameContains !== undefined) {
     query.set('fileNameContains', String(parameters.fileNameContains));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
   }
   const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -5668,6 +5762,8 @@ export async function goviewGetProjectVersion(
 
 export interface GoviewListProjectsParameters {
   readonly nameContains?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function goviewListProjects(
@@ -5675,21 +5771,29 @@ export async function goviewListProjects(
   parameters: GoviewListProjectsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<GoViewProjectResponse>> {
+): Promise<PagedResultOfGoViewProjectSummaryResponse> {
   const query = new URLSearchParams();
   if (parameters.nameContains !== undefined) {
     query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
   }
   const path = query.size === 0 ? `/api/v1/goview/projects` : `/api/v1/goview/projects?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readGoviewListProjectsResponse(value);
+  return readPagedResultOfGoViewProjectSummaryResponse(value);
 }
 
 export interface GoviewListProjectVersionsParameters {
   readonly projectId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function goviewListProjectVersions(
@@ -5697,13 +5801,20 @@ export async function goviewListProjectVersions(
   parameters: GoviewListProjectVersionsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<GoViewProjectVersionResponse>> {
-  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions`;
+): Promise<PagedResultOfGoViewProjectVersionSummaryResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions` : `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readGoviewListProjectVersionsResponse(value);
+  return readPagedResultOfGoViewProjectVersionSummaryResponse(value);
 }
 
 export interface GoviewPreviewProjectParameters {
@@ -6717,6 +6828,7 @@ export interface IdentityListHostApiKeysParameters {
   readonly pageSize?: number;
   readonly userId?: string;
   readonly displayNameContains?: string;
+  readonly isActive?: boolean;
 }
 
 export async function identityListHostApiKeys(
@@ -6737,6 +6849,9 @@ export async function identityListHostApiKeys(
   }
   if (parameters.displayNameContains !== undefined) {
     query.set('displayNameContains', String(parameters.displayNameContains));
+  }
+  if (parameters.isActive !== undefined) {
+    query.set('isActive', String(parameters.isActive));
   }
   const path = query.size === 0 ? `/api/v1/identity/api-keys` : `/api/v1/identity/api-keys?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -6846,6 +6961,7 @@ export interface IdentityListHostRoleMembersParameters {
   readonly roleId: string;
   readonly page?: number;
   readonly pageSize?: number;
+  readonly userIds?: Array<string>;
 }
 
 export async function identityListHostRoleMembers(
@@ -6861,6 +6977,9 @@ export async function identityListHostRoleMembers(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.userIds !== undefined) {
+    query.set('userIds', String(parameters.userIds));
+  }
   const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -6872,6 +6991,10 @@ export async function identityListHostRoleMembers(
 export interface IdentityListHostRolesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly code?: string;
+  readonly name?: string;
+  readonly status?: string;
+  readonly roleType?: string;
 }
 
 export async function identityListHostRoles(
@@ -6887,6 +7010,18 @@ export async function identityListHostRoles(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.code !== undefined) {
+    query.set('code', String(parameters.code));
+  }
+  if (parameters.name !== undefined) {
+    query.set('name', String(parameters.name));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.roleType !== undefined) {
+    query.set('roleType', String(parameters.roleType));
+  }
   const path = query.size === 0 ? `/api/v1/identity/roles` : `/api/v1/identity/roles?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -6898,6 +7033,13 @@ export async function identityListHostRoles(
 export interface IdentityListHostUsersParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly username?: string;
+  readonly displayName?: string;
+  readonly phone?: string;
+  readonly email?: string;
+  readonly status?: string;
+  readonly organizationTenantId?: string;
+  readonly organizationUnitId?: string;
 }
 
 export async function identityListHostUsers(
@@ -6912,6 +7054,27 @@ export async function identityListHostUsers(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.username !== undefined) {
+    query.set('username', String(parameters.username));
+  }
+  if (parameters.displayName !== undefined) {
+    query.set('displayName', String(parameters.displayName));
+  }
+  if (parameters.phone !== undefined) {
+    query.set('phone', String(parameters.phone));
+  }
+  if (parameters.email !== undefined) {
+    query.set('email', String(parameters.email));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.organizationTenantId !== undefined) {
+    query.set('organizationTenantId', String(parameters.organizationTenantId));
+  }
+  if (parameters.organizationUnitId !== undefined) {
+    query.set('organizationUnitId', String(parameters.organizationUnitId));
   }
   const path = query.size === 0 ? `/api/v1/identity/users` : `/api/v1/identity/users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -7926,6 +8089,10 @@ export async function jobsGetHostJobHealth(
 export interface JobsListHostJobDefinitionsParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly jobKey?: string;
+  readonly displayName?: string;
+  readonly groupName?: string;
+  readonly status?: string;
 }
 
 export async function jobsListHostJobDefinitions(
@@ -7940,6 +8107,18 @@ export async function jobsListHostJobDefinitions(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.jobKey !== undefined) {
+    query.set('jobKey', String(parameters.jobKey));
+  }
+  if (parameters.displayName !== undefined) {
+    query.set('displayName', String(parameters.displayName));
+  }
+  if (parameters.groupName !== undefined) {
+    query.set('groupName', String(parameters.groupName));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/jobs/host-definitions` : `/api/v1/jobs/host-definitions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -10041,6 +10220,11 @@ export async function organizationExportTenantPositionsWorkbook(
 
 export interface OrganizationGetHostUserManagementReferenceParameters {
   readonly tenantId: string;
+  readonly userIds?: Array<string>;
+  readonly unitsPage?: number;
+  readonly positionsPage?: number;
+  readonly unitSearch?: string;
+  readonly positionSearch?: string;
 }
 
 export async function organizationGetHostUserManagementReference(
@@ -10051,6 +10235,21 @@ export async function organizationGetHostUserManagementReference(
 ): Promise<HostUserManagementOrganizationReferenceResponse> {
   const query = new URLSearchParams();
   query.set('tenantId', String(parameters.tenantId));
+  if (parameters.userIds !== undefined) {
+    query.set('userIds', String(parameters.userIds));
+  }
+  if (parameters.unitsPage !== undefined) {
+    query.set('unitsPage', String(parameters.unitsPage));
+  }
+  if (parameters.positionsPage !== undefined) {
+    query.set('positionsPage', String(parameters.positionsPage));
+  }
+  if (parameters.unitSearch !== undefined) {
+    query.set('unitSearch', String(parameters.unitSearch));
+  }
+  if (parameters.positionSearch !== undefined) {
+    query.set('positionSearch', String(parameters.positionSearch));
+  }
   const path = query.size === 0 ? `/api/v1/organization/host-user-management/reference` : `/api/v1/organization/host-user-management/reference?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -11185,6 +11384,8 @@ export async function printingListFormSchemas(
 
 export interface PrintingListTemplatesParameters {
   readonly nameContains?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function printingListTemplates(
@@ -11192,21 +11393,29 @@ export async function printingListTemplates(
   parameters: PrintingListTemplatesParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<PrintingTemplateResponse>> {
+): Promise<PagedResultOfPrintingTemplateSummaryResponse> {
   const query = new URLSearchParams();
   if (parameters.nameContains !== undefined) {
     query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
   }
   const path = query.size === 0 ? `/api/v1/printing/templates` : `/api/v1/printing/templates?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readPrintingListTemplatesResponse(value);
+  return readPagedResultOfPrintingTemplateSummaryResponse(value);
 }
 
 export interface PrintingListTemplateVersionsParameters {
   readonly templateId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function printingListTemplateVersions(
@@ -11214,13 +11423,20 @@ export async function printingListTemplateVersions(
   parameters: PrintingListTemplateVersionsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<PrintingTemplateVersionResponse>> {
-  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions`;
+): Promise<PagedResultOfPrintingTemplateVersionSummaryResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions` : `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readPrintingListTemplateVersionsResponse(value);
+  return readPagedResultOfPrintingTemplateVersionSummaryResponse(value);
 }
 
 export interface PrintingPreviewTemplateParameters {
@@ -11896,6 +12112,8 @@ export async function reportingListDataSources(
 
 export interface ReportingListDefinitionsParameters {
   readonly groupId?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
   readonly nameContains?: string;
 }
 
@@ -11904,10 +12122,16 @@ export async function reportingListDefinitions(
   parameters: ReportingListDefinitionsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<ReportingDefinitionResponse>> {
+): Promise<PagedResultOfReportingDefinitionSummaryResponse> {
   const query = new URLSearchParams();
   if (parameters.groupId !== undefined) {
     query.set('groupId', String(parameters.groupId));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
   }
   if (parameters.nameContains !== undefined) {
     query.set('nameContains', String(parameters.nameContains));
@@ -11917,11 +12141,13 @@ export async function reportingListDefinitions(
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readReportingListDefinitionsResponse(value);
+  return readPagedResultOfReportingDefinitionSummaryResponse(value);
 }
 
 export interface ReportingListDefinitionVersionsParameters {
   readonly definitionId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function reportingListDefinitionVersions(
@@ -11929,13 +12155,20 @@ export async function reportingListDefinitionVersions(
   parameters: ReportingListDefinitionVersionsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<ReportingDefinitionVersionResponse>> {
-  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions`;
+): Promise<PagedResultOfReportingDefinitionVersionSummaryResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions` : `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readReportingListDefinitionVersionsResponse(value);
+  return readPagedResultOfReportingDefinitionVersionSummaryResponse(value);
 }
 
 export interface ReportingListExportTasksParameters {
@@ -12923,6 +13156,10 @@ export async function settingsListAllTenantDictTypes(
 export interface SettingsListHostConfigEntriesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly configKey?: string;
+  readonly displayName?: string;
+  readonly groupName?: string;
+  readonly status?: string;
 }
 
 export async function settingsListHostConfigEntries(
@@ -12937,6 +13174,18 @@ export async function settingsListHostConfigEntries(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.configKey !== undefined) {
+    query.set('configKey', String(parameters.configKey));
+  }
+  if (parameters.displayName !== undefined) {
+    query.set('displayName', String(parameters.displayName));
+  }
+  if (parameters.groupName !== undefined) {
+    query.set('groupName', String(parameters.groupName));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/settings/config-entries` : `/api/v1/settings/config-entries?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -12968,6 +13217,9 @@ export interface SettingsListHostDictItemsParameters {
   readonly dictTypeId: string;
   readonly page?: number;
   readonly pageSize?: number;
+  readonly label?: string;
+  readonly value?: string;
+  readonly status?: string;
 }
 
 export async function settingsListHostDictItems(
@@ -12982,6 +13234,15 @@ export async function settingsListHostDictItems(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.label !== undefined) {
+    query.set('label', String(parameters.label));
+  }
+  if (parameters.value !== undefined) {
+    query.set('value', String(parameters.value));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/settings/dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items` : `/api/v1/settings/dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -13012,6 +13273,9 @@ export async function settingsListHostDictItemsByTypeCode(
 export interface SettingsListHostDictTypesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly code?: string;
+  readonly name?: string;
+  readonly status?: string;
 }
 
 export async function settingsListHostDictTypes(
@@ -13026,6 +13290,15 @@ export async function settingsListHostDictTypes(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.code !== undefined) {
+    query.set('code', String(parameters.code));
+  }
+  if (parameters.name !== undefined) {
+    query.set('name', String(parameters.name));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/settings/dict-types` : `/api/v1/settings/dict-types?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -13645,6 +13918,9 @@ export async function tenancyListHostTenantMembers(
 export interface TenancyListHostTenantPackagesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly code?: string;
+  readonly name?: string;
+  readonly status?: string;
 }
 
 export async function tenancyListHostTenantPackages(
@@ -13660,6 +13936,15 @@ export async function tenancyListHostTenantPackages(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.code !== undefined) {
+    query.set('code', String(parameters.code));
+  }
+  if (parameters.name !== undefined) {
+    query.set('name', String(parameters.name));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
   const path = query.size === 0 ? `/api/v1/tenancy/tenant-packages` : `/api/v1/tenancy/tenant-packages?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -13671,6 +13956,10 @@ export async function tenancyListHostTenantPackages(
 export interface TenancyListHostTenantsParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly identifier?: string;
+  readonly name?: string;
+  readonly domain?: string;
+  readonly status?: string;
 }
 
 export async function tenancyListHostTenants(
@@ -13685,6 +13974,18 @@ export async function tenancyListHostTenants(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.identifier !== undefined) {
+    query.set('identifier', String(parameters.identifier));
+  }
+  if (parameters.name !== undefined) {
+    query.set('name', String(parameters.name));
+  }
+  if (parameters.domain !== undefined) {
+    query.set('domain', String(parameters.domain));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/tenancy/tenants` : `/api/v1/tenancy/tenants?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };

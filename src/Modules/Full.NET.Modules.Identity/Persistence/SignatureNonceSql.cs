@@ -37,4 +37,10 @@ internal static class SignatureNonceSql
         LIMIT 1
         """,
         SqlDataScope.Global);
+    public static readonly SqlStatement DeleteExpiredSqlServer = new(
+        "identity.delete_expired_signature_nonces.sqlserver",
+        "DELETE TOP (500) FROM fn_identity_signature_nonce WHERE ExpiresAtUtc <= @NowUtc", SqlDataScope.Global);
+    public static readonly SqlStatement DeleteExpiredMySql = new(
+        "identity.delete_expired_signature_nonces.mysql",
+        "DELETE FROM fn_identity_signature_nonce WHERE ExpiresAtUtc <= @NowUtc ORDER BY ExpiresAtUtc, Id LIMIT 500", SqlDataScope.Global);
 }

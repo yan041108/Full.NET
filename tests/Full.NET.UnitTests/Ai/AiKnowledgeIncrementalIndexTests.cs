@@ -43,7 +43,7 @@ public sealed class AiKnowledgeIncrementalIndexTests
             if (scenario == "revoke") granted = false;
             return [new() { ProcessingStatus = "index_admitted" }, new() { ProcessingStatus = "awaiting_index_confirmation" }];
         });
-        var authorization = Substitute.For<ICurrentSessionAuthorization>();
+        var authorization = Substitute.For<ICurrentSessionAuthorization>(); authorization.UsePermissionSetChecks();
         authorization.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             Assert.IsTrue(readFinished);

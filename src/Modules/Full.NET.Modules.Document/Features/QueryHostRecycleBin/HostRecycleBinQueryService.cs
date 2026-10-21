@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -14,7 +15,8 @@ namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 internal sealed class HostRecycleBinQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
         int page,
@@ -34,7 +36,8 @@ internal sealed class HostRecycleBinQueryService(
 
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
+                DocumentSqlParameters.Create(("ActorUserId", accessPolicy.ActorUserId),
+                    ("Offset", offset), ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -52,7 +55,13 @@ internal sealed class HostRecycleBinQueryService(
                 pageResult.Total));
     }
 
-    public async Task<Result<HostDocumentItemResponse>> GetDeletedByIdAsync(
+    public Task<Result<HostDocumentItemResponse>> GetDeletedByIdAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+            () => GetDeletedByIdAuthorizedAsync(itemId, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostDocumentItemResponse>> GetDeletedByIdAuthorizedAsync(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {

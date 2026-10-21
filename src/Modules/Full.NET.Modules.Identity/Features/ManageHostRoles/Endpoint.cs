@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
@@ -21,6 +22,7 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            string? code, string? name, string? status, string? roleType,
             HostRoleQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -29,7 +31,7 @@ internal static class Endpoint
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
-                    cancellationToken)
+                    cancellationToken, new HostRoleListFilter(code, name, status, roleType))
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -208,6 +210,7 @@ internal static class Endpoint
             Guid roleId,
             int? page,
             int? pageSize,
+            [FromQuery] Guid[]? userIds,
             HostRoleMembersService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -217,7 +220,8 @@ internal static class Endpoint
                     roleId,
                     page ?? 1,
                     pageSize ?? 20,
-                    cancellationToken)
+                    // RDG 将缺省数组绑定为 []；缺少查询键仍表示不筛选成员。
+                    cancellationToken, httpContext.Request.Query.ContainsKey("userIds") ? userIds : null)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

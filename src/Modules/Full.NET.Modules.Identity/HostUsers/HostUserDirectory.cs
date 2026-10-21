@@ -22,18 +22,17 @@ internal sealed class HostUserDirectory(IQueryExecutor queryExecutor)
             return new Dictionary<Guid, HostUserDirectoryEntry>();
         }
 
-        var records = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
+        var users = new Dictionary<Guid, HostUserDirectoryEntry>();
+        // 目录端口统一控制集合参数预算，调用方不能把 SQL Server 参数上限泄漏成业务故障。
+        foreach (var batch in distinctUserIds.Chunk(500))
+        {
+            var records = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
                 IdentitySql.ListHostUsersByIds,
-                IdentitySqlParameters.Create(("UserIds", distinctUserIds)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return records.ToDictionary(
-            record => record.Id,
-            record => new HostUserDirectoryEntry(
-                record.Id,
-                record.Username,
-                record.DisplayName,
-                record.PreferredLocale));
+                IdentitySqlParameters.Create(("UserIds", batch)), cancellationToken).ConfigureAwait(false);
+            foreach (var record in records)
+                users[record.Id] = new(record.Id, record.Username, record.DisplayName, record.PreferredLocale);
+        }
+        return users;
     }
 
     public async Task<HostUserDirectoryEntry?> FindActiveHostUserAsync(

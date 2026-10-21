@@ -129,6 +129,7 @@ internal static class ApiKeySql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@IsActive IS NULL OR apiKey.IsActive = @IsActive)
           AND (@DisplayNameContains IS NULL OR apiKey.DisplayName LIKE '%' + @DisplayNameContains + '%')
         """,
         SqlDataScope.HostOnly);
@@ -142,6 +143,7 @@ internal static class ApiKeySql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@IsActive IS NULL OR apiKey.IsActive = @IsActive)
           AND (@DisplayNameContains IS NULL OR apiKey.DisplayName LIKE CONCAT('%', @DisplayNameContains, '%'))
         """,
         SqlDataScope.HostOnly);
@@ -164,6 +166,7 @@ internal static class ApiKeySql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@IsActive IS NULL OR apiKey.IsActive = @IsActive)
           AND (@DisplayNameContains IS NULL OR apiKey.DisplayName LIKE '%' + @DisplayNameContains + '%')
         ORDER BY apiKey.CreatedAtUtc DESC, apiKey.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
@@ -188,6 +191,7 @@ internal static class ApiKeySql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@IsActive IS NULL OR apiKey.IsActive = @IsActive)
           AND (@DisplayNameContains IS NULL OR apiKey.DisplayName LIKE CONCAT('%', @DisplayNameContains, '%'))
         ORDER BY apiKey.CreatedAtUtc DESC, apiKey.Id DESC
         LIMIT @PageSize OFFSET @Offset

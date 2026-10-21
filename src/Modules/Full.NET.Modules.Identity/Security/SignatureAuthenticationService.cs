@@ -176,12 +176,11 @@ internal sealed partial class SignatureAuthenticationService(
                 httpContext.Request.Path);
             var canonicalQuery = SignatureCanonicalRequest.BuildCanonicalQuery(
                 httpContext.Request.QueryString);
-            var body = await SignatureCanonicalRequest.ReadBodyAsync(
+            var contentHash = await SignatureCanonicalRequest.ReadContentHashAsync(
                     httpContext.Request,
                     settings.MaxBodyBytes,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var contentHash = SignatureCanonicalRequest.ComputeContentHash(body);
             canonicalString = SignatureCanonicalRequest.BuildCanonicalString(
                 method,
                 canonicalPath,

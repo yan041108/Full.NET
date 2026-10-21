@@ -55,11 +55,13 @@ internal static class HostFileSql
         """;
 
     private const string FileNameFilterClause = """
-        (@FileNameContains IS NULL OR OriginalFileName LIKE '%' + @FileNameContains + '%')
+        (@FileNameContains IS NULL OR OriginalFileName LIKE @FileNameContains ESCAPE '!')
+          AND (@FromUtc IS NULL OR (CreatedAtUtc >= @FromUtc AND CreatedAtUtc < @ToUtc))
         """;
 
     private const string FileNameFilterClauseMySql = """
-        (@FileNameContains IS NULL OR OriginalFileName LIKE CONCAT('%', @FileNameContains, '%'))
+        (@FileNameContains IS NULL OR OriginalFileName LIKE @FileNameContains ESCAPE '!')
+          AND (@FromUtc IS NULL OR (CreatedAtUtc >= @FromUtc AND CreatedAtUtc < @ToUtc))
         """;
 
     public static readonly SqlStatement CountActiveHostFiles = new(

@@ -103,10 +103,9 @@ internal sealed class AiKnowledgeIndexPdfManifestStore(IQueryExecutor query, ICo
             || model.TenantId == Guid.Empty || (model.TenantId.HasValue && model.TenantId != tenant.Id)
             || model.ProviderKey != "openai_compatible" || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large")) return null;
         if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
-        foreach (var permission in Permissions)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(session, Permissions, token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
         }
         token.ThrowIfCancellationRequested(); NoTransaction();

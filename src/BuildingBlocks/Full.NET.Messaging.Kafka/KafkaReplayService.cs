@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Confluent.Kafka;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
@@ -39,6 +40,8 @@ internal interface IKafkaReplayConsumer : IAsyncDisposable
         TimeSpan timeout);
 
     void Assign(IReadOnlyList<TopicPartitionOffset> offsets);
+
+    void Pause(IReadOnlyList<TopicPartition> partitions);
 
     ConsumeResult<string, byte[]>? Consume(TimeSpan timeout);
 
@@ -102,9 +105,12 @@ internal sealed class KafkaReplayService(
         var alreadyProcessed = 0;
         var rejected = 0;
         var idlePolls = 0;
+        var lastProgress = Stopwatch.GetTimestamp();
         while (remaining.Count > 0 && scanned < request.MaxMessages)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (Stopwatch.GetElapsedTime(lastProgress) >= TimeSpan.FromSeconds(30))
+                throw new TimeoutException("Kafka replay made no progress for 30 seconds.");
             var result = consumer.Consume(PollTimeout);
             if (result is null)
             {
@@ -117,7 +123,6 @@ internal sealed class KafkaReplayService(
                 continue;
             }
 
-            idlePolls = 0;
             if (!remaining.Contains(result.TopicPartition))
             {
                 continue;
@@ -127,6 +132,9 @@ internal sealed class KafkaReplayService(
             if (result.IsPartitionEOF || result.Offset.Value >= endExclusive)
             {
                 remaining.Remove(result.TopicPartition);
+                consumer.Pause([result.TopicPartition]);
+                idlePolls = 0;
+                lastProgress = Stopwatch.GetTimestamp();
                 continue;
             }
 
@@ -150,9 +158,12 @@ internal sealed class KafkaReplayService(
                     throw new InvalidOperationException("Unsupported Kafka replay message outcome.");
             }
 
+            idlePolls = 0;
+            lastProgress = Stopwatch.GetTimestamp();
             if (result.Offset.Value + 1 >= endExclusive)
             {
                 remaining.Remove(result.TopicPartition);
+                consumer.Pause([result.TopicPartition]);
             }
         }
 
@@ -286,6 +297,8 @@ internal sealed class KafkaReplayConsumer(
         consumer.OffsetsForTimes(timestamps, timeout);
 
     public void Assign(IReadOnlyList<TopicPartitionOffset> offsets) => consumer.Assign(offsets);
+
+    public void Pause(IReadOnlyList<TopicPartition> partitions) => consumer.Pause(partitions);
 
     public ConsumeResult<string, byte[]>? Consume(TimeSpan timeout) => consumer.Consume(timeout);
 

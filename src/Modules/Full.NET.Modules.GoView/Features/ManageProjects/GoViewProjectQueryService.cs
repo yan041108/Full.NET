@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.GoView.Contracts;
@@ -6,7 +7,7 @@ using Full.NET.Modules.GoView.Persistence;
 namespace Full.NET.Modules.GoView.Features.ManageProjects;
 
 /// <summary>GoView 大屏项目只读查询。</summary>
-internal sealed class GoViewProjectQueryService(IQueryExecutor queryExecutor)
+internal sealed class GoViewProjectQueryService(IQueryExecutor queryExecutor, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task<Result<GoViewProjectResponse>> GetByIdAsync(
         Guid projectId,
@@ -22,41 +23,44 @@ internal sealed class GoViewProjectQueryService(IQueryExecutor queryExecutor)
             : Result<GoViewProjectResponse>.Success(GoViewProjectMapper.MapProject(row));
     }
 
-    public async Task<Result<IReadOnlyList<GoViewProjectResponse>>> ListAsync(
+    public async Task<Result<PagedResult<GoViewProjectSummaryResponse>>> ListAsync(
         string? nameContains,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
     {
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
         var filter = NormalizeFilter(nameContains);
+        var parameters = GoViewSqlParameters.Create([("NameContains", filter is null ? null : $"%{filter}%"),
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize)]);
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(GoViewProjectSql.CountProjects,
+            parameters, cancellationToken).ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<GoViewProjectRecord>(
-                GoViewProjectSql.ListProjects,
-                GoViewSqlParameters.Create([
-                    ("NameContains", filter is null ? null : $"%{filter}%")]),
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? GoViewProjectSql.ListProjectSummariesMySql : GoViewProjectSql.ListProjectSummariesSqlServer,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<IReadOnlyList<GoViewProjectResponse>>.Success(
-            rows.Select(GoViewProjectMapper.MapProject).ToArray());
+        return Result<PagedResult<GoViewProjectSummaryResponse>>.Success(
+            new PagedResult<GoViewProjectSummaryResponse>(rows.Select(row => new GoViewProjectSummaryResponse(row.Id, row.ProjectKey, row.Name, row.LatestPublishedVersionNumber, row.IsEnabled, row.CreatedAtUtc, row.UpdatedAtUtc, row.Version)).ToArray(), page, pageSize, total));
     }
 
-    public async Task<Result<IReadOnlyList<GoViewProjectVersionResponse>>> ListVersionsAsync(
+    public async Task<Result<PagedResult<GoViewProjectVersionSummaryResponse>>> ListVersionsAsync(
         Guid projectId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
     {
-        if (await queryExecutor.QuerySingleOrDefaultAsync<GoViewProjectRecord>(
-                    GoViewProjectSql.FindProjectById,
-                    GoViewSqlParameters.Create([("ProjectId", projectId)]),
-                    cancellationToken)
-                .ConfigureAwait(false) is null)
-        {
-            return NotFoundVersions();
-        }
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
+        var parameters = GoViewSqlParameters.Create([("ProjectId", projectId),
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize)]);
+        if (await queryExecutor.QuerySingleOrDefaultAsync<long>(GoViewProjectSql.ProjectExists,
+            parameters, cancellationToken).ConfigureAwait(false) == 0) return NotFoundVersions();
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(GoViewProjectSql.CountVersions,
+            parameters, cancellationToken).ConfigureAwait(false);
 
         var rows = await queryExecutor.QueryAsync<GoViewProjectVersionRecord>(
-                GoViewProjectSql.ListVersions,
-                GoViewSqlParameters.Create([("ProjectId", projectId)]),
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? GoViewProjectSql.ListVersionSummariesMySql : GoViewProjectSql.ListVersionSummariesSqlServer,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<IReadOnlyList<GoViewProjectVersionResponse>>.Success(
-            rows.Select(GoViewProjectMapper.MapVersion).ToArray());
+        return Result<PagedResult<GoViewProjectVersionSummaryResponse>>.Success(
+            new PagedResult<GoViewProjectVersionSummaryResponse>(rows.Select(row => new GoViewProjectVersionSummaryResponse(row.Id, row.ProjectId, row.VersionNumber, row.ChangeNote, row.PublishedByUserId, row.PublishedAtUtc)).ToArray(), page, pageSize, total));
     }
 
     public async Task<Result<GoViewProjectVersionResponse>> GetVersionAsync(
@@ -88,8 +92,8 @@ internal sealed class GoViewProjectQueryService(IQueryExecutor queryExecutor)
             "The GoView project was not found.",
             ErrorType.NotFound));
 
-    private static Result<IReadOnlyList<GoViewProjectVersionResponse>> NotFoundVersions() =>
-        Result<IReadOnlyList<GoViewProjectVersionResponse>>.Failure(new Error(
+    private static Result<PagedResult<GoViewProjectVersionSummaryResponse>> NotFoundVersions() =>
+        Result<PagedResult<GoViewProjectVersionSummaryResponse>>.Failure(new Error(
             GoViewErrorCodes.ProjectNotFound,
             "The GoView project was not found.",
             ErrorType.NotFound));

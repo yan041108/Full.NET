@@ -38,7 +38,11 @@ public sealed record HostRoleMembersPageResponse(
 /// <param name="Version">调用方看到的当前角色版本。</param>
 public sealed record ReplaceHostRoleMembersRequest(
     IReadOnlyList<Guid> UserIds,
-    int Version);
+    int Version)
+{
+    /// <summary>仅替换这些已展示候选的成员状态；未展示成员保持不变，最多 10000 个。空值表示整量替换。</summary>
+    public IReadOnlyList<Guid>? CandidateUserIds { get; init; }
+}
 
 /// <summary>Host 角色成员替换结果。</summary>
 /// <param name="RoleId">目标角色标识。</param>

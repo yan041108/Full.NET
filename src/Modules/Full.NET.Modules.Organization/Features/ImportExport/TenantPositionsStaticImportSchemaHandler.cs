@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Full.NET.Modules.Organization.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Organization.Contracts;
@@ -86,31 +88,44 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
 
         try
         {
-            var rows = await OrganizationPositionWorkbookCodec
-                .ParseImportAsync(content, contentLength, cancellationToken)
-                .ConfigureAwait(false);
-            var preview = previewService.Preview(rows, context);
-            var validRows = preview.Rows
-                .Where(row => row.IsValid)
-                .OrderBy(row => row.LineNumber)
-                .ToArray();
-            var batchValidRows = validRows
-                .Skip(startLineNumber)
-                .Take(batchSize)
-                .ToArray();
-            var batchRows = batchValidRows
-                .Select(valid => rows[valid.LineNumber - 1])
-                .ToArray();
-            if (batchRows.Length == 0)
-            {
-                return Result<StaticImportBatchExecutionResult>.Success(
-                    new StaticImportBatchExecutionResult([]));
-            }
-
-            var capabilities = ResolveImportCapabilities(context);
             if (context.TaskId is not Guid taskId || taskId == Guid.Empty)
                 return Result<StaticImportBatchExecutionResult>.Failure(new Error(ValidationErrorCodes.Failed,
                     "Durable task identity is required for resumable import.", ErrorType.Validation));
+            var capabilities = ResolveImportCapabilities(context);
+            var serializer = OrganizationJsonSerializerContext.Default.TenantPositionImportPlan;
+            TenantPositionImportPlan plan;
+            string planJson;
+            if (context.PreparedPlanJson is { } prepared)
+            {
+                if (prepared.Length > 1024 * 1024) throw new InvalidDataException("Import plan exceeds its budget.");
+                plan = JsonSerializer.Deserialize(prepared, serializer)
+                    ?? throw new InvalidDataException("Import plan is missing.");
+                if (plan.Format != 1 || plan.TaskId != taskId || plan.SourceFileId != context.SourceFileId
+                    || plan.AssignUnit != capabilities.CanAssignUnit || plan.AssignPositionLevel != capabilities.CanAssignPositionLevel
+                    || plan.Rows.Count > 1000)
+                    throw new InvalidDataException("Import plan binding is invalid.");
+                planJson = prepared;
+            }
+            else
+            {
+                var rows = await OrganizationPositionWorkbookCodec.ParseImportAsync(content, contentLength, cancellationToken)
+                    .ConfigureAwait(false);
+                var preview = previewService.Preview(rows, context);
+                plan = new TenantPositionImportPlan(1, taskId, context.SourceFileId,
+                    capabilities.CanAssignUnit, capabilities.CanAssignPositionLevel,
+                    preview.Rows.Where(row => row.IsValid).OrderBy(row => row.LineNumber)
+                        .Select(row => new TenantPositionImportPlanRow(row.LineNumber, rows[row.LineNumber - 1])).ToArray());
+                planJson = JsonSerializer.Serialize(plan, serializer);
+                if (planJson.Length > 1024 * 1024) throw new InvalidDataException("Import plan exceeds its budget.");
+            }
+            var batchValidRows = plan.Rows.Skip(startLineNumber).Take(batchSize).ToArray();
+            var batchRows = batchValidRows.Select(row => row.Row).ToArray();
+            if (batchRows.Length == 0)
+            {
+                return Result<StaticImportBatchExecutionResult>.Success(
+                    new StaticImportBatchExecutionResult([]) { PreparedPlanJson = planJson });
+            }
+
             var executionRows = new StaticImportRowExecutionResult[batchRows.Length];
             for (var index = 0; index < batchRows.Length; index++)
             {
@@ -121,7 +136,7 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
                     imported.IsSuccess ? imported.Value!.PositionId : null, imported.Error?.Code, imported.Error?.Message);
             }
             return Result<StaticImportBatchExecutionResult>.Success(
-                new StaticImportBatchExecutionResult(executionRows));
+                new StaticImportBatchExecutionResult(executionRows) { PreparedPlanJson = planJson });
         }
         catch (InvalidDataException)
         {
@@ -145,3 +160,10 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
     private static bool HasCapability(StaticImportPreviewContext context, string permissionCode) =>
         context.CapabilityFlags.TryGetValue(permissionCode, out var allowed) && allowed;
 }
+
+/// <summary>只持久化解析和纯校验结果；每行写入仍重新检查当前领域约束。</summary>
+internal sealed record TenantPositionImportPlan(int Format, Guid TaskId, Guid? SourceFileId,
+    bool AssignUnit, bool AssignPositionLevel, IReadOnlyList<TenantPositionImportPlanRow> Rows);
+
+/// <summary>保留原始工作簿行号，用于恢复幂等。</summary>
+internal sealed record TenantPositionImportPlanRow(int LineNumber, ImportOrganizationPositionRow Row);

@@ -5,6 +5,14 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// </summary>
 public interface IOrganizationUnitProjectionDirectory
 {
+    /// <summary>批量查询指定租户的活动投影，最多 100 个机构。</summary>
+    /// <param name="tenantId">目标租户。</param>
+    /// <param name="unitIds">机构标识。</param>
+    /// <param name="cancellationToken">请求取消。</param>
+    /// <returns>活动机构投影。</returns>
+    Task<IReadOnlyDictionary<Guid, OrganizationUnitProjectionEntry>> FindActiveUnitsAsync(
+        Guid tenantId, IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 查找指定租户下的活动机构单元投影；缺失、停用或版本过旧时返回 <see langword="null"/>。
     /// </summary>

@@ -52,7 +52,7 @@ public sealed class FullNetModuleSelectionOptions
         public const string Saas = "Saas";
 
         /// <summary>
-        /// 企业业务样板：Platform + Webhooks + 工作流 + 数据交付 + EnterpriseRequest。
+        /// 企业业务样板：Platform + Webhooks + 工作流 + 数据交付。
         /// </summary>
         public const string Enterprise = "Enterprise";
     }

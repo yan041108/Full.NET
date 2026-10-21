@@ -34,6 +34,10 @@ public sealed class PrintingModule : IFullNetModule
     /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.PrintingDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             PrintingAuthorizationContributor>());

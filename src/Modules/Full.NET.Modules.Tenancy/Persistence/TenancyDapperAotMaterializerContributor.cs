@@ -29,6 +29,7 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
         registrar.Register<TenantEntitlementEnforcementRecord>(ReadTenantEntitlementEnforcementRecord);
         registrar.Register<TenantSubscriptionRecord>(ReadTenantSubscriptionRecord);
         registrar.Register<TenantQuotaMetricRecord>(ReadTenantQuotaMetricRecord);
+        registrar.Register<TenantQuotaUsageBaselineRecord>(ReadTenantQuotaUsageBaselineRecord);
         registrar.Register<TenantQuotaReservationRecord>(ReadTenantQuotaReservationRecord);
         registrar.Register<TenantEntitlementBackfillCandidate>(ReadTenantEntitlementBackfillCandidate);
     }
@@ -141,6 +142,18 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
     private static TenantQuotaMetricRecord ReadTenantQuotaMetricRecord(DbDataReader reader) =>
         new(
             reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetInt64(4),
+            reader.GetInt64(5),
+            reader.GetInt64(6),
+            reader.GetInt32(7));
+
+    /// <summary>缺失指标与未指定游标使用数据库 NULL，原生路径同样保留可选标识。</summary>
+    private static TenantQuotaUsageBaselineRecord ReadTenantQuotaUsageBaselineRecord(DbDataReader reader) =>
+        new(
+            reader.IsDBNull(0) ? null : reader.GetGuid(0),
             reader.GetGuid(1),
             reader.GetString(2),
             reader.GetString(3),

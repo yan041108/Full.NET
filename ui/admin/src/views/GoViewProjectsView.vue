@@ -9,6 +9,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElPagination,
   ElSwitch,
   ElTable,
   ElTableColumn,
@@ -16,7 +17,7 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import type { FullNetProblemDetails, GoViewProject } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, GoViewProjectSummary } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
@@ -30,8 +31,10 @@ defineOptions({ name: 'GoViewProjectsView' });
 
 const router = useRouter();
 const { t } = useAdminI18n();
-const items = ref<GoViewProject[]>([]);
+const items = ref<GoViewProjectSummary[]>([]);
 const loading = ref(false);
+const page = ref(1);
+const total = ref(0);
 const creating = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const createDialogVisible = ref(false);
@@ -52,7 +55,8 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    items.value = await listGoViewProjects();
+    const result = await listGoViewProjects(undefined, undefined, page.value, 20);
+    items.value = result.items; total.value = result.total;
   } catch (error: unknown) {
     problem.value = toProblem(error, 'goviewProjects.loadFailed');
   } finally {
@@ -165,6 +169,7 @@ onMounted(() => {
           </template>
         </ElTableColumn>
       </ElTable>
+      <ElPagination v-model:current-page="page" :page-size="20" :total="total" layout="prev, pager, next, total" @current-change="load" />
     </ElCard>
 
     <ArtFormDialog

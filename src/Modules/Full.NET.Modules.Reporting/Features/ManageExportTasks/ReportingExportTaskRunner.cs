@@ -1,3 +1,5 @@
+using Full.NET.Hosting.Background;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
@@ -37,7 +39,9 @@ internal sealed class ReportingExportTaskRunner(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    IOptionsMonitor<ReportingExportOptions> options)
+    IOptionsMonitor<ReportingExportOptions> options,
+    PendingTenantScanState scanState,
+    IServiceScopeFactory scopeFactory)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -66,13 +70,20 @@ internal sealed class ReportingExportTaskRunner(
     {
         var batchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
         var now = clock.UtcNow;
-        var pendingTenantIds = await queryExecutor.QueryAsync<Guid>(
-                databaseOptions.Value.Provider == DatabaseProvider.SqlServer
-                    ? ReportingExportTaskSql.ListPendingTenantIdsSqlServer
-                    : ReportingExportTaskSql.ListPendingTenantIdsMySql,
-                ReportingSqlParameters.Create(("BatchSize", batchSize), ("Now", now)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var statement = databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+            ? ReportingExportTaskSql.ListPendingTenantIdsSqlServer : ReportingExportTaskSql.ListPendingTenantIdsMySql;
+        var afterTenantId = scanState.Read();
+        var pendingTenantIds = await queryExecutor.QueryAsync<Guid>(statement,
+            ReportingSqlParameters.Create(("BatchSize", batchSize), ("Now", now), ("AfterTenantId", afterTenantId)),
+            cancellationToken).ConfigureAwait(false);
+        // 空尾页只回卷一次；不能因不可执行租户永远占据最早一页，也不能无限扫描空队列。
+        if (pendingTenantIds.Count == 0 && afterTenantId.HasValue)
+        {
+            scanState.Advance(null);
+            pendingTenantIds = await queryExecutor.QueryAsync<Guid>(statement,
+                ReportingSqlParameters.Create(("BatchSize", batchSize), ("Now", now), ("AfterTenantId", null)),
+                cancellationToken).ConfigureAwait(false);
+        }
         var processed = 0;
         foreach (var tenantId in pendingTenantIds)
         {
@@ -82,6 +93,8 @@ internal sealed class ReportingExportTaskRunner(
                 break;
             }
 
+            // 即使租户停用也推进；实际领取仍由下面的新鲜活动租户解析保护。
+            scanState.Advance(tenantId);
             try
             {
                 if (!await TrySetTenantScopeAsync(tenantId, cancellationToken).ConfigureAwait(false))
@@ -121,14 +134,50 @@ internal sealed class ReportingExportTaskRunner(
     /// <param name="task">已领取快照。</param>
     /// <param name="principal">列权限主体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    private async Task ExecuteClaimedAsync(
-        ReportingExportTaskRecord task,
-        ClaimsPrincipal principal,
-        CancellationToken cancellationToken)
+    private async Task ExecuteClaimedAsync(ReportingExportTaskRecord task, ClaimsPrincipal principal, CancellationToken cancellationToken)
     {
+        var duration = TimeSpan.FromSeconds(options.CurrentValue.LeaseSeconds);
+        await using var lease = new ExecutionLeaseMonitor(task.LeaseExpiresAtUtc ?? DateTimeOffset.MinValue,
+            TimeSpan.FromTicks(duration.Ticks / 3), TimeSpan.FromSeconds(options.CurrentValue.ExecutionTimeoutSeconds), clock,
+            (previousExpiry, token) => RenewLeaseAsync(task, duration, previousExpiry, token), cancellationToken);
+        await ExecuteClaimedCoreAsync(task, principal, lease).ConfigureAwait(false);
+    }
+
+    private async Task<DateTimeOffset?> RenewLeaseAsync(ReportingExportTaskRecord task, TimeSpan duration, DateTimeOffset previousExpiry, CancellationToken token)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var resolver = scope.ServiceProvider.GetRequiredService<IActiveTenantContextResolver>();
+        var tenant = await resolver.ResolveActiveByIdAsync(task.TenantId, token).ConfigureAwait(false);
+        if (tenant is null) return null;
+        var writer = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        writer.SetTenant(tenant);
         try
         {
-            var existing = await TryAttachExistingOutputAsync(task, cancellationToken).ConfigureAwait(false);
+            var now = clock.UtcNow;
+            var expires = now.Add(duration);
+            return await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync<DateTimeOffset?>(async commitToken =>
+            {
+                var affected = await scope.ServiceProvider.GetRequiredService<ICommandExecutor>().ExecuteAsync(
+                ReportingExportTaskSql.RenewExecutionLease,
+                new Dictionary<string, object?> { ["Id"] = task.Id, ["LeaseId"] = task.LeaseId,
+                    ["NowUtc"] = now, ["LeaseExpiresAtUtc"] = expires }, commitToken).ConfigureAwait(false);
+                commitToken.ThrowIfCancellationRequested();
+                if (clock.UtcNow >= previousExpiry) throw new OperationCanceledException("Execution lease expired during renewal.");
+                return affected == 1 ? expires : null;
+            }, token).ConfigureAwait(false);
+        }
+        finally { writer.Clear(); }
+    }
+
+    private async Task ExecuteClaimedCoreAsync(
+        ReportingExportTaskRecord task,
+        ClaimsPrincipal principal,
+        ExecutionLeaseMonitor lease)
+    {
+        var cancellationToken = lease.Token;
+        try
+        {
+            var existing = await TryAttachExistingOutputAsync(task, lease, cancellationToken).ConfigureAwait(false);
             if (existing)
             {
                 return;
@@ -140,6 +189,7 @@ internal sealed class ReportingExportTaskRunner(
             {
                 await CompleteFailedAsync(
                         task,
+                    lease,
                         0,
                         generated.Error!.Code,
                         generated.Error.Message,
@@ -165,6 +215,7 @@ internal sealed class ReportingExportTaskRunner(
             {
                 await CompleteFailedAsync(
                         task,
+                    lease,
                         file.RowCount,
                         ReportingErrorCodes.ExportFailed,
                         uploadResult.Error?.Message ?? "Failed to store export file.",
@@ -175,6 +226,7 @@ internal sealed class ReportingExportTaskRunner(
 
             await CompleteSucceededAsync(
                     task,
+                    lease,
                     uploadResult.Value!.FileId,
                     file.FileName,
                     file.RowCount,
@@ -196,12 +248,14 @@ internal sealed class ReportingExportTaskRunner(
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<bool> TryAttachExistingOutputAsync(
         ReportingExportTaskRecord task,
+        ExecutionLeaseMonitor lease,
         CancellationToken cancellationToken)
     {
         if (task.OutputFileId is not null)
         {
             return await CompleteSucceededAsync(
                     task,
+                lease,
                     task.OutputFileId.Value,
                     task.OutputFileName ?? "reporting-export.xlsx",
                     task.RowCount,
@@ -219,6 +273,7 @@ internal sealed class ReportingExportTaskRunner(
 
         return await CompleteSucceededAsync(
                 task,
+                lease,
                 latest.FileId,
                 latest.OriginalFileName,
                 task.RowCount,
@@ -234,18 +289,20 @@ internal sealed class ReportingExportTaskRunner(
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<bool> CompleteSucceededAsync(
         ReportingExportTaskRecord task,
+        ExecutionLeaseMonitor lease,
         Guid outputFileId,
         string outputFileName,
         int rowCount,
         CancellationToken cancellationToken)
     {
-        var affected = await commandExecutor.ExecuteAsync(
+        var affected = await ExecuteHeldLeaseAsync(lease,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
                     : ReportingExportTaskSql.CompleteSucceeded,
                 ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
+                    ("NowUtc", clock.UtcNow),
                     ("StatusKey", ReportingExportTaskStatusKeys.Succeeded),
                     ("OutputFileId", outputFileId),
                     ("OutputFileName", outputFileName),
@@ -276,18 +333,20 @@ internal sealed class ReportingExportTaskRunner(
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task CompleteFailedAsync(
         ReportingExportTaskRecord task,
+        ExecutionLeaseMonitor lease,
         int rowCount,
         string errorCode,
         string errorMessage,
         CancellationToken cancellationToken)
     {
-        await commandExecutor.ExecuteAsync(
+        await ExecuteHeldLeaseAsync(lease,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteFailedSqlServer
                     : ReportingExportTaskSql.CompleteFailed,
                 ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
+                    ("NowUtc", clock.UtcNow),
                     ("StatusKey", ReportingExportTaskStatusKeys.Failed),
                     ("RowCount", rowCount),
                     ("ErrorCode", errorCode),
@@ -403,4 +462,20 @@ internal sealed class ReportingExportTaskRunner(
         currentTenant.SetTenant(tenant);
         return true;
     }
+    private async Task<int> ExecuteHeldLeaseAsync(ExecutionLeaseMonitor lease, SqlStatement statement,
+        object parameters, CancellationToken cancellationToken)
+    {
+        await lease.StopRenewalAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (parameters is IDictionary<string, object?> values) values["NowUtc"] = clock.UtcNow;
+        return await transaction.ExecuteAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(statement, parameters, token).ConfigureAwait(false);
+            // 驱动可能在锁等待后才响应；写后复核并由本地事务回滚，不能只依赖发出前冻结的 Now。
+            token.ThrowIfCancellationRequested();
+            if (clock.UtcNow >= lease.ExpiresAtUtc) throw new OperationCanceledException("Execution lease expired during completion.");
+            return affected;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
 }

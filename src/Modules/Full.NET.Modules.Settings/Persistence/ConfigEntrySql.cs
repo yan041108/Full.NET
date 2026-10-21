@@ -243,4 +243,49 @@ internal static class ConfigEntrySql
         ORDER BY GroupName
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement FindIdentitiesByIds = new(
+        "settings.config_entry.identities_by_ids",
+        "SELECT Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, DisplayOrder, IsActive, Version FROM fn_settings_config_entry WHERE Id IN @Ids",
+        SqlDataScope.HostOnly);
+    public static readonly SqlStatement FindIdentitiesByKeys = new(
+        "settings.config_entry.identities_by_keys",
+        "SELECT Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, DisplayOrder, IsActive, Version FROM fn_settings_config_entry WHERE ConfigKey IN @Keys",
+        SqlDataScope.HostOnly);
+    public static readonly SqlStatement UpdateBatchCasSqlServer = new(
+        "settings.config_entry.update_batch_cas.sqlserver",
+        """
+        UPDATE target SET Value = rowData.Value, UpdatedAtUtc = @UpdatedAtUtc, Version = target.Version + 1
+        FROM fn_settings_config_entry target INNER JOIN OPENJSON(@Rows) WITH (Id uniqueidentifier '$.id', Value nvarchar(4000) '$.value', Version int '$.version') rowData ON target.Id = rowData.Id
+        WHERE target.Version = rowData.Version
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement DeleteBatchCasSqlServer = new(
+        "settings.config_entry.delete_batch_cas.sqlserver",
+        """
+        DELETE target FROM fn_settings_config_entry target INNER JOIN OPENJSON(@Rows) WITH (Id uniqueidentifier '$.id', Value nvarchar(4000) '$.value', Version int '$.version') rowData ON target.Id = rowData.Id
+        WHERE target.IsActive = 0 AND target.Version = rowData.Version
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement UpdateBatchCasMySql = new(
+        "settings.config_entry.update_batch_cas.mysql",
+        """
+        UPDATE fn_settings_config_entry target INNER JOIN JSON_TABLE(@Rows, '$[*]' COLUMNS (Id CHAR(36) PATH '$.id', Value VARCHAR(4000) PATH '$.value', Version INT PATH '$.version')) rowData ON target.Id = UNHEX(REPLACE(rowData.Id, '-', ''))
+        SET target.Value = rowData.Value, target.UpdatedAtUtc = @UpdatedAtUtc, target.Version = target.Version + 1
+        WHERE target.Version = rowData.Version
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement DeleteBatchCasMySql = new(
+        "settings.config_entry.delete_batch_cas.mysql",
+        """
+        DELETE target FROM fn_settings_config_entry target INNER JOIN JSON_TABLE(@Rows, '$[*]' COLUMNS (Id CHAR(36) PATH '$.id', Value VARCHAR(4000) PATH '$.value', Version INT PATH '$.version')) rowData ON target.Id = UNHEX(REPLACE(rowData.Id, '-', ''))
+        WHERE target.IsActive = 0 AND target.Version = rowData.Version
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountHostConfigEntriesFiltered = new(
+        "settings.counthostconfigentries.filtered",
+        CountHostConfigEntries.Text + " AND (@ConfigKey IS NULL OR ConfigKey LIKE @ConfigKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountHostConfigEntries.Scope, CountHostConfigEntries.TenantBinding);
+    public static readonly SqlStatement ListHostConfigEntriesSqlServerFiltered = new(
+        "settings.listhostconfigentriessqlserver.filtered",
+        ListHostConfigEntriesSqlServer.Text.Replace("ORDER BY", " AND (@ConfigKey IS NULL OR ConfigKey LIKE @ConfigKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostConfigEntriesSqlServer.Scope, ListHostConfigEntriesSqlServer.TenantBinding);
+    public static readonly SqlStatement ListHostConfigEntriesMySqlFiltered = new(
+        "settings.listhostconfigentriesmysql.filtered",
+        ListHostConfigEntriesMySql.Text.Replace("ORDER BY", " AND (@ConfigKey IS NULL OR ConfigKey LIKE @ConfigKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostConfigEntriesMySql.Scope, ListHostConfigEntriesMySql.TenantBinding);
 }

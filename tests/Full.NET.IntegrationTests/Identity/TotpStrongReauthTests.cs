@@ -248,6 +248,9 @@ public sealed class TotpStrongReauthTests
     /// <summary>该夹具不启用 Files 对账；意外调用时失败，避免把未知用量伪报为零。</summary>
     private sealed class UnsupportedStorageUsagePort : ITenantResourceFileStorageUsagePort
     {
+        public Task<IReadOnlyDictionary<Guid, long>> SumReadyStorageBytesByTenantsAsync(
+            IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("This fixture does not reconcile file storage usage.");
         public Task<long> SumReadyStorageBytesAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException("The TOTP fixture does not reconcile file storage usage.");
     }
@@ -280,6 +283,9 @@ public sealed class TotpStrongReauthTests
 
     private sealed class EmptyTenantOrganizationUnitDirectory : ITenantOrganizationUnitDirectory
     {
+        public Task<bool> AreActiveUnitsAsync(IReadOnlyCollection<TenantOrganizationMembershipTarget> targets,
+            CancellationToken cancellationToken = default) => Task.FromResult(targets.Count == 0);
+
         public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
             Guid tenantId,
             Guid unitId,

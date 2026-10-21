@@ -1,3 +1,4 @@
+using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -82,8 +83,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            applier,
-            Substitute.For<ISerialRuleDisableApprovalApplier>());
+            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), applier,
+                Substitute.For<ISerialRuleDisableApprovalApplier>())]);
 
         var result = await service.TryApplyApprovedChangeAsync(
             row,
@@ -166,8 +167,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            applier,
-            Substitute.For<ISerialRuleDisableApprovalApplier>());
+            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), applier,
+                Substitute.For<ISerialRuleDisableApprovalApplier>())]);
 
         var result = await service.TryApplyApprovedChangeAsync(
             row,

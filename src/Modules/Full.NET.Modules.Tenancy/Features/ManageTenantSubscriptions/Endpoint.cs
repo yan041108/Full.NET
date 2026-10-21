@@ -17,17 +17,17 @@ internal static class Endpoint
             .WithTags("TenancyTenantSubscriptions");
 
         group.MapGet("/", async (
-            Guid tenantId,
+            Guid tenantId, int? page, int? pageSize,
             TenantSubscriptionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(tenantId, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListAsync(tenantId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("tenancyListTenantSubscriptions")
-        .Produces<IReadOnlyList<TenantSubscriptionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<TenantSubscriptionResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantSubscriptionPermissions.Read));
 

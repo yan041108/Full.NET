@@ -14,8 +14,9 @@ internal static class DocumentShareSql
         PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version
         """;
 
-    private const string PageFilterWhere = """
+    private static readonly string PageFilterWhere = $$"""
         WHERE TenantId IS NULL
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_share.DocumentId", StringComparison.Ordinal)}}
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
           AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
           AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS VARCHAR(36)) LIKE @DocumentIdPattern)
@@ -25,8 +26,9 @@ internal static class DocumentShareSql
           AND (@MaxAccessCount IS NULL OR AccessCount <= @MaxAccessCount)
         """;
 
-    private const string PageFilterWhereMySql = """
+    private static readonly string PageFilterWhereMySql = $$"""
         WHERE TenantId IS NULL
+          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_share.DocumentId", StringComparison.Ordinal)}}
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
           AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
           AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS CHAR(36)) LIKE @DocumentIdPattern)
@@ -126,6 +128,8 @@ internal static class DocumentShareSql
         SELECT {{Projection}}
         FROM fn_document_share
         WHERE ShareCode = @ShareCode AND TenantId IS NULL
+          AND EXISTS (SELECT 1 FROM fn_document_item activeItem
+              WHERE activeItem.Id = fn_document_share.DocumentId AND activeItem.TenantId IS NULL AND activeItem.IsDeleted = 0)
         """,
         SqlDataScope.HostOnly);
 

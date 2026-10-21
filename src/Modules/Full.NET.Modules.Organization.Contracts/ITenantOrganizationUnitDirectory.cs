@@ -5,6 +5,13 @@ namespace Full.NET.Modules.Organization.Contracts;
 /// </summary>
 public interface ITenantOrganizationUnitDirectory
 {
+    /// <summary>一次校验最多 100 个跨租户机构目标；只返回存在性，不扩大目录读取范围。</summary>
+    /// <param name="targets">显式目标租户和机构。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>所有目标均为活动机构时为真。</returns>
+    Task<bool> AreActiveUnitsAsync(IReadOnlyCollection<TenantOrganizationMembershipTarget> targets,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 查找指定租户下活动机构单元；不存在、跨租户或已禁用时返回 <see langword="null"/>。
     /// </summary>

@@ -12,8 +12,10 @@ const sample = (): LogTimelineResponse => ({
 
 describe('日志时间线客户端契约', () => {
   it('保留缺失关联与来源覆盖状态', () => expect(isLogTimelineResponse(sample())).toBe(true));
-  it('拒绝不完整关联对象和过量结果', () => {
-    expect(isLogTimelineResponse({ ...sample(), entries: [{ ...sample().entries[0], correlation: {} }] })).toBe(false);
+  it('接受服务端省略空关联字段，拒绝畸形关联对象和过量结果', () => {
+    expect(isLogTimelineResponse({ ...sample(), entries: [{ ...sample().entries[0], correlation: {} }] })).toBe(true);
+    expect(isLogTimelineResponse({ ...sample(), entries: [{ ...sample().entries[0], correlation: null }] })).toBe(false);
+    expect(isLogTimelineResponse({ ...sample(), entries: [{ ...sample().entries[0], correlation: { traceId: 123 } }] })).toBe(false);
     expect(isLogTimelineResponse({ ...sample(), entries: Array(201).fill(sample().entries[0]) })).toBe(false);
   });
   it('保留所有精确过滤器与取消令牌', async () => {

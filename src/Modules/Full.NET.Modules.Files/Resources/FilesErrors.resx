@@ -15,4 +15,5 @@
   <data name="files.folder.invalid" xml:space="preserve"><value>目录请求无效。</value></data>
   <data name="files.file.invalid_batch" xml:space="preserve"><value>批量文件请求无效或超出允许数量。</value></data>
   <data name="files.file.preview_not_supported" xml:space="preserve"><value>该文件类型不支持安全预览。</value></data>
+  <data name="files.folder.query_limit_exceeded" xml:space="preserve"><value>子目录数量超过查询上限，请缩小目录范围。</value></data>
 </root>

@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -24,7 +25,8 @@ internal sealed class HostDocumentItemManagementService(
     DocumentVersionDeletionService documentVersionDeletionService,
     DocumentItemTagAssignmentService documentItemTagAssignmentService,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IDocumentAccessPolicy accessPolicy)
 {
     public Task<Result<HostDocumentItemResponse>> CreateAsync(
         Guid actorUserId,
@@ -45,6 +47,14 @@ internal sealed class HostDocumentItemManagementService(
         Guid itemId,
         Guid actorUserId,
         UpdateHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => UpdateAuthorizedAsync(itemId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentItemResponse>> UpdateAuthorizedAsync(
+        Guid itemId,
+        Guid actorUserId,
+        UpdateHostDocumentItemRequest request,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Title) || request.Version < 1)
@@ -57,7 +67,15 @@ internal sealed class HostDocumentItemManagementService(
             cancellationToken);
     }
 
-    public async Task<Result<HostDocumentItemResponse>> AddVersionAsync(
+    public Task<Result<HostDocumentItemResponse>> AddVersionAsync(
+        Guid itemId,
+        Guid actorUserId,
+        AddHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => AddVersionAuthorizedAsync(itemId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostDocumentItemResponse>> AddVersionAuthorizedAsync(
         Guid itemId,
         Guid actorUserId,
         AddHostDocumentVersionRequest request,
@@ -78,7 +96,18 @@ internal sealed class HostDocumentItemManagementService(
             .ConfigureAwait(false);
     }
 
-    public async Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAsync(
+    public Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAsync(
+        Guid itemId,
+        Guid actorUserId,
+        string originalFileName,
+        string contentType,
+        Stream content,
+        long contentLength,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => AddVersionFromUploadAuthorizedAsync(itemId, actorUserId, originalFileName, contentType, content, contentLength, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAuthorizedAsync(
         Guid itemId,
         Guid actorUserId,
         string originalFileName,
@@ -120,6 +149,14 @@ internal sealed class HostDocumentItemManagementService(
         Guid itemId,
         Guid actorUserId,
         DeleteHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Delete,
+            () => DeleteAuthorizedAsync(itemId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<bool>> DeleteAuthorizedAsync(
+        Guid itemId,
+        Guid actorUserId,
+        DeleteHostDocumentItemRequest request,
         CancellationToken cancellationToken = default)
     {
         if (request.Version < 1)
@@ -133,6 +170,14 @@ internal sealed class HostDocumentItemManagementService(
     }
 
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        RestoreHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => RestoreAuthorizedAsync(itemId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentItemResponse>> RestoreAuthorizedAsync(
         Guid itemId,
         Guid actorUserId,
         RestoreHostDocumentItemRequest request,
@@ -155,6 +200,15 @@ internal sealed class HostDocumentItemManagementService(
     /// <param name="request">携带文档项乐观并发版本的请求体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public Task<Result<HostDocumentItemResponse>> RollbackVersionAsync(
+        Guid itemId,
+        Guid versionId,
+        Guid actorUserId,
+        RollbackHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => RollbackVersionAuthorizedAsync(itemId, versionId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentItemResponse>> RollbackVersionAuthorizedAsync(
         Guid itemId,
         Guid versionId,
         Guid actorUserId,
@@ -183,6 +237,15 @@ internal sealed class HostDocumentItemManagementService(
     /// <param name="request">携带文档项乐观并发版本的请求体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public Task<Result<HostDocumentItemResponse>> DeleteVersionAsync(
+        Guid itemId,
+        Guid versionId,
+        Guid actorUserId,
+        DeleteHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Delete,
+            () => DeleteVersionAuthorizedAsync(itemId, versionId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentItemResponse>> DeleteVersionAuthorizedAsync(
         Guid itemId,
         Guid versionId,
         Guid actorUserId,

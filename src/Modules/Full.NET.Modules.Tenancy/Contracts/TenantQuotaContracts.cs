@@ -45,7 +45,13 @@ public sealed record ReconcileTenantQuotaMetricIdsResponse(
 /// <param name="MetricCode">目标指标；默认 <see cref="TenantQuotaMetricCodes.IdentitySeats"/>。对账前会为活跃租户补建缺失指标行（默认 Limit）。</param>
 public sealed record ReconcileTenantQuotaUsageBaselineRequest(
     bool DryRun = true,
-    string? MetricCode = null);
+    string? MetricCode = null)
+{
+    /// <summary>上一批最后一个租户；为空表示从头开始。</summary>
+    public Guid? AfterTenantId { get; init; }
+    /// <summary>每次最多处理 100 个租户。</summary>
+    public int PageSize { get; init; } = 100;
+}
 
 /// <summary>配额 UsedValue 用量基线对账结果。</summary>
 /// <remarks>
@@ -59,7 +65,13 @@ public sealed record ReconcileTenantQuotaUsageBaselineResponse(
     int CandidateCount,
     int AppliedCount,
     bool DryRun,
-    IReadOnlyList<Guid> TenantIds);
+    IReadOnlyList<Guid> TenantIds)
+{
+    /// <summary>继续对账的租户游标；全部完成时为空。</summary>
+    public Guid? NextAfterTenantId { get; init; }
+    /// <summary>当前扫描是否到达末尾。</summary>
+    public bool IsComplete { get; init; }
+}
 
 /// <summary>租户配额指标编码常量；用于在预留、确认与释放流程中稳定引用指标。</summary>
 /// <remarks>

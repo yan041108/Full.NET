@@ -96,6 +96,8 @@ const versionHistoryVisible = ref(false);
 const versionHistoryItem = ref<HostDocumentItem>();
 const versionHistory = ref<HostDocumentVersionResponse[]>([]);
 const versionHistoryLoading = ref(false);
+const versionHistoryPage = ref(1);
+const versionHistoryTotal = ref(0);
 const editingId = ref<string>();
 const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
 const searchForm = ref<Record<string, string | undefined>>({});
@@ -593,13 +595,24 @@ async function submitOfficePreviewTask(item: HostDocumentItem): Promise<void> {
   }
 }
 
+async function loadVersionHistory(): Promise<void> {
+  const item = versionHistoryItem.value;
+  if (!item) return;
+  versionHistoryLoading.value = true;
+  try {
+    const result = await listDocumentVersions(item.id, undefined, versionHistoryPage.value, 20);
+    versionHistory.value = result.items; versionHistoryTotal.value = result.total;
+  } finally { versionHistoryLoading.value = false; }
+}
+
 async function openVersionHistory(item: HostDocumentItem): Promise<void> {
   versionHistoryItem.value = item;
   versionHistoryVisible.value = true;
+  versionHistoryPage.value = 1;
   versionHistoryLoading.value = true;
   versionHistory.value = [];
   try {
-    versionHistory.value = await listDocumentVersions(item.id);
+    await loadVersionHistory();
   } catch (error: unknown) {
     versionHistoryVisible.value = false;
     problem.value = toProblem(error, 'hostDocumentItems.versionHistoryLoadFailed');
@@ -638,7 +651,7 @@ async function rollbackVersion(version: HostDocumentVersionResponse): Promise<vo
     if (index >= 0) {
       items.value[index] = updated;
     }
-    versionHistory.value = await listDocumentVersions(item.id);
+    await loadVersionHistory();
     ElMessage.success(t('hostDocumentItems.rollbackSuccess'));
   } catch (error: unknown) {
     problem.value = toProblem(error);
@@ -670,7 +683,7 @@ async function deleteVersion(version: HostDocumentVersionResponse): Promise<void
     if (index >= 0) {
       items.value[index] = updated;
     }
-    versionHistory.value = await listDocumentVersions(item.id);
+    await loadVersionHistory();
     ElMessage.success(t('hostDocumentItems.deleteVersionSuccess'));
   } catch (error: unknown) {
     problem.value = toProblem(error);
@@ -1168,6 +1181,9 @@ function toProblem(
           </template>
         </el-table-column>
       </el-table>
+      <ElPagination v-model:current-page="versionHistoryPage" :total="versionHistoryTotal" :page-size="20"
+        layout="prev, pager, next, total" @current-change="loadVersionHistory" />
+
     </el-drawer>
 
     <DocumentShareCreateDialog

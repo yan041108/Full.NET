@@ -69,9 +69,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
                 .WithPortBinding(9200, assignRandomHostPort: true)
                 .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200));
+            elasticsearchBuilder = elasticsearchBuilder.WithCreateParameterModifier(parameters =>
+                SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "elasticsearch"));
             if (SharedDatabaseFixture.BoundedContainers)
-                elasticsearchBuilder = elasticsearchBuilder.WithImagePullPolicy(PullPolicy.Never)
-                    .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch"));
+                elasticsearchBuilder = elasticsearchBuilder.WithImagePullPolicy(PullPolicy.Never);
             await using var elasticsearch = elasticsearchBuilder.Build();
             await elasticsearch.StartAsync();
             var esUri = new UriBuilder("https", elasticsearch.Hostname, elasticsearch.GetMappedPublicPort(9200)).Uri;

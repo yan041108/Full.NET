@@ -27,11 +27,10 @@ internal sealed class HostFolderManagementService(
 
         if (request.ParentId is Guid parentId)
         {
-            if (!await folderQueries.ExistsActiveAsync(parentId, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                return FolderNotFound();
-            }
+            var depth = await folderQueries.GetDepthAsync(parentId, cancellationToken).ConfigureAwait(false);
+            if (depth == 0) return FolderNotFound();
+            if (depth >= HostFolderQueryService.MaximumDepth)
+                return InvalidFolder("Folder depth exceeds the allowed maximum.");
         }
 
         var folderId = idGenerator.NewId();

@@ -46,7 +46,7 @@ internal sealed class AiMcpRemoteConnectionManagementService(
         Guid connectionId,
         ApproveAiMcpRemoteToolRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(token => ApproveCoreAsync(connectionId, request, token), cancellationToken);
+        ApproveCoreAsync(connectionId, request, cancellationToken);
 
     private async Task<Result<AiMcpRemoteConnectionResponse>> CreateCoreAsync(
         CreateAiMcpRemoteConnectionRequest request,
@@ -181,13 +181,13 @@ internal sealed class AiMcpRemoteConnectionManagementService(
         var token = tokenProtector.Unprotect(row.ServiceTokenProtected);
         var client = await connectionManager.GetClientAsync(connectionId, endpoint, token, cancellationToken)
             .ConfigureAwait(false);
-        var tools = await client.ListToolsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var tools = await McpToolCatalogReader.ReadAsync(client, null, cancellationToken).ConfigureAwait(false);
         var items = new List<AiMcpRemoteDiscoveredToolItem>(tools.Count);
         foreach (var tool in tools)
         {
-            var schema = tool.JsonSchema.ValueKind == JsonValueKind.Undefined
+            var schema = tool.InputSchema.ValueKind == JsonValueKind.Undefined
                 ? "{}"
-                : tool.JsonSchema.GetRawText();
+                : tool.InputSchema.GetRawText();
             approvalMap.TryGetValue(tool.Name, out var approval);
             var approved = approval is not null
                 && string.Equals(approval.ApprovalStatusKey, McpRemoteCapabilityPolicy.ApprovedStatusKey, StringComparison.Ordinal);
@@ -228,7 +228,7 @@ internal sealed class AiMcpRemoteConnectionManagementService(
         var token = tokenProtector.Unprotect(row.ServiceTokenProtected);
         var client = await connectionManager.GetClientAsync(connectionId, endpoint, token, cancellationToken)
             .ConfigureAwait(false);
-        var tools = await client.ListToolsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var tools = await McpToolCatalogReader.ReadAsync(client, request.RemoteToolName.Trim(), cancellationToken).ConfigureAwait(false);
         var live = tools.FirstOrDefault(item => string.Equals(item.Name, request.RemoteToolName.Trim(), StringComparison.Ordinal));
         if (live is null)
         {
@@ -238,9 +238,9 @@ internal sealed class AiMcpRemoteConnectionManagementService(
                 ErrorType.NotFound));
         }
 
-        var schemaJson = live.JsonSchema.ValueKind == JsonValueKind.Undefined
+        var schemaJson = live.InputSchema.ValueKind == JsonValueKind.Undefined
             ? "{}"
-            : live.JsonSchema.GetRawText();
+            : live.InputSchema.GetRawText();
         if (!McpRemoteCapabilityPolicy.CanApproveForExposure(sideEffectKey, schemaJson, out var rejection))
         {
             return Result<AiMcpRemoteToolApprovalItem>.Failure(new Error(
@@ -249,13 +249,20 @@ internal sealed class AiMcpRemoteConnectionManagementService(
                 ErrorType.BusinessRule));
         }
 
+        return await transaction.ExecuteResultAsync(async commitToken =>
+        {
+            // 网络发现完成后重读连接版本，禁止批准等待期间已经禁用、换端点或轮换凭据的旧配置。
+            var current = await queries.FindAsync(connectionId, commitToken).ConfigureAwait(false);
+            if (current is null || !current.IsEnabled || current.Version != row.Version)
+                return Result<AiMcpRemoteToolApprovalItem>.Failure(new Error(
+                    AiErrorCodes.McpRemoteConnectionConflict, "The MCP connection changed during discovery.", ErrorType.Conflict));
         var localToolName = McpRemoteCapabilityPolicy.BuildLocalToolName(row.ConnectionKey, live.Name);
         var hash = McpRemoteCapabilityPolicy.ComputeSchemaHash(schemaJson);
         var now = clock.UtcNow;
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<AiMcpRemoteToolApprovalRecord>(
             AiMcpRemoteSql.FindApprovalByLocalName,
             AiSqlParameters.Create(("ConnectionId", connectionId), ("LocalToolName", localToolName)),
-            cancellationToken).ConfigureAwait(false);
+            commitToken).ConfigureAwait(false);
 
         if (existing is null)
         {
@@ -276,11 +283,11 @@ internal sealed class AiMcpRemoteConnectionManagementService(
                     ("Version", 1L),
                     ("CreatedAtUtc", now),
                     ("UpdatedAtUtc", now)),
-                cancellationToken).ConfigureAwait(false);
+                commitToken).ConfigureAwait(false);
             existing = await queryExecutor.QuerySingleOrDefaultAsync<AiMcpRemoteToolApprovalRecord>(
                 AiMcpRemoteSql.FindApprovalByLocalName,
                 AiSqlParameters.Create(("ConnectionId", connectionId), ("LocalToolName", localToolName)),
-                cancellationToken).ConfigureAwait(false);
+                commitToken).ConfigureAwait(false);
         }
         else
         {
@@ -297,15 +304,16 @@ internal sealed class AiMcpRemoteConnectionManagementService(
                     ("PermissionCode", permissionCode),
                     ("ApprovalStatusKey", McpRemoteCapabilityPolicy.ApprovedStatusKey),
                     ("UpdatedAtUtc", now)),
-                cancellationToken).ConfigureAwait(false);
+                commitToken).ConfigureAwait(false);
             existing = await queryExecutor.QuerySingleOrDefaultAsync<AiMcpRemoteToolApprovalRecord>(
                 AiMcpRemoteSql.FindApprovalByLocalName,
                 AiSqlParameters.Create(("ConnectionId", connectionId), ("LocalToolName", localToolName)),
-                cancellationToken).ConfigureAwait(false);
+                commitToken).ConfigureAwait(false);
         }
 
         return Result<AiMcpRemoteToolApprovalItem>.Success(
             AiMcpRemoteConnectionMapper.ToApprovalItem(existing!));
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private static Result<T> ValidationFailure<T>(string message) =>

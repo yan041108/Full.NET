@@ -59,6 +59,7 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
+        services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
@@ -80,6 +81,7 @@ public sealed class ImportExportModule : IFullNetModule
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
+        services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.AddHostedService<ImportExportTaskHostedProcessor>();
     }

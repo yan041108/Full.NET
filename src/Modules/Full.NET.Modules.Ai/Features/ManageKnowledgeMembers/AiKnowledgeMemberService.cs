@@ -45,9 +45,8 @@ internal sealed class AiKnowledgeMemberService(IQueryExecutor query, ICommandExe
         // 单次替换最多 100 个用户；Tenant 目录每次按可信上下文核对，不能借 Host 目录扩大范围。
         if (isTenant)
         {
-            foreach (var member in members)
-                if (await tenantMembers.FindActiveTenantMemberAsync(member, token).ConfigureAwait(false) is null)
-                    return Unavailable();
+            var available = await tenantMembers.FindActiveTenantMembersAsync(members, token).ConfigureAwait(false);
+            if (available.Count != members.Length) return Unavailable();
         }
         else if (members.Length > 0)
         {

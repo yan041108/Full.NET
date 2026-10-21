@@ -64,7 +64,7 @@ internal static class WebhookDeliverySsrfGuard
 
         foreach (var address in addresses)
         {
-            if (WebhookTargetUrlPolicy.IsBlocked(new Uri($"https://{address}/")))
+            if (WebhookTargetUrlPolicy.IsBlockedAddress(address))
             {
                 return (false, "Webhook target URL resolves to a blocked address.");
             }

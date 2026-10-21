@@ -117,3 +117,29 @@ public sealed record UpdateReportingDefinitionRequest(
 public sealed record PublishReportingDefinitionRequest(
     string? ChangeNote,
     int Version);
+
+/// <summary>有界目录摘要，参数与布局快照通过详情读取。</summary>
+public sealed record ReportingDefinitionSummaryResponse(
+    Guid Id,
+    Guid GroupId,
+    Guid DataSourceId,
+    string DefinitionKey,
+    string Name,
+    string? Description,
+    string QueryPortKey,
+    int LatestPublishedVersionNumber,
+    bool IsEnabled,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    int Version);
+
+/// <summary>有界目录摘要，参数与布局快照通过详情读取。</summary>
+public sealed record ReportingDefinitionVersionSummaryResponse(
+    Guid Id,
+    Guid DefinitionId,
+    int VersionNumber,
+    Guid DataSourceId,
+    string QueryPortKey,
+    string? ChangeNote,
+    Guid PublishedByUserId,
+    DateTimeOffset PublishedAtUtc);

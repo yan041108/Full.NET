@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -251,7 +252,7 @@ internal sealed class HttpOssBlobClient : IOssBlobClient
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 64 * 1024, cancellationToken).ConfigureAwait(false);
         throw new InvalidOperationException(
             $"OSS request failed with HTTP {(int)response.StatusCode}: {body}");
     }

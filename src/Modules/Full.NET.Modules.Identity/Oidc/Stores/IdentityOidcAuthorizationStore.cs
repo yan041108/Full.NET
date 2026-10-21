@@ -149,7 +149,7 @@ internal sealed class IdentityOidcAuthorizationStore(
 
     public async ValueTask<long> PruneAsync(DateTimeOffset threshold, CancellationToken cancellationToken) =>
         await commandExecutor.ExecuteAsync(
-            IdentityOidcSql.PruneAuthorizations,
+            sqlResolver.PruneAuthorizations(),
             IdentitySqlParameters.Create(
                 ("Threshold", threshold),
                 ("ValidStatus", OpenIddictConstants.Statuses.Valid)),

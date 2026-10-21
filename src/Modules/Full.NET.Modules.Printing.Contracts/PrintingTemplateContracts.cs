@@ -99,3 +99,24 @@ public sealed record PrintingTemplatePreviewResponse(
     string Html,
     IReadOnlyDictionary<string, string?> BoundFields,
     DateTimeOffset GeneratedAtUtc);
+
+/// <summary>目录摘要，布局正文通过详情接口读取。</summary>
+public sealed record PrintingTemplateSummaryResponse(
+    Guid Id,
+    string TemplateKey,
+    string Name,
+    string FormSchemaKey,
+    int LatestPublishedVersionNumber,
+    bool IsEnabled,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    int Version);
+
+/// <summary>目录摘要，布局正文通过详情接口读取。</summary>
+public sealed record PrintingTemplateVersionSummaryResponse(
+    Guid Id,
+    Guid TemplateId,
+    int VersionNumber,
+    string? ChangeNote,
+    Guid PublishedByUserId,
+    DateTimeOffset PublishedAtUtc);

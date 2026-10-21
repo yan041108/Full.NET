@@ -25,6 +25,7 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
     public static async Task<KafkaTestEnvironment> StartAsync()
     {
         var container = new KafkaBuilder("apache/kafka:4.1.2")
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "kafka"))
             .Build();
         await container.StartAsync().ConfigureAwait(false);
         var environment = new KafkaTestEnvironment(container);

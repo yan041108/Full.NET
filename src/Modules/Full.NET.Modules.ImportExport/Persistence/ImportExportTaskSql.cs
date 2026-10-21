@@ -32,8 +32,9 @@ internal static class ImportExportTaskSql
         SELECT TOP (@BatchSize) TenantId
         FROM fn_import_export_task
         WHERE {ClaimablePredicate}
+          AND (@AfterTenantId IS NULL OR TenantId > @AfterTenantId)
         GROUP BY TenantId
-        ORDER BY MIN(CreatedAtUtc), TenantId
+        ORDER BY TenantId
         """, SqlDataScope.Global);
 
     /// <summary>MySQL Worker 调度目录；具体任务必须在可信租户上下文建立后领取。</summary>
@@ -43,8 +44,9 @@ internal static class ImportExportTaskSql
         SELECT TenantId
         FROM fn_import_export_task
         WHERE {ClaimablePredicate}
+          AND (@AfterTenantId IS NULL OR TenantId > @AfterTenantId)
         GROUP BY TenantId
-        ORDER BY MIN(CreatedAtUtc), TenantId
+        ORDER BY TenantId
         LIMIT @BatchSize
         """, SqlDataScope.Global);
 
@@ -200,7 +202,7 @@ internal static class ImportExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -216,7 +218,15 @@ internal static class ImportExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement RenewExecutionLease = new(
+        "import_export.task.renew_execution_lease",
+        """
+        UPDATE fn_import_export_task
+        SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
+        WHERE TenantId = @TenantId AND Id = @Id AND StatusKey = 'executing'
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

@@ -9,6 +9,7 @@ using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 namespace Full.NET.Modules.Settings.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(Full.NET.Modules.Settings.Features.ManageHostConfigEntries.ConfigEntryMutationRow[]))]
 [JsonSerializable(typeof(DiagnosticPolicyDocument))]
 [JsonSerializable(typeof(DiagnosticPolicyRule))]
 [JsonSerializable(typeof(DiagnosticPolicyUpdateAuditDiff))]

@@ -922,7 +922,7 @@ test('标准客户端 OpenAPI 只允许已审查的可选请求与响应字段�
   );
 });
 
-test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
+test('Git ref 模式准确报告已批准的摘要分页契约直接演进', () => {
   const result = spawnSync(
     process.execPath,
     [scriptPath, '--base-ref', 'HEAD', '--repository-root', repositoryRoot],
@@ -932,8 +932,60 @@ test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () =
     }
   );
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /OpenAPI compatibility check passed/);
+  // 当前底座按直接演进规则同步消费者；检测器仍须如实报告破坏变化，不新增兼容豁免。
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /stable setting changed: fullnet-client-v1\.openapi\.json paths/);
+  assert.ok(result.stderr.length < 20_000);
+});
+
+test('目录直接子节点演进仅允许 children 精确替换为 hasChildren', async () => {
+  const name = 'fullnet-client-v1.openapi.json';
+  const baseline = { openapi: '3.1.0', paths: { '/folders': { get: {
+    operationId: 'filesGetHostFolderTree', security: [{ Bearer: [] }],
+    responses: { 200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/HostFolderTreeNode' } } } } }
+  } } }, components: { schemas: { HostFolderTreeNode: {
+    type: 'object', properties: { id: { type: 'string' }, children: { type: 'array', items: { $ref: '#/components/schemas/HostFolderTreeNode' } } },
+    required: ['id', 'children']
+  } } } };
+  const current = clone(baseline);
+  delete current.components.schemas.HostFolderTreeNode.properties.children;
+  current.components.schemas.HostFolderTreeNode.properties.hasChildren = { type: 'boolean' };
+  current.components.schemas.HostFolderTreeNode.required = ['id', 'hasChildren'];
+  const compare = value => compareDirectories({ [name]: baseline }, { [name]: value });
+  assert.equal((await compare(current)).status, 0);
+  for (const mutate of [
+    value => { value.components.schemas.HostFolderTreeNode.properties.hasChildren.type = 'string'; },
+    value => { delete value.components.schemas.HostFolderTreeNode.properties.id; },
+    value => { value.paths['/folders'].get.security = []; }
+  ]) {
+    const invalid = clone(current); mutate(invalid);
+    assert.equal((await compare(invalid)).status, 1);
+  }
+  const fixture = 'files-host-folders-v1.json';
+  const oldFixture = { id: 'files-host-folders-v1', version: 1, paths: [], schemas: { HostFolderTreeNodeArray: { properties: ['id', 'children'] } } };
+  const newFixture = clone(oldFixture); newFixture.schemas.HostFolderTreeNodeArray.properties = ['id', 'hasChildren'];
+  assert.equal((await compareDirectories({ [fixture]: oldFixture }, { [fixture]: newFixture })).status, 0);
+  newFixture.schemas.HostFolderTreeNodeArray.properties = ['hasChildren'];
+  assert.equal((await compareDirectories({ [fixture]: oldFixture }, { [fixture]: newFixture })).status, 1);
+});
+
+test('目录查询只允许新增 parentId UUID 参数', async () => {
+  const name = 'fullnet-client-v1.openapi.json';
+  const route = '/api/v1/files/host-folders/tree';
+  const baseline = { openapi: '3.1.0', paths: { [route]: { get: {
+    operationId: 'filesGetHostFolderTree', security: [{ Bearer: [] }], responses: { 200: { description: 'OK' } }
+  } } } };
+  const current = clone(baseline);
+  current.paths[route].get.parameters = [{ name: 'parentId', in: 'query', schema: { type: 'string', format: 'uuid' } }];
+  const compare = value => compareDirectories({ [name]: baseline }, { [name]: value });
+  assert.equal((await compare(current)).status, 0);
+  for (const mutate of [
+    value => { value.paths[route].get.parameters[0].name = 'other'; },
+    value => { value.paths[route].get.parameters[0].schema.type = 'integer'; },
+    value => { value.paths[route].get.parameters[0].required = true; },
+    value => { value.paths[route].get.parameters.push({ name: 'extra', in: 'query', schema: { type: 'string' } }); },
+    value => { value.paths[route].get.security = []; }
+  ]) { const invalid = clone(current); mutate(invalid); assert.equal((await compare(invalid)).status, 1); }
 });
 
 test('无效 Git ref 返回使用错误而不是兼容结果', () => {

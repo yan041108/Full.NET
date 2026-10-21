@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Settings.Serialization;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -18,7 +20,7 @@ internal sealed partial class HostConfigEntryManagementService(
     ICommandTransaction transaction,
     HostConfigEntryQueryService configEntryQueries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public Task<Result<ConfigEntryResponse>> CreateAsync(
         CreateConfigEntryRequest request,
@@ -61,7 +63,7 @@ internal sealed partial class HostConfigEntryManagementService(
     public Task<Result<bool>> BatchDeleteAsync(
         IReadOnlyCollection<Guid> ids,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => BatchDeleteCoreAsync(ids, token),
             cancellationToken);
 
@@ -72,7 +74,7 @@ internal sealed partial class HostConfigEntryManagementService(
     public Task<Result<bool>> BatchUpdateValuesAsync(
         IReadOnlyCollection<ConfigValueUpdate> updates,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => BatchUpdateValuesCoreAsync(updates, token),
             cancellationToken);
 
@@ -341,43 +343,25 @@ internal sealed partial class HostConfigEntryManagementService(
         IReadOnlyCollection<Guid> ids,
         CancellationToken cancellationToken)
     {
-        if (ids is null || ids.Count == 0)
+        if (ids is null || ids.Count == 0 || ids.Count > 100)
         {
             return Result<bool>.Failure(new Error(
                 ValidationErrorCodes.Failed,
-                "Configuration entry ids must not be empty.",
+                "Configuration entry ids must contain between 1 and 100 entries.",
                 ErrorType.Validation));
         }
 
-        // 逐条校验已禁用，任一项未禁用或不存在则整体拒绝，保证批量删除的原子性语义。
-        foreach (var id in ids)
-        {
-            var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
-                    ConfigEntrySql.FindIdentityById,
-                    SettingsSqlParameters.Create(("ConfigEntryId", id)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (existing is null)
-            {
-                return NotFound<bool>();
-            }
-
-            if (ReservedHostConfigKeys.IsReserved(existing.ConfigKey))
-            {
-                return NotFound<bool>();
-            }
-
-            if (existing.IsActive)
-            {
-                return NotDisabled<bool>();
-            }
-        }
-
-        await commandExecutor.ExecuteAsync(
-                ConfigEntrySql.BatchDeleteConfigEntries,
-                SettingsSqlParameters.Create(("Ids", ids)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var selected = ids.Distinct().ToArray();
+        var records = await queryExecutor.QueryAsync<ConfigEntryIdentityRecord>(ConfigEntrySql.FindIdentitiesByIds,
+            SettingsSqlParameters.Create(("Ids", selected)), cancellationToken).ConfigureAwait(false);
+        if (records.Count != selected.Length || records.Any(row => ReservedHostConfigKeys.IsReserved(row.ConfigKey))) return NotFound<bool>();
+        if (records.Any(row => row.IsActive)) return NotDisabled<bool>();
+        var mutations = records.Select(row => new ConfigEntryMutationRow(row.Id, row.ConfigKey, "", row.Version)).ToArray();
+        var affected = await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+            ? ConfigEntrySql.DeleteBatchCasMySql : ConfigEntrySql.DeleteBatchCasSqlServer,
+            SettingsSqlParameters.Create(("Rows", JsonSerializer.Serialize(mutations, SettingsJsonSerializerContext.Default.ConfigEntryMutationRowArray))),
+            cancellationToken).ConfigureAwait(false);
+        if (affected != selected.Length) return VersionConflict<bool>();
 
         return Result<bool>.Success(true);
     }
@@ -389,59 +373,35 @@ internal sealed partial class HostConfigEntryManagementService(
         IReadOnlyCollection<ConfigValueUpdate> updates,
         CancellationToken cancellationToken)
     {
-        if (updates is null || updates.Count == 0)
+        if (updates is null || updates.Count == 0 || updates.Count > 100)
         {
             return Result<bool>.Failure(new Error(
                 ValidationErrorCodes.Failed,
-                "Configuration value updates must not be empty.",
+                "Configuration value updates must contain between 1 and 100 entries.",
                 ErrorType.Validation));
         }
 
-        var now = clock.UtcNow;
+        var keys = updates.Select(update => NormalizeConfigKey(update.ConfigKey)).ToArray();
+        if (keys.Any(string.IsNullOrEmpty) || keys.Distinct(StringComparer.Ordinal).Count() != keys.Length)
+            return Result<bool>.Failure(new Error(ValidationErrorCodes.Failed, "Configuration keys must be nonempty and unique.", ErrorType.Validation));
+        if (keys.Any(ReservedHostConfigKeys.IsReserved)) return NotFound<bool>();
+        var records = await queryExecutor.QueryAsync<ConfigEntryIdentityRecord>(ConfigEntrySql.FindIdentitiesByKeys,
+            SettingsSqlParameters.Create(("Keys", keys)), cancellationToken).ConfigureAwait(false);
+        if (records.Count != keys.Length) return NotFound<bool>();
+        var byKey = records.ToDictionary(row => row.ConfigKey, StringComparer.Ordinal);
+        var mutations = new List<ConfigEntryMutationRow>(keys.Length);
         foreach (var update in updates)
         {
-            var configKey = NormalizeConfigKey(update.ConfigKey);
-            if (configKey.Length == 0)
-            {
-                return Result<bool>.Failure(new Error(
-                    ValidationErrorCodes.Failed,
-                    "Configuration key must not be empty.",
-                    ErrorType.Validation));
-            }
-
-            if (ReservedHostConfigKeys.IsReserved(configKey))
-            {
-                return NotFound<bool>();
-            }
-
-            var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
-                    ConfigEntrySql.FindIdentityByKey,
-                    SettingsSqlParameters.Create(("ConfigKey", configKey)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (existing is null)
-            {
-                return NotFound<bool>();
-            }
-
-            if (!TryNormalizeValue(existing.ValueKind, update.Value, out var normalizedValue, out var valueError))
-            {
-                return Result<bool>.Failure(new Error(
-                    ValidationErrorCodes.Failed,
-                    valueError,
-                    ErrorType.Validation));
-            }
-
-            await commandExecutor.ExecuteAsync(
-                    ConfigEntrySql.UpdateValueByConfigKey,
-                    SettingsSqlParameters.Create(
-                        ("ConfigKey", configKey),
-                        ("Value", normalizedValue),
-                        ("UpdatedAtUtc", now)
-                    ),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var record = byKey[NormalizeConfigKey(update.ConfigKey)];
+            if (!TryNormalizeValue(record.ValueKind, update.Value, out var normalized, out var error))
+                return Result<bool>.Failure(new Error(ValidationErrorCodes.Failed, error, ErrorType.Validation));
+            mutations.Add(new(record.Id, record.ConfigKey, normalized, record.Version));
         }
+        var affected = await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? ConfigEntrySql.UpdateBatchCasMySql : ConfigEntrySql.UpdateBatchCasSqlServer,
+            SettingsSqlParameters.Create(("Rows", JsonSerializer.Serialize(mutations.ToArray(), SettingsJsonSerializerContext.Default.ConfigEntryMutationRowArray)),
+                ("UpdatedAtUtc", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
+        if (affected != mutations.Count) return VersionConflict<bool>();
 
         return Result<bool>.Success(true);
     }
@@ -587,3 +547,6 @@ internal sealed partial class HostConfigEntryManagementService(
         RegexOptions.CultureInvariant)]
     private static partial Regex ConfigKeyPattern();
 }
+
+/// <summary>集合写入的校验快照，版本不匹配时整体回滚。</summary>
+internal sealed record ConfigEntryMutationRow(Guid Id, string ConfigKey, string Value, int Version);

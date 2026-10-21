@@ -7,6 +7,8 @@ using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.Organization.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(TenantOrganizationMembershipTarget[]))]
+[JsonSerializable(typeof(Full.NET.Modules.Organization.Features.ImportExport.TenantPositionImportPlan))]
 [JsonSerializable(typeof(CreateOrganizationUnitRequest))]
 [JsonSerializable(typeof(UpdateOrganizationUnitRequest))]
 [JsonSerializable(typeof(OrganizationUnitResponse))]

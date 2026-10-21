@@ -73,8 +73,6 @@ function projectProject(source, selected) {
       if (!line.includes('.Contracts.csproj')) referenced.add(module);
     }
     if (!selected.has('Ai') && line.includes('Full.NET.AI.Providers.')) return false;
-    if (!selected.has('EnterpriseRequest') && line.includes('Full.NET.Modules.EnterpriseRequest.csproj')) return false;
-    if (selected.has('EnterpriseRequest') && line.includes('Full.NET.Modules.EnterpriseRequest.csproj')) referenced.add('EnterpriseRequest');
     return true;
   }).join('\n');
   for (const module of selected) {

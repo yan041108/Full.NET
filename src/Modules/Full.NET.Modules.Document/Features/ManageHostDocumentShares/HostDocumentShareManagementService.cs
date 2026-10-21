@@ -36,12 +36,20 @@ internal sealed class HostDocumentShareManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IDocumentSharePasswordHasher passwordHasher,
-    DocumentAccessLogRecorder accessLogRecorder)
+    DocumentAccessLogRecorder accessLogRecorder,
+    IDocumentAccessPolicy accessPolicy,
+    DocumentSharePreviewGrantService previewGrants)
 {
     /// <summary>ShareCode 字符表：大写字母+小写字母+数字共 62 个字符，保证 URL 安全且无歧义。</summary>
     private const string ShareCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     public Task<Result<HostDocumentShareResponse>> CreateAsync(
+        CreateHostDocumentShareRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(request.DocumentId, DocumentOperation.Share,
+            () => CreateAuthorizedAsync(request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentShareResponse>> CreateAuthorizedAsync(
         CreateHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -91,8 +99,7 @@ internal sealed class HostDocumentShareManagementService(
                 request.ValidDays,
                 request.Password,
                 request.MaxAccessCount);
-            var createResult = await transaction
-                .ExecuteResultAsync(token => CreateCoreAsync(single, token), cancellationToken)
+            var createResult = await CreateAsync(single, cancellationToken)
                 .ConfigureAwait(false);
             if (createResult.IsSuccess)
             {
@@ -282,7 +289,7 @@ internal sealed class HostDocumentShareManagementService(
             HostDocumentAccessTypeKeys.Preview,
             HostDocumentAccessSourceKeys.Share);
         return await documentItemQueries
-            .OpenCurrentVersionContentAsync(share.DocumentId, observation, cancellationToken)
+            .OpenCurrentVersionContentAuthorizedAsync(share.DocumentId, observation, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -292,7 +299,7 @@ internal sealed class HostDocumentShareManagementService(
         AccessHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
-        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, Guid.Empty)
             .ConfigureAwait(false);
         if (!resolved.IsSuccess)
         {
@@ -300,12 +307,29 @@ internal sealed class HostDocumentShareManagementService(
         }
 
         var (share, _) = resolved.Value!;
-        return await previewTaskManagement
-            .CreateAsync(
+        if (string.IsNullOrEmpty(request.PreviewGrant))
+        {
+            var consumed = await transaction.ExecuteResultAsync(
+                token => ConsumeAnonymousAccessSlotAsync(share, clock.UtcNow, token), cancellationToken).ConfigureAwait(false);
+            if (!consumed.IsSuccess) return MapShareFailureToPreviewTask(consumed);
+            share = consumed.Value!;
+            request = request with { PreviewGrant = previewGrants.Issue(share, Guid.Empty).Token };
+        }
+        var creationOperation = previewGrants.GetCreationOperation(request.PreviewGrant, share);
+        if (creationOperation is null) return Result<HostDocumentPreviewTaskResponse>.Failure(AccessDeniedError());
+        var created = await previewTaskManagement
+            .CreateAuthorizedAsync(
                 new CreateHostDocumentPreviewTaskRequest(share.DocumentId, null),
-                Guid.Empty,
-                cancellationToken)
+                null,
+                cancellationToken, creationOperation.Value.Id)
             .ConfigureAwait(false);
+        if (!created.IsSuccess) return created;
+        // 创建期间也可能发生分享撤销；返回凭据前重新读取当前策略。
+        var current = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, Guid.Empty).ConfigureAwait(false);
+        if (!current.IsSuccess) return MapShareFailureToPreviewTask(current);
+        var grant = previewGrants.Issue(current.Value!.Share, created.Value!.Id, creationOperation.Value.ExpiresAtUtc);
+        return Result<HostDocumentPreviewTaskResponse>.Success(created.Value with
+            { PreviewGrant = grant.Token, PreviewPollUntilUtc = grant.ExpiresAtUtc });
     }
 
     /// <summary>匿名读取分享关联的预览任务状态；任务必须属于分享绑定的文档。</summary>
@@ -315,7 +339,7 @@ internal sealed class HostDocumentShareManagementService(
         AccessHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
-        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, taskId)
             .ConfigureAwait(false);
         if (!resolved.IsSuccess)
         {
@@ -323,12 +347,14 @@ internal sealed class HostDocumentShareManagementService(
         }
 
         var (share, _) = resolved.Value!;
-        var taskResult = await previewTaskQueries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
+        var taskResult = await previewTaskQueries.GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (!taskResult.IsSuccess)
         {
             return taskResult;
         }
 
+        var current = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, taskId).ConfigureAwait(false);
+        if (!current.IsSuccess) return MapShareFailureToPreviewTask(current);
         return taskResult.Value!.DocumentItemId != share.DocumentId
             ? Result<HostDocumentPreviewTaskResponse>.Failure(AccessDeniedError())
             : taskResult;
@@ -341,7 +367,7 @@ internal sealed class HostDocumentShareManagementService(
         AccessHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
-        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, taskId)
             .ConfigureAwait(false);
         if (!resolved.IsSuccess)
         {
@@ -349,7 +375,7 @@ internal sealed class HostDocumentShareManagementService(
         }
 
         var (share, _) = resolved.Value!;
-        var taskResult = await previewTaskQueries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
+        var taskResult = await previewTaskQueries.GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (!taskResult.IsSuccess)
         {
             return Result<HostFileContent>.Failure(taskResult.Error!);
@@ -360,13 +386,26 @@ internal sealed class HostDocumentShareManagementService(
             return AccessDeniedContent();
         }
 
-        return await previewTaskQueries.OpenOutputContentAsync(taskId, cancellationToken).ConfigureAwait(false);
+        var content = await previewTaskQueries.OpenOutputContentAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!content.IsSuccess) return content;
+        var transferred = false;
+        try
+        {
+            var current = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken, taskId).ConfigureAwait(false);
+            if (!current.IsSuccess) return MapShareFailureToContent(current);
+            transferred = true;
+            return content;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task<Result<(DocumentShareRecord Share, bool HasPassword)>> ResolveAnonymousShareAsync(
         string shareCode,
         AccessHostDocumentShareRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? previewTaskId = null)
     {
         if (string.IsNullOrWhiteSpace(shareCode))
         {
@@ -386,7 +425,10 @@ internal sealed class HostDocumentShareManagementService(
         }
 
         var hasPassword = !string.IsNullOrEmpty(share.PasswordHash);
-        if (hasPassword)
+        var hasGrant = !string.IsNullOrEmpty(request.PreviewGrant) && previewTaskId.HasValue;
+        if (previewTaskId.HasValue && previewTaskId.Value != Guid.Empty && !hasGrant) return AccessDeniedTuple();
+        if (hasGrant && !previewGrants.IsValid(request.PreviewGrant, share, previewTaskId!.Value)) return AccessDeniedTuple();
+        if (hasPassword && !hasGrant)
         {
             if (string.IsNullOrEmpty(request.Password))
             {
@@ -497,7 +539,7 @@ internal sealed class HostDocumentShareManagementService(
             mimeType,
             fileSizeBytes,
             hasPassword,
-            remaining));
+            remaining) { PreviewGrant = previewGrants.Issue(consumed, Guid.Empty).Token });
     }
 
     private async Task<Result<HostDocumentShareResponse>> CreateCoreAsync(
@@ -551,6 +593,9 @@ internal sealed class HostDocumentShareManagementService(
         {
             return NotFound();
         }
+
+        if (await accessPolicy.CheckAsync(existing.DocumentId, DocumentOperation.Share, cancellationToken).ConfigureAwait(false) is { } error)
+            return Result<HostDocumentShareResponse>.Failure(error);
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentShareSql.UpdateStatus,

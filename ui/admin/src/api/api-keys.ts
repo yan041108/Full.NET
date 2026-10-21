@@ -19,7 +19,7 @@ export async function listHostApiKeys(
   pageSize = 20,
   userId?: string,
   displayNameContains?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal, isActive?: boolean
 ): Promise<HostApiKeyPage> {
   const trimmedUserId = userId?.trim();
   const trimmedDisplayName = displayNameContains?.trim();
@@ -27,7 +27,7 @@ export async function listHostApiKeys(
     http,
     {
       page,
-      pageSize,
+      pageSize, isActive,
       ...(trimmedUserId ? { userId: trimmedUserId } : {}),
       ...(trimmedDisplayName ? { displayNameContains: trimmedDisplayName } : {})
     },

@@ -58,6 +58,13 @@ SQL Server CDC is an **explicit privileged DBA operation**:
 
 Use `mysql/verify-binlog.sql` to inspect current settings.
 
+MySQL 的 Shadow 与 Capacity 模板将 schema history 限制在配置的目标数据库及
+`fn_messaging_outbox_event`：两项 `schema.history.internal.store.only.captured.*.ddl`
+均显式设为 `true`。`no_data` 仍需读取表结构，不能依赖数据库/表捕获过滤器避免扫描
+实例中的其他历史库。此连接器仅负责固定 Outbox；未来若扩大捕获范围，须按
+[Debezium schema history 恢复规则](https://debezium.io/documentation/reference/3.4/connectors/mysql.html#mysql-capturing-data-from-tables-not-captured-by-the-initial-snapshot-no-schema-change)
+重新准备对应结构历史，不能直接假定旧 history 已包含新增表。
+
 ## Verification
 
 ```powershell

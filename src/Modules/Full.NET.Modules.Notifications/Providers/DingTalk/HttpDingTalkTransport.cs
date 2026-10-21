@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -26,7 +27,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         HttpResponseMessage response;
         try
         {
-            response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -41,7 +42,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new DingTalkTransportException(
@@ -71,7 +72,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         HttpResponseMessage response;
         try
         {
-            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -86,7 +87,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new DingTalkTransportException(
@@ -147,7 +148,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         HttpResponseMessage response;
         try
         {
-            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -162,7 +163,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new DingTalkTransportException(
@@ -190,7 +191,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         HttpResponseMessage response;
         try
         {
-            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -205,7 +206,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new DingTalkTransportException(

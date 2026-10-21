@@ -12,7 +12,9 @@ public sealed class OpenApiDocumentationApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            // 与 SQL Server 导出相同模块集合，不能静默删掉 manifest 中的操作。
+            includeEnterpriseRequest: true);
         await factory.InitializeAsync();
         using var client = factory.CreateClient();
 

@@ -27,6 +27,8 @@ internal sealed class ImportExportOptionsValidator : IValidateOptions<ImportExpo
             return ValidateOptionsResult.Fail("导入执行批大小必须在 1 到 200 之间。");
         }
 
+        if (options.ExecutionTimeoutSeconds is < 30 or > 7200)
+            return ValidateOptionsResult.Fail("ExecutionTimeoutSeconds must be between 30 and 7200.");
         if (options.LeaseSeconds is < 30 or > 3600)
         {
             return ValidateOptionsResult.Fail("导入执行租约必须在 30 到 3600 秒之间。");

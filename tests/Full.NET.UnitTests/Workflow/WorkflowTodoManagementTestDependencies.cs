@@ -112,7 +112,7 @@ internal static class WorkflowTodoManagementTestDependencies
         roleDirectory.FindActiveRolesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
                 .ToDictionary(roleId => roleId, roleId => new WorkflowRoleDirectoryEntry(roleId, "role", "Role")));
-        roleDirectory.FindActiveMemberUserIdsByRoleIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+        roleDirectory.FindActiveMemberUserIdsByRoleIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
                 .ToDictionary(roleId => roleId, _ => (IReadOnlyList<Guid>)[Guid.CreateVersion7()]));
         unitDirectory.FindActiveUnitsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())

@@ -27,13 +27,19 @@ internal sealed class MqttMessageQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var topic = string.IsNullOrWhiteSpace(filter.Topic) ? null : filter.Topic.Trim();
+        // 包含匹配必须落在明确时间窗中；默认最近一天，单次最多查询一个月。
+        var toUtc = filter.ToUtc ?? DateTimeOffset.UtcNow;
+        var fromUtc = filter.FromUtc ?? toUtc.AddDays(-1);
+        if (fromUtc > toUtc || toUtc - fromUtc > TimeSpan.FromDays(31))
+            return Result<PagedResult<MqttMessageResponse>>.Failure(new Error(
+                ValidationErrorCodes.Failed, "MQTT message query time range must be ordered and no longer than 31 days.", ErrorType.Validation));
         var parameters = MqttSqlParameters.Create(
             ("ClientId", filter.ClientId),
             ("Status", string.IsNullOrWhiteSpace(filter.Status) ? null : filter.Status.Trim()),
             ("Topic", topic),
             ("TopicPattern", topic is null ? null : $"%{topic}%"),
-            ("FromUtc", filter.FromUtc),
-            ("ToUtc", filter.ToUtc),
+            ("FromUtc", fromUtc),
+            ("ToUtc", toUtc),
             ("Offset", offset),
             ("PageSize", pageSize));
         var countStatement = databaseOptions.Value.Provider switch

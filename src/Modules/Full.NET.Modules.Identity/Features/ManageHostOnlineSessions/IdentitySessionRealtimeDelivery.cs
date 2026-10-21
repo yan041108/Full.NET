@@ -28,13 +28,18 @@ internal sealed class IdentitySessionRealtimeDelivery(
             return;
         }
 
-        foreach (var sessionId in sessionIds)
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        try
         {
-            await PublishSessionRevokedWithBoundedRetryAsync(
-                    userId,
-                    sessionId,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            await Parallel.ForEachAsync(sessionIds,
+                new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = deadline.Token },
+                async (sessionId, token) =>
+                    await PublishSessionRevokedWithBoundedRetryAsync(userId, sessionId, token).ConfigureAwait(false)).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Session revoke realtime batch reached its deadline; authoritative revocation remains effective.");
         }
     }
 
@@ -61,7 +66,7 @@ internal sealed class IdentitySessionRealtimeDelivery(
                 IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("success");
                 return;
             }
-            catch (Exception ex) when (attempt < MaxPublishAttempts)
+            catch (Exception ex) when (attempt < MaxPublishAttempts && !cancellationToken.IsCancellationRequested)
             {
                 IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("retry");
                 logger.LogWarning(

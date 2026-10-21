@@ -149,10 +149,20 @@ public static class GenerationRollbackCheckpointStore
     /// <returns>通过完整校验的回滚检查点。</returns>
     /// <exception cref="DirectoryNotFoundException">指定 Apply 运行没有检查点目录。</exception>
     /// <exception cref="ArgumentException">检查点元数据缺失、不完整或摘要与清单不一致。</exception>
-    public static async Task<GenerationRollbackCheckpoint> ReadAsync(
-        string workspaceRoot,
-        Guid applyRunId,
-        CancellationToken cancellationToken = default)
+    public static Task<GenerationRollbackCheckpoint> ReadAsync(
+        string workspaceRoot, Guid applyRunId, CancellationToken cancellationToken = default) =>
+        ReadCoreAsync(workspaceRoot, applyRunId, includeContents: true, cancellationToken);
+
+    /// <summary>清理资格只依赖已验证的清单元数据，不读取不参与判定的旧文件正文。</summary>
+    public static async Task<GenerationRollbackCheckpointMetadata> ReadMetadataAsync(
+        string workspaceRoot, Guid applyRunId, CancellationToken cancellationToken = default)
+    {
+        var checkpoint = await ReadCoreAsync(workspaceRoot, applyRunId, includeContents: false, cancellationToken).ConfigureAwait(false);
+        return new(applyRunId, checkpoint.AppliedManifest, checkpoint.PreviousManifest);
+    }
+
+    private static async Task<GenerationRollbackCheckpoint> ReadCoreAsync(
+        string workspaceRoot, Guid applyRunId, bool includeContents, CancellationToken cancellationToken)
     {
         if (applyRunId == Guid.Empty)
         {
@@ -244,10 +254,11 @@ public static class GenerationRollbackCheckpointStore
 
         var previousContents = new Dictionary<string, string>(
             StringComparer.Ordinal);
+        var metadataByPath = document.PreviousArtifacts.ToDictionary(item => item.RelativePath
+            ?? throw new ArgumentException("回滚检查点旧内容路径缺失。"), StringComparer.Ordinal);
         foreach (var entry in expectedEntries)
         {
-            var metadata = document.PreviousArtifacts.SingleOrDefault(item =>
-                item.RelativePath == entry.RelativePath);
+            var metadata = metadataByPath.GetValueOrDefault(entry.RelativePath);
             if (metadata is null
                 || !StringComparer.Ordinal.Equals(
                     metadata.Sha256,
@@ -260,6 +271,7 @@ public static class GenerationRollbackCheckpointStore
                 fullRoot,
                 $"{checkpointRelativePath}/{ContentsDirectoryName}/"
                 + $"{entry.Sha256}.txt");
+            if (!includeContents) continue;
             var content = await File.ReadAllTextAsync(
                 contentPath,
                 StrictUtf8,
@@ -420,3 +432,10 @@ public static class GenerationRollbackCheckpointStore
         stream.Flush(flushToDisk: true);
     }
 }
+
+/// <summary>已验证清单元数据；不包含可用于回滚执行的文件正文。</summary>
+/// <param name="ApplyRunId">原应用运行标识。</param>
+/// <param name="AppliedManifest">应用后的清单。</param>
+/// <param name="PreviousManifest">应用前清单。</param>
+public sealed record GenerationRollbackCheckpointMetadata(
+    Guid ApplyRunId, GenerationManifest AppliedManifest, GenerationManifest? PreviousManifest);

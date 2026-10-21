@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -17,10 +18,8 @@ internal sealed class HostUserManagementReferenceService(
     ICurrentTenantContextWriter currentTenant,
     IActiveTenantContextResolver tenantResolver,
     IHostUserDisplayDirectory hostUserDirectory,
-    TenantPositionQueryService positionQueries,
-    TenantUserPositionQueryService userPositionQueries)
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
-    private const int MaxPageSize = 100;
 
     public async Task<Result<HostUserManagementTenantRecord>> ResolveTenantAsync(
         Guid tenantId,
@@ -44,143 +43,60 @@ internal sealed class HostUserManagementReferenceService(
     }
 
     public async Task<Result<HostUserManagementOrganizationReferenceResponse>> GetReferenceAsync(
-        Guid tenantId,
-        CancellationToken cancellationToken = default)
+        Guid tenantId, CancellationToken cancellationToken = default, IReadOnlyList<Guid>? userIds = null,
+        int unitsPage = 1, int positionsPage = 1, string? unitSearch = null, string? positionSearch = null)
     {
-        var tenantResult = await ResolveTenantAsync(tenantId, cancellationToken)
-            .ConfigureAwait(false);
+        if (userIds is { Count: > 100 }) return BudgetExceeded();
+        var selectedUsers = (userIds ?? []).Where(id => id != Guid.Empty).Distinct().ToArray();
+        var tenantResult = await ResolveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false);
         if (!tenantResult.IsSuccess)
-        {
             return Result<HostUserManagementOrganizationReferenceResponse>.Failure(tenantResult.Error!);
-        }
-
         var tenant = tenantResult.Value!;
-
-        return await HostUserManagementTenantScope.RunAsync(
-            currentTenant,
-            tenant.Id,
-            tenant.Identifier,
-            tenant.Name,
+        return await HostUserManagementTenantScope.RunAsync(currentTenant, tenant.Id, tenant.Identifier, tenant.Name,
             async () =>
             {
-                var units = await ListAllUnitsAsync(cancellationToken).ConfigureAwait(false);
-                var positions = await ListAllPositionsAsync(cancellationToken).ConfigureAwait(false);
-                if (!positions.IsSuccess)
+                var parameters = OrganizationSqlParameters.Create(("UserIds", selectedUsers),
+                    ("UnitOffset", ((long)Math.Max(1, unitsPage) - 1) * 100),
+                    ("PositionOffset", ((long)Math.Max(1, positionsPage) - 1) * 100),
+                    ("UnitSearch", Search(unitSearch)), ("PositionSearch", Search(positionSearch)));
+                var mysql = databaseOptions?.Value.Provider == DatabaseProvider.MySql;
+                var units = await queryExecutor.QueryAsync<OrganizationUnitListRow>(mysql
+                    ? HostUserManagementReferenceSql.ListUnitsPageMySql : HostUserManagementReferenceSql.ListUnitsPageSqlServer,
+                    parameters, cancellationToken).ConfigureAwait(false);
+                var positions = await queryExecutor.QueryAsync<OrganizationPositionListRow>(mysql
+                    ? HostUserManagementReferenceSql.ListPositionsPageMySql : HostUserManagementReferenceSql.ListPositionsPageSqlServer,
+                    parameters, cancellationToken).ConfigureAwait(false);
+                var unitsTotal = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                    HostUserManagementReferenceSql.CountUnits, parameters, cancellationToken).ConfigureAwait(false);
+                var positionsTotal = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                    HostUserManagementReferenceSql.CountPositions, parameters, cancellationToken).ConfigureAwait(false);
+                IReadOnlyList<OrganizationUserUnitListRow> userUnits = [];
+                IReadOnlyList<OrganizationUserPositionListRow> userPositions = [];
+                if (selectedUsers.Length > 0)
                 {
-                    return Result<HostUserManagementOrganizationReferenceResponse>.Failure(positions.Error!);
+                    userUnits = await queryExecutor.QueryAsync<OrganizationUserUnitListRow>(mysql
+                        ? HostUserManagementReferenceSql.ListUserUnitsPageMySql : HostUserManagementReferenceSql.ListUserUnitsPageSqlServer,
+                        parameters, cancellationToken).ConfigureAwait(false);
+                    userPositions = await queryExecutor.QueryAsync<OrganizationUserPositionListRow>(mysql
+                        ? HostUserManagementReferenceSql.ListUserPositionsPageMySql : HostUserManagementReferenceSql.ListUserPositionsPageSqlServer,
+                        parameters, cancellationToken).ConfigureAwait(false);
+                    if (userUnits.Count > 10000 || userPositions.Count > 10000) return BudgetExceeded();
                 }
-
-                var userUnits = await ListAllUserUnitsAsync(cancellationToken).ConfigureAwait(false);
-                var userPositions = await ListAllUserPositionsAsync(cancellationToken).ConfigureAwait(false);
-                if (!userPositions.IsSuccess)
-                {
-                    return Result<HostUserManagementOrganizationReferenceResponse>.Failure(userPositions.Error!);
-                }
-
-                return Result<HostUserManagementOrganizationReferenceResponse>.Success(
-                    new HostUserManagementOrganizationReferenceResponse(
-                        units,
-                        positions.Value!,
-                        userUnits,
-                        userPositions.Value!));
+                var users = await hostUserDirectory.FindHostUsersAsync(selectedUsers, cancellationToken).ConfigureAwait(false);
+                return Result<HostUserManagementOrganizationReferenceResponse>.Success(new(
+                    units.Select(TenantUnitQueryService.Map).ToArray(), positions.Select(TenantPositionQueryService.Map).ToArray(),
+                    userUnits.Where(row => users.ContainsKey(row.UserId)).Select(row => TenantUserUnitQueryService.Map(row, users[row.UserId])).ToArray(),
+                    userPositions.Where(row => users.ContainsKey(row.UserId)).Select(row => TenantUserPositionQueryService.Map(row, users[row.UserId])).ToArray())
+                { UnitsTotal = unitsTotal, PositionsTotal = positionsTotal });
             }).ConfigureAwait(false);
     }
 
-    private async Task<IReadOnlyList<OrganizationUnitResponse>> ListAllUnitsAsync(
-        CancellationToken cancellationToken)
-    {
-        var rows = await queryExecutor.QueryAsync<OrganizationUnitListRow>(
-                HostUserManagementReferenceSql.ListUnits,
-                null,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return rows.Select(TenantUnitQueryService.Map).ToArray();
-    }
+    private static string? Search(string? value) => string.IsNullOrWhiteSpace(value) ? null
+        : $"%{value.Trim().Replace("!", "!!", StringComparison.Ordinal).Replace("%", "!%", StringComparison.Ordinal).Replace("_", "!_", StringComparison.Ordinal).Replace("[", "![", StringComparison.Ordinal)}%";
 
-    private async Task<Result<IReadOnlyList<OrganizationPositionResponse>>> ListAllPositionsAsync(
-        CancellationToken cancellationToken)
-    {
-        var items = new List<OrganizationPositionResponse>();
-        var page = 1;
-        while (true)
-        {
-            var pageResult = await positionQueries.ListAsync(
-                    page,
-                    MaxPageSize,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!pageResult.IsSuccess)
-            {
-                return Result<IReadOnlyList<OrganizationPositionResponse>>.Failure(pageResult.Error!);
-            }
-
-            var pageValue = pageResult.Value!;
-            items.AddRange(pageValue.Items);
-            if (page * MaxPageSize >= pageValue.Total)
-            {
-                break;
-            }
-
-            page++;
-        }
-
-        return Result<IReadOnlyList<OrganizationPositionResponse>>.Success(items);
-    }
-
-    private async Task<IReadOnlyList<OrganizationUserUnitResponse>> ListAllUserUnitsAsync(
-        CancellationToken cancellationToken)
-    {
-        var rows = await queryExecutor.QueryAsync<OrganizationUserUnitListRow>(
-                HostUserManagementReferenceSql.ListUserUnits,
-                null,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (rows.Count == 0)
-        {
-            return [];
-        }
-
-        var users = await hostUserDirectory.FindHostUsersAsync(
-                rows.Select(row => row.UserId).Distinct().ToArray(),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return rows
-            .Where(row => users.ContainsKey(row.UserId))
-            .Select(row => TenantUserUnitQueryService.Map(row, users[row.UserId]))
-            .ToArray();
-    }
-
-    private async Task<Result<IReadOnlyList<OrganizationUserPositionResponse>>> ListAllUserPositionsAsync(
-        CancellationToken cancellationToken)
-    {
-        var items = new List<OrganizationUserPositionResponse>();
-        var page = 1;
-        while (true)
-        {
-            var pageResult = await userPositionQueries.ListAsync(
-                    page,
-                    MaxPageSize,
-                    null,
-                    null,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!pageResult.IsSuccess)
-            {
-                return Result<IReadOnlyList<OrganizationUserPositionResponse>>.Failure(pageResult.Error!);
-            }
-
-            var pageValue = pageResult.Value!;
-            items.AddRange(pageValue.Items);
-            if (page * MaxPageSize >= pageValue.Total)
-            {
-                break;
-            }
-
-            page++;
-        }
-
-        return Result<IReadOnlyList<OrganizationUserPositionResponse>>.Success(items);
-    }
+    private static Result<HostUserManagementOrganizationReferenceResponse> BudgetExceeded() =>
+        Result<HostUserManagementOrganizationReferenceResponse>.Failure(new Error(ValidationErrorCodes.Failed,
+            "Reference requests allow at most 100 users and 10000 assignments. Use the organization assignment pages for larger selections.", ErrorType.Validation));
 
     internal sealed record HostUserManagementTenantRecord(
         Guid Id,

@@ -9,6 +9,25 @@ namespace Full.NET.Modules.Document.Persistence;
 /// </summary>
 internal static class DocumentPermissionSql
 {
+    /// <summary>无文档授权时按模块权限访问；有授权后仅允许明确授权用户。</summary>
+    internal const string ReadPredicate = """
+        (@ActorUserId IS NOT NULL AND (
+          NOT EXISTS (SELECT 1 FROM fn_document_permission AS acl WHERE acl.TenantId IS NULL AND acl.DocumentId = i.Id)
+          OR EXISTS (SELECT 1 FROM fn_document_permission AS acl WHERE acl.TenantId IS NULL AND acl.DocumentId = i.Id
+            AND acl.UserId = @ActorUserId AND acl.PermissionLevel IN ('read', 'write', 'delete', 'share', 'manage'))))
+        """;
+
+    public static readonly SqlStatement CheckAccess = new(
+        "document.host_permission.check_access",
+        """
+        SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM fn_document_item WHERE TenantId IS NULL AND Id = @DocumentId) THEN 1
+          WHEN EXISTS (SELECT 1 FROM fn_document_item AS i WHERE i.TenantId IS NULL AND i.Id = @DocumentId AND @ActorUserId IS NOT NULL
+          AND (NOT EXISTS (SELECT 1 FROM fn_document_permission AS acl WHERE acl.TenantId IS NULL AND acl.DocumentId = i.Id)
+            OR EXISTS (SELECT 1 FROM fn_document_permission AS acl WHERE acl.TenantId IS NULL AND acl.DocumentId = i.Id
+              AND acl.UserId = @ActorUserId AND (acl.PermissionLevel = 'manage' OR acl.PermissionLevel = @Operation
+                OR (@Operation = 'read' AND acl.PermissionLevel IN ('write', 'delete', 'share')))))) THEN 1 ELSE 0 END
+        """, SqlDataScope.HostOnly);
+
     /// <summary>权限记录投影字段；不含审计字段，仅用于权限目录列表。</summary>
     private const string Projection = """
         Id, DocumentId, UserId, PermissionLevel, CreatedAtUtc
@@ -52,4 +71,16 @@ internal static class DocumentPermissionSql
             (@Id, NULL, @DocumentId, @UserId, @PermissionLevel, @CreatedAtUtc)
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertBatchSqlServer = new(
+        "document.host_permission.insert_batch.sqlserver",
+        """
+        INSERT INTO fn_document_permission (Id, TenantId, DocumentId, UserId, PermissionLevel, CreatedAtUtc)
+        SELECT rowData.Id, NULL, @DocumentId, rowData.UserId, rowData.PermissionLevel, @CreatedAtUtc FROM OPENJSON(@Rows) WITH (Id uniqueidentifier '$.id', UserId uniqueidentifier '$.userId', PermissionLevel varchar(16) '$.permissionLevel') AS rowData
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertBatchMySql = new(
+        "document.host_permission.insert_batch.mysql",
+        """
+        INSERT INTO fn_document_permission (Id, TenantId, DocumentId, UserId, PermissionLevel, CreatedAtUtc)
+        SELECT UNHEX(REPLACE(rowData.Id, '-', '')), NULL, @DocumentId, UNHEX(REPLACE(rowData.UserId, '-', '')), rowData.PermissionLevel, @CreatedAtUtc FROM JSON_TABLE(@Rows, '$[*]' COLUMNS (Id CHAR(36) PATH '$.id', UserId CHAR(36) PATH '$.userId', PermissionLevel VARCHAR(16) PATH '$.permissionLevel')) AS rowData
+        """, SqlDataScope.HostOnly);
 }

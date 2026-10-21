@@ -14,7 +14,7 @@ import {
   ElSelect
 } from 'element-plus';
 import { Plus, Printer } from '@element-plus/icons-vue';
-import type { FullNetProblemDetails, PrintingTemplate, PrintingTemplatePreview } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, PrintingTemplateSummary, PrintingTemplatePreview } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -39,7 +39,7 @@ const DEFAULT_LAYOUT_HTML = `<div class="print-card">
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
-const templates = ref<PrintingTemplate[]>([]);
+const templates = ref<PrintingTemplateSummary[]>([]);
 const selectedTemplateId = ref('');
 const preview = ref<PrintingTemplatePreview>();
 // 布局属于可编辑的不可信内容；必须在最终插入 DOM 前净化，覆盖数据库中已经保存的旧模板。
@@ -73,11 +73,18 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
   return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
+let templateSearchVersion = 0;
+async function searchTemplates(keyword: string): Promise<void> {
+  const version = ++templateSearchVersion;
+  const result = await listPrintingTemplates(keyword);
+  if (version === templateSearchVersion) templates.value = result.items;
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    templates.value = await listPrintingTemplates();
+    templates.value = (await listPrintingTemplates()).items;
     selectedTemplateId.value = printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
     preview.value = undefined;
   } catch (error: unknown) {
@@ -167,6 +174,7 @@ onMounted(load);
         <ElFormItem :label="t('printingPreview.fieldTemplate')">
           <ElSelect
             v-model="selectedTemplateId"
+            filterable remote :remote-method="searchTemplates"
             data-testid="printing-preview-template"
             class="w-full"
           >

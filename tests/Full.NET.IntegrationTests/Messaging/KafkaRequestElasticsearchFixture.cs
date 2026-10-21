@@ -111,7 +111,7 @@ internal sealed class KafkaRequestElasticsearchFixture : IAsyncDisposable
             .WithEnvironment("xpack.ml.enabled", "false")
             .WithEnvironment("ELASTIC_PASSWORD", password)
             .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
-            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch", cpuCount))
+            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "elasticsearch", cpuCount))
             .WithPortBinding(9200, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9200));
         if (SharedDatabaseFixture.BoundedContainers) builder = builder.WithImagePullPolicy(PullPolicy.Never);
@@ -180,15 +180,16 @@ internal sealed class KafkaRequestElasticsearchFixture : IAsyncDisposable
 
     public static async Task<KafkaRequestElasticsearchFixture> StartAsync(CancellationToken token)
     {
-        var container = new ContainerBuilder(
+        var builder = new ContainerBuilder(
                 "docker.elastic.co/elasticsearch/elasticsearch@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026")
             .WithEnvironment("discovery.type", "single-node")
             .WithEnvironment("xpack.security.enabled", "false")
             .WithEnvironment("xpack.ml.enabled", "false")
             .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
             .WithPortBinding(9200, assignRandomHostPort: true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/")))
-            .Build();
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/")));
+        var container = builder.WithCreateParameterModifier(parameters =>
+            SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "elasticsearch")).Build();
         try
         {
             await container.StartAsync(token);

@@ -239,7 +239,9 @@ import type {
   FieldProjectionSensitivity,
   GoViewProjectPreviewResponse,
   GoViewProjectResponse,
+  GoViewProjectSummaryResponse,
   GoViewProjectVersionResponse,
+  GoViewProjectVersionSummaryResponse,
   GrantSuperAdministratorRequest,
   HostAnnouncementReadReceiptResponse,
   HostAnnouncementReadStatsResponse,
@@ -331,10 +333,14 @@ import type {
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
   LocalePreferenceResponse,
+  LogCorrelationSnapshot,
   LogFileList,
   LogFileSummary,
   LogFileTail,
   LoginRequest,
+  LogTimelineCoverage,
+  LogTimelineEntry,
+  LogTimelineResponse,
   ModuleCatalogEntryResponse,
   ModuleSelectionAnalysisResponse,
   ModuleSelectionIssueResponse,
@@ -388,6 +394,8 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGoViewProjectSummaryResponse,
+  PagedResultOfGoViewProjectVersionSummaryResponse,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -395,6 +403,7 @@ import type {
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentPreviewTaskResponse,
   PagedResultOfHostDocumentShareResponse,
+  PagedResultOfHostDocumentVersionResponse,
   PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostJobDefinitionResponse,
@@ -426,8 +435,12 @@ import type {
   PagedResultOfPaymentOrderListItem,
   PagedResultOfPaymentRefundListItem,
   PagedResultOfPersonalScheduleResponse,
+  PagedResultOfPrintingTemplateSummaryResponse,
+  PagedResultOfPrintingTemplateVersionSummaryResponse,
   PagedResultOfReceivedHostAnnouncementListItemResponse,
   PagedResultOfReportingDataSourceListItem,
+  PagedResultOfReportingDefinitionSummaryResponse,
+  PagedResultOfReportingDefinitionVersionSummaryResponse,
   PagedResultOfReportingExportTaskResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
@@ -452,7 +465,9 @@ import type {
   PrintingFormSchemaDefinition,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
+  PrintingTemplateSummaryResponse,
   PrintingTemplateVersionResponse,
+  PrintingTemplateVersionSummaryResponse,
   ProblemDetails,
   ProvisionTenantRequest,
   PublishGoViewProjectRequest,
@@ -479,7 +494,9 @@ import type {
   ReportingDataSourceListItem,
   ReportingDataSourceResponse,
   ReportingDefinitionResponse,
+  ReportingDefinitionSummaryResponse,
   ReportingDefinitionVersionResponse,
+  ReportingDefinitionVersionSummaryResponse,
   ReportingExecutionColumnDefinition,
   ReportingExecutionPageResponse,
   ReportingExecutionParameterValue,
@@ -643,22 +660,16 @@ import type {
 } from './models.generated.js';
 
 export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
-  if (!(isAccessHostDocumentShareRequest(value))) {
-    throw new Error('client.invalid_access_host_document_share_request');
-  }
-  return value;
+  return requireValidResponse(value, isAccessHostDocumentShareRequest(value), 'access_host_document_share_request') as AccessHostDocumentShareRequest;
 }
 
 function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
-  return isRecord(value) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string')));
+  return isRecord(value) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string')));
 }
 
 export function readAccessLogCursorPageResponse(value: unknown): AccessLogCursorPageResponse {
   const normalizedValue = normalizeAccessLogCursorPageResponseIntegerJson(value);
-  if (!(isAccessLogCursorPageResponse(normalizedValue))) {
-    throw new Error('client.invalid_access_log_cursor_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAccessLogCursorPageResponse(normalizedValue), 'access_log_cursor_page_response') as AccessLogCursorPageResponse;
 }
 
 function isAccessLogCursorPageResponse(value: unknown): value is AccessLogCursorPageResponse {
@@ -667,10 +678,7 @@ function isAccessLogCursorPageResponse(value: unknown): value is AccessLogCursor
 
 export function readAccessLogResponse(value: unknown): AccessLogResponse {
   const normalizedValue = normalizeAccessLogResponseIntegerJson(value);
-  if (!(isAccessLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_access_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAccessLogResponse(normalizedValue), 'access_log_response') as AccessLogResponse;
 }
 
 function isAccessLogResponse(value: unknown): value is AccessLogResponse {
@@ -679,10 +687,7 @@ function isAccessLogResponse(value: unknown): value is AccessLogResponse {
 
 export function readActWorkflowTodoRequest(value: unknown): ActWorkflowTodoRequest {
   const normalizedValue = normalizeActWorkflowTodoRequestIntegerJson(value);
-  if (!(isActWorkflowTodoRequest(normalizedValue))) {
-    throw new Error('client.invalid_act_workflow_todo_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isActWorkflowTodoRequest(normalizedValue), 'act_workflow_todo_request') as ActWorkflowTodoRequest;
 }
 
 function isActWorkflowTodoRequest(value: unknown): value is ActWorkflowTodoRequest {
@@ -690,10 +695,7 @@ function isActWorkflowTodoRequest(value: unknown): value is ActWorkflowTodoReque
 }
 
 export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocumentVersionRequest {
-  if (!(isAddHostDocumentVersionRequest(value))) {
-    throw new Error('client.invalid_add_host_document_version_request');
-  }
-  return value;
+  return requireValidResponse(value, isAddHostDocumentVersionRequest(value), 'add_host_document_version_request') as AddHostDocumentVersionRequest;
 }
 
 function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocumentVersionRequest {
@@ -702,10 +704,7 @@ function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocume
 
 export function readAdministrativeRegionChildResponse(value: unknown): AdministrativeRegionChildResponse {
   const normalizedValue = normalizeAdministrativeRegionChildResponseIntegerJson(value);
-  if (!(isAdministrativeRegionChildResponse(normalizedValue))) {
-    throw new Error('client.invalid_administrative_region_child_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAdministrativeRegionChildResponse(normalizedValue), 'administrative_region_child_response') as AdministrativeRegionChildResponse;
 }
 
 function isAdministrativeRegionChildResponse(value: unknown): value is AdministrativeRegionChildResponse {
@@ -714,10 +713,7 @@ function isAdministrativeRegionChildResponse(value: unknown): value is Administr
 
 export function readAdministrativeRegionDatasetManifestResponse(value: unknown): AdministrativeRegionDatasetManifestResponse {
   const normalizedValue = normalizeAdministrativeRegionDatasetManifestResponseIntegerJson(value);
-  if (!(isAdministrativeRegionDatasetManifestResponse(normalizedValue))) {
-    throw new Error('client.invalid_administrative_region_dataset_manifest_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAdministrativeRegionDatasetManifestResponse(normalizedValue), 'administrative_region_dataset_manifest_response') as AdministrativeRegionDatasetManifestResponse;
 }
 
 function isAdministrativeRegionDatasetManifestResponse(value: unknown): value is AdministrativeRegionDatasetManifestResponse {
@@ -726,10 +722,7 @@ function isAdministrativeRegionDatasetManifestResponse(value: unknown): value is
 
 export function readAdministrativeRegionResponse(value: unknown): AdministrativeRegionResponse {
   const normalizedValue = normalizeAdministrativeRegionResponseIntegerJson(value);
-  if (!(isAdministrativeRegionResponse(normalizedValue))) {
-    throw new Error('client.invalid_administrative_region_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAdministrativeRegionResponse(normalizedValue), 'administrative_region_response') as AdministrativeRegionResponse;
 }
 
 function isAdministrativeRegionResponse(value: unknown): value is AdministrativeRegionResponse {
@@ -738,10 +731,7 @@ function isAdministrativeRegionResponse(value: unknown): value is Administrative
 
 export function readAdministrativeRegionTreeNodeResponse(value: unknown): AdministrativeRegionTreeNodeResponse {
   const normalizedValue = normalizeAdministrativeRegionTreeNodeResponseIntegerJson(value);
-  if (!(isAdministrativeRegionTreeNodeResponse(normalizedValue))) {
-    throw new Error('client.invalid_administrative_region_tree_node_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAdministrativeRegionTreeNodeResponse(normalizedValue), 'administrative_region_tree_node_response') as AdministrativeRegionTreeNodeResponse;
 }
 
 function isAdministrativeRegionTreeNodeResponse(value: unknown): value is AdministrativeRegionTreeNodeResponse {
@@ -749,10 +739,7 @@ function isAdministrativeRegionTreeNodeResponse(value: unknown): value is Admini
 }
 
 export function readAdmitAiFeedbackEvaluationRequest(value: unknown): AdmitAiFeedbackEvaluationRequest {
-  if (!(isAdmitAiFeedbackEvaluationRequest(value))) {
-    throw new Error('client.invalid_admit_ai_feedback_evaluation_request');
-  }
-  return value;
+  return requireValidResponse(value, isAdmitAiFeedbackEvaluationRequest(value), 'admit_ai_feedback_evaluation_request') as AdmitAiFeedbackEvaluationRequest;
 }
 
 function isAdmitAiFeedbackEvaluationRequest(value: unknown): value is AdmitAiFeedbackEvaluationRequest {
@@ -761,10 +748,7 @@ function isAdmitAiFeedbackEvaluationRequest(value: unknown): value is AdmitAiFee
 
 export function readAiAgentApprovalResponse(value: unknown): AiAgentApprovalResponse {
   const normalizedValue = normalizeAiAgentApprovalResponseIntegerJson(value);
-  if (!(isAiAgentApprovalResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_agent_approval_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiAgentApprovalResponse(normalizedValue), 'ai_agent_approval_response') as AiAgentApprovalResponse;
 }
 
 function isAiAgentApprovalResponse(value: unknown): value is AiAgentApprovalResponse {
@@ -773,10 +757,7 @@ function isAiAgentApprovalResponse(value: unknown): value is AiAgentApprovalResp
 
 export function readAiAgentDelegationResponse(value: unknown): AiAgentDelegationResponse {
   const normalizedValue = normalizeAiAgentDelegationResponseIntegerJson(value);
-  if (!(isAiAgentDelegationResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_agent_delegation_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiAgentDelegationResponse(normalizedValue), 'ai_agent_delegation_response') as AiAgentDelegationResponse;
 }
 
 function isAiAgentDelegationResponse(value: unknown): value is AiAgentDelegationResponse {
@@ -785,10 +766,7 @@ function isAiAgentDelegationResponse(value: unknown): value is AiAgentDelegation
 
 export function readAiAgentReconciliationResponse(value: unknown): AiAgentReconciliationResponse {
   const normalizedValue = normalizeAiAgentReconciliationResponseIntegerJson(value);
-  if (!(isAiAgentReconciliationResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_agent_reconciliation_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiAgentReconciliationResponse(normalizedValue), 'ai_agent_reconciliation_response') as AiAgentReconciliationResponse;
 }
 
 function isAiAgentReconciliationResponse(value: unknown): value is AiAgentReconciliationResponse {
@@ -797,10 +775,7 @@ function isAiAgentReconciliationResponse(value: unknown): value is AiAgentReconc
 
 export function readAiAgentRunResponse(value: unknown): AiAgentRunResponse {
   const normalizedValue = normalizeAiAgentRunResponseIntegerJson(value);
-  if (!(isAiAgentRunResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_agent_run_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiAgentRunResponse(normalizedValue), 'ai_agent_run_response') as AiAgentRunResponse;
 }
 
 function isAiAgentRunResponse(value: unknown): value is AiAgentRunResponse {
@@ -809,10 +784,7 @@ function isAiAgentRunResponse(value: unknown): value is AiAgentRunResponse {
 
 export function readAiAgentToolCallListItem(value: unknown): AiAgentToolCallListItem {
   const normalizedValue = normalizeAiAgentToolCallListItemIntegerJson(value);
-  if (!(isAiAgentToolCallListItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_agent_tool_call_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiAgentToolCallListItem(normalizedValue), 'ai_agent_tool_call_list_item') as AiAgentToolCallListItem;
 }
 
 function isAiAgentToolCallListItem(value: unknown): value is AiAgentToolCallListItem {
@@ -820,10 +792,7 @@ function isAiAgentToolCallListItem(value: unknown): value is AiAgentToolCallList
 }
 
 export function readAiAgentToolCatalogItem(value: unknown): AiAgentToolCatalogItem {
-  if (!(isAiAgentToolCatalogItem(value))) {
-    throw new Error('client.invalid_ai_agent_tool_catalog_item');
-  }
-  return value;
+  return requireValidResponse(value, isAiAgentToolCatalogItem(value), 'ai_agent_tool_catalog_item') as AiAgentToolCatalogItem;
 }
 
 function isAiAgentToolCatalogItem(value: unknown): value is AiAgentToolCatalogItem {
@@ -832,10 +801,7 @@ function isAiAgentToolCatalogItem(value: unknown): value is AiAgentToolCatalogIt
 
 export function readAiChatMessageResponse(value: unknown): AiChatMessageResponse {
   const normalizedValue = normalizeAiChatMessageResponseIntegerJson(value);
-  if (!(isAiChatMessageResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_chat_message_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiChatMessageResponse(normalizedValue), 'ai_chat_message_response') as AiChatMessageResponse;
 }
 
 function isAiChatMessageResponse(value: unknown): value is AiChatMessageResponse {
@@ -844,10 +810,7 @@ function isAiChatMessageResponse(value: unknown): value is AiChatMessageResponse
 
 export function readAiChatSessionListItem(value: unknown): AiChatSessionListItem {
   const normalizedValue = normalizeAiChatSessionListItemIntegerJson(value);
-  if (!(isAiChatSessionListItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_chat_session_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiChatSessionListItem(normalizedValue), 'ai_chat_session_list_item') as AiChatSessionListItem;
 }
 
 function isAiChatSessionListItem(value: unknown): value is AiChatSessionListItem {
@@ -856,22 +819,16 @@ function isAiChatSessionListItem(value: unknown): value is AiChatSessionListItem
 
 export function readAiChatSessionResponse(value: unknown): AiChatSessionResponse {
   const normalizedValue = normalizeAiChatSessionResponseIntegerJson(value);
-  if (!(isAiChatSessionResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_chat_session_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiChatSessionResponse(normalizedValue), 'ai_chat_session_response') as AiChatSessionResponse;
 }
 
 function isAiChatSessionResponse(value: unknown): value is AiChatSessionResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (value["hasOlderMessages"] === undefined || (typeof value["hasOlderMessages"] === 'boolean')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiFeedbackEvaluationAdmission(value: unknown): AiFeedbackEvaluationAdmission {
   const normalizedValue = normalizeAiFeedbackEvaluationAdmissionIntegerJson(value);
-  if (!(isAiFeedbackEvaluationAdmission(normalizedValue))) {
-    throw new Error('client.invalid_ai_feedback_evaluation_admission');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiFeedbackEvaluationAdmission(normalizedValue), 'ai_feedback_evaluation_admission') as AiFeedbackEvaluationAdmission;
 }
 
 function isAiFeedbackEvaluationAdmission(value: unknown): value is AiFeedbackEvaluationAdmission {
@@ -879,10 +836,7 @@ function isAiFeedbackEvaluationAdmission(value: unknown): value is AiFeedbackEva
 }
 
 export function readAiFeedbackEvaluationCandidate(value: unknown): AiFeedbackEvaluationCandidate {
-  if (!(isAiFeedbackEvaluationCandidate(value))) {
-    throw new Error('client.invalid_ai_feedback_evaluation_candidate');
-  }
-  return value;
+  return requireValidResponse(value, isAiFeedbackEvaluationCandidate(value), 'ai_feedback_evaluation_candidate') as AiFeedbackEvaluationCandidate;
 }
 
 function isAiFeedbackEvaluationCandidate(value: unknown): value is AiFeedbackEvaluationCandidate {
@@ -890,10 +844,7 @@ function isAiFeedbackEvaluationCandidate(value: unknown): value is AiFeedbackEva
 }
 
 export function readAiFeedbackEvaluationSample(value: unknown): AiFeedbackEvaluationSample {
-  if (!(isAiFeedbackEvaluationSample(value))) {
-    throw new Error('client.invalid_ai_feedback_evaluation_sample');
-  }
-  return value;
+  return requireValidResponse(value, isAiFeedbackEvaluationSample(value), 'ai_feedback_evaluation_sample') as AiFeedbackEvaluationSample;
 }
 
 function isAiFeedbackEvaluationSample(value: unknown): value is AiFeedbackEvaluationSample {
@@ -902,10 +853,7 @@ function isAiFeedbackEvaluationSample(value: unknown): value is AiFeedbackEvalua
 
 export function readAiKnowledgeAnswerFeedbackExportCell(value: unknown): AiKnowledgeAnswerFeedbackExportCell {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackExportCellIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackExportCell(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_export_cell');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackExportCell(normalizedValue), 'ai_knowledge_answer_feedback_export_cell') as AiKnowledgeAnswerFeedbackExportCell;
 }
 
 function isAiKnowledgeAnswerFeedbackExportCell(value: unknown): value is AiKnowledgeAnswerFeedbackExportCell {
@@ -914,10 +862,7 @@ function isAiKnowledgeAnswerFeedbackExportCell(value: unknown): value is AiKnowl
 
 export function readAiKnowledgeAnswerFeedbackExportResponse(value: unknown): AiKnowledgeAnswerFeedbackExportResponse {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackExportResponseIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackExportResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_export_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackExportResponse(normalizedValue), 'ai_knowledge_answer_feedback_export_response') as AiKnowledgeAnswerFeedbackExportResponse;
 }
 
 function isAiKnowledgeAnswerFeedbackExportResponse(value: unknown): value is AiKnowledgeAnswerFeedbackExportResponse {
@@ -926,10 +871,7 @@ function isAiKnowledgeAnswerFeedbackExportResponse(value: unknown): value is AiK
 
 export function readAiKnowledgeAnswerFeedbackResponse(value: unknown): AiKnowledgeAnswerFeedbackResponse {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackResponseIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackResponse(normalizedValue), 'ai_knowledge_answer_feedback_response') as AiKnowledgeAnswerFeedbackResponse;
 }
 
 function isAiKnowledgeAnswerFeedbackResponse(value: unknown): value is AiKnowledgeAnswerFeedbackResponse {
@@ -938,10 +880,7 @@ function isAiKnowledgeAnswerFeedbackResponse(value: unknown): value is AiKnowled
 
 export function readAiKnowledgeAnswerFeedbackReviewItem(value: unknown): AiKnowledgeAnswerFeedbackReviewItem {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackReviewItemIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackReviewItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_review_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackReviewItem(normalizedValue), 'ai_knowledge_answer_feedback_review_item') as AiKnowledgeAnswerFeedbackReviewItem;
 }
 
 function isAiKnowledgeAnswerFeedbackReviewItem(value: unknown): value is AiKnowledgeAnswerFeedbackReviewItem {
@@ -950,10 +889,7 @@ function isAiKnowledgeAnswerFeedbackReviewItem(value: unknown): value is AiKnowl
 
 export function readAiKnowledgeAnswerFeedbackReviewPage(value: unknown): AiKnowledgeAnswerFeedbackReviewPage {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackReviewPageIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackReviewPage(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_review_page');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackReviewPage(normalizedValue), 'ai_knowledge_answer_feedback_review_page') as AiKnowledgeAnswerFeedbackReviewPage;
 }
 
 function isAiKnowledgeAnswerFeedbackReviewPage(value: unknown): value is AiKnowledgeAnswerFeedbackReviewPage {
@@ -962,10 +898,7 @@ function isAiKnowledgeAnswerFeedbackReviewPage(value: unknown): value is AiKnowl
 
 export function readAiKnowledgeAnswerFeedbackStateResponse(value: unknown): AiKnowledgeAnswerFeedbackStateResponse {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackStateResponseIntegerJson(value);
-  if (!(isAiKnowledgeAnswerFeedbackStateResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_answer_feedback_state_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeAnswerFeedbackStateResponse(normalizedValue), 'ai_knowledge_answer_feedback_state_response') as AiKnowledgeAnswerFeedbackStateResponse;
 }
 
 function isAiKnowledgeAnswerFeedbackStateResponse(value: unknown): value is AiKnowledgeAnswerFeedbackStateResponse {
@@ -974,10 +907,7 @@ function isAiKnowledgeAnswerFeedbackStateResponse(value: unknown): value is AiKn
 
 export function readAiKnowledgeBaseResponse(value: unknown): AiKnowledgeBaseResponse {
   const normalizedValue = normalizeAiKnowledgeBaseResponseIntegerJson(value);
-  if (!(isAiKnowledgeBaseResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_base_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeBaseResponse(normalizedValue), 'ai_knowledge_base_response') as AiKnowledgeBaseResponse;
 }
 
 function isAiKnowledgeBaseResponse(value: unknown): value is AiKnowledgeBaseResponse {
@@ -986,10 +916,7 @@ function isAiKnowledgeBaseResponse(value: unknown): value is AiKnowledgeBaseResp
 
 export function readAiKnowledgeCitationResponse(value: unknown): AiKnowledgeCitationResponse {
   const normalizedValue = normalizeAiKnowledgeCitationResponseIntegerJson(value);
-  if (!(isAiKnowledgeCitationResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_citation_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeCitationResponse(normalizedValue), 'ai_knowledge_citation_response') as AiKnowledgeCitationResponse;
 }
 
 function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCitationResponse {
@@ -998,10 +925,7 @@ function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCita
 
 export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
   const normalizedValue = normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value);
-  if (!(isAiKnowledgeDocumentMembersResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_document_members_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeDocumentMembersResponse(normalizedValue), 'ai_knowledge_document_members_response') as AiKnowledgeDocumentMembersResponse;
 }
 
 function isAiKnowledgeDocumentMembersResponse(value: unknown): value is AiKnowledgeDocumentMembersResponse {
@@ -1010,10 +934,7 @@ function isAiKnowledgeDocumentMembersResponse(value: unknown): value is AiKnowle
 
 export function readAiKnowledgeDocumentResponse(value: unknown): AiKnowledgeDocumentResponse {
   const normalizedValue = normalizeAiKnowledgeDocumentResponseIntegerJson(value);
-  if (!(isAiKnowledgeDocumentResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_document_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeDocumentResponse(normalizedValue), 'ai_knowledge_document_response') as AiKnowledgeDocumentResponse;
 }
 
 function isAiKnowledgeDocumentResponse(value: unknown): value is AiKnowledgeDocumentResponse {
@@ -1022,10 +943,7 @@ function isAiKnowledgeDocumentResponse(value: unknown): value is AiKnowledgeDocu
 
 export function readAiKnowledgeDocxLocationResponse(value: unknown): AiKnowledgeDocxLocationResponse {
   const normalizedValue = normalizeAiKnowledgeDocxLocationResponseIntegerJson(value);
-  if (!(isAiKnowledgeDocxLocationResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_docx_location_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeDocxLocationResponse(normalizedValue), 'ai_knowledge_docx_location_response') as AiKnowledgeDocxLocationResponse;
 }
 
 function isAiKnowledgeDocxLocationResponse(value: unknown): value is AiKnowledgeDocxLocationResponse {
@@ -1033,10 +951,7 @@ function isAiKnowledgeDocxLocationResponse(value: unknown): value is AiKnowledge
 }
 
 export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImportResponse {
-  if (!(isAiKnowledgeImportResponse(value))) {
-    throw new Error('client.invalid_ai_knowledge_import_response');
-  }
-  return value;
+  return requireValidResponse(value, isAiKnowledgeImportResponse(value), 'ai_knowledge_import_response') as AiKnowledgeImportResponse;
 }
 
 function isAiKnowledgeImportResponse(value: unknown): value is AiKnowledgeImportResponse {
@@ -1045,10 +960,7 @@ function isAiKnowledgeImportResponse(value: unknown): value is AiKnowledgeImport
 
 export function readAiKnowledgeIncrementalRecoveryRequest(value: unknown): AiKnowledgeIncrementalRecoveryRequest {
   const normalizedValue = normalizeAiKnowledgeIncrementalRecoveryRequestIntegerJson(value);
-  if (!(isAiKnowledgeIncrementalRecoveryRequest(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_incremental_recovery_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIncrementalRecoveryRequest(normalizedValue), 'ai_knowledge_incremental_recovery_request') as AiKnowledgeIncrementalRecoveryRequest;
 }
 
 function isAiKnowledgeIncrementalRecoveryRequest(value: unknown): value is AiKnowledgeIncrementalRecoveryRequest {
@@ -1057,10 +969,7 @@ function isAiKnowledgeIncrementalRecoveryRequest(value: unknown): value is AiKno
 
 export function readAiKnowledgeIncrementalRecoveryResponse(value: unknown): AiKnowledgeIncrementalRecoveryResponse {
   const normalizedValue = normalizeAiKnowledgeIncrementalRecoveryResponseIntegerJson(value);
-  if (!(isAiKnowledgeIncrementalRecoveryResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_incremental_recovery_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIncrementalRecoveryResponse(normalizedValue), 'ai_knowledge_incremental_recovery_response') as AiKnowledgeIncrementalRecoveryResponse;
 }
 
 function isAiKnowledgeIncrementalRecoveryResponse(value: unknown): value is AiKnowledgeIncrementalRecoveryResponse {
@@ -1069,10 +978,7 @@ function isAiKnowledgeIncrementalRecoveryResponse(value: unknown): value is AiKn
 
 export function readAiKnowledgeIndexChangeItem(value: unknown): AiKnowledgeIndexChangeItem {
   const normalizedValue = normalizeAiKnowledgeIndexChangeItemIntegerJson(value);
-  if (!(isAiKnowledgeIndexChangeItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_index_change_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIndexChangeItem(normalizedValue), 'ai_knowledge_index_change_item') as AiKnowledgeIndexChangeItem;
 }
 
 function isAiKnowledgeIndexChangeItem(value: unknown): value is AiKnowledgeIndexChangeItem {
@@ -1081,10 +987,7 @@ function isAiKnowledgeIndexChangeItem(value: unknown): value is AiKnowledgeIndex
 
 export function readAiKnowledgeIndexChangePage(value: unknown): AiKnowledgeIndexChangePage {
   const normalizedValue = normalizeAiKnowledgeIndexChangePageIntegerJson(value);
-  if (!(isAiKnowledgeIndexChangePage(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_index_change_page');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIndexChangePage(normalizedValue), 'ai_knowledge_index_change_page') as AiKnowledgeIndexChangePage;
 }
 
 function isAiKnowledgeIndexChangePage(value: unknown): value is AiKnowledgeIndexChangePage {
@@ -1092,10 +995,7 @@ function isAiKnowledgeIndexChangePage(value: unknown): value is AiKnowledgeIndex
 }
 
 export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledgeIndexEnqueueResponse {
-  if (!(isAiKnowledgeIndexEnqueueResponse(value))) {
-    throw new Error('client.invalid_ai_knowledge_index_enqueue_response');
-  }
-  return value;
+  return requireValidResponse(value, isAiKnowledgeIndexEnqueueResponse(value), 'ai_knowledge_index_enqueue_response') as AiKnowledgeIndexEnqueueResponse;
 }
 
 function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledgeIndexEnqueueResponse {
@@ -1104,10 +1004,7 @@ function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledge
 
 export function readAiKnowledgeIndexGrantResponse(value: unknown): AiKnowledgeIndexGrantResponse {
   const normalizedValue = normalizeAiKnowledgeIndexGrantResponseIntegerJson(value);
-  if (!(isAiKnowledgeIndexGrantResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_index_grant_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIndexGrantResponse(normalizedValue), 'ai_knowledge_index_grant_response') as AiKnowledgeIndexGrantResponse;
 }
 
 function isAiKnowledgeIndexGrantResponse(value: unknown): value is AiKnowledgeIndexGrantResponse {
@@ -1116,10 +1013,7 @@ function isAiKnowledgeIndexGrantResponse(value: unknown): value is AiKnowledgeIn
 
 export function readAiKnowledgeIndexRebuildRequest(value: unknown): AiKnowledgeIndexRebuildRequest {
   const normalizedValue = normalizeAiKnowledgeIndexRebuildRequestIntegerJson(value);
-  if (!(isAiKnowledgeIndexRebuildRequest(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_index_rebuild_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIndexRebuildRequest(normalizedValue), 'ai_knowledge_index_rebuild_request') as AiKnowledgeIndexRebuildRequest;
 }
 
 function isAiKnowledgeIndexRebuildRequest(value: unknown): value is AiKnowledgeIndexRebuildRequest {
@@ -1128,10 +1022,7 @@ function isAiKnowledgeIndexRebuildRequest(value: unknown): value is AiKnowledgeI
 
 export function readAiKnowledgeIndexReconciliationResponse(value: unknown): AiKnowledgeIndexReconciliationResponse {
   const normalizedValue = normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value);
-  if (!(isAiKnowledgeIndexReconciliationResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_index_reconciliation_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeIndexReconciliationResponse(normalizedValue), 'ai_knowledge_index_reconciliation_response') as AiKnowledgeIndexReconciliationResponse;
 }
 
 function isAiKnowledgeIndexReconciliationResponse(value: unknown): value is AiKnowledgeIndexReconciliationResponse {
@@ -1139,10 +1030,7 @@ function isAiKnowledgeIndexReconciliationResponse(value: unknown): value is AiKn
 }
 
 export function readAiKnowledgeIndexStatusResponse(value: unknown): AiKnowledgeIndexStatusResponse {
-  if (!(isAiKnowledgeIndexStatusResponse(value))) {
-    throw new Error('client.invalid_ai_knowledge_index_status_response');
-  }
-  return value;
+  return requireValidResponse(value, isAiKnowledgeIndexStatusResponse(value), 'ai_knowledge_index_status_response') as AiKnowledgeIndexStatusResponse;
 }
 
 function isAiKnowledgeIndexStatusResponse(value: unknown): value is AiKnowledgeIndexStatusResponse {
@@ -1151,10 +1039,7 @@ function isAiKnowledgeIndexStatusResponse(value: unknown): value is AiKnowledgeI
 
 export function readAiKnowledgeMembersResponse(value: unknown): AiKnowledgeMembersResponse {
   const normalizedValue = normalizeAiKnowledgeMembersResponseIntegerJson(value);
-  if (!(isAiKnowledgeMembersResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_members_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeMembersResponse(normalizedValue), 'ai_knowledge_members_response') as AiKnowledgeMembersResponse;
 }
 
 function isAiKnowledgeMembersResponse(value: unknown): value is AiKnowledgeMembersResponse {
@@ -1162,10 +1047,7 @@ function isAiKnowledgeMembersResponse(value: unknown): value is AiKnowledgeMembe
 }
 
 export function readAiKnowledgeOrganizationCandidateResponse(value: unknown): AiKnowledgeOrganizationCandidateResponse {
-  if (!(isAiKnowledgeOrganizationCandidateResponse(value))) {
-    throw new Error('client.invalid_ai_knowledge_organization_candidate_response');
-  }
-  return value;
+  return requireValidResponse(value, isAiKnowledgeOrganizationCandidateResponse(value), 'ai_knowledge_organization_candidate_response') as AiKnowledgeOrganizationCandidateResponse;
 }
 
 function isAiKnowledgeOrganizationCandidateResponse(value: unknown): value is AiKnowledgeOrganizationCandidateResponse {
@@ -1174,10 +1056,7 @@ function isAiKnowledgeOrganizationCandidateResponse(value: unknown): value is Ai
 
 export function readAiKnowledgeOrganizationGrantsResponse(value: unknown): AiKnowledgeOrganizationGrantsResponse {
   const normalizedValue = normalizeAiKnowledgeOrganizationGrantsResponseIntegerJson(value);
-  if (!(isAiKnowledgeOrganizationGrantsResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_organization_grants_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeOrganizationGrantsResponse(normalizedValue), 'ai_knowledge_organization_grants_response') as AiKnowledgeOrganizationGrantsResponse;
 }
 
 function isAiKnowledgeOrganizationGrantsResponse(value: unknown): value is AiKnowledgeOrganizationGrantsResponse {
@@ -1185,10 +1064,7 @@ function isAiKnowledgeOrganizationGrantsResponse(value: unknown): value is AiKno
 }
 
 export function readAiKnowledgeRoleCandidateResponse(value: unknown): AiKnowledgeRoleCandidateResponse {
-  if (!(isAiKnowledgeRoleCandidateResponse(value))) {
-    throw new Error('client.invalid_ai_knowledge_role_candidate_response');
-  }
-  return value;
+  return requireValidResponse(value, isAiKnowledgeRoleCandidateResponse(value), 'ai_knowledge_role_candidate_response') as AiKnowledgeRoleCandidateResponse;
 }
 
 function isAiKnowledgeRoleCandidateResponse(value: unknown): value is AiKnowledgeRoleCandidateResponse {
@@ -1197,10 +1073,7 @@ function isAiKnowledgeRoleCandidateResponse(value: unknown): value is AiKnowledg
 
 export function readAiKnowledgeRoleGrantsResponse(value: unknown): AiKnowledgeRoleGrantsResponse {
   const normalizedValue = normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value);
-  if (!(isAiKnowledgeRoleGrantsResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_role_grants_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeRoleGrantsResponse(normalizedValue), 'ai_knowledge_role_grants_response') as AiKnowledgeRoleGrantsResponse;
 }
 
 function isAiKnowledgeRoleGrantsResponse(value: unknown): value is AiKnowledgeRoleGrantsResponse {
@@ -1209,10 +1082,7 @@ function isAiKnowledgeRoleGrantsResponse(value: unknown): value is AiKnowledgeRo
 
 export function readAiKnowledgeVersionResponse(value: unknown): AiKnowledgeVersionResponse {
   const normalizedValue = normalizeAiKnowledgeVersionResponseIntegerJson(value);
-  if (!(isAiKnowledgeVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_knowledge_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiKnowledgeVersionResponse(normalizedValue), 'ai_knowledge_version_response') as AiKnowledgeVersionResponse;
 }
 
 function isAiKnowledgeVersionResponse(value: unknown): value is AiKnowledgeVersionResponse {
@@ -1221,10 +1091,7 @@ function isAiKnowledgeVersionResponse(value: unknown): value is AiKnowledgeVersi
 
 export function readAiMcpRemoteConnectionListItem(value: unknown): AiMcpRemoteConnectionListItem {
   const normalizedValue = normalizeAiMcpRemoteConnectionListItemIntegerJson(value);
-  if (!(isAiMcpRemoteConnectionListItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_mcp_remote_connection_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiMcpRemoteConnectionListItem(normalizedValue), 'ai_mcp_remote_connection_list_item') as AiMcpRemoteConnectionListItem;
 }
 
 function isAiMcpRemoteConnectionListItem(value: unknown): value is AiMcpRemoteConnectionListItem {
@@ -1233,10 +1100,7 @@ function isAiMcpRemoteConnectionListItem(value: unknown): value is AiMcpRemoteCo
 
 export function readAiMcpRemoteConnectionResponse(value: unknown): AiMcpRemoteConnectionResponse {
   const normalizedValue = normalizeAiMcpRemoteConnectionResponseIntegerJson(value);
-  if (!(isAiMcpRemoteConnectionResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_mcp_remote_connection_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiMcpRemoteConnectionResponse(normalizedValue), 'ai_mcp_remote_connection_response') as AiMcpRemoteConnectionResponse;
 }
 
 function isAiMcpRemoteConnectionResponse(value: unknown): value is AiMcpRemoteConnectionResponse {
@@ -1244,10 +1108,7 @@ function isAiMcpRemoteConnectionResponse(value: unknown): value is AiMcpRemoteCo
 }
 
 export function readAiMcpRemoteDiscoveredToolItem(value: unknown): AiMcpRemoteDiscoveredToolItem {
-  if (!(isAiMcpRemoteDiscoveredToolItem(value))) {
-    throw new Error('client.invalid_ai_mcp_remote_discovered_tool_item');
-  }
-  return value;
+  return requireValidResponse(value, isAiMcpRemoteDiscoveredToolItem(value), 'ai_mcp_remote_discovered_tool_item') as AiMcpRemoteDiscoveredToolItem;
 }
 
 function isAiMcpRemoteDiscoveredToolItem(value: unknown): value is AiMcpRemoteDiscoveredToolItem {
@@ -1256,10 +1117,7 @@ function isAiMcpRemoteDiscoveredToolItem(value: unknown): value is AiMcpRemoteDi
 
 export function readAiMcpRemoteToolApprovalItem(value: unknown): AiMcpRemoteToolApprovalItem {
   const normalizedValue = normalizeAiMcpRemoteToolApprovalItemIntegerJson(value);
-  if (!(isAiMcpRemoteToolApprovalItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_mcp_remote_tool_approval_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiMcpRemoteToolApprovalItem(normalizedValue), 'ai_mcp_remote_tool_approval_item') as AiMcpRemoteToolApprovalItem;
 }
 
 function isAiMcpRemoteToolApprovalItem(value: unknown): value is AiMcpRemoteToolApprovalItem {
@@ -1268,10 +1126,7 @@ function isAiMcpRemoteToolApprovalItem(value: unknown): value is AiMcpRemoteTool
 
 export function readAiModelConfigListItem(value: unknown): AiModelConfigListItem {
   const normalizedValue = normalizeAiModelConfigListItemIntegerJson(value);
-  if (!(isAiModelConfigListItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_model_config_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiModelConfigListItem(normalizedValue), 'ai_model_config_list_item') as AiModelConfigListItem;
 }
 
 function isAiModelConfigListItem(value: unknown): value is AiModelConfigListItem {
@@ -1280,10 +1135,7 @@ function isAiModelConfigListItem(value: unknown): value is AiModelConfigListItem
 
 export function readAiModelConfigResponse(value: unknown): AiModelConfigResponse {
   const normalizedValue = normalizeAiModelConfigResponseIntegerJson(value);
-  if (!(isAiModelConfigResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_model_config_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiModelConfigResponse(normalizedValue), 'ai_model_config_response') as AiModelConfigResponse;
 }
 
 function isAiModelConfigResponse(value: unknown): value is AiModelConfigResponse {
@@ -1292,10 +1144,7 @@ function isAiModelConfigResponse(value: unknown): value is AiModelConfigResponse
 
 export function readAiPromptBody(value: unknown): AiPromptBody {
   const normalizedValue = normalizeAiPromptBodyIntegerJson(value);
-  if (!(isAiPromptBody(normalizedValue))) {
-    throw new Error('client.invalid_ai_prompt_body');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiPromptBody(normalizedValue), 'ai_prompt_body') as AiPromptBody;
 }
 
 function isAiPromptBody(value: unknown): value is AiPromptBody {
@@ -1304,10 +1153,7 @@ function isAiPromptBody(value: unknown): value is AiPromptBody {
 
 export function readAiPromptExecutionBinding(value: unknown): AiPromptExecutionBinding {
   const normalizedValue = normalizeAiPromptExecutionBindingIntegerJson(value);
-  if (!(isAiPromptExecutionBinding(normalizedValue))) {
-    throw new Error('client.invalid_ai_prompt_execution_binding');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiPromptExecutionBinding(normalizedValue), 'ai_prompt_execution_binding') as AiPromptExecutionBinding;
 }
 
 function isAiPromptExecutionBinding(value: unknown): value is AiPromptExecutionBinding {
@@ -1316,10 +1162,7 @@ function isAiPromptExecutionBinding(value: unknown): value is AiPromptExecutionB
 
 export function readAiPromptResponse(value: unknown): AiPromptResponse {
   const normalizedValue = normalizeAiPromptResponseIntegerJson(value);
-  if (!(isAiPromptResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_prompt_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiPromptResponse(normalizedValue), 'ai_prompt_response') as AiPromptResponse;
 }
 
 function isAiPromptResponse(value: unknown): value is AiPromptResponse {
@@ -1328,10 +1171,7 @@ function isAiPromptResponse(value: unknown): value is AiPromptResponse {
 
 export function readAiPromptVersionResponse(value: unknown): AiPromptVersionResponse {
   const normalizedValue = normalizeAiPromptVersionResponseIntegerJson(value);
-  if (!(isAiPromptVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_prompt_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiPromptVersionResponse(normalizedValue), 'ai_prompt_version_response') as AiPromptVersionResponse;
 }
 
 function isAiPromptVersionResponse(value: unknown): value is AiPromptVersionResponse {
@@ -1340,10 +1180,7 @@ function isAiPromptVersionResponse(value: unknown): value is AiPromptVersionResp
 
 export function readAiTenantQuotaListItem(value: unknown): AiTenantQuotaListItem {
   const normalizedValue = normalizeAiTenantQuotaListItemIntegerJson(value);
-  if (!(isAiTenantQuotaListItem(normalizedValue))) {
-    throw new Error('client.invalid_ai_tenant_quota_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiTenantQuotaListItem(normalizedValue), 'ai_tenant_quota_list_item') as AiTenantQuotaListItem;
 }
 
 function isAiTenantQuotaListItem(value: unknown): value is AiTenantQuotaListItem {
@@ -1352,10 +1189,7 @@ function isAiTenantQuotaListItem(value: unknown): value is AiTenantQuotaListItem
 
 export function readAiTenantQuotaResponse(value: unknown): AiTenantQuotaResponse {
   const normalizedValue = normalizeAiTenantQuotaResponseIntegerJson(value);
-  if (!(isAiTenantQuotaResponse(normalizedValue))) {
-    throw new Error('client.invalid_ai_tenant_quota_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAiTenantQuotaResponse(normalizedValue), 'ai_tenant_quota_response') as AiTenantQuotaResponse;
 }
 
 function isAiTenantQuotaResponse(value: unknown): value is AiTenantQuotaResponse {
@@ -1364,10 +1198,7 @@ function isAiTenantQuotaResponse(value: unknown): value is AiTenantQuotaResponse
 
 export function readAppendAiPromptVersionRequest(value: unknown): AppendAiPromptVersionRequest {
   const normalizedValue = normalizeAppendAiPromptVersionRequestIntegerJson(value);
-  if (!(isAppendAiPromptVersionRequest(normalizedValue))) {
-    throw new Error('client.invalid_append_ai_prompt_version_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAppendAiPromptVersionRequest(normalizedValue), 'append_ai_prompt_version_request') as AppendAiPromptVersionRequest;
 }
 
 function isAppendAiPromptVersionRequest(value: unknown): value is AppendAiPromptVersionRequest {
@@ -1375,10 +1206,7 @@ function isAppendAiPromptVersionRequest(value: unknown): value is AppendAiPrompt
 }
 
 export function readApproveAiMcpRemoteToolRequest(value: unknown): ApproveAiMcpRemoteToolRequest {
-  if (!(isApproveAiMcpRemoteToolRequest(value))) {
-    throw new Error('client.invalid_approve_ai_mcp_remote_tool_request');
-  }
-  return value;
+  return requireValidResponse(value, isApproveAiMcpRemoteToolRequest(value), 'approve_ai_mcp_remote_tool_request') as ApproveAiMcpRemoteToolRequest;
 }
 
 function isApproveAiMcpRemoteToolRequest(value: unknown): value is ApproveAiMcpRemoteToolRequest {
@@ -1386,10 +1214,7 @@ function isApproveAiMcpRemoteToolRequest(value: unknown): value is ApproveAiMcpR
 }
 
 export function readAskAiKnowledgeRequest(value: unknown): AskAiKnowledgeRequest {
-  if (!(isAskAiKnowledgeRequest(value))) {
-    throw new Error('client.invalid_ask_ai_knowledge_request');
-  }
-  return value;
+  return requireValidResponse(value, isAskAiKnowledgeRequest(value), 'ask_ai_knowledge_request') as AskAiKnowledgeRequest;
 }
 
 function isAskAiKnowledgeRequest(value: unknown): value is AskAiKnowledgeRequest {
@@ -1398,10 +1223,7 @@ function isAskAiKnowledgeRequest(value: unknown): value is AskAiKnowledgeRequest
 
 export function readAskAiKnowledgeResponse(value: unknown): AskAiKnowledgeResponse {
   const normalizedValue = normalizeAskAiKnowledgeResponseIntegerJson(value);
-  if (!(isAskAiKnowledgeResponse(normalizedValue))) {
-    throw new Error('client.invalid_ask_ai_knowledge_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAskAiKnowledgeResponse(normalizedValue), 'ask_ai_knowledge_response') as AskAiKnowledgeResponse;
 }
 
 function isAskAiKnowledgeResponse(value: unknown): value is AskAiKnowledgeResponse {
@@ -1410,10 +1232,7 @@ function isAskAiKnowledgeResponse(value: unknown): value is AskAiKnowledgeRespon
 
 export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTenantPackageRequest {
   const normalizedValue = normalizeAssignHostTenantPackageRequestIntegerJson(value);
-  if (!(isAssignHostTenantPackageRequest(normalizedValue))) {
-    throw new Error('client.invalid_assign_host_tenant_package_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAssignHostTenantPackageRequest(normalizedValue), 'assign_host_tenant_package_request') as AssignHostTenantPackageRequest;
 }
 
 function isAssignHostTenantPackageRequest(value: unknown): value is AssignHostTenantPackageRequest {
@@ -1422,10 +1241,7 @@ function isAssignHostTenantPackageRequest(value: unknown): value is AssignHostTe
 
 export function readAssignOrganizationPositionLevelRequest(value: unknown): AssignOrganizationPositionLevelRequest {
   const normalizedValue = normalizeAssignOrganizationPositionLevelRequestIntegerJson(value);
-  if (!(isAssignOrganizationPositionLevelRequest(normalizedValue))) {
-    throw new Error('client.invalid_assign_organization_position_level_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAssignOrganizationPositionLevelRequest(normalizedValue), 'assign_organization_position_level_request') as AssignOrganizationPositionLevelRequest;
 }
 
 function isAssignOrganizationPositionLevelRequest(value: unknown): value is AssignOrganizationPositionLevelRequest {
@@ -1434,10 +1250,7 @@ function isAssignOrganizationPositionLevelRequest(value: unknown): value is Assi
 
 export function readAssignOrganizationPositionUnitRequest(value: unknown): AssignOrganizationPositionUnitRequest {
   const normalizedValue = normalizeAssignOrganizationPositionUnitRequestIntegerJson(value);
-  if (!(isAssignOrganizationPositionUnitRequest(normalizedValue))) {
-    throw new Error('client.invalid_assign_organization_position_unit_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAssignOrganizationPositionUnitRequest(normalizedValue), 'assign_organization_position_unit_request') as AssignOrganizationPositionUnitRequest;
 }
 
 function isAssignOrganizationPositionUnitRequest(value: unknown): value is AssignOrganizationPositionUnitRequest {
@@ -1445,10 +1258,7 @@ function isAssignOrganizationPositionUnitRequest(value: unknown): value is Assig
 }
 
 export function readAuthenticationEventCursorPage(value: unknown): AuthenticationEventCursorPage {
-  if (!(isAuthenticationEventCursorPage(value))) {
-    throw new Error('client.invalid_authentication_event_cursor_page');
-  }
-  return value;
+  return requireValidResponse(value, isAuthenticationEventCursorPage(value), 'authentication_event_cursor_page') as AuthenticationEventCursorPage;
 }
 
 function isAuthenticationEventCursorPage(value: unknown): value is AuthenticationEventCursorPage {
@@ -1456,10 +1266,7 @@ function isAuthenticationEventCursorPage(value: unknown): value is Authenticatio
 }
 
 export function readAuthenticationEventResponse(value: unknown): AuthenticationEventResponse {
-  if (!(isAuthenticationEventResponse(value))) {
-    throw new Error('client.invalid_authentication_event_response');
-  }
-  return value;
+  return requireValidResponse(value, isAuthenticationEventResponse(value), 'authentication_event_response') as AuthenticationEventResponse;
 }
 
 function isAuthenticationEventResponse(value: unknown): value is AuthenticationEventResponse {
@@ -1468,10 +1275,7 @@ function isAuthenticationEventResponse(value: unknown): value is AuthenticationE
 
 export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
   const normalizedValue = normalizeAuthorizationTreeActionResponseIntegerJson(value);
-  if (!(isAuthorizationTreeActionResponse(normalizedValue))) {
-    throw new Error('client.invalid_authorization_tree_action_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAuthorizationTreeActionResponse(normalizedValue), 'authorization_tree_action_response') as AuthorizationTreeActionResponse;
 }
 
 function isAuthorizationTreeActionResponse(value: unknown): value is AuthorizationTreeActionResponse {
@@ -1480,10 +1284,7 @@ function isAuthorizationTreeActionResponse(value: unknown): value is Authorizati
 
 export function readAuthorizationTreeModuleResponse(value: unknown): AuthorizationTreeModuleResponse {
   const normalizedValue = normalizeAuthorizationTreeModuleResponseIntegerJson(value);
-  if (!(isAuthorizationTreeModuleResponse(normalizedValue))) {
-    throw new Error('client.invalid_authorization_tree_module_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAuthorizationTreeModuleResponse(normalizedValue), 'authorization_tree_module_response') as AuthorizationTreeModuleResponse;
 }
 
 function isAuthorizationTreeModuleResponse(value: unknown): value is AuthorizationTreeModuleResponse {
@@ -1492,10 +1293,7 @@ function isAuthorizationTreeModuleResponse(value: unknown): value is Authorizati
 
 export function readAuthorizationTreePageResponse(value: unknown): AuthorizationTreePageResponse {
   const normalizedValue = normalizeAuthorizationTreePageResponseIntegerJson(value);
-  if (!(isAuthorizationTreePageResponse(normalizedValue))) {
-    throw new Error('client.invalid_authorization_tree_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isAuthorizationTreePageResponse(normalizedValue), 'authorization_tree_page_response') as AuthorizationTreePageResponse;
 }
 
 function isAuthorizationTreePageResponse(value: unknown): value is AuthorizationTreePageResponse {
@@ -1504,10 +1302,7 @@ function isAuthorizationTreePageResponse(value: unknown): value is Authorization
 
 export function readBatchChangeHostJobScheduleStateItem(value: unknown): BatchChangeHostJobScheduleStateItem {
   const normalizedValue = normalizeBatchChangeHostJobScheduleStateItemIntegerJson(value);
-  if (!(isBatchChangeHostJobScheduleStateItem(normalizedValue))) {
-    throw new Error('client.invalid_batch_change_host_job_schedule_state_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchChangeHostJobScheduleStateItem(normalizedValue), 'batch_change_host_job_schedule_state_item') as BatchChangeHostJobScheduleStateItem;
 }
 
 function isBatchChangeHostJobScheduleStateItem(value: unknown): value is BatchChangeHostJobScheduleStateItem {
@@ -1516,10 +1311,7 @@ function isBatchChangeHostJobScheduleStateItem(value: unknown): value is BatchCh
 
 export function readBatchChangeHostJobScheduleStateRequest(value: unknown): BatchChangeHostJobScheduleStateRequest {
   const normalizedValue = normalizeBatchChangeHostJobScheduleStateRequestIntegerJson(value);
-  if (!(isBatchChangeHostJobScheduleStateRequest(normalizedValue))) {
-    throw new Error('client.invalid_batch_change_host_job_schedule_state_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchChangeHostJobScheduleStateRequest(normalizedValue), 'batch_change_host_job_schedule_state_request') as BatchChangeHostJobScheduleStateRequest;
 }
 
 function isBatchChangeHostJobScheduleStateRequest(value: unknown): value is BatchChangeHostJobScheduleStateRequest {
@@ -1528,10 +1320,7 @@ function isBatchChangeHostJobScheduleStateRequest(value: unknown): value is Batc
 
 export function readBatchChangeHostJobScheduleStateResponse(value: unknown): BatchChangeHostJobScheduleStateResponse {
   const normalizedValue = normalizeBatchChangeHostJobScheduleStateResponseIntegerJson(value);
-  if (!(isBatchChangeHostJobScheduleStateResponse(normalizedValue))) {
-    throw new Error('client.invalid_batch_change_host_job_schedule_state_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchChangeHostJobScheduleStateResponse(normalizedValue), 'batch_change_host_job_schedule_state_response') as BatchChangeHostJobScheduleStateResponse;
 }
 
 function isBatchChangeHostJobScheduleStateResponse(value: unknown): value is BatchChangeHostJobScheduleStateResponse {
@@ -1540,10 +1329,7 @@ function isBatchChangeHostJobScheduleStateResponse(value: unknown): value is Bat
 
 export function readBatchChangeHostJobScheduleStateResultItem(value: unknown): BatchChangeHostJobScheduleStateResultItem {
   const normalizedValue = normalizeBatchChangeHostJobScheduleStateResultItemIntegerJson(value);
-  if (!(isBatchChangeHostJobScheduleStateResultItem(normalizedValue))) {
-    throw new Error('client.invalid_batch_change_host_job_schedule_state_result_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchChangeHostJobScheduleStateResultItem(normalizedValue), 'batch_change_host_job_schedule_state_result_item') as BatchChangeHostJobScheduleStateResultItem;
 }
 
 function isBatchChangeHostJobScheduleStateResultItem(value: unknown): value is BatchChangeHostJobScheduleStateResultItem {
@@ -1552,10 +1338,7 @@ function isBatchChangeHostJobScheduleStateResultItem(value: unknown): value is B
 
 export function readBatchCreateHostDocumentShareItem(value: unknown): BatchCreateHostDocumentShareItem {
   const normalizedValue = normalizeBatchCreateHostDocumentShareItemIntegerJson(value);
-  if (!(isBatchCreateHostDocumentShareItem(normalizedValue))) {
-    throw new Error('client.invalid_batch_create_host_document_share_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchCreateHostDocumentShareItem(normalizedValue), 'batch_create_host_document_share_item') as BatchCreateHostDocumentShareItem;
 }
 
 function isBatchCreateHostDocumentShareItem(value: unknown): value is BatchCreateHostDocumentShareItem {
@@ -1564,10 +1347,7 @@ function isBatchCreateHostDocumentShareItem(value: unknown): value is BatchCreat
 
 export function readBatchCreateHostDocumentSharesRequest(value: unknown): BatchCreateHostDocumentSharesRequest {
   const normalizedValue = normalizeBatchCreateHostDocumentSharesRequestIntegerJson(value);
-  if (!(isBatchCreateHostDocumentSharesRequest(normalizedValue))) {
-    throw new Error('client.invalid_batch_create_host_document_shares_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchCreateHostDocumentSharesRequest(normalizedValue), 'batch_create_host_document_shares_request') as BatchCreateHostDocumentSharesRequest;
 }
 
 function isBatchCreateHostDocumentSharesRequest(value: unknown): value is BatchCreateHostDocumentSharesRequest {
@@ -1576,10 +1356,7 @@ function isBatchCreateHostDocumentSharesRequest(value: unknown): value is BatchC
 
 export function readBatchCreateHostDocumentSharesResponse(value: unknown): BatchCreateHostDocumentSharesResponse {
   const normalizedValue = normalizeBatchCreateHostDocumentSharesResponseIntegerJson(value);
-  if (!(isBatchCreateHostDocumentSharesResponse(normalizedValue))) {
-    throw new Error('client.invalid_batch_create_host_document_shares_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchCreateHostDocumentSharesResponse(normalizedValue), 'batch_create_host_document_shares_response') as BatchCreateHostDocumentSharesResponse;
 }
 
 function isBatchCreateHostDocumentSharesResponse(value: unknown): value is BatchCreateHostDocumentSharesResponse {
@@ -1587,10 +1364,7 @@ function isBatchCreateHostDocumentSharesResponse(value: unknown): value is Batch
 }
 
 export function readBatchDeleteConfigEntriesRequest(value: unknown): BatchDeleteConfigEntriesRequest {
-  if (!(isBatchDeleteConfigEntriesRequest(value))) {
-    throw new Error('client.invalid_batch_delete_config_entries_request');
-  }
-  return value;
+  return requireValidResponse(value, isBatchDeleteConfigEntriesRequest(value), 'batch_delete_config_entries_request') as BatchDeleteConfigEntriesRequest;
 }
 
 function isBatchDeleteConfigEntriesRequest(value: unknown): value is BatchDeleteConfigEntriesRequest {
@@ -1598,10 +1372,7 @@ function isBatchDeleteConfigEntriesRequest(value: unknown): value is BatchDelete
 }
 
 export function readBatchDeleteHostFileItem(value: unknown): BatchDeleteHostFileItem {
-  if (!(isBatchDeleteHostFileItem(value))) {
-    throw new Error('client.invalid_batch_delete_host_file_item');
-  }
-  return value;
+  return requireValidResponse(value, isBatchDeleteHostFileItem(value), 'batch_delete_host_file_item') as BatchDeleteHostFileItem;
 }
 
 function isBatchDeleteHostFileItem(value: unknown): value is BatchDeleteHostFileItem {
@@ -1609,10 +1380,7 @@ function isBatchDeleteHostFileItem(value: unknown): value is BatchDeleteHostFile
 }
 
 export function readBatchDeleteHostFilesRequest(value: unknown): BatchDeleteHostFilesRequest {
-  if (!(isBatchDeleteHostFilesRequest(value))) {
-    throw new Error('client.invalid_batch_delete_host_files_request');
-  }
-  return value;
+  return requireValidResponse(value, isBatchDeleteHostFilesRequest(value), 'batch_delete_host_files_request') as BatchDeleteHostFilesRequest;
 }
 
 function isBatchDeleteHostFilesRequest(value: unknown): value is BatchDeleteHostFilesRequest {
@@ -1621,10 +1389,7 @@ function isBatchDeleteHostFilesRequest(value: unknown): value is BatchDeleteHost
 
 export function readBatchDeleteHostFilesResponse(value: unknown): BatchDeleteHostFilesResponse {
   const normalizedValue = normalizeBatchDeleteHostFilesResponseIntegerJson(value);
-  if (!(isBatchDeleteHostFilesResponse(normalizedValue))) {
-    throw new Error('client.invalid_batch_delete_host_files_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchDeleteHostFilesResponse(normalizedValue), 'batch_delete_host_files_response') as BatchDeleteHostFilesResponse;
 }
 
 function isBatchDeleteHostFilesResponse(value: unknown): value is BatchDeleteHostFilesResponse {
@@ -1632,10 +1397,7 @@ function isBatchDeleteHostFilesResponse(value: unknown): value is BatchDeleteHos
 }
 
 export function readBatchHostUserIdsRequest(value: unknown): BatchHostUserIdsRequest {
-  if (!(isBatchHostUserIdsRequest(value))) {
-    throw new Error('client.invalid_batch_host_user_ids_request');
-  }
-  return value;
+  return requireValidResponse(value, isBatchHostUserIdsRequest(value), 'batch_host_user_ids_request') as BatchHostUserIdsRequest;
 }
 
 function isBatchHostUserIdsRequest(value: unknown): value is BatchHostUserIdsRequest {
@@ -1643,10 +1405,7 @@ function isBatchHostUserIdsRequest(value: unknown): value is BatchHostUserIdsReq
 }
 
 export function readBatchHostUserStatusItem(value: unknown): BatchHostUserStatusItem {
-  if (!(isBatchHostUserStatusItem(value))) {
-    throw new Error('client.invalid_batch_host_user_status_item');
-  }
-  return value;
+  return requireValidResponse(value, isBatchHostUserStatusItem(value), 'batch_host_user_status_item') as BatchHostUserStatusItem;
 }
 
 function isBatchHostUserStatusItem(value: unknown): value is BatchHostUserStatusItem {
@@ -1655,10 +1414,7 @@ function isBatchHostUserStatusItem(value: unknown): value is BatchHostUserStatus
 
 export function readBatchHostUserStatusResponse(value: unknown): BatchHostUserStatusResponse {
   const normalizedValue = normalizeBatchHostUserStatusResponseIntegerJson(value);
-  if (!(isBatchHostUserStatusResponse(normalizedValue))) {
-    throw new Error('client.invalid_batch_host_user_status_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchHostUserStatusResponse(normalizedValue), 'batch_host_user_status_response') as BatchHostUserStatusResponse;
 }
 
 function isBatchHostUserStatusResponse(value: unknown): value is BatchHostUserStatusResponse {
@@ -1666,10 +1422,7 @@ function isBatchHostUserStatusResponse(value: unknown): value is BatchHostUserSt
 }
 
 export function readBatchUpdateConfigValuesRequest(value: unknown): BatchUpdateConfigValuesRequest {
-  if (!(isBatchUpdateConfigValuesRequest(value))) {
-    throw new Error('client.invalid_batch_update_config_values_request');
-  }
-  return value;
+  return requireValidResponse(value, isBatchUpdateConfigValuesRequest(value), 'batch_update_config_values_request') as BatchUpdateConfigValuesRequest;
 }
 
 function isBatchUpdateConfigValuesRequest(value: unknown): value is BatchUpdateConfigValuesRequest {
@@ -1678,10 +1431,7 @@ function isBatchUpdateConfigValuesRequest(value: unknown): value is BatchUpdateC
 
 export function readBatchUploadHostFileItem(value: unknown): BatchUploadHostFileItem {
   const normalizedValue = normalizeBatchUploadHostFileItemIntegerJson(value);
-  if (!(isBatchUploadHostFileItem(normalizedValue))) {
-    throw new Error('client.invalid_batch_upload_host_file_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchUploadHostFileItem(normalizedValue), 'batch_upload_host_file_item') as BatchUploadHostFileItem;
 }
 
 function isBatchUploadHostFileItem(value: unknown): value is BatchUploadHostFileItem {
@@ -1690,10 +1440,7 @@ function isBatchUploadHostFileItem(value: unknown): value is BatchUploadHostFile
 
 export function readBatchUploadHostFilesResponse(value: unknown): BatchUploadHostFilesResponse {
   const normalizedValue = normalizeBatchUploadHostFilesResponseIntegerJson(value);
-  if (!(isBatchUploadHostFilesResponse(normalizedValue))) {
-    throw new Error('client.invalid_batch_upload_host_files_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isBatchUploadHostFilesResponse(normalizedValue), 'batch_upload_host_files_response') as BatchUploadHostFilesResponse;
 }
 
 function isBatchUploadHostFilesResponse(value: unknown): value is BatchUploadHostFilesResponse {
@@ -1701,10 +1448,7 @@ function isBatchUploadHostFilesResponse(value: unknown): value is BatchUploadHos
 }
 
 export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnrollmentResponse {
-  if (!(isBeginTotpEnrollmentResponse(value))) {
-    throw new Error('client.invalid_begin_totp_enrollment_response');
-  }
-  return value;
+  return requireValidResponse(value, isBeginTotpEnrollmentResponse(value), 'begin_totp_enrollment_response') as BeginTotpEnrollmentResponse;
 }
 
 function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
@@ -1712,10 +1456,7 @@ function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnroll
 }
 
 export function readCacheInvalidationOperationSummary(value: unknown): CacheInvalidationOperationSummary {
-  if (!(isCacheInvalidationOperationSummary(value))) {
-    throw new Error('client.invalid_cache_invalidation_operation_summary');
-  }
-  return value;
+  return requireValidResponse(value, isCacheInvalidationOperationSummary(value), 'cache_invalidation_operation_summary') as CacheInvalidationOperationSummary;
 }
 
 function isCacheInvalidationOperationSummary(value: unknown): value is CacheInvalidationOperationSummary {
@@ -1723,10 +1464,7 @@ function isCacheInvalidationOperationSummary(value: unknown): value is CacheInva
 }
 
 export function readCacheInvalidationParameterSummary(value: unknown): CacheInvalidationParameterSummary {
-  if (!(isCacheInvalidationParameterSummary(value))) {
-    throw new Error('client.invalid_cache_invalidation_parameter_summary');
-  }
-  return value;
+  return requireValidResponse(value, isCacheInvalidationParameterSummary(value), 'cache_invalidation_parameter_summary') as CacheInvalidationParameterSummary;
 }
 
 function isCacheInvalidationParameterSummary(value: unknown): value is CacheInvalidationParameterSummary {
@@ -1734,10 +1472,7 @@ function isCacheInvalidationParameterSummary(value: unknown): value is CacheInva
 }
 
 export function readCacheInvalidationRequest(value: unknown): CacheInvalidationRequest {
-  if (!(isCacheInvalidationRequest(value))) {
-    throw new Error('client.invalid_cache_invalidation_request');
-  }
-  return value;
+  return requireValidResponse(value, isCacheInvalidationRequest(value), 'cache_invalidation_request') as CacheInvalidationRequest;
 }
 
 function isCacheInvalidationRequest(value: unknown): value is CacheInvalidationRequest {
@@ -1745,10 +1480,7 @@ function isCacheInvalidationRequest(value: unknown): value is CacheInvalidationR
 }
 
 export function readCacheInvalidationResult(value: unknown): CacheInvalidationResult {
-  if (!(isCacheInvalidationResult(value))) {
-    throw new Error('client.invalid_cache_invalidation_result');
-  }
-  return value;
+  return requireValidResponse(value, isCacheInvalidationResult(value), 'cache_invalidation_result') as CacheInvalidationResult;
 }
 
 function isCacheInvalidationResult(value: unknown): value is CacheInvalidationResult {
@@ -1757,10 +1489,7 @@ function isCacheInvalidationResult(value: unknown): value is CacheInvalidationRe
 
 export function readCachePolicySummary(value: unknown): CachePolicySummary {
   const normalizedValue = normalizeCachePolicySummaryIntegerJson(value);
-  if (!(isCachePolicySummary(normalizedValue))) {
-    throw new Error('client.invalid_cache_policy_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCachePolicySummary(normalizedValue), 'cache_policy_summary') as CachePolicySummary;
 }
 
 function isCachePolicySummary(value: unknown): value is CachePolicySummary {
@@ -1768,10 +1497,7 @@ function isCachePolicySummary(value: unknown): value is CachePolicySummary {
 }
 
 export function readCancelDataApprovalRequestBody(value: unknown): CancelDataApprovalRequestBody {
-  if (!(isCancelDataApprovalRequestBody(value))) {
-    throw new Error('client.invalid_cancel_data_approval_request_body');
-  }
-  return value;
+  return requireValidResponse(value, isCancelDataApprovalRequestBody(value), 'cancel_data_approval_request_body') as CancelDataApprovalRequestBody;
 }
 
 function isCancelDataApprovalRequestBody(value: unknown): value is CancelDataApprovalRequestBody {
@@ -1780,10 +1506,7 @@ function isCancelDataApprovalRequestBody(value: unknown): value is CancelDataApp
 
 export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflowInstanceRequest {
   const normalizedValue = normalizeCancelWorkflowInstanceRequestIntegerJson(value);
-  if (!(isCancelWorkflowInstanceRequest(normalizedValue))) {
-    throw new Error('client.invalid_cancel_workflow_instance_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCancelWorkflowInstanceRequest(normalizedValue), 'cancel_workflow_instance_request') as CancelWorkflowInstanceRequest;
 }
 
 function isCancelWorkflowInstanceRequest(value: unknown): value is CancelWorkflowInstanceRequest {
@@ -1792,10 +1515,7 @@ function isCancelWorkflowInstanceRequest(value: unknown): value is CancelWorkflo
 
 export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {
   const normalizedValue = normalizeChangeHostJobScheduleStateRequestIntegerJson(value);
-  if (!(isChangeHostJobScheduleStateRequest(normalizedValue))) {
-    throw new Error('client.invalid_change_host_job_schedule_state_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isChangeHostJobScheduleStateRequest(normalizedValue), 'change_host_job_schedule_state_request') as ChangeHostJobScheduleStateRequest;
 }
 
 function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHostJobScheduleStateRequest {
@@ -1803,10 +1523,7 @@ function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHos
 }
 
 export function readChangePasswordRequest(value: unknown): ChangePasswordRequest {
-  if (!(isChangePasswordRequest(value))) {
-    throw new Error('client.invalid_change_password_request');
-  }
-  return value;
+  return requireValidResponse(value, isChangePasswordRequest(value), 'change_password_request') as ChangePasswordRequest;
 }
 
 function isChangePasswordRequest(value: unknown): value is ChangePasswordRequest {
@@ -1815,10 +1532,7 @@ function isChangePasswordRequest(value: unknown): value is ChangePasswordRequest
 
 export function readChangePersonalScheduleRequest(value: unknown): ChangePersonalScheduleRequest {
   const normalizedValue = normalizeChangePersonalScheduleRequestIntegerJson(value);
-  if (!(isChangePersonalScheduleRequest(normalizedValue))) {
-    throw new Error('client.invalid_change_personal_schedule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isChangePersonalScheduleRequest(normalizedValue), 'change_personal_schedule_request') as ChangePersonalScheduleRequest;
 }
 
 function isChangePersonalScheduleRequest(value: unknown): value is ChangePersonalScheduleRequest {
@@ -1827,10 +1541,7 @@ function isChangePersonalScheduleRequest(value: unknown): value is ChangePersona
 
 export function readChangeSerialNumberRuleStatusRequest(value: unknown): ChangeSerialNumberRuleStatusRequest {
   const normalizedValue = normalizeChangeSerialNumberRuleStatusRequestIntegerJson(value);
-  if (!(isChangeSerialNumberRuleStatusRequest(normalizedValue))) {
-    throw new Error('client.invalid_change_serial_number_rule_status_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isChangeSerialNumberRuleStatusRequest(normalizedValue), 'change_serial_number_rule_status_request') as ChangeSerialNumberRuleStatusRequest;
 }
 
 function isChangeSerialNumberRuleStatusRequest(value: unknown): value is ChangeSerialNumberRuleStatusRequest {
@@ -1839,10 +1550,7 @@ function isChangeSerialNumberRuleStatusRequest(value: unknown): value is ChangeS
 
 export function readCodeGenerationCatalogColumnListResponse(value: unknown): CodeGenerationCatalogColumnListResponse {
   const normalizedValue = normalizeCodeGenerationCatalogColumnListResponseIntegerJson(value);
-  if (!(isCodeGenerationCatalogColumnListResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_catalog_column_list_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationCatalogColumnListResponse(normalizedValue), 'code_generation_catalog_column_list_response') as CodeGenerationCatalogColumnListResponse;
 }
 
 function isCodeGenerationCatalogColumnListResponse(value: unknown): value is CodeGenerationCatalogColumnListResponse {
@@ -1851,10 +1559,7 @@ function isCodeGenerationCatalogColumnListResponse(value: unknown): value is Cod
 
 export function readCodeGenerationCatalogColumnSyncRequest(value: unknown): CodeGenerationCatalogColumnSyncRequest {
   const normalizedValue = normalizeCodeGenerationCatalogColumnSyncRequestIntegerJson(value);
-  if (!(isCodeGenerationCatalogColumnSyncRequest(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_catalog_column_sync_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationCatalogColumnSyncRequest(normalizedValue), 'code_generation_catalog_column_sync_request') as CodeGenerationCatalogColumnSyncRequest;
 }
 
 function isCodeGenerationCatalogColumnSyncRequest(value: unknown): value is CodeGenerationCatalogColumnSyncRequest {
@@ -1863,10 +1568,7 @@ function isCodeGenerationCatalogColumnSyncRequest(value: unknown): value is Code
 
 export function readCodeGenerationCatalogColumnSyncResponse(value: unknown): CodeGenerationCatalogColumnSyncResponse {
   const normalizedValue = normalizeCodeGenerationCatalogColumnSyncResponseIntegerJson(value);
-  if (!(isCodeGenerationCatalogColumnSyncResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_catalog_column_sync_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationCatalogColumnSyncResponse(normalizedValue), 'code_generation_catalog_column_sync_response') as CodeGenerationCatalogColumnSyncResponse;
 }
 
 function isCodeGenerationCatalogColumnSyncResponse(value: unknown): value is CodeGenerationCatalogColumnSyncResponse {
@@ -1875,10 +1577,7 @@ function isCodeGenerationCatalogColumnSyncResponse(value: unknown): value is Cod
 
 export function readCodeGenerationCatalogMetadataColumnResponse(value: unknown): CodeGenerationCatalogMetadataColumnResponse {
   const normalizedValue = normalizeCodeGenerationCatalogMetadataColumnResponseIntegerJson(value);
-  if (!(isCodeGenerationCatalogMetadataColumnResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_catalog_metadata_column_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationCatalogMetadataColumnResponse(normalizedValue), 'code_generation_catalog_metadata_column_response') as CodeGenerationCatalogMetadataColumnResponse;
 }
 
 function isCodeGenerationCatalogMetadataColumnResponse(value: unknown): value is CodeGenerationCatalogMetadataColumnResponse {
@@ -1887,10 +1586,7 @@ function isCodeGenerationCatalogMetadataColumnResponse(value: unknown): value is
 
 export function readCodeGenerationCatalogMetadataResponse(value: unknown): CodeGenerationCatalogMetadataResponse {
   const normalizedValue = normalizeCodeGenerationCatalogMetadataResponseIntegerJson(value);
-  if (!(isCodeGenerationCatalogMetadataResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_catalog_metadata_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationCatalogMetadataResponse(normalizedValue), 'code_generation_catalog_metadata_response') as CodeGenerationCatalogMetadataResponse;
 }
 
 function isCodeGenerationCatalogMetadataResponse(value: unknown): value is CodeGenerationCatalogMetadataResponse {
@@ -1898,10 +1594,7 @@ function isCodeGenerationCatalogMetadataResponse(value: unknown): value is CodeG
 }
 
 export function readCodeGenerationCatalogMigrationDraftRequest(value: unknown): CodeGenerationCatalogMigrationDraftRequest {
-  if (!(isCodeGenerationCatalogMigrationDraftRequest(value))) {
-    throw new Error('client.invalid_code_generation_catalog_migration_draft_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationCatalogMigrationDraftRequest(value), 'code_generation_catalog_migration_draft_request') as CodeGenerationCatalogMigrationDraftRequest;
 }
 
 function isCodeGenerationCatalogMigrationDraftRequest(value: unknown): value is CodeGenerationCatalogMigrationDraftRequest {
@@ -1909,10 +1602,7 @@ function isCodeGenerationCatalogMigrationDraftRequest(value: unknown): value is 
 }
 
 export function readCodeGenerationCatalogMigrationDraftResponse(value: unknown): CodeGenerationCatalogMigrationDraftResponse {
-  if (!(isCodeGenerationCatalogMigrationDraftResponse(value))) {
-    throw new Error('client.invalid_code_generation_catalog_migration_draft_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationCatalogMigrationDraftResponse(value), 'code_generation_catalog_migration_draft_response') as CodeGenerationCatalogMigrationDraftResponse;
 }
 
 function isCodeGenerationCatalogMigrationDraftResponse(value: unknown): value is CodeGenerationCatalogMigrationDraftResponse {
@@ -1920,10 +1610,7 @@ function isCodeGenerationCatalogMigrationDraftResponse(value: unknown): value is
 }
 
 export function readCodeGenerationCatalogObjectResponse(value: unknown): CodeGenerationCatalogObjectResponse {
-  if (!(isCodeGenerationCatalogObjectResponse(value))) {
-    throw new Error('client.invalid_code_generation_catalog_object_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationCatalogObjectResponse(value), 'code_generation_catalog_object_response') as CodeGenerationCatalogObjectResponse;
 }
 
 function isCodeGenerationCatalogObjectResponse(value: unknown): value is CodeGenerationCatalogObjectResponse {
@@ -1931,10 +1618,7 @@ function isCodeGenerationCatalogObjectResponse(value: unknown): value is CodeGen
 }
 
 export function readCodeGenerationCatalogTableResponse(value: unknown): CodeGenerationCatalogTableResponse {
-  if (!(isCodeGenerationCatalogTableResponse(value))) {
-    throw new Error('client.invalid_code_generation_catalog_table_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationCatalogTableResponse(value), 'code_generation_catalog_table_response') as CodeGenerationCatalogTableResponse;
 }
 
 function isCodeGenerationCatalogTableResponse(value: unknown): value is CodeGenerationCatalogTableResponse {
@@ -1942,10 +1626,7 @@ function isCodeGenerationCatalogTableResponse(value: unknown): value is CodeGene
 }
 
 export function readCodeGenerationClientRouteTargetRequest(value: unknown): CodeGenerationClientRouteTargetRequest {
-  if (!(isCodeGenerationClientRouteTargetRequest(value))) {
-    throw new Error('client.invalid_code_generation_client_route_target_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationClientRouteTargetRequest(value), 'code_generation_client_route_target_request') as CodeGenerationClientRouteTargetRequest;
 }
 
 function isCodeGenerationClientRouteTargetRequest(value: unknown): value is CodeGenerationClientRouteTargetRequest {
@@ -1953,10 +1634,7 @@ function isCodeGenerationClientRouteTargetRequest(value: unknown): value is Code
 }
 
 export function readCodeGenerationEntityCapabilitiesRequest(value: unknown): CodeGenerationEntityCapabilitiesRequest {
-  if (!(isCodeGenerationEntityCapabilitiesRequest(value))) {
-    throw new Error('client.invalid_code_generation_entity_capabilities_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationEntityCapabilitiesRequest(value), 'code_generation_entity_capabilities_request') as CodeGenerationEntityCapabilitiesRequest;
 }
 
 function isCodeGenerationEntityCapabilitiesRequest(value: unknown): value is CodeGenerationEntityCapabilitiesRequest {
@@ -1964,10 +1642,7 @@ function isCodeGenerationEntityCapabilitiesRequest(value: unknown): value is Cod
 }
 
 export function readCodeGenerationIntegrationTargetRequest(value: unknown): CodeGenerationIntegrationTargetRequest {
-  if (!(isCodeGenerationIntegrationTargetRequest(value))) {
-    throw new Error('client.invalid_code_generation_integration_target_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationIntegrationTargetRequest(value), 'code_generation_integration_target_request') as CodeGenerationIntegrationTargetRequest;
 }
 
 function isCodeGenerationIntegrationTargetRequest(value: unknown): value is CodeGenerationIntegrationTargetRequest {
@@ -1975,10 +1650,7 @@ function isCodeGenerationIntegrationTargetRequest(value: unknown): value is Code
 }
 
 export function readCodeGenerationPreviewArtifactResponse(value: unknown): CodeGenerationPreviewArtifactResponse {
-  if (!(isCodeGenerationPreviewArtifactResponse(value))) {
-    throw new Error('client.invalid_code_generation_preview_artifact_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationPreviewArtifactResponse(value), 'code_generation_preview_artifact_response') as CodeGenerationPreviewArtifactResponse;
 }
 
 function isCodeGenerationPreviewArtifactResponse(value: unknown): value is CodeGenerationPreviewArtifactResponse {
@@ -1987,10 +1659,7 @@ function isCodeGenerationPreviewArtifactResponse(value: unknown): value is CodeG
 
 export function readCodeGenerationPreviewColumnRequest(value: unknown): CodeGenerationPreviewColumnRequest {
   const normalizedValue = normalizeCodeGenerationPreviewColumnRequestIntegerJson(value);
-  if (!(isCodeGenerationPreviewColumnRequest(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_preview_column_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationPreviewColumnRequest(normalizedValue), 'code_generation_preview_column_request') as CodeGenerationPreviewColumnRequest;
 }
 
 function isCodeGenerationPreviewColumnRequest(value: unknown): value is CodeGenerationPreviewColumnRequest {
@@ -1998,10 +1667,7 @@ function isCodeGenerationPreviewColumnRequest(value: unknown): value is CodeGene
 }
 
 export function readCodeGenerationPreviewColumnUiRequest(value: unknown): CodeGenerationPreviewColumnUiRequest {
-  if (!(isCodeGenerationPreviewColumnUiRequest(value))) {
-    throw new Error('client.invalid_code_generation_preview_column_ui_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationPreviewColumnUiRequest(value), 'code_generation_preview_column_ui_request') as CodeGenerationPreviewColumnUiRequest;
 }
 
 function isCodeGenerationPreviewColumnUiRequest(value: unknown): value is CodeGenerationPreviewColumnUiRequest {
@@ -2010,10 +1676,7 @@ function isCodeGenerationPreviewColumnUiRequest(value: unknown): value is CodeGe
 
 export function readCodeGenerationPreviewRequest(value: unknown): CodeGenerationPreviewRequest {
   const normalizedValue = normalizeCodeGenerationPreviewRequestIntegerJson(value);
-  if (!(isCodeGenerationPreviewRequest(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_preview_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationPreviewRequest(normalizedValue), 'code_generation_preview_request') as CodeGenerationPreviewRequest;
 }
 
 function isCodeGenerationPreviewRequest(value: unknown): value is CodeGenerationPreviewRequest {
@@ -2021,10 +1684,7 @@ function isCodeGenerationPreviewRequest(value: unknown): value is CodeGeneration
 }
 
 export function readCodeGenerationPreviewResponse(value: unknown): CodeGenerationPreviewResponse {
-  if (!(isCodeGenerationPreviewResponse(value))) {
-    throw new Error('client.invalid_code_generation_preview_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationPreviewResponse(value), 'code_generation_preview_response') as CodeGenerationPreviewResponse;
 }
 
 function isCodeGenerationPreviewResponse(value: unknown): value is CodeGenerationPreviewResponse {
@@ -2032,10 +1692,7 @@ function isCodeGenerationPreviewResponse(value: unknown): value is CodeGeneratio
 }
 
 export function readCodeGenerationRelationshipRequest(value: unknown): CodeGenerationRelationshipRequest {
-  if (!(isCodeGenerationRelationshipRequest(value))) {
-    throw new Error('client.invalid_code_generation_relationship_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationRelationshipRequest(value), 'code_generation_relationship_request') as CodeGenerationRelationshipRequest;
 }
 
 function isCodeGenerationRelationshipRequest(value: unknown): value is CodeGenerationRelationshipRequest {
@@ -2043,10 +1700,7 @@ function isCodeGenerationRelationshipRequest(value: unknown): value is CodeGener
 }
 
 export function readCodeGenerationRunApplyRequest(value: unknown): CodeGenerationRunApplyRequest {
-  if (!(isCodeGenerationRunApplyRequest(value))) {
-    throw new Error('client.invalid_code_generation_run_apply_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationRunApplyRequest(value), 'code_generation_run_apply_request') as CodeGenerationRunApplyRequest;
 }
 
 function isCodeGenerationRunApplyRequest(value: unknown): value is CodeGenerationRunApplyRequest {
@@ -2055,10 +1709,7 @@ function isCodeGenerationRunApplyRequest(value: unknown): value is CodeGeneratio
 
 export function readCodeGenerationRunApplyResponse(value: unknown): CodeGenerationRunApplyResponse {
   const normalizedValue = normalizeCodeGenerationRunApplyResponseIntegerJson(value);
-  if (!(isCodeGenerationRunApplyResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_run_apply_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationRunApplyResponse(normalizedValue), 'code_generation_run_apply_response') as CodeGenerationRunApplyResponse;
 }
 
 function isCodeGenerationRunApplyResponse(value: unknown): value is CodeGenerationRunApplyResponse {
@@ -2067,10 +1718,7 @@ function isCodeGenerationRunApplyResponse(value: unknown): value is CodeGenerati
 
 export function readCodeGenerationRunPreviewRequest(value: unknown): CodeGenerationRunPreviewRequest {
   const normalizedValue = normalizeCodeGenerationRunPreviewRequestIntegerJson(value);
-  if (!(isCodeGenerationRunPreviewRequest(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_run_preview_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationRunPreviewRequest(normalizedValue), 'code_generation_run_preview_request') as CodeGenerationRunPreviewRequest;
 }
 
 function isCodeGenerationRunPreviewRequest(value: unknown): value is CodeGenerationRunPreviewRequest {
@@ -2078,10 +1726,7 @@ function isCodeGenerationRunPreviewRequest(value: unknown): value is CodeGenerat
 }
 
 export function readCodeGenerationRunPreviewResponse(value: unknown): CodeGenerationRunPreviewResponse {
-  if (!(isCodeGenerationRunPreviewResponse(value))) {
-    throw new Error('client.invalid_code_generation_run_preview_response');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationRunPreviewResponse(value), 'code_generation_run_preview_response') as CodeGenerationRunPreviewResponse;
 }
 
 function isCodeGenerationRunPreviewResponse(value: unknown): value is CodeGenerationRunPreviewResponse {
@@ -2090,10 +1735,7 @@ function isCodeGenerationRunPreviewResponse(value: unknown): value is CodeGenera
 
 export function readCodeGenerationRunResponse(value: unknown): CodeGenerationRunResponse {
   const normalizedValue = normalizeCodeGenerationRunResponseIntegerJson(value);
-  if (!(isCodeGenerationRunResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_run_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationRunResponse(normalizedValue), 'code_generation_run_response') as CodeGenerationRunResponse;
 }
 
 function isCodeGenerationRunResponse(value: unknown): value is CodeGenerationRunResponse {
@@ -2101,10 +1743,7 @@ function isCodeGenerationRunResponse(value: unknown): value is CodeGenerationRun
 }
 
 export function readCodeGenerationRunRollbackChainRequest(value: unknown): CodeGenerationRunRollbackChainRequest {
-  if (!(isCodeGenerationRunRollbackChainRequest(value))) {
-    throw new Error('client.invalid_code_generation_run_rollback_chain_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationRunRollbackChainRequest(value), 'code_generation_run_rollback_chain_request') as CodeGenerationRunRollbackChainRequest;
 }
 
 function isCodeGenerationRunRollbackChainRequest(value: unknown): value is CodeGenerationRunRollbackChainRequest {
@@ -2113,10 +1752,7 @@ function isCodeGenerationRunRollbackChainRequest(value: unknown): value is CodeG
 
 export function readCodeGenerationRunRollbackChainResponse(value: unknown): CodeGenerationRunRollbackChainResponse {
   const normalizedValue = normalizeCodeGenerationRunRollbackChainResponseIntegerJson(value);
-  if (!(isCodeGenerationRunRollbackChainResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_run_rollback_chain_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationRunRollbackChainResponse(normalizedValue), 'code_generation_run_rollback_chain_response') as CodeGenerationRunRollbackChainResponse;
 }
 
 function isCodeGenerationRunRollbackChainResponse(value: unknown): value is CodeGenerationRunRollbackChainResponse {
@@ -2124,10 +1760,7 @@ function isCodeGenerationRunRollbackChainResponse(value: unknown): value is Code
 }
 
 export function readCodeGenerationRunRollbackRequest(value: unknown): CodeGenerationRunRollbackRequest {
-  if (!(isCodeGenerationRunRollbackRequest(value))) {
-    throw new Error('client.invalid_code_generation_run_rollback_request');
-  }
-  return value;
+  return requireValidResponse(value, isCodeGenerationRunRollbackRequest(value), 'code_generation_run_rollback_request') as CodeGenerationRunRollbackRequest;
 }
 
 function isCodeGenerationRunRollbackRequest(value: unknown): value is CodeGenerationRunRollbackRequest {
@@ -2136,10 +1769,7 @@ function isCodeGenerationRunRollbackRequest(value: unknown): value is CodeGenera
 
 export function readCodeGenerationRunRollbackResponse(value: unknown): CodeGenerationRunRollbackResponse {
   const normalizedValue = normalizeCodeGenerationRunRollbackResponseIntegerJson(value);
-  if (!(isCodeGenerationRunRollbackResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_run_rollback_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationRunRollbackResponse(normalizedValue), 'code_generation_run_rollback_response') as CodeGenerationRunRollbackResponse;
 }
 
 function isCodeGenerationRunRollbackResponse(value: unknown): value is CodeGenerationRunRollbackResponse {
@@ -2148,10 +1778,7 @@ function isCodeGenerationRunRollbackResponse(value: unknown): value is CodeGener
 
 export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerationTemplateResponse {
   const normalizedValue = normalizeCodeGenerationTemplateResponseIntegerJson(value);
-  if (!(isCodeGenerationTemplateResponse(normalizedValue))) {
-    throw new Error('client.invalid_code_generation_template_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCodeGenerationTemplateResponse(normalizedValue), 'code_generation_template_response') as CodeGenerationTemplateResponse;
 }
 
 function isCodeGenerationTemplateResponse(value: unknown): value is CodeGenerationTemplateResponse {
@@ -2160,10 +1787,7 @@ function isCodeGenerationTemplateResponse(value: unknown): value is CodeGenerati
 
 export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
   const normalizedValue = normalizeConfigEntryResponseIntegerJson(value);
-  if (!(isConfigEntryResponse(normalizedValue))) {
-    throw new Error('client.invalid_config_entry_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isConfigEntryResponse(normalizedValue), 'config_entry_response') as ConfigEntryResponse;
 }
 
 function isConfigEntryResponse(value: unknown): value is ConfigEntryResponse {
@@ -2171,10 +1795,7 @@ function isConfigEntryResponse(value: unknown): value is ConfigEntryResponse {
 }
 
 export function readConfigValueUpdate(value: unknown): ConfigValueUpdate {
-  if (!(isConfigValueUpdate(value))) {
-    throw new Error('client.invalid_config_value_update');
-  }
-  return value;
+  return requireValidResponse(value, isConfigValueUpdate(value), 'config_value_update') as ConfigValueUpdate;
 }
 
 function isConfigValueUpdate(value: unknown): value is ConfigValueUpdate {
@@ -2183,10 +1804,7 @@ function isConfigValueUpdate(value: unknown): value is ConfigValueUpdate {
 
 export function readConfirmOcrIdCardTaskRequest(value: unknown): ConfirmOcrIdCardTaskRequest {
   const normalizedValue = normalizeConfirmOcrIdCardTaskRequestIntegerJson(value);
-  if (!(isConfirmOcrIdCardTaskRequest(normalizedValue))) {
-    throw new Error('client.invalid_confirm_ocr_id_card_task_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isConfirmOcrIdCardTaskRequest(normalizedValue), 'confirm_ocr_id_card_task_request') as ConfirmOcrIdCardTaskRequest;
 }
 
 function isConfirmOcrIdCardTaskRequest(value: unknown): value is ConfirmOcrIdCardTaskRequest {
@@ -2194,10 +1812,7 @@ function isConfirmOcrIdCardTaskRequest(value: unknown): value is ConfirmOcrIdCar
 }
 
 export function readConfirmTotpEnrollmentRequest(value: unknown): ConfirmTotpEnrollmentRequest {
-  if (!(isConfirmTotpEnrollmentRequest(value))) {
-    throw new Error('client.invalid_confirm_totp_enrollment_request');
-  }
-  return value;
+  return requireValidResponse(value, isConfirmTotpEnrollmentRequest(value), 'confirm_totp_enrollment_request') as ConfirmTotpEnrollmentRequest;
 }
 
 function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnrollmentRequest {
@@ -2205,10 +1820,7 @@ function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnr
 }
 
 export function readCopyHostRoleRequest(value: unknown): CopyHostRoleRequest {
-  if (!(isCopyHostRoleRequest(value))) {
-    throw new Error('client.invalid_copy_host_role_request');
-  }
-  return value;
+  return requireValidResponse(value, isCopyHostRoleRequest(value), 'copy_host_role_request') as CopyHostRoleRequest;
 }
 
 function isCopyHostRoleRequest(value: unknown): value is CopyHostRoleRequest {
@@ -2217,10 +1829,7 @@ function isCopyHostRoleRequest(value: unknown): value is CopyHostRoleRequest {
 
 export function readCreateAdministrativeRegionRequest(value: unknown): CreateAdministrativeRegionRequest {
   const normalizedValue = normalizeCreateAdministrativeRegionRequestIntegerJson(value);
-  if (!(isCreateAdministrativeRegionRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_administrative_region_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateAdministrativeRegionRequest(normalizedValue), 'create_administrative_region_request') as CreateAdministrativeRegionRequest;
 }
 
 function isCreateAdministrativeRegionRequest(value: unknown): value is CreateAdministrativeRegionRequest {
@@ -2229,10 +1838,7 @@ function isCreateAdministrativeRegionRequest(value: unknown): value is CreateAdm
 
 export function readCreateAiAgentApprovalRequest(value: unknown): CreateAiAgentApprovalRequest {
   const normalizedValue = normalizeCreateAiAgentApprovalRequestIntegerJson(value);
-  if (!(isCreateAiAgentApprovalRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_ai_agent_approval_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateAiAgentApprovalRequest(normalizedValue), 'create_ai_agent_approval_request') as CreateAiAgentApprovalRequest;
 }
 
 function isCreateAiAgentApprovalRequest(value: unknown): value is CreateAiAgentApprovalRequest {
@@ -2240,10 +1846,7 @@ function isCreateAiAgentApprovalRequest(value: unknown): value is CreateAiAgentA
 }
 
 export function readCreateAiAgentApprovalResponse(value: unknown): CreateAiAgentApprovalResponse {
-  if (!(isCreateAiAgentApprovalResponse(value))) {
-    throw new Error('client.invalid_create_ai_agent_approval_response');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiAgentApprovalResponse(value), 'create_ai_agent_approval_response') as CreateAiAgentApprovalResponse;
 }
 
 function isCreateAiAgentApprovalResponse(value: unknown): value is CreateAiAgentApprovalResponse {
@@ -2251,10 +1854,7 @@ function isCreateAiAgentApprovalResponse(value: unknown): value is CreateAiAgent
 }
 
 export function readCreateAiAgentDelegationRequest(value: unknown): CreateAiAgentDelegationRequest {
-  if (!(isCreateAiAgentDelegationRequest(value))) {
-    throw new Error('client.invalid_create_ai_agent_delegation_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiAgentDelegationRequest(value), 'create_ai_agent_delegation_request') as CreateAiAgentDelegationRequest;
 }
 
 function isCreateAiAgentDelegationRequest(value: unknown): value is CreateAiAgentDelegationRequest {
@@ -2262,10 +1862,7 @@ function isCreateAiAgentDelegationRequest(value: unknown): value is CreateAiAgen
 }
 
 export function readCreateAiAgentDelegationResponse(value: unknown): CreateAiAgentDelegationResponse {
-  if (!(isCreateAiAgentDelegationResponse(value))) {
-    throw new Error('client.invalid_create_ai_agent_delegation_response');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiAgentDelegationResponse(value), 'create_ai_agent_delegation_response') as CreateAiAgentDelegationResponse;
 }
 
 function isCreateAiAgentDelegationResponse(value: unknown): value is CreateAiAgentDelegationResponse {
@@ -2274,10 +1871,7 @@ function isCreateAiAgentDelegationResponse(value: unknown): value is CreateAiAge
 
 export function readCreateAiAgentRunRequest(value: unknown): CreateAiAgentRunRequest {
   const normalizedValue = normalizeCreateAiAgentRunRequestIntegerJson(value);
-  if (!(isCreateAiAgentRunRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_ai_agent_run_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateAiAgentRunRequest(normalizedValue), 'create_ai_agent_run_request') as CreateAiAgentRunRequest;
 }
 
 function isCreateAiAgentRunRequest(value: unknown): value is CreateAiAgentRunRequest {
@@ -2285,10 +1879,7 @@ function isCreateAiAgentRunRequest(value: unknown): value is CreateAiAgentRunReq
 }
 
 export function readCreateAiAgentRunResponse(value: unknown): CreateAiAgentRunResponse {
-  if (!(isCreateAiAgentRunResponse(value))) {
-    throw new Error('client.invalid_create_ai_agent_run_response');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiAgentRunResponse(value), 'create_ai_agent_run_response') as CreateAiAgentRunResponse;
 }
 
 function isCreateAiAgentRunResponse(value: unknown): value is CreateAiAgentRunResponse {
@@ -2296,10 +1887,7 @@ function isCreateAiAgentRunResponse(value: unknown): value is CreateAiAgentRunRe
 }
 
 export function readCreateAiChatSessionRequest(value: unknown): CreateAiChatSessionRequest {
-  if (!(isCreateAiChatSessionRequest(value))) {
-    throw new Error('client.invalid_create_ai_chat_session_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiChatSessionRequest(value), 'create_ai_chat_session_request') as CreateAiChatSessionRequest;
 }
 
 function isCreateAiChatSessionRequest(value: unknown): value is CreateAiChatSessionRequest {
@@ -2307,10 +1895,7 @@ function isCreateAiChatSessionRequest(value: unknown): value is CreateAiChatSess
 }
 
 export function readCreateAiKnowledgeBaseRequest(value: unknown): CreateAiKnowledgeBaseRequest {
-  if (!(isCreateAiKnowledgeBaseRequest(value))) {
-    throw new Error('client.invalid_create_ai_knowledge_base_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiKnowledgeBaseRequest(value), 'create_ai_knowledge_base_request') as CreateAiKnowledgeBaseRequest;
 }
 
 function isCreateAiKnowledgeBaseRequest(value: unknown): value is CreateAiKnowledgeBaseRequest {
@@ -2318,10 +1903,7 @@ function isCreateAiKnowledgeBaseRequest(value: unknown): value is CreateAiKnowle
 }
 
 export function readCreateAiKnowledgeDocumentRequest(value: unknown): CreateAiKnowledgeDocumentRequest {
-  if (!(isCreateAiKnowledgeDocumentRequest(value))) {
-    throw new Error('client.invalid_create_ai_knowledge_document_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiKnowledgeDocumentRequest(value), 'create_ai_knowledge_document_request') as CreateAiKnowledgeDocumentRequest;
 }
 
 function isCreateAiKnowledgeDocumentRequest(value: unknown): value is CreateAiKnowledgeDocumentRequest {
@@ -2330,10 +1912,7 @@ function isCreateAiKnowledgeDocumentRequest(value: unknown): value is CreateAiKn
 
 export function readCreateAiKnowledgeIndexGrantRequest(value: unknown): CreateAiKnowledgeIndexGrantRequest {
   const normalizedValue = normalizeCreateAiKnowledgeIndexGrantRequestIntegerJson(value);
-  if (!(isCreateAiKnowledgeIndexGrantRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_ai_knowledge_index_grant_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateAiKnowledgeIndexGrantRequest(normalizedValue), 'create_ai_knowledge_index_grant_request') as CreateAiKnowledgeIndexGrantRequest;
 }
 
 function isCreateAiKnowledgeIndexGrantRequest(value: unknown): value is CreateAiKnowledgeIndexGrantRequest {
@@ -2341,10 +1920,7 @@ function isCreateAiKnowledgeIndexGrantRequest(value: unknown): value is CreateAi
 }
 
 export function readCreateAiMcpRemoteConnectionRequest(value: unknown): CreateAiMcpRemoteConnectionRequest {
-  if (!(isCreateAiMcpRemoteConnectionRequest(value))) {
-    throw new Error('client.invalid_create_ai_mcp_remote_connection_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiMcpRemoteConnectionRequest(value), 'create_ai_mcp_remote_connection_request') as CreateAiMcpRemoteConnectionRequest;
 }
 
 function isCreateAiMcpRemoteConnectionRequest(value: unknown): value is CreateAiMcpRemoteConnectionRequest {
@@ -2352,10 +1928,7 @@ function isCreateAiMcpRemoteConnectionRequest(value: unknown): value is CreateAi
 }
 
 export function readCreateAiModelConfigRequest(value: unknown): CreateAiModelConfigRequest {
-  if (!(isCreateAiModelConfigRequest(value))) {
-    throw new Error('client.invalid_create_ai_model_config_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateAiModelConfigRequest(value), 'create_ai_model_config_request') as CreateAiModelConfigRequest;
 }
 
 function isCreateAiModelConfigRequest(value: unknown): value is CreateAiModelConfigRequest {
@@ -2364,10 +1937,7 @@ function isCreateAiModelConfigRequest(value: unknown): value is CreateAiModelCon
 
 export function readCreateAiPromptRequest(value: unknown): CreateAiPromptRequest {
   const normalizedValue = normalizeCreateAiPromptRequestIntegerJson(value);
-  if (!(isCreateAiPromptRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_ai_prompt_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateAiPromptRequest(normalizedValue), 'create_ai_prompt_request') as CreateAiPromptRequest;
 }
 
 function isCreateAiPromptRequest(value: unknown): value is CreateAiPromptRequest {
@@ -2376,10 +1946,7 @@ function isCreateAiPromptRequest(value: unknown): value is CreateAiPromptRequest
 
 export function readCreateCodeGenerationTemplateRequest(value: unknown): CreateCodeGenerationTemplateRequest {
   const normalizedValue = normalizeCreateCodeGenerationTemplateRequestIntegerJson(value);
-  if (!(isCreateCodeGenerationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_code_generation_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateCodeGenerationTemplateRequest(normalizedValue), 'create_code_generation_template_request') as CreateCodeGenerationTemplateRequest;
 }
 
 function isCreateCodeGenerationTemplateRequest(value: unknown): value is CreateCodeGenerationTemplateRequest {
@@ -2388,10 +1955,7 @@ function isCreateCodeGenerationTemplateRequest(value: unknown): value is CreateC
 
 export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryRequest {
   const normalizedValue = normalizeCreateConfigEntryRequestIntegerJson(value);
-  if (!(isCreateConfigEntryRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_config_entry_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateConfigEntryRequest(normalizedValue), 'create_config_entry_request') as CreateConfigEntryRequest;
 }
 
 function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryRequest {
@@ -2399,10 +1963,7 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
 }
 
 export function readCreateDataApprovalRequestBody(value: unknown): CreateDataApprovalRequestBody {
-  if (!(isCreateDataApprovalRequestBody(value))) {
-    throw new Error('client.invalid_create_data_approval_request_body');
-  }
-  return value;
+  return requireValidResponse(value, isCreateDataApprovalRequestBody(value), 'create_data_approval_request_body') as CreateDataApprovalRequestBody;
 }
 
 function isCreateDataApprovalRequestBody(value: unknown): value is CreateDataApprovalRequestBody {
@@ -2411,10 +1972,7 @@ function isCreateDataApprovalRequestBody(value: unknown): value is CreateDataApp
 
 export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest {
   const normalizedValue = normalizeCreateDictItemRequestIntegerJson(value);
-  if (!(isCreateDictItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_dict_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateDictItemRequest(normalizedValue), 'create_dict_item_request') as CreateDictItemRequest;
 }
 
 function isCreateDictItemRequest(value: unknown): value is CreateDictItemRequest {
@@ -2423,10 +1981,7 @@ function isCreateDictItemRequest(value: unknown): value is CreateDictItemRequest
 
 export function readCreateDictTypeRequest(value: unknown): CreateDictTypeRequest {
   const normalizedValue = normalizeCreateDictTypeRequestIntegerJson(value);
-  if (!(isCreateDictTypeRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_dict_type_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateDictTypeRequest(normalizedValue), 'create_dict_type_request') as CreateDictTypeRequest;
 }
 
 function isCreateDictTypeRequest(value: unknown): value is CreateDictTypeRequest {
@@ -2434,10 +1989,7 @@ function isCreateDictTypeRequest(value: unknown): value is CreateDictTypeRequest
 }
 
 export function readCreateEnterpriseRequestRequest(value: unknown): CreateEnterpriseRequestRequest {
-  if (!(isCreateEnterpriseRequestRequest(value))) {
-    throw new Error('client.invalid_create_enterprise_request_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateEnterpriseRequestRequest(value), 'create_enterprise_request_request') as CreateEnterpriseRequestRequest;
 }
 
 function isCreateEnterpriseRequestRequest(value: unknown): value is CreateEnterpriseRequestRequest {
@@ -2445,10 +1997,7 @@ function isCreateEnterpriseRequestRequest(value: unknown): value is CreateEnterp
 }
 
 export function readCreateGoViewProjectRequest(value: unknown): CreateGoViewProjectRequest {
-  if (!(isCreateGoViewProjectRequest(value))) {
-    throw new Error('client.invalid_create_go_view_project_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateGoViewProjectRequest(value), 'create_go_view_project_request') as CreateGoViewProjectRequest;
 }
 
 function isCreateGoViewProjectRequest(value: unknown): value is CreateGoViewProjectRequest {
@@ -2456,10 +2005,7 @@ function isCreateGoViewProjectRequest(value: unknown): value is CreateGoViewProj
 }
 
 export function readCreateHostAnnouncementRequest(value: unknown): CreateHostAnnouncementRequest {
-  if (!(isCreateHostAnnouncementRequest(value))) {
-    throw new Error('client.invalid_create_host_announcement_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostAnnouncementRequest(value), 'create_host_announcement_request') as CreateHostAnnouncementRequest;
 }
 
 function isCreateHostAnnouncementRequest(value: unknown): value is CreateHostAnnouncementRequest {
@@ -2467,10 +2013,7 @@ function isCreateHostAnnouncementRequest(value: unknown): value is CreateHostAnn
 }
 
 export function readCreateHostApiKeyRequest(value: unknown): CreateHostApiKeyRequest {
-  if (!(isCreateHostApiKeyRequest(value))) {
-    throw new Error('client.invalid_create_host_api_key_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostApiKeyRequest(value), 'create_host_api_key_request') as CreateHostApiKeyRequest;
 }
 
 function isCreateHostApiKeyRequest(value: unknown): value is CreateHostApiKeyRequest {
@@ -2478,10 +2021,7 @@ function isCreateHostApiKeyRequest(value: unknown): value is CreateHostApiKeyReq
 }
 
 export function readCreateHostApiKeyResponse(value: unknown): CreateHostApiKeyResponse {
-  if (!(isCreateHostApiKeyResponse(value))) {
-    throw new Error('client.invalid_create_host_api_key_response');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostApiKeyResponse(value), 'create_host_api_key_response') as CreateHostApiKeyResponse;
 }
 
 function isCreateHostApiKeyResponse(value: unknown): value is CreateHostApiKeyResponse {
@@ -2490,10 +2030,7 @@ function isCreateHostApiKeyResponse(value: unknown): value is CreateHostApiKeyRe
 
 export function readCreateHostDocumentCategoryRequest(value: unknown): CreateHostDocumentCategoryRequest {
   const normalizedValue = normalizeCreateHostDocumentCategoryRequestIntegerJson(value);
-  if (!(isCreateHostDocumentCategoryRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_document_category_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostDocumentCategoryRequest(normalizedValue), 'create_host_document_category_request') as CreateHostDocumentCategoryRequest;
 }
 
 function isCreateHostDocumentCategoryRequest(value: unknown): value is CreateHostDocumentCategoryRequest {
@@ -2502,10 +2039,7 @@ function isCreateHostDocumentCategoryRequest(value: unknown): value is CreateHos
 
 export function readCreateHostDocumentItemRequest(value: unknown): CreateHostDocumentItemRequest {
   const normalizedValue = normalizeCreateHostDocumentItemRequestIntegerJson(value);
-  if (!(isCreateHostDocumentItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_document_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostDocumentItemRequest(normalizedValue), 'create_host_document_item_request') as CreateHostDocumentItemRequest;
 }
 
 function isCreateHostDocumentItemRequest(value: unknown): value is CreateHostDocumentItemRequest {
@@ -2513,10 +2047,7 @@ function isCreateHostDocumentItemRequest(value: unknown): value is CreateHostDoc
 }
 
 export function readCreateHostDocumentPreviewTaskRequest(value: unknown): CreateHostDocumentPreviewTaskRequest {
-  if (!(isCreateHostDocumentPreviewTaskRequest(value))) {
-    throw new Error('client.invalid_create_host_document_preview_task_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostDocumentPreviewTaskRequest(value), 'create_host_document_preview_task_request') as CreateHostDocumentPreviewTaskRequest;
 }
 
 function isCreateHostDocumentPreviewTaskRequest(value: unknown): value is CreateHostDocumentPreviewTaskRequest {
@@ -2525,10 +2056,7 @@ function isCreateHostDocumentPreviewTaskRequest(value: unknown): value is Create
 
 export function readCreateHostDocumentShareRequest(value: unknown): CreateHostDocumentShareRequest {
   const normalizedValue = normalizeCreateHostDocumentShareRequestIntegerJson(value);
-  if (!(isCreateHostDocumentShareRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_document_share_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostDocumentShareRequest(normalizedValue), 'create_host_document_share_request') as CreateHostDocumentShareRequest;
 }
 
 function isCreateHostDocumentShareRequest(value: unknown): value is CreateHostDocumentShareRequest {
@@ -2536,10 +2064,7 @@ function isCreateHostDocumentShareRequest(value: unknown): value is CreateHostDo
 }
 
 export function readCreateHostDocumentTagRequest(value: unknown): CreateHostDocumentTagRequest {
-  if (!(isCreateHostDocumentTagRequest(value))) {
-    throw new Error('client.invalid_create_host_document_tag_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostDocumentTagRequest(value), 'create_host_document_tag_request') as CreateHostDocumentTagRequest;
 }
 
 function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocumentTagRequest {
@@ -2548,10 +2073,7 @@ function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocu
 
 export function readCreateHostFolderRequest(value: unknown): CreateHostFolderRequest {
   const normalizedValue = normalizeCreateHostFolderRequestIntegerJson(value);
-  if (!(isCreateHostFolderRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_folder_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostFolderRequest(normalizedValue), 'create_host_folder_request') as CreateHostFolderRequest;
 }
 
 function isCreateHostFolderRequest(value: unknown): value is CreateHostFolderRequest {
@@ -2560,10 +2082,7 @@ function isCreateHostFolderRequest(value: unknown): value is CreateHostFolderReq
 
 export function readCreateHostJobDefinitionRequest(value: unknown): CreateHostJobDefinitionRequest {
   const normalizedValue = normalizeCreateHostJobDefinitionRequestIntegerJson(value);
-  if (!(isCreateHostJobDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_job_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostJobDefinitionRequest(normalizedValue), 'create_host_job_definition_request') as CreateHostJobDefinitionRequest;
 }
 
 function isCreateHostJobDefinitionRequest(value: unknown): value is CreateHostJobDefinitionRequest {
@@ -2571,10 +2090,7 @@ function isCreateHostJobDefinitionRequest(value: unknown): value is CreateHostJo
 }
 
 export function readCreateHostJobScheduleRequest(value: unknown): CreateHostJobScheduleRequest {
-  if (!(isCreateHostJobScheduleRequest(value))) {
-    throw new Error('client.invalid_create_host_job_schedule_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostJobScheduleRequest(value), 'create_host_job_schedule_request') as CreateHostJobScheduleRequest;
 }
 
 function isCreateHostJobScheduleRequest(value: unknown): value is CreateHostJobScheduleRequest {
@@ -2583,10 +2099,7 @@ function isCreateHostJobScheduleRequest(value: unknown): value is CreateHostJobS
 
 export function readCreateHostMenuRequest(value: unknown): CreateHostMenuRequest {
   const normalizedValue = normalizeCreateHostMenuRequestIntegerJson(value);
-  if (!(isCreateHostMenuRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_menu_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostMenuRequest(normalizedValue), 'create_host_menu_request') as CreateHostMenuRequest;
 }
 
 function isCreateHostMenuRequest(value: unknown): value is CreateHostMenuRequest {
@@ -2594,10 +2107,7 @@ function isCreateHostMenuRequest(value: unknown): value is CreateHostMenuRequest
 }
 
 export function readCreateHostReleaseNoteRequest(value: unknown): CreateHostReleaseNoteRequest {
-  if (!(isCreateHostReleaseNoteRequest(value))) {
-    throw new Error('client.invalid_create_host_release_note_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostReleaseNoteRequest(value), 'create_host_release_note_request') as CreateHostReleaseNoteRequest;
 }
 
 function isCreateHostReleaseNoteRequest(value: unknown): value is CreateHostReleaseNoteRequest {
@@ -2605,10 +2115,7 @@ function isCreateHostReleaseNoteRequest(value: unknown): value is CreateHostRele
 }
 
 export function readCreateHostRoleRequest(value: unknown): CreateHostRoleRequest {
-  if (!(isCreateHostRoleRequest(value))) {
-    throw new Error('client.invalid_create_host_role_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostRoleRequest(value), 'create_host_role_request') as CreateHostRoleRequest;
 }
 
 function isCreateHostRoleRequest(value: unknown): value is CreateHostRoleRequest {
@@ -2616,10 +2123,7 @@ function isCreateHostRoleRequest(value: unknown): value is CreateHostRoleRequest
 }
 
 export function readCreateHostTenantPackageRequest(value: unknown): CreateHostTenantPackageRequest {
-  if (!(isCreateHostTenantPackageRequest(value))) {
-    throw new Error('client.invalid_create_host_tenant_package_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateHostTenantPackageRequest(value), 'create_host_tenant_package_request') as CreateHostTenantPackageRequest;
 }
 
 function isCreateHostTenantPackageRequest(value: unknown): value is CreateHostTenantPackageRequest {
@@ -2628,10 +2132,7 @@ function isCreateHostTenantPackageRequest(value: unknown): value is CreateHostTe
 
 export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest {
   const normalizedValue = normalizeCreateHostUserRequestIntegerJson(value);
-  if (!(isCreateHostUserRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_host_user_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateHostUserRequest(normalizedValue), 'create_host_user_request') as CreateHostUserRequest;
 }
 
 function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest {
@@ -2640,10 +2141,7 @@ function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest
 
 export function readCreateK3CloudConnectionConfigRequest(value: unknown): CreateK3CloudConnectionConfigRequest {
   const normalizedValue = normalizeCreateK3CloudConnectionConfigRequestIntegerJson(value);
-  if (!(isCreateK3CloudConnectionConfigRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_k3_cloud_connection_config_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateK3CloudConnectionConfigRequest(normalizedValue), 'create_k3_cloud_connection_config_request') as CreateK3CloudConnectionConfigRequest;
 }
 
 function isCreateK3CloudConnectionConfigRequest(value: unknown): value is CreateK3CloudConnectionConfigRequest {
@@ -2651,10 +2149,7 @@ function isCreateK3CloudConnectionConfigRequest(value: unknown): value is Create
 }
 
 export function readCreateK3CloudDocumentSyncRequest(value: unknown): CreateK3CloudDocumentSyncRequest {
-  if (!(isCreateK3CloudDocumentSyncRequest(value))) {
-    throw new Error('client.invalid_create_k3_cloud_document_sync_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateK3CloudDocumentSyncRequest(value), 'create_k3_cloud_document_sync_request') as CreateK3CloudDocumentSyncRequest;
 }
 
 function isCreateK3CloudDocumentSyncRequest(value: unknown): value is CreateK3CloudDocumentSyncRequest {
@@ -2662,10 +2157,7 @@ function isCreateK3CloudDocumentSyncRequest(value: unknown): value is CreateK3Cl
 }
 
 export function readCreateMyRecipientEndpointRequest(value: unknown): CreateMyRecipientEndpointRequest {
-  if (!(isCreateMyRecipientEndpointRequest(value))) {
-    throw new Error('client.invalid_create_my_recipient_endpoint_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateMyRecipientEndpointRequest(value), 'create_my_recipient_endpoint_request') as CreateMyRecipientEndpointRequest;
 }
 
 function isCreateMyRecipientEndpointRequest(value: unknown): value is CreateMyRecipientEndpointRequest {
@@ -2674,10 +2166,7 @@ function isCreateMyRecipientEndpointRequest(value: unknown): value is CreateMyRe
 
 export function readCreateNotificationBindingRequest(value: unknown): CreateNotificationBindingRequest {
   const normalizedValue = normalizeCreateNotificationBindingRequestIntegerJson(value);
-  if (!(isCreateNotificationBindingRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_notification_binding_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateNotificationBindingRequest(normalizedValue), 'create_notification_binding_request') as CreateNotificationBindingRequest;
 }
 
 function isCreateNotificationBindingRequest(value: unknown): value is CreateNotificationBindingRequest {
@@ -2685,10 +2174,7 @@ function isCreateNotificationBindingRequest(value: unknown): value is CreateNoti
 }
 
 export function readCreateNotificationProviderProfileRequest(value: unknown): CreateNotificationProviderProfileRequest {
-  if (!(isCreateNotificationProviderProfileRequest(value))) {
-    throw new Error('client.invalid_create_notification_provider_profile_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateNotificationProviderProfileRequest(value), 'create_notification_provider_profile_request') as CreateNotificationProviderProfileRequest;
 }
 
 function isCreateNotificationProviderProfileRequest(value: unknown): value is CreateNotificationProviderProfileRequest {
@@ -2697,10 +2183,7 @@ function isCreateNotificationProviderProfileRequest(value: unknown): value is Cr
 
 export function readCreateNotificationTemplateRequest(value: unknown): CreateNotificationTemplateRequest {
   const normalizedValue = normalizeCreateNotificationTemplateRequestIntegerJson(value);
-  if (!(isCreateNotificationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_notification_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateNotificationTemplateRequest(normalizedValue), 'create_notification_template_request') as CreateNotificationTemplateRequest;
 }
 
 function isCreateNotificationTemplateRequest(value: unknown): value is CreateNotificationTemplateRequest {
@@ -2708,10 +2191,7 @@ function isCreateNotificationTemplateRequest(value: unknown): value is CreateNot
 }
 
 export function readCreateOcrIdCardTaskRequest(value: unknown): CreateOcrIdCardTaskRequest {
-  if (!(isCreateOcrIdCardTaskRequest(value))) {
-    throw new Error('client.invalid_create_ocr_id_card_task_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateOcrIdCardTaskRequest(value), 'create_ocr_id_card_task_request') as CreateOcrIdCardTaskRequest;
 }
 
 function isCreateOcrIdCardTaskRequest(value: unknown): value is CreateOcrIdCardTaskRequest {
@@ -2720,10 +2200,7 @@ function isCreateOcrIdCardTaskRequest(value: unknown): value is CreateOcrIdCardT
 
 export function readCreateOrganizationPositionLevelRequest(value: unknown): CreateOrganizationPositionLevelRequest {
   const normalizedValue = normalizeCreateOrganizationPositionLevelRequestIntegerJson(value);
-  if (!(isCreateOrganizationPositionLevelRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_organization_position_level_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateOrganizationPositionLevelRequest(normalizedValue), 'create_organization_position_level_request') as CreateOrganizationPositionLevelRequest;
 }
 
 function isCreateOrganizationPositionLevelRequest(value: unknown): value is CreateOrganizationPositionLevelRequest {
@@ -2732,10 +2209,7 @@ function isCreateOrganizationPositionLevelRequest(value: unknown): value is Crea
 
 export function readCreateOrganizationPositionRequest(value: unknown): CreateOrganizationPositionRequest {
   const normalizedValue = normalizeCreateOrganizationPositionRequestIntegerJson(value);
-  if (!(isCreateOrganizationPositionRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_organization_position_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateOrganizationPositionRequest(normalizedValue), 'create_organization_position_request') as CreateOrganizationPositionRequest;
 }
 
 function isCreateOrganizationPositionRequest(value: unknown): value is CreateOrganizationPositionRequest {
@@ -2744,10 +2218,7 @@ function isCreateOrganizationPositionRequest(value: unknown): value is CreateOrg
 
 export function readCreateOrganizationUnitRequest(value: unknown): CreateOrganizationUnitRequest {
   const normalizedValue = normalizeCreateOrganizationUnitRequestIntegerJson(value);
-  if (!(isCreateOrganizationUnitRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_organization_unit_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateOrganizationUnitRequest(normalizedValue), 'create_organization_unit_request') as CreateOrganizationUnitRequest;
 }
 
 function isCreateOrganizationUnitRequest(value: unknown): value is CreateOrganizationUnitRequest {
@@ -2755,10 +2226,7 @@ function isCreateOrganizationUnitRequest(value: unknown): value is CreateOrganiz
 }
 
 export function readCreateOrganizationUserPositionRequest(value: unknown): CreateOrganizationUserPositionRequest {
-  if (!(isCreateOrganizationUserPositionRequest(value))) {
-    throw new Error('client.invalid_create_organization_user_position_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateOrganizationUserPositionRequest(value), 'create_organization_user_position_request') as CreateOrganizationUserPositionRequest;
 }
 
 function isCreateOrganizationUserPositionRequest(value: unknown): value is CreateOrganizationUserPositionRequest {
@@ -2766,10 +2234,7 @@ function isCreateOrganizationUserPositionRequest(value: unknown): value is Creat
 }
 
 export function readCreateOrganizationUserUnitRequest(value: unknown): CreateOrganizationUserUnitRequest {
-  if (!(isCreateOrganizationUserUnitRequest(value))) {
-    throw new Error('client.invalid_create_organization_user_unit_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateOrganizationUserUnitRequest(value), 'create_organization_user_unit_request') as CreateOrganizationUserUnitRequest;
 }
 
 function isCreateOrganizationUserUnitRequest(value: unknown): value is CreateOrganizationUserUnitRequest {
@@ -2777,10 +2242,7 @@ function isCreateOrganizationUserUnitRequest(value: unknown): value is CreateOrg
 }
 
 export function readCreatePaymentMerchantConfigRequest(value: unknown): CreatePaymentMerchantConfigRequest {
-  if (!(isCreatePaymentMerchantConfigRequest(value))) {
-    throw new Error('client.invalid_create_payment_merchant_config_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreatePaymentMerchantConfigRequest(value), 'create_payment_merchant_config_request') as CreatePaymentMerchantConfigRequest;
 }
 
 function isCreatePaymentMerchantConfigRequest(value: unknown): value is CreatePaymentMerchantConfigRequest {
@@ -2789,10 +2251,7 @@ function isCreatePaymentMerchantConfigRequest(value: unknown): value is CreatePa
 
 export function readCreatePaymentOrderRequest(value: unknown): CreatePaymentOrderRequest {
   const normalizedValue = normalizeCreatePaymentOrderRequestIntegerJson(value);
-  if (!(isCreatePaymentOrderRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_payment_order_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreatePaymentOrderRequest(normalizedValue), 'create_payment_order_request') as CreatePaymentOrderRequest;
 }
 
 function isCreatePaymentOrderRequest(value: unknown): value is CreatePaymentOrderRequest {
@@ -2801,10 +2260,7 @@ function isCreatePaymentOrderRequest(value: unknown): value is CreatePaymentOrde
 
 export function readCreatePaymentRefundRequest(value: unknown): CreatePaymentRefundRequest {
   const normalizedValue = normalizeCreatePaymentRefundRequestIntegerJson(value);
-  if (!(isCreatePaymentRefundRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_payment_refund_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreatePaymentRefundRequest(normalizedValue), 'create_payment_refund_request') as CreatePaymentRefundRequest;
 }
 
 function isCreatePaymentRefundRequest(value: unknown): value is CreatePaymentRefundRequest {
@@ -2812,10 +2268,7 @@ function isCreatePaymentRefundRequest(value: unknown): value is CreatePaymentRef
 }
 
 export function readCreatePersonalScheduleRequest(value: unknown): CreatePersonalScheduleRequest {
-  if (!(isCreatePersonalScheduleRequest(value))) {
-    throw new Error('client.invalid_create_personal_schedule_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreatePersonalScheduleRequest(value), 'create_personal_schedule_request') as CreatePersonalScheduleRequest;
 }
 
 function isCreatePersonalScheduleRequest(value: unknown): value is CreatePersonalScheduleRequest {
@@ -2823,10 +2276,7 @@ function isCreatePersonalScheduleRequest(value: unknown): value is CreatePersona
 }
 
 export function readCreatePrintingTemplateRequest(value: unknown): CreatePrintingTemplateRequest {
-  if (!(isCreatePrintingTemplateRequest(value))) {
-    throw new Error('client.invalid_create_printing_template_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreatePrintingTemplateRequest(value), 'create_printing_template_request') as CreatePrintingTemplateRequest;
 }
 
 function isCreatePrintingTemplateRequest(value: unknown): value is CreatePrintingTemplateRequest {
@@ -2835,10 +2285,7 @@ function isCreatePrintingTemplateRequest(value: unknown): value is CreatePrintin
 
 export function readCreateReportingDataSourceRequest(value: unknown): CreateReportingDataSourceRequest {
   const normalizedValue = normalizeCreateReportingDataSourceRequestIntegerJson(value);
-  if (!(isCreateReportingDataSourceRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_reporting_data_source_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateReportingDataSourceRequest(normalizedValue), 'create_reporting_data_source_request') as CreateReportingDataSourceRequest;
 }
 
 function isCreateReportingDataSourceRequest(value: unknown): value is CreateReportingDataSourceRequest {
@@ -2846,10 +2293,7 @@ function isCreateReportingDataSourceRequest(value: unknown): value is CreateRepo
 }
 
 export function readCreateReportingDefinitionRequest(value: unknown): CreateReportingDefinitionRequest {
-  if (!(isCreateReportingDefinitionRequest(value))) {
-    throw new Error('client.invalid_create_reporting_definition_request');
-  }
-  return value;
+  return requireValidResponse(value, isCreateReportingDefinitionRequest(value), 'create_reporting_definition_request') as CreateReportingDefinitionRequest;
 }
 
 function isCreateReportingDefinitionRequest(value: unknown): value is CreateReportingDefinitionRequest {
@@ -2858,10 +2302,7 @@ function isCreateReportingDefinitionRequest(value: unknown): value is CreateRepo
 
 export function readCreateReportingExportTaskRequest(value: unknown): CreateReportingExportTaskRequest {
   const normalizedValue = normalizeCreateReportingExportTaskRequestIntegerJson(value);
-  if (!(isCreateReportingExportTaskRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_reporting_export_task_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateReportingExportTaskRequest(normalizedValue), 'create_reporting_export_task_request') as CreateReportingExportTaskRequest;
 }
 
 function isCreateReportingExportTaskRequest(value: unknown): value is CreateReportingExportTaskRequest {
@@ -2870,10 +2311,7 @@ function isCreateReportingExportTaskRequest(value: unknown): value is CreateRepo
 
 export function readCreateReportingGroupRequest(value: unknown): CreateReportingGroupRequest {
   const normalizedValue = normalizeCreateReportingGroupRequestIntegerJson(value);
-  if (!(isCreateReportingGroupRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_reporting_group_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateReportingGroupRequest(normalizedValue), 'create_reporting_group_request') as CreateReportingGroupRequest;
 }
 
 function isCreateReportingGroupRequest(value: unknown): value is CreateReportingGroupRequest {
@@ -2882,10 +2320,7 @@ function isCreateReportingGroupRequest(value: unknown): value is CreateReporting
 
 export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialNumberRuleRequest {
   const normalizedValue = normalizeCreateSerialNumberRuleRequestIntegerJson(value);
-  if (!(isCreateSerialNumberRuleRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_serial_number_rule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateSerialNumberRuleRequest(normalizedValue), 'create_serial_number_rule_request') as CreateSerialNumberRuleRequest;
 }
 
 function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialNumberRuleRequest {
@@ -2894,10 +2329,7 @@ function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialN
 
 export function readCreateWorkflowDefinitionRequest(value: unknown): CreateWorkflowDefinitionRequest {
   const normalizedValue = normalizeCreateWorkflowDefinitionRequestIntegerJson(value);
-  if (!(isCreateWorkflowDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_workflow_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateWorkflowDefinitionRequest(normalizedValue), 'create_workflow_definition_request') as CreateWorkflowDefinitionRequest;
 }
 
 function isCreateWorkflowDefinitionRequest(value: unknown): value is CreateWorkflowDefinitionRequest {
@@ -2906,10 +2338,7 @@ function isCreateWorkflowDefinitionRequest(value: unknown): value is CreateWorkf
 
 export function readCreateWorkflowFormRequest(value: unknown): CreateWorkflowFormRequest {
   const normalizedValue = normalizeCreateWorkflowFormRequestIntegerJson(value);
-  if (!(isCreateWorkflowFormRequest(normalizedValue))) {
-    throw new Error('client.invalid_create_workflow_form_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCreateWorkflowFormRequest(normalizedValue), 'create_workflow_form_request') as CreateWorkflowFormRequest;
 }
 
 function isCreateWorkflowFormRequest(value: unknown): value is CreateWorkflowFormRequest {
@@ -2918,10 +2347,7 @@ function isCreateWorkflowFormRequest(value: unknown): value is CreateWorkflowFor
 
 export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
   const normalizedValue = normalizeCurrentUserResponseIntegerJson(value);
-  if (!(isCurrentUserResponse(normalizedValue))) {
-    throw new Error('client.invalid_current_user_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isCurrentUserResponse(normalizedValue), 'current_user_response') as CurrentUserResponse;
 }
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
@@ -2930,10 +2356,7 @@ function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
 
 export function readDataApprovalRequestResponse(value: unknown): DataApprovalRequestResponse {
   const normalizedValue = normalizeDataApprovalRequestResponseIntegerJson(value);
-  if (!(isDataApprovalRequestResponse(normalizedValue))) {
-    throw new Error('client.invalid_data_approval_request_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDataApprovalRequestResponse(normalizedValue), 'data_approval_request_response') as DataApprovalRequestResponse;
 }
 
 function isDataApprovalRequestResponse(value: unknown): value is DataApprovalRequestResponse {
@@ -2942,10 +2365,7 @@ function isDataApprovalRequestResponse(value: unknown): value is DataApprovalReq
 
 export function readDataApprovalScenarioResponse(value: unknown): DataApprovalScenarioResponse {
   const normalizedValue = normalizeDataApprovalScenarioResponseIntegerJson(value);
-  if (!(isDataApprovalScenarioResponse(normalizedValue))) {
-    throw new Error('client.invalid_data_approval_scenario_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDataApprovalScenarioResponse(normalizedValue), 'data_approval_scenario_response') as DataApprovalScenarioResponse;
 }
 
 function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalScenarioResponse {
@@ -2954,10 +2374,7 @@ function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalSc
 
 export function readDeactivateAiPromptRequest(value: unknown): DeactivateAiPromptRequest {
   const normalizedValue = normalizeDeactivateAiPromptRequestIntegerJson(value);
-  if (!(isDeactivateAiPromptRequest(normalizedValue))) {
-    throw new Error('client.invalid_deactivate_ai_prompt_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeactivateAiPromptRequest(normalizedValue), 'deactivate_ai_prompt_request') as DeactivateAiPromptRequest;
 }
 
 function isDeactivateAiPromptRequest(value: unknown): value is DeactivateAiPromptRequest {
@@ -2966,10 +2383,7 @@ function isDeactivateAiPromptRequest(value: unknown): value is DeactivateAiPromp
 
 export function readDecideAiAgentApprovalRequest(value: unknown): DecideAiAgentApprovalRequest {
   const normalizedValue = normalizeDecideAiAgentApprovalRequestIntegerJson(value);
-  if (!(isDecideAiAgentApprovalRequest(normalizedValue))) {
-    throw new Error('client.invalid_decide_ai_agent_approval_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDecideAiAgentApprovalRequest(normalizedValue), 'decide_ai_agent_approval_request') as DecideAiAgentApprovalRequest;
 }
 
 function isDecideAiAgentApprovalRequest(value: unknown): value is DecideAiAgentApprovalRequest {
@@ -2978,10 +2392,7 @@ function isDecideAiAgentApprovalRequest(value: unknown): value is DecideAiAgentA
 
 export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdministrativeRegionRequest {
   const normalizedValue = normalizeDeleteAdministrativeRegionRequestIntegerJson(value);
-  if (!(isDeleteAdministrativeRegionRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_administrative_region_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteAdministrativeRegionRequest(normalizedValue), 'delete_administrative_region_request') as DeleteAdministrativeRegionRequest;
 }
 
 function isDeleteAdministrativeRegionRequest(value: unknown): value is DeleteAdministrativeRegionRequest {
@@ -2990,10 +2401,7 @@ function isDeleteAdministrativeRegionRequest(value: unknown): value is DeleteAdm
 
 export function readDeleteAiKnowledgeDocumentRequest(value: unknown): DeleteAiKnowledgeDocumentRequest {
   const normalizedValue = normalizeDeleteAiKnowledgeDocumentRequestIntegerJson(value);
-  if (!(isDeleteAiKnowledgeDocumentRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_ai_knowledge_document_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteAiKnowledgeDocumentRequest(normalizedValue), 'delete_ai_knowledge_document_request') as DeleteAiKnowledgeDocumentRequest;
 }
 
 function isDeleteAiKnowledgeDocumentRequest(value: unknown): value is DeleteAiKnowledgeDocumentRequest {
@@ -3002,10 +2410,7 @@ function isDeleteAiKnowledgeDocumentRequest(value: unknown): value is DeleteAiKn
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
   const normalizedValue = normalizeDeleteCodeGenerationTemplateRequestIntegerJson(value);
-  if (!(isDeleteCodeGenerationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_code_generation_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteCodeGenerationTemplateRequest(normalizedValue), 'delete_code_generation_template_request') as DeleteCodeGenerationTemplateRequest;
 }
 
 function isDeleteCodeGenerationTemplateRequest(value: unknown): value is DeleteCodeGenerationTemplateRequest {
@@ -3014,10 +2419,7 @@ function isDeleteCodeGenerationTemplateRequest(value: unknown): value is DeleteC
 
 export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryRequest {
   const normalizedValue = normalizeDeleteConfigEntryRequestIntegerJson(value);
-  if (!(isDeleteConfigEntryRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_config_entry_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteConfigEntryRequest(normalizedValue), 'delete_config_entry_request') as DeleteConfigEntryRequest;
 }
 
 function isDeleteConfigEntryRequest(value: unknown): value is DeleteConfigEntryRequest {
@@ -3026,10 +2428,7 @@ function isDeleteConfigEntryRequest(value: unknown): value is DeleteConfigEntryR
 
 export function readDeleteDictItemRequest(value: unknown): DeleteDictItemRequest {
   const normalizedValue = normalizeDeleteDictItemRequestIntegerJson(value);
-  if (!(isDeleteDictItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_dict_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteDictItemRequest(normalizedValue), 'delete_dict_item_request') as DeleteDictItemRequest;
 }
 
 function isDeleteDictItemRequest(value: unknown): value is DeleteDictItemRequest {
@@ -3038,10 +2437,7 @@ function isDeleteDictItemRequest(value: unknown): value is DeleteDictItemRequest
 
 export function readDeleteDictTypeRequest(value: unknown): DeleteDictTypeRequest {
   const normalizedValue = normalizeDeleteDictTypeRequestIntegerJson(value);
-  if (!(isDeleteDictTypeRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_dict_type_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteDictTypeRequest(normalizedValue), 'delete_dict_type_request') as DeleteDictTypeRequest;
 }
 
 function isDeleteDictTypeRequest(value: unknown): value is DeleteDictTypeRequest {
@@ -3050,10 +2446,7 @@ function isDeleteDictTypeRequest(value: unknown): value is DeleteDictTypeRequest
 
 export function readDeleteEnterpriseRequestRequest(value: unknown): DeleteEnterpriseRequestRequest {
   const normalizedValue = normalizeDeleteEnterpriseRequestRequestIntegerJson(value);
-  if (!(isDeleteEnterpriseRequestRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_enterprise_request_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteEnterpriseRequestRequest(normalizedValue), 'delete_enterprise_request_request') as DeleteEnterpriseRequestRequest;
 }
 
 function isDeleteEnterpriseRequestRequest(value: unknown): value is DeleteEnterpriseRequestRequest {
@@ -3062,10 +2455,7 @@ function isDeleteEnterpriseRequestRequest(value: unknown): value is DeleteEnterp
 
 export function readDeleteHostDocumentCategoryRequest(value: unknown): DeleteHostDocumentCategoryRequest {
   const normalizedValue = normalizeDeleteHostDocumentCategoryRequestIntegerJson(value);
-  if (!(isDeleteHostDocumentCategoryRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_document_category_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostDocumentCategoryRequest(normalizedValue), 'delete_host_document_category_request') as DeleteHostDocumentCategoryRequest;
 }
 
 function isDeleteHostDocumentCategoryRequest(value: unknown): value is DeleteHostDocumentCategoryRequest {
@@ -3074,10 +2464,7 @@ function isDeleteHostDocumentCategoryRequest(value: unknown): value is DeleteHos
 
 export function readDeleteHostDocumentItemRequest(value: unknown): DeleteHostDocumentItemRequest {
   const normalizedValue = normalizeDeleteHostDocumentItemRequestIntegerJson(value);
-  if (!(isDeleteHostDocumentItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_document_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostDocumentItemRequest(normalizedValue), 'delete_host_document_item_request') as DeleteHostDocumentItemRequest;
 }
 
 function isDeleteHostDocumentItemRequest(value: unknown): value is DeleteHostDocumentItemRequest {
@@ -3086,10 +2473,7 @@ function isDeleteHostDocumentItemRequest(value: unknown): value is DeleteHostDoc
 
 export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocumentTagRequest {
   const normalizedValue = normalizeDeleteHostDocumentTagRequestIntegerJson(value);
-  if (!(isDeleteHostDocumentTagRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_document_tag_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostDocumentTagRequest(normalizedValue), 'delete_host_document_tag_request') as DeleteHostDocumentTagRequest;
 }
 
 function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
@@ -3098,10 +2482,7 @@ function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocu
 
 export function readDeleteHostDocumentVersionRequest(value: unknown): DeleteHostDocumentVersionRequest {
   const normalizedValue = normalizeDeleteHostDocumentVersionRequestIntegerJson(value);
-  if (!(isDeleteHostDocumentVersionRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_document_version_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostDocumentVersionRequest(normalizedValue), 'delete_host_document_version_request') as DeleteHostDocumentVersionRequest;
 }
 
 function isDeleteHostDocumentVersionRequest(value: unknown): value is DeleteHostDocumentVersionRequest {
@@ -3110,10 +2491,7 @@ function isDeleteHostDocumentVersionRequest(value: unknown): value is DeleteHost
 
 export function readDeleteHostFolderRequest(value: unknown): DeleteHostFolderRequest {
   const normalizedValue = normalizeDeleteHostFolderRequestIntegerJson(value);
-  if (!(isDeleteHostFolderRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_folder_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostFolderRequest(normalizedValue), 'delete_host_folder_request') as DeleteHostFolderRequest;
 }
 
 function isDeleteHostFolderRequest(value: unknown): value is DeleteHostFolderRequest {
@@ -3122,10 +2500,7 @@ function isDeleteHostFolderRequest(value: unknown): value is DeleteHostFolderReq
 
 export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJobDefinitionRequest {
   const normalizedValue = normalizeDeleteHostJobDefinitionRequestIntegerJson(value);
-  if (!(isDeleteHostJobDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_job_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostJobDefinitionRequest(normalizedValue), 'delete_host_job_definition_request') as DeleteHostJobDefinitionRequest;
 }
 
 function isDeleteHostJobDefinitionRequest(value: unknown): value is DeleteHostJobDefinitionRequest {
@@ -3134,10 +2509,7 @@ function isDeleteHostJobDefinitionRequest(value: unknown): value is DeleteHostJo
 
 export function readDeleteHostReleaseNoteRequest(value: unknown): DeleteHostReleaseNoteRequest {
   const normalizedValue = normalizeDeleteHostReleaseNoteRequestIntegerJson(value);
-  if (!(isDeleteHostReleaseNoteRequest(normalizedValue))) {
-    throw new Error('client.invalid_delete_host_release_note_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDeleteHostReleaseNoteRequest(normalizedValue), 'delete_host_release_note_request') as DeleteHostReleaseNoteRequest;
 }
 
 function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostReleaseNoteRequest {
@@ -3146,10 +2518,7 @@ function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostRele
 
 export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyResponse {
   const normalizedValue = normalizeDiagnosticPolicyResponseIntegerJson(value);
-  if (!(isDiagnosticPolicyResponse(normalizedValue))) {
-    throw new Error('client.invalid_diagnostic_policy_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDiagnosticPolicyResponse(normalizedValue), 'diagnostic_policy_response') as DiagnosticPolicyResponse;
 }
 
 function isDiagnosticPolicyResponse(value: unknown): value is DiagnosticPolicyResponse {
@@ -3158,10 +2527,7 @@ function isDiagnosticPolicyResponse(value: unknown): value is DiagnosticPolicyRe
 
 export function readDiagnosticPolicyRuleRequest(value: unknown): DiagnosticPolicyRuleRequest {
   const normalizedValue = normalizeDiagnosticPolicyRuleRequestIntegerJson(value);
-  if (!(isDiagnosticPolicyRuleRequest(normalizedValue))) {
-    throw new Error('client.invalid_diagnostic_policy_rule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDiagnosticPolicyRuleRequest(normalizedValue), 'diagnostic_policy_rule_request') as DiagnosticPolicyRuleRequest;
 }
 
 function isDiagnosticPolicyRuleRequest(value: unknown): value is DiagnosticPolicyRuleRequest {
@@ -3170,10 +2536,7 @@ function isDiagnosticPolicyRuleRequest(value: unknown): value is DiagnosticPolic
 
 export function readDiagnosticPolicyRuleResponse(value: unknown): DiagnosticPolicyRuleResponse {
   const normalizedValue = normalizeDiagnosticPolicyRuleResponseIntegerJson(value);
-  if (!(isDiagnosticPolicyRuleResponse(normalizedValue))) {
-    throw new Error('client.invalid_diagnostic_policy_rule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDiagnosticPolicyRuleResponse(normalizedValue), 'diagnostic_policy_rule_response') as DiagnosticPolicyRuleResponse;
 }
 
 function isDiagnosticPolicyRuleResponse(value: unknown): value is DiagnosticPolicyRuleResponse {
@@ -3182,10 +2545,7 @@ function isDiagnosticPolicyRuleResponse(value: unknown): value is DiagnosticPoli
 
 export function readDictItemResponse(value: unknown): DictItemResponse {
   const normalizedValue = normalizeDictItemResponseIntegerJson(value);
-  if (!(isDictItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_dict_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDictItemResponse(normalizedValue), 'dict_item_response') as DictItemResponse;
 }
 
 function isDictItemResponse(value: unknown): value is DictItemResponse {
@@ -3194,10 +2554,7 @@ function isDictItemResponse(value: unknown): value is DictItemResponse {
 
 export function readDictTypeResponse(value: unknown): DictTypeResponse {
   const normalizedValue = normalizeDictTypeResponseIntegerJson(value);
-  if (!(isDictTypeResponse(normalizedValue))) {
-    throw new Error('client.invalid_dict_type_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDictTypeResponse(normalizedValue), 'dict_type_response') as DictTypeResponse;
 }
 
 function isDictTypeResponse(value: unknown): value is DictTypeResponse {
@@ -3206,10 +2563,7 @@ function isDictTypeResponse(value: unknown): value is DictTypeResponse {
 
 export function readDisableHostJobDefinitionRequest(value: unknown): DisableHostJobDefinitionRequest {
   const normalizedValue = normalizeDisableHostJobDefinitionRequestIntegerJson(value);
-  if (!(isDisableHostJobDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_disable_host_job_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isDisableHostJobDefinitionRequest(normalizedValue), 'disable_host_job_definition_request') as DisableHostJobDefinitionRequest;
 }
 
 function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHostJobDefinitionRequest {
@@ -3218,10 +2572,7 @@ function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHost
 
 export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequestResponse {
   const normalizedValue = normalizeEnterpriseRequestResponseIntegerJson(value);
-  if (!(isEnterpriseRequestResponse(normalizedValue))) {
-    throw new Error('client.invalid_enterprise_request_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnterpriseRequestResponse(normalizedValue), 'enterprise_request_response') as EnterpriseRequestResponse;
 }
 
 function isEnterpriseRequestResponse(value: unknown): value is EnterpriseRequestResponse {
@@ -3230,10 +2581,7 @@ function isEnterpriseRequestResponse(value: unknown): value is EnterpriseRequest
 
 export function readEnumCatalogDetail(value: unknown): EnumCatalogDetail {
   const normalizedValue = normalizeEnumCatalogDetailIntegerJson(value);
-  if (!(isEnumCatalogDetail(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_detail');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogDetail(normalizedValue), 'enum_catalog_detail') as EnumCatalogDetail;
 }
 
 function isEnumCatalogDetail(value: unknown): value is EnumCatalogDetail {
@@ -3242,10 +2590,7 @@ function isEnumCatalogDetail(value: unknown): value is EnumCatalogDetail {
 
 export function readEnumCatalogDictGenerationItemPreview(value: unknown): EnumCatalogDictGenerationItemPreview {
   const normalizedValue = normalizeEnumCatalogDictGenerationItemPreviewIntegerJson(value);
-  if (!(isEnumCatalogDictGenerationItemPreview(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_dict_generation_item_preview');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogDictGenerationItemPreview(normalizedValue), 'enum_catalog_dict_generation_item_preview') as EnumCatalogDictGenerationItemPreview;
 }
 
 function isEnumCatalogDictGenerationItemPreview(value: unknown): value is EnumCatalogDictGenerationItemPreview {
@@ -3254,10 +2599,7 @@ function isEnumCatalogDictGenerationItemPreview(value: unknown): value is EnumCa
 
 export function readEnumCatalogDictGenerationPreview(value: unknown): EnumCatalogDictGenerationPreview {
   const normalizedValue = normalizeEnumCatalogDictGenerationPreviewIntegerJson(value);
-  if (!(isEnumCatalogDictGenerationPreview(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_dict_generation_preview');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogDictGenerationPreview(normalizedValue), 'enum_catalog_dict_generation_preview') as EnumCatalogDictGenerationPreview;
 }
 
 function isEnumCatalogDictGenerationPreview(value: unknown): value is EnumCatalogDictGenerationPreview {
@@ -3266,10 +2608,7 @@ function isEnumCatalogDictGenerationPreview(value: unknown): value is EnumCatalo
 
 export function readEnumCatalogDictGenerationResult(value: unknown): EnumCatalogDictGenerationResult {
   const normalizedValue = normalizeEnumCatalogDictGenerationResultIntegerJson(value);
-  if (!(isEnumCatalogDictGenerationResult(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_dict_generation_result');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogDictGenerationResult(normalizedValue), 'enum_catalog_dict_generation_result') as EnumCatalogDictGenerationResult;
 }
 
 function isEnumCatalogDictGenerationResult(value: unknown): value is EnumCatalogDictGenerationResult {
@@ -3277,10 +2616,7 @@ function isEnumCatalogDictGenerationResult(value: unknown): value is EnumCatalog
 }
 
 export function readEnumCatalogDictGenerationUnmanagedItem(value: unknown): EnumCatalogDictGenerationUnmanagedItem {
-  if (!(isEnumCatalogDictGenerationUnmanagedItem(value))) {
-    throw new Error('client.invalid_enum_catalog_dict_generation_unmanaged_item');
-  }
-  return value;
+  return requireValidResponse(value, isEnumCatalogDictGenerationUnmanagedItem(value), 'enum_catalog_dict_generation_unmanaged_item') as EnumCatalogDictGenerationUnmanagedItem;
 }
 
 function isEnumCatalogDictGenerationUnmanagedItem(value: unknown): value is EnumCatalogDictGenerationUnmanagedItem {
@@ -3289,10 +2625,7 @@ function isEnumCatalogDictGenerationUnmanagedItem(value: unknown): value is Enum
 
 export function readEnumCatalogMember(value: unknown): EnumCatalogMember {
   const normalizedValue = normalizeEnumCatalogMemberIntegerJson(value);
-  if (!(isEnumCatalogMember(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_member');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogMember(normalizedValue), 'enum_catalog_member') as EnumCatalogMember;
 }
 
 function isEnumCatalogMember(value: unknown): value is EnumCatalogMember {
@@ -3301,10 +2634,7 @@ function isEnumCatalogMember(value: unknown): value is EnumCatalogMember {
 
 export function readEnumCatalogSummary(value: unknown): EnumCatalogSummary {
   const normalizedValue = normalizeEnumCatalogSummaryIntegerJson(value);
-  if (!(isEnumCatalogSummary(normalizedValue))) {
-    throw new Error('client.invalid_enum_catalog_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isEnumCatalogSummary(normalizedValue), 'enum_catalog_summary') as EnumCatalogSummary;
 }
 
 function isEnumCatalogSummary(value: unknown): value is EnumCatalogSummary {
@@ -3312,10 +2642,7 @@ function isEnumCatalogSummary(value: unknown): value is EnumCatalogSummary {
 }
 
 export function readExceptionLogResponse(value: unknown): ExceptionLogResponse {
-  if (!(isExceptionLogResponse(value))) {
-    throw new Error('client.invalid_exception_log_response');
-  }
-  return value;
+  return requireValidResponse(value, isExceptionLogResponse(value), 'exception_log_response') as ExceptionLogResponse;
 }
 
 function isExceptionLogResponse(value: unknown): value is ExceptionLogResponse {
@@ -3324,10 +2651,7 @@ function isExceptionLogResponse(value: unknown): value is ExceptionLogResponse {
 
 export function readExecuteReportingDefinitionRequest(value: unknown): ExecuteReportingDefinitionRequest {
   const normalizedValue = normalizeExecuteReportingDefinitionRequestIntegerJson(value);
-  if (!(isExecuteReportingDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_execute_reporting_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isExecuteReportingDefinitionRequest(normalizedValue), 'execute_reporting_definition_request') as ExecuteReportingDefinitionRequest;
 }
 
 function isExecuteReportingDefinitionRequest(value: unknown): value is ExecuteReportingDefinitionRequest {
@@ -3335,10 +2659,7 @@ function isExecuteReportingDefinitionRequest(value: unknown): value is ExecuteRe
 }
 
 export function readFieldProjectionDefaultVisibility(value: unknown): FieldProjectionDefaultVisibility {
-  if (!(isFieldProjectionDefaultVisibility(value))) {
-    throw new Error('client.invalid_field_projection_default_visibility');
-  }
-  return value;
+  return requireValidResponse(value, isFieldProjectionDefaultVisibility(value), 'field_projection_default_visibility') as FieldProjectionDefaultVisibility;
 }
 
 function isFieldProjectionDefaultVisibility(value: unknown): value is FieldProjectionDefaultVisibility {
@@ -3346,10 +2667,7 @@ function isFieldProjectionDefaultVisibility(value: unknown): value is FieldProje
 }
 
 export function readFieldProjectionFieldDefinition(value: unknown): FieldProjectionFieldDefinition {
-  if (!(isFieldProjectionFieldDefinition(value))) {
-    throw new Error('client.invalid_field_projection_field_definition');
-  }
-  return value;
+  return requireValidResponse(value, isFieldProjectionFieldDefinition(value), 'field_projection_field_definition') as FieldProjectionFieldDefinition;
 }
 
 function isFieldProjectionFieldDefinition(value: unknown): value is FieldProjectionFieldDefinition {
@@ -3357,10 +2675,7 @@ function isFieldProjectionFieldDefinition(value: unknown): value is FieldProject
 }
 
 export function readFieldProjectionResourceDefinition(value: unknown): FieldProjectionResourceDefinition {
-  if (!(isFieldProjectionResourceDefinition(value))) {
-    throw new Error('client.invalid_field_projection_resource_definition');
-  }
-  return value;
+  return requireValidResponse(value, isFieldProjectionResourceDefinition(value), 'field_projection_resource_definition') as FieldProjectionResourceDefinition;
 }
 
 function isFieldProjectionResourceDefinition(value: unknown): value is FieldProjectionResourceDefinition {
@@ -3368,10 +2683,7 @@ function isFieldProjectionResourceDefinition(value: unknown): value is FieldProj
 }
 
 export function readFieldProjectionSensitivity(value: unknown): FieldProjectionSensitivity {
-  if (!(isFieldProjectionSensitivity(value))) {
-    throw new Error('client.invalid_field_projection_sensitivity');
-  }
-  return value;
+  return requireValidResponse(value, isFieldProjectionSensitivity(value), 'field_projection_sensitivity') as FieldProjectionSensitivity;
 }
 
 function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionSensitivity {
@@ -3380,10 +2692,7 @@ function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionS
 
 export function readGoViewProjectPreviewResponse(value: unknown): GoViewProjectPreviewResponse {
   const normalizedValue = normalizeGoViewProjectPreviewResponseIntegerJson(value);
-  if (!(isGoViewProjectPreviewResponse(normalizedValue))) {
-    throw new Error('client.invalid_go_view_project_preview_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isGoViewProjectPreviewResponse(normalizedValue), 'go_view_project_preview_response') as GoViewProjectPreviewResponse;
 }
 
 function isGoViewProjectPreviewResponse(value: unknown): value is GoViewProjectPreviewResponse {
@@ -3392,33 +2701,42 @@ function isGoViewProjectPreviewResponse(value: unknown): value is GoViewProjectP
 
 export function readGoViewProjectResponse(value: unknown): GoViewProjectResponse {
   const normalizedValue = normalizeGoViewProjectResponseIntegerJson(value);
-  if (!(isGoViewProjectResponse(normalizedValue))) {
-    throw new Error('client.invalid_go_view_project_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isGoViewProjectResponse(normalizedValue), 'go_view_project_response') as GoViewProjectResponse;
 }
 
 function isGoViewProjectResponse(value: unknown): value is GoViewProjectResponse {
   return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["projectKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readGoViewProjectSummaryResponse(value: unknown): GoViewProjectSummaryResponse {
+  const normalizedValue = normalizeGoViewProjectSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isGoViewProjectSummaryResponse(normalizedValue), 'go_view_project_summary_response') as GoViewProjectSummaryResponse;
+}
+
+function isGoViewProjectSummaryResponse(value: unknown): value is GoViewProjectSummaryResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["projectKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readGoViewProjectVersionResponse(value: unknown): GoViewProjectVersionResponse {
   const normalizedValue = normalizeGoViewProjectVersionResponseIntegerJson(value);
-  if (!(isGoViewProjectVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_go_view_project_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isGoViewProjectVersionResponse(normalizedValue), 'go_view_project_version_response') as GoViewProjectVersionResponse;
 }
 
 function isGoViewProjectVersionResponse(value: unknown): value is GoViewProjectVersionResponse {
   return isRecord(value) && (typeof value["canvasJson"] === 'string') && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
+export function readGoViewProjectVersionSummaryResponse(value: unknown): GoViewProjectVersionSummaryResponse {
+  const normalizedValue = normalizeGoViewProjectVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isGoViewProjectVersionSummaryResponse(normalizedValue), 'go_view_project_version_summary_response') as GoViewProjectVersionSummaryResponse;
+}
+
+function isGoViewProjectVersionSummaryResponse(value: unknown): value is GoViewProjectVersionSummaryResponse {
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readGrantSuperAdministratorRequest(value: unknown): GrantSuperAdministratorRequest {
-  if (!(isGrantSuperAdministratorRequest(value))) {
-    throw new Error('client.invalid_grant_super_administrator_request');
-  }
-  return value;
+  return requireValidResponse(value, isGrantSuperAdministratorRequest(value), 'grant_super_administrator_request') as GrantSuperAdministratorRequest;
 }
 
 function isGrantSuperAdministratorRequest(value: unknown): value is GrantSuperAdministratorRequest {
@@ -3426,10 +2744,7 @@ function isGrantSuperAdministratorRequest(value: unknown): value is GrantSuperAd
 }
 
 export function readHostAnnouncementReadReceiptResponse(value: unknown): HostAnnouncementReadReceiptResponse {
-  if (!(isHostAnnouncementReadReceiptResponse(value))) {
-    throw new Error('client.invalid_host_announcement_read_receipt_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostAnnouncementReadReceiptResponse(value), 'host_announcement_read_receipt_response') as HostAnnouncementReadReceiptResponse;
 }
 
 function isHostAnnouncementReadReceiptResponse(value: unknown): value is HostAnnouncementReadReceiptResponse {
@@ -3438,10 +2753,7 @@ function isHostAnnouncementReadReceiptResponse(value: unknown): value is HostAnn
 
 export function readHostAnnouncementReadStatsResponse(value: unknown): HostAnnouncementReadStatsResponse {
   const normalizedValue = normalizeHostAnnouncementReadStatsResponseIntegerJson(value);
-  if (!(isHostAnnouncementReadStatsResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_announcement_read_stats_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostAnnouncementReadStatsResponse(normalizedValue), 'host_announcement_read_stats_response') as HostAnnouncementReadStatsResponse;
 }
 
 function isHostAnnouncementReadStatsResponse(value: unknown): value is HostAnnouncementReadStatsResponse {
@@ -3450,10 +2762,7 @@ function isHostAnnouncementReadStatsResponse(value: unknown): value is HostAnnou
 
 export function readHostAnnouncementResponse(value: unknown): HostAnnouncementResponse {
   const normalizedValue = normalizeHostAnnouncementResponseIntegerJson(value);
-  if (!(isHostAnnouncementResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_announcement_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostAnnouncementResponse(normalizedValue), 'host_announcement_response') as HostAnnouncementResponse;
 }
 
 function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementResponse {
@@ -3461,10 +2770,7 @@ function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementRe
 }
 
 export function readHostAnnouncementTargetOrganization(value: unknown): HostAnnouncementTargetOrganization {
-  if (!(isHostAnnouncementTargetOrganization(value))) {
-    throw new Error('client.invalid_host_announcement_target_organization');
-  }
-  return value;
+  return requireValidResponse(value, isHostAnnouncementTargetOrganization(value), 'host_announcement_target_organization') as HostAnnouncementTargetOrganization;
 }
 
 function isHostAnnouncementTargetOrganization(value: unknown): value is HostAnnouncementTargetOrganization {
@@ -3473,10 +2779,7 @@ function isHostAnnouncementTargetOrganization(value: unknown): value is HostAnno
 
 export function readHostAnnouncementUnreadCountResponse(value: unknown): HostAnnouncementUnreadCountResponse {
   const normalizedValue = normalizeHostAnnouncementUnreadCountResponseIntegerJson(value);
-  if (!(isHostAnnouncementUnreadCountResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_announcement_unread_count_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostAnnouncementUnreadCountResponse(normalizedValue), 'host_announcement_unread_count_response') as HostAnnouncementUnreadCountResponse;
 }
 
 function isHostAnnouncementUnreadCountResponse(value: unknown): value is HostAnnouncementUnreadCountResponse {
@@ -3484,10 +2787,7 @@ function isHostAnnouncementUnreadCountResponse(value: unknown): value is HostAnn
 }
 
 export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
-  if (!(isHostApiKeyResponse(value))) {
-    throw new Error('client.invalid_host_api_key_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostApiKeyResponse(value), 'host_api_key_response') as HostApiKeyResponse;
 }
 
 function isHostApiKeyResponse(value: unknown): value is HostApiKeyResponse {
@@ -3495,10 +2795,7 @@ function isHostApiKeyResponse(value: unknown): value is HostApiKeyResponse {
 }
 
 export function readHostDashboardActivityResponse(value: unknown): HostDashboardActivityResponse {
-  if (!(isHostDashboardActivityResponse(value))) {
-    throw new Error('client.invalid_host_dashboard_activity_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostDashboardActivityResponse(value), 'host_dashboard_activity_response') as HostDashboardActivityResponse;
 }
 
 function isHostDashboardActivityResponse(value: unknown): value is HostDashboardActivityResponse {
@@ -3507,10 +2804,7 @@ function isHostDashboardActivityResponse(value: unknown): value is HostDashboard
 
 export function readHostDashboardBusinessEntryResponse(value: unknown): HostDashboardBusinessEntryResponse {
   const normalizedValue = normalizeHostDashboardBusinessEntryResponseIntegerJson(value);
-  if (!(isHostDashboardBusinessEntryResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_dashboard_business_entry_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDashboardBusinessEntryResponse(normalizedValue), 'host_dashboard_business_entry_response') as HostDashboardBusinessEntryResponse;
 }
 
 function isHostDashboardBusinessEntryResponse(value: unknown): value is HostDashboardBusinessEntryResponse {
@@ -3519,10 +2813,7 @@ function isHostDashboardBusinessEntryResponse(value: unknown): value is HostDash
 
 export function readHostDashboardSummaryResponse(value: unknown): HostDashboardSummaryResponse {
   const normalizedValue = normalizeHostDashboardSummaryResponseIntegerJson(value);
-  if (!(isHostDashboardSummaryResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_dashboard_summary_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDashboardSummaryResponse(normalizedValue), 'host_dashboard_summary_response') as HostDashboardSummaryResponse;
 }
 
 function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardSummaryResponse {
@@ -3531,10 +2822,7 @@ function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardS
 
 export function readHostDashboardTrafficTrendBucketResponse(value: unknown): HostDashboardTrafficTrendBucketResponse {
   const normalizedValue = normalizeHostDashboardTrafficTrendBucketResponseIntegerJson(value);
-  if (!(isHostDashboardTrafficTrendBucketResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_dashboard_traffic_trend_bucket_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDashboardTrafficTrendBucketResponse(normalizedValue), 'host_dashboard_traffic_trend_bucket_response') as HostDashboardTrafficTrendBucketResponse;
 }
 
 function isHostDashboardTrafficTrendBucketResponse(value: unknown): value is HostDashboardTrafficTrendBucketResponse {
@@ -3543,10 +2831,7 @@ function isHostDashboardTrafficTrendBucketResponse(value: unknown): value is Hos
 
 export function readHostDashboardTrafficTrendResponse(value: unknown): HostDashboardTrafficTrendResponse {
   const normalizedValue = normalizeHostDashboardTrafficTrendResponseIntegerJson(value);
-  if (!(isHostDashboardTrafficTrendResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_dashboard_traffic_trend_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDashboardTrafficTrendResponse(normalizedValue), 'host_dashboard_traffic_trend_response') as HostDashboardTrafficTrendResponse;
 }
 
 function isHostDashboardTrafficTrendResponse(value: unknown): value is HostDashboardTrafficTrendResponse {
@@ -3554,10 +2839,7 @@ function isHostDashboardTrafficTrendResponse(value: unknown): value is HostDashb
 }
 
 export function readHostDocumentAccessLogResponse(value: unknown): HostDocumentAccessLogResponse {
-  if (!(isHostDocumentAccessLogResponse(value))) {
-    throw new Error('client.invalid_host_document_access_log_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentAccessLogResponse(value), 'host_document_access_log_response') as HostDocumentAccessLogResponse;
 }
 
 function isHostDocumentAccessLogResponse(value: unknown): value is HostDocumentAccessLogResponse {
@@ -3566,10 +2848,7 @@ function isHostDocumentAccessLogResponse(value: unknown): value is HostDocumentA
 
 export function readHostDocumentCategoryResponse(value: unknown): HostDocumentCategoryResponse {
   const normalizedValue = normalizeHostDocumentCategoryResponseIntegerJson(value);
-  if (!(isHostDocumentCategoryResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_category_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentCategoryResponse(normalizedValue), 'host_document_category_response') as HostDocumentCategoryResponse;
 }
 
 function isHostDocumentCategoryResponse(value: unknown): value is HostDocumentCategoryResponse {
@@ -3578,10 +2857,7 @@ function isHostDocumentCategoryResponse(value: unknown): value is HostDocumentCa
 
 export function readHostDocumentItemResponse(value: unknown): HostDocumentItemResponse {
   const normalizedValue = normalizeHostDocumentItemResponseIntegerJson(value);
-  if (!(isHostDocumentItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentItemResponse(normalizedValue), 'host_document_item_response') as HostDocumentItemResponse;
 }
 
 function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemResponse {
@@ -3589,10 +2865,7 @@ function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemRe
 }
 
 export function readHostDocumentPermissionEntry(value: unknown): HostDocumentPermissionEntry {
-  if (!(isHostDocumentPermissionEntry(value))) {
-    throw new Error('client.invalid_host_document_permission_entry');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentPermissionEntry(value), 'host_document_permission_entry') as HostDocumentPermissionEntry;
 }
 
 function isHostDocumentPermissionEntry(value: unknown): value is HostDocumentPermissionEntry {
@@ -3600,10 +2873,7 @@ function isHostDocumentPermissionEntry(value: unknown): value is HostDocumentPer
 }
 
 export function readHostDocumentPermissionResponse(value: unknown): HostDocumentPermissionResponse {
-  if (!(isHostDocumentPermissionResponse(value))) {
-    throw new Error('client.invalid_host_document_permission_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentPermissionResponse(value), 'host_document_permission_response') as HostDocumentPermissionResponse;
 }
 
 function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
@@ -3612,34 +2882,25 @@ function isHostDocumentPermissionResponse(value: unknown): value is HostDocument
 
 export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumentPreviewTaskResponse {
   const normalizedValue = normalizeHostDocumentPreviewTaskResponseIntegerJson(value);
-  if (!(isHostDocumentPreviewTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_preview_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentPreviewTaskResponse(normalizedValue), 'host_document_preview_task_response') as HostDocumentPreviewTaskResponse;
 }
 
 function isHostDocumentPreviewTaskResponse(value: unknown): value is HostDocumentPreviewTaskResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (typeof value["providerKey"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string'))) && (value["previewPollUntilUtc"] === undefined || ((value["previewPollUntilUtc"] === null) || (typeof value["previewPollUntilUtc"] === 'string'))) && (typeof value["providerKey"] === 'string') && ((value["requestedByUserId"] === null) || (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"]))) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
 }
 
 export function readHostDocumentShareAccessResponse(value: unknown): HostDocumentShareAccessResponse {
   const normalizedValue = normalizeHostDocumentShareAccessResponseIntegerJson(value);
-  if (!(isHostDocumentShareAccessResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_share_access_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentShareAccessResponse(normalizedValue), 'host_document_share_access_response') as HostDocumentShareAccessResponse;
 }
 
 function isHostDocumentShareAccessResponse(value: unknown): value is HostDocumentShareAccessResponse {
-  return isRecord(value) && (typeof value["accessCountRemaining"] === 'number' && Number.isSafeInteger(value["accessCountRemaining"])) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["fileName"] === null) || (typeof value["fileName"] === 'string')) && (typeof value["fileSizeBytes"] === 'number' && Number.isSafeInteger(value["fileSizeBytes"])) && (typeof value["hasPassword"] === 'boolean') && ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string')) && (typeof value["shareCode"] === 'string') && (typeof value["shareId"] === 'string' && guidPattern.test(value["shareId"])) && (typeof value["title"] === 'string');
+  return isRecord(value) && (typeof value["accessCountRemaining"] === 'number' && Number.isSafeInteger(value["accessCountRemaining"])) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["fileName"] === null) || (typeof value["fileName"] === 'string')) && (typeof value["fileSizeBytes"] === 'number' && Number.isSafeInteger(value["fileSizeBytes"])) && (typeof value["hasPassword"] === 'boolean') && ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string')) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string'))) && (typeof value["shareCode"] === 'string') && (typeof value["shareId"] === 'string' && guidPattern.test(value["shareId"])) && (typeof value["title"] === 'string');
 }
 
 export function readHostDocumentShareResponse(value: unknown): HostDocumentShareResponse {
   const normalizedValue = normalizeHostDocumentShareResponseIntegerJson(value);
-  if (!(isHostDocumentShareResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_share_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentShareResponse(normalizedValue), 'host_document_share_response') as HostDocumentShareResponse;
 }
 
 function isHostDocumentShareResponse(value: unknown): value is HostDocumentShareResponse {
@@ -3648,10 +2909,7 @@ function isHostDocumentShareResponse(value: unknown): value is HostDocumentShare
 
 export function readHostDocumentStatisticsCategoryItem(value: unknown): HostDocumentStatisticsCategoryItem {
   const normalizedValue = normalizeHostDocumentStatisticsCategoryItemIntegerJson(value);
-  if (!(isHostDocumentStatisticsCategoryItem(normalizedValue))) {
-    throw new Error('client.invalid_host_document_statistics_category_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentStatisticsCategoryItem(normalizedValue), 'host_document_statistics_category_item') as HostDocumentStatisticsCategoryItem;
 }
 
 function isHostDocumentStatisticsCategoryItem(value: unknown): value is HostDocumentStatisticsCategoryItem {
@@ -3660,10 +2918,7 @@ function isHostDocumentStatisticsCategoryItem(value: unknown): value is HostDocu
 
 export function readHostDocumentStatisticsResponse(value: unknown): HostDocumentStatisticsResponse {
   const normalizedValue = normalizeHostDocumentStatisticsResponseIntegerJson(value);
-  if (!(isHostDocumentStatisticsResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_statistics_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentStatisticsResponse(normalizedValue), 'host_document_statistics_response') as HostDocumentStatisticsResponse;
 }
 
 function isHostDocumentStatisticsResponse(value: unknown): value is HostDocumentStatisticsResponse {
@@ -3672,10 +2927,7 @@ function isHostDocumentStatisticsResponse(value: unknown): value is HostDocument
 
 export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostDocumentStatisticsSummaryResponse {
   const normalizedValue = normalizeHostDocumentStatisticsSummaryResponseIntegerJson(value);
-  if (!(isHostDocumentStatisticsSummaryResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_statistics_summary_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentStatisticsSummaryResponse(normalizedValue), 'host_document_statistics_summary_response') as HostDocumentStatisticsSummaryResponse;
 }
 
 function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostDocumentStatisticsSummaryResponse {
@@ -3684,10 +2936,7 @@ function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostD
 
 export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocumentStatisticsTypeItem {
   const normalizedValue = normalizeHostDocumentStatisticsTypeItemIntegerJson(value);
-  if (!(isHostDocumentStatisticsTypeItem(normalizedValue))) {
-    throw new Error('client.invalid_host_document_statistics_type_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentStatisticsTypeItem(normalizedValue), 'host_document_statistics_type_item') as HostDocumentStatisticsTypeItem;
 }
 
 function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
@@ -3695,10 +2944,7 @@ function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocument
 }
 
 export function readHostDocumentStatus(value: unknown): HostDocumentStatus {
-  if (!(isHostDocumentStatus(value))) {
-    throw new Error('client.invalid_host_document_status');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentStatus(value), 'host_document_status') as HostDocumentStatus;
 }
 
 function isHostDocumentStatus(value: unknown): value is HostDocumentStatus {
@@ -3706,10 +2952,7 @@ function isHostDocumentStatus(value: unknown): value is HostDocumentStatus {
 }
 
 export function readHostDocumentTagAssignmentResponse(value: unknown): HostDocumentTagAssignmentResponse {
-  if (!(isHostDocumentTagAssignmentResponse(value))) {
-    throw new Error('client.invalid_host_document_tag_assignment_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentTagAssignmentResponse(value), 'host_document_tag_assignment_response') as HostDocumentTagAssignmentResponse;
 }
 
 function isHostDocumentTagAssignmentResponse(value: unknown): value is HostDocumentTagAssignmentResponse {
@@ -3718,10 +2961,7 @@ function isHostDocumentTagAssignmentResponse(value: unknown): value is HostDocum
 
 export function readHostDocumentTagResponse(value: unknown): HostDocumentTagResponse {
   const normalizedValue = normalizeHostDocumentTagResponseIntegerJson(value);
-  if (!(isHostDocumentTagResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_tag_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentTagResponse(normalizedValue), 'host_document_tag_response') as HostDocumentTagResponse;
 }
 
 function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
@@ -3729,10 +2969,7 @@ function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResp
 }
 
 export function readHostDocumentType(value: unknown): HostDocumentType {
-  if (!(isHostDocumentType(value))) {
-    throw new Error('client.invalid_host_document_type');
-  }
-  return value;
+  return requireValidResponse(value, isHostDocumentType(value), 'host_document_type') as HostDocumentType;
 }
 
 function isHostDocumentType(value: unknown): value is HostDocumentType {
@@ -3741,10 +2978,7 @@ function isHostDocumentType(value: unknown): value is HostDocumentType {
 
 export function readHostDocumentVersionResponse(value: unknown): HostDocumentVersionResponse {
   const normalizedValue = normalizeHostDocumentVersionResponseIntegerJson(value);
-  if (!(isHostDocumentVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentVersionResponse(normalizedValue), 'host_document_version_response') as HostDocumentVersionResponse;
 }
 
 function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVersionResponse {
@@ -3753,10 +2987,7 @@ function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVer
 
 export function readHostDocumentVersionRetentionSettingsResponse(value: unknown): HostDocumentVersionRetentionSettingsResponse {
   const normalizedValue = normalizeHostDocumentVersionRetentionSettingsResponseIntegerJson(value);
-  if (!(isHostDocumentVersionRetentionSettingsResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_document_version_retention_settings_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostDocumentVersionRetentionSettingsResponse(normalizedValue), 'host_document_version_retention_settings_response') as HostDocumentVersionRetentionSettingsResponse;
 }
 
 function isHostDocumentVersionRetentionSettingsResponse(value: unknown): value is HostDocumentVersionRetentionSettingsResponse {
@@ -3764,10 +2995,7 @@ function isHostDocumentVersionRetentionSettingsResponse(value: unknown): value i
 }
 
 export function readHostFileReferenceClaimResponse(value: unknown): HostFileReferenceClaimResponse {
-  if (!(isHostFileReferenceClaimResponse(value))) {
-    throw new Error('client.invalid_host_file_reference_claim_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostFileReferenceClaimResponse(value), 'host_file_reference_claim_response') as HostFileReferenceClaimResponse;
 }
 
 function isHostFileReferenceClaimResponse(value: unknown): value is HostFileReferenceClaimResponse {
@@ -3776,10 +3004,7 @@ function isHostFileReferenceClaimResponse(value: unknown): value is HostFileRefe
 
 export function readHostFileResponse(value: unknown): HostFileResponse {
   const normalizedValue = normalizeHostFileResponseIntegerJson(value);
-  if (!(isHostFileResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_file_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostFileResponse(normalizedValue), 'host_file_response') as HostFileResponse;
 }
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
@@ -3788,10 +3013,7 @@ function isHostFileResponse(value: unknown): value is HostFileResponse {
 
 export function readHostFolderResponse(value: unknown): HostFolderResponse {
   const normalizedValue = normalizeHostFolderResponseIntegerJson(value);
-  if (!(isHostFolderResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_folder_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostFolderResponse(normalizedValue), 'host_folder_response') as HostFolderResponse;
 }
 
 function isHostFolderResponse(value: unknown): value is HostFolderResponse {
@@ -3800,22 +3022,16 @@ function isHostFolderResponse(value: unknown): value is HostFolderResponse {
 
 export function readHostFolderTreeNode(value: unknown): HostFolderTreeNode {
   const normalizedValue = normalizeHostFolderTreeNodeIntegerJson(value);
-  if (!(isHostFolderTreeNode(normalizedValue))) {
-    throw new Error('client.invalid_host_folder_tree_node');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostFolderTreeNode(normalizedValue), 'host_folder_tree_node') as HostFolderTreeNode;
 }
 
 function isHostFolderTreeNode(value: unknown): value is HostFolderTreeNode {
-  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isHostFolderTreeNode(item17))) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["hasChildren"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
 }
 
 export function readHostJobDefinitionResponse(value: unknown): HostJobDefinitionResponse {
   const normalizedValue = normalizeHostJobDefinitionResponseIntegerJson(value);
-  if (!(isHostJobDefinitionResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_job_definition_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostJobDefinitionResponse(normalizedValue), 'host_job_definition_response') as HostJobDefinitionResponse;
 }
 
 function isHostJobDefinitionResponse(value: unknown): value is HostJobDefinitionResponse {
@@ -3824,10 +3040,7 @@ function isHostJobDefinitionResponse(value: unknown): value is HostJobDefinition
 
 export function readHostJobExecutionResponse(value: unknown): HostJobExecutionResponse {
   const normalizedValue = normalizeHostJobExecutionResponseIntegerJson(value);
-  if (!(isHostJobExecutionResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_job_execution_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostJobExecutionResponse(normalizedValue), 'host_job_execution_response') as HostJobExecutionResponse;
 }
 
 function isHostJobExecutionResponse(value: unknown): value is HostJobExecutionResponse {
@@ -3835,10 +3048,7 @@ function isHostJobExecutionResponse(value: unknown): value is HostJobExecutionRe
 }
 
 export function readHostJobGroupResponse(value: unknown): HostJobGroupResponse {
-  if (!(isHostJobGroupResponse(value))) {
-    throw new Error('client.invalid_host_job_group_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostJobGroupResponse(value), 'host_job_group_response') as HostJobGroupResponse;
 }
 
 function isHostJobGroupResponse(value: unknown): value is HostJobGroupResponse {
@@ -3847,10 +3057,7 @@ function isHostJobGroupResponse(value: unknown): value is HostJobGroupResponse {
 
 export function readHostJobHealthBacklogSnapshot(value: unknown): HostJobHealthBacklogSnapshot {
   const normalizedValue = normalizeHostJobHealthBacklogSnapshotIntegerJson(value);
-  if (!(isHostJobHealthBacklogSnapshot(normalizedValue))) {
-    throw new Error('client.invalid_host_job_health_backlog_snapshot');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostJobHealthBacklogSnapshot(normalizedValue), 'host_job_health_backlog_snapshot') as HostJobHealthBacklogSnapshot;
 }
 
 function isHostJobHealthBacklogSnapshot(value: unknown): value is HostJobHealthBacklogSnapshot {
@@ -3859,10 +3066,7 @@ function isHostJobHealthBacklogSnapshot(value: unknown): value is HostJobHealthB
 
 export function readHostJobHealthResponse(value: unknown): HostJobHealthResponse {
   const normalizedValue = normalizeHostJobHealthResponseIntegerJson(value);
-  if (!(isHostJobHealthResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_job_health_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostJobHealthResponse(normalizedValue), 'host_job_health_response') as HostJobHealthResponse;
 }
 
 function isHostJobHealthResponse(value: unknown): value is HostJobHealthResponse {
@@ -3870,10 +3074,7 @@ function isHostJobHealthResponse(value: unknown): value is HostJobHealthResponse
 }
 
 export function readHostJobScheduleCronPreviewResponse(value: unknown): HostJobScheduleCronPreviewResponse {
-  if (!(isHostJobScheduleCronPreviewResponse(value))) {
-    throw new Error('client.invalid_host_job_schedule_cron_preview_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostJobScheduleCronPreviewResponse(value), 'host_job_schedule_cron_preview_response') as HostJobScheduleCronPreviewResponse;
 }
 
 function isHostJobScheduleCronPreviewResponse(value: unknown): value is HostJobScheduleCronPreviewResponse {
@@ -3881,10 +3082,7 @@ function isHostJobScheduleCronPreviewResponse(value: unknown): value is HostJobS
 }
 
 export function readHostJobScheduleDefinitionOptionResponse(value: unknown): HostJobScheduleDefinitionOptionResponse {
-  if (!(isHostJobScheduleDefinitionOptionResponse(value))) {
-    throw new Error('client.invalid_host_job_schedule_definition_option_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostJobScheduleDefinitionOptionResponse(value), 'host_job_schedule_definition_option_response') as HostJobScheduleDefinitionOptionResponse;
 }
 
 function isHostJobScheduleDefinitionOptionResponse(value: unknown): value is HostJobScheduleDefinitionOptionResponse {
@@ -3893,10 +3091,7 @@ function isHostJobScheduleDefinitionOptionResponse(value: unknown): value is Hos
 
 export function readHostJobScheduleResponse(value: unknown): HostJobScheduleResponse {
   const normalizedValue = normalizeHostJobScheduleResponseIntegerJson(value);
-  if (!(isHostJobScheduleResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_job_schedule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostJobScheduleResponse(normalizedValue), 'host_job_schedule_response') as HostJobScheduleResponse;
 }
 
 function isHostJobScheduleResponse(value: unknown): value is HostJobScheduleResponse {
@@ -3904,10 +3099,7 @@ function isHostJobScheduleResponse(value: unknown): value is HostJobScheduleResp
 }
 
 export function readHostJobWorkerInstanceResponse(value: unknown): HostJobWorkerInstanceResponse {
-  if (!(isHostJobWorkerInstanceResponse(value))) {
-    throw new Error('client.invalid_host_job_worker_instance_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostJobWorkerInstanceResponse(value), 'host_job_worker_instance_response') as HostJobWorkerInstanceResponse;
 }
 
 function isHostJobWorkerInstanceResponse(value: unknown): value is HostJobWorkerInstanceResponse {
@@ -3915,10 +3107,7 @@ function isHostJobWorkerInstanceResponse(value: unknown): value is HostJobWorker
 }
 
 export function readHostMenuPermissionOptionResponse(value: unknown): HostMenuPermissionOptionResponse {
-  if (!(isHostMenuPermissionOptionResponse(value))) {
-    throw new Error('client.invalid_host_menu_permission_option_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostMenuPermissionOptionResponse(value), 'host_menu_permission_option_response') as HostMenuPermissionOptionResponse;
 }
 
 function isHostMenuPermissionOptionResponse(value: unknown): value is HostMenuPermissionOptionResponse {
@@ -3927,10 +3116,7 @@ function isHostMenuPermissionOptionResponse(value: unknown): value is HostMenuPe
 
 export function readHostMenuResponse(value: unknown): HostMenuResponse {
   const normalizedValue = normalizeHostMenuResponseIntegerJson(value);
-  if (!(isHostMenuResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_menu_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostMenuResponse(normalizedValue), 'host_menu_response') as HostMenuResponse;
 }
 
 function isHostMenuResponse(value: unknown): value is HostMenuResponse {
@@ -3939,10 +3125,7 @@ function isHostMenuResponse(value: unknown): value is HostMenuResponse {
 
 export function readHostNavigationCatalogSyncResponse(value: unknown): HostNavigationCatalogSyncResponse {
   const normalizedValue = normalizeHostNavigationCatalogSyncResponseIntegerJson(value);
-  if (!(isHostNavigationCatalogSyncResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_navigation_catalog_sync_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostNavigationCatalogSyncResponse(normalizedValue), 'host_navigation_catalog_sync_response') as HostNavigationCatalogSyncResponse;
 }
 
 function isHostNavigationCatalogSyncResponse(value: unknown): value is HostNavigationCatalogSyncResponse {
@@ -3950,10 +3133,7 @@ function isHostNavigationCatalogSyncResponse(value: unknown): value is HostNavig
 }
 
 export function readHostOnlineSessionResponse(value: unknown): HostOnlineSessionResponse {
-  if (!(isHostOnlineSessionResponse(value))) {
-    throw new Error('client.invalid_host_online_session_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostOnlineSessionResponse(value), 'host_online_session_response') as HostOnlineSessionResponse;
 }
 
 function isHostOnlineSessionResponse(value: unknown): value is HostOnlineSessionResponse {
@@ -3962,10 +3142,7 @@ function isHostOnlineSessionResponse(value: unknown): value is HostOnlineSession
 
 export function readHostReleaseNoteResponse(value: unknown): HostReleaseNoteResponse {
   const normalizedValue = normalizeHostReleaseNoteResponseIntegerJson(value);
-  if (!(isHostReleaseNoteResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_release_note_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostReleaseNoteResponse(normalizedValue), 'host_release_note_response') as HostReleaseNoteResponse;
 }
 
 function isHostReleaseNoteResponse(value: unknown): value is HostReleaseNoteResponse {
@@ -3974,10 +3151,7 @@ function isHostReleaseNoteResponse(value: unknown): value is HostReleaseNoteResp
 
 export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
   const normalizedValue = normalizeHostRoleDataScopeResponseIntegerJson(value);
-  if (!(isHostRoleDataScopeResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_role_data_scope_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostRoleDataScopeResponse(normalizedValue), 'host_role_data_scope_response') as HostRoleDataScopeResponse;
 }
 
 function isHostRoleDataScopeResponse(value: unknown): value is HostRoleDataScopeResponse {
@@ -3986,10 +3160,7 @@ function isHostRoleDataScopeResponse(value: unknown): value is HostRoleDataScope
 
 export function readHostRoleFieldGrantsResponse(value: unknown): HostRoleFieldGrantsResponse {
   const normalizedValue = normalizeHostRoleFieldGrantsResponseIntegerJson(value);
-  if (!(isHostRoleFieldGrantsResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_role_field_grants_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostRoleFieldGrantsResponse(normalizedValue), 'host_role_field_grants_response') as HostRoleFieldGrantsResponse;
 }
 
 function isHostRoleFieldGrantsResponse(value: unknown): value is HostRoleFieldGrantsResponse {
@@ -3997,10 +3168,7 @@ function isHostRoleFieldGrantsResponse(value: unknown): value is HostRoleFieldGr
 }
 
 export function readHostRoleMemberResponse(value: unknown): HostRoleMemberResponse {
-  if (!(isHostRoleMemberResponse(value))) {
-    throw new Error('client.invalid_host_role_member_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostRoleMemberResponse(value), 'host_role_member_response') as HostRoleMemberResponse;
 }
 
 function isHostRoleMemberResponse(value: unknown): value is HostRoleMemberResponse {
@@ -4009,10 +3177,7 @@ function isHostRoleMemberResponse(value: unknown): value is HostRoleMemberRespon
 
 export function readHostRoleMembersAssignmentResponse(value: unknown): HostRoleMembersAssignmentResponse {
   const normalizedValue = normalizeHostRoleMembersAssignmentResponseIntegerJson(value);
-  if (!(isHostRoleMembersAssignmentResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_role_members_assignment_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostRoleMembersAssignmentResponse(normalizedValue), 'host_role_members_assignment_response') as HostRoleMembersAssignmentResponse;
 }
 
 function isHostRoleMembersAssignmentResponse(value: unknown): value is HostRoleMembersAssignmentResponse {
@@ -4021,10 +3186,7 @@ function isHostRoleMembersAssignmentResponse(value: unknown): value is HostRoleM
 
 export function readHostRoleMembersPageResponse(value: unknown): HostRoleMembersPageResponse {
   const normalizedValue = normalizeHostRoleMembersPageResponseIntegerJson(value);
-  if (!(isHostRoleMembersPageResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_role_members_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostRoleMembersPageResponse(normalizedValue), 'host_role_members_page_response') as HostRoleMembersPageResponse;
 }
 
 function isHostRoleMembersPageResponse(value: unknown): value is HostRoleMembersPageResponse {
@@ -4033,10 +3195,7 @@ function isHostRoleMembersPageResponse(value: unknown): value is HostRoleMembers
 
 export function readHostRoleResponse(value: unknown): HostRoleResponse {
   const normalizedValue = normalizeHostRoleResponseIntegerJson(value);
-  if (!(isHostRoleResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_role_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostRoleResponse(normalizedValue), 'host_role_response') as HostRoleResponse;
 }
 
 function isHostRoleResponse(value: unknown): value is HostRoleResponse {
@@ -4045,10 +3204,7 @@ function isHostRoleResponse(value: unknown): value is HostRoleResponse {
 
 export function readHostTenantAdministratorsPageResponse(value: unknown): HostTenantAdministratorsPageResponse {
   const normalizedValue = normalizeHostTenantAdministratorsPageResponseIntegerJson(value);
-  if (!(isHostTenantAdministratorsPageResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_tenant_administrators_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostTenantAdministratorsPageResponse(normalizedValue), 'host_tenant_administrators_page_response') as HostTenantAdministratorsPageResponse;
 }
 
 function isHostTenantAdministratorsPageResponse(value: unknown): value is HostTenantAdministratorsPageResponse {
@@ -4056,10 +3212,7 @@ function isHostTenantAdministratorsPageResponse(value: unknown): value is HostTe
 }
 
 export function readHostTenantMemberResponse(value: unknown): HostTenantMemberResponse {
-  if (!(isHostTenantMemberResponse(value))) {
-    throw new Error('client.invalid_host_tenant_member_response');
-  }
-  return value;
+  return requireValidResponse(value, isHostTenantMemberResponse(value), 'host_tenant_member_response') as HostTenantMemberResponse;
 }
 
 function isHostTenantMemberResponse(value: unknown): value is HostTenantMemberResponse {
@@ -4068,10 +3221,7 @@ function isHostTenantMemberResponse(value: unknown): value is HostTenantMemberRe
 
 export function readHostTenantMembersPageResponse(value: unknown): HostTenantMembersPageResponse {
   const normalizedValue = normalizeHostTenantMembersPageResponseIntegerJson(value);
-  if (!(isHostTenantMembersPageResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_tenant_members_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostTenantMembersPageResponse(normalizedValue), 'host_tenant_members_page_response') as HostTenantMembersPageResponse;
 }
 
 function isHostTenantMembersPageResponse(value: unknown): value is HostTenantMembersPageResponse {
@@ -4080,22 +3230,16 @@ function isHostTenantMembersPageResponse(value: unknown): value is HostTenantMem
 
 export function readHostUserManagementOrganizationReferenceResponse(value: unknown): HostUserManagementOrganizationReferenceResponse {
   const normalizedValue = normalizeHostUserManagementOrganizationReferenceResponseIntegerJson(value);
-  if (!(isHostUserManagementOrganizationReferenceResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_user_management_organization_reference_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserManagementOrganizationReferenceResponse(normalizedValue), 'host_user_management_organization_reference_response') as HostUserManagementOrganizationReferenceResponse;
 }
 
 function isHostUserManagementOrganizationReferenceResponse(value: unknown): value is HostUserManagementOrganizationReferenceResponse {
-  return isRecord(value) && (Array.isArray(value["positions"]) && value["positions"].every(item18 => isOrganizationPositionResponse(item18))) && (Array.isArray(value["units"]) && value["units"].every(item14 => isOrganizationUnitResponse(item14))) && (Array.isArray(value["userPositions"]) && value["userPositions"].every(item22 => isOrganizationUserPositionResponse(item22))) && (Array.isArray(value["userUnits"]) && value["userUnits"].every(item18 => isOrganizationUserUnitResponse(item18)));
+  return isRecord(value) && (Array.isArray(value["positions"]) && value["positions"].every(item18 => isOrganizationPositionResponse(item18))) && (value["positionsTotal"] === undefined || (typeof value["positionsTotal"] === 'number' && Number.isSafeInteger(value["positionsTotal"]))) && (Array.isArray(value["units"]) && value["units"].every(item14 => isOrganizationUnitResponse(item14))) && (value["unitsTotal"] === undefined || (typeof value["unitsTotal"] === 'number' && Number.isSafeInteger(value["unitsTotal"]))) && (Array.isArray(value["userPositions"]) && value["userPositions"].every(item22 => isOrganizationUserPositionResponse(item22))) && (Array.isArray(value["userUnits"]) && value["userUnits"].every(item18 => isOrganizationUserUnitResponse(item18)));
 }
 
 export function readHostUserProfileResponse(value: unknown): HostUserProfileResponse {
   const normalizedValue = normalizeHostUserProfileResponseIntegerJson(value);
-  if (!(isHostUserProfileResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_user_profile_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserProfileResponse(normalizedValue), 'host_user_profile_response') as HostUserProfileResponse;
 }
 
 function isHostUserProfileResponse(value: unknown): value is HostUserProfileResponse {
@@ -4104,10 +3248,7 @@ function isHostUserProfileResponse(value: unknown): value is HostUserProfileResp
 
 export function readHostUserProfileWriteRequest(value: unknown): HostUserProfileWriteRequest {
   const normalizedValue = normalizeHostUserProfileWriteRequestIntegerJson(value);
-  if (!(isHostUserProfileWriteRequest(normalizedValue))) {
-    throw new Error('client.invalid_host_user_profile_write_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserProfileWriteRequest(normalizedValue), 'host_user_profile_write_request') as HostUserProfileWriteRequest;
 }
 
 function isHostUserProfileWriteRequest(value: unknown): value is HostUserProfileWriteRequest {
@@ -4116,10 +3257,7 @@ function isHostUserProfileWriteRequest(value: unknown): value is HostUserProfile
 
 export function readHostUserProjectedFieldsResponse(value: unknown): HostUserProjectedFieldsResponse {
   const normalizedValue = normalizeHostUserProjectedFieldsResponseIntegerJson(value);
-  if (!(isHostUserProjectedFieldsResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_user_projected_fields_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserProjectedFieldsResponse(normalizedValue), 'host_user_projected_fields_response') as HostUserProjectedFieldsResponse;
 }
 
 function isHostUserProjectedFieldsResponse(value: unknown): value is HostUserProjectedFieldsResponse {
@@ -4128,10 +3266,7 @@ function isHostUserProjectedFieldsResponse(value: unknown): value is HostUserPro
 
 export function readHostUserResponse(value: unknown): HostUserResponse {
   const normalizedValue = normalizeHostUserResponseIntegerJson(value);
-  if (!(isHostUserResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_user_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserResponse(normalizedValue), 'host_user_response') as HostUserResponse;
 }
 
 function isHostUserResponse(value: unknown): value is HostUserResponse {
@@ -4140,10 +3275,7 @@ function isHostUserResponse(value: unknown): value is HostUserResponse {
 
 export function readHostUserRolesResponse(value: unknown): HostUserRolesResponse {
   const normalizedValue = normalizeHostUserRolesResponseIntegerJson(value);
-  if (!(isHostUserRolesResponse(normalizedValue))) {
-    throw new Error('client.invalid_host_user_roles_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHostUserRolesResponse(normalizedValue), 'host_user_roles_response') as HostUserRolesResponse;
 }
 
 function isHostUserRolesResponse(value: unknown): value is HostUserRolesResponse {
@@ -4152,10 +3284,7 @@ function isHostUserRolesResponse(value: unknown): value is HostUserRolesResponse
 
 export function readHttpJobArgs(value: unknown): HttpJobArgs {
   const normalizedValue = normalizeHttpJobArgsIntegerJson(value);
-  if (!(isHttpJobArgs(normalizedValue))) {
-    throw new Error('client.invalid_http_job_args');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isHttpJobArgs(normalizedValue), 'http_job_args') as HttpJobArgs;
 }
 
 function isHttpJobArgs(value: unknown): value is HttpJobArgs {
@@ -4163,10 +3292,7 @@ function isHttpJobArgs(value: unknown): value is HttpJobArgs {
 }
 
 export function readHttpJobSecretHeaderRef(value: unknown): HttpJobSecretHeaderRef {
-  if (!(isHttpJobSecretHeaderRef(value))) {
-    throw new Error('client.invalid_http_job_secret_header_ref');
-  }
-  return value;
+  return requireValidResponse(value, isHttpJobSecretHeaderRef(value), 'http_job_secret_header_ref') as HttpJobSecretHeaderRef;
 }
 
 function isHttpJobSecretHeaderRef(value: unknown): value is HttpJobSecretHeaderRef {
@@ -4174,10 +3300,7 @@ function isHttpJobSecretHeaderRef(value: unknown): value is HttpJobSecretHeaderR
 }
 
 export function readIdentitySessionLoginPolicy(value: unknown): IdentitySessionLoginPolicy {
-  if (!(isIdentitySessionLoginPolicy(value))) {
-    throw new Error('client.invalid_identity_session_login_policy');
-  }
-  return value;
+  return requireValidResponse(value, isIdentitySessionLoginPolicy(value), 'identity_session_login_policy') as IdentitySessionLoginPolicy;
 }
 
 function isIdentitySessionLoginPolicy(value: unknown): value is IdentitySessionLoginPolicy {
@@ -4185,10 +3308,7 @@ function isIdentitySessionLoginPolicy(value: unknown): value is IdentitySessionL
 }
 
 export function readIdentitySessionPolicyResponse(value: unknown): IdentitySessionPolicyResponse {
-  if (!(isIdentitySessionPolicyResponse(value))) {
-    throw new Error('client.invalid_identity_session_policy_response');
-  }
-  return value;
+  return requireValidResponse(value, isIdentitySessionPolicyResponse(value), 'identity_session_policy_response') as IdentitySessionPolicyResponse;
 }
 
 function isIdentitySessionPolicyResponse(value: unknown): value is IdentitySessionPolicyResponse {
@@ -4196,10 +3316,7 @@ function isIdentitySessionPolicyResponse(value: unknown): value is IdentitySessi
 }
 
 export function readIFormFile(value: unknown): IFormFile {
-  if (!(isIFormFile(value))) {
-    throw new Error('client.invalid_iform_file');
-  }
-  return value;
+  return requireValidResponse(value, isIFormFile(value), 'iform_file') as IFormFile;
 }
 
 function isIFormFile(value: unknown): value is IFormFile {
@@ -4207,10 +3324,7 @@ function isIFormFile(value: unknown): value is IFormFile {
 }
 
 export function readIFormFileCollection(value: unknown): IFormFileCollection {
-  if (!(isIFormFileCollection(value))) {
-    throw new Error('client.invalid_iform_file_collection');
-  }
-  return value;
+  return requireValidResponse(value, isIFormFileCollection(value), 'iform_file_collection') as IFormFileCollection;
 }
 
 function isIFormFileCollection(value: unknown): value is IFormFileCollection {
@@ -4219,10 +3333,7 @@ function isIFormFileCollection(value: unknown): value is IFormFileCollection {
 
 export function readImportAdministrativeRegionAddedSummary(value: unknown): ImportAdministrativeRegionAddedSummary {
   const normalizedValue = normalizeImportAdministrativeRegionAddedSummaryIntegerJson(value);
-  if (!(isImportAdministrativeRegionAddedSummary(normalizedValue))) {
-    throw new Error('client.invalid_import_administrative_region_added_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportAdministrativeRegionAddedSummary(normalizedValue), 'import_administrative_region_added_summary') as ImportAdministrativeRegionAddedSummary;
 }
 
 function isImportAdministrativeRegionAddedSummary(value: unknown): value is ImportAdministrativeRegionAddedSummary {
@@ -4231,10 +3342,7 @@ function isImportAdministrativeRegionAddedSummary(value: unknown): value is Impo
 
 export function readImportAdministrativeRegionItem(value: unknown): ImportAdministrativeRegionItem {
   const normalizedValue = normalizeImportAdministrativeRegionItemIntegerJson(value);
-  if (!(isImportAdministrativeRegionItem(normalizedValue))) {
-    throw new Error('client.invalid_import_administrative_region_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportAdministrativeRegionItem(normalizedValue), 'import_administrative_region_item') as ImportAdministrativeRegionItem;
 }
 
 function isImportAdministrativeRegionItem(value: unknown): value is ImportAdministrativeRegionItem {
@@ -4242,10 +3350,7 @@ function isImportAdministrativeRegionItem(value: unknown): value is ImportAdmini
 }
 
 export function readImportAdministrativeRegionRemovedSummary(value: unknown): ImportAdministrativeRegionRemovedSummary {
-  if (!(isImportAdministrativeRegionRemovedSummary(value))) {
-    throw new Error('client.invalid_import_administrative_region_removed_summary');
-  }
-  return value;
+  return requireValidResponse(value, isImportAdministrativeRegionRemovedSummary(value), 'import_administrative_region_removed_summary') as ImportAdministrativeRegionRemovedSummary;
 }
 
 function isImportAdministrativeRegionRemovedSummary(value: unknown): value is ImportAdministrativeRegionRemovedSummary {
@@ -4254,10 +3359,7 @@ function isImportAdministrativeRegionRemovedSummary(value: unknown): value is Im
 
 export function readImportAdministrativeRegionsApplyResponse(value: unknown): ImportAdministrativeRegionsApplyResponse {
   const normalizedValue = normalizeImportAdministrativeRegionsApplyResponseIntegerJson(value);
-  if (!(isImportAdministrativeRegionsApplyResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_administrative_regions_apply_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportAdministrativeRegionsApplyResponse(normalizedValue), 'import_administrative_regions_apply_response') as ImportAdministrativeRegionsApplyResponse;
 }
 
 function isImportAdministrativeRegionsApplyResponse(value: unknown): value is ImportAdministrativeRegionsApplyResponse {
@@ -4266,10 +3368,7 @@ function isImportAdministrativeRegionsApplyResponse(value: unknown): value is Im
 
 export function readImportAdministrativeRegionsPreviewResponse(value: unknown): ImportAdministrativeRegionsPreviewResponse {
   const normalizedValue = normalizeImportAdministrativeRegionsPreviewResponseIntegerJson(value);
-  if (!(isImportAdministrativeRegionsPreviewResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_administrative_regions_preview_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportAdministrativeRegionsPreviewResponse(normalizedValue), 'import_administrative_regions_preview_response') as ImportAdministrativeRegionsPreviewResponse;
 }
 
 function isImportAdministrativeRegionsPreviewResponse(value: unknown): value is ImportAdministrativeRegionsPreviewResponse {
@@ -4278,10 +3377,7 @@ function isImportAdministrativeRegionsPreviewResponse(value: unknown): value is 
 
 export function readImportAdministrativeRegionsRequest(value: unknown): ImportAdministrativeRegionsRequest {
   const normalizedValue = normalizeImportAdministrativeRegionsRequestIntegerJson(value);
-  if (!(isImportAdministrativeRegionsRequest(normalizedValue))) {
-    throw new Error('client.invalid_import_administrative_regions_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportAdministrativeRegionsRequest(normalizedValue), 'import_administrative_regions_request') as ImportAdministrativeRegionsRequest;
 }
 
 function isImportAdministrativeRegionsRequest(value: unknown): value is ImportAdministrativeRegionsRequest {
@@ -4289,10 +3385,7 @@ function isImportAdministrativeRegionsRequest(value: unknown): value is ImportAd
 }
 
 export function readImportAdministrativeRegionUpdatedSummary(value: unknown): ImportAdministrativeRegionUpdatedSummary {
-  if (!(isImportAdministrativeRegionUpdatedSummary(value))) {
-    throw new Error('client.invalid_import_administrative_region_updated_summary');
-  }
-  return value;
+  return requireValidResponse(value, isImportAdministrativeRegionUpdatedSummary(value), 'import_administrative_region_updated_summary') as ImportAdministrativeRegionUpdatedSummary;
 }
 
 function isImportAdministrativeRegionUpdatedSummary(value: unknown): value is ImportAdministrativeRegionUpdatedSummary {
@@ -4301,10 +3394,7 @@ function isImportAdministrativeRegionUpdatedSummary(value: unknown): value is Im
 
 export function readImportExportTaskDetailResponse(value: unknown): ImportExportTaskDetailResponse {
   const normalizedValue = normalizeImportExportTaskDetailResponseIntegerJson(value);
-  if (!(isImportExportTaskDetailResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_export_task_detail_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportExportTaskDetailResponse(normalizedValue), 'import_export_task_detail_response') as ImportExportTaskDetailResponse;
 }
 
 function isImportExportTaskDetailResponse(value: unknown): value is ImportExportTaskDetailResponse {
@@ -4313,10 +3403,7 @@ function isImportExportTaskDetailResponse(value: unknown): value is ImportExport
 
 export function readImportExportTaskResponse(value: unknown): ImportExportTaskResponse {
   const normalizedValue = normalizeImportExportTaskResponseIntegerJson(value);
-  if (!(isImportExportTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_export_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportExportTaskResponse(normalizedValue), 'import_export_task_response') as ImportExportTaskResponse;
 }
 
 function isImportExportTaskResponse(value: unknown): value is ImportExportTaskResponse {
@@ -4325,10 +3412,7 @@ function isImportExportTaskResponse(value: unknown): value is ImportExportTaskRe
 
 export function readImportHostUserRowResult(value: unknown): ImportHostUserRowResult {
   const normalizedValue = normalizeImportHostUserRowResultIntegerJson(value);
-  if (!(isImportHostUserRowResult(normalizedValue))) {
-    throw new Error('client.invalid_import_host_user_row_result');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportHostUserRowResult(normalizedValue), 'import_host_user_row_result') as ImportHostUserRowResult;
 }
 
 function isImportHostUserRowResult(value: unknown): value is ImportHostUserRowResult {
@@ -4337,10 +3421,7 @@ function isImportHostUserRowResult(value: unknown): value is ImportHostUserRowRe
 
 export function readImportHostUsersRequest(value: unknown): ImportHostUsersRequest {
   const normalizedValue = normalizeImportHostUsersRequestIntegerJson(value);
-  if (!(isImportHostUsersRequest(normalizedValue))) {
-    throw new Error('client.invalid_import_host_users_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportHostUsersRequest(normalizedValue), 'import_host_users_request') as ImportHostUsersRequest;
 }
 
 function isImportHostUsersRequest(value: unknown): value is ImportHostUsersRequest {
@@ -4349,10 +3430,7 @@ function isImportHostUsersRequest(value: unknown): value is ImportHostUsersReque
 
 export function readImportHostUsersResponse(value: unknown): ImportHostUsersResponse {
   const normalizedValue = normalizeImportHostUsersResponseIntegerJson(value);
-  if (!(isImportHostUsersResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_host_users_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportHostUsersResponse(normalizedValue), 'import_host_users_response') as ImportHostUsersResponse;
 }
 
 function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResponse {
@@ -4361,10 +3439,7 @@ function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResp
 
 export function readImportOrganizationPositionRow(value: unknown): ImportOrganizationPositionRow {
   const normalizedValue = normalizeImportOrganizationPositionRowIntegerJson(value);
-  if (!(isImportOrganizationPositionRow(normalizedValue))) {
-    throw new Error('client.invalid_import_organization_position_row');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportOrganizationPositionRow(normalizedValue), 'import_organization_position_row') as ImportOrganizationPositionRow;
 }
 
 function isImportOrganizationPositionRow(value: unknown): value is ImportOrganizationPositionRow {
@@ -4373,10 +3448,7 @@ function isImportOrganizationPositionRow(value: unknown): value is ImportOrganiz
 
 export function readImportOrganizationPositionRowResult(value: unknown): ImportOrganizationPositionRowResult {
   const normalizedValue = normalizeImportOrganizationPositionRowResultIntegerJson(value);
-  if (!(isImportOrganizationPositionRowResult(normalizedValue))) {
-    throw new Error('client.invalid_import_organization_position_row_result');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportOrganizationPositionRowResult(normalizedValue), 'import_organization_position_row_result') as ImportOrganizationPositionRowResult;
 }
 
 function isImportOrganizationPositionRowResult(value: unknown): value is ImportOrganizationPositionRowResult {
@@ -4385,10 +3457,7 @@ function isImportOrganizationPositionRowResult(value: unknown): value is ImportO
 
 export function readImportOrganizationPositionsRequest(value: unknown): ImportOrganizationPositionsRequest {
   const normalizedValue = normalizeImportOrganizationPositionsRequestIntegerJson(value);
-  if (!(isImportOrganizationPositionsRequest(normalizedValue))) {
-    throw new Error('client.invalid_import_organization_positions_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportOrganizationPositionsRequest(normalizedValue), 'import_organization_positions_request') as ImportOrganizationPositionsRequest;
 }
 
 function isImportOrganizationPositionsRequest(value: unknown): value is ImportOrganizationPositionsRequest {
@@ -4397,10 +3466,7 @@ function isImportOrganizationPositionsRequest(value: unknown): value is ImportOr
 
 export function readImportOrganizationPositionsResponse(value: unknown): ImportOrganizationPositionsResponse {
   const normalizedValue = normalizeImportOrganizationPositionsResponseIntegerJson(value);
-  if (!(isImportOrganizationPositionsResponse(normalizedValue))) {
-    throw new Error('client.invalid_import_organization_positions_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isImportOrganizationPositionsResponse(normalizedValue), 'import_organization_positions_response') as ImportOrganizationPositionsResponse;
 }
 
 function isImportOrganizationPositionsResponse(value: unknown): value is ImportOrganizationPositionsResponse {
@@ -4408,10 +3474,7 @@ function isImportOrganizationPositionsResponse(value: unknown): value is ImportO
 }
 
 export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
-  if (!(isInboxMessageResponse(value))) {
-    throw new Error('client.invalid_inbox_message_response');
-  }
-  return value;
+  return requireValidResponse(value, isInboxMessageResponse(value), 'inbox_message_response') as InboxMessageResponse;
 }
 
 function isInboxMessageResponse(value: unknown): value is InboxMessageResponse {
@@ -4420,10 +3483,7 @@ function isInboxMessageResponse(value: unknown): value is InboxMessageResponse {
 
 export function readInboxUnreadCountResponse(value: unknown): InboxUnreadCountResponse {
   const normalizedValue = normalizeInboxUnreadCountResponseIntegerJson(value);
-  if (!(isInboxUnreadCountResponse(normalizedValue))) {
-    throw new Error('client.invalid_inbox_unread_count_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isInboxUnreadCountResponse(normalizedValue), 'inbox_unread_count_response') as InboxUnreadCountResponse;
 }
 
 function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountResponse {
@@ -4431,10 +3491,7 @@ function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountRe
 }
 
 export function readJsonElement(value: unknown): JsonElement {
-  if (!(isJsonElement(value))) {
-    throw new Error('client.invalid_json_element');
-  }
-  return value;
+  return requireValidResponse(value, isJsonElement(value), 'json_element') as JsonElement;
 }
 
 function isJsonElement(value: unknown): value is JsonElement {
@@ -4443,10 +3500,7 @@ function isJsonElement(value: unknown): value is JsonElement {
 
 export function readK3CloudConnectionConfigResponse(value: unknown): K3CloudConnectionConfigResponse {
   const normalizedValue = normalizeK3CloudConnectionConfigResponseIntegerJson(value);
-  if (!(isK3CloudConnectionConfigResponse(normalizedValue))) {
-    throw new Error('client.invalid_k3_cloud_connection_config_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isK3CloudConnectionConfigResponse(normalizedValue), 'k3_cloud_connection_config_response') as K3CloudConnectionConfigResponse;
 }
 
 function isK3CloudConnectionConfigResponse(value: unknown): value is K3CloudConnectionConfigResponse {
@@ -4455,10 +3509,7 @@ function isK3CloudConnectionConfigResponse(value: unknown): value is K3CloudConn
 
 export function readK3CloudDocumentSyncResponse(value: unknown): K3CloudDocumentSyncResponse {
   const normalizedValue = normalizeK3CloudDocumentSyncResponseIntegerJson(value);
-  if (!(isK3CloudDocumentSyncResponse(normalizedValue))) {
-    throw new Error('client.invalid_k3_cloud_document_sync_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isK3CloudDocumentSyncResponse(normalizedValue), 'k3_cloud_document_sync_response') as K3CloudDocumentSyncResponse;
 }
 
 function isK3CloudDocumentSyncResponse(value: unknown): value is K3CloudDocumentSyncResponse {
@@ -4467,22 +3518,24 @@ function isK3CloudDocumentSyncResponse(value: unknown): value is K3CloudDocument
 
 export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
   const normalizedValue = normalizeLocalePreferenceResponseIntegerJson(value);
-  if (!(isLocalePreferenceResponse(normalizedValue))) {
-    throw new Error('client.invalid_locale_preference_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isLocalePreferenceResponse(normalizedValue), 'locale_preference_response') as LocalePreferenceResponse;
 }
 
 function isLocalePreferenceResponse(value: unknown): value is LocalePreferenceResponse {
   return isRecord(value) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"]));
 }
 
+export function readLogCorrelationSnapshot(value: unknown): LogCorrelationSnapshot {
+  return requireValidResponse(value, isLogCorrelationSnapshot(value), 'log_correlation_snapshot') as LogCorrelationSnapshot;
+}
+
+function isLogCorrelationSnapshot(value: unknown): value is LogCorrelationSnapshot {
+  return isRecord(value) && (value["applicationSessionId"] === undefined || ((value["applicationSessionId"] === null) || (typeof value["applicationSessionId"] === 'string' && guidPattern.test(value["applicationSessionId"])))) && (value["centerSessionId"] === undefined || ((value["centerSessionId"] === null) || (typeof value["centerSessionId"] === 'string' && guidPattern.test(value["centerSessionId"])))) && (value["clientIpFingerprint"] === undefined || ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string'))) && (value["parentSpanId"] === undefined || ((value["parentSpanId"] === null) || (typeof value["parentSpanId"] === 'string'))) && (value["requestId"] === undefined || ((value["requestId"] === null) || (typeof value["requestId"] === 'string'))) && (value["sessionId"] === undefined || ((value["sessionId"] === null) || (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])))) && (value["spanId"] === undefined || ((value["spanId"] === null) || (typeof value["spanId"] === 'string'))) && (value["tenantId"] === undefined || ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])))) && (value["traceId"] === undefined || ((value["traceId"] === null) || (typeof value["traceId"] === 'string'))) && (value["userId"] === undefined || ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]))));
+}
+
 export function readLogFileList(value: unknown): LogFileList {
   const normalizedValue = normalizeLogFileListIntegerJson(value);
-  if (!(isLogFileList(normalizedValue))) {
-    throw new Error('client.invalid_log_file_list');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isLogFileList(normalizedValue), 'log_file_list') as LogFileList;
 }
 
 function isLogFileList(value: unknown): value is LogFileList {
@@ -4491,10 +3544,7 @@ function isLogFileList(value: unknown): value is LogFileList {
 
 export function readLogFileSummary(value: unknown): LogFileSummary {
   const normalizedValue = normalizeLogFileSummaryIntegerJson(value);
-  if (!(isLogFileSummary(normalizedValue))) {
-    throw new Error('client.invalid_log_file_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isLogFileSummary(normalizedValue), 'log_file_summary') as LogFileSummary;
 }
 
 function isLogFileSummary(value: unknown): value is LogFileSummary {
@@ -4503,10 +3553,7 @@ function isLogFileSummary(value: unknown): value is LogFileSummary {
 
 export function readLogFileTail(value: unknown): LogFileTail {
   const normalizedValue = normalizeLogFileTailIntegerJson(value);
-  if (!(isLogFileTail(normalizedValue))) {
-    throw new Error('client.invalid_log_file_tail');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isLogFileTail(normalizedValue), 'log_file_tail') as LogFileTail;
 }
 
 function isLogFileTail(value: unknown): value is LogFileTail {
@@ -4514,21 +3561,39 @@ function isLogFileTail(value: unknown): value is LogFileTail {
 }
 
 export function readLoginRequest(value: unknown): LoginRequest {
-  if (!(isLoginRequest(value))) {
-    throw new Error('client.invalid_login_request');
-  }
-  return value;
+  return requireValidResponse(value, isLoginRequest(value), 'login_request') as LoginRequest;
 }
 
 function isLoginRequest(value: unknown): value is LoginRequest {
   return isRecord(value) && (typeof value["password"] === 'string') && (typeof value["username"] === 'string');
 }
 
+export function readLogTimelineCoverage(value: unknown): LogTimelineCoverage {
+  return requireValidResponse(value, isLogTimelineCoverage(value), 'log_timeline_coverage') as LogTimelineCoverage;
+}
+
+function isLogTimelineCoverage(value: unknown): value is LogTimelineCoverage {
+  return isRecord(value) && (typeof value["source"] === 'string') && (typeof value["status"] === 'string');
+}
+
+export function readLogTimelineEntry(value: unknown): LogTimelineEntry {
+  return requireValidResponse(value, isLogTimelineEntry(value), 'log_timeline_entry') as LogTimelineEntry;
+}
+
+function isLogTimelineEntry(value: unknown): value is LogTimelineEntry {
+  return isRecord(value) && (isLogCorrelationSnapshot(value["correlation"])) && (typeof value["id"] === 'string') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["source"] === 'string') && (typeof value["summary"] === 'string');
+}
+
+export function readLogTimelineResponse(value: unknown): LogTimelineResponse {
+  return requireValidResponse(value, isLogTimelineResponse(value), 'log_timeline_response') as LogTimelineResponse;
+}
+
+function isLogTimelineResponse(value: unknown): value is LogTimelineResponse {
+  return isRecord(value) && (Array.isArray(value["entries"]) && value["entries"].every(item16 => isLogTimelineEntry(item16))) && (typeof value["fromUtc"] === 'string') && (typeof value["partial"] === 'boolean') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isLogTimelineCoverage(item16))) && (typeof value["toUtc"] === 'string');
+}
+
 export function readModuleCatalogEntryResponse(value: unknown): ModuleCatalogEntryResponse {
-  if (!(isModuleCatalogEntryResponse(value))) {
-    throw new Error('client.invalid_module_catalog_entry_response');
-  }
-  return value;
+  return requireValidResponse(value, isModuleCatalogEntryResponse(value), 'module_catalog_entry_response') as ModuleCatalogEntryResponse;
 }
 
 function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEntryResponse {
@@ -4536,10 +3601,7 @@ function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEnt
 }
 
 export function readModuleSelectionAnalysisResponse(value: unknown): ModuleSelectionAnalysisResponse {
-  if (!(isModuleSelectionAnalysisResponse(value))) {
-    throw new Error('client.invalid_module_selection_analysis_response');
-  }
-  return value;
+  return requireValidResponse(value, isModuleSelectionAnalysisResponse(value), 'module_selection_analysis_response') as ModuleSelectionAnalysisResponse;
 }
 
 function isModuleSelectionAnalysisResponse(value: unknown): value is ModuleSelectionAnalysisResponse {
@@ -4547,10 +3609,7 @@ function isModuleSelectionAnalysisResponse(value: unknown): value is ModuleSelec
 }
 
 export function readModuleSelectionIssueResponse(value: unknown): ModuleSelectionIssueResponse {
-  if (!(isModuleSelectionIssueResponse(value))) {
-    throw new Error('client.invalid_module_selection_issue_response');
-  }
-  return value;
+  return requireValidResponse(value, isModuleSelectionIssueResponse(value), 'module_selection_issue_response') as ModuleSelectionIssueResponse;
 }
 
 function isModuleSelectionIssueResponse(value: unknown): value is ModuleSelectionIssueResponse {
@@ -4558,10 +3617,7 @@ function isModuleSelectionIssueResponse(value: unknown): value is ModuleSelectio
 }
 
 export function readModuleSelectionModuleStateResponse(value: unknown): ModuleSelectionModuleStateResponse {
-  if (!(isModuleSelectionModuleStateResponse(value))) {
-    throw new Error('client.invalid_module_selection_module_state_response');
-  }
-  return value;
+  return requireValidResponse(value, isModuleSelectionModuleStateResponse(value), 'module_selection_module_state_response') as ModuleSelectionModuleStateResponse;
 }
 
 function isModuleSelectionModuleStateResponse(value: unknown): value is ModuleSelectionModuleStateResponse {
@@ -4569,10 +3625,7 @@ function isModuleSelectionModuleStateResponse(value: unknown): value is ModuleSe
 }
 
 export function readModuleSelectionValidateRequest(value: unknown): ModuleSelectionValidateRequest {
-  if (!(isModuleSelectionValidateRequest(value))) {
-    throw new Error('client.invalid_module_selection_validate_request');
-  }
-  return value;
+  return requireValidResponse(value, isModuleSelectionValidateRequest(value), 'module_selection_validate_request') as ModuleSelectionValidateRequest;
 }
 
 function isModuleSelectionValidateRequest(value: unknown): value is ModuleSelectionValidateRequest {
@@ -4581,10 +3634,7 @@ function isModuleSelectionValidateRequest(value: unknown): value is ModuleSelect
 
 export function readMyReleaseNoteResponse(value: unknown): MyReleaseNoteResponse {
   const normalizedValue = normalizeMyReleaseNoteResponseIntegerJson(value);
-  if (!(isMyReleaseNoteResponse(normalizedValue))) {
-    throw new Error('client.invalid_my_release_note_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isMyReleaseNoteResponse(normalizedValue), 'my_release_note_response') as MyReleaseNoteResponse;
 }
 
 function isMyReleaseNoteResponse(value: unknown): value is MyReleaseNoteResponse {
@@ -4593,10 +3643,7 @@ function isMyReleaseNoteResponse(value: unknown): value is MyReleaseNoteResponse
 
 export function readNotificationBindingResponse(value: unknown): NotificationBindingResponse {
   const normalizedValue = normalizeNotificationBindingResponseIntegerJson(value);
-  if (!(isNotificationBindingResponse(normalizedValue))) {
-    throw new Error('client.invalid_notification_binding_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationBindingResponse(normalizedValue), 'notification_binding_response') as NotificationBindingResponse;
 }
 
 function isNotificationBindingResponse(value: unknown): value is NotificationBindingResponse {
@@ -4605,10 +3652,7 @@ function isNotificationBindingResponse(value: unknown): value is NotificationBin
 
 export function readNotificationBindingTargetInput(value: unknown): NotificationBindingTargetInput {
   const normalizedValue = normalizeNotificationBindingTargetInputIntegerJson(value);
-  if (!(isNotificationBindingTargetInput(normalizedValue))) {
-    throw new Error('client.invalid_notification_binding_target_input');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationBindingTargetInput(normalizedValue), 'notification_binding_target_input') as NotificationBindingTargetInput;
 }
 
 function isNotificationBindingTargetInput(value: unknown): value is NotificationBindingTargetInput {
@@ -4617,10 +3661,7 @@ function isNotificationBindingTargetInput(value: unknown): value is Notification
 
 export function readNotificationDeliveryAttemptResponse(value: unknown): NotificationDeliveryAttemptResponse {
   const normalizedValue = normalizeNotificationDeliveryAttemptResponseIntegerJson(value);
-  if (!(isNotificationDeliveryAttemptResponse(normalizedValue))) {
-    throw new Error('client.invalid_notification_delivery_attempt_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationDeliveryAttemptResponse(normalizedValue), 'notification_delivery_attempt_response') as NotificationDeliveryAttemptResponse;
 }
 
 function isNotificationDeliveryAttemptResponse(value: unknown): value is NotificationDeliveryAttemptResponse {
@@ -4628,10 +3669,7 @@ function isNotificationDeliveryAttemptResponse(value: unknown): value is Notific
 }
 
 export function readNotificationDeliveryReceiptResponse(value: unknown): NotificationDeliveryReceiptResponse {
-  if (!(isNotificationDeliveryReceiptResponse(value))) {
-    throw new Error('client.invalid_notification_delivery_receipt_response');
-  }
-  return value;
+  return requireValidResponse(value, isNotificationDeliveryReceiptResponse(value), 'notification_delivery_receipt_response') as NotificationDeliveryReceiptResponse;
 }
 
 function isNotificationDeliveryReceiptResponse(value: unknown): value is NotificationDeliveryReceiptResponse {
@@ -4640,10 +3678,7 @@ function isNotificationDeliveryReceiptResponse(value: unknown): value is Notific
 
 export function readNotificationDeliveryResponse(value: unknown): NotificationDeliveryResponse {
   const normalizedValue = normalizeNotificationDeliveryResponseIntegerJson(value);
-  if (!(isNotificationDeliveryResponse(normalizedValue))) {
-    throw new Error('client.invalid_notification_delivery_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationDeliveryResponse(normalizedValue), 'notification_delivery_response') as NotificationDeliveryResponse;
 }
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
@@ -4651,10 +3686,7 @@ function isNotificationDeliveryResponse(value: unknown): value is NotificationDe
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
-  if (!(isNotificationProviderConfigField(value))) {
-    throw new Error('client.invalid_notification_provider_config_field');
-  }
-  return value;
+  return requireValidResponse(value, isNotificationProviderConfigField(value), 'notification_provider_config_field') as NotificationProviderConfigField;
 }
 
 function isNotificationProviderConfigField(value: unknown): value is NotificationProviderConfigField {
@@ -4663,10 +3695,7 @@ function isNotificationProviderConfigField(value: unknown): value is Notificatio
 
 export function readNotificationProviderProfileResponse(value: unknown): NotificationProviderProfileResponse {
   const normalizedValue = normalizeNotificationProviderProfileResponseIntegerJson(value);
-  if (!(isNotificationProviderProfileResponse(normalizedValue))) {
-    throw new Error('client.invalid_notification_provider_profile_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationProviderProfileResponse(normalizedValue), 'notification_provider_profile_response') as NotificationProviderProfileResponse;
 }
 
 function isNotificationProviderProfileResponse(value: unknown): value is NotificationProviderProfileResponse {
@@ -4674,10 +3703,7 @@ function isNotificationProviderProfileResponse(value: unknown): value is Notific
 }
 
 export function readNotificationProviderTypeDescriptor(value: unknown): NotificationProviderTypeDescriptor {
-  if (!(isNotificationProviderTypeDescriptor(value))) {
-    throw new Error('client.invalid_notification_provider_type_descriptor');
-  }
-  return value;
+  return requireValidResponse(value, isNotificationProviderTypeDescriptor(value), 'notification_provider_type_descriptor') as NotificationProviderTypeDescriptor;
 }
 
 function isNotificationProviderTypeDescriptor(value: unknown): value is NotificationProviderTypeDescriptor {
@@ -4685,10 +3711,7 @@ function isNotificationProviderTypeDescriptor(value: unknown): value is Notifica
 }
 
 export function readNotificationTemplateBody(value: unknown): NotificationTemplateBody {
-  if (!(isNotificationTemplateBody(value))) {
-    throw new Error('client.invalid_notification_template_body');
-  }
-  return value;
+  return requireValidResponse(value, isNotificationTemplateBody(value), 'notification_template_body') as NotificationTemplateBody;
 }
 
 function isNotificationTemplateBody(value: unknown): value is NotificationTemplateBody {
@@ -4697,10 +3720,7 @@ function isNotificationTemplateBody(value: unknown): value is NotificationTempla
 
 export function readNotificationTemplateParameterDefinition(value: unknown): NotificationTemplateParameterDefinition {
   const normalizedValue = normalizeNotificationTemplateParameterDefinitionIntegerJson(value);
-  if (!(isNotificationTemplateParameterDefinition(normalizedValue))) {
-    throw new Error('client.invalid_notification_template_parameter_definition');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationTemplateParameterDefinition(normalizedValue), 'notification_template_parameter_definition') as NotificationTemplateParameterDefinition;
 }
 
 function isNotificationTemplateParameterDefinition(value: unknown): value is NotificationTemplateParameterDefinition {
@@ -4709,10 +3729,7 @@ function isNotificationTemplateParameterDefinition(value: unknown): value is Not
 
 export function readNotificationTemplateParameterSchema(value: unknown): NotificationTemplateParameterSchema {
   const normalizedValue = normalizeNotificationTemplateParameterSchemaIntegerJson(value);
-  if (!(isNotificationTemplateParameterSchema(normalizedValue))) {
-    throw new Error('client.invalid_notification_template_parameter_schema');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationTemplateParameterSchema(normalizedValue), 'notification_template_parameter_schema') as NotificationTemplateParameterSchema;
 }
 
 function isNotificationTemplateParameterSchema(value: unknown): value is NotificationTemplateParameterSchema {
@@ -4721,10 +3738,7 @@ function isNotificationTemplateParameterSchema(value: unknown): value is Notific
 
 export function readNotificationTemplateResponse(value: unknown): NotificationTemplateResponse {
   const normalizedValue = normalizeNotificationTemplateResponseIntegerJson(value);
-  if (!(isNotificationTemplateResponse(normalizedValue))) {
-    throw new Error('client.invalid_notification_template_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isNotificationTemplateResponse(normalizedValue), 'notification_template_response') as NotificationTemplateResponse;
 }
 
 function isNotificationTemplateResponse(value: unknown): value is NotificationTemplateResponse {
@@ -4733,10 +3747,7 @@ function isNotificationTemplateResponse(value: unknown): value is NotificationTe
 
 export function readOcrIdCardTaskResponse(value: unknown): OcrIdCardTaskResponse {
   const normalizedValue = normalizeOcrIdCardTaskResponseIntegerJson(value);
-  if (!(isOcrIdCardTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_ocr_id_card_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOcrIdCardTaskResponse(normalizedValue), 'ocr_id_card_task_response') as OcrIdCardTaskResponse;
 }
 
 function isOcrIdCardTaskResponse(value: unknown): value is OcrIdCardTaskResponse {
@@ -4745,10 +3756,7 @@ function isOcrIdCardTaskResponse(value: unknown): value is OcrIdCardTaskResponse
 
 export function readOcrProviderConfigResponse(value: unknown): OcrProviderConfigResponse {
   const normalizedValue = normalizeOcrProviderConfigResponseIntegerJson(value);
-  if (!(isOcrProviderConfigResponse(normalizedValue))) {
-    throw new Error('client.invalid_ocr_provider_config_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOcrProviderConfigResponse(normalizedValue), 'ocr_provider_config_response') as OcrProviderConfigResponse;
 }
 
 function isOcrProviderConfigResponse(value: unknown): value is OcrProviderConfigResponse {
@@ -4757,10 +3765,7 @@ function isOcrProviderConfigResponse(value: unknown): value is OcrProviderConfig
 
 export function readOperationLogDetailsContextV1(value: unknown): OperationLogDetailsContextV1 {
   const normalizedValue = normalizeOperationLogDetailsContextV1IntegerJson(value);
-  if (!(isOperationLogDetailsContextV1(normalizedValue))) {
-    throw new Error('client.invalid_operation_log_details_context_v1');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOperationLogDetailsContextV1(normalizedValue), 'operation_log_details_context_v1') as OperationLogDetailsContextV1;
 }
 
 function isOperationLogDetailsContextV1(value: unknown): value is OperationLogDetailsContextV1 {
@@ -4769,10 +3774,7 @@ function isOperationLogDetailsContextV1(value: unknown): value is OperationLogDe
 
 export function readOperationLogDetailsResponse(value: unknown): OperationLogDetailsResponse {
   const normalizedValue = normalizeOperationLogDetailsResponseIntegerJson(value);
-  if (!(isOperationLogDetailsResponse(normalizedValue))) {
-    throw new Error('client.invalid_operation_log_details_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOperationLogDetailsResponse(normalizedValue), 'operation_log_details_response') as OperationLogDetailsResponse;
 }
 
 function isOperationLogDetailsResponse(value: unknown): value is OperationLogDetailsResponse {
@@ -4781,10 +3783,7 @@ function isOperationLogDetailsResponse(value: unknown): value is OperationLogDet
 
 export function readOperationLogExportRequestSummaryV1(value: unknown): OperationLogExportRequestSummaryV1 {
   const normalizedValue = normalizeOperationLogExportRequestSummaryV1IntegerJson(value);
-  if (!(isOperationLogExportRequestSummaryV1(normalizedValue))) {
-    throw new Error('client.invalid_operation_log_export_request_summary_v1');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOperationLogExportRequestSummaryV1(normalizedValue), 'operation_log_export_request_summary_v1') as OperationLogExportRequestSummaryV1;
 }
 
 function isOperationLogExportRequestSummaryV1(value: unknown): value is OperationLogExportRequestSummaryV1 {
@@ -4793,10 +3792,7 @@ function isOperationLogExportRequestSummaryV1(value: unknown): value is Operatio
 
 export function readOperationLogExportResponseSummaryV1(value: unknown): OperationLogExportResponseSummaryV1 {
   const normalizedValue = normalizeOperationLogExportResponseSummaryV1IntegerJson(value);
-  if (!(isOperationLogExportResponseSummaryV1(normalizedValue))) {
-    throw new Error('client.invalid_operation_log_export_response_summary_v1');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOperationLogExportResponseSummaryV1(normalizedValue), 'operation_log_export_response_summary_v1') as OperationLogExportResponseSummaryV1;
 }
 
 function isOperationLogExportResponseSummaryV1(value: unknown): value is OperationLogExportResponseSummaryV1 {
@@ -4805,10 +3801,7 @@ function isOperationLogExportResponseSummaryV1(value: unknown): value is Operati
 
 export function readOperationLogResponse(value: unknown): OperationLogResponse {
   const normalizedValue = normalizeOperationLogResponseIntegerJson(value);
-  if (!(isOperationLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_operation_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOperationLogResponse(normalizedValue), 'operation_log_response') as OperationLogResponse;
 }
 
 function isOperationLogResponse(value: unknown): value is OperationLogResponse {
@@ -4816,10 +3809,7 @@ function isOperationLogResponse(value: unknown): value is OperationLogResponse {
 }
 
 export function readOrganizationAssignableUserResponse(value: unknown): OrganizationAssignableUserResponse {
-  if (!(isOrganizationAssignableUserResponse(value))) {
-    throw new Error('client.invalid_organization_assignable_user_response');
-  }
-  return value;
+  return requireValidResponse(value, isOrganizationAssignableUserResponse(value), 'organization_assignable_user_response') as OrganizationAssignableUserResponse;
 }
 
 function isOrganizationAssignableUserResponse(value: unknown): value is OrganizationAssignableUserResponse {
@@ -4828,10 +3818,7 @@ function isOrganizationAssignableUserResponse(value: unknown): value is Organiza
 
 export function readOrganizationPositionLevelResponse(value: unknown): OrganizationPositionLevelResponse {
   const normalizedValue = normalizeOrganizationPositionLevelResponseIntegerJson(value);
-  if (!(isOrganizationPositionLevelResponse(normalizedValue))) {
-    throw new Error('client.invalid_organization_position_level_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOrganizationPositionLevelResponse(normalizedValue), 'organization_position_level_response') as OrganizationPositionLevelResponse;
 }
 
 function isOrganizationPositionLevelResponse(value: unknown): value is OrganizationPositionLevelResponse {
@@ -4840,10 +3827,7 @@ function isOrganizationPositionLevelResponse(value: unknown): value is Organizat
 
 export function readOrganizationPositionResponse(value: unknown): OrganizationPositionResponse {
   const normalizedValue = normalizeOrganizationPositionResponseIntegerJson(value);
-  if (!(isOrganizationPositionResponse(normalizedValue))) {
-    throw new Error('client.invalid_organization_position_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOrganizationPositionResponse(normalizedValue), 'organization_position_response') as OrganizationPositionResponse;
 }
 
 function isOrganizationPositionResponse(value: unknown): value is OrganizationPositionResponse {
@@ -4852,10 +3836,7 @@ function isOrganizationPositionResponse(value: unknown): value is OrganizationPo
 
 export function readOrganizationUnitResponse(value: unknown): OrganizationUnitResponse {
   const normalizedValue = normalizeOrganizationUnitResponseIntegerJson(value);
-  if (!(isOrganizationUnitResponse(normalizedValue))) {
-    throw new Error('client.invalid_organization_unit_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOrganizationUnitResponse(normalizedValue), 'organization_unit_response') as OrganizationUnitResponse;
 }
 
 function isOrganizationUnitResponse(value: unknown): value is OrganizationUnitResponse {
@@ -4864,10 +3845,7 @@ function isOrganizationUnitResponse(value: unknown): value is OrganizationUnitRe
 
 export function readOrganizationUserPositionResponse(value: unknown): OrganizationUserPositionResponse {
   const normalizedValue = normalizeOrganizationUserPositionResponseIntegerJson(value);
-  if (!(isOrganizationUserPositionResponse(normalizedValue))) {
-    throw new Error('client.invalid_organization_user_position_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOrganizationUserPositionResponse(normalizedValue), 'organization_user_position_response') as OrganizationUserPositionResponse;
 }
 
 function isOrganizationUserPositionResponse(value: unknown): value is OrganizationUserPositionResponse {
@@ -4876,10 +3854,7 @@ function isOrganizationUserPositionResponse(value: unknown): value is Organizati
 
 export function readOrganizationUserUnitResponse(value: unknown): OrganizationUserUnitResponse {
   const normalizedValue = normalizeOrganizationUserUnitResponseIntegerJson(value);
-  if (!(isOrganizationUserUnitResponse(normalizedValue))) {
-    throw new Error('client.invalid_organization_user_unit_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOrganizationUserUnitResponse(normalizedValue), 'organization_user_unit_response') as OrganizationUserUnitResponse;
 }
 
 function isOrganizationUserUnitResponse(value: unknown): value is OrganizationUserUnitResponse {
@@ -4888,10 +3863,7 @@ function isOrganizationUserUnitResponse(value: unknown): value is OrganizationUs
 
 export function readOutboundCallLogResponse(value: unknown): OutboundCallLogResponse {
   const normalizedValue = normalizeOutboundCallLogResponseIntegerJson(value);
-  if (!(isOutboundCallLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_outbound_call_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isOutboundCallLogResponse(normalizedValue), 'outbound_call_log_response') as OutboundCallLogResponse;
 }
 
 function isOutboundCallLogResponse(value: unknown): value is OutboundCallLogResponse {
@@ -4900,10 +3872,7 @@ function isOutboundCallLogResponse(value: unknown): value is OutboundCallLogResp
 
 export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultOfAccessLogResponse {
   const normalizedValue = normalizePagedResultOfAccessLogResponseIntegerJson(value);
-  if (!(isPagedResultOfAccessLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_access_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAccessLogResponse(normalizedValue), 'paged_result_of_access_log_response') as PagedResultOfAccessLogResponse;
 }
 
 function isPagedResultOfAccessLogResponse(value: unknown): value is PagedResultOfAccessLogResponse {
@@ -4912,10 +3881,7 @@ function isPagedResultOfAccessLogResponse(value: unknown): value is PagedResultO
 
 export function readPagedResultOfAdministrativeRegionResponse(value: unknown): PagedResultOfAdministrativeRegionResponse {
   const normalizedValue = normalizePagedResultOfAdministrativeRegionResponseIntegerJson(value);
-  if (!(isPagedResultOfAdministrativeRegionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_administrative_region_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAdministrativeRegionResponse(normalizedValue), 'paged_result_of_administrative_region_response') as PagedResultOfAdministrativeRegionResponse;
 }
 
 function isPagedResultOfAdministrativeRegionResponse(value: unknown): value is PagedResultOfAdministrativeRegionResponse {
@@ -4924,10 +3890,7 @@ function isPagedResultOfAdministrativeRegionResponse(value: unknown): value is P
 
 export function readPagedResultOfAiAgentToolCallListItem(value: unknown): PagedResultOfAiAgentToolCallListItem {
   const normalizedValue = normalizePagedResultOfAiAgentToolCallListItemIntegerJson(value);
-  if (!(isPagedResultOfAiAgentToolCallListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_agent_tool_call_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiAgentToolCallListItem(normalizedValue), 'paged_result_of_ai_agent_tool_call_list_item') as PagedResultOfAiAgentToolCallListItem;
 }
 
 function isPagedResultOfAiAgentToolCallListItem(value: unknown): value is PagedResultOfAiAgentToolCallListItem {
@@ -4936,10 +3899,7 @@ function isPagedResultOfAiAgentToolCallListItem(value: unknown): value is PagedR
 
 export function readPagedResultOfAiChatSessionListItem(value: unknown): PagedResultOfAiChatSessionListItem {
   const normalizedValue = normalizePagedResultOfAiChatSessionListItemIntegerJson(value);
-  if (!(isPagedResultOfAiChatSessionListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_chat_session_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiChatSessionListItem(normalizedValue), 'paged_result_of_ai_chat_session_list_item') as PagedResultOfAiChatSessionListItem;
 }
 
 function isPagedResultOfAiChatSessionListItem(value: unknown): value is PagedResultOfAiChatSessionListItem {
@@ -4948,10 +3908,7 @@ function isPagedResultOfAiChatSessionListItem(value: unknown): value is PagedRes
 
 export function readPagedResultOfAiKnowledgeBaseResponse(value: unknown): PagedResultOfAiKnowledgeBaseResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeBaseResponseIntegerJson(value);
-  if (!(isPagedResultOfAiKnowledgeBaseResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_knowledge_base_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeBaseResponse(normalizedValue), 'paged_result_of_ai_knowledge_base_response') as PagedResultOfAiKnowledgeBaseResponse;
 }
 
 function isPagedResultOfAiKnowledgeBaseResponse(value: unknown): value is PagedResultOfAiKnowledgeBaseResponse {
@@ -4960,10 +3917,7 @@ function isPagedResultOfAiKnowledgeBaseResponse(value: unknown): value is PagedR
 
 export function readPagedResultOfAiKnowledgeDocumentResponse(value: unknown): PagedResultOfAiKnowledgeDocumentResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value);
-  if (!(isPagedResultOfAiKnowledgeDocumentResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_knowledge_document_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeDocumentResponse(normalizedValue), 'paged_result_of_ai_knowledge_document_response') as PagedResultOfAiKnowledgeDocumentResponse;
 }
 
 function isPagedResultOfAiKnowledgeDocumentResponse(value: unknown): value is PagedResultOfAiKnowledgeDocumentResponse {
@@ -4972,10 +3926,7 @@ function isPagedResultOfAiKnowledgeDocumentResponse(value: unknown): value is Pa
 
 export function readPagedResultOfAiKnowledgeOrganizationCandidateResponse(value: unknown): PagedResultOfAiKnowledgeOrganizationCandidateResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeOrganizationCandidateResponseIntegerJson(value);
-  if (!(isPagedResultOfAiKnowledgeOrganizationCandidateResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_knowledge_organization_candidate_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeOrganizationCandidateResponse(normalizedValue), 'paged_result_of_ai_knowledge_organization_candidate_response') as PagedResultOfAiKnowledgeOrganizationCandidateResponse;
 }
 
 function isPagedResultOfAiKnowledgeOrganizationCandidateResponse(value: unknown): value is PagedResultOfAiKnowledgeOrganizationCandidateResponse {
@@ -4984,10 +3935,7 @@ function isPagedResultOfAiKnowledgeOrganizationCandidateResponse(value: unknown)
 
 export function readPagedResultOfAiKnowledgeRoleCandidateResponse(value: unknown): PagedResultOfAiKnowledgeRoleCandidateResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeRoleCandidateResponseIntegerJson(value);
-  if (!(isPagedResultOfAiKnowledgeRoleCandidateResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_knowledge_role_candidate_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeRoleCandidateResponse(normalizedValue), 'paged_result_of_ai_knowledge_role_candidate_response') as PagedResultOfAiKnowledgeRoleCandidateResponse;
 }
 
 function isPagedResultOfAiKnowledgeRoleCandidateResponse(value: unknown): value is PagedResultOfAiKnowledgeRoleCandidateResponse {
@@ -4996,10 +3944,7 @@ function isPagedResultOfAiKnowledgeRoleCandidateResponse(value: unknown): value 
 
 export function readPagedResultOfAiKnowledgeVersionResponse(value: unknown): PagedResultOfAiKnowledgeVersionResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeVersionResponseIntegerJson(value);
-  if (!(isPagedResultOfAiKnowledgeVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_knowledge_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeVersionResponse(normalizedValue), 'paged_result_of_ai_knowledge_version_response') as PagedResultOfAiKnowledgeVersionResponse;
 }
 
 function isPagedResultOfAiKnowledgeVersionResponse(value: unknown): value is PagedResultOfAiKnowledgeVersionResponse {
@@ -5008,10 +3953,7 @@ function isPagedResultOfAiKnowledgeVersionResponse(value: unknown): value is Pag
 
 export function readPagedResultOfAiModelConfigListItem(value: unknown): PagedResultOfAiModelConfigListItem {
   const normalizedValue = normalizePagedResultOfAiModelConfigListItemIntegerJson(value);
-  if (!(isPagedResultOfAiModelConfigListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_model_config_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiModelConfigListItem(normalizedValue), 'paged_result_of_ai_model_config_list_item') as PagedResultOfAiModelConfigListItem;
 }
 
 function isPagedResultOfAiModelConfigListItem(value: unknown): value is PagedResultOfAiModelConfigListItem {
@@ -5020,10 +3962,7 @@ function isPagedResultOfAiModelConfigListItem(value: unknown): value is PagedRes
 
 export function readPagedResultOfAiPromptResponse(value: unknown): PagedResultOfAiPromptResponse {
   const normalizedValue = normalizePagedResultOfAiPromptResponseIntegerJson(value);
-  if (!(isPagedResultOfAiPromptResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_prompt_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiPromptResponse(normalizedValue), 'paged_result_of_ai_prompt_response') as PagedResultOfAiPromptResponse;
 }
 
 function isPagedResultOfAiPromptResponse(value: unknown): value is PagedResultOfAiPromptResponse {
@@ -5032,10 +3971,7 @@ function isPagedResultOfAiPromptResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfAiPromptVersionResponse(value: unknown): PagedResultOfAiPromptVersionResponse {
   const normalizedValue = normalizePagedResultOfAiPromptVersionResponseIntegerJson(value);
-  if (!(isPagedResultOfAiPromptVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_prompt_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiPromptVersionResponse(normalizedValue), 'paged_result_of_ai_prompt_version_response') as PagedResultOfAiPromptVersionResponse;
 }
 
 function isPagedResultOfAiPromptVersionResponse(value: unknown): value is PagedResultOfAiPromptVersionResponse {
@@ -5044,10 +3980,7 @@ function isPagedResultOfAiPromptVersionResponse(value: unknown): value is PagedR
 
 export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedResultOfAiTenantQuotaListItem {
   const normalizedValue = normalizePagedResultOfAiTenantQuotaListItemIntegerJson(value);
-  if (!(isPagedResultOfAiTenantQuotaListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ai_tenant_quota_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfAiTenantQuotaListItem(normalizedValue), 'paged_result_of_ai_tenant_quota_list_item') as PagedResultOfAiTenantQuotaListItem;
 }
 
 function isPagedResultOfAiTenantQuotaListItem(value: unknown): value is PagedResultOfAiTenantQuotaListItem {
@@ -5056,10 +3989,7 @@ function isPagedResultOfAiTenantQuotaListItem(value: unknown): value is PagedRes
 
 export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {
   const normalizedValue = normalizePagedResultOfCodeGenerationRunResponseIntegerJson(value);
-  if (!(isPagedResultOfCodeGenerationRunResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_code_generation_run_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfCodeGenerationRunResponse(normalizedValue), 'paged_result_of_code_generation_run_response') as PagedResultOfCodeGenerationRunResponse;
 }
 
 function isPagedResultOfCodeGenerationRunResponse(value: unknown): value is PagedResultOfCodeGenerationRunResponse {
@@ -5068,10 +3998,7 @@ function isPagedResultOfCodeGenerationRunResponse(value: unknown): value is Page
 
 export function readPagedResultOfCodeGenerationTemplateResponse(value: unknown): PagedResultOfCodeGenerationTemplateResponse {
   const normalizedValue = normalizePagedResultOfCodeGenerationTemplateResponseIntegerJson(value);
-  if (!(isPagedResultOfCodeGenerationTemplateResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_code_generation_template_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfCodeGenerationTemplateResponse(normalizedValue), 'paged_result_of_code_generation_template_response') as PagedResultOfCodeGenerationTemplateResponse;
 }
 
 function isPagedResultOfCodeGenerationTemplateResponse(value: unknown): value is PagedResultOfCodeGenerationTemplateResponse {
@@ -5080,10 +4007,7 @@ function isPagedResultOfCodeGenerationTemplateResponse(value: unknown): value is
 
 export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResultOfConfigEntryResponse {
   const normalizedValue = normalizePagedResultOfConfigEntryResponseIntegerJson(value);
-  if (!(isPagedResultOfConfigEntryResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_config_entry_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfConfigEntryResponse(normalizedValue), 'paged_result_of_config_entry_response') as PagedResultOfConfigEntryResponse;
 }
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
@@ -5092,10 +4016,7 @@ function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResul
 
 export function readPagedResultOfDataApprovalRequestResponse(value: unknown): PagedResultOfDataApprovalRequestResponse {
   const normalizedValue = normalizePagedResultOfDataApprovalRequestResponseIntegerJson(value);
-  if (!(isPagedResultOfDataApprovalRequestResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_data_approval_request_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfDataApprovalRequestResponse(normalizedValue), 'paged_result_of_data_approval_request_response') as PagedResultOfDataApprovalRequestResponse;
 }
 
 function isPagedResultOfDataApprovalRequestResponse(value: unknown): value is PagedResultOfDataApprovalRequestResponse {
@@ -5104,10 +4025,7 @@ function isPagedResultOfDataApprovalRequestResponse(value: unknown): value is Pa
 
 export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOfDictItemResponse {
   const normalizedValue = normalizePagedResultOfDictItemResponseIntegerJson(value);
-  if (!(isPagedResultOfDictItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_dict_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfDictItemResponse(normalizedValue), 'paged_result_of_dict_item_response') as PagedResultOfDictItemResponse;
 }
 
 function isPagedResultOfDictItemResponse(value: unknown): value is PagedResultOfDictItemResponse {
@@ -5116,10 +4034,7 @@ function isPagedResultOfDictItemResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfDictTypeResponse(value: unknown): PagedResultOfDictTypeResponse {
   const normalizedValue = normalizePagedResultOfDictTypeResponseIntegerJson(value);
-  if (!(isPagedResultOfDictTypeResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_dict_type_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfDictTypeResponse(normalizedValue), 'paged_result_of_dict_type_response') as PagedResultOfDictTypeResponse;
 }
 
 function isPagedResultOfDictTypeResponse(value: unknown): value is PagedResultOfDictTypeResponse {
@@ -5128,10 +4043,7 @@ function isPagedResultOfDictTypeResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfEnterpriseRequestResponse(value: unknown): PagedResultOfEnterpriseRequestResponse {
   const normalizedValue = normalizePagedResultOfEnterpriseRequestResponseIntegerJson(value);
-  if (!(isPagedResultOfEnterpriseRequestResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_enterprise_request_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfEnterpriseRequestResponse(normalizedValue), 'paged_result_of_enterprise_request_response') as PagedResultOfEnterpriseRequestResponse;
 }
 
 function isPagedResultOfEnterpriseRequestResponse(value: unknown): value is PagedResultOfEnterpriseRequestResponse {
@@ -5140,22 +4052,34 @@ function isPagedResultOfEnterpriseRequestResponse(value: unknown): value is Page
 
 export function readPagedResultOfExceptionLogResponse(value: unknown): PagedResultOfExceptionLogResponse {
   const normalizedValue = normalizePagedResultOfExceptionLogResponseIntegerJson(value);
-  if (!(isPagedResultOfExceptionLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_exception_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfExceptionLogResponse(normalizedValue), 'paged_result_of_exception_log_response') as PagedResultOfExceptionLogResponse;
 }
 
 function isPagedResultOfExceptionLogResponse(value: unknown): value is PagedResultOfExceptionLogResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isExceptionLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfGoViewProjectSummaryResponse(value: unknown): PagedResultOfGoViewProjectSummaryResponse {
+  const normalizedValue = normalizePagedResultOfGoViewProjectSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfGoViewProjectSummaryResponse(normalizedValue), 'paged_result_of_go_view_project_summary_response') as PagedResultOfGoViewProjectSummaryResponse;
+}
+
+function isPagedResultOfGoViewProjectSummaryResponse(value: unknown): value is PagedResultOfGoViewProjectSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isGoViewProjectSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfGoViewProjectVersionSummaryResponse(value: unknown): PagedResultOfGoViewProjectVersionSummaryResponse {
+  const normalizedValue = normalizePagedResultOfGoViewProjectVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfGoViewProjectVersionSummaryResponse(normalizedValue), 'paged_result_of_go_view_project_version_summary_response') as PagedResultOfGoViewProjectVersionSummaryResponse;
+}
+
+function isPagedResultOfGoViewProjectVersionSummaryResponse(value: unknown): value is PagedResultOfGoViewProjectVersionSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isGoViewProjectVersionSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): PagedResultOfHostAnnouncementReadReceiptResponse {
   const normalizedValue = normalizePagedResultOfHostAnnouncementReadReceiptResponseIntegerJson(value);
-  if (!(isPagedResultOfHostAnnouncementReadReceiptResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_announcement_read_receipt_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostAnnouncementReadReceiptResponse(normalizedValue), 'paged_result_of_host_announcement_read_receipt_response') as PagedResultOfHostAnnouncementReadReceiptResponse;
 }
 
 function isPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): value is PagedResultOfHostAnnouncementReadReceiptResponse {
@@ -5164,10 +4088,7 @@ function isPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): val
 
 export function readPagedResultOfHostAnnouncementResponse(value: unknown): PagedResultOfHostAnnouncementResponse {
   const normalizedValue = normalizePagedResultOfHostAnnouncementResponseIntegerJson(value);
-  if (!(isPagedResultOfHostAnnouncementResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_announcement_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostAnnouncementResponse(normalizedValue), 'paged_result_of_host_announcement_response') as PagedResultOfHostAnnouncementResponse;
 }
 
 function isPagedResultOfHostAnnouncementResponse(value: unknown): value is PagedResultOfHostAnnouncementResponse {
@@ -5176,10 +4097,7 @@ function isPagedResultOfHostAnnouncementResponse(value: unknown): value is Paged
 
 export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResultOfHostApiKeyResponse {
   const normalizedValue = normalizePagedResultOfHostApiKeyResponseIntegerJson(value);
-  if (!(isPagedResultOfHostApiKeyResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_api_key_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostApiKeyResponse(normalizedValue), 'paged_result_of_host_api_key_response') as PagedResultOfHostApiKeyResponse;
 }
 
 function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResultOfHostApiKeyResponse {
@@ -5188,10 +4106,7 @@ function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResult
 
 export function readPagedResultOfHostDocumentAccessLogResponse(value: unknown): PagedResultOfHostDocumentAccessLogResponse {
   const normalizedValue = normalizePagedResultOfHostDocumentAccessLogResponseIntegerJson(value);
-  if (!(isPagedResultOfHostDocumentAccessLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_document_access_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostDocumentAccessLogResponse(normalizedValue), 'paged_result_of_host_document_access_log_response') as PagedResultOfHostDocumentAccessLogResponse;
 }
 
 function isPagedResultOfHostDocumentAccessLogResponse(value: unknown): value is PagedResultOfHostDocumentAccessLogResponse {
@@ -5200,10 +4115,7 @@ function isPagedResultOfHostDocumentAccessLogResponse(value: unknown): value is 
 
 export function readPagedResultOfHostDocumentItemResponse(value: unknown): PagedResultOfHostDocumentItemResponse {
   const normalizedValue = normalizePagedResultOfHostDocumentItemResponseIntegerJson(value);
-  if (!(isPagedResultOfHostDocumentItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_document_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostDocumentItemResponse(normalizedValue), 'paged_result_of_host_document_item_response') as PagedResultOfHostDocumentItemResponse;
 }
 
 function isPagedResultOfHostDocumentItemResponse(value: unknown): value is PagedResultOfHostDocumentItemResponse {
@@ -5212,10 +4124,7 @@ function isPagedResultOfHostDocumentItemResponse(value: unknown): value is Paged
 
 export function readPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): PagedResultOfHostDocumentPreviewTaskResponse {
   const normalizedValue = normalizePagedResultOfHostDocumentPreviewTaskResponseIntegerJson(value);
-  if (!(isPagedResultOfHostDocumentPreviewTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_document_preview_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostDocumentPreviewTaskResponse(normalizedValue), 'paged_result_of_host_document_preview_task_response') as PagedResultOfHostDocumentPreviewTaskResponse;
 }
 
 function isPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): value is PagedResultOfHostDocumentPreviewTaskResponse {
@@ -5224,22 +4133,25 @@ function isPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): value i
 
 export function readPagedResultOfHostDocumentShareResponse(value: unknown): PagedResultOfHostDocumentShareResponse {
   const normalizedValue = normalizePagedResultOfHostDocumentShareResponseIntegerJson(value);
-  if (!(isPagedResultOfHostDocumentShareResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_document_share_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostDocumentShareResponse(normalizedValue), 'paged_result_of_host_document_share_response') as PagedResultOfHostDocumentShareResponse;
 }
 
 function isPagedResultOfHostDocumentShareResponse(value: unknown): value is PagedResultOfHostDocumentShareResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentShareResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfHostDocumentVersionResponse(value: unknown): PagedResultOfHostDocumentVersionResponse {
+  const normalizedValue = normalizePagedResultOfHostDocumentVersionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfHostDocumentVersionResponse(normalizedValue), 'paged_result_of_host_document_version_response') as PagedResultOfHostDocumentVersionResponse;
+}
+
+function isPagedResultOfHostDocumentVersionResponse(value: unknown): value is PagedResultOfHostDocumentVersionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentVersionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfHostFileReferenceClaimResponse(value: unknown): PagedResultOfHostFileReferenceClaimResponse {
   const normalizedValue = normalizePagedResultOfHostFileReferenceClaimResponseIntegerJson(value);
-  if (!(isPagedResultOfHostFileReferenceClaimResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_file_reference_claim_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostFileReferenceClaimResponse(normalizedValue), 'paged_result_of_host_file_reference_claim_response') as PagedResultOfHostFileReferenceClaimResponse;
 }
 
 function isPagedResultOfHostFileReferenceClaimResponse(value: unknown): value is PagedResultOfHostFileReferenceClaimResponse {
@@ -5248,10 +4160,7 @@ function isPagedResultOfHostFileReferenceClaimResponse(value: unknown): value is
 
 export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOfHostFileResponse {
   const normalizedValue = normalizePagedResultOfHostFileResponseIntegerJson(value);
-  if (!(isPagedResultOfHostFileResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_file_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostFileResponse(normalizedValue), 'paged_result_of_host_file_response') as PagedResultOfHostFileResponse;
 }
 
 function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOfHostFileResponse {
@@ -5260,10 +4169,7 @@ function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfHostJobDefinitionResponse(value: unknown): PagedResultOfHostJobDefinitionResponse {
   const normalizedValue = normalizePagedResultOfHostJobDefinitionResponseIntegerJson(value);
-  if (!(isPagedResultOfHostJobDefinitionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_job_definition_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostJobDefinitionResponse(normalizedValue), 'paged_result_of_host_job_definition_response') as PagedResultOfHostJobDefinitionResponse;
 }
 
 function isPagedResultOfHostJobDefinitionResponse(value: unknown): value is PagedResultOfHostJobDefinitionResponse {
@@ -5272,10 +4178,7 @@ function isPagedResultOfHostJobDefinitionResponse(value: unknown): value is Page
 
 export function readPagedResultOfHostJobExecutionResponse(value: unknown): PagedResultOfHostJobExecutionResponse {
   const normalizedValue = normalizePagedResultOfHostJobExecutionResponseIntegerJson(value);
-  if (!(isPagedResultOfHostJobExecutionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_job_execution_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostJobExecutionResponse(normalizedValue), 'paged_result_of_host_job_execution_response') as PagedResultOfHostJobExecutionResponse;
 }
 
 function isPagedResultOfHostJobExecutionResponse(value: unknown): value is PagedResultOfHostJobExecutionResponse {
@@ -5284,10 +4187,7 @@ function isPagedResultOfHostJobExecutionResponse(value: unknown): value is Paged
 
 export function readPagedResultOfHostJobScheduleResponse(value: unknown): PagedResultOfHostJobScheduleResponse {
   const normalizedValue = normalizePagedResultOfHostJobScheduleResponseIntegerJson(value);
-  if (!(isPagedResultOfHostJobScheduleResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_job_schedule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostJobScheduleResponse(normalizedValue), 'paged_result_of_host_job_schedule_response') as PagedResultOfHostJobScheduleResponse;
 }
 
 function isPagedResultOfHostJobScheduleResponse(value: unknown): value is PagedResultOfHostJobScheduleResponse {
@@ -5296,10 +4196,7 @@ function isPagedResultOfHostJobScheduleResponse(value: unknown): value is PagedR
 
 export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOfHostMenuResponse {
   const normalizedValue = normalizePagedResultOfHostMenuResponseIntegerJson(value);
-  if (!(isPagedResultOfHostMenuResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_menu_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostMenuResponse(normalizedValue), 'paged_result_of_host_menu_response') as PagedResultOfHostMenuResponse;
 }
 
 function isPagedResultOfHostMenuResponse(value: unknown): value is PagedResultOfHostMenuResponse {
@@ -5308,10 +4205,7 @@ function isPagedResultOfHostMenuResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfHostOnlineSessionResponse(value: unknown): PagedResultOfHostOnlineSessionResponse {
   const normalizedValue = normalizePagedResultOfHostOnlineSessionResponseIntegerJson(value);
-  if (!(isPagedResultOfHostOnlineSessionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_online_session_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostOnlineSessionResponse(normalizedValue), 'paged_result_of_host_online_session_response') as PagedResultOfHostOnlineSessionResponse;
 }
 
 function isPagedResultOfHostOnlineSessionResponse(value: unknown): value is PagedResultOfHostOnlineSessionResponse {
@@ -5320,10 +4214,7 @@ function isPagedResultOfHostOnlineSessionResponse(value: unknown): value is Page
 
 export function readPagedResultOfHostReleaseNoteResponse(value: unknown): PagedResultOfHostReleaseNoteResponse {
   const normalizedValue = normalizePagedResultOfHostReleaseNoteResponseIntegerJson(value);
-  if (!(isPagedResultOfHostReleaseNoteResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_release_note_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostReleaseNoteResponse(normalizedValue), 'paged_result_of_host_release_note_response') as PagedResultOfHostReleaseNoteResponse;
 }
 
 function isPagedResultOfHostReleaseNoteResponse(value: unknown): value is PagedResultOfHostReleaseNoteResponse {
@@ -5332,10 +4223,7 @@ function isPagedResultOfHostReleaseNoteResponse(value: unknown): value is PagedR
 
 export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
   const normalizedValue = normalizePagedResultOfHostRoleResponseIntegerJson(value);
-  if (!(isPagedResultOfHostRoleResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_role_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostRoleResponse(normalizedValue), 'paged_result_of_host_role_response') as PagedResultOfHostRoleResponse;
 }
 
 function isPagedResultOfHostRoleResponse(value: unknown): value is PagedResultOfHostRoleResponse {
@@ -5344,10 +4232,7 @@ function isPagedResultOfHostRoleResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfHostUserResponse(value: unknown): PagedResultOfHostUserResponse {
   const normalizedValue = normalizePagedResultOfHostUserResponseIntegerJson(value);
-  if (!(isPagedResultOfHostUserResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_host_user_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfHostUserResponse(normalizedValue), 'paged_result_of_host_user_response') as PagedResultOfHostUserResponse;
 }
 
 function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOfHostUserResponse {
@@ -5356,10 +4241,7 @@ function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOf
 
 export function readPagedResultOfImportExportTaskResponse(value: unknown): PagedResultOfImportExportTaskResponse {
   const normalizedValue = normalizePagedResultOfImportExportTaskResponseIntegerJson(value);
-  if (!(isPagedResultOfImportExportTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_import_export_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfImportExportTaskResponse(normalizedValue), 'paged_result_of_import_export_task_response') as PagedResultOfImportExportTaskResponse;
 }
 
 function isPagedResultOfImportExportTaskResponse(value: unknown): value is PagedResultOfImportExportTaskResponse {
@@ -5368,10 +4250,7 @@ function isPagedResultOfImportExportTaskResponse(value: unknown): value is Paged
 
 export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResultOfInboxMessageResponse {
   const normalizedValue = normalizePagedResultOfInboxMessageResponseIntegerJson(value);
-  if (!(isPagedResultOfInboxMessageResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_inbox_message_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfInboxMessageResponse(normalizedValue), 'paged_result_of_inbox_message_response') as PagedResultOfInboxMessageResponse;
 }
 
 function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResultOfInboxMessageResponse {
@@ -5380,10 +4259,7 @@ function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResu
 
 export function readPagedResultOfK3CloudDocumentSyncResponse(value: unknown): PagedResultOfK3CloudDocumentSyncResponse {
   const normalizedValue = normalizePagedResultOfK3CloudDocumentSyncResponseIntegerJson(value);
-  if (!(isPagedResultOfK3CloudDocumentSyncResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_k3_cloud_document_sync_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfK3CloudDocumentSyncResponse(normalizedValue), 'paged_result_of_k3_cloud_document_sync_response') as PagedResultOfK3CloudDocumentSyncResponse;
 }
 
 function isPagedResultOfK3CloudDocumentSyncResponse(value: unknown): value is PagedResultOfK3CloudDocumentSyncResponse {
@@ -5392,10 +4268,7 @@ function isPagedResultOfK3CloudDocumentSyncResponse(value: unknown): value is Pa
 
 export function readPagedResultOfMyReleaseNoteResponse(value: unknown): PagedResultOfMyReleaseNoteResponse {
   const normalizedValue = normalizePagedResultOfMyReleaseNoteResponseIntegerJson(value);
-  if (!(isPagedResultOfMyReleaseNoteResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_my_release_note_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfMyReleaseNoteResponse(normalizedValue), 'paged_result_of_my_release_note_response') as PagedResultOfMyReleaseNoteResponse;
 }
 
 function isPagedResultOfMyReleaseNoteResponse(value: unknown): value is PagedResultOfMyReleaseNoteResponse {
@@ -5404,10 +4277,7 @@ function isPagedResultOfMyReleaseNoteResponse(value: unknown): value is PagedRes
 
 export function readPagedResultOfNotificationBindingResponse(value: unknown): PagedResultOfNotificationBindingResponse {
   const normalizedValue = normalizePagedResultOfNotificationBindingResponseIntegerJson(value);
-  if (!(isPagedResultOfNotificationBindingResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_notification_binding_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationBindingResponse(normalizedValue), 'paged_result_of_notification_binding_response') as PagedResultOfNotificationBindingResponse;
 }
 
 function isPagedResultOfNotificationBindingResponse(value: unknown): value is PagedResultOfNotificationBindingResponse {
@@ -5416,10 +4286,7 @@ function isPagedResultOfNotificationBindingResponse(value: unknown): value is Pa
 
 export function readPagedResultOfNotificationDeliveryResponse(value: unknown): PagedResultOfNotificationDeliveryResponse {
   const normalizedValue = normalizePagedResultOfNotificationDeliveryResponseIntegerJson(value);
-  if (!(isPagedResultOfNotificationDeliveryResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_notification_delivery_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationDeliveryResponse(normalizedValue), 'paged_result_of_notification_delivery_response') as PagedResultOfNotificationDeliveryResponse;
 }
 
 function isPagedResultOfNotificationDeliveryResponse(value: unknown): value is PagedResultOfNotificationDeliveryResponse {
@@ -5428,10 +4295,7 @@ function isPagedResultOfNotificationDeliveryResponse(value: unknown): value is P
 
 export function readPagedResultOfNotificationProviderProfileResponse(value: unknown): PagedResultOfNotificationProviderProfileResponse {
   const normalizedValue = normalizePagedResultOfNotificationProviderProfileResponseIntegerJson(value);
-  if (!(isPagedResultOfNotificationProviderProfileResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_notification_provider_profile_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationProviderProfileResponse(normalizedValue), 'paged_result_of_notification_provider_profile_response') as PagedResultOfNotificationProviderProfileResponse;
 }
 
 function isPagedResultOfNotificationProviderProfileResponse(value: unknown): value is PagedResultOfNotificationProviderProfileResponse {
@@ -5440,10 +4304,7 @@ function isPagedResultOfNotificationProviderProfileResponse(value: unknown): val
 
 export function readPagedResultOfNotificationTemplateResponse(value: unknown): PagedResultOfNotificationTemplateResponse {
   const normalizedValue = normalizePagedResultOfNotificationTemplateResponseIntegerJson(value);
-  if (!(isPagedResultOfNotificationTemplateResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_notification_template_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationTemplateResponse(normalizedValue), 'paged_result_of_notification_template_response') as PagedResultOfNotificationTemplateResponse;
 }
 
 function isPagedResultOfNotificationTemplateResponse(value: unknown): value is PagedResultOfNotificationTemplateResponse {
@@ -5452,10 +4313,7 @@ function isPagedResultOfNotificationTemplateResponse(value: unknown): value is P
 
 export function readPagedResultOfOcrIdCardTaskResponse(value: unknown): PagedResultOfOcrIdCardTaskResponse {
   const normalizedValue = normalizePagedResultOfOcrIdCardTaskResponseIntegerJson(value);
-  if (!(isPagedResultOfOcrIdCardTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_ocr_id_card_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOcrIdCardTaskResponse(normalizedValue), 'paged_result_of_ocr_id_card_task_response') as PagedResultOfOcrIdCardTaskResponse;
 }
 
 function isPagedResultOfOcrIdCardTaskResponse(value: unknown): value is PagedResultOfOcrIdCardTaskResponse {
@@ -5464,10 +4322,7 @@ function isPagedResultOfOcrIdCardTaskResponse(value: unknown): value is PagedRes
 
 export function readPagedResultOfOperationLogResponse(value: unknown): PagedResultOfOperationLogResponse {
   const normalizedValue = normalizePagedResultOfOperationLogResponseIntegerJson(value);
-  if (!(isPagedResultOfOperationLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_operation_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOperationLogResponse(normalizedValue), 'paged_result_of_operation_log_response') as PagedResultOfOperationLogResponse;
 }
 
 function isPagedResultOfOperationLogResponse(value: unknown): value is PagedResultOfOperationLogResponse {
@@ -5476,10 +4331,7 @@ function isPagedResultOfOperationLogResponse(value: unknown): value is PagedResu
 
 export function readPagedResultOfOrganizationAssignableUserResponse(value: unknown): PagedResultOfOrganizationAssignableUserResponse {
   const normalizedValue = normalizePagedResultOfOrganizationAssignableUserResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationAssignableUserResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_assignable_user_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationAssignableUserResponse(normalizedValue), 'paged_result_of_organization_assignable_user_response') as PagedResultOfOrganizationAssignableUserResponse;
 }
 
 function isPagedResultOfOrganizationAssignableUserResponse(value: unknown): value is PagedResultOfOrganizationAssignableUserResponse {
@@ -5488,10 +4340,7 @@ function isPagedResultOfOrganizationAssignableUserResponse(value: unknown): valu
 
 export function readPagedResultOfOrganizationPositionLevelResponse(value: unknown): PagedResultOfOrganizationPositionLevelResponse {
   const normalizedValue = normalizePagedResultOfOrganizationPositionLevelResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationPositionLevelResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_position_level_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationPositionLevelResponse(normalizedValue), 'paged_result_of_organization_position_level_response') as PagedResultOfOrganizationPositionLevelResponse;
 }
 
 function isPagedResultOfOrganizationPositionLevelResponse(value: unknown): value is PagedResultOfOrganizationPositionLevelResponse {
@@ -5500,10 +4349,7 @@ function isPagedResultOfOrganizationPositionLevelResponse(value: unknown): value
 
 export function readPagedResultOfOrganizationPositionResponse(value: unknown): PagedResultOfOrganizationPositionResponse {
   const normalizedValue = normalizePagedResultOfOrganizationPositionResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationPositionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_position_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationPositionResponse(normalizedValue), 'paged_result_of_organization_position_response') as PagedResultOfOrganizationPositionResponse;
 }
 
 function isPagedResultOfOrganizationPositionResponse(value: unknown): value is PagedResultOfOrganizationPositionResponse {
@@ -5512,10 +4358,7 @@ function isPagedResultOfOrganizationPositionResponse(value: unknown): value is P
 
 export function readPagedResultOfOrganizationUnitResponse(value: unknown): PagedResultOfOrganizationUnitResponse {
   const normalizedValue = normalizePagedResultOfOrganizationUnitResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationUnitResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_unit_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationUnitResponse(normalizedValue), 'paged_result_of_organization_unit_response') as PagedResultOfOrganizationUnitResponse;
 }
 
 function isPagedResultOfOrganizationUnitResponse(value: unknown): value is PagedResultOfOrganizationUnitResponse {
@@ -5524,10 +4367,7 @@ function isPagedResultOfOrganizationUnitResponse(value: unknown): value is Paged
 
 export function readPagedResultOfOrganizationUserPositionResponse(value: unknown): PagedResultOfOrganizationUserPositionResponse {
   const normalizedValue = normalizePagedResultOfOrganizationUserPositionResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationUserPositionResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_user_position_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationUserPositionResponse(normalizedValue), 'paged_result_of_organization_user_position_response') as PagedResultOfOrganizationUserPositionResponse;
 }
 
 function isPagedResultOfOrganizationUserPositionResponse(value: unknown): value is PagedResultOfOrganizationUserPositionResponse {
@@ -5536,10 +4376,7 @@ function isPagedResultOfOrganizationUserPositionResponse(value: unknown): value 
 
 export function readPagedResultOfOrganizationUserUnitResponse(value: unknown): PagedResultOfOrganizationUserUnitResponse {
   const normalizedValue = normalizePagedResultOfOrganizationUserUnitResponseIntegerJson(value);
-  if (!(isPagedResultOfOrganizationUserUnitResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_organization_user_unit_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationUserUnitResponse(normalizedValue), 'paged_result_of_organization_user_unit_response') as PagedResultOfOrganizationUserUnitResponse;
 }
 
 function isPagedResultOfOrganizationUserUnitResponse(value: unknown): value is PagedResultOfOrganizationUserUnitResponse {
@@ -5548,10 +4385,7 @@ function isPagedResultOfOrganizationUserUnitResponse(value: unknown): value is P
 
 export function readPagedResultOfOutboundCallLogResponse(value: unknown): PagedResultOfOutboundCallLogResponse {
   const normalizedValue = normalizePagedResultOfOutboundCallLogResponseIntegerJson(value);
-  if (!(isPagedResultOfOutboundCallLogResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_outbound_call_log_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfOutboundCallLogResponse(normalizedValue), 'paged_result_of_outbound_call_log_response') as PagedResultOfOutboundCallLogResponse;
 }
 
 function isPagedResultOfOutboundCallLogResponse(value: unknown): value is PagedResultOfOutboundCallLogResponse {
@@ -5560,10 +4394,7 @@ function isPagedResultOfOutboundCallLogResponse(value: unknown): value is PagedR
 
 export function readPagedResultOfPaymentMerchantConfigListItem(value: unknown): PagedResultOfPaymentMerchantConfigListItem {
   const normalizedValue = normalizePagedResultOfPaymentMerchantConfigListItemIntegerJson(value);
-  if (!(isPagedResultOfPaymentMerchantConfigListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_payment_merchant_config_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfPaymentMerchantConfigListItem(normalizedValue), 'paged_result_of_payment_merchant_config_list_item') as PagedResultOfPaymentMerchantConfigListItem;
 }
 
 function isPagedResultOfPaymentMerchantConfigListItem(value: unknown): value is PagedResultOfPaymentMerchantConfigListItem {
@@ -5572,10 +4403,7 @@ function isPagedResultOfPaymentMerchantConfigListItem(value: unknown): value is 
 
 export function readPagedResultOfPaymentOrderListItem(value: unknown): PagedResultOfPaymentOrderListItem {
   const normalizedValue = normalizePagedResultOfPaymentOrderListItemIntegerJson(value);
-  if (!(isPagedResultOfPaymentOrderListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_payment_order_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfPaymentOrderListItem(normalizedValue), 'paged_result_of_payment_order_list_item') as PagedResultOfPaymentOrderListItem;
 }
 
 function isPagedResultOfPaymentOrderListItem(value: unknown): value is PagedResultOfPaymentOrderListItem {
@@ -5584,10 +4412,7 @@ function isPagedResultOfPaymentOrderListItem(value: unknown): value is PagedResu
 
 export function readPagedResultOfPaymentRefundListItem(value: unknown): PagedResultOfPaymentRefundListItem {
   const normalizedValue = normalizePagedResultOfPaymentRefundListItemIntegerJson(value);
-  if (!(isPagedResultOfPaymentRefundListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_payment_refund_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfPaymentRefundListItem(normalizedValue), 'paged_result_of_payment_refund_list_item') as PagedResultOfPaymentRefundListItem;
 }
 
 function isPagedResultOfPaymentRefundListItem(value: unknown): value is PagedResultOfPaymentRefundListItem {
@@ -5596,22 +4421,34 @@ function isPagedResultOfPaymentRefundListItem(value: unknown): value is PagedRes
 
 export function readPagedResultOfPersonalScheduleResponse(value: unknown): PagedResultOfPersonalScheduleResponse {
   const normalizedValue = normalizePagedResultOfPersonalScheduleResponseIntegerJson(value);
-  if (!(isPagedResultOfPersonalScheduleResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_personal_schedule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfPersonalScheduleResponse(normalizedValue), 'paged_result_of_personal_schedule_response') as PagedResultOfPersonalScheduleResponse;
 }
 
 function isPagedResultOfPersonalScheduleResponse(value: unknown): value is PagedResultOfPersonalScheduleResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPersonalScheduleResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfPrintingTemplateSummaryResponse(value: unknown): PagedResultOfPrintingTemplateSummaryResponse {
+  const normalizedValue = normalizePagedResultOfPrintingTemplateSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfPrintingTemplateSummaryResponse(normalizedValue), 'paged_result_of_printing_template_summary_response') as PagedResultOfPrintingTemplateSummaryResponse;
+}
+
+function isPagedResultOfPrintingTemplateSummaryResponse(value: unknown): value is PagedResultOfPrintingTemplateSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPrintingTemplateSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfPrintingTemplateVersionSummaryResponse(value: unknown): PagedResultOfPrintingTemplateVersionSummaryResponse {
+  const normalizedValue = normalizePagedResultOfPrintingTemplateVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfPrintingTemplateVersionSummaryResponse(normalizedValue), 'paged_result_of_printing_template_version_summary_response') as PagedResultOfPrintingTemplateVersionSummaryResponse;
+}
+
+function isPagedResultOfPrintingTemplateVersionSummaryResponse(value: unknown): value is PagedResultOfPrintingTemplateVersionSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPrintingTemplateVersionSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfReceivedHostAnnouncementListItemResponse(value: unknown): PagedResultOfReceivedHostAnnouncementListItemResponse {
   const normalizedValue = normalizePagedResultOfReceivedHostAnnouncementListItemResponseIntegerJson(value);
-  if (!(isPagedResultOfReceivedHostAnnouncementListItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_received_host_announcement_list_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfReceivedHostAnnouncementListItemResponse(normalizedValue), 'paged_result_of_received_host_announcement_list_item_response') as PagedResultOfReceivedHostAnnouncementListItemResponse;
 }
 
 function isPagedResultOfReceivedHostAnnouncementListItemResponse(value: unknown): value is PagedResultOfReceivedHostAnnouncementListItemResponse {
@@ -5620,22 +4457,34 @@ function isPagedResultOfReceivedHostAnnouncementListItemResponse(value: unknown)
 
 export function readPagedResultOfReportingDataSourceListItem(value: unknown): PagedResultOfReportingDataSourceListItem {
   const normalizedValue = normalizePagedResultOfReportingDataSourceListItemIntegerJson(value);
-  if (!(isPagedResultOfReportingDataSourceListItem(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_reporting_data_source_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingDataSourceListItem(normalizedValue), 'paged_result_of_reporting_data_source_list_item') as PagedResultOfReportingDataSourceListItem;
 }
 
 function isPagedResultOfReportingDataSourceListItem(value: unknown): value is PagedResultOfReportingDataSourceListItem {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDataSourceListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfReportingDefinitionSummaryResponse(value: unknown): PagedResultOfReportingDefinitionSummaryResponse {
+  const normalizedValue = normalizePagedResultOfReportingDefinitionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingDefinitionSummaryResponse(normalizedValue), 'paged_result_of_reporting_definition_summary_response') as PagedResultOfReportingDefinitionSummaryResponse;
+}
+
+function isPagedResultOfReportingDefinitionSummaryResponse(value: unknown): value is PagedResultOfReportingDefinitionSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDefinitionSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfReportingDefinitionVersionSummaryResponse(value: unknown): PagedResultOfReportingDefinitionVersionSummaryResponse {
+  const normalizedValue = normalizePagedResultOfReportingDefinitionVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingDefinitionVersionSummaryResponse(normalizedValue), 'paged_result_of_reporting_definition_version_summary_response') as PagedResultOfReportingDefinitionVersionSummaryResponse;
+}
+
+function isPagedResultOfReportingDefinitionVersionSummaryResponse(value: unknown): value is PagedResultOfReportingDefinitionVersionSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDefinitionVersionSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfReportingExportTaskResponse(value: unknown): PagedResultOfReportingExportTaskResponse {
   const normalizedValue = normalizePagedResultOfReportingExportTaskResponseIntegerJson(value);
-  if (!(isPagedResultOfReportingExportTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_reporting_export_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingExportTaskResponse(normalizedValue), 'paged_result_of_reporting_export_task_response') as PagedResultOfReportingExportTaskResponse;
 }
 
 function isPagedResultOfReportingExportTaskResponse(value: unknown): value is PagedResultOfReportingExportTaskResponse {
@@ -5644,10 +4493,7 @@ function isPagedResultOfReportingExportTaskResponse(value: unknown): value is Pa
 
 export function readPagedResultOfSerialNumberRuleResponse(value: unknown): PagedResultOfSerialNumberRuleResponse {
   const normalizedValue = normalizePagedResultOfSerialNumberRuleResponseIntegerJson(value);
-  if (!(isPagedResultOfSerialNumberRuleResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_serial_number_rule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfSerialNumberRuleResponse(normalizedValue), 'paged_result_of_serial_number_rule_response') as PagedResultOfSerialNumberRuleResponse;
 }
 
 function isPagedResultOfSerialNumberRuleResponse(value: unknown): value is PagedResultOfSerialNumberRuleResponse {
@@ -5656,10 +4502,7 @@ function isPagedResultOfSerialNumberRuleResponse(value: unknown): value is Paged
 
 export function readPagedResultOfTenantPackageSummary(value: unknown): PagedResultOfTenantPackageSummary {
   const normalizedValue = normalizePagedResultOfTenantPackageSummaryIntegerJson(value);
-  if (!(isPagedResultOfTenantPackageSummary(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_tenant_package_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfTenantPackageSummary(normalizedValue), 'paged_result_of_tenant_package_summary') as PagedResultOfTenantPackageSummary;
 }
 
 function isPagedResultOfTenantPackageSummary(value: unknown): value is PagedResultOfTenantPackageSummary {
@@ -5668,10 +4511,7 @@ function isPagedResultOfTenantPackageSummary(value: unknown): value is PagedResu
 
 export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTenantSummary {
   const normalizedValue = normalizePagedResultOfTenantSummaryIntegerJson(value);
-  if (!(isPagedResultOfTenantSummary(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_tenant_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfTenantSummary(normalizedValue), 'paged_result_of_tenant_summary') as PagedResultOfTenantSummary;
 }
 
 function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTenantSummary {
@@ -5680,10 +4520,7 @@ function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTen
 
 export function readPagedResultOfWorkflowInstanceListItemResponse(value: unknown): PagedResultOfWorkflowInstanceListItemResponse {
   const normalizedValue = normalizePagedResultOfWorkflowInstanceListItemResponseIntegerJson(value);
-  if (!(isPagedResultOfWorkflowInstanceListItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_workflow_instance_list_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfWorkflowInstanceListItemResponse(normalizedValue), 'paged_result_of_workflow_instance_list_item_response') as PagedResultOfWorkflowInstanceListItemResponse;
 }
 
 function isPagedResultOfWorkflowInstanceListItemResponse(value: unknown): value is PagedResultOfWorkflowInstanceListItemResponse {
@@ -5692,10 +4529,7 @@ function isPagedResultOfWorkflowInstanceListItemResponse(value: unknown): value 
 
 export function readPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): PagedResultOfWorkflowRecoveryTaskResponse {
   const normalizedValue = normalizePagedResultOfWorkflowRecoveryTaskResponseIntegerJson(value);
-  if (!(isPagedResultOfWorkflowRecoveryTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_workflow_recovery_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfWorkflowRecoveryTaskResponse(normalizedValue), 'paged_result_of_workflow_recovery_task_response') as PagedResultOfWorkflowRecoveryTaskResponse;
 }
 
 function isPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): value is PagedResultOfWorkflowRecoveryTaskResponse {
@@ -5704,10 +4538,7 @@ function isPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): value is P
 
 export function readPagedResultOfWorkflowTodoListItemResponse(value: unknown): PagedResultOfWorkflowTodoListItemResponse {
   const normalizedValue = normalizePagedResultOfWorkflowTodoListItemResponseIntegerJson(value);
-  if (!(isPagedResultOfWorkflowTodoListItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_paged_result_of_workflow_todo_list_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPagedResultOfWorkflowTodoListItemResponse(normalizedValue), 'paged_result_of_workflow_todo_list_item_response') as PagedResultOfWorkflowTodoListItemResponse;
 }
 
 function isPagedResultOfWorkflowTodoListItemResponse(value: unknown): value is PagedResultOfWorkflowTodoListItemResponse {
@@ -5716,10 +4547,7 @@ function isPagedResultOfWorkflowTodoListItemResponse(value: unknown): value is P
 
 export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowInstanceRequest {
   const normalizedValue = normalizePauseWorkflowInstanceRequestIntegerJson(value);
-  if (!(isPauseWorkflowInstanceRequest(normalizedValue))) {
-    throw new Error('client.invalid_pause_workflow_instance_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPauseWorkflowInstanceRequest(normalizedValue), 'pause_workflow_instance_request') as PauseWorkflowInstanceRequest;
 }
 
 function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowInstanceRequest {
@@ -5728,10 +4556,7 @@ function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowI
 
 export function readPaymentMerchantConfigListItem(value: unknown): PaymentMerchantConfigListItem {
   const normalizedValue = normalizePaymentMerchantConfigListItemIntegerJson(value);
-  if (!(isPaymentMerchantConfigListItem(normalizedValue))) {
-    throw new Error('client.invalid_payment_merchant_config_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentMerchantConfigListItem(normalizedValue), 'payment_merchant_config_list_item') as PaymentMerchantConfigListItem;
 }
 
 function isPaymentMerchantConfigListItem(value: unknown): value is PaymentMerchantConfigListItem {
@@ -5740,10 +4565,7 @@ function isPaymentMerchantConfigListItem(value: unknown): value is PaymentMercha
 
 export function readPaymentMerchantConfigResponse(value: unknown): PaymentMerchantConfigResponse {
   const normalizedValue = normalizePaymentMerchantConfigResponseIntegerJson(value);
-  if (!(isPaymentMerchantConfigResponse(normalizedValue))) {
-    throw new Error('client.invalid_payment_merchant_config_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentMerchantConfigResponse(normalizedValue), 'payment_merchant_config_response') as PaymentMerchantConfigResponse;
 }
 
 function isPaymentMerchantConfigResponse(value: unknown): value is PaymentMerchantConfigResponse {
@@ -5752,10 +4574,7 @@ function isPaymentMerchantConfigResponse(value: unknown): value is PaymentMercha
 
 export function readPaymentOrderListItem(value: unknown): PaymentOrderListItem {
   const normalizedValue = normalizePaymentOrderListItemIntegerJson(value);
-  if (!(isPaymentOrderListItem(normalizedValue))) {
-    throw new Error('client.invalid_payment_order_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentOrderListItem(normalizedValue), 'payment_order_list_item') as PaymentOrderListItem;
 }
 
 function isPaymentOrderListItem(value: unknown): value is PaymentOrderListItem {
@@ -5764,10 +4583,7 @@ function isPaymentOrderListItem(value: unknown): value is PaymentOrderListItem {
 
 export function readPaymentOrderResponse(value: unknown): PaymentOrderResponse {
   const normalizedValue = normalizePaymentOrderResponseIntegerJson(value);
-  if (!(isPaymentOrderResponse(normalizedValue))) {
-    throw new Error('client.invalid_payment_order_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentOrderResponse(normalizedValue), 'payment_order_response') as PaymentOrderResponse;
 }
 
 function isPaymentOrderResponse(value: unknown): value is PaymentOrderResponse {
@@ -5776,10 +4592,7 @@ function isPaymentOrderResponse(value: unknown): value is PaymentOrderResponse {
 
 export function readPaymentRefundListItem(value: unknown): PaymentRefundListItem {
   const normalizedValue = normalizePaymentRefundListItemIntegerJson(value);
-  if (!(isPaymentRefundListItem(normalizedValue))) {
-    throw new Error('client.invalid_payment_refund_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentRefundListItem(normalizedValue), 'payment_refund_list_item') as PaymentRefundListItem;
 }
 
 function isPaymentRefundListItem(value: unknown): value is PaymentRefundListItem {
@@ -5788,10 +4601,7 @@ function isPaymentRefundListItem(value: unknown): value is PaymentRefundListItem
 
 export function readPaymentRefundResponse(value: unknown): PaymentRefundResponse {
   const normalizedValue = normalizePaymentRefundResponseIntegerJson(value);
-  if (!(isPaymentRefundResponse(normalizedValue))) {
-    throw new Error('client.invalid_payment_refund_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPaymentRefundResponse(normalizedValue), 'payment_refund_response') as PaymentRefundResponse;
 }
 
 function isPaymentRefundResponse(value: unknown): value is PaymentRefundResponse {
@@ -5800,10 +4610,7 @@ function isPaymentRefundResponse(value: unknown): value is PaymentRefundResponse
 
 export function readPersonalScheduleResponse(value: unknown): PersonalScheduleResponse {
   const normalizedValue = normalizePersonalScheduleResponseIntegerJson(value);
-  if (!(isPersonalScheduleResponse(normalizedValue))) {
-    throw new Error('client.invalid_personal_schedule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPersonalScheduleResponse(normalizedValue), 'personal_schedule_response') as PersonalScheduleResponse;
 }
 
 function isPersonalScheduleResponse(value: unknown): value is PersonalScheduleResponse {
@@ -5812,10 +4619,7 @@ function isPersonalScheduleResponse(value: unknown): value is PersonalScheduleRe
 
 export function readPrepareAiFeedbackEvaluationRequest(value: unknown): PrepareAiFeedbackEvaluationRequest {
   const normalizedValue = normalizePrepareAiFeedbackEvaluationRequestIntegerJson(value);
-  if (!(isPrepareAiFeedbackEvaluationRequest(normalizedValue))) {
-    throw new Error('client.invalid_prepare_ai_feedback_evaluation_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPrepareAiFeedbackEvaluationRequest(normalizedValue), 'prepare_ai_feedback_evaluation_request') as PrepareAiFeedbackEvaluationRequest;
 }
 
 function isPrepareAiFeedbackEvaluationRequest(value: unknown): value is PrepareAiFeedbackEvaluationRequest {
@@ -5824,10 +4628,7 @@ function isPrepareAiFeedbackEvaluationRequest(value: unknown): value is PrepareA
 
 export function readPreviewGoViewProjectRequest(value: unknown): PreviewGoViewProjectRequest {
   const normalizedValue = normalizePreviewGoViewProjectRequestIntegerJson(value);
-  if (!(isPreviewGoViewProjectRequest(normalizedValue))) {
-    throw new Error('client.invalid_preview_go_view_project_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPreviewGoViewProjectRequest(normalizedValue), 'preview_go_view_project_request') as PreviewGoViewProjectRequest;
 }
 
 function isPreviewGoViewProjectRequest(value: unknown): value is PreviewGoViewProjectRequest {
@@ -5836,10 +4637,7 @@ function isPreviewGoViewProjectRequest(value: unknown): value is PreviewGoViewPr
 
 export function readPreviewPrintingTemplateRequest(value: unknown): PreviewPrintingTemplateRequest {
   const normalizedValue = normalizePreviewPrintingTemplateRequestIntegerJson(value);
-  if (!(isPreviewPrintingTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_preview_printing_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPreviewPrintingTemplateRequest(normalizedValue), 'preview_printing_template_request') as PreviewPrintingTemplateRequest;
 }
 
 function isPreviewPrintingTemplateRequest(value: unknown): value is PreviewPrintingTemplateRequest {
@@ -5848,10 +4646,7 @@ function isPreviewPrintingTemplateRequest(value: unknown): value is PreviewPrint
 
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
   const normalizedValue = normalizePreviewSerialNumberRequestIntegerJson(value);
-  if (!(isPreviewSerialNumberRequest(normalizedValue))) {
-    throw new Error('client.invalid_preview_serial_number_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPreviewSerialNumberRequest(normalizedValue), 'preview_serial_number_request') as PreviewSerialNumberRequest;
 }
 
 function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNumberRequest {
@@ -5859,10 +4654,7 @@ function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNum
 }
 
 export function readPreviewWorkflowAssigneeRequest(value: unknown): PreviewWorkflowAssigneeRequest {
-  if (!(isPreviewWorkflowAssigneeRequest(value))) {
-    throw new Error('client.invalid_preview_workflow_assignee_request');
-  }
-  return value;
+  return requireValidResponse(value, isPreviewWorkflowAssigneeRequest(value), 'preview_workflow_assignee_request') as PreviewWorkflowAssigneeRequest;
 }
 
 function isPreviewWorkflowAssigneeRequest(value: unknown): value is PreviewWorkflowAssigneeRequest {
@@ -5870,10 +4662,7 @@ function isPreviewWorkflowAssigneeRequest(value: unknown): value is PreviewWorkf
 }
 
 export function readPrintingFormFieldDefinition(value: unknown): PrintingFormFieldDefinition {
-  if (!(isPrintingFormFieldDefinition(value))) {
-    throw new Error('client.invalid_printing_form_field_definition');
-  }
-  return value;
+  return requireValidResponse(value, isPrintingFormFieldDefinition(value), 'printing_form_field_definition') as PrintingFormFieldDefinition;
 }
 
 function isPrintingFormFieldDefinition(value: unknown): value is PrintingFormFieldDefinition {
@@ -5881,10 +4670,7 @@ function isPrintingFormFieldDefinition(value: unknown): value is PrintingFormFie
 }
 
 export function readPrintingFormSchemaDefinition(value: unknown): PrintingFormSchemaDefinition {
-  if (!(isPrintingFormSchemaDefinition(value))) {
-    throw new Error('client.invalid_printing_form_schema_definition');
-  }
-  return value;
+  return requireValidResponse(value, isPrintingFormSchemaDefinition(value), 'printing_form_schema_definition') as PrintingFormSchemaDefinition;
 }
 
 function isPrintingFormSchemaDefinition(value: unknown): value is PrintingFormSchemaDefinition {
@@ -5893,10 +4679,7 @@ function isPrintingFormSchemaDefinition(value: unknown): value is PrintingFormSc
 
 export function readPrintingTemplatePreviewResponse(value: unknown): PrintingTemplatePreviewResponse {
   const normalizedValue = normalizePrintingTemplatePreviewResponseIntegerJson(value);
-  if (!(isPrintingTemplatePreviewResponse(normalizedValue))) {
-    throw new Error('client.invalid_printing_template_preview_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPrintingTemplatePreviewResponse(normalizedValue), 'printing_template_preview_response') as PrintingTemplatePreviewResponse;
 }
 
 function isPrintingTemplatePreviewResponse(value: unknown): value is PrintingTemplatePreviewResponse {
@@ -5905,34 +4688,43 @@ function isPrintingTemplatePreviewResponse(value: unknown): value is PrintingTem
 
 export function readPrintingTemplateResponse(value: unknown): PrintingTemplateResponse {
   const normalizedValue = normalizePrintingTemplateResponseIntegerJson(value);
-  if (!(isPrintingTemplateResponse(normalizedValue))) {
-    throw new Error('client.invalid_printing_template_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPrintingTemplateResponse(normalizedValue), 'printing_template_response') as PrintingTemplateResponse;
 }
 
 function isPrintingTemplateResponse(value: unknown): value is PrintingTemplateResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["formSchemaKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["name"] === 'string') && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readPrintingTemplateSummaryResponse(value: unknown): PrintingTemplateSummaryResponse {
+  const normalizedValue = normalizePrintingTemplateSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPrintingTemplateSummaryResponse(normalizedValue), 'printing_template_summary_response') as PrintingTemplateSummaryResponse;
+}
+
+function isPrintingTemplateSummaryResponse(value: unknown): value is PrintingTemplateSummaryResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["formSchemaKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readPrintingTemplateVersionResponse(value: unknown): PrintingTemplateVersionResponse {
   const normalizedValue = normalizePrintingTemplateVersionResponseIntegerJson(value);
-  if (!(isPrintingTemplateVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_printing_template_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPrintingTemplateVersionResponse(normalizedValue), 'printing_template_version_response') as PrintingTemplateVersionResponse;
 }
 
 function isPrintingTemplateVersionResponse(value: unknown): value is PrintingTemplateVersionResponse {
   return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
+export function readPrintingTemplateVersionSummaryResponse(value: unknown): PrintingTemplateVersionSummaryResponse {
+  const normalizedValue = normalizePrintingTemplateVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPrintingTemplateVersionSummaryResponse(normalizedValue), 'printing_template_version_summary_response') as PrintingTemplateVersionSummaryResponse;
+}
+
+function isPrintingTemplateVersionSummaryResponse(value: unknown): value is PrintingTemplateVersionSummaryResponse {
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readProblemDetails(value: unknown): ProblemDetails {
   const normalizedValue = normalizeProblemDetailsIntegerJson(value);
-  if (!(isProblemDetails(normalizedValue))) {
-    throw new Error('client.invalid_problem_details');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isProblemDetails(normalizedValue), 'problem_details') as ProblemDetails;
 }
 
 function isProblemDetails(value: unknown): value is ProblemDetails {
@@ -5940,10 +4732,7 @@ function isProblemDetails(value: unknown): value is ProblemDetails {
 }
 
 export function readProvisionTenantRequest(value: unknown): ProvisionTenantRequest {
-  if (!(isProvisionTenantRequest(value))) {
-    throw new Error('client.invalid_provision_tenant_request');
-  }
-  return value;
+  return requireValidResponse(value, isProvisionTenantRequest(value), 'provision_tenant_request') as ProvisionTenantRequest;
 }
 
 function isProvisionTenantRequest(value: unknown): value is ProvisionTenantRequest {
@@ -5952,10 +4741,7 @@ function isProvisionTenantRequest(value: unknown): value is ProvisionTenantReque
 
 export function readPublishGoViewProjectRequest(value: unknown): PublishGoViewProjectRequest {
   const normalizedValue = normalizePublishGoViewProjectRequestIntegerJson(value);
-  if (!(isPublishGoViewProjectRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_go_view_project_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishGoViewProjectRequest(normalizedValue), 'publish_go_view_project_request') as PublishGoViewProjectRequest;
 }
 
 function isPublishGoViewProjectRequest(value: unknown): value is PublishGoViewProjectRequest {
@@ -5964,10 +4750,7 @@ function isPublishGoViewProjectRequest(value: unknown): value is PublishGoViewPr
 
 export function readPublishHostAnnouncementRequest(value: unknown): PublishHostAnnouncementRequest {
   const normalizedValue = normalizePublishHostAnnouncementRequestIntegerJson(value);
-  if (!(isPublishHostAnnouncementRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_host_announcement_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishHostAnnouncementRequest(normalizedValue), 'publish_host_announcement_request') as PublishHostAnnouncementRequest;
 }
 
 function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostAnnouncementRequest {
@@ -5976,10 +4759,7 @@ function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostA
 
 export function readPublishHostReleaseNoteRequest(value: unknown): PublishHostReleaseNoteRequest {
   const normalizedValue = normalizePublishHostReleaseNoteRequestIntegerJson(value);
-  if (!(isPublishHostReleaseNoteRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_host_release_note_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishHostReleaseNoteRequest(normalizedValue), 'publish_host_release_note_request') as PublishHostReleaseNoteRequest;
 }
 
 function isPublishHostReleaseNoteRequest(value: unknown): value is PublishHostReleaseNoteRequest {
@@ -5988,10 +4768,7 @@ function isPublishHostReleaseNoteRequest(value: unknown): value is PublishHostRe
 
 export function readPublishNotificationBindingRequest(value: unknown): PublishNotificationBindingRequest {
   const normalizedValue = normalizePublishNotificationBindingRequestIntegerJson(value);
-  if (!(isPublishNotificationBindingRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_notification_binding_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishNotificationBindingRequest(normalizedValue), 'publish_notification_binding_request') as PublishNotificationBindingRequest;
 }
 
 function isPublishNotificationBindingRequest(value: unknown): value is PublishNotificationBindingRequest {
@@ -6000,10 +4777,7 @@ function isPublishNotificationBindingRequest(value: unknown): value is PublishNo
 
 export function readPublishNotificationProviderProfileRequest(value: unknown): PublishNotificationProviderProfileRequest {
   const normalizedValue = normalizePublishNotificationProviderProfileRequestIntegerJson(value);
-  if (!(isPublishNotificationProviderProfileRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_notification_provider_profile_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishNotificationProviderProfileRequest(normalizedValue), 'publish_notification_provider_profile_request') as PublishNotificationProviderProfileRequest;
 }
 
 function isPublishNotificationProviderProfileRequest(value: unknown): value is PublishNotificationProviderProfileRequest {
@@ -6012,10 +4786,7 @@ function isPublishNotificationProviderProfileRequest(value: unknown): value is P
 
 export function readPublishNotificationTemplateRequest(value: unknown): PublishNotificationTemplateRequest {
   const normalizedValue = normalizePublishNotificationTemplateRequestIntegerJson(value);
-  if (!(isPublishNotificationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_notification_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishNotificationTemplateRequest(normalizedValue), 'publish_notification_template_request') as PublishNotificationTemplateRequest;
 }
 
 function isPublishNotificationTemplateRequest(value: unknown): value is PublishNotificationTemplateRequest {
@@ -6024,10 +4795,7 @@ function isPublishNotificationTemplateRequest(value: unknown): value is PublishN
 
 export function readPublishPrintingTemplateRequest(value: unknown): PublishPrintingTemplateRequest {
   const normalizedValue = normalizePublishPrintingTemplateRequestIntegerJson(value);
-  if (!(isPublishPrintingTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_printing_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishPrintingTemplateRequest(normalizedValue), 'publish_printing_template_request') as PublishPrintingTemplateRequest;
 }
 
 function isPublishPrintingTemplateRequest(value: unknown): value is PublishPrintingTemplateRequest {
@@ -6036,10 +4804,7 @@ function isPublishPrintingTemplateRequest(value: unknown): value is PublishPrint
 
 export function readPublishReportingDefinitionRequest(value: unknown): PublishReportingDefinitionRequest {
   const normalizedValue = normalizePublishReportingDefinitionRequestIntegerJson(value);
-  if (!(isPublishReportingDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_reporting_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishReportingDefinitionRequest(normalizedValue), 'publish_reporting_definition_request') as PublishReportingDefinitionRequest;
 }
 
 function isPublishReportingDefinitionRequest(value: unknown): value is PublishReportingDefinitionRequest {
@@ -6048,10 +4813,7 @@ function isPublishReportingDefinitionRequest(value: unknown): value is PublishRe
 
 export function readPublishWorkflowDefinitionRequest(value: unknown): PublishWorkflowDefinitionRequest {
   const normalizedValue = normalizePublishWorkflowDefinitionRequestIntegerJson(value);
-  if (!(isPublishWorkflowDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_workflow_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishWorkflowDefinitionRequest(normalizedValue), 'publish_workflow_definition_request') as PublishWorkflowDefinitionRequest;
 }
 
 function isPublishWorkflowDefinitionRequest(value: unknown): value is PublishWorkflowDefinitionRequest {
@@ -6060,10 +4822,7 @@ function isPublishWorkflowDefinitionRequest(value: unknown): value is PublishWor
 
 export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowFormRequest {
   const normalizedValue = normalizePublishWorkflowFormRequestIntegerJson(value);
-  if (!(isPublishWorkflowFormRequest(normalizedValue))) {
-    throw new Error('client.invalid_publish_workflow_form_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isPublishWorkflowFormRequest(normalizedValue), 'publish_workflow_form_request') as PublishWorkflowFormRequest;
 }
 
 function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowFormRequest {
@@ -6072,10 +4831,7 @@ function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowF
 
 export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWorkflowInstanceRequest {
   const normalizedValue = normalizeReassignWorkflowInstanceRequestIntegerJson(value);
-  if (!(isReassignWorkflowInstanceRequest(normalizedValue))) {
-    throw new Error('client.invalid_reassign_workflow_instance_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReassignWorkflowInstanceRequest(normalizedValue), 'reassign_workflow_instance_request') as ReassignWorkflowInstanceRequest;
 }
 
 function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWorkflowInstanceRequest {
@@ -6083,10 +4839,7 @@ function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWor
 }
 
 export function readReceivedHostAnnouncementDetailResponse(value: unknown): ReceivedHostAnnouncementDetailResponse {
-  if (!(isReceivedHostAnnouncementDetailResponse(value))) {
-    throw new Error('client.invalid_received_host_announcement_detail_response');
-  }
-  return value;
+  return requireValidResponse(value, isReceivedHostAnnouncementDetailResponse(value), 'received_host_announcement_detail_response') as ReceivedHostAnnouncementDetailResponse;
 }
 
 function isReceivedHostAnnouncementDetailResponse(value: unknown): value is ReceivedHostAnnouncementDetailResponse {
@@ -6094,10 +4847,7 @@ function isReceivedHostAnnouncementDetailResponse(value: unknown): value is Rece
 }
 
 export function readReceivedHostAnnouncementListItemResponse(value: unknown): ReceivedHostAnnouncementListItemResponse {
-  if (!(isReceivedHostAnnouncementListItemResponse(value))) {
-    throw new Error('client.invalid_received_host_announcement_list_item_response');
-  }
-  return value;
+  return requireValidResponse(value, isReceivedHostAnnouncementListItemResponse(value), 'received_host_announcement_list_item_response') as ReceivedHostAnnouncementListItemResponse;
 }
 
 function isReceivedHostAnnouncementListItemResponse(value: unknown): value is ReceivedHostAnnouncementListItemResponse {
@@ -6105,10 +4855,7 @@ function isReceivedHostAnnouncementListItemResponse(value: unknown): value is Re
 }
 
 export function readRecipientEndpointResponse(value: unknown): RecipientEndpointResponse {
-  if (!(isRecipientEndpointResponse(value))) {
-    throw new Error('client.invalid_recipient_endpoint_response');
-  }
-  return value;
+  return requireValidResponse(value, isRecipientEndpointResponse(value), 'recipient_endpoint_response') as RecipientEndpointResponse;
 }
 
 function isRecipientEndpointResponse(value: unknown): value is RecipientEndpointResponse {
@@ -6117,10 +4864,7 @@ function isRecipientEndpointResponse(value: unknown): value is RecipientEndpoint
 
 export function readReconcileAiAgentRunRequest(value: unknown): ReconcileAiAgentRunRequest {
   const normalizedValue = normalizeReconcileAiAgentRunRequestIntegerJson(value);
-  if (!(isReconcileAiAgentRunRequest(normalizedValue))) {
-    throw new Error('client.invalid_reconcile_ai_agent_run_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReconcileAiAgentRunRequest(normalizedValue), 'reconcile_ai_agent_run_request') as ReconcileAiAgentRunRequest;
 }
 
 function isReconcileAiAgentRunRequest(value: unknown): value is ReconcileAiAgentRunRequest {
@@ -6129,10 +4873,7 @@ function isReconcileAiAgentRunRequest(value: unknown): value is ReconcileAiAgent
 
 export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
   const normalizedValue = normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value);
-  if (!(isReconcileWorkflowRecoveryTaskRequest(normalizedValue))) {
-    throw new Error('client.invalid_reconcile_workflow_recovery_task_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReconcileWorkflowRecoveryTaskRequest(normalizedValue), 'reconcile_workflow_recovery_task_request') as ReconcileWorkflowRecoveryTaskRequest;
 }
 
 function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is ReconcileWorkflowRecoveryTaskRequest {
@@ -6141,10 +4882,7 @@ function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is Reconc
 
 export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
   const normalizedValue = normalizeRecoverWorkflowInstanceRequestIntegerJson(value);
-  if (!(isRecoverWorkflowInstanceRequest(normalizedValue))) {
-    throw new Error('client.invalid_recover_workflow_instance_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRecoverWorkflowInstanceRequest(normalizedValue), 'recover_workflow_instance_request') as RecoverWorkflowInstanceRequest;
 }
 
 function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
@@ -6153,10 +4891,7 @@ function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkf
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
   const normalizedValue = normalizeReplaceHostRoleFieldGrantsRequestIntegerJson(value);
-  if (!(isReplaceHostRoleFieldGrantsRequest(normalizedValue))) {
-    throw new Error('client.invalid_replace_host_role_field_grants_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReplaceHostRoleFieldGrantsRequest(normalizedValue), 'replace_host_role_field_grants_request') as ReplaceHostRoleFieldGrantsRequest;
 }
 
 function isReplaceHostRoleFieldGrantsRequest(value: unknown): value is ReplaceHostRoleFieldGrantsRequest {
@@ -6165,22 +4900,16 @@ function isReplaceHostRoleFieldGrantsRequest(value: unknown): value is ReplaceHo
 
 export function readReplaceHostRoleMembersRequest(value: unknown): ReplaceHostRoleMembersRequest {
   const normalizedValue = normalizeReplaceHostRoleMembersRequestIntegerJson(value);
-  if (!(isReplaceHostRoleMembersRequest(normalizedValue))) {
-    throw new Error('client.invalid_replace_host_role_members_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReplaceHostRoleMembersRequest(normalizedValue), 'replace_host_role_members_request') as ReplaceHostRoleMembersRequest;
 }
 
 function isReplaceHostRoleMembersRequest(value: unknown): value is ReplaceHostRoleMembersRequest {
-  return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["candidateUserIds"] === undefined || ((value["candidateUserIds"] === null) || (Array.isArray(value["candidateUserIds"]) && value["candidateUserIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))))) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostRolePermissionsRequest(value: unknown): ReplaceHostRolePermissionsRequest {
   const normalizedValue = normalizeReplaceHostRolePermissionsRequestIntegerJson(value);
-  if (!(isReplaceHostRolePermissionsRequest(normalizedValue))) {
-    throw new Error('client.invalid_replace_host_role_permissions_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReplaceHostRolePermissionsRequest(normalizedValue), 'replace_host_role_permissions_request') as ReplaceHostRolePermissionsRequest;
 }
 
 function isReplaceHostRolePermissionsRequest(value: unknown): value is ReplaceHostRolePermissionsRequest {
@@ -6189,10 +4918,7 @@ function isReplaceHostRolePermissionsRequest(value: unknown): value is ReplaceHo
 
 export function readReplaceHostUserRolesRequest(value: unknown): ReplaceHostUserRolesRequest {
   const normalizedValue = normalizeReplaceHostUserRolesRequestIntegerJson(value);
-  if (!(isReplaceHostUserRolesRequest(normalizedValue))) {
-    throw new Error('client.invalid_replace_host_user_roles_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReplaceHostUserRolesRequest(normalizedValue), 'replace_host_user_roles_request') as ReplaceHostUserRolesRequest;
 }
 
 function isReplaceHostUserRolesRequest(value: unknown): value is ReplaceHostUserRolesRequest {
@@ -6201,10 +4927,7 @@ function isReplaceHostUserRolesRequest(value: unknown): value is ReplaceHostUser
 
 export function readReportingDataSourceListItem(value: unknown): ReportingDataSourceListItem {
   const normalizedValue = normalizeReportingDataSourceListItemIntegerJson(value);
-  if (!(isReportingDataSourceListItem(normalizedValue))) {
-    throw new Error('client.invalid_reporting_data_source_list_item');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingDataSourceListItem(normalizedValue), 'reporting_data_source_list_item') as ReportingDataSourceListItem;
 }
 
 function isReportingDataSourceListItem(value: unknown): value is ReportingDataSourceListItem {
@@ -6213,10 +4936,7 @@ function isReportingDataSourceListItem(value: unknown): value is ReportingDataSo
 
 export function readReportingDataSourceResponse(value: unknown): ReportingDataSourceResponse {
   const normalizedValue = normalizeReportingDataSourceResponseIntegerJson(value);
-  if (!(isReportingDataSourceResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_data_source_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingDataSourceResponse(normalizedValue), 'reporting_data_source_response') as ReportingDataSourceResponse;
 }
 
 function isReportingDataSourceResponse(value: unknown): value is ReportingDataSourceResponse {
@@ -6225,33 +4945,42 @@ function isReportingDataSourceResponse(value: unknown): value is ReportingDataSo
 
 export function readReportingDefinitionResponse(value: unknown): ReportingDefinitionResponse {
   const normalizedValue = normalizeReportingDefinitionResponseIntegerJson(value);
-  if (!(isReportingDefinitionResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_definition_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingDefinitionResponse(normalizedValue), 'reporting_definition_response') as ReportingDefinitionResponse;
 }
 
 function isReportingDefinitionResponse(value: unknown): value is ReportingDefinitionResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutConfigJson"] === 'string') && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readReportingDefinitionSummaryResponse(value: unknown): ReportingDefinitionSummaryResponse {
+  const normalizedValue = normalizeReportingDefinitionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReportingDefinitionSummaryResponse(normalizedValue), 'reporting_definition_summary_response') as ReportingDefinitionSummaryResponse;
+}
+
+function isReportingDefinitionSummaryResponse(value: unknown): value is ReportingDefinitionSummaryResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["queryPortKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readReportingDefinitionVersionResponse(value: unknown): ReportingDefinitionVersionResponse {
   const normalizedValue = normalizeReportingDefinitionVersionResponseIntegerJson(value);
-  if (!(isReportingDefinitionVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_definition_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingDefinitionVersionResponse(normalizedValue), 'reporting_definition_version_response') as ReportingDefinitionVersionResponse;
 }
 
 function isReportingDefinitionVersionResponse(value: unknown): value is ReportingDefinitionVersionResponse {
   return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutConfigJson"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["queryPortKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
+export function readReportingDefinitionVersionSummaryResponse(value: unknown): ReportingDefinitionVersionSummaryResponse {
+  const normalizedValue = normalizeReportingDefinitionVersionSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReportingDefinitionVersionSummaryResponse(normalizedValue), 'reporting_definition_version_summary_response') as ReportingDefinitionVersionSummaryResponse;
+}
+
+function isReportingDefinitionVersionSummaryResponse(value: unknown): value is ReportingDefinitionVersionSummaryResponse {
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["queryPortKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readReportingExecutionColumnDefinition(value: unknown): ReportingExecutionColumnDefinition {
-  if (!(isReportingExecutionColumnDefinition(value))) {
-    throw new Error('client.invalid_reporting_execution_column_definition');
-  }
-  return value;
+  return requireValidResponse(value, isReportingExecutionColumnDefinition(value), 'reporting_execution_column_definition') as ReportingExecutionColumnDefinition;
 }
 
 function isReportingExecutionColumnDefinition(value: unknown): value is ReportingExecutionColumnDefinition {
@@ -6260,10 +4989,7 @@ function isReportingExecutionColumnDefinition(value: unknown): value is Reportin
 
 export function readReportingExecutionPageResponse(value: unknown): ReportingExecutionPageResponse {
   const normalizedValue = normalizeReportingExecutionPageResponseIntegerJson(value);
-  if (!(isReportingExecutionPageResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_execution_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingExecutionPageResponse(normalizedValue), 'reporting_execution_page_response') as ReportingExecutionPageResponse;
 }
 
 function isReportingExecutionPageResponse(value: unknown): value is ReportingExecutionPageResponse {
@@ -6271,10 +4997,7 @@ function isReportingExecutionPageResponse(value: unknown): value is ReportingExe
 }
 
 export function readReportingExecutionParameterValue(value: unknown): ReportingExecutionParameterValue {
-  if (!(isReportingExecutionParameterValue(value))) {
-    throw new Error('client.invalid_reporting_execution_parameter_value');
-  }
-  return value;
+  return requireValidResponse(value, isReportingExecutionParameterValue(value), 'reporting_execution_parameter_value') as ReportingExecutionParameterValue;
 }
 
 function isReportingExecutionParameterValue(value: unknown): value is ReportingExecutionParameterValue {
@@ -6282,10 +5005,7 @@ function isReportingExecutionParameterValue(value: unknown): value is ReportingE
 }
 
 export function readReportingExecutionRow(value: unknown): ReportingExecutionRow {
-  if (!(isReportingExecutionRow(value))) {
-    throw new Error('client.invalid_reporting_execution_row');
-  }
-  return value;
+  return requireValidResponse(value, isReportingExecutionRow(value), 'reporting_execution_row') as ReportingExecutionRow;
 }
 
 function isReportingExecutionRow(value: unknown): value is ReportingExecutionRow {
@@ -6294,10 +5014,7 @@ function isReportingExecutionRow(value: unknown): value is ReportingExecutionRow
 
 export function readReportingExportTaskDetailResponse(value: unknown): ReportingExportTaskDetailResponse {
   const normalizedValue = normalizeReportingExportTaskDetailResponseIntegerJson(value);
-  if (!(isReportingExportTaskDetailResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_export_task_detail_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingExportTaskDetailResponse(normalizedValue), 'reporting_export_task_detail_response') as ReportingExportTaskDetailResponse;
 }
 
 function isReportingExportTaskDetailResponse(value: unknown): value is ReportingExportTaskDetailResponse {
@@ -6306,10 +5023,7 @@ function isReportingExportTaskDetailResponse(value: unknown): value is Reporting
 
 export function readReportingExportTaskResponse(value: unknown): ReportingExportTaskResponse {
   const normalizedValue = normalizeReportingExportTaskResponseIntegerJson(value);
-  if (!(isReportingExportTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_export_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingExportTaskResponse(normalizedValue), 'reporting_export_task_response') as ReportingExportTaskResponse;
 }
 
 function isReportingExportTaskResponse(value: unknown): value is ReportingExportTaskResponse {
@@ -6318,10 +5032,7 @@ function isReportingExportTaskResponse(value: unknown): value is ReportingExport
 
 export function readReportingGroupResponse(value: unknown): ReportingGroupResponse {
   const normalizedValue = normalizeReportingGroupResponseIntegerJson(value);
-  if (!(isReportingGroupResponse(normalizedValue))) {
-    throw new Error('client.invalid_reporting_group_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingGroupResponse(normalizedValue), 'reporting_group_response') as ReportingGroupResponse;
 }
 
 function isReportingGroupResponse(value: unknown): value is ReportingGroupResponse {
@@ -6329,10 +5040,7 @@ function isReportingGroupResponse(value: unknown): value is ReportingGroupRespon
 }
 
 export function readReportingParameterSchemaEntry(value: unknown): ReportingParameterSchemaEntry {
-  if (!(isReportingParameterSchemaEntry(value))) {
-    throw new Error('client.invalid_reporting_parameter_schema_entry');
-  }
-  return value;
+  return requireValidResponse(value, isReportingParameterSchemaEntry(value), 'reporting_parameter_schema_entry') as ReportingParameterSchemaEntry;
 }
 
 function isReportingParameterSchemaEntry(value: unknown): value is ReportingParameterSchemaEntry {
@@ -6341,10 +5049,7 @@ function isReportingParameterSchemaEntry(value: unknown): value is ReportingPara
 
 export function readReportingQueryPortDefinition(value: unknown): ReportingQueryPortDefinition {
   const normalizedValue = normalizeReportingQueryPortDefinitionIntegerJson(value);
-  if (!(isReportingQueryPortDefinition(normalizedValue))) {
-    throw new Error('client.invalid_reporting_query_port_definition');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingQueryPortDefinition(normalizedValue), 'reporting_query_port_definition') as ReportingQueryPortDefinition;
 }
 
 function isReportingQueryPortDefinition(value: unknown): value is ReportingQueryPortDefinition {
@@ -6353,10 +5058,7 @@ function isReportingQueryPortDefinition(value: unknown): value is ReportingQuery
 
 export function readReportingQueryPortParameterDefinition(value: unknown): ReportingQueryPortParameterDefinition {
   const normalizedValue = normalizeReportingQueryPortParameterDefinitionIntegerJson(value);
-  if (!(isReportingQueryPortParameterDefinition(normalizedValue))) {
-    throw new Error('client.invalid_reporting_query_port_parameter_definition');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReportingQueryPortParameterDefinition(normalizedValue), 'reporting_query_port_parameter_definition') as ReportingQueryPortParameterDefinition;
 }
 
 function isReportingQueryPortParameterDefinition(value: unknown): value is ReportingQueryPortParameterDefinition {
@@ -6364,10 +5066,7 @@ function isReportingQueryPortParameterDefinition(value: unknown): value is Repor
 }
 
 export function readResetHostUserPasswordRequest(value: unknown): ResetHostUserPasswordRequest {
-  if (!(isResetHostUserPasswordRequest(value))) {
-    throw new Error('client.invalid_reset_host_user_password_request');
-  }
-  return value;
+  return requireValidResponse(value, isResetHostUserPasswordRequest(value), 'reset_host_user_password_request') as ResetHostUserPasswordRequest;
 }
 
 function isResetHostUserPasswordRequest(value: unknown): value is ResetHostUserPasswordRequest {
@@ -6376,10 +5075,7 @@ function isResetHostUserPasswordRequest(value: unknown): value is ResetHostUserP
 
 export function readRestoreDiagnosticPolicyRequest(value: unknown): RestoreDiagnosticPolicyRequest {
   const normalizedValue = normalizeRestoreDiagnosticPolicyRequestIntegerJson(value);
-  if (!(isRestoreDiagnosticPolicyRequest(normalizedValue))) {
-    throw new Error('client.invalid_restore_diagnostic_policy_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRestoreDiagnosticPolicyRequest(normalizedValue), 'restore_diagnostic_policy_request') as RestoreDiagnosticPolicyRequest;
 }
 
 function isRestoreDiagnosticPolicyRequest(value: unknown): value is RestoreDiagnosticPolicyRequest {
@@ -6388,10 +5084,7 @@ function isRestoreDiagnosticPolicyRequest(value: unknown): value is RestoreDiagn
 
 export function readRestoreHostDocumentItemRequest(value: unknown): RestoreHostDocumentItemRequest {
   const normalizedValue = normalizeRestoreHostDocumentItemRequestIntegerJson(value);
-  if (!(isRestoreHostDocumentItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_restore_host_document_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRestoreHostDocumentItemRequest(normalizedValue), 'restore_host_document_item_request') as RestoreHostDocumentItemRequest;
 }
 
 function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostDocumentItemRequest {
@@ -6400,10 +5093,7 @@ function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostD
 
 export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflowInstanceRequest {
   const normalizedValue = normalizeResumeWorkflowInstanceRequestIntegerJson(value);
-  if (!(isResumeWorkflowInstanceRequest(normalizedValue))) {
-    throw new Error('client.invalid_resume_workflow_instance_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isResumeWorkflowInstanceRequest(normalizedValue), 'resume_workflow_instance_request') as ResumeWorkflowInstanceRequest;
 }
 
 function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflowInstanceRequest {
@@ -6412,10 +5102,7 @@ function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflo
 
 export function readRetractHostReleaseNoteRequest(value: unknown): RetractHostReleaseNoteRequest {
   const normalizedValue = normalizeRetractHostReleaseNoteRequestIntegerJson(value);
-  if (!(isRetractHostReleaseNoteRequest(normalizedValue))) {
-    throw new Error('client.invalid_retract_host_release_note_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRetractHostReleaseNoteRequest(normalizedValue), 'retract_host_release_note_request') as RetractHostReleaseNoteRequest;
 }
 
 function isRetractHostReleaseNoteRequest(value: unknown): value is RetractHostReleaseNoteRequest {
@@ -6424,10 +5111,7 @@ function isRetractHostReleaseNoteRequest(value: unknown): value is RetractHostRe
 
 export function readRetryDataApprovalRequestBody(value: unknown): RetryDataApprovalRequestBody {
   const normalizedValue = normalizeRetryDataApprovalRequestBodyIntegerJson(value);
-  if (!(isRetryDataApprovalRequestBody(normalizedValue))) {
-    throw new Error('client.invalid_retry_data_approval_request_body');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRetryDataApprovalRequestBody(normalizedValue), 'retry_data_approval_request_body') as RetryDataApprovalRequestBody;
 }
 
 function isRetryDataApprovalRequestBody(value: unknown): value is RetryDataApprovalRequestBody {
@@ -6436,10 +5120,7 @@ function isRetryDataApprovalRequestBody(value: unknown): value is RetryDataAppro
 
 export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotificationDeliveryRequest {
   const normalizedValue = normalizeRetryNotificationDeliveryRequestIntegerJson(value);
-  if (!(isRetryNotificationDeliveryRequest(normalizedValue))) {
-    throw new Error('client.invalid_retry_notification_delivery_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRetryNotificationDeliveryRequest(normalizedValue), 'retry_notification_delivery_request') as RetryNotificationDeliveryRequest;
 }
 
 function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotificationDeliveryRequest {
@@ -6448,10 +5129,7 @@ function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotif
 
 export function readRetryWorkflowRecoveryTaskRequest(value: unknown): RetryWorkflowRecoveryTaskRequest {
   const normalizedValue = normalizeRetryWorkflowRecoveryTaskRequestIntegerJson(value);
-  if (!(isRetryWorkflowRecoveryTaskRequest(normalizedValue))) {
-    throw new Error('client.invalid_retry_workflow_recovery_task_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRetryWorkflowRecoveryTaskRequest(normalizedValue), 'retry_workflow_recovery_task_request') as RetryWorkflowRecoveryTaskRequest;
 }
 
 function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkflowRecoveryTaskRequest {
@@ -6460,10 +5138,7 @@ function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkf
 
 export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTodoRequest {
   const normalizedValue = normalizeReturnWorkflowTodoRequestIntegerJson(value);
-  if (!(isReturnWorkflowTodoRequest(normalizedValue))) {
-    throw new Error('client.invalid_return_workflow_todo_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReturnWorkflowTodoRequest(normalizedValue), 'return_workflow_todo_request') as ReturnWorkflowTodoRequest;
 }
 
 function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
@@ -6471,10 +5146,7 @@ function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTod
 }
 
 export function readRevealHostUserProfileFieldsRequest(value: unknown): RevealHostUserProfileFieldsRequest {
-  if (!(isRevealHostUserProfileFieldsRequest(value))) {
-    throw new Error('client.invalid_reveal_host_user_profile_fields_request');
-  }
-  return value;
+  return requireValidResponse(value, isRevealHostUserProfileFieldsRequest(value), 'reveal_host_user_profile_fields_request') as RevealHostUserProfileFieldsRequest;
 }
 
 function isRevealHostUserProfileFieldsRequest(value: unknown): value is RevealHostUserProfileFieldsRequest {
@@ -6482,10 +5154,7 @@ function isRevealHostUserProfileFieldsRequest(value: unknown): value is RevealHo
 }
 
 export function readRevealHostUserProfileFieldsResponse(value: unknown): RevealHostUserProfileFieldsResponse {
-  if (!(isRevealHostUserProfileFieldsResponse(value))) {
-    throw new Error('client.invalid_reveal_host_user_profile_fields_response');
-  }
-  return value;
+  return requireValidResponse(value, isRevealHostUserProfileFieldsResponse(value), 'reveal_host_user_profile_fields_response') as RevealHostUserProfileFieldsResponse;
 }
 
 function isRevealHostUserProfileFieldsResponse(value: unknown): value is RevealHostUserProfileFieldsResponse {
@@ -6494,10 +5163,7 @@ function isRevealHostUserProfileFieldsResponse(value: unknown): value is RevealH
 
 export function readReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): ReviewAiKnowledgeAnswerFeedbackRequest {
   const normalizedValue = normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value);
-  if (!(isReviewAiKnowledgeAnswerFeedbackRequest(normalizedValue))) {
-    throw new Error('client.invalid_review_ai_knowledge_answer_feedback_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isReviewAiKnowledgeAnswerFeedbackRequest(normalizedValue), 'review_ai_knowledge_answer_feedback_request') as ReviewAiKnowledgeAnswerFeedbackRequest;
 }
 
 function isReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): value is ReviewAiKnowledgeAnswerFeedbackRequest {
@@ -6506,10 +5172,7 @@ function isReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): value is Revi
 
 export function readRevokeAiAgentDelegationRequest(value: unknown): RevokeAiAgentDelegationRequest {
   const normalizedValue = normalizeRevokeAiAgentDelegationRequestIntegerJson(value);
-  if (!(isRevokeAiAgentDelegationRequest(normalizedValue))) {
-    throw new Error('client.invalid_revoke_ai_agent_delegation_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRevokeAiAgentDelegationRequest(normalizedValue), 'revoke_ai_agent_delegation_request') as RevokeAiAgentDelegationRequest;
 }
 
 function isRevokeAiAgentDelegationRequest(value: unknown): value is RevokeAiAgentDelegationRequest {
@@ -6518,10 +5181,7 @@ function isRevokeAiAgentDelegationRequest(value: unknown): value is RevokeAiAgen
 
 export function readRevokeAiKnowledgeIndexGrantRequest(value: unknown): RevokeAiKnowledgeIndexGrantRequest {
   const normalizedValue = normalizeRevokeAiKnowledgeIndexGrantRequestIntegerJson(value);
-  if (!(isRevokeAiKnowledgeIndexGrantRequest(normalizedValue))) {
-    throw new Error('client.invalid_revoke_ai_knowledge_index_grant_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRevokeAiKnowledgeIndexGrantRequest(normalizedValue), 'revoke_ai_knowledge_index_grant_request') as RevokeAiKnowledgeIndexGrantRequest;
 }
 
 function isRevokeAiKnowledgeIndexGrantRequest(value: unknown): value is RevokeAiKnowledgeIndexGrantRequest {
@@ -6530,10 +5190,7 @@ function isRevokeAiKnowledgeIndexGrantRequest(value: unknown): value is RevokeAi
 
 export function readRevokeAllHostUserSessionsResponse(value: unknown): RevokeAllHostUserSessionsResponse {
   const normalizedValue = normalizeRevokeAllHostUserSessionsResponseIntegerJson(value);
-  if (!(isRevokeAllHostUserSessionsResponse(normalizedValue))) {
-    throw new Error('client.invalid_revoke_all_host_user_sessions_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRevokeAllHostUserSessionsResponse(normalizedValue), 'revoke_all_host_user_sessions_response') as RevokeAllHostUserSessionsResponse;
 }
 
 function isRevokeAllHostUserSessionsResponse(value: unknown): value is RevokeAllHostUserSessionsResponse {
@@ -6541,10 +5198,7 @@ function isRevokeAllHostUserSessionsResponse(value: unknown): value is RevokeAll
 }
 
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
-  if (!(isRevokeSuperAdministratorRequest(value))) {
-    throw new Error('client.invalid_revoke_super_administrator_request');
-  }
-  return value;
+  return requireValidResponse(value, isRevokeSuperAdministratorRequest(value), 'revoke_super_administrator_request') as RevokeSuperAdministratorRequest;
 }
 
 function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuperAdministratorRequest {
@@ -6553,10 +5207,7 @@ function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuper
 
 export function readRollbackHostDocumentVersionRequest(value: unknown): RollbackHostDocumentVersionRequest {
   const normalizedValue = normalizeRollbackHostDocumentVersionRequestIntegerJson(value);
-  if (!(isRollbackHostDocumentVersionRequest(normalizedValue))) {
-    throw new Error('client.invalid_rollback_host_document_version_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isRollbackHostDocumentVersionRequest(normalizedValue), 'rollback_host_document_version_request') as RollbackHostDocumentVersionRequest;
 }
 
 function isRollbackHostDocumentVersionRequest(value: unknown): value is RollbackHostDocumentVersionRequest {
@@ -6565,10 +5216,7 @@ function isRollbackHostDocumentVersionRequest(value: unknown): value is Rollback
 
 export function readSelectAiPromptVersionRequest(value: unknown): SelectAiPromptVersionRequest {
   const normalizedValue = normalizeSelectAiPromptVersionRequestIntegerJson(value);
-  if (!(isSelectAiPromptVersionRequest(normalizedValue))) {
-    throw new Error('client.invalid_select_ai_prompt_version_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSelectAiPromptVersionRequest(normalizedValue), 'select_ai_prompt_version_request') as SelectAiPromptVersionRequest;
 }
 
 function isSelectAiPromptVersionRequest(value: unknown): value is SelectAiPromptVersionRequest {
@@ -6577,10 +5225,7 @@ function isSelectAiPromptVersionRequest(value: unknown): value is SelectAiPrompt
 
 export function readSelfServiceProfileResponse(value: unknown): SelfServiceProfileResponse {
   const normalizedValue = normalizeSelfServiceProfileResponseIntegerJson(value);
-  if (!(isSelfServiceProfileResponse(normalizedValue))) {
-    throw new Error('client.invalid_self_service_profile_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSelfServiceProfileResponse(normalizedValue), 'self_service_profile_response') as SelfServiceProfileResponse;
 }
 
 function isSelfServiceProfileResponse(value: unknown): value is SelfServiceProfileResponse {
@@ -6588,10 +5233,7 @@ function isSelfServiceProfileResponse(value: unknown): value is SelfServiceProfi
 }
 
 export function readSendHostInboxMessageRequest(value: unknown): SendHostInboxMessageRequest {
-  if (!(isSendHostInboxMessageRequest(value))) {
-    throw new Error('client.invalid_send_host_inbox_message_request');
-  }
-  return value;
+  return requireValidResponse(value, isSendHostInboxMessageRequest(value), 'send_host_inbox_message_request') as SendHostInboxMessageRequest;
 }
 
 function isSendHostInboxMessageRequest(value: unknown): value is SendHostInboxMessageRequest {
@@ -6599,10 +5241,7 @@ function isSendHostInboxMessageRequest(value: unknown): value is SendHostInboxMe
 }
 
 export function readSendRecipientEndpointVerificationResponse(value: unknown): SendRecipientEndpointVerificationResponse {
-  if (!(isSendRecipientEndpointVerificationResponse(value))) {
-    throw new Error('client.invalid_send_recipient_endpoint_verification_response');
-  }
-  return value;
+  return requireValidResponse(value, isSendRecipientEndpointVerificationResponse(value), 'send_recipient_endpoint_verification_response') as SendRecipientEndpointVerificationResponse;
 }
 
 function isSendRecipientEndpointVerificationResponse(value: unknown): value is SendRecipientEndpointVerificationResponse {
@@ -6611,10 +5250,7 @@ function isSendRecipientEndpointVerificationResponse(value: unknown): value is S
 
 export function readSerialNumberPreviewResponse(value: unknown): SerialNumberPreviewResponse {
   const normalizedValue = normalizeSerialNumberPreviewResponseIntegerJson(value);
-  if (!(isSerialNumberPreviewResponse(normalizedValue))) {
-    throw new Error('client.invalid_serial_number_preview_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSerialNumberPreviewResponse(normalizedValue), 'serial_number_preview_response') as SerialNumberPreviewResponse;
 }
 
 function isSerialNumberPreviewResponse(value: unknown): value is SerialNumberPreviewResponse {
@@ -6622,10 +5258,7 @@ function isSerialNumberPreviewResponse(value: unknown): value is SerialNumberPre
 }
 
 export function readSerialNumberResetInterval(value: unknown): SerialNumberResetInterval {
-  if (!(isSerialNumberResetInterval(value))) {
-    throw new Error('client.invalid_serial_number_reset_interval');
-  }
-  return value;
+  return requireValidResponse(value, isSerialNumberResetInterval(value), 'serial_number_reset_interval') as SerialNumberResetInterval;
 }
 
 function isSerialNumberResetInterval(value: unknown): value is SerialNumberResetInterval {
@@ -6634,10 +5267,7 @@ function isSerialNumberResetInterval(value: unknown): value is SerialNumberReset
 
 export function readSerialNumberRuleResponse(value: unknown): SerialNumberRuleResponse {
   const normalizedValue = normalizeSerialNumberRuleResponseIntegerJson(value);
-  if (!(isSerialNumberRuleResponse(normalizedValue))) {
-    throw new Error('client.invalid_serial_number_rule_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSerialNumberRuleResponse(normalizedValue), 'serial_number_rule_response') as SerialNumberRuleResponse;
 }
 
 function isSerialNumberRuleResponse(value: unknown): value is SerialNumberRuleResponse {
@@ -6645,10 +5275,7 @@ function isSerialNumberRuleResponse(value: unknown): value is SerialNumberRuleRe
 }
 
 export function readSerialNumberRuleScope(value: unknown): SerialNumberRuleScope {
-  if (!(isSerialNumberRuleScope(value))) {
-    throw new Error('client.invalid_serial_number_rule_scope');
-  }
-  return value;
+  return requireValidResponse(value, isSerialNumberRuleScope(value), 'serial_number_rule_scope') as SerialNumberRuleScope;
 }
 
 function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope {
@@ -6657,10 +5284,7 @@ function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope
 
 export function readSerialRuleDisableApprovalPreviewResponse(value: unknown): SerialRuleDisableApprovalPreviewResponse {
   const normalizedValue = normalizeSerialRuleDisableApprovalPreviewResponseIntegerJson(value);
-  if (!(isSerialRuleDisableApprovalPreviewResponse(normalizedValue))) {
-    throw new Error('client.invalid_serial_rule_disable_approval_preview_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSerialRuleDisableApprovalPreviewResponse(normalizedValue), 'serial_rule_disable_approval_preview_response') as SerialRuleDisableApprovalPreviewResponse;
 }
 
 function isSerialRuleDisableApprovalPreviewResponse(value: unknown): value is SerialRuleDisableApprovalPreviewResponse {
@@ -6669,10 +5293,7 @@ function isSerialRuleDisableApprovalPreviewResponse(value: unknown): value is Se
 
 export function readSerialRuleDisableApprovalSubmissionResponse(value: unknown): SerialRuleDisableApprovalSubmissionResponse {
   const normalizedValue = normalizeSerialRuleDisableApprovalSubmissionResponseIntegerJson(value);
-  if (!(isSerialRuleDisableApprovalSubmissionResponse(normalizedValue))) {
-    throw new Error('client.invalid_serial_rule_disable_approval_submission_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSerialRuleDisableApprovalSubmissionResponse(normalizedValue), 'serial_rule_disable_approval_submission_response') as SerialRuleDisableApprovalSubmissionResponse;
 }
 
 function isSerialRuleDisableApprovalSubmissionResponse(value: unknown): value is SerialRuleDisableApprovalSubmissionResponse {
@@ -6680,10 +5301,7 @@ function isSerialRuleDisableApprovalSubmissionResponse(value: unknown): value is
 }
 
 export function readSerialRuleFieldChange(value: unknown): SerialRuleFieldChange {
-  if (!(isSerialRuleFieldChange(value))) {
-    throw new Error('client.invalid_serial_rule_field_change');
-  }
-  return value;
+  return requireValidResponse(value, isSerialRuleFieldChange(value), 'serial_rule_field_change') as SerialRuleFieldChange;
 }
 
 function isSerialRuleFieldChange(value: unknown): value is SerialRuleFieldChange {
@@ -6691,10 +5309,7 @@ function isSerialRuleFieldChange(value: unknown): value is SerialRuleFieldChange
 }
 
 export function readSerialRuleUpdateApprovalPreviewResponse(value: unknown): SerialRuleUpdateApprovalPreviewResponse {
-  if (!(isSerialRuleUpdateApprovalPreviewResponse(value))) {
-    throw new Error('client.invalid_serial_rule_update_approval_preview_response');
-  }
-  return value;
+  return requireValidResponse(value, isSerialRuleUpdateApprovalPreviewResponse(value), 'serial_rule_update_approval_preview_response') as SerialRuleUpdateApprovalPreviewResponse;
 }
 
 function isSerialRuleUpdateApprovalPreviewResponse(value: unknown): value is SerialRuleUpdateApprovalPreviewResponse {
@@ -6703,10 +5318,7 @@ function isSerialRuleUpdateApprovalPreviewResponse(value: unknown): value is Ser
 
 export function readSerialRuleUpdateApprovalSubmissionResponse(value: unknown): SerialRuleUpdateApprovalSubmissionResponse {
   const normalizedValue = normalizeSerialRuleUpdateApprovalSubmissionResponseIntegerJson(value);
-  if (!(isSerialRuleUpdateApprovalSubmissionResponse(normalizedValue))) {
-    throw new Error('client.invalid_serial_rule_update_approval_submission_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSerialRuleUpdateApprovalSubmissionResponse(normalizedValue), 'serial_rule_update_approval_submission_response') as SerialRuleUpdateApprovalSubmissionResponse;
 }
 
 function isSerialRuleUpdateApprovalSubmissionResponse(value: unknown): value is SerialRuleUpdateApprovalSubmissionResponse {
@@ -6714,10 +5326,7 @@ function isSerialRuleUpdateApprovalSubmissionResponse(value: unknown): value is 
 }
 
 export function readServerInstanceCatalogEntry(value: unknown): ServerInstanceCatalogEntry {
-  if (!(isServerInstanceCatalogEntry(value))) {
-    throw new Error('client.invalid_server_instance_catalog_entry');
-  }
-  return value;
+  return requireValidResponse(value, isServerInstanceCatalogEntry(value), 'server_instance_catalog_entry') as ServerInstanceCatalogEntry;
 }
 
 function isServerInstanceCatalogEntry(value: unknown): value is ServerInstanceCatalogEntry {
@@ -6726,10 +5335,7 @@ function isServerInstanceCatalogEntry(value: unknown): value is ServerInstanceCa
 
 export function readServerRuntimeMetric(value: unknown): ServerRuntimeMetric {
   const normalizedValue = normalizeServerRuntimeMetricIntegerJson(value);
-  if (!(isServerRuntimeMetric(normalizedValue))) {
-    throw new Error('client.invalid_server_runtime_metric');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isServerRuntimeMetric(normalizedValue), 'server_runtime_metric') as ServerRuntimeMetric;
 }
 
 function isServerRuntimeMetric(value: unknown): value is ServerRuntimeMetric {
@@ -6738,10 +5344,7 @@ function isServerRuntimeMetric(value: unknown): value is ServerRuntimeMetric {
 
 export function readServerRuntimeSnapshot(value: unknown): ServerRuntimeSnapshot {
   const normalizedValue = normalizeServerRuntimeSnapshotIntegerJson(value);
-  if (!(isServerRuntimeSnapshot(normalizedValue))) {
-    throw new Error('client.invalid_server_runtime_snapshot');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isServerRuntimeSnapshot(normalizedValue), 'server_runtime_snapshot') as ServerRuntimeSnapshot;
 }
 
 function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot {
@@ -6750,10 +5353,7 @@ function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot
 
 export function readSetAiKnowledgeAnswerFeedbackRequest(value: unknown): SetAiKnowledgeAnswerFeedbackRequest {
   const normalizedValue = normalizeSetAiKnowledgeAnswerFeedbackRequestIntegerJson(value);
-  if (!(isSetAiKnowledgeAnswerFeedbackRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_ai_knowledge_answer_feedback_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeAnswerFeedbackRequest(normalizedValue), 'set_ai_knowledge_answer_feedback_request') as SetAiKnowledgeAnswerFeedbackRequest;
 }
 
 function isSetAiKnowledgeAnswerFeedbackRequest(value: unknown): value is SetAiKnowledgeAnswerFeedbackRequest {
@@ -6762,10 +5362,7 @@ function isSetAiKnowledgeAnswerFeedbackRequest(value: unknown): value is SetAiKn
 
 export function readSetAiKnowledgeDocumentMembersRequest(value: unknown): SetAiKnowledgeDocumentMembersRequest {
   const normalizedValue = normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value);
-  if (!(isSetAiKnowledgeDocumentMembersRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_ai_knowledge_document_members_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeDocumentMembersRequest(normalizedValue), 'set_ai_knowledge_document_members_request') as SetAiKnowledgeDocumentMembersRequest;
 }
 
 function isSetAiKnowledgeDocumentMembersRequest(value: unknown): value is SetAiKnowledgeDocumentMembersRequest {
@@ -6774,10 +5371,7 @@ function isSetAiKnowledgeDocumentMembersRequest(value: unknown): value is SetAiK
 
 export function readSetAiKnowledgeMembersRequest(value: unknown): SetAiKnowledgeMembersRequest {
   const normalizedValue = normalizeSetAiKnowledgeMembersRequestIntegerJson(value);
-  if (!(isSetAiKnowledgeMembersRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_ai_knowledge_members_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeMembersRequest(normalizedValue), 'set_ai_knowledge_members_request') as SetAiKnowledgeMembersRequest;
 }
 
 function isSetAiKnowledgeMembersRequest(value: unknown): value is SetAiKnowledgeMembersRequest {
@@ -6786,10 +5380,7 @@ function isSetAiKnowledgeMembersRequest(value: unknown): value is SetAiKnowledge
 
 export function readSetAiKnowledgeOrganizationGrantsRequest(value: unknown): SetAiKnowledgeOrganizationGrantsRequest {
   const normalizedValue = normalizeSetAiKnowledgeOrganizationGrantsRequestIntegerJson(value);
-  if (!(isSetAiKnowledgeOrganizationGrantsRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_ai_knowledge_organization_grants_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeOrganizationGrantsRequest(normalizedValue), 'set_ai_knowledge_organization_grants_request') as SetAiKnowledgeOrganizationGrantsRequest;
 }
 
 function isSetAiKnowledgeOrganizationGrantsRequest(value: unknown): value is SetAiKnowledgeOrganizationGrantsRequest {
@@ -6798,10 +5389,7 @@ function isSetAiKnowledgeOrganizationGrantsRequest(value: unknown): value is Set
 
 export function readSetAiKnowledgeRoleGrantsRequest(value: unknown): SetAiKnowledgeRoleGrantsRequest {
   const normalizedValue = normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value);
-  if (!(isSetAiKnowledgeRoleGrantsRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_ai_knowledge_role_grants_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeRoleGrantsRequest(normalizedValue), 'set_ai_knowledge_role_grants_request') as SetAiKnowledgeRoleGrantsRequest;
 }
 
 function isSetAiKnowledgeRoleGrantsRequest(value: unknown): value is SetAiKnowledgeRoleGrantsRequest {
@@ -6809,10 +5397,7 @@ function isSetAiKnowledgeRoleGrantsRequest(value: unknown): value is SetAiKnowle
 }
 
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
-  if (!(isSetHostDocumentPermissionsRequest(value))) {
-    throw new Error('client.invalid_set_host_document_permissions_request');
-  }
-  return value;
+  return requireValidResponse(value, isSetHostDocumentPermissionsRequest(value), 'set_host_document_permissions_request') as SetHostDocumentPermissionsRequest;
 }
 
 function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
@@ -6821,10 +5406,7 @@ function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDo
 
 export function readSetNotificationProviderProfileEnabledRequest(value: unknown): SetNotificationProviderProfileEnabledRequest {
   const normalizedValue = normalizeSetNotificationProviderProfileEnabledRequestIntegerJson(value);
-  if (!(isSetNotificationProviderProfileEnabledRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_notification_provider_profile_enabled_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetNotificationProviderProfileEnabledRequest(normalizedValue), 'set_notification_provider_profile_enabled_request') as SetNotificationProviderProfileEnabledRequest;
 }
 
 function isSetNotificationProviderProfileEnabledRequest(value: unknown): value is SetNotificationProviderProfileEnabledRequest {
@@ -6833,10 +5415,7 @@ function isSetNotificationProviderProfileEnabledRequest(value: unknown): value i
 
 export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersonalScheduleStatusRequest {
   const normalizedValue = normalizeSetPersonalScheduleStatusRequestIntegerJson(value);
-  if (!(isSetPersonalScheduleStatusRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_personal_schedule_status_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetPersonalScheduleStatusRequest(normalizedValue), 'set_personal_schedule_status_request') as SetPersonalScheduleStatusRequest;
 }
 
 function isSetPersonalScheduleStatusRequest(value: unknown): value is SetPersonalScheduleStatusRequest {
@@ -6845,10 +5424,7 @@ function isSetPersonalScheduleStatusRequest(value: unknown): value is SetPersona
 
 export function readSetWorkflowDefinitionStatusRequest(value: unknown): SetWorkflowDefinitionStatusRequest {
   const normalizedValue = normalizeSetWorkflowDefinitionStatusRequestIntegerJson(value);
-  if (!(isSetWorkflowDefinitionStatusRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_workflow_definition_status_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetWorkflowDefinitionStatusRequest(normalizedValue), 'set_workflow_definition_status_request') as SetWorkflowDefinitionStatusRequest;
 }
 
 function isSetWorkflowDefinitionStatusRequest(value: unknown): value is SetWorkflowDefinitionStatusRequest {
@@ -6857,10 +5433,7 @@ function isSetWorkflowDefinitionStatusRequest(value: unknown): value is SetWorkf
 
 export function readSetWorkflowFormStatusRequest(value: unknown): SetWorkflowFormStatusRequest {
   const normalizedValue = normalizeSetWorkflowFormStatusRequestIntegerJson(value);
-  if (!(isSetWorkflowFormStatusRequest(normalizedValue))) {
-    throw new Error('client.invalid_set_workflow_form_status_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSetWorkflowFormStatusRequest(normalizedValue), 'set_workflow_form_status_request') as SetWorkflowFormStatusRequest;
 }
 
 function isSetWorkflowFormStatusRequest(value: unknown): value is SetWorkflowFormStatusRequest {
@@ -6868,10 +5441,7 @@ function isSetWorkflowFormStatusRequest(value: unknown): value is SetWorkflowFor
 }
 
 export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowInstanceRequest {
-  if (!(isStartWorkflowInstanceRequest(value))) {
-    throw new Error('client.invalid_start_workflow_instance_request');
-  }
-  return value;
+  return requireValidResponse(value, isStartWorkflowInstanceRequest(value), 'start_workflow_instance_request') as StartWorkflowInstanceRequest;
 }
 
 function isStartWorkflowInstanceRequest(value: unknown): value is StartWorkflowInstanceRequest {
@@ -6880,10 +5450,7 @@ function isStartWorkflowInstanceRequest(value: unknown): value is StartWorkflowI
 
 export function readStaticImportRowPreviewResult(value: unknown): StaticImportRowPreviewResult {
   const normalizedValue = normalizeStaticImportRowPreviewResultIntegerJson(value);
-  if (!(isStaticImportRowPreviewResult(normalizedValue))) {
-    throw new Error('client.invalid_static_import_row_preview_result');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isStaticImportRowPreviewResult(normalizedValue), 'static_import_row_preview_result') as StaticImportRowPreviewResult;
 }
 
 function isStaticImportRowPreviewResult(value: unknown): value is StaticImportRowPreviewResult {
@@ -6891,10 +5458,7 @@ function isStaticImportRowPreviewResult(value: unknown): value is StaticImportRo
 }
 
 export function readStaticImportSchemaDefinition(value: unknown): StaticImportSchemaDefinition {
-  if (!(isStaticImportSchemaDefinition(value))) {
-    throw new Error('client.invalid_static_import_schema_definition');
-  }
-  return value;
+  return requireValidResponse(value, isStaticImportSchemaDefinition(value), 'static_import_schema_definition') as StaticImportSchemaDefinition;
 }
 
 function isStaticImportSchemaDefinition(value: unknown): value is StaticImportSchemaDefinition {
@@ -6902,10 +5466,7 @@ function isStaticImportSchemaDefinition(value: unknown): value is StaticImportSc
 }
 
 export function readStaticImportWorksheetDefinition(value: unknown): StaticImportWorksheetDefinition {
-  if (!(isStaticImportWorksheetDefinition(value))) {
-    throw new Error('client.invalid_static_import_worksheet_definition');
-  }
-  return value;
+  return requireValidResponse(value, isStaticImportWorksheetDefinition(value), 'static_import_worksheet_definition') as StaticImportWorksheetDefinition;
 }
 
 function isStaticImportWorksheetDefinition(value: unknown): value is StaticImportWorksheetDefinition {
@@ -6913,10 +5474,7 @@ function isStaticImportWorksheetDefinition(value: unknown): value is StaticImpor
 }
 
 export function readStream(value: unknown): Stream {
-  if (!(isStream(value))) {
-    throw new Error('client.invalid_stream');
-  }
-  return value;
+  return requireValidResponse(value, isStream(value), 'stream') as Stream;
 }
 
 function isStream(value: unknown): value is Stream {
@@ -6924,10 +5482,7 @@ function isStream(value: unknown): value is Stream {
 }
 
 export function readStreamAiChatMessageRequest(value: unknown): StreamAiChatMessageRequest {
-  if (!(isStreamAiChatMessageRequest(value))) {
-    throw new Error('client.invalid_stream_ai_chat_message_request');
-  }
-  return value;
+  return requireValidResponse(value, isStreamAiChatMessageRequest(value), 'stream_ai_chat_message_request') as StreamAiChatMessageRequest;
 }
 
 function isStreamAiChatMessageRequest(value: unknown): value is StreamAiChatMessageRequest {
@@ -6936,10 +5491,7 @@ function isStreamAiChatMessageRequest(value: unknown): value is StreamAiChatMess
 
 export function readSubmitSerialRuleDisableApprovalRequest(value: unknown): SubmitSerialRuleDisableApprovalRequest {
   const normalizedValue = normalizeSubmitSerialRuleDisableApprovalRequestIntegerJson(value);
-  if (!(isSubmitSerialRuleDisableApprovalRequest(normalizedValue))) {
-    throw new Error('client.invalid_submit_serial_rule_disable_approval_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSubmitSerialRuleDisableApprovalRequest(normalizedValue), 'submit_serial_rule_disable_approval_request') as SubmitSerialRuleDisableApprovalRequest;
 }
 
 function isSubmitSerialRuleDisableApprovalRequest(value: unknown): value is SubmitSerialRuleDisableApprovalRequest {
@@ -6948,10 +5500,7 @@ function isSubmitSerialRuleDisableApprovalRequest(value: unknown): value is Subm
 
 export function readSubmitSerialRuleUpdateApprovalRequest(value: unknown): SubmitSerialRuleUpdateApprovalRequest {
   const normalizedValue = normalizeSubmitSerialRuleUpdateApprovalRequestIntegerJson(value);
-  if (!(isSubmitSerialRuleUpdateApprovalRequest(normalizedValue))) {
-    throw new Error('client.invalid_submit_serial_rule_update_approval_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isSubmitSerialRuleUpdateApprovalRequest(normalizedValue), 'submit_serial_rule_update_approval_request') as SubmitSerialRuleUpdateApprovalRequest;
 }
 
 function isSubmitSerialRuleUpdateApprovalRequest(value: unknown): value is SubmitSerialRuleUpdateApprovalRequest {
@@ -6959,10 +5508,7 @@ function isSubmitSerialRuleUpdateApprovalRequest(value: unknown): value is Submi
 }
 
 export function readSuperAdministratorAuditResponse(value: unknown): SuperAdministratorAuditResponse {
-  if (!(isSuperAdministratorAuditResponse(value))) {
-    throw new Error('client.invalid_super_administrator_audit_response');
-  }
-  return value;
+  return requireValidResponse(value, isSuperAdministratorAuditResponse(value), 'super_administrator_audit_response') as SuperAdministratorAuditResponse;
 }
 
 function isSuperAdministratorAuditResponse(value: unknown): value is SuperAdministratorAuditResponse {
@@ -6970,10 +5516,7 @@ function isSuperAdministratorAuditResponse(value: unknown): value is SuperAdmini
 }
 
 export function readSuperAdministratorChangeResponse(value: unknown): SuperAdministratorChangeResponse {
-  if (!(isSuperAdministratorChangeResponse(value))) {
-    throw new Error('client.invalid_super_administrator_change_response');
-  }
-  return value;
+  return requireValidResponse(value, isSuperAdministratorChangeResponse(value), 'super_administrator_change_response') as SuperAdministratorChangeResponse;
 }
 
 function isSuperAdministratorChangeResponse(value: unknown): value is SuperAdministratorChangeResponse {
@@ -6981,10 +5524,7 @@ function isSuperAdministratorChangeResponse(value: unknown): value is SuperAdmin
 }
 
 export function readSuperAdministratorResponse(value: unknown): SuperAdministratorResponse {
-  if (!(isSuperAdministratorResponse(value))) {
-    throw new Error('client.invalid_super_administrator_response');
-  }
-  return value;
+  return requireValidResponse(value, isSuperAdministratorResponse(value), 'super_administrator_response') as SuperAdministratorResponse;
 }
 
 function isSuperAdministratorResponse(value: unknown): value is SuperAdministratorResponse {
@@ -6993,10 +5533,7 @@ function isSuperAdministratorResponse(value: unknown): value is SuperAdministrat
 
 export function readTenantBrandingResponse(value: unknown): TenantBrandingResponse {
   const normalizedValue = normalizeTenantBrandingResponseIntegerJson(value);
-  if (!(isTenantBrandingResponse(normalizedValue))) {
-    throw new Error('client.invalid_tenant_branding_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isTenantBrandingResponse(normalizedValue), 'tenant_branding_response') as TenantBrandingResponse;
 }
 
 function isTenantBrandingResponse(value: unknown): value is TenantBrandingResponse {
@@ -7005,10 +5542,7 @@ function isTenantBrandingResponse(value: unknown): value is TenantBrandingRespon
 
 export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
   const normalizedValue = normalizeTenantPackageSummaryIntegerJson(value);
-  if (!(isTenantPackageSummary(normalizedValue))) {
-    throw new Error('client.invalid_tenant_package_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isTenantPackageSummary(normalizedValue), 'tenant_package_summary') as TenantPackageSummary;
 }
 
 function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
@@ -7016,10 +5550,7 @@ function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
 }
 
 export function readTenantRuntimeBrandingResponse(value: unknown): TenantRuntimeBrandingResponse {
-  if (!(isTenantRuntimeBrandingResponse(value))) {
-    throw new Error('client.invalid_tenant_runtime_branding_response');
-  }
-  return value;
+  return requireValidResponse(value, isTenantRuntimeBrandingResponse(value), 'tenant_runtime_branding_response') as TenantRuntimeBrandingResponse;
 }
 
 function isTenantRuntimeBrandingResponse(value: unknown): value is TenantRuntimeBrandingResponse {
@@ -7028,10 +5559,7 @@ function isTenantRuntimeBrandingResponse(value: unknown): value is TenantRuntime
 
 export function readTenantSummary(value: unknown): TenantSummary {
   const normalizedValue = normalizeTenantSummaryIntegerJson(value);
-  if (!(isTenantSummary(normalizedValue))) {
-    throw new Error('client.invalid_tenant_summary');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isTenantSummary(normalizedValue), 'tenant_summary') as TenantSummary;
 }
 
 function isTenantSummary(value: unknown): value is TenantSummary {
@@ -7039,10 +5567,7 @@ function isTenantSummary(value: unknown): value is TenantSummary {
 }
 
 export function readTestAiModelConfigResult(value: unknown): TestAiModelConfigResult {
-  if (!(isTestAiModelConfigResult(value))) {
-    throw new Error('client.invalid_test_ai_model_config_result');
-  }
-  return value;
+  return requireValidResponse(value, isTestAiModelConfigResult(value), 'test_ai_model_config_result') as TestAiModelConfigResult;
 }
 
 function isTestAiModelConfigResult(value: unknown): value is TestAiModelConfigResult {
@@ -7050,10 +5575,7 @@ function isTestAiModelConfigResult(value: unknown): value is TestAiModelConfigRe
 }
 
 export function readTestAiModelEmbeddingRequest(value: unknown): TestAiModelEmbeddingRequest {
-  if (!(isTestAiModelEmbeddingRequest(value))) {
-    throw new Error('client.invalid_test_ai_model_embedding_request');
-  }
-  return value;
+  return requireValidResponse(value, isTestAiModelEmbeddingRequest(value), 'test_ai_model_embedding_request') as TestAiModelEmbeddingRequest;
 }
 
 function isTestAiModelEmbeddingRequest(value: unknown): value is TestAiModelEmbeddingRequest {
@@ -7062,10 +5584,7 @@ function isTestAiModelEmbeddingRequest(value: unknown): value is TestAiModelEmbe
 
 export function readTestAiModelEmbeddingResult(value: unknown): TestAiModelEmbeddingResult {
   const normalizedValue = normalizeTestAiModelEmbeddingResultIntegerJson(value);
-  if (!(isTestAiModelEmbeddingResult(normalizedValue))) {
-    throw new Error('client.invalid_test_ai_model_embedding_result');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isTestAiModelEmbeddingResult(normalizedValue), 'test_ai_model_embedding_result') as TestAiModelEmbeddingResult;
 }
 
 function isTestAiModelEmbeddingResult(value: unknown): value is TestAiModelEmbeddingResult {
@@ -7073,10 +5592,7 @@ function isTestAiModelEmbeddingResult(value: unknown): value is TestAiModelEmbed
 }
 
 export function readTestK3CloudConnectionConfigResult(value: unknown): TestK3CloudConnectionConfigResult {
-  if (!(isTestK3CloudConnectionConfigResult(value))) {
-    throw new Error('client.invalid_test_k3_cloud_connection_config_result');
-  }
-  return value;
+  return requireValidResponse(value, isTestK3CloudConnectionConfigResult(value), 'test_k3_cloud_connection_config_result') as TestK3CloudConnectionConfigResult;
 }
 
 function isTestK3CloudConnectionConfigResult(value: unknown): value is TestK3CloudConnectionConfigResult {
@@ -7084,10 +5600,7 @@ function isTestK3CloudConnectionConfigResult(value: unknown): value is TestK3Clo
 }
 
 export function readTestOcrProviderConfigResult(value: unknown): TestOcrProviderConfigResult {
-  if (!(isTestOcrProviderConfigResult(value))) {
-    throw new Error('client.invalid_test_ocr_provider_config_result');
-  }
-  return value;
+  return requireValidResponse(value, isTestOcrProviderConfigResult(value), 'test_ocr_provider_config_result') as TestOcrProviderConfigResult;
 }
 
 function isTestOcrProviderConfigResult(value: unknown): value is TestOcrProviderConfigResult {
@@ -7095,10 +5608,7 @@ function isTestOcrProviderConfigResult(value: unknown): value is TestOcrProvider
 }
 
 export function readTestReportingDataSourceResult(value: unknown): TestReportingDataSourceResult {
-  if (!(isTestReportingDataSourceResult(value))) {
-    throw new Error('client.invalid_test_reporting_data_source_result');
-  }
-  return value;
+  return requireValidResponse(value, isTestReportingDataSourceResult(value), 'test_reporting_data_source_result') as TestReportingDataSourceResult;
 }
 
 function isTestReportingDataSourceResult(value: unknown): value is TestReportingDataSourceResult {
@@ -7106,10 +5616,7 @@ function isTestReportingDataSourceResult(value: unknown): value is TestReporting
 }
 
 export function readTokenResponse(value: unknown): TokenResponse {
-  if (!(isTokenResponse(value))) {
-    throw new Error('client.invalid_token_response');
-  }
-  return value;
+  return requireValidResponse(value, isTokenResponse(value), 'token_response') as TokenResponse;
 }
 
 function isTokenResponse(value: unknown): value is TokenResponse {
@@ -7117,10 +5624,7 @@ function isTokenResponse(value: unknown): value is TokenResponse {
 }
 
 export function readTotpEnrollmentStatusResponse(value: unknown): TotpEnrollmentStatusResponse {
-  if (!(isTotpEnrollmentStatusResponse(value))) {
-    throw new Error('client.invalid_totp_enrollment_status_response');
-  }
-  return value;
+  return requireValidResponse(value, isTotpEnrollmentStatusResponse(value), 'totp_enrollment_status_response') as TotpEnrollmentStatusResponse;
 }
 
 function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollmentStatusResponse {
@@ -7129,10 +5633,7 @@ function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollment
 
 export function readUpdateAdministrativeRegionRequest(value: unknown): UpdateAdministrativeRegionRequest {
   const normalizedValue = normalizeUpdateAdministrativeRegionRequestIntegerJson(value);
-  if (!(isUpdateAdministrativeRegionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_administrative_region_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAdministrativeRegionRequest(normalizedValue), 'update_administrative_region_request') as UpdateAdministrativeRegionRequest;
 }
 
 function isUpdateAdministrativeRegionRequest(value: unknown): value is UpdateAdministrativeRegionRequest {
@@ -7141,10 +5642,7 @@ function isUpdateAdministrativeRegionRequest(value: unknown): value is UpdateAdm
 
 export function readUpdateAiChatSessionRequest(value: unknown): UpdateAiChatSessionRequest {
   const normalizedValue = normalizeUpdateAiChatSessionRequestIntegerJson(value);
-  if (!(isUpdateAiChatSessionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_chat_session_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiChatSessionRequest(normalizedValue), 'update_ai_chat_session_request') as UpdateAiChatSessionRequest;
 }
 
 function isUpdateAiChatSessionRequest(value: unknown): value is UpdateAiChatSessionRequest {
@@ -7153,10 +5651,7 @@ function isUpdateAiChatSessionRequest(value: unknown): value is UpdateAiChatSess
 
 export function readUpdateAiKnowledgeBaseRequest(value: unknown): UpdateAiKnowledgeBaseRequest {
   const normalizedValue = normalizeUpdateAiKnowledgeBaseRequestIntegerJson(value);
-  if (!(isUpdateAiKnowledgeBaseRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_knowledge_base_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiKnowledgeBaseRequest(normalizedValue), 'update_ai_knowledge_base_request') as UpdateAiKnowledgeBaseRequest;
 }
 
 function isUpdateAiKnowledgeBaseRequest(value: unknown): value is UpdateAiKnowledgeBaseRequest {
@@ -7165,10 +5660,7 @@ function isUpdateAiKnowledgeBaseRequest(value: unknown): value is UpdateAiKnowle
 
 export function readUpdateAiKnowledgeDocumentRequest(value: unknown): UpdateAiKnowledgeDocumentRequest {
   const normalizedValue = normalizeUpdateAiKnowledgeDocumentRequestIntegerJson(value);
-  if (!(isUpdateAiKnowledgeDocumentRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_knowledge_document_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiKnowledgeDocumentRequest(normalizedValue), 'update_ai_knowledge_document_request') as UpdateAiKnowledgeDocumentRequest;
 }
 
 function isUpdateAiKnowledgeDocumentRequest(value: unknown): value is UpdateAiKnowledgeDocumentRequest {
@@ -7177,10 +5669,7 @@ function isUpdateAiKnowledgeDocumentRequest(value: unknown): value is UpdateAiKn
 
 export function readUpdateAiKnowledgePolicyRequest(value: unknown): UpdateAiKnowledgePolicyRequest {
   const normalizedValue = normalizeUpdateAiKnowledgePolicyRequestIntegerJson(value);
-  if (!(isUpdateAiKnowledgePolicyRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_knowledge_policy_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiKnowledgePolicyRequest(normalizedValue), 'update_ai_knowledge_policy_request') as UpdateAiKnowledgePolicyRequest;
 }
 
 function isUpdateAiKnowledgePolicyRequest(value: unknown): value is UpdateAiKnowledgePolicyRequest {
@@ -7189,10 +5678,7 @@ function isUpdateAiKnowledgePolicyRequest(value: unknown): value is UpdateAiKnow
 
 export function readUpdateAiMcpRemoteConnectionRequest(value: unknown): UpdateAiMcpRemoteConnectionRequest {
   const normalizedValue = normalizeUpdateAiMcpRemoteConnectionRequestIntegerJson(value);
-  if (!(isUpdateAiMcpRemoteConnectionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_mcp_remote_connection_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiMcpRemoteConnectionRequest(normalizedValue), 'update_ai_mcp_remote_connection_request') as UpdateAiMcpRemoteConnectionRequest;
 }
 
 function isUpdateAiMcpRemoteConnectionRequest(value: unknown): value is UpdateAiMcpRemoteConnectionRequest {
@@ -7201,10 +5687,7 @@ function isUpdateAiMcpRemoteConnectionRequest(value: unknown): value is UpdateAi
 
 export function readUpdateAiModelConfigRequest(value: unknown): UpdateAiModelConfigRequest {
   const normalizedValue = normalizeUpdateAiModelConfigRequestIntegerJson(value);
-  if (!(isUpdateAiModelConfigRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_model_config_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiModelConfigRequest(normalizedValue), 'update_ai_model_config_request') as UpdateAiModelConfigRequest;
 }
 
 function isUpdateAiModelConfigRequest(value: unknown): value is UpdateAiModelConfigRequest {
@@ -7213,10 +5696,7 @@ function isUpdateAiModelConfigRequest(value: unknown): value is UpdateAiModelCon
 
 export function readUpdateAiTenantQuotaRequest(value: unknown): UpdateAiTenantQuotaRequest {
   const normalizedValue = normalizeUpdateAiTenantQuotaRequestIntegerJson(value);
-  if (!(isUpdateAiTenantQuotaRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ai_tenant_quota_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateAiTenantQuotaRequest(normalizedValue), 'update_ai_tenant_quota_request') as UpdateAiTenantQuotaRequest;
 }
 
 function isUpdateAiTenantQuotaRequest(value: unknown): value is UpdateAiTenantQuotaRequest {
@@ -7225,10 +5705,7 @@ function isUpdateAiTenantQuotaRequest(value: unknown): value is UpdateAiTenantQu
 
 export function readUpdateCodeGenerationTemplateRequest(value: unknown): UpdateCodeGenerationTemplateRequest {
   const normalizedValue = normalizeUpdateCodeGenerationTemplateRequestIntegerJson(value);
-  if (!(isUpdateCodeGenerationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_code_generation_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateCodeGenerationTemplateRequest(normalizedValue), 'update_code_generation_template_request') as UpdateCodeGenerationTemplateRequest;
 }
 
 function isUpdateCodeGenerationTemplateRequest(value: unknown): value is UpdateCodeGenerationTemplateRequest {
@@ -7237,10 +5714,7 @@ function isUpdateCodeGenerationTemplateRequest(value: unknown): value is UpdateC
 
 export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryRequest {
   const normalizedValue = normalizeUpdateConfigEntryRequestIntegerJson(value);
-  if (!(isUpdateConfigEntryRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_config_entry_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateConfigEntryRequest(normalizedValue), 'update_config_entry_request') as UpdateConfigEntryRequest;
 }
 
 function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryRequest {
@@ -7249,10 +5723,7 @@ function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryR
 
 export function readUpdateDataApprovalScenarioBindingBody(value: unknown): UpdateDataApprovalScenarioBindingBody {
   const normalizedValue = normalizeUpdateDataApprovalScenarioBindingBodyIntegerJson(value);
-  if (!(isUpdateDataApprovalScenarioBindingBody(normalizedValue))) {
-    throw new Error('client.invalid_update_data_approval_scenario_binding_body');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateDataApprovalScenarioBindingBody(normalizedValue), 'update_data_approval_scenario_binding_body') as UpdateDataApprovalScenarioBindingBody;
 }
 
 function isUpdateDataApprovalScenarioBindingBody(value: unknown): value is UpdateDataApprovalScenarioBindingBody {
@@ -7261,10 +5732,7 @@ function isUpdateDataApprovalScenarioBindingBody(value: unknown): value is Updat
 
 export function readUpdateDiagnosticPolicyRequest(value: unknown): UpdateDiagnosticPolicyRequest {
   const normalizedValue = normalizeUpdateDiagnosticPolicyRequestIntegerJson(value);
-  if (!(isUpdateDiagnosticPolicyRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_diagnostic_policy_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateDiagnosticPolicyRequest(normalizedValue), 'update_diagnostic_policy_request') as UpdateDiagnosticPolicyRequest;
 }
 
 function isUpdateDiagnosticPolicyRequest(value: unknown): value is UpdateDiagnosticPolicyRequest {
@@ -7273,10 +5741,7 @@ function isUpdateDiagnosticPolicyRequest(value: unknown): value is UpdateDiagnos
 
 export function readUpdateDictItemRequest(value: unknown): UpdateDictItemRequest {
   const normalizedValue = normalizeUpdateDictItemRequestIntegerJson(value);
-  if (!(isUpdateDictItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_dict_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateDictItemRequest(normalizedValue), 'update_dict_item_request') as UpdateDictItemRequest;
 }
 
 function isUpdateDictItemRequest(value: unknown): value is UpdateDictItemRequest {
@@ -7285,10 +5750,7 @@ function isUpdateDictItemRequest(value: unknown): value is UpdateDictItemRequest
 
 export function readUpdateDictTypeRequest(value: unknown): UpdateDictTypeRequest {
   const normalizedValue = normalizeUpdateDictTypeRequestIntegerJson(value);
-  if (!(isUpdateDictTypeRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_dict_type_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateDictTypeRequest(normalizedValue), 'update_dict_type_request') as UpdateDictTypeRequest;
 }
 
 function isUpdateDictTypeRequest(value: unknown): value is UpdateDictTypeRequest {
@@ -7297,10 +5759,7 @@ function isUpdateDictTypeRequest(value: unknown): value is UpdateDictTypeRequest
 
 export function readUpdateEnterpriseRequestRequest(value: unknown): UpdateEnterpriseRequestRequest {
   const normalizedValue = normalizeUpdateEnterpriseRequestRequestIntegerJson(value);
-  if (!(isUpdateEnterpriseRequestRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_enterprise_request_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateEnterpriseRequestRequest(normalizedValue), 'update_enterprise_request_request') as UpdateEnterpriseRequestRequest;
 }
 
 function isUpdateEnterpriseRequestRequest(value: unknown): value is UpdateEnterpriseRequestRequest {
@@ -7309,10 +5768,7 @@ function isUpdateEnterpriseRequestRequest(value: unknown): value is UpdateEnterp
 
 export function readUpdateGoViewProjectRequest(value: unknown): UpdateGoViewProjectRequest {
   const normalizedValue = normalizeUpdateGoViewProjectRequestIntegerJson(value);
-  if (!(isUpdateGoViewProjectRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_go_view_project_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateGoViewProjectRequest(normalizedValue), 'update_go_view_project_request') as UpdateGoViewProjectRequest;
 }
 
 function isUpdateGoViewProjectRequest(value: unknown): value is UpdateGoViewProjectRequest {
@@ -7321,10 +5777,7 @@ function isUpdateGoViewProjectRequest(value: unknown): value is UpdateGoViewProj
 
 export function readUpdateHostAnnouncementRequest(value: unknown): UpdateHostAnnouncementRequest {
   const normalizedValue = normalizeUpdateHostAnnouncementRequestIntegerJson(value);
-  if (!(isUpdateHostAnnouncementRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_announcement_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostAnnouncementRequest(normalizedValue), 'update_host_announcement_request') as UpdateHostAnnouncementRequest;
 }
 
 function isUpdateHostAnnouncementRequest(value: unknown): value is UpdateHostAnnouncementRequest {
@@ -7333,10 +5786,7 @@ function isUpdateHostAnnouncementRequest(value: unknown): value is UpdateHostAnn
 
 export function readUpdateHostDocumentCategoryRequest(value: unknown): UpdateHostDocumentCategoryRequest {
   const normalizedValue = normalizeUpdateHostDocumentCategoryRequestIntegerJson(value);
-  if (!(isUpdateHostDocumentCategoryRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_document_category_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostDocumentCategoryRequest(normalizedValue), 'update_host_document_category_request') as UpdateHostDocumentCategoryRequest;
 }
 
 function isUpdateHostDocumentCategoryRequest(value: unknown): value is UpdateHostDocumentCategoryRequest {
@@ -7345,10 +5795,7 @@ function isUpdateHostDocumentCategoryRequest(value: unknown): value is UpdateHos
 
 export function readUpdateHostDocumentItemRequest(value: unknown): UpdateHostDocumentItemRequest {
   const normalizedValue = normalizeUpdateHostDocumentItemRequestIntegerJson(value);
-  if (!(isUpdateHostDocumentItemRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_document_item_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostDocumentItemRequest(normalizedValue), 'update_host_document_item_request') as UpdateHostDocumentItemRequest;
 }
 
 function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDocumentItemRequest {
@@ -7357,10 +5804,7 @@ function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDoc
 
 export function readUpdateHostDocumentShareStatusRequest(value: unknown): UpdateHostDocumentShareStatusRequest {
   const normalizedValue = normalizeUpdateHostDocumentShareStatusRequestIntegerJson(value);
-  if (!(isUpdateHostDocumentShareStatusRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_document_share_status_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostDocumentShareStatusRequest(normalizedValue), 'update_host_document_share_status_request') as UpdateHostDocumentShareStatusRequest;
 }
 
 function isUpdateHostDocumentShareStatusRequest(value: unknown): value is UpdateHostDocumentShareStatusRequest {
@@ -7369,10 +5813,7 @@ function isUpdateHostDocumentShareStatusRequest(value: unknown): value is Update
 
 export function readUpdateHostDocumentTagRequest(value: unknown): UpdateHostDocumentTagRequest {
   const normalizedValue = normalizeUpdateHostDocumentTagRequestIntegerJson(value);
-  if (!(isUpdateHostDocumentTagRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_document_tag_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostDocumentTagRequest(normalizedValue), 'update_host_document_tag_request') as UpdateHostDocumentTagRequest;
 }
 
 function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
@@ -7381,10 +5822,7 @@ function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocu
 
 export function readUpdateHostDocumentVersionRetentionRequest(value: unknown): UpdateHostDocumentVersionRetentionRequest {
   const normalizedValue = normalizeUpdateHostDocumentVersionRetentionRequestIntegerJson(value);
-  if (!(isUpdateHostDocumentVersionRetentionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_document_version_retention_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostDocumentVersionRetentionRequest(normalizedValue), 'update_host_document_version_retention_request') as UpdateHostDocumentVersionRetentionRequest;
 }
 
 function isUpdateHostDocumentVersionRetentionRequest(value: unknown): value is UpdateHostDocumentVersionRetentionRequest {
@@ -7393,10 +5831,7 @@ function isUpdateHostDocumentVersionRetentionRequest(value: unknown): value is U
 
 export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFileMetadataRequest {
   const normalizedValue = normalizeUpdateHostFileMetadataRequestIntegerJson(value);
-  if (!(isUpdateHostFileMetadataRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_file_metadata_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostFileMetadataRequest(normalizedValue), 'update_host_file_metadata_request') as UpdateHostFileMetadataRequest;
 }
 
 function isUpdateHostFileMetadataRequest(value: unknown): value is UpdateHostFileMetadataRequest {
@@ -7405,10 +5840,7 @@ function isUpdateHostFileMetadataRequest(value: unknown): value is UpdateHostFil
 
 export function readUpdateHostFolderRequest(value: unknown): UpdateHostFolderRequest {
   const normalizedValue = normalizeUpdateHostFolderRequestIntegerJson(value);
-  if (!(isUpdateHostFolderRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_folder_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostFolderRequest(normalizedValue), 'update_host_folder_request') as UpdateHostFolderRequest;
 }
 
 function isUpdateHostFolderRequest(value: unknown): value is UpdateHostFolderRequest {
@@ -7417,10 +5849,7 @@ function isUpdateHostFolderRequest(value: unknown): value is UpdateHostFolderReq
 
 export function readUpdateHostJobDefinitionRequest(value: unknown): UpdateHostJobDefinitionRequest {
   const normalizedValue = normalizeUpdateHostJobDefinitionRequestIntegerJson(value);
-  if (!(isUpdateHostJobDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_job_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostJobDefinitionRequest(normalizedValue), 'update_host_job_definition_request') as UpdateHostJobDefinitionRequest;
 }
 
 function isUpdateHostJobDefinitionRequest(value: unknown): value is UpdateHostJobDefinitionRequest {
@@ -7429,10 +5858,7 @@ function isUpdateHostJobDefinitionRequest(value: unknown): value is UpdateHostJo
 
 export function readUpdateHostJobScheduleRequest(value: unknown): UpdateHostJobScheduleRequest {
   const normalizedValue = normalizeUpdateHostJobScheduleRequestIntegerJson(value);
-  if (!(isUpdateHostJobScheduleRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_job_schedule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostJobScheduleRequest(normalizedValue), 'update_host_job_schedule_request') as UpdateHostJobScheduleRequest;
 }
 
 function isUpdateHostJobScheduleRequest(value: unknown): value is UpdateHostJobScheduleRequest {
@@ -7441,10 +5867,7 @@ function isUpdateHostJobScheduleRequest(value: unknown): value is UpdateHostJobS
 
 export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest {
   const normalizedValue = normalizeUpdateHostMenuRequestIntegerJson(value);
-  if (!(isUpdateHostMenuRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_menu_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostMenuRequest(normalizedValue), 'update_host_menu_request') as UpdateHostMenuRequest;
 }
 
 function isUpdateHostMenuRequest(value: unknown): value is UpdateHostMenuRequest {
@@ -7453,10 +5876,7 @@ function isUpdateHostMenuRequest(value: unknown): value is UpdateHostMenuRequest
 
 export function readUpdateHostReleaseNoteRequest(value: unknown): UpdateHostReleaseNoteRequest {
   const normalizedValue = normalizeUpdateHostReleaseNoteRequestIntegerJson(value);
-  if (!(isUpdateHostReleaseNoteRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_release_note_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostReleaseNoteRequest(normalizedValue), 'update_host_release_note_request') as UpdateHostReleaseNoteRequest;
 }
 
 function isUpdateHostReleaseNoteRequest(value: unknown): value is UpdateHostReleaseNoteRequest {
@@ -7465,10 +5885,7 @@ function isUpdateHostReleaseNoteRequest(value: unknown): value is UpdateHostRele
 
 export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRoleDataScopeRequest {
   const normalizedValue = normalizeUpdateHostRoleDataScopeRequestIntegerJson(value);
-  if (!(isUpdateHostRoleDataScopeRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_role_data_scope_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostRoleDataScopeRequest(normalizedValue), 'update_host_role_data_scope_request') as UpdateHostRoleDataScopeRequest;
 }
 
 function isUpdateHostRoleDataScopeRequest(value: unknown): value is UpdateHostRoleDataScopeRequest {
@@ -7477,10 +5894,7 @@ function isUpdateHostRoleDataScopeRequest(value: unknown): value is UpdateHostRo
 
 export function readUpdateHostRoleRequest(value: unknown): UpdateHostRoleRequest {
   const normalizedValue = normalizeUpdateHostRoleRequestIntegerJson(value);
-  if (!(isUpdateHostRoleRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_role_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostRoleRequest(normalizedValue), 'update_host_role_request') as UpdateHostRoleRequest;
 }
 
 function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest {
@@ -7489,10 +5903,7 @@ function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest
 
 export function readUpdateHostTenantPackageRequest(value: unknown): UpdateHostTenantPackageRequest {
   const normalizedValue = normalizeUpdateHostTenantPackageRequestIntegerJson(value);
-  if (!(isUpdateHostTenantPackageRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_tenant_package_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostTenantPackageRequest(normalizedValue), 'update_host_tenant_package_request') as UpdateHostTenantPackageRequest;
 }
 
 function isUpdateHostTenantPackageRequest(value: unknown): value is UpdateHostTenantPackageRequest {
@@ -7501,10 +5912,7 @@ function isUpdateHostTenantPackageRequest(value: unknown): value is UpdateHostTe
 
 export function readUpdateHostTenantRequest(value: unknown): UpdateHostTenantRequest {
   const normalizedValue = normalizeUpdateHostTenantRequestIntegerJson(value);
-  if (!(isUpdateHostTenantRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_tenant_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostTenantRequest(normalizedValue), 'update_host_tenant_request') as UpdateHostTenantRequest;
 }
 
 function isUpdateHostTenantRequest(value: unknown): value is UpdateHostTenantRequest {
@@ -7513,10 +5921,7 @@ function isUpdateHostTenantRequest(value: unknown): value is UpdateHostTenantReq
 
 export function readUpdateHostUserRequest(value: unknown): UpdateHostUserRequest {
   const normalizedValue = normalizeUpdateHostUserRequestIntegerJson(value);
-  if (!(isUpdateHostUserRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_host_user_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateHostUserRequest(normalizedValue), 'update_host_user_request') as UpdateHostUserRequest;
 }
 
 function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest {
@@ -7525,10 +5930,7 @@ function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest
 
 export function readUpdateK3CloudConnectionConfigRequest(value: unknown): UpdateK3CloudConnectionConfigRequest {
   const normalizedValue = normalizeUpdateK3CloudConnectionConfigRequestIntegerJson(value);
-  if (!(isUpdateK3CloudConnectionConfigRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_k3_cloud_connection_config_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateK3CloudConnectionConfigRequest(normalizedValue), 'update_k3_cloud_connection_config_request') as UpdateK3CloudConnectionConfigRequest;
 }
 
 function isUpdateK3CloudConnectionConfigRequest(value: unknown): value is UpdateK3CloudConnectionConfigRequest {
@@ -7537,10 +5939,7 @@ function isUpdateK3CloudConnectionConfigRequest(value: unknown): value is Update
 
 export function readUpdateLocaleRequest(value: unknown): UpdateLocaleRequest {
   const normalizedValue = normalizeUpdateLocaleRequestIntegerJson(value);
-  if (!(isUpdateLocaleRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_locale_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateLocaleRequest(normalizedValue), 'update_locale_request') as UpdateLocaleRequest;
 }
 
 function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
@@ -7549,10 +5948,7 @@ function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
 
 export function readUpdateNotificationBindingRequest(value: unknown): UpdateNotificationBindingRequest {
   const normalizedValue = normalizeUpdateNotificationBindingRequestIntegerJson(value);
-  if (!(isUpdateNotificationBindingRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_notification_binding_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateNotificationBindingRequest(normalizedValue), 'update_notification_binding_request') as UpdateNotificationBindingRequest;
 }
 
 function isUpdateNotificationBindingRequest(value: unknown): value is UpdateNotificationBindingRequest {
@@ -7561,10 +5957,7 @@ function isUpdateNotificationBindingRequest(value: unknown): value is UpdateNoti
 
 export function readUpdateNotificationProviderProfileRequest(value: unknown): UpdateNotificationProviderProfileRequest {
   const normalizedValue = normalizeUpdateNotificationProviderProfileRequestIntegerJson(value);
-  if (!(isUpdateNotificationProviderProfileRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_notification_provider_profile_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateNotificationProviderProfileRequest(normalizedValue), 'update_notification_provider_profile_request') as UpdateNotificationProviderProfileRequest;
 }
 
 function isUpdateNotificationProviderProfileRequest(value: unknown): value is UpdateNotificationProviderProfileRequest {
@@ -7573,10 +5966,7 @@ function isUpdateNotificationProviderProfileRequest(value: unknown): value is Up
 
 export function readUpdateNotificationTemplateRequest(value: unknown): UpdateNotificationTemplateRequest {
   const normalizedValue = normalizeUpdateNotificationTemplateRequestIntegerJson(value);
-  if (!(isUpdateNotificationTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_notification_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateNotificationTemplateRequest(normalizedValue), 'update_notification_template_request') as UpdateNotificationTemplateRequest;
 }
 
 function isUpdateNotificationTemplateRequest(value: unknown): value is UpdateNotificationTemplateRequest {
@@ -7585,10 +5975,7 @@ function isUpdateNotificationTemplateRequest(value: unknown): value is UpdateNot
 
 export function readUpdateOcrProviderConfigRequest(value: unknown): UpdateOcrProviderConfigRequest {
   const normalizedValue = normalizeUpdateOcrProviderConfigRequestIntegerJson(value);
-  if (!(isUpdateOcrProviderConfigRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_ocr_provider_config_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOcrProviderConfigRequest(normalizedValue), 'update_ocr_provider_config_request') as UpdateOcrProviderConfigRequest;
 }
 
 function isUpdateOcrProviderConfigRequest(value: unknown): value is UpdateOcrProviderConfigRequest {
@@ -7597,10 +5984,7 @@ function isUpdateOcrProviderConfigRequest(value: unknown): value is UpdateOcrPro
 
 export function readUpdateOrganizationPositionLevelRequest(value: unknown): UpdateOrganizationPositionLevelRequest {
   const normalizedValue = normalizeUpdateOrganizationPositionLevelRequestIntegerJson(value);
-  if (!(isUpdateOrganizationPositionLevelRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_organization_position_level_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOrganizationPositionLevelRequest(normalizedValue), 'update_organization_position_level_request') as UpdateOrganizationPositionLevelRequest;
 }
 
 function isUpdateOrganizationPositionLevelRequest(value: unknown): value is UpdateOrganizationPositionLevelRequest {
@@ -7609,10 +5993,7 @@ function isUpdateOrganizationPositionLevelRequest(value: unknown): value is Upda
 
 export function readUpdateOrganizationPositionRequest(value: unknown): UpdateOrganizationPositionRequest {
   const normalizedValue = normalizeUpdateOrganizationPositionRequestIntegerJson(value);
-  if (!(isUpdateOrganizationPositionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_organization_position_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOrganizationPositionRequest(normalizedValue), 'update_organization_position_request') as UpdateOrganizationPositionRequest;
 }
 
 function isUpdateOrganizationPositionRequest(value: unknown): value is UpdateOrganizationPositionRequest {
@@ -7621,10 +6002,7 @@ function isUpdateOrganizationPositionRequest(value: unknown): value is UpdateOrg
 
 export function readUpdateOrganizationUnitRequest(value: unknown): UpdateOrganizationUnitRequest {
   const normalizedValue = normalizeUpdateOrganizationUnitRequestIntegerJson(value);
-  if (!(isUpdateOrganizationUnitRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_organization_unit_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOrganizationUnitRequest(normalizedValue), 'update_organization_unit_request') as UpdateOrganizationUnitRequest;
 }
 
 function isUpdateOrganizationUnitRequest(value: unknown): value is UpdateOrganizationUnitRequest {
@@ -7633,10 +6011,7 @@ function isUpdateOrganizationUnitRequest(value: unknown): value is UpdateOrganiz
 
 export function readUpdateOrganizationUserPositionRequest(value: unknown): UpdateOrganizationUserPositionRequest {
   const normalizedValue = normalizeUpdateOrganizationUserPositionRequestIntegerJson(value);
-  if (!(isUpdateOrganizationUserPositionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_organization_user_position_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOrganizationUserPositionRequest(normalizedValue), 'update_organization_user_position_request') as UpdateOrganizationUserPositionRequest;
 }
 
 function isUpdateOrganizationUserPositionRequest(value: unknown): value is UpdateOrganizationUserPositionRequest {
@@ -7645,10 +6020,7 @@ function isUpdateOrganizationUserPositionRequest(value: unknown): value is Updat
 
 export function readUpdateOrganizationUserUnitRequest(value: unknown): UpdateOrganizationUserUnitRequest {
   const normalizedValue = normalizeUpdateOrganizationUserUnitRequestIntegerJson(value);
-  if (!(isUpdateOrganizationUserUnitRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_organization_user_unit_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateOrganizationUserUnitRequest(normalizedValue), 'update_organization_user_unit_request') as UpdateOrganizationUserUnitRequest;
 }
 
 function isUpdateOrganizationUserUnitRequest(value: unknown): value is UpdateOrganizationUserUnitRequest {
@@ -7657,10 +6029,7 @@ function isUpdateOrganizationUserUnitRequest(value: unknown): value is UpdateOrg
 
 export function readUpdatePaymentMerchantConfigRequest(value: unknown): UpdatePaymentMerchantConfigRequest {
   const normalizedValue = normalizeUpdatePaymentMerchantConfigRequestIntegerJson(value);
-  if (!(isUpdatePaymentMerchantConfigRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_payment_merchant_config_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdatePaymentMerchantConfigRequest(normalizedValue), 'update_payment_merchant_config_request') as UpdatePaymentMerchantConfigRequest;
 }
 
 function isUpdatePaymentMerchantConfigRequest(value: unknown): value is UpdatePaymentMerchantConfigRequest {
@@ -7669,10 +6038,7 @@ function isUpdatePaymentMerchantConfigRequest(value: unknown): value is UpdatePa
 
 export function readUpdatePersonalScheduleRequest(value: unknown): UpdatePersonalScheduleRequest {
   const normalizedValue = normalizeUpdatePersonalScheduleRequestIntegerJson(value);
-  if (!(isUpdatePersonalScheduleRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_personal_schedule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdatePersonalScheduleRequest(normalizedValue), 'update_personal_schedule_request') as UpdatePersonalScheduleRequest;
 }
 
 function isUpdatePersonalScheduleRequest(value: unknown): value is UpdatePersonalScheduleRequest {
@@ -7681,10 +6047,7 @@ function isUpdatePersonalScheduleRequest(value: unknown): value is UpdatePersona
 
 export function readUpdatePrintingTemplateRequest(value: unknown): UpdatePrintingTemplateRequest {
   const normalizedValue = normalizeUpdatePrintingTemplateRequestIntegerJson(value);
-  if (!(isUpdatePrintingTemplateRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_printing_template_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdatePrintingTemplateRequest(normalizedValue), 'update_printing_template_request') as UpdatePrintingTemplateRequest;
 }
 
 function isUpdatePrintingTemplateRequest(value: unknown): value is UpdatePrintingTemplateRequest {
@@ -7693,10 +6056,7 @@ function isUpdatePrintingTemplateRequest(value: unknown): value is UpdatePrintin
 
 export function readUpdateReportingDataSourceRequest(value: unknown): UpdateReportingDataSourceRequest {
   const normalizedValue = normalizeUpdateReportingDataSourceRequestIntegerJson(value);
-  if (!(isUpdateReportingDataSourceRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_reporting_data_source_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateReportingDataSourceRequest(normalizedValue), 'update_reporting_data_source_request') as UpdateReportingDataSourceRequest;
 }
 
 function isUpdateReportingDataSourceRequest(value: unknown): value is UpdateReportingDataSourceRequest {
@@ -7705,10 +6065,7 @@ function isUpdateReportingDataSourceRequest(value: unknown): value is UpdateRepo
 
 export function readUpdateReportingDefinitionRequest(value: unknown): UpdateReportingDefinitionRequest {
   const normalizedValue = normalizeUpdateReportingDefinitionRequestIntegerJson(value);
-  if (!(isUpdateReportingDefinitionRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_reporting_definition_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateReportingDefinitionRequest(normalizedValue), 'update_reporting_definition_request') as UpdateReportingDefinitionRequest;
 }
 
 function isUpdateReportingDefinitionRequest(value: unknown): value is UpdateReportingDefinitionRequest {
@@ -7717,10 +6074,7 @@ function isUpdateReportingDefinitionRequest(value: unknown): value is UpdateRepo
 
 export function readUpdateReportingGroupRequest(value: unknown): UpdateReportingGroupRequest {
   const normalizedValue = normalizeUpdateReportingGroupRequestIntegerJson(value);
-  if (!(isUpdateReportingGroupRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_reporting_group_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateReportingGroupRequest(normalizedValue), 'update_reporting_group_request') as UpdateReportingGroupRequest;
 }
 
 function isUpdateReportingGroupRequest(value: unknown): value is UpdateReportingGroupRequest {
@@ -7729,10 +6083,7 @@ function isUpdateReportingGroupRequest(value: unknown): value is UpdateReporting
 
 export function readUpdateSelfServiceProfileRequest(value: unknown): UpdateSelfServiceProfileRequest {
   const normalizedValue = normalizeUpdateSelfServiceProfileRequestIntegerJson(value);
-  if (!(isUpdateSelfServiceProfileRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_self_service_profile_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateSelfServiceProfileRequest(normalizedValue), 'update_self_service_profile_request') as UpdateSelfServiceProfileRequest;
 }
 
 function isUpdateSelfServiceProfileRequest(value: unknown): value is UpdateSelfServiceProfileRequest {
@@ -7741,10 +6092,7 @@ function isUpdateSelfServiceProfileRequest(value: unknown): value is UpdateSelfS
 
 export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialNumberRuleRequest {
   const normalizedValue = normalizeUpdateSerialNumberRuleRequestIntegerJson(value);
-  if (!(isUpdateSerialNumberRuleRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_serial_number_rule_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateSerialNumberRuleRequest(normalizedValue), 'update_serial_number_rule_request') as UpdateSerialNumberRuleRequest;
 }
 
 function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialNumberRuleRequest {
@@ -7753,10 +6101,7 @@ function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialN
 
 export function readUpdateTenantBrandingRequest(value: unknown): UpdateTenantBrandingRequest {
   const normalizedValue = normalizeUpdateTenantBrandingRequestIntegerJson(value);
-  if (!(isUpdateTenantBrandingRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_tenant_branding_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateTenantBrandingRequest(normalizedValue), 'update_tenant_branding_request') as UpdateTenantBrandingRequest;
 }
 
 function isUpdateTenantBrandingRequest(value: unknown): value is UpdateTenantBrandingRequest {
@@ -7765,10 +6110,7 @@ function isUpdateTenantBrandingRequest(value: unknown): value is UpdateTenantBra
 
 export function readUpdateWorkflowDefinitionDraftRequest(value: unknown): UpdateWorkflowDefinitionDraftRequest {
   const normalizedValue = normalizeUpdateWorkflowDefinitionDraftRequestIntegerJson(value);
-  if (!(isUpdateWorkflowDefinitionDraftRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_workflow_definition_draft_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateWorkflowDefinitionDraftRequest(normalizedValue), 'update_workflow_definition_draft_request') as UpdateWorkflowDefinitionDraftRequest;
 }
 
 function isUpdateWorkflowDefinitionDraftRequest(value: unknown): value is UpdateWorkflowDefinitionDraftRequest {
@@ -7777,10 +6119,7 @@ function isUpdateWorkflowDefinitionDraftRequest(value: unknown): value is Update
 
 export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkflowFormDraftRequest {
   const normalizedValue = normalizeUpdateWorkflowFormDraftRequestIntegerJson(value);
-  if (!(isUpdateWorkflowFormDraftRequest(normalizedValue))) {
-    throw new Error('client.invalid_update_workflow_form_draft_request');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isUpdateWorkflowFormDraftRequest(normalizedValue), 'update_workflow_form_draft_request') as UpdateWorkflowFormDraftRequest;
 }
 
 function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkflowFormDraftRequest {
@@ -7788,10 +6127,7 @@ function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkfl
 }
 
 export function readVerifyRecipientEndpointCodeRequest(value: unknown): VerifyRecipientEndpointCodeRequest {
-  if (!(isVerifyRecipientEndpointCodeRequest(value))) {
-    throw new Error('client.invalid_verify_recipient_endpoint_code_request');
-  }
-  return value;
+  return requireValidResponse(value, isVerifyRecipientEndpointCodeRequest(value), 'verify_recipient_endpoint_code_request') as VerifyRecipientEndpointCodeRequest;
 }
 
 function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRecipientEndpointCodeRequest {
@@ -7799,10 +6135,7 @@ function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRe
 }
 
 export function readWorkflowAssigneePreviewResponse(value: unknown): WorkflowAssigneePreviewResponse {
-  if (!(isWorkflowAssigneePreviewResponse(value))) {
-    throw new Error('client.invalid_workflow_assignee_preview_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowAssigneePreviewResponse(value), 'workflow_assignee_preview_response') as WorkflowAssigneePreviewResponse;
 }
 
 function isWorkflowAssigneePreviewResponse(value: unknown): value is WorkflowAssigneePreviewResponse {
@@ -7810,10 +6143,7 @@ function isWorkflowAssigneePreviewResponse(value: unknown): value is WorkflowAss
 }
 
 export function readWorkflowCcReadResponse(value: unknown): WorkflowCcReadResponse {
-  if (!(isWorkflowCcReadResponse(value))) {
-    throw new Error('client.invalid_workflow_cc_read_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowCcReadResponse(value), 'workflow_cc_read_response') as WorkflowCcReadResponse;
 }
 
 function isWorkflowCcReadResponse(value: unknown): value is WorkflowCcReadResponse {
@@ -7821,10 +6151,7 @@ function isWorkflowCcReadResponse(value: unknown): value is WorkflowCcReadRespon
 }
 
 export function readWorkflowCcResponse(value: unknown): WorkflowCcResponse {
-  if (!(isWorkflowCcResponse(value))) {
-    throw new Error('client.invalid_workflow_cc_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowCcResponse(value), 'workflow_cc_response') as WorkflowCcResponse;
 }
 
 function isWorkflowCcResponse(value: unknown): value is WorkflowCcResponse {
@@ -7833,10 +6160,7 @@ function isWorkflowCcResponse(value: unknown): value is WorkflowCcResponse {
 
 export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {
   const normalizedValue = normalizeWorkflowDefinitionDraftIntegerJson(value);
-  if (!(isWorkflowDefinitionDraft(normalizedValue))) {
-    throw new Error('client.invalid_workflow_definition_draft');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowDefinitionDraft(normalizedValue), 'workflow_definition_draft') as WorkflowDefinitionDraft;
 }
 
 function isWorkflowDefinitionDraft(value: unknown): value is WorkflowDefinitionDraft {
@@ -7845,10 +6169,7 @@ function isWorkflowDefinitionDraft(value: unknown): value is WorkflowDefinitionD
 
 export function readWorkflowDefinitionResponse(value: unknown): WorkflowDefinitionResponse {
   const normalizedValue = normalizeWorkflowDefinitionResponseIntegerJson(value);
-  if (!(isWorkflowDefinitionResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_definition_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowDefinitionResponse(normalizedValue), 'workflow_definition_response') as WorkflowDefinitionResponse;
 }
 
 function isWorkflowDefinitionResponse(value: unknown): value is WorkflowDefinitionResponse {
@@ -7857,10 +6178,7 @@ function isWorkflowDefinitionResponse(value: unknown): value is WorkflowDefiniti
 
 export function readWorkflowDefinitionVersionResponse(value: unknown): WorkflowDefinitionVersionResponse {
   const normalizedValue = normalizeWorkflowDefinitionVersionResponseIntegerJson(value);
-  if (!(isWorkflowDefinitionVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_definition_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowDefinitionVersionResponse(normalizedValue), 'workflow_definition_version_response') as WorkflowDefinitionVersionResponse;
 }
 
 function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowDefinitionVersionResponse {
@@ -7868,10 +6186,7 @@ function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowD
 }
 
 export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecutionLogResponse {
-  if (!(isWorkflowExecutionLogResponse(value))) {
-    throw new Error('client.invalid_workflow_execution_log_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowExecutionLogResponse(value), 'workflow_execution_log_response') as WorkflowExecutionLogResponse;
 }
 
 function isWorkflowExecutionLogResponse(value: unknown): value is WorkflowExecutionLogResponse {
@@ -7880,10 +6195,7 @@ function isWorkflowExecutionLogResponse(value: unknown): value is WorkflowExecut
 
 export function readWorkflowFormComponentCatalogResponse(value: unknown): WorkflowFormComponentCatalogResponse {
   const normalizedValue = normalizeWorkflowFormComponentCatalogResponseIntegerJson(value);
-  if (!(isWorkflowFormComponentCatalogResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_form_component_catalog_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowFormComponentCatalogResponse(normalizedValue), 'workflow_form_component_catalog_response') as WorkflowFormComponentCatalogResponse;
 }
 
 function isWorkflowFormComponentCatalogResponse(value: unknown): value is WorkflowFormComponentCatalogResponse {
@@ -7891,10 +6203,7 @@ function isWorkflowFormComponentCatalogResponse(value: unknown): value is Workfl
 }
 
 export function readWorkflowFormComponentResponse(value: unknown): WorkflowFormComponentResponse {
-  if (!(isWorkflowFormComponentResponse(value))) {
-    throw new Error('client.invalid_workflow_form_component_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowFormComponentResponse(value), 'workflow_form_component_response') as WorkflowFormComponentResponse;
 }
 
 function isWorkflowFormComponentResponse(value: unknown): value is WorkflowFormComponentResponse {
@@ -7902,10 +6211,7 @@ function isWorkflowFormComponentResponse(value: unknown): value is WorkflowFormC
 }
 
 export function readWorkflowFormField(value: unknown): WorkflowFormField {
-  if (!(isWorkflowFormField(value))) {
-    throw new Error('client.invalid_workflow_form_field');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowFormField(value), 'workflow_form_field') as WorkflowFormField;
 }
 
 function isWorkflowFormField(value: unknown): value is WorkflowFormField {
@@ -7914,10 +6220,7 @@ function isWorkflowFormField(value: unknown): value is WorkflowFormField {
 
 export function readWorkflowFormResponse(value: unknown): WorkflowFormResponse {
   const normalizedValue = normalizeWorkflowFormResponseIntegerJson(value);
-  if (!(isWorkflowFormResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_form_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowFormResponse(normalizedValue), 'workflow_form_response') as WorkflowFormResponse;
 }
 
 function isWorkflowFormResponse(value: unknown): value is WorkflowFormResponse {
@@ -7926,10 +6229,7 @@ function isWorkflowFormResponse(value: unknown): value is WorkflowFormResponse {
 
 export function readWorkflowFormSchema(value: unknown): WorkflowFormSchema {
   const normalizedValue = normalizeWorkflowFormSchemaIntegerJson(value);
-  if (!(isWorkflowFormSchema(normalizedValue))) {
-    throw new Error('client.invalid_workflow_form_schema');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowFormSchema(normalizedValue), 'workflow_form_schema') as WorkflowFormSchema;
 }
 
 function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchema {
@@ -7937,10 +6237,7 @@ function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchema {
 }
 
 export function readWorkflowFormSection(value: unknown): WorkflowFormSection {
-  if (!(isWorkflowFormSection(value))) {
-    throw new Error('client.invalid_workflow_form_section');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowFormSection(value), 'workflow_form_section') as WorkflowFormSection;
 }
 
 function isWorkflowFormSection(value: unknown): value is WorkflowFormSection {
@@ -7949,10 +6246,7 @@ function isWorkflowFormSection(value: unknown): value is WorkflowFormSection {
 
 export function readWorkflowFormVersionResponse(value: unknown): WorkflowFormVersionResponse {
   const normalizedValue = normalizeWorkflowFormVersionResponseIntegerJson(value);
-  if (!(isWorkflowFormVersionResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_form_version_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowFormVersionResponse(normalizedValue), 'workflow_form_version_response') as WorkflowFormVersionResponse;
 }
 
 function isWorkflowFormVersionResponse(value: unknown): value is WorkflowFormVersionResponse {
@@ -7960,10 +6254,7 @@ function isWorkflowFormVersionResponse(value: unknown): value is WorkflowFormVer
 }
 
 export function readWorkflowGatewayJoinBranchResponse(value: unknown): WorkflowGatewayJoinBranchResponse {
-  if (!(isWorkflowGatewayJoinBranchResponse(value))) {
-    throw new Error('client.invalid_workflow_gateway_join_branch_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowGatewayJoinBranchResponse(value), 'workflow_gateway_join_branch_response') as WorkflowGatewayJoinBranchResponse;
 }
 
 function isWorkflowGatewayJoinBranchResponse(value: unknown): value is WorkflowGatewayJoinBranchResponse {
@@ -7972,10 +6263,7 @@ function isWorkflowGatewayJoinBranchResponse(value: unknown): value is WorkflowG
 
 export function readWorkflowGatewayJoinResponse(value: unknown): WorkflowGatewayJoinResponse {
   const normalizedValue = normalizeWorkflowGatewayJoinResponseIntegerJson(value);
-  if (!(isWorkflowGatewayJoinResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_gateway_join_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowGatewayJoinResponse(normalizedValue), 'workflow_gateway_join_response') as WorkflowGatewayJoinResponse;
 }
 
 function isWorkflowGatewayJoinResponse(value: unknown): value is WorkflowGatewayJoinResponse {
@@ -7983,10 +6271,7 @@ function isWorkflowGatewayJoinResponse(value: unknown): value is WorkflowGateway
 }
 
 export function readWorkflowInstanceListItemResponse(value: unknown): WorkflowInstanceListItemResponse {
-  if (!(isWorkflowInstanceListItemResponse(value))) {
-    throw new Error('client.invalid_workflow_instance_list_item_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowInstanceListItemResponse(value), 'workflow_instance_list_item_response') as WorkflowInstanceListItemResponse;
 }
 
 function isWorkflowInstanceListItemResponse(value: unknown): value is WorkflowInstanceListItemResponse {
@@ -7995,10 +6280,7 @@ function isWorkflowInstanceListItemResponse(value: unknown): value is WorkflowIn
 
 export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceResponse {
   const normalizedValue = normalizeWorkflowInstanceResponseIntegerJson(value);
-  if (!(isWorkflowInstanceResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_instance_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowInstanceResponse(normalizedValue), 'workflow_instance_response') as WorkflowInstanceResponse;
 }
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
@@ -8007,10 +6289,7 @@ function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceRe
 
 export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
   const normalizedValue = normalizeWorkflowNodeDraftIntegerJson(value);
-  if (!(isWorkflowNodeDraft(normalizedValue))) {
-    throw new Error('client.invalid_workflow_node_draft');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowNodeDraft(normalizedValue), 'workflow_node_draft') as WorkflowNodeDraft;
 }
 
 function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
@@ -8019,10 +6298,7 @@ function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
 
 export function readWorkflowNodeTypeCatalogResponse(value: unknown): WorkflowNodeTypeCatalogResponse {
   const normalizedValue = normalizeWorkflowNodeTypeCatalogResponseIntegerJson(value);
-  if (!(isWorkflowNodeTypeCatalogResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_node_type_catalog_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowNodeTypeCatalogResponse(normalizedValue), 'workflow_node_type_catalog_response') as WorkflowNodeTypeCatalogResponse;
 }
 
 function isWorkflowNodeTypeCatalogResponse(value: unknown): value is WorkflowNodeTypeCatalogResponse {
@@ -8031,10 +6307,7 @@ function isWorkflowNodeTypeCatalogResponse(value: unknown): value is WorkflowNod
 
 export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeResponse {
   const normalizedValue = normalizeWorkflowNodeTypeResponseIntegerJson(value);
-  if (!(isWorkflowNodeTypeResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_node_type_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowNodeTypeResponse(normalizedValue), 'workflow_node_type_response') as WorkflowNodeTypeResponse;
 }
 
 function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeResponse {
@@ -8043,10 +6316,7 @@ function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeRe
 
 export function readWorkflowRecipientCandidatePageResponse(value: unknown): WorkflowRecipientCandidatePageResponse {
   const normalizedValue = normalizeWorkflowRecipientCandidatePageResponseIntegerJson(value);
-  if (!(isWorkflowRecipientCandidatePageResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_recipient_candidate_page_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowRecipientCandidatePageResponse(normalizedValue), 'workflow_recipient_candidate_page_response') as WorkflowRecipientCandidatePageResponse;
 }
 
 function isWorkflowRecipientCandidatePageResponse(value: unknown): value is WorkflowRecipientCandidatePageResponse {
@@ -8054,10 +6324,7 @@ function isWorkflowRecipientCandidatePageResponse(value: unknown): value is Work
 }
 
 export function readWorkflowRecipientCandidateResponse(value: unknown): WorkflowRecipientCandidateResponse {
-  if (!(isWorkflowRecipientCandidateResponse(value))) {
-    throw new Error('client.invalid_workflow_recipient_candidate_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowRecipientCandidateResponse(value), 'workflow_recipient_candidate_response') as WorkflowRecipientCandidateResponse;
 }
 
 function isWorkflowRecipientCandidateResponse(value: unknown): value is WorkflowRecipientCandidateResponse {
@@ -8066,10 +6333,7 @@ function isWorkflowRecipientCandidateResponse(value: unknown): value is Workflow
 
 export function readWorkflowRecoveryTaskResponse(value: unknown): WorkflowRecoveryTaskResponse {
   const normalizedValue = normalizeWorkflowRecoveryTaskResponseIntegerJson(value);
-  if (!(isWorkflowRecoveryTaskResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_recovery_task_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowRecoveryTaskResponse(normalizedValue), 'workflow_recovery_task_response') as WorkflowRecoveryTaskResponse;
 }
 
 function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecoveryTaskResponse {
@@ -8078,10 +6342,7 @@ function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecove
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
   const normalizedValue = normalizeWorkflowTodoDetailResponseIntegerJson(value);
-  if (!(isWorkflowTodoDetailResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_todo_detail_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowTodoDetailResponse(normalizedValue), 'workflow_todo_detail_response') as WorkflowTodoDetailResponse;
 }
 
 function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
@@ -8090,10 +6351,7 @@ function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDeta
 
 export function readWorkflowTodoListItemResponse(value: unknown): WorkflowTodoListItemResponse {
   const normalizedValue = normalizeWorkflowTodoListItemResponseIntegerJson(value);
-  if (!(isWorkflowTodoListItemResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_todo_list_item_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowTodoListItemResponse(normalizedValue), 'workflow_todo_list_item_response') as WorkflowTodoListItemResponse;
 }
 
 function isWorkflowTodoListItemResponse(value: unknown): value is WorkflowTodoListItemResponse {
@@ -8101,10 +6359,7 @@ function isWorkflowTodoListItemResponse(value: unknown): value is WorkflowTodoLi
 }
 
 export function readWorkflowTodoReturnTargetResponse(value: unknown): WorkflowTodoReturnTargetResponse {
-  if (!(isWorkflowTodoReturnTargetResponse(value))) {
-    throw new Error('client.invalid_workflow_todo_return_target_response');
-  }
-  return value;
+  return requireValidResponse(value, isWorkflowTodoReturnTargetResponse(value), 'workflow_todo_return_target_response') as WorkflowTodoReturnTargetResponse;
 }
 
 function isWorkflowTodoReturnTargetResponse(value: unknown): value is WorkflowTodoReturnTargetResponse {
@@ -8113,10 +6368,7 @@ function isWorkflowTodoReturnTargetResponse(value: unknown): value is WorkflowTo
 
 export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRuntimeResponse {
   const normalizedValue = normalizeWorkflowTodoRuntimeResponseIntegerJson(value);
-  if (!(isWorkflowTodoRuntimeResponse(normalizedValue))) {
-    throw new Error('client.invalid_workflow_todo_runtime_response');
-  }
-  return normalizedValue;
+  return requireValidResponse(normalizedValue, isWorkflowTodoRuntimeResponse(normalizedValue), 'workflow_todo_runtime_response') as WorkflowTodoRuntimeResponse;
 }
 
 function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
@@ -8124,543 +6376,292 @@ function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRun
 }
 
 export function readAiCancelAgentRunResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_ai_cancel_agent_run_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_cancel_agent_run_response') as boolean;
 }
 
 export function readAiCancelChatGenerationResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_ai_cancel_chat_generation_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_cancel_chat_generation_response') as boolean;
 }
 
 export function readAiCleanupKnowledgeImportsResponse(value: unknown): number {
   const normalizedValue = normalizeWireInteger(value);
-  if (!(typeof normalizedValue === 'number' && Number.isSafeInteger(normalizedValue))) {
-    throw new Error('client.invalid_ai_cleanup_knowledge_imports_response');
-  }
-  return normalizedValue as number;
+  return requireValidResponse(normalizedValue, typeof normalizedValue === 'number' && Number.isSafeInteger(normalizedValue), 'ai_cleanup_knowledge_imports_response') as number;
 }
 
 export function readAiDeleteChatSessionResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_ai_delete_chat_session_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_delete_chat_session_response') as boolean;
 }
 
 export function readAiDiscoverMcpRemoteToolsResponse(value: unknown): Array<AiMcpRemoteDiscoveredToolItem> {
-  if (!(Array.isArray(value) && value.every(item5 => isAiMcpRemoteDiscoveredToolItem(item5)))) {
-    throw new Error('client.invalid_ai_discover_mcp_remote_tools_response');
-  }
-  return value as Array<AiMcpRemoteDiscoveredToolItem>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isAiMcpRemoteDiscoveredToolItem(item5)), 'ai_discover_mcp_remote_tools_response') as Array<AiMcpRemoteDiscoveredToolItem>;
 }
 
 export function readAiGetPromptExecutionStrategiesResponse(value: unknown): Array<AiPromptExecutionBinding> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiPromptExecutionBindingIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiPromptExecutionBinding(item15)))) {
-    throw new Error('client.invalid_ai_get_prompt_execution_strategies_response');
-  }
-  return normalizedValue as Array<AiPromptExecutionBinding>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiPromptExecutionBinding(item15)), 'ai_get_prompt_execution_strategies_response') as Array<AiPromptExecutionBinding>;
 }
 
 export function readAiListAgentDelegationsResponse(value: unknown): Array<AiAgentDelegationResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiAgentDelegationResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiAgentDelegationResponse(item15)))) {
-    throw new Error('client.invalid_ai_list_agent_delegations_response');
-  }
-  return normalizedValue as Array<AiAgentDelegationResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiAgentDelegationResponse(item15)), 'ai_list_agent_delegations_response') as Array<AiAgentDelegationResponse>;
 }
 
 export function readAiListAgentToolsResponse(value: unknown): Array<AiAgentToolCatalogItem> {
-  if (!(Array.isArray(value) && value.every(item5 => isAiAgentToolCatalogItem(item5)))) {
-    throw new Error('client.invalid_ai_list_agent_tools_response');
-  }
-  return value as Array<AiAgentToolCatalogItem>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isAiAgentToolCatalogItem(item5)), 'ai_list_agent_tools_response') as Array<AiAgentToolCatalogItem>;
 }
 
 export function readAiListKnowledgeIndexGrantsResponse(value: unknown): Array<AiKnowledgeIndexGrantResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiKnowledgeIndexGrantResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiKnowledgeIndexGrantResponse(item15)))) {
-    throw new Error('client.invalid_ai_list_knowledge_index_grants_response');
-  }
-  return normalizedValue as Array<AiKnowledgeIndexGrantResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiKnowledgeIndexGrantResponse(item15)), 'ai_list_knowledge_index_grants_response') as Array<AiKnowledgeIndexGrantResponse>;
 }
 
 export function readAiListMcpRemoteConnectionsResponse(value: unknown): Array<AiMcpRemoteConnectionListItem> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiMcpRemoteConnectionListItemIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiMcpRemoteConnectionListItem(item15)))) {
-    throw new Error('client.invalid_ai_list_mcp_remote_connections_response');
-  }
-  return normalizedValue as Array<AiMcpRemoteConnectionListItem>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiMcpRemoteConnectionListItem(item15)), 'ai_list_mcp_remote_connections_response') as Array<AiMcpRemoteConnectionListItem>;
 }
 
 export function readAiListMcpRemoteToolApprovalsResponse(value: unknown): Array<AiMcpRemoteToolApprovalItem> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiMcpRemoteToolApprovalItemIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiMcpRemoteToolApprovalItem(item15)))) {
-    throw new Error('client.invalid_ai_list_mcp_remote_tool_approvals_response');
-  }
-  return normalizedValue as Array<AiMcpRemoteToolApprovalItem>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiMcpRemoteToolApprovalItem(item15)), 'ai_list_mcp_remote_tool_approvals_response') as Array<AiMcpRemoteToolApprovalItem>;
 }
 
 export function readAiReconcileAgentRunResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_ai_reconcile_agent_run_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_reconcile_agent_run_response') as boolean;
 }
 
 export function readAiResumeAgentRunResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_ai_resume_agent_run_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_resume_agent_run_response') as boolean;
 }
 
 export function readCodeGenerationListCatalogObjectsResponse(value: unknown): Array<CodeGenerationCatalogObjectResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)))) {
-    throw new Error('client.invalid_code_generation_list_catalog_objects_response');
-  }
-  return value as Array<CodeGenerationCatalogObjectResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)), 'code_generation_list_catalog_objects_response') as Array<CodeGenerationCatalogObjectResponse>;
 }
 
 export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogTableResponse(item5)))) {
-    throw new Error('client.invalid_code_generation_list_catalog_tables_response');
-  }
-  return value as Array<CodeGenerationCatalogTableResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogTableResponse(item5)), 'code_generation_list_catalog_tables_response') as Array<CodeGenerationCatalogTableResponse>;
 }
 
 export function readCodeGenerationListCatalogViewsResponse(value: unknown): Array<CodeGenerationCatalogObjectResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)))) {
-    throw new Error('client.invalid_code_generation_list_catalog_views_response');
-  }
-  return value as Array<CodeGenerationCatalogObjectResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)), 'code_generation_list_catalog_views_response') as Array<CodeGenerationCatalogObjectResponse>;
 }
 
 export function readDataApprovalsListScenariosResponse(value: unknown): Array<DataApprovalScenarioResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeDataApprovalScenarioResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDataApprovalScenarioResponse(item15)))) {
-    throw new Error('client.invalid_data_approvals_list_scenarios_response');
-  }
-  return normalizedValue as Array<DataApprovalScenarioResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDataApprovalScenarioResponse(item15)), 'data_approvals_list_scenarios_response') as Array<DataApprovalScenarioResponse>;
 }
 
 export function readDocumentHostDeleteCategoryResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_document_host_delete_category_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'document_host_delete_category_response') as boolean;
 }
 
 export function readDocumentHostDeleteItemResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_document_host_delete_item_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'document_host_delete_item_response') as boolean;
 }
 
 export function readDocumentHostDeleteTagResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_document_host_delete_tag_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'document_host_delete_tag_response') as boolean;
 }
 
 export function readDocumentHostListCategoriesResponse(value: unknown): Array<HostDocumentCategoryResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostDocumentCategoryResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostDocumentCategoryResponse(item15)))) {
-    throw new Error('client.invalid_document_host_list_categories_response');
-  }
-  return normalizedValue as Array<HostDocumentCategoryResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostDocumentCategoryResponse(item15)), 'document_host_list_categories_response') as Array<HostDocumentCategoryResponse>;
 }
 
 export function readDocumentHostListDocumentPermissionsResponse(value: unknown): Array<HostDocumentPermissionResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)))) {
-    throw new Error('client.invalid_document_host_list_document_permissions_response');
-  }
-  return value as Array<HostDocumentPermissionResponse>;
-}
-
-export function readDocumentHostListItemVersionsResponse(value: unknown): Array<HostDocumentVersionResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostDocumentVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostDocumentVersionResponse(item15)))) {
-    throw new Error('client.invalid_document_host_list_item_versions_response');
-  }
-  return normalizedValue as Array<HostDocumentVersionResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)), 'document_host_list_document_permissions_response') as Array<HostDocumentPermissionResponse>;
 }
 
 export function readDocumentHostListTagsResponse(value: unknown): Array<HostDocumentTagResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostDocumentTagResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostDocumentTagResponse(item15)))) {
-    throw new Error('client.invalid_document_host_list_tags_response');
-  }
-  return normalizedValue as Array<HostDocumentTagResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostDocumentTagResponse(item15)), 'document_host_list_tags_response') as Array<HostDocumentTagResponse>;
 }
 
 export function readDocumentHostPurgeRecycleBinItemResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_document_host_purge_recycle_bin_item_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'document_host_purge_recycle_bin_item_response') as boolean;
 }
 
 export function readDocumentHostSetDocumentPermissionsResponse(value: unknown): Array<HostDocumentPermissionResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)))) {
-    throw new Error('client.invalid_document_host_set_document_permissions_response');
-  }
-  return value as Array<HostDocumentPermissionResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)), 'document_host_set_document_permissions_response') as Array<HostDocumentPermissionResponse>;
 }
 
 export function readFilesGetHostFolderTreeResponse(value: unknown): Array<HostFolderTreeNode> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostFolderTreeNodeIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostFolderTreeNode(item15)))) {
-    throw new Error('client.invalid_files_get_host_folder_tree_response');
-  }
-  return normalizedValue as Array<HostFolderTreeNode>;
-}
-
-export function readGoviewListProjectsResponse(value: unknown): Array<GoViewProjectResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeGoViewProjectResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isGoViewProjectResponse(item15)))) {
-    throw new Error('client.invalid_goview_list_projects_response');
-  }
-  return normalizedValue as Array<GoViewProjectResponse>;
-}
-
-export function readGoviewListProjectVersionsResponse(value: unknown): Array<GoViewProjectVersionResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeGoViewProjectVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isGoViewProjectVersionResponse(item15)))) {
-    throw new Error('client.invalid_goview_list_project_versions_response');
-  }
-  return normalizedValue as Array<GoViewProjectVersionResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostFolderTreeNode(item15)), 'files_get_host_folder_tree_response') as Array<HostFolderTreeNode>;
 }
 
 export function readIdentityExportHostUsersResponse(value: unknown): Array<HostUserResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostUserResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostUserResponse(item15)))) {
-    throw new Error('client.invalid_identity_export_host_users_response');
-  }
-  return normalizedValue as Array<HostUserResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostUserResponse(item15)), 'identity_export_host_users_response') as Array<HostUserResponse>;
 }
 
 export function readIdentityGetAuthorizationTreeResponse(value: unknown): Array<AuthorizationTreeModuleResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAuthorizationTreeModuleResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAuthorizationTreeModuleResponse(item15)))) {
-    throw new Error('client.invalid_identity_get_authorization_tree_response');
-  }
-  return normalizedValue as Array<AuthorizationTreeModuleResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAuthorizationTreeModuleResponse(item15)), 'identity_get_authorization_tree_response') as Array<AuthorizationTreeModuleResponse>;
 }
 
 export function readIdentityListAllHostMenusResponse(value: unknown): Array<HostMenuResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostMenuResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostMenuResponse(item15)))) {
-    throw new Error('client.invalid_identity_list_all_host_menus_response');
-  }
-  return normalizedValue as Array<HostMenuResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostMenuResponse(item15)), 'identity_list_all_host_menus_response') as Array<HostMenuResponse>;
 }
 
 export function readIdentityListFieldProjectionCatalogResponse(value: unknown): Array<FieldProjectionResourceDefinition> {
-  if (!(Array.isArray(value) && value.every(item5 => isFieldProjectionResourceDefinition(item5)))) {
-    throw new Error('client.invalid_identity_list_field_projection_catalog_response');
-  }
-  return value as Array<FieldProjectionResourceDefinition>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isFieldProjectionResourceDefinition(item5)), 'identity_list_field_projection_catalog_response') as Array<FieldProjectionResourceDefinition>;
 }
 
 export function readIdentityListHostMenuPermissionOptionsResponse(value: unknown): Array<HostMenuPermissionOptionResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isHostMenuPermissionOptionResponse(item5)))) {
-    throw new Error('client.invalid_identity_list_host_menu_permission_options_response');
-  }
-  return value as Array<HostMenuPermissionOptionResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostMenuPermissionOptionResponse(item5)), 'identity_list_host_menu_permission_options_response') as Array<HostMenuPermissionOptionResponse>;
 }
 
 export function readIdentityListHostModulesResponse(value: unknown): Array<ModuleCatalogEntryResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isModuleCatalogEntryResponse(item5)))) {
-    throw new Error('client.invalid_identity_list_host_modules_response');
-  }
-  return value as Array<ModuleCatalogEntryResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isModuleCatalogEntryResponse(item5)), 'identity_list_host_modules_response') as Array<ModuleCatalogEntryResponse>;
 }
 
 export function readIdentityListSuperAdministratorAuditsResponse(value: unknown): Array<SuperAdministratorAuditResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isSuperAdministratorAuditResponse(item5)))) {
-    throw new Error('client.invalid_identity_list_super_administrator_audits_response');
-  }
-  return value as Array<SuperAdministratorAuditResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isSuperAdministratorAuditResponse(item5)), 'identity_list_super_administrator_audits_response') as Array<SuperAdministratorAuditResponse>;
 }
 
 export function readIdentityListSuperAdministratorsResponse(value: unknown): Array<SuperAdministratorResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isSuperAdministratorResponse(item5)))) {
-    throw new Error('client.invalid_identity_list_super_administrators_response');
-  }
-  return value as Array<SuperAdministratorResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isSuperAdministratorResponse(item5)), 'identity_list_super_administrators_response') as Array<SuperAdministratorResponse>;
 }
 
 export function readImportExportListStaticSchemasResponse(value: unknown): Array<StaticImportSchemaDefinition> {
-  if (!(Array.isArray(value) && value.every(item5 => isStaticImportSchemaDefinition(item5)))) {
-    throw new Error('client.invalid_import_export_list_static_schemas_response');
-  }
-  return value as Array<StaticImportSchemaDefinition>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isStaticImportSchemaDefinition(item5)), 'import_export_list_static_schemas_response') as Array<StaticImportSchemaDefinition>;
 }
 
 export function readJobsListHostJobGroupsResponse(value: unknown): Array<HostJobGroupResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isHostJobGroupResponse(item5)))) {
-    throw new Error('client.invalid_jobs_list_host_job_groups_response');
-  }
-  return value as Array<HostJobGroupResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostJobGroupResponse(item5)), 'jobs_list_host_job_groups_response') as Array<HostJobGroupResponse>;
 }
 
 export function readJobsListHostJobScheduleDefinitionOptionsResponse(value: unknown): Array<HostJobScheduleDefinitionOptionResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isHostJobScheduleDefinitionOptionResponse(item5)))) {
-    throw new Error('client.invalid_jobs_list_host_job_schedule_definition_options_response');
-  }
-  return value as Array<HostJobScheduleDefinitionOptionResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostJobScheduleDefinitionOptionResponse(item5)), 'jobs_list_host_job_schedule_definition_options_response') as Array<HostJobScheduleDefinitionOptionResponse>;
 }
 
 export function readK3cloudListConnectionConfigsResponse(value: unknown): Array<K3CloudConnectionConfigResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeK3CloudConnectionConfigResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isK3CloudConnectionConfigResponse(item15)))) {
-    throw new Error('client.invalid_k3cloud_list_connection_configs_response');
-  }
-  return normalizedValue as Array<K3CloudConnectionConfigResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isK3CloudConnectionConfigResponse(item15)), 'k3cloud_list_connection_configs_response') as Array<K3CloudConnectionConfigResponse>;
 }
 
 export function readNotificationsListMyRecipientEndpointsResponse(value: unknown): Array<RecipientEndpointResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isRecipientEndpointResponse(item5)))) {
-    throw new Error('client.invalid_notifications_list_my_recipient_endpoints_response');
-  }
-  return value as Array<RecipientEndpointResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isRecipientEndpointResponse(item5)), 'notifications_list_my_recipient_endpoints_response') as Array<RecipientEndpointResponse>;
 }
 
 export function readNotificationsListProviderTypesResponse(value: unknown): Array<NotificationProviderTypeDescriptor> {
-  if (!(Array.isArray(value) && value.every(item5 => isNotificationProviderTypeDescriptor(item5)))) {
-    throw new Error('client.invalid_notifications_list_provider_types_response');
-  }
-  return value as Array<NotificationProviderTypeDescriptor>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isNotificationProviderTypeDescriptor(item5)), 'notifications_list_provider_types_response') as Array<NotificationProviderTypeDescriptor>;
 }
 
 export function readObservabilityListCachePoliciesResponse(value: unknown): Array<CachePolicySummary> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeCachePolicySummaryIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isCachePolicySummary(item15)))) {
-    throw new Error('client.invalid_observability_list_cache_policies_response');
-  }
-  return normalizedValue as Array<CachePolicySummary>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isCachePolicySummary(item15)), 'observability_list_cache_policies_response') as Array<CachePolicySummary>;
 }
 
 export function readObservabilityListServerInstancesResponse(value: unknown): Array<ServerInstanceCatalogEntry> {
-  if (!(Array.isArray(value) && value.every(item5 => isServerInstanceCatalogEntry(item5)))) {
-    throw new Error('client.invalid_observability_list_server_instances_response');
-  }
-  return value as Array<ServerInstanceCatalogEntry>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isServerInstanceCatalogEntry(item5)), 'observability_list_server_instances_response') as Array<ServerInstanceCatalogEntry>;
 }
 
 export function readPrintingListFormSchemasResponse(value: unknown): Array<PrintingFormSchemaDefinition> {
-  if (!(Array.isArray(value) && value.every(item5 => isPrintingFormSchemaDefinition(item5)))) {
-    throw new Error('client.invalid_printing_list_form_schemas_response');
-  }
-  return value as Array<PrintingFormSchemaDefinition>;
-}
-
-export function readPrintingListTemplatesResponse(value: unknown): Array<PrintingTemplateResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizePrintingTemplateResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isPrintingTemplateResponse(item15)))) {
-    throw new Error('client.invalid_printing_list_templates_response');
-  }
-  return normalizedValue as Array<PrintingTemplateResponse>;
-}
-
-export function readPrintingListTemplateVersionsResponse(value: unknown): Array<PrintingTemplateVersionResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizePrintingTemplateVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isPrintingTemplateVersionResponse(item15)))) {
-    throw new Error('client.invalid_printing_list_template_versions_response');
-  }
-  return normalizedValue as Array<PrintingTemplateVersionResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isPrintingFormSchemaDefinition(item5)), 'printing_list_form_schemas_response') as Array<PrintingFormSchemaDefinition>;
 }
 
 export function readRegionsGetAdministrativeRegionTreeResponse(value: unknown): Array<AdministrativeRegionTreeNodeResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAdministrativeRegionTreeNodeResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAdministrativeRegionTreeNodeResponse(item15)))) {
-    throw new Error('client.invalid_regions_get_administrative_region_tree_response');
-  }
-  return normalizedValue as Array<AdministrativeRegionTreeNodeResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAdministrativeRegionTreeNodeResponse(item15)), 'regions_get_administrative_region_tree_response') as Array<AdministrativeRegionTreeNodeResponse>;
 }
 
 export function readRegionsListAdministrativeRegionChildrenResponse(value: unknown): Array<AdministrativeRegionChildResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAdministrativeRegionChildResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAdministrativeRegionChildResponse(item15)))) {
-    throw new Error('client.invalid_regions_list_administrative_region_children_response');
-  }
-  return normalizedValue as Array<AdministrativeRegionChildResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAdministrativeRegionChildResponse(item15)), 'regions_list_administrative_region_children_response') as Array<AdministrativeRegionChildResponse>;
 }
 
 export function readReportingDeleteDataSourceResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_reporting_delete_data_source_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'reporting_delete_data_source_response') as boolean;
 }
 
 export function readReportingDeleteDefinitionResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_reporting_delete_definition_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'reporting_delete_definition_response') as boolean;
 }
 
 export function readReportingDeleteGroupResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_reporting_delete_group_response');
-  }
-  return value as boolean;
-}
-
-export function readReportingListDefinitionsResponse(value: unknown): Array<ReportingDefinitionResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingDefinitionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingDefinitionResponse(item15)))) {
-    throw new Error('client.invalid_reporting_list_definitions_response');
-  }
-  return normalizedValue as Array<ReportingDefinitionResponse>;
-}
-
-export function readReportingListDefinitionVersionsResponse(value: unknown): Array<ReportingDefinitionVersionResponse> {
-  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingDefinitionVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingDefinitionVersionResponse(item15)))) {
-    throw new Error('client.invalid_reporting_list_definition_versions_response');
-  }
-  return normalizedValue as Array<ReportingDefinitionVersionResponse>;
+  return requireValidResponse(value, typeof value === 'boolean', 'reporting_delete_group_response') as boolean;
 }
 
 export function readReportingListGroupsResponse(value: unknown): Array<ReportingGroupResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingGroupResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingGroupResponse(item15)))) {
-    throw new Error('client.invalid_reporting_list_groups_response');
-  }
-  return normalizedValue as Array<ReportingGroupResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingGroupResponse(item15)), 'reporting_list_groups_response') as Array<ReportingGroupResponse>;
 }
 
 export function readReportingListQueryPortsResponse(value: unknown): Array<ReportingQueryPortDefinition> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingQueryPortDefinitionIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingQueryPortDefinition(item15)))) {
-    throw new Error('client.invalid_reporting_list_query_ports_response');
-  }
-  return normalizedValue as Array<ReportingQueryPortDefinition>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingQueryPortDefinition(item15)), 'reporting_list_query_ports_response') as Array<ReportingQueryPortDefinition>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
-  if (!(typeof value === 'boolean')) {
-    throw new Error('client.invalid_settings_batch_update_host_config_entry_values_response');
-  }
-  return value as boolean;
+  return requireValidResponse(value, typeof value === 'boolean', 'settings_batch_update_host_config_entry_values_response') as boolean;
 }
 
 export function readSettingsListAllHostConfigEntriesResponse(value: unknown): Array<ConfigEntryResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeConfigEntryResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isConfigEntryResponse(item15)))) {
-    throw new Error('client.invalid_settings_list_all_host_config_entries_response');
-  }
-  return normalizedValue as Array<ConfigEntryResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isConfigEntryResponse(item15)), 'settings_list_all_host_config_entries_response') as Array<ConfigEntryResponse>;
 }
 
 export function readSettingsListAllHostDictTypesResponse(value: unknown): Array<DictTypeResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeDictTypeResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictTypeResponse(item15)))) {
-    throw new Error('client.invalid_settings_list_all_host_dict_types_response');
-  }
-  return normalizedValue as Array<DictTypeResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictTypeResponse(item15)), 'settings_list_all_host_dict_types_response') as Array<DictTypeResponse>;
 }
 
 export function readSettingsListAllTenantDictTypesResponse(value: unknown): Array<DictTypeResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeDictTypeResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictTypeResponse(item15)))) {
-    throw new Error('client.invalid_settings_list_all_tenant_dict_types_response');
-  }
-  return normalizedValue as Array<DictTypeResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictTypeResponse(item15)), 'settings_list_all_tenant_dict_types_response') as Array<DictTypeResponse>;
 }
 
 export function readSettingsListHostConfigEntryGroupsResponse(value: unknown): Array<string> {
-  if (!(Array.isArray(value) && value.every(item5 => typeof item5 === 'string'))) {
-    throw new Error('client.invalid_settings_list_host_config_entry_groups_response');
-  }
-  return value as Array<string>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => typeof item5 === 'string'), 'settings_list_host_config_entry_groups_response') as Array<string>;
 }
 
 export function readSettingsListHostDictItemsByTypeCodeResponse(value: unknown): Array<DictItemResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeDictItemResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictItemResponse(item15)))) {
-    throw new Error('client.invalid_settings_list_host_dict_items_by_type_code_response');
-  }
-  return normalizedValue as Array<DictItemResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictItemResponse(item15)), 'settings_list_host_dict_items_by_type_code_response') as Array<DictItemResponse>;
 }
 
 export function readSettingsListHostEnumCatalogsResponse(value: unknown): Array<EnumCatalogSummary> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeEnumCatalogSummaryIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isEnumCatalogSummary(item15)))) {
-    throw new Error('client.invalid_settings_list_host_enum_catalogs_response');
-  }
-  return normalizedValue as Array<EnumCatalogSummary>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isEnumCatalogSummary(item15)), 'settings_list_host_enum_catalogs_response') as Array<EnumCatalogSummary>;
 }
 
 export function readSettingsListTenantDictItemsByTypeCodeResponse(value: unknown): Array<DictItemResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeDictItemResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictItemResponse(item15)))) {
-    throw new Error('client.invalid_settings_list_tenant_dict_items_by_type_code_response');
-  }
-  return normalizedValue as Array<DictItemResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictItemResponse(item15)), 'settings_list_tenant_dict_items_by_type_code_response') as Array<DictItemResponse>;
 }
 
 export function readWorkflowListDefinitionsResponse(value: unknown): Array<WorkflowDefinitionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeWorkflowDefinitionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowDefinitionResponse(item15)))) {
-    throw new Error('client.invalid_workflow_list_definitions_response');
-  }
-  return normalizedValue as Array<WorkflowDefinitionResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowDefinitionResponse(item15)), 'workflow_list_definitions_response') as Array<WorkflowDefinitionResponse>;
 }
 
 export function readWorkflowListDefinitionVersionsResponse(value: unknown): Array<WorkflowDefinitionVersionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeWorkflowDefinitionVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowDefinitionVersionResponse(item15)))) {
-    throw new Error('client.invalid_workflow_list_definition_versions_response');
-  }
-  return normalizedValue as Array<WorkflowDefinitionVersionResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowDefinitionVersionResponse(item15)), 'workflow_list_definition_versions_response') as Array<WorkflowDefinitionVersionResponse>;
 }
 
 export function readWorkflowListFormsResponse(value: unknown): Array<WorkflowFormResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeWorkflowFormResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowFormResponse(item15)))) {
-    throw new Error('client.invalid_workflow_list_forms_response');
-  }
-  return normalizedValue as Array<WorkflowFormResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowFormResponse(item15)), 'workflow_list_forms_response') as Array<WorkflowFormResponse>;
 }
 
 export function readWorkflowListFormVersionsResponse(value: unknown): Array<WorkflowFormVersionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeWorkflowFormVersionResponseIntegerJson(item5)) : value);
-  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowFormVersionResponse(item15)))) {
-    throw new Error('client.invalid_workflow_list_form_versions_response');
-  }
-  return normalizedValue as Array<WorkflowFormVersionResponse>;
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowFormVersionResponse(item15)), 'workflow_list_form_versions_response') as Array<WorkflowFormVersionResponse>;
 }
 
 export function readWorkflowListInstanceExecutionLogsResponse(value: unknown): Array<WorkflowExecutionLogResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isWorkflowExecutionLogResponse(item5)))) {
-    throw new Error('client.invalid_workflow_list_instance_execution_logs_response');
-  }
-  return value as Array<WorkflowExecutionLogResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isWorkflowExecutionLogResponse(item5)), 'workflow_list_instance_execution_logs_response') as Array<WorkflowExecutionLogResponse>;
 }
 
 export function readWorkflowListMyCcResponse(value: unknown): Array<WorkflowCcResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isWorkflowCcResponse(item5)))) {
-    throw new Error('client.invalid_workflow_list_my_cc_response');
-  }
-  return value as Array<WorkflowCcResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isWorkflowCcResponse(item5)), 'workflow_list_my_cc_response') as Array<WorkflowCcResponse>;
 }
 
 export function readWorkflowListTodoReturnTargetsResponse(value: unknown): Array<WorkflowTodoReturnTargetResponse> {
-  if (!(Array.isArray(value) && value.every(item5 => isWorkflowTodoReturnTargetResponse(item5)))) {
-    throw new Error('client.invalid_workflow_list_todo_return_targets_response');
-  }
-  return value as Array<WorkflowTodoReturnTargetResponse>;
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isWorkflowTodoReturnTargetResponse(item5)), 'workflow_list_todo_return_targets_response') as Array<WorkflowTodoReturnTargetResponse>;
 }
 
 function normalizeAccessLogCursorPageResponseIntegerJson(value: unknown): unknown {
@@ -9275,7 +7276,15 @@ function normalizeGoViewProjectResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeGoViewProjectSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeGoViewProjectVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeGoViewProjectVersionSummaryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
@@ -9364,7 +7373,7 @@ function normalizeHostFolderResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeHostFolderTreeNodeIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "children") ? { ["children"]: (Array.isArray(value["children"]) ? value["children"].map((item17: unknown) => normalizeHostFolderTreeNodeIntegerJson(item17)) : value["children"]) } : {}), ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
 function normalizeHostJobDefinitionResponseIntegerJson(value: unknown): unknown {
@@ -9428,7 +7437,7 @@ function normalizeHostTenantMembersPageResponseIntegerJson(value: unknown): unkn
 }
 
 function normalizeHostUserManagementOrganizationReferenceResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "positions") ? { ["positions"]: (Array.isArray(value["positions"]) ? value["positions"].map((item18: unknown) => normalizeOrganizationPositionResponseIntegerJson(item18)) : value["positions"]) } : {}), ...(Object.hasOwn(value, "units") ? { ["units"]: (Array.isArray(value["units"]) ? value["units"].map((item14: unknown) => normalizeOrganizationUnitResponseIntegerJson(item14)) : value["units"]) } : {}), ...(Object.hasOwn(value, "userPositions") ? { ["userPositions"]: (Array.isArray(value["userPositions"]) ? value["userPositions"].map((item22: unknown) => normalizeOrganizationUserPositionResponseIntegerJson(item22)) : value["userPositions"]) } : {}), ...(Object.hasOwn(value, "userUnits") ? { ["userUnits"]: (Array.isArray(value["userUnits"]) ? value["userUnits"].map((item18: unknown) => normalizeOrganizationUserUnitResponseIntegerJson(item18)) : value["userUnits"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "positions") ? { ["positions"]: (Array.isArray(value["positions"]) ? value["positions"].map((item18: unknown) => normalizeOrganizationPositionResponseIntegerJson(item18)) : value["positions"]) } : {}), ...(Object.hasOwn(value, "positionsTotal") ? { ["positionsTotal"]: normalizeWireInteger(value["positionsTotal"]) } : {}), ...(Object.hasOwn(value, "units") ? { ["units"]: (Array.isArray(value["units"]) ? value["units"].map((item14: unknown) => normalizeOrganizationUnitResponseIntegerJson(item14)) : value["units"]) } : {}), ...(Object.hasOwn(value, "unitsTotal") ? { ["unitsTotal"]: normalizeWireInteger(value["unitsTotal"]) } : {}), ...(Object.hasOwn(value, "userPositions") ? { ["userPositions"]: (Array.isArray(value["userPositions"]) ? value["userPositions"].map((item22: unknown) => normalizeOrganizationUserPositionResponseIntegerJson(item22)) : value["userPositions"]) } : {}), ...(Object.hasOwn(value, "userUnits") ? { ["userUnits"]: (Array.isArray(value["userUnits"]) ? value["userUnits"].map((item18: unknown) => normalizeOrganizationUserUnitResponseIntegerJson(item18)) : value["userUnits"]) } : {}) } : value);
 }
 
 function normalizeHostUserProfileResponseIntegerJson(value: unknown): unknown {
@@ -9711,6 +7720,14 @@ function normalizePagedResultOfExceptionLogResponseIntegerJson(value: unknown): 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfGoViewProjectSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeGoViewProjectSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfGoViewProjectVersionSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeGoViewProjectVersionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfHostAnnouncementReadReceiptResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -9737,6 +7754,10 @@ function normalizePagedResultOfHostDocumentPreviewTaskResponseIntegerJson(value:
 
 function normalizePagedResultOfHostDocumentShareResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeHostDocumentShareResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfHostDocumentVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeHostDocumentVersionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfHostFileReferenceClaimResponseIntegerJson(value: unknown): unknown {
@@ -9863,12 +7884,28 @@ function normalizePagedResultOfPersonalScheduleResponseIntegerJson(value: unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizePersonalScheduleResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfPrintingTemplateSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizePrintingTemplateSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfPrintingTemplateVersionSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizePrintingTemplateVersionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfReceivedHostAnnouncementListItemResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfReportingDataSourceListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDataSourceListItemIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfReportingDefinitionSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDefinitionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfReportingDefinitionVersionSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDefinitionVersionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfReportingExportTaskResponseIntegerJson(value: unknown): unknown {
@@ -9955,7 +7992,15 @@ function normalizePrintingTemplateResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizePrintingTemplateSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizePrintingTemplateVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizePrintingTemplateVersionSummaryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
@@ -10047,7 +8092,15 @@ function normalizeReportingDefinitionResponseIntegerJson(value: unknown): unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeReportingDefinitionSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeReportingDefinitionVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeReportingDefinitionVersionSummaryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
@@ -10513,6 +8566,12 @@ function normalizeWorkflowTodoListItemResponseIntegerJson(value: unknown): unkno
 
 function normalizeWorkflowTodoRuntimeResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "submissionRevision") ? { ["submissionRevision"]: normalizeWireInteger(value["submissionRevision"]) } : {}) } : value);
+}
+
+// 统一失败关闭与错误码，避免每个生成读取器重复携带异常和返回分支。
+function requireValidResponse(value: unknown, valid: boolean, responseKind: string): unknown {
+  if (!valid) throw new Error('client.invalid_' + responseKind);
+  return value;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

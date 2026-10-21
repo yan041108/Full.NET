@@ -77,6 +77,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAuthorizationService.cs",
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientRegistrar.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/AuthenticationEventRetentionHostedProcessor.cs",
+        // 临时认证状态回收在独立作用域固定 Host，不接收用户租户输入，finally 清除。
+        "src/Modules/Full.NET.Modules.Identity/Retention/IdentityEphemeralStateRetentionHostedService.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/IdentityOidcRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
         // 独立权威授权仅复制父作用域的可信租户到新数据作用域，结束后清除，不修改请求租户。
@@ -89,12 +91,18 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionRunner.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobWorkerHeartbeatService.cs",
+        // 计划派发独立 Host 作用域，finally 清除；业务执行身份继续由执行器建立。
+        "src/Modules/Full.NET.Modules.Jobs/Execution/JobsControlPlaneHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobExecutions/HostJobTriggerService.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextMiddleware.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextScope.cs",
+        // 并行投递仅为全局领取的持久任务创建独立 Host 范围；端点仍按 Intent 的可信租户键读取，finally 清除。
+        "src/Modules/Full.NET.Modules.Notifications/Execution/NotificationDeliveryBatchProcessor.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementReferenceService.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
+        // 投影发布仅从 Organization 持久化源行建立租户；独立作用域 finally 清除。
+        "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/UserUnitProjectionPublicationHostedService.cs",
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。
@@ -136,7 +144,7 @@ public sealed class TenantContextMutationBoundaryTests
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        CollectionAssert.AreEqual(ContextWriterAllowlist, consumers);
+        CollectionAssert.AreEqual(ContextWriterAllowlist, consumers, string.Join(Environment.NewLine, consumers));
     }
 
     private static IEnumerable<(string Path, string Content)> EnumerateProductionSources(

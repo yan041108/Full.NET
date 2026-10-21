@@ -150,10 +150,10 @@ public sealed class AiKnowledgeIndexRebuildTests
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(NewTask, Guid.CreateVersion7());
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             var auth = Substitute.For<IBackgroundSessionAuthorization>();
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            auth.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Assert.IsFalse(State.HasTransaction);
-                return call.ArgAt<string>(1) == Denied ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
+                return call.ArgAt<IReadOnlyCollection<string>>(1).Contains(Denied!) ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
             });
             var command = Substitute.For<ICommandExecutor>();
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>

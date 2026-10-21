@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Organization.Serialization;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
@@ -8,10 +11,24 @@ namespace Full.NET.Modules.Organization.TenantUnits;
 /// <summary>
 /// 为其他模块提供租户机构单元存在性只读校验。
 /// </summary>
-internal sealed class TenantOrganizationUnitDirectory(IQueryExecutor queryExecutor)
+internal sealed class TenantOrganizationUnitDirectory(IQueryExecutor queryExecutor, IOptions<DatabaseOptions>? databaseOptions = null)
     : ITenantOrganizationUnitDirectory,
       IIdentityOrganizationUnitDirectory
 {
+    public async Task<bool> AreActiveUnitsAsync(IReadOnlyCollection<TenantOrganizationMembershipTarget> targets,
+        CancellationToken cancellationToken = default)
+    {
+        if (targets.Count > 100) throw new ArgumentOutOfRangeException(nameof(targets));
+        var ids = targets.Distinct().ToArray();
+        if (ids.Length == 0) return true;
+        var count = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? OrganizationMembershipSql.CountActiveTargetUnitsMySql : OrganizationMembershipSql.CountActiveTargetUnitsSqlServer,
+            OrganizationSqlParameters.Create(("Targets", JsonSerializer.Serialize(ids,
+                OrganizationJsonSerializerContext.Default.TenantOrganizationMembershipTargetArray))), cancellationToken).ConfigureAwait(false);
+        return count == ids.Length;
+    }
+
     async Task<TenantOrganizationUnitDirectoryEntry?>
         ITenantOrganizationUnitDirectory.FindActiveUnitAsync(
         Guid tenantId,

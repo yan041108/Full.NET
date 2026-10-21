@@ -129,7 +129,7 @@ internal sealed class HostAuditLogExportService(
             exportRows,
             plan,
             includeSensitive,
-            total);
+            total, cancellationToken);
     }
 
     private async Task<Result<AuditLogExportFileResult>> ExportOperationRowsAsync(
@@ -153,7 +153,7 @@ internal sealed class HostAuditLogExportService(
             exportRows,
             plan,
             includeSensitive,
-            total);
+            total, cancellationToken);
     }
 
     private async Task<Result<AuditLogExportFileResult>> ExportExceptionRowsAsync(
@@ -177,7 +177,7 @@ internal sealed class HostAuditLogExportService(
             exportRows,
             plan,
             includeSensitive,
-            total);
+            total, cancellationToken);
     }
 
     private static Result<AuditLogExportFileResult> BuildResult(
@@ -186,10 +186,11 @@ internal sealed class HostAuditLogExportService(
         IEnumerable<IReadOnlyList<string>> rows,
         AuditLogExportPlan plan,
         bool includeSensitive,
-        long total)
+        long total, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var rowList = rows.ToArray();
-        var fileBytes = AuditLogWorkbookCodec.Export(fileStem, headers, rowList);
+        var fileBytes = AuditLogWorkbookCodec.Export(fileStem, headers, rowList, cancellationToken);
         var metadata = new AuditLogExportMetadataResponse(
             rowList.Length,
             total > rowList.Length,

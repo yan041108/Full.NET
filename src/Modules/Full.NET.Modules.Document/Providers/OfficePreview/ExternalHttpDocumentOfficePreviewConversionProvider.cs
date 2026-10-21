@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Net.Http.Headers;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Document.Configuration;
@@ -30,8 +31,17 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
 
         using var client = httpClientFactory.CreateClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
         client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600)));
+        cancellationToken = deadline.Token;
+        var inputPath = Path.Combine(workingDirectory, $"http-input-{Guid.NewGuid():N}.bin");
+        await using var input = new FileStream(inputPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
+            16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        await OfficePreviewInputBudget.CopyAsync(request.SourceContent, input,
+            Math.Min(options.CurrentValue.MaxInputBytes, options.CurrentValue.MaxTemporaryBytes), cancellationToken).ConfigureAwait(false);
+        input.Position = 0;
         using var form = new MultipartFormDataContent();
-        var streamContent = new StreamContent(request.SourceContent);
+        var streamContent = new StreamContent(input);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(request.SourceMimeType);
         form.Add(streamContent, "file", request.SourceFileName);
 
@@ -55,18 +65,21 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
                     ErrorType.BusinessRule));
         }
 
-        var pdfStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        if (pdfStream.CanSeek)
+        // 转存到本次任务目录，不能返回随 response 释放的网络流，也不能把整个 PDF 堆积到内存。
+        var path = Path.Combine(workingDirectory, $"http-preview-{Guid.NewGuid():N}.pdf");
+        var output = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
+            16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        try
         {
-            return Result<DocumentOfficePreviewConversionOutput>.Success(
-                new DocumentOfficePreviewConversionOutput(pdfStream, pdfStream.Length));
+            var length = await BoundedHttpContent.CopyToAsync(response.Content, output,
+                Math.Min(options.CurrentValue.MaxOutputBytes, options.CurrentValue.MaxTemporaryBytes - input.Length), cancellationToken).ConfigureAwait(false);
+            output.Position = 0;
+            return Result<DocumentOfficePreviewConversionOutput>.Success(new(output, length));
         }
-
-        var memory = new MemoryStream();
-        await pdfStream.CopyToAsync(memory, cancellationToken).ConfigureAwait(false);
-        await pdfStream.DisposeAsync().ConfigureAwait(false);
-        memory.Position = 0;
-        return Result<DocumentOfficePreviewConversionOutput>.Success(
-            new DocumentOfficePreviewConversionOutput(memory, memory.Length));
+        catch
+        {
+            await output.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 }

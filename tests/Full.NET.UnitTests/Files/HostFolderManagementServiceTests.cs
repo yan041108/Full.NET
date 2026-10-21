@@ -51,7 +51,7 @@ public sealed class HostFolderManagementServiceTests
         var service = new HostFolderManagementService(
             commandExecutor,
             queryExecutor,
-            new HostFolderQueryService(queryExecutor),
+            new HostFolderQueryService(queryExecutor, Microsoft.Extensions.Options.Options.Create(new DatabaseOptions())),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>());
 
@@ -88,7 +88,7 @@ public sealed class HostFolderManagementServiceTests
         var service = new HostFolderManagementService(
             Substitute.For<ICommandExecutor>(),
             queryExecutor,
-            new HostFolderQueryService(queryExecutor),
+            new HostFolderQueryService(queryExecutor, Microsoft.Extensions.Options.Options.Create(new DatabaseOptions())),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>());
 
@@ -101,4 +101,18 @@ public sealed class HostFolderManagementServiceTests
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(FilesErrorCodes.RevisionConflict, result.Error!.Code);
     }
+    [TestMethod]
+    public async Task Create_rejects_parent_at_maximum_depth_without_writing()
+    {
+        var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<int>(HostFolderSql.AncestorDepthSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(HostFolderQueryService.MaximumDepth);
+        var commands = Substitute.For<ICommandExecutor>();
+        var folders = new HostFolderQueryService(queries, Microsoft.Extensions.Options.Options.Create(new DatabaseOptions()));
+        var service = new HostFolderManagementService(commands, queries, folders, Substitute.For<IClock>(), Substitute.For<IIdGenerator>());
+        var result = await service.CreateAsync(Guid.NewGuid(), new CreateHostFolderRequest(Guid.NewGuid(), "too-deep"), CancellationToken.None);
+        Assert.IsFalse(result.IsSuccess);
+        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+    }
+
 }

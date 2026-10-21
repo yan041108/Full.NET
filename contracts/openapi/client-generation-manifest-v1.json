@@ -3753,6 +3753,12 @@
       "apiModule": "ui/admin/src/api/ai-prompts.ts",
       "generatedGroup": "ai-prompts",
       "status": "generated"
+    },
+    {
+      "operationId": "auditingQueryLogTimeline",
+      "apiModule": "ui/admin/src/api/log-timeline.ts",
+      "generatedGroup": "auditing",
+      "status": "generated"
     }
   ]
 }

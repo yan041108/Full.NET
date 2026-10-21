@@ -93,26 +93,35 @@ provide(
 );
 const nodeConfig = ref<WorkflowVue3Node>(cloneWorkflowTree(props.modelValue));
 let syncingExternalModel = true;
+let lastEmittedModel: WorkflowVue3Node | undefined;
+let lastSemanticJson = serializeComparableWorkflowTree(nodeConfig.value);
 store.setFlowNodeConfig(nodeConfig.value);
 void nextTick(() => {
   syncingExternalModel = false;
 });
 
 watch(() => props.modelValue, value => {
+  // v-model 原样回送刚发出的对象，不再克隆整树并重建所有递归节点的依赖。
+  if (value === lastEmittedModel) return;
   syncingExternalModel = true;
   nodeConfig.value = cloneWorkflowTree(value);
+  lastSemanticJson = serializeComparableWorkflowTree(nodeConfig.value);
+  store.setFlowNodeConfig(nodeConfig.value);
   void nextTick(() => {
     syncingExternalModel = false;
   });
-}, { deep: true });
+});
 watch(nodeConfig, value => {
   store.setFlowNodeConfig(value);
 
   // 复制设计器挂载时会补充校验状态等内部字段；外部模型同步期间不得把这些
   // 内部变更反向上抛，否则深度监听会在父子组件之间形成无穷回写闭环。
-  if (syncingExternalModel
-    || serializeComparableWorkflowTree(value) === serializeComparableWorkflowTree(props.modelValue)) return;
-  emit('update:modelValue', cloneWorkflowTree(value));
+  if (syncingExternalModel) return;
+  const semanticJson = serializeComparableWorkflowTree(value);
+  if (semanticJson === lastSemanticJson) return;
+  lastSemanticJson = semanticJson;
+  lastEmittedModel = cloneWorkflowTree(value);
+  emit('update:modelValue', lastEmittedModel);
 }, { deep: true });
 
 watch(() => store.copyerDrawer, visible => {

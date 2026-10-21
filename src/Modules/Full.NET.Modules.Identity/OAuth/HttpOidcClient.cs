@@ -15,6 +15,26 @@ internal sealed partial class HttpOidcClient : IOidcClient
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
+    private static readonly object ConfigurationGate = new();
+    private static readonly Dictionary<string, (ConfigurationManager<OpenIdConnectConfiguration> Manager, DateTimeOffset Created)> Configurations = new(StringComparer.Ordinal);
+
+    private static ConfigurationManager<OpenIdConnectConfiguration> GetConfigurationManager(string authority)
+    {
+        var address = $"{NormalizeAuthority(authority)}/.well-known/openid-configuration";
+        lock (ConfigurationGate)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (Configurations.TryGetValue(address, out var cached) && now - cached.Created < TimeSpan.FromHours(24))
+                return cached.Manager;
+            // 配置管理器内部合并发现/JWKS刷新；固定驻留预算，防止历史提供方无限累积。
+            if (Configurations.Count >= 64) Configurations.Remove(Configurations.MinBy(entry => entry.Value.Created).Key);
+            var manager = new ConfigurationManager<OpenIdConnectConfiguration>(address,
+                new OpenIdConnectConfigurationRetriever(), HttpClient);
+            Configurations[address] = (manager, now);
+            return manager;
+        }
+    }
+
     /// <summary>读取发现文档并验证提供程序地址边界。</summary>
     /// <param name="authority">受信任的身份提供程序基地址。</param>
     /// <param name="cancellationToken">取消当前操作的令牌。</param>
@@ -131,10 +151,7 @@ internal sealed partial class HttpOidcClient : IOidcClient
         string expectedNonce,
         CancellationToken cancellationToken)
     {
-        var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-            $"{NormalizeAuthority(discovery.Issuer)}/.well-known/openid-configuration",
-            new OpenIdConnectConfigurationRetriever(),
-            HttpClient);
+        var configurationManager = GetConfigurationManager(discovery.Issuer);
         var configuration = await configurationManager
             .GetConfigurationAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -154,6 +171,7 @@ internal sealed partial class HttpOidcClient : IOidcClient
             .ConfigureAwait(false);
         if (!result.IsValid || result.ClaimsIdentity is null)
         {
+            if (result.Exception is SecurityTokenSignatureKeyNotFoundException) configurationManager.RequestRefresh();
             throw new SecurityTokenException(result.Exception?.Message ?? "ID token validation failed.");
         }
 

@@ -7,8 +7,11 @@ using MQTTnet.Protocol;
 namespace Full.NET.Modules.Mqtt.Infrastructure;
 
 /// <summary>基于 MQTTnet 的受控发布适配器；Broker 未启用时不建立连接。</summary>
-internal sealed class MqttBrokerPublisher(IOptions<MqttBrokerOptions> options)
+internal sealed class MqttBrokerPublisher(IOptions<MqttBrokerOptions> options) : IDisposable
 {
+    private readonly IMqttClient _client = new MqttFactory().CreateMqttClient();
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
+
     /// <summary>向 Broker 发布单条消息。</summary>
     /// <param name="topic">目标主题。</param>
     /// <param name="payload">UTF-8 文本载荷。</param>
@@ -27,8 +30,10 @@ internal sealed class MqttBrokerPublisher(IOptions<MqttBrokerOptions> options)
             return (false, "MQTT broker publishing is disabled.");
         }
 
-        var factory = new MqttFactory();
-        using var client = factory.CreateMqttClient();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(30));
+        cancellationToken = deadline.Token;
+        var client = _client;
         var builder = new MqttClientOptionsBuilder()
             .WithTcpServer(broker.Host, broker.Port);
         if (broker.UseTls)
@@ -41,8 +46,14 @@ internal sealed class MqttBrokerPublisher(IOptions<MqttBrokerOptions> options)
             builder = builder.WithCredentials(broker.Username, broker.Password);
         }
 
-        await client.ConnectAsync(builder.Build(), cancellationToken).ConfigureAwait(false);
+        // 只在建连/重连时互斥，发布仍由 MQTTnet 的并发安全发送队列管理。
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
+        {
+            if (!client.IsConnected)
+                await client.ConnectAsync(builder.Build(), cancellationToken).ConfigureAwait(false);
+        }
+        finally { _connectionGate.Release(); }
         {
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
@@ -58,13 +69,12 @@ internal sealed class MqttBrokerPublisher(IOptions<MqttBrokerOptions> options)
 
             return (false, $"MQTT publish rejected: {result.ReasonCode}.");
         }
-        finally
-        {
-            if (client.IsConnected)
-            {
-                await client.DisconnectAsync(cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
+    }
+
+    /// <summary>宿主释放单例时关闭连接，不逐消息重建 Broker 会话。</summary>
+    public void Dispose()
+    {
+        _client.Dispose();
+        _connectionGate.Dispose();
     }
 }

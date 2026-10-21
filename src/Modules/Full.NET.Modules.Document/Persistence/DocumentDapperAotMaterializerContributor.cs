@@ -190,7 +190,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         StatusKey = ReadString(reader, "StatusKey"),
         ProviderKey = ReadString(reader, "ProviderKey"),
         ErrorCode = ReadNullableString(reader, "ErrorCode"),
-        RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
+        RequestedByUserId = ReadNullableGuid(reader, "RequestedByUserId"),
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
         StartedAtUtc = ReadNullableDateTimeOffset(reader, "StartedAtUtc"),
         CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),

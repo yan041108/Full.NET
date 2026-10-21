@@ -20,6 +20,7 @@ internal static class Endpoint
             Guid dictTypeId,
             int? page,
             int? pageSize,
+            string? label, string? value, string? status,
             HostDictItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -29,7 +30,7 @@ internal static class Endpoint
                     dictTypeId,
                     page ?? 1,
                     pageSize ?? 20,
-                    cancellationToken)
+                    cancellationToken, new HostDictItemListFilter(label, value, status))
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

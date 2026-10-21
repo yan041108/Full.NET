@@ -186,16 +186,13 @@ internal sealed class IdentityOidcSessionService(
             return sessionIds;
         }
 
-        var revokedSessionIds = new List<Guid>(sessionIds.Count);
-        foreach (var sessionId in sessionIds)
-        {
-            if (await RevokeApplicationSessionAsync(sessionId, cancellationToken).ConfigureAwait(false))
-            {
-                revokedSessionIds.Add(sessionId);
-            }
-        }
-
-        return revokedSessionIds;
+        var now = clock.UtcNow;
+        foreach (var batch in sessionIds.Chunk(500))
+            await commandExecutor.ExecuteAsync(IdentityOidcSessionSql.RevokeApplicationSessionBatch,
+                IdentitySqlParameters.Create(("SessionIds", batch), ("RevokedAtUtc", now), ("UpdatedAtUtc", now)),
+                cancellationToken).ConfigureAwait(false);
+        // 同时被其他请求撤销的会话也可收到重复提示；权威状态仍由数据库单调决定。
+        return sessionIds;
     }
 
     public async Task<int> RevokeAllApplicationSessionsByUserAsync(

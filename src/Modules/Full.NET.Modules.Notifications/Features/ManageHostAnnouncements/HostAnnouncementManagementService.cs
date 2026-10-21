@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Notifications.Serialization;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -21,26 +24,41 @@ internal sealed class HostAnnouncementManagementService(
     NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     IIdGenerator idGenerator,
-    ILogger<HostAnnouncementManagementService> logger)
+    ILogger<HostAnnouncementManagementService> logger,
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
     /// <summary>创建一条处于草稿状态的 Host 公告。</summary>
-    public Task<Result<HostAnnouncementResponse>> CreateAsync(
-        Guid actorUserId,
-        CreateHostAnnouncementRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => CreateCoreAsync(actorUserId, request, token),
-            cancellationToken);
+    public async Task<Result<HostAnnouncementResponse>> CreateAsync(
+        Guid actorUserId, CreateHostAnnouncementRequest request, CancellationToken cancellationToken = default)
+    {
+        var invalid = ValidateDraftContent(request.Title, request.Content);
+        if (invalid is not null) return invalid;
+        var audience = await audienceValidator.ValidateAsync(request.Kind, request.AudienceKind,
+            request.TargetUserIds, request.TargetOrganizations, cancellationToken).ConfigureAwait(false);
+        if (!audience.IsSuccess) return Result<HostAnnouncementResponse>.Failure(audience.Error!);
+        return await transaction.ExecuteResultAsync(
+            token => CreateCoreAsync(actorUserId, request, audience, token), cancellationToken).ConfigureAwait(false);
+    }
 
-    /// <summary>更新未发布草稿公告；使用乐观版本号做 CAS 并发控制。</summary>
-    public Task<Result<HostAnnouncementResponse>> UpdateAsync(
-        Guid actorUserId,
-        Guid announcementId,
-        UpdateHostAnnouncementRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => UpdateCoreAsync(actorUserId, announcementId, request, token),
-            cancellationToken);
+    /// <summary>事务外验证目录，事务内使用版本与草稿状态保护替换。</summary>
+    public async Task<Result<HostAnnouncementResponse>> UpdateAsync(
+        Guid actorUserId, Guid announcementId, UpdateHostAnnouncementRequest request, CancellationToken cancellationToken = default)
+    {
+        var invalid = ValidateDraftContent(request.Title, request.Content);
+        if (invalid is not null) return invalid;
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
+            AnnouncementSql.FindHostById, new Dictionary<string, object?> { ["Id"] = announcementId }, cancellationToken).ConfigureAwait(false);
+        if (existing is null) return NotFound();
+        if (existing.Version != request.Version) return ConcurrencyConflict();
+        if (existing.Status != AnnouncementStatuses.Draft) return InvalidStatus("Only draft announcements can be updated.");
+        var targets = await LoadExistingTargetsAsync(announcementId, cancellationToken).ConfigureAwait(false);
+        var audience = await audienceValidator.ValidateAsync(request.Kind ?? existing.Kind, request.AudienceKind ?? existing.AudienceKind,
+            request.TargetUserIds ?? targets.TargetUserIds, request.TargetOrganizations ?? targets.TargetOrganizations,
+            cancellationToken).ConfigureAwait(false);
+        if (!audience.IsSuccess) return Result<HostAnnouncementResponse>.Failure(audience.Error!);
+        return await transaction.ExecuteResultAsync(
+            token => UpdateCoreAsync(actorUserId, announcementId, request, audience, token), cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>发布草稿公告；已发布时幂等返回当前事实。</summary>
     public async Task<Result<HostAnnouncementResponse>> PublishAsync(
@@ -76,24 +94,13 @@ internal sealed class HostAnnouncementManagementService(
     private async Task<Result<HostAnnouncementResponse>> CreateCoreAsync(
         Guid actorUserId,
         CreateHostAnnouncementRequest request,
+        Result<HostAnnouncementAudienceState> audience,
         CancellationToken cancellationToken)
     {
         var validation = ValidateDraftContent(request.Title, request.Content);
         if (validation is not null)
         {
             return validation;
-        }
-
-        var audience = await audienceValidator.ValidateAsync(
-                request.Kind,
-                request.AudienceKind,
-                request.TargetUserIds,
-                request.TargetOrganizations,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!audience.IsSuccess)
-        {
-            return Result<HostAnnouncementResponse>.Failure(audience.Error!);
         }
 
         var now = clock.UtcNow;
@@ -128,6 +135,7 @@ internal sealed class HostAnnouncementManagementService(
         Guid actorUserId,
         Guid announcementId,
         UpdateHostAnnouncementRequest request,
+        Result<HostAnnouncementAudienceState> audience,
         CancellationToken cancellationToken)
     {
         var validation = ValidateDraftContent(request.Title, request.Content);
@@ -149,20 +157,6 @@ internal sealed class HostAnnouncementManagementService(
         if (!string.Equals(existing.Status, AnnouncementStatuses.Draft, StringComparison.Ordinal))
         {
             return InvalidStatus("Only draft announcements can be updated.");
-        }
-
-        var existingTargets = await LoadExistingTargetsAsync(announcementId, cancellationToken)
-            .ConfigureAwait(false);
-        var audience = await audienceValidator.ValidateAsync(
-                request.Kind ?? existing.Kind,
-                request.AudienceKind ?? existing.AudienceKind,
-                request.TargetUserIds ?? existingTargets.TargetUserIds,
-                request.TargetOrganizations ?? existingTargets.TargetOrganizations,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!audience.IsSuccess)
-        {
-            return Result<HostAnnouncementResponse>.Failure(audience.Error!);
         }
 
         var now = clock.UtcNow;
@@ -318,33 +312,24 @@ internal sealed class HostAnnouncementManagementService(
         HostAnnouncementAudienceState audience,
         CancellationToken cancellationToken)
     {
-        foreach (var userId in audience.TargetUserIds)
+        if (audience.TargetUserIds.Count > 0)
         {
-            await commandExecutor.ExecuteAsync(
-                    AnnouncementTargetSql.InsertUser,
-                    new Dictionary<string, object?>
-                    {
-                        ["Id"] = idGenerator.NewId(),
-                        ["AnnouncementId"] = announcementId,
-                        ["UserId"] = userId,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var rows = audience.TargetUserIds.Select(user => new AnnouncementTargetUserRecord { Id = idGenerator.NewId(), AnnouncementId = announcementId, UserId = user }).ToArray();
+            await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                    ? AnnouncementTargetSql.InsertUsersMySql : AnnouncementTargetSql.InsertUsersSqlServer,
+                new Dictionary<string, object?> { ["AnnouncementId"] = announcementId,
+                    ["Rows"] = JsonSerializer.Serialize(rows, NotificationsJsonSerializerContext.Default.AnnouncementTargetUserRecordArray) },
+                cancellationToken).ConfigureAwait(false);
         }
-
-        foreach (var organization in audience.TargetOrganizations)
+        if (audience.TargetOrganizations.Count > 0)
         {
-            await commandExecutor.ExecuteAsync(
-                    AnnouncementTargetSql.InsertOrganization,
-                    new Dictionary<string, object?>
-                    {
-                        ["Id"] = idGenerator.NewId(),
-                        ["AnnouncementId"] = announcementId,
-                        ["TenantId"] = organization.TenantId,
-                        ["OrganizationUnitId"] = organization.OrganizationUnitId,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var rows = audience.TargetOrganizations.Select(target => new AnnouncementTargetOrganizationRecord { Id = idGenerator.NewId(), AnnouncementId = announcementId,
+                TenantId = target.TenantId, OrganizationUnitId = target.OrganizationUnitId }).ToArray();
+            await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                    ? AnnouncementTargetSql.InsertOrganizationsMySql : AnnouncementTargetSql.InsertOrganizationsSqlServer,
+                new Dictionary<string, object?> { ["AnnouncementId"] = announcementId,
+                    ["Rows"] = JsonSerializer.Serialize(rows, NotificationsJsonSerializerContext.Default.AnnouncementTargetOrganizationRecordArray) },
+                cancellationToken).ConfigureAwait(false);
         }
     }
 

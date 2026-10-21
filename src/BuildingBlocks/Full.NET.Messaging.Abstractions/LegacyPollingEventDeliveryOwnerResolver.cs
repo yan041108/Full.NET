@@ -19,4 +19,15 @@ public sealed class LegacyPollingEventDeliveryOwnerResolver : IEffectiveEventDel
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
         return Task.FromResult(EventDeliveryOwner.LegacyPolling);
     }
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner>> GetDeliveryOwnersAsync(
+        IReadOnlyCollection<IntegrationEventTopicDefinition> topics, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(topics);
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner> owners = topics
+            .DistinctBy(topic => (topic.EventType, topic.SchemaVersion))
+            .ToDictionary(topic => (topic.EventType, topic.SchemaVersion), _ => EventDeliveryOwner.LegacyPolling);
+        return Task.FromResult(owners);
+    }
 }

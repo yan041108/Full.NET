@@ -10,6 +10,8 @@ internal sealed class WeChatPayPlatformCertificateResolver(WeChatNativePayClient
     // 固定条目预算和绝对有效期限制历史商户、轮换证书的驻留；失效后重新回源。
     private const int MaximumEntries = 1024;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
+    // 固定条带避免为外部可控证书序列号创建无界锁表，同键缺失只允许一次回源。
+    private readonly SemaphoreSlim[] _fetchGates = Enumerable.Range(0, 64).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
     private readonly object _sync = new();
     private readonly Dictionary<string, CachedKey> _cache = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _nextCleanupUtc;
@@ -29,6 +31,15 @@ internal sealed class WeChatPayPlatformCertificateResolver(WeChatNativePayClient
                 return cached.Pem;
         }
 
+        var gate = _fetchGates[(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(cacheKey) % (uint)_fetchGates.Length];
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            lock (_sync)
+            {
+                if (_cache.TryGetValue(cacheKey, out var current) && current.ExpiresAtUtc > clock.UtcNow)
+                    return current.Pem;
+            }
         var publicKeyPem = await weChatClient.FetchPlatformPublicKeyPemAsync(
                 merchantConfig,
                 platformSerialNo,
@@ -48,6 +59,11 @@ internal sealed class WeChatPayPlatformCertificateResolver(WeChatNativePayClient
             _cache[cacheKey] = new CachedKey(publicKeyPem, now.Add(CacheDuration));
         }
         return publicKeyPem;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private void RemoveExpired(DateTimeOffset now)

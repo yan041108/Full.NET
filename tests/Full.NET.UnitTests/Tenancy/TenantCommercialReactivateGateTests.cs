@@ -115,6 +115,8 @@ public sealed class TenantCommercialReactivateGateTests
                 Arg.Any<CancellationToken>())
             .Returns(subscriptions);
 
+        queryExecutor.QuerySingleOrDefaultAsync<long>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(subscriptions.LongCount(row => row.Status is TenantSubscriptionStatuses.Active or TenantSubscriptionStatuses.Trial or TenantSubscriptionStatuses.PastDue));
         var queries = new TenantEntitlementQueryService(queryExecutor);
         return new TenantCommercialReactivateGate(
             Options.Create(new TenancyCommercialOptions

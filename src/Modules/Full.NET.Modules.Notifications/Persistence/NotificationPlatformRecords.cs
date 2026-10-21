@@ -205,3 +205,7 @@ internal sealed record NotificationBindingVersionRecord(
     string ContentHash,
     Guid PublishedById,
     DateTimeOffset PublishedAtUtc);
+
+/// <summary>当前有界模板页的语言状态投影，不携带模板正文。</summary>
+internal sealed record NotificationTemplateKeyLocaleStateRecord(
+    string TemplateKey, Guid Id, string LocaleTag, string DefaultLocaleTag, Guid? LatestPublishedVersionId);

@@ -17,9 +17,10 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var processed = 0;
             try
             {
-                await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -30,8 +31,8 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
                 DocumentPreviewTaskHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = TimeSpan.FromSeconds(Math.Max(options.CurrentValue.PollSeconds, 5));
-            await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+            var delay = GetDelayAfterBatch(processed);
+            if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
         }
     }
 
@@ -63,6 +64,11 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
             currentTenant.Clear();
         }
     }
+    /// <summary>满批立即继续排空；空批、未满与故障后的零计数按当前配置退避。</summary>
+    internal TimeSpan GetDelayAfterBatch(int processedCount) =>
+        processedCount >= Math.Clamp(options.CurrentValue.BatchSize, 1, 50)
+            ? TimeSpan.Zero : TimeSpan.FromSeconds(Math.Max(options.CurrentValue.PollSeconds, 5));
+
 }
 
 internal static partial class DocumentPreviewTaskHostedProcessorLog

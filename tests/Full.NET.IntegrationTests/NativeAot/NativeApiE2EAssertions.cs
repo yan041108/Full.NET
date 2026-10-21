@@ -13,6 +13,7 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Organization.Contracts;
@@ -198,6 +199,45 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await NativeQuotaUsageBaselineAssertions.VerifyAsync(provider, connectionString, client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await NativeSummaryPagingAssertions.VerifyAsync(provider, connectionString, client, token, cancellationToken)
+            .ConfigureAwait(false);
+        // 显式树接口在原生产物中到达双库递归查询与非空静态物化路径。
+        using (var createRegion = AuthorizedJson(HttpMethod.Post, "/api/v1/regions/administrative-regions", token,
+            new Full.NET.Modules.Regions.Contracts.CreateAdministrativeRegionRequest(null, "987654321", "Native region", null, null, null, null, 1, null, null, null, null, 100, null)))
+        using (var createdRegion = await client.SendAsync(createRegion, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(createdRegion, HttpStatusCode.Created, "Create Native region", cancellationToken).ConfigureAwait(false);
+        }
+        using (var regionTree = Authorized(HttpMethod.Get, "/api/v1/regions/administrative-regions/tree?maxDepth=1", token))
+        using (var regionTreeResponse = await client.SendAsync(regionTree, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(regionTreeResponse, HttpStatusCode.OK, "Read Native region tree", cancellationToken).ConfigureAwait(false);
+            var nodes = await regionTreeResponse.Content.ReadFromJsonAsync<Full.NET.Modules.Regions.Contracts.AdministrativeRegionTreeNodeResponse[]>(cancellationToken).ConfigureAwait(false);
+            Assert.IsTrue(nodes!.Any(node => node.Code == "987654321"));
+        }
+        var folder = await PostAndReadAsync<CreateHostFolderRequest, HostFolderResponse>(client,
+            "/api/v1/files/host-folders", token, new CreateHostFolderRequest(null, "Native folder"), HttpStatusCode.OK, cancellationToken).ConfigureAwait(false);
+        var childFolder = await PostAndReadAsync<CreateHostFolderRequest, HostFolderResponse>(client,
+            "/api/v1/files/host-folders", token, new CreateHostFolderRequest(folder.Id, "Native child"), HttpStatusCode.OK, cancellationToken).ConfigureAwait(false);
+        // 非空投影覆盖新增布尔字段的静态物化和 JSON 源生成，不能仅凭空集合证明 AOT 闭包。
+        using (var folderRequest = Authorized(HttpMethod.Get, "/api/v1/files/host-folders/tree", token))
+        using (var folderResponse = await client.SendAsync(folderRequest, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(folderResponse, HttpStatusCode.OK, "Read Native folder roots", cancellationToken).ConfigureAwait(false);
+            var roots = await folderResponse.Content.ReadFromJsonAsync<HostFolderTreeNode[]>(cancellationToken).ConfigureAwait(false);
+            Assert.IsTrue(roots!.Single(node => node.Id == folder.Id).HasChildren);
+            Assert.IsFalse(roots!.Any(node => node.Id == childFolder.Id));
+        }
+        using (var folderRequest = Authorized(HttpMethod.Get, $"/api/v1/files/host-folders/tree?parentId={folder.Id}", token))
+        using (var folderResponse = await client.SendAsync(folderRequest, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(folderResponse, HttpStatusCode.OK, "Read Native folder children", cancellationToken).ConfigureAwait(false);
+            var children = await folderResponse.Content.ReadFromJsonAsync<HostFolderTreeNode[]>(cancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(childFolder.Id, children!.Single().Id);
+            Assert.IsFalse(children![0].HasChildren);
+        }
         await VerifyTenancyPackageFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
@@ -339,6 +379,76 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(username, user.Username);
         Assert.AreEqual(phoneNumber, user.Profile?.PhoneNumber);
         Assert.AreEqual($"{username}@example.com", user.Profile?.Email);
+
+        var memberRole = await PostAndReadAsync<CreateHostRoleRequest, HostRoleResponse>(client,
+            "/api/v1/identity/roles", accessToken, new CreateHostRoleRequest($"native-members-{suffix}", "原生成员集合"),
+            HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        var unseenUser = await PostAndReadAsync<CreateHostUserRequest, HostUserResponse>(client,
+            "/api/v1/identity/users", accessToken,
+            new CreateHostUserRequest($"native-unseen-{suffix}", "未展示原生成员", AdminPassword),
+            HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        var membersPath = $"/api/v1/identity/roles/{memberRole.Id}/members";
+        using (var membersRequest = AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/roles/{memberRole.Id}/members", accessToken,
+            new ReplaceHostRoleMembersRequest([user.Id, unseenUser.Id], memberRole.Version)))
+        using (var membersResponse = await client.SendAsync(membersRequest, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(membersResponse, HttpStatusCode.OK, "Replace Native role members", cancellationToken).ConfigureAwait(false);
+            var assignment = await membersResponse.Content.ReadFromJsonAsync<HostRoleMembersAssignmentResponse>(cancellationToken).ConfigureAwait(false);
+            CollectionAssert.AreEquivalent(new[] { user.Id, unseenUser.Id }, assignment!.UserIds.ToArray());
+        }
+        using (var candidatesRequest = Authorized(HttpMethod.Get, membersPath + $"?userIds={user.Id}&page=1&pageSize=1", accessToken))
+        using (var candidatesResponse = await client.SendAsync(candidatesRequest, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(candidatesResponse, HttpStatusCode.OK, "Read Native candidate members", cancellationToken).ConfigureAwait(false);
+            var candidates = (await candidatesResponse.Content.ReadFromJsonAsync<HostRoleMembersPageResponse>(cancellationToken).ConfigureAwait(false))!;
+            Assert.AreEqual(1L, candidates.Total);
+            Assert.AreEqual(user.Id, candidates.Items.Single().UserId);
+            var partial = new ReplaceHostRoleMembersRequest([], candidates.Version) { CandidateUserIds = [user.Id] };
+            using (var partialRequest = AuthorizedJson(HttpMethod.Put, membersPath, accessToken, partial))
+            using (var partialResponse = await client.SendAsync(partialRequest, cancellationToken).ConfigureAwait(false))
+            {
+                await AssertStatusAsync(partialResponse, HttpStatusCode.OK, "Preserve Native unseen role member", cancellationToken).ConfigureAwait(false);
+                var saved = (await partialResponse.Content.ReadFromJsonAsync<HostRoleMembersAssignmentResponse>(cancellationToken).ConfigureAwait(false))!;
+                CollectionAssert.AreEquivalent(new[] { unseenUser.Id }, saved.UserIds.ToArray());
+            }
+            using (var persistedRequest = Authorized(HttpMethod.Get, membersPath + "?page=1&pageSize=20", accessToken))
+            using (var persistedResponse = await client.SendAsync(persistedRequest, cancellationToken).ConfigureAwait(false))
+            {
+                await AssertStatusAsync(persistedResponse, HttpStatusCode.OK, "Read persisted Native role members", cancellationToken).ConfigureAwait(false);
+                var persisted = (await persistedResponse.Content.ReadFromJsonAsync<HostRoleMembersPageResponse>(cancellationToken).ConfigureAwait(false))!;
+                Assert.AreEqual(1L, persisted.Total);
+                Assert.AreEqual(unseenUser.Id, persisted.Items.Single().UserId);
+            }
+            // 显式空标记与缺省筛选不能混淆；原始数量预算必须先于标记解码。
+            foreach (var (query, expectedTotal) in new[]
+            {
+                ($"?userIds={Guid.Empty:D}", 0L),
+                ($"?userIds={unseenUser.Id:D}", 1L),
+                ($"?userIds={Guid.Empty:D}&userIds={unseenUser.Id:D}", 1L),
+            })
+            {
+                using var read = Authorized(HttpMethod.Get, membersPath + query, accessToken);
+                using var readResponse = await client.SendAsync(read, cancellationToken).ConfigureAwait(false);
+                await AssertStatusAsync(readResponse, HttpStatusCode.OK, "Read Native member candidate boundary", cancellationToken).ConfigureAwait(false);
+                var page = (await readResponse.Content.ReadFromJsonAsync<HostRoleMembersPageResponse>(cancellationToken).ConfigureAwait(false))!;
+                Assert.AreEqual(expectedTotal, page.Total);
+                if (expectedTotal == 0) Assert.IsEmpty(page.Items);
+                else Assert.AreEqual(unseenUser.Id, page.Items.Single().UserId);
+            }
+            foreach (var query in new[]
+            {
+                "?userIds=not-a-guid",
+                "?" + string.Join("&", Enumerable.Repeat($"userIds={Guid.Empty:D}", 101)),
+            })
+            {
+                using var invalid = Authorized(HttpMethod.Get, membersPath + query, accessToken);
+                using var invalidResponse = await client.SendAsync(invalid, cancellationToken).ConfigureAwait(false);
+                await AssertStatusAsync(invalidResponse, HttpStatusCode.BadRequest, "Reject Native invalid or over-budget candidates", cancellationToken).ConfigureAwait(false);
+            }
+            using var staleRequest = AuthorizedJson(HttpMethod.Put, membersPath, accessToken, partial);
+            using var staleResponse = await client.SendAsync(staleRequest, cancellationToken).ConfigureAwait(false);
+            await AssertStatusAsync(staleResponse, HttpStatusCode.Conflict, "Reject Native stale role version", cancellationToken).ConfigureAwait(false);
+        }
 
         using (var duplicateRequest = AuthorizedJson(
                    HttpMethod.Post,
@@ -1081,6 +1191,9 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         Assert.AreEqual(item.Id, share.DocumentId);
 
+        await NativeAnonymousPreviewAssertions.VerifyAsync(client, accessToken, item.Id, share.ShareCode, cancellationToken)
+            .ConfigureAwait(false);
+
         var permissionUserId = Guid.NewGuid();
         var permissions = await PostAndReadAsync<
                 SetHostDocumentPermissionsRequest,
@@ -1098,6 +1211,10 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(item.Id, permissions[0].DocumentId);
         Assert.AreEqual(permissionUserId, permissions[0].UserId);
         Assert.AreEqual("read", permissions[0].PermissionLevel);
+
+        using (var denied = Authorized(HttpMethod.Get, $"/api/v1/document/host/items/{item.Id:D}", accessToken))
+        using (var deniedResponse = await client.SendAsync(denied, cancellationToken).ConfigureAwait(false))
+            Assert.AreEqual(HttpStatusCode.Forbidden, deniedResponse.StatusCode);
 
         using (var statisticsRequest = Authorized(
                    HttpMethod.Get,
@@ -1117,9 +1234,9 @@ internal static class NativeApiE2EAssertions
                 .ReadFromJsonAsync<HostDocumentStatisticsResponse>(cancellationToken)
                 .ConfigureAwait(false);
             Assert.IsNotNull(statistics);
-            Assert.IsTrue(statistics.Summary.TotalItems >= 1);
-            Assert.IsTrue(statistics.ByCategory.Any(entry => entry.Count >= 1));
-            Assert.IsTrue(statistics.ShareCount >= 1);
+            Assert.AreEqual(0, statistics.Summary.TotalItems);
+            Assert.HasCount(0, statistics.ByCategory);
+            Assert.AreEqual(0, statistics.ShareCount);
         }
 
         foreach (var path in new[]

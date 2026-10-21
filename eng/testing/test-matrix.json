@@ -4,9 +4,13 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 8556,
+      "minimum": 8607,
       "timeout": "10m",
       "selections": {
+        "project-review-remediation": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Document.|FullyQualifiedName~Full.NET.UnitTests.Payments.|FullyQualifiedName~Full.NET.UnitTests.Webhooks.|FullyQualifiedName~DataProtection",
+          "minimum": 90
+        },
         "logging-remediation": {
           "filter": "FullyQualifiedName~AuditingWritePathTests|FullyQualifiedName~DataCommandExceptionMapperTests|FullyQualifiedName~FullNetAsyncLogMonitorTests|FullyQualifiedName~HighPriorityLoggingTests|FullyQualifiedName~KafkaLogDeliveryLaneTests|FullyQualifiedName~ServiceDefaultsMetricsTests",
           "minimum": 130
@@ -33,7 +37,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 5104
+          "minimum": 5105
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison|FullyQualifiedName~RagFeedbackAdmission|FullyQualifiedName~RagRetrievalExecution",
@@ -90,6 +94,10 @@
         "ai-incremental-auto-recovery": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.AiKnowledgeIncrementalRecoveryWorkerTests",
           "minimum": 24
+        },
+        "performance-followup": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Files.|FullyQualifiedName~HostRoleMembersServiceTests|FullyQualifiedName~DocumentVersionRetentionBudgetTests|FullyQualifiedName~ImportExportTaskRecoveryTests|FullyQualifiedName~ReportingExportTaskRecoveryTests|FullyQualifiedName~NotificationDeliveryLeaseTests",
+          "minimum": 141
         }
       }
     },
@@ -713,6 +721,18 @@
       },
       "098": {
         "filter": "FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.MySql_|FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.SqlServer_"
+      },
+      "273": {
+        "filter": "FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.MySql_|FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.SqlServer_"
+      },
+      "274": {
+        "filter": "FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.MySql_|FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.SqlServer_"
+      },
+      "275": {
+        "filter": "FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.MySql_|FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.SqlServer_"
+        },
+        "276": {
+          "filter": "FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.MySql_|FullyQualifiedName~Migration273PerformanceBatchRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -730,22 +750,22 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 202,
+        "minimum": 204,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 202,
+        "minimum": 204,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 560,
+        "minimum": 562,
         "timeout": "120m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests",
-        "minimum": 288,
+        "minimum": 294,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -773,7 +793,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1332,
+        "minimum": 1344,
         "timeout": "90m"
       },
       "logging-metrics": {

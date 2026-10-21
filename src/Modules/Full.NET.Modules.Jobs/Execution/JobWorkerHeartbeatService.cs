@@ -15,6 +15,7 @@ internal sealed class JobWorkerHeartbeatService(
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<JobsWorkerOptions> workerOptions)
 {
+    private long _nextCleanupTicks;
     private readonly Guid _instanceId = Guid.CreateVersion7();
     private readonly DateTimeOffset _startedAtUtc = clock.UtcNow.ToUniversalTime();
 
@@ -50,6 +51,14 @@ internal sealed class JobWorkerHeartbeatService(
                     ),
                     cancellationToken)
                 .ConfigureAwait(false);
+            var next = Interlocked.Read(ref _nextCleanupTicks);
+            if (now.UtcTicks >= next && Interlocked.CompareExchange(ref _nextCleanupTicks, now.AddMinutes(1).UtcTicks, next) == next)
+            {
+                // 心跳可随进程重启产生新 Id；历史实例仅保留一天，每轮清理一小批。
+                await commandExecutor.ExecuteAsync(databaseOptions.Value.Provider == DatabaseProvider.MySql
+                        ? JobSql.DeleteExpiredWorkerInstancesMySql : JobSql.DeleteExpiredWorkerInstances,
+                    JobsSqlParameters.Create(("CutoffUtc", now.AddHours(-24))), cancellationToken).ConfigureAwait(false);
+            }
         }
         finally
         {

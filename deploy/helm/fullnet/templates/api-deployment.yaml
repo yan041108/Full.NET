@@ -65,6 +65,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.realtime.redisSecretName }}
                   key: {{ .Values.realtime.redisSecretKey }}
+            - name: DataProtection__CertificatePath
+              value: /var/fullnet/data-protection-certificate/active.pfx
+            - name: DataProtection__CertificatePassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProtection.certificateSecretName }}
+                  key: {{ .Values.dataProtection.certificatePasswordSecretKey }}
             - name: DataProtection__KeyRingPath
               value: /var/fullnet/data-protection-keys
 {{- if .Values.api.kafkaReplay.enabled }}
@@ -101,6 +108,9 @@ spec:
           volumeMounts:
 {{- include "fullnet.loggingKafkaCaMount" . | nindent 12 }}
 {{- include "fullnet.loggingLocalFileMount" . | nindent 12 }}
+            - name: data-protection-certificate
+              mountPath: /var/fullnet/data-protection-certificate
+              readOnly: true
             - name: data-protection
               mountPath: /var/fullnet/data-protection-keys
             - name: tmp
@@ -138,6 +148,12 @@ spec:
 {{- include "fullnet.loggingLocalFileVolume" . | nindent 8 }}
         - name: tmp
           emptyDir: {}
+        - name: data-protection-certificate
+          secret:
+            secretName: {{ .Values.dataProtection.certificateSecretName }}
+            items:
+              - key: {{ .Values.dataProtection.certificateSecretKey }}
+                path: active.pfx
         - name: data-protection
           persistentVolumeClaim:
             claimName: {{ if .Values.dataProtection.existingClaimName }}{{ .Values.dataProtection.existingClaimName }}{{ else }}{{ include "fullnet.fullname" . }}-data-protection{{ end }}

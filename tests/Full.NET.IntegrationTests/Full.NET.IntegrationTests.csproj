@@ -53,4 +53,7 @@
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+  </ItemGroup>
 </Project>

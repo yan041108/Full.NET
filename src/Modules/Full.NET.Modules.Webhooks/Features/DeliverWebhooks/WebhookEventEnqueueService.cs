@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
@@ -14,7 +15,7 @@ internal sealed class WebhookEventEnqueueService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task EnqueueAsync(
         Guid tenantId,
@@ -23,8 +24,8 @@ internal sealed class WebhookEventEnqueueService(
         WebhookEventEnvelope payload,
         CancellationToken cancellationToken = default)
     {
-        var subscriptions = await queryExecutor.QueryAsync<WebhookSubscriptionDeliveryRecord>(
-                WebhookDeliverySql.ListActiveSubscriptionsByEventType,
+        var subscriptions = await queryExecutor.QueryAsync<Guid>(
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? WebhookDeliverySql.ListTargetIdsMySql : WebhookDeliverySql.ListTargetIdsSqlServer,
                 WebhookSqlParameters.Create(
                     ("TenantId", tenantId),
                     ("EventType", eventType)),
@@ -35,37 +36,20 @@ internal sealed class WebhookEventEnqueueService(
             return;
         }
 
+        if (subscriptions.Count > 500)
+            throw new InvalidOperationException("Webhook fanout exceeds the 500-target budget; subscription configuration must be corrected.");
+
         var payloadBody = JsonSerializer.Serialize(payload, WebhookPayloadJsonSerializerContext.Default.WebhookEventEnvelope);
         var payloadDigest = Delivery.WebhookSignatureHelper.ComputePayloadDigest(payloadBody);
         var now = clock.UtcNow;
-        foreach (var subscription in subscriptions)
-        {
-            var deliveryId = idGenerator.NewId();
-            try
-            {
-                await commandExecutor.ExecuteAsync(
-                        WebhookDeliverySql.InsertDelivery,
-                        WebhookSqlParameters.Create(
-                            ("Id", deliveryId),
-                            ("SubscriptionId", subscription.Id),
-                            ("EventId", eventId),
-                            ("PayloadBody", payloadBody),
-                            ("PayloadDigest", payloadDigest),
-                            ("Status", WebhookDeliveryStatuses.Pending),
-                            ("NextAttemptAtUtc", now),
-                            ("CreatedAtUtc", now),
-                            ("UpdatedAtUtc", now)),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception exception) when (IsDuplicateDelivery(exception))
-            {
-                // Outbox 重试时同一 SubscriptionId + EventId 可能重复入队，保持幂等。
-            }
-        }
+        var rows = subscriptions.Select(subscriptionId => new WebhookDeliveryInsertRow(idGenerator.NewId(), subscriptionId)).ToArray();
+        await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? WebhookDeliverySql.InsertDeliveryBatchMySql : WebhookDeliverySql.InsertDeliveryBatchSqlServer,
+            WebhookSqlParameters.Create(("Rows", JsonSerializer.Serialize(rows,
+                    WebhooksJsonSerializerContext.Default.WebhookDeliveryInsertRowArray)),
+                ("EventId", eventId), ("PayloadBody", payloadBody), ("PayloadDigest", payloadDigest),
+                ("Status", WebhookDeliveryStatuses.Pending), ("NowUtc", now)), cancellationToken).ConfigureAwait(false);
     }
-
-    private static bool IsDuplicateDelivery(Exception exception) =>
-        exception.Message.Contains("UX_fn_webhooks_delivery_EventSubscription", StringComparison.OrdinalIgnoreCase)
-        || exception.Message.Contains("Duplicate entry", StringComparison.OrdinalIgnoreCase);
 }
+/// <summary>应用生成的投递标识和订阅标识；事件正文在批量参数中只传一次。</summary>
+internal sealed record WebhookDeliveryInsertRow(Guid Id, Guid SubscriptionId);

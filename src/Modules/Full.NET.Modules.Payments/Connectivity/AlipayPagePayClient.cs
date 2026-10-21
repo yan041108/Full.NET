@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
@@ -106,8 +107,8 @@ internal sealed partial class AlipayPagePayClient(
         var requestUrl = BuildSignedGatewayUrl(merchantConfig, parameters);
 
         var client = httpClientFactory.CreateClient(HttpClientName);
-        using var response = await client.GetAsync(requestUrl, cancellationToken).ConfigureAwait(false);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using var response = await client.GetAsync(requestUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        var responseBody = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             return AlipayTradeQueryResult.Failure(

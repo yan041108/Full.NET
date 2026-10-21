@@ -65,7 +65,7 @@ public sealed class FullNetModuleCatalogTests
     }
 
     [TestMethod]
-    public void Identity_background_registration_is_idempotent_and_keeps_one_official_topic()
+    public void Identity_background_registration_is_idempotent_and_keeps_projection_topics()
     {
         var services = CreateServices();
         IdentityModule.RegisterOrganizationUnitChangedTopic(services);
@@ -73,8 +73,9 @@ public sealed class FullNetModuleCatalogTests
 
         using var provider = services.BuildServiceProvider();
         var topics = provider.GetServices<IntegrationEventTopicDefinition>().ToArray();
-        Assert.HasCount(1, topics);
-        Assert.AreEqual("organization.unit-changed.v1", topics[0].TopicCode);
+        CollectionAssert.AreEquivalent(
+            new[] { "organization.unit-changed.v1", "organization.user-unit-changed.v1" },
+            topics.Select(topic => topic.TopicCode).ToArray());
     }
 
     [TestMethod]

@@ -2004,6 +2004,22 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>使用一个参数批量替换角色机构集合，避免逐项往返。</summary>
+    public static readonly SqlStatement InsertRoleDataScopeUnitsSqlServer = new(
+        "identity.insert_role_data_scope_units.sql_server",
+        """
+        INSERT INTO fn_identity_role_data_scope_unit (RoleId, UnitId)
+        SELECT @RoleId, CONVERT(uniqueidentifier, value) FROM OPENJSON(@UnitIdsJson)
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertRoleDataScopeUnitsMySql = new(
+        "identity.insert_role_data_scope_units.mysql",
+        """
+        INSERT INTO fn_identity_role_data_scope_unit (RoleId, UnitId)
+        SELECT @RoleId, UNHEX(REPLACE(ids.UnitId, '-', ''))
+        FROM JSON_TABLE(@UnitIdsJson, '$[*]' COLUMNS (UnitId CHAR(36) PATH '$')) AS ids
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement InsertRoleDataScopeUnit = new(
         "identity.insert_role_data_scope_unit",
         """
@@ -2075,6 +2091,17 @@ internal static class IdentitySql
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountHostRolesFiltered = new(
+        "identity.counthostroles.filtered",
+        CountHostRoles.Text + " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) AND (@RoleType IS NULL OR (@RoleType = 'system' AND IsSystem = 1) OR (@RoleType = 'custom' AND IsSystem = 0))", CountHostRoles.Scope, CountHostRoles.TenantBinding);
+    public static readonly SqlStatement ListHostRolesSqlServerFiltered = new(
+        "identity.listhostrolessqlserver.filtered",
+        ListHostRolesSqlServer.Text.Replace("ORDER BY", " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) AND (@RoleType IS NULL OR (@RoleType = 'system' AND IsSystem = 1) OR (@RoleType = 'custom' AND IsSystem = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostRolesSqlServer.Scope, ListHostRolesSqlServer.TenantBinding);
+    public static readonly SqlStatement ListHostRolesMySqlFiltered = new(
+        "identity.listhostrolesmysql.filtered",
+        ListHostRolesMySql.Text.Replace("ORDER BY", " AND (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) AND (@RoleType IS NULL OR (@RoleType = 'system' AND IsSystem = 1) OR (@RoleType = 'custom' AND IsSystem = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostRolesMySql.Scope, ListHostRolesMySql.TenantBinding);
 }
 
 internal sealed record ConsumeRefreshSessionUpdate(

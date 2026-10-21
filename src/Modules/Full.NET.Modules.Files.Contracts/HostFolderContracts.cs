@@ -19,14 +19,14 @@ public static class HostFolderPermissions
 /// <param name="Name">同级唯一目录名。</param>
 /// <param name="DisplayOrder">同级排序值。</param>
 /// <param name="Revision">乐观并发修订号。</param>
-/// <param name="Children">子目录树。</param>
+/// <param name="HasChildren">是否存在直接子目录，客户端按需展开。</param>
 public sealed record HostFolderTreeNode(
     Guid Id,
     Guid? ParentId,
     string Name,
     int DisplayOrder,
     long Revision,
-    IReadOnlyList<HostFolderTreeNode> Children);
+    bool HasChildren);
 
 /// <remarks>
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。

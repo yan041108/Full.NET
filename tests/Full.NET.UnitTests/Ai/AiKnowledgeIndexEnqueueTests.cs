@@ -196,11 +196,13 @@ public sealed partial class AiKnowledgeIndexEnqueueTests
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(Task, Guid.CreateVersion7());
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             var authorization = Substitute.For<IBackgroundSessionAuthorization>();
-            authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>
+            authorization.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(async call =>
             {
-                Assert.IsFalse(State.HasTransaction); var count = ++authorizations;
-                if (AtAuthorization is not null) await AtAuthorization(count);
-                return call.ArgAt<string>(1) == Denied ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
+                Assert.IsFalse(State.HasTransaction); foreach (var permission in call.ArgAt<IReadOnlyCollection<string>>(1)) {
+                    var count = ++authorizations;
+                    if (AtAuthorization is not null) await AtAuthorization(count);
+                }
+                return call.ArgAt<IReadOnlyCollection<string>>(1).Contains(Denied!) ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
             });
             var command = Substitute.For<ICommandExecutor>();
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>

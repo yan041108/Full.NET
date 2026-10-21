@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Full.NET.AI.Abstractions.Tools;
 using Full.NET.AgenticWeb.Mcp.Client;
@@ -56,6 +57,15 @@ internal static class McpClientInteropAssertions
     {
         await factory.InitializeAsync();
         McpLoopbackHttpClientTestSupport.Bind(factory);
+        // 夹具初始化只启动宿主；先通过真实 HTTP readiness 完成路由装配，再测业务调用的固定预算。
+        // 不预连 MCP、不缓存授权或目录，协议协商与执行时 schema 检查仍由本次调用完成。
+        using (var readyClient = factory.CreateClientForHost("localhost"))
+        {
+            var startup = Stopwatch.GetTimestamp();
+            using var ready = await readyClient.GetAsync("/health/ready");
+            Assert.AreEqual(System.Net.HttpStatusCode.OK, ready.StatusCode, await ready.Content.ReadAsStringAsync());
+            Console.WriteLine($"MCP fixture HTTP readiness elapsedMs={Stopwatch.GetElapsedTime(startup).TotalMilliseconds:F0}");
+        }
         // 两库宿主的可信开关必须在创建出站传输前拒绝公网；合法工具继续沿原授权链执行。
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -71,11 +81,13 @@ internal static class McpClientInteropAssertions
 
         var localName = McpRemoteCapabilityPolicy.BuildLocalToolName("loopback", "ai.tools.ping");
         using var empty = JsonDocument.Parse("{}");
+        var started = Stopwatch.GetTimestamp();
         var result = await AiToolExecutionAssertions.ExecuteAsync(
             factory,
             serviceIdentity.AccessToken,
             new ToolInvocation(Guid.CreateVersion7(), null, localName, 1, empty.RootElement));
-        Assert.AreEqual("succeeded", result.StatusKey);
+        Assert.AreEqual("succeeded", result.StatusKey,
+            $"ErrorCode={result.ErrorCode}; executionElapsedMs={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0}");
         Assert.IsTrue(result.Value!.Value.GetProperty("ok").GetBoolean());
     }
 

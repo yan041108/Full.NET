@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Printing.Contracts;
@@ -16,17 +17,17 @@ internal static class Endpoint
             .WithTags("PrintingTemplates");
 
         group.MapGet("/", async (
-            string? nameContains,
+            string? nameContains, int? page, int? pageSize,
             PrintingTemplateQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(nameContains, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListAsync(nameContains, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("printingListTemplates")
-        .Produces<IReadOnlyList<PrintingTemplateResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<PrintingTemplateSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(PrintingTemplatePermissions.Read));
 
         group.MapGet("/{templateId:guid}", async (
@@ -100,17 +101,17 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(PrintingTemplatePermissions.Publish));
 
         group.MapGet("/{templateId:guid}/versions", async (
-            Guid templateId,
+            Guid templateId, int? page, int? pageSize,
             PrintingTemplateQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListVersionsAsync(templateId, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListVersionsAsync(templateId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("printingListTemplateVersions")
-        .Produces<IReadOnlyList<PrintingTemplateVersionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<PrintingTemplateVersionSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(PrintingTemplatePermissions.Read));
 
         group.MapGet("/{templateId:guid}/versions/{versionNumber:int}", async (

@@ -18,6 +18,12 @@ public sealed class DocumentOfficePreviewConversionOptions
     /// <summary>允许提交转换的源文件最大字节数。</summary>
     public long MaxInputBytes { get; set; } = 52_428_800;
 
+    /// <summary>转换 PDF 的实际字节预算，HTTP 下载和本地生成均须遵守。</summary>
+    public long MaxOutputBytes { get; set; } = 52_428_800;
+
+    /// <summary>本地转换临时目录总字节预算，包含输入、输出和转换器临时文件。</summary>
+    public long MaxTemporaryBytes { get; set; } = 157_286_400;
+
     /// <summary>单次转换超时秒数。</summary>
     public int TimeoutSeconds { get; set; } = 120;
 
@@ -68,6 +74,10 @@ internal sealed class DocumentOfficePreviewConversionOptionsValidator
     {
         var failures = new List<string>();
         ValidatePositive("Document:OfficePreviewConversion:MaxInputBytes", options.MaxInputBytes, failures);
+        ValidatePositive("Document:OfficePreviewConversion:MaxOutputBytes", options.MaxOutputBytes, failures);
+        ValidatePositive("Document:OfficePreviewConversion:MaxTemporaryBytes", options.MaxTemporaryBytes, failures);
+        if (options.MaxTemporaryBytes < options.MaxInputBytes || options.MaxTemporaryBytes < options.MaxOutputBytes)
+            failures.Add("Document:OfficePreviewConversion:MaxTemporaryBytes must cover each input/output budget.");
         ValidateRange("Document:OfficePreviewConversion:TimeoutSeconds", options.TimeoutSeconds, 5, 3600, failures);
         ValidateRange("Document:OfficePreviewConversion:PollSeconds", options.PollSeconds, 5, 3600, failures);
         ValidateRange("Document:OfficePreviewConversion:BatchSize", options.BatchSize, 1, 50, failures);

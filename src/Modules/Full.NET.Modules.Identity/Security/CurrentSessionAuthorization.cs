@@ -23,8 +23,16 @@ internal sealed class CurrentSessionAuthorization(
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
 
     /// <inheritdoc />
-    public async Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default)
+    public Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default) =>
+        AuthorizeAllAsync([permissionCode], cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(permissionCodes);
+        // 在第一个等待前冻结集合，避免调用方在校验期间删除必需权限。
+        var required = permissionCodes.ToArray();
+        if (required.Length == 0 || required.Any(string.IsNullOrWhiteSpace)) return null;
         var principal = http.HttpContext?.User;
         if (principal?.Identity?.IsAuthenticated != true
             || principal.HasClaim(claim => claim.Type == FullNetIdentityClaimTypes.ApiKeyId)
@@ -40,7 +48,7 @@ internal sealed class CurrentSessionAuthorization(
         if (tenantId is { } id && await tenants.ResolveActiveByIdAsync(id, cancellationToken).ConfigureAwait(false) is null) return null;
         var snapshot = await permissions.ReadAsync(userId,
             principal.FindFirstValue(FullNetIdentityClaimTypes.ActorScope)!, tenantId, cancellationToken).ConfigureAwait(false);
-        return snapshot.Permissions.Contains(permissionCode, StringComparer.Ordinal)
+        return required.All(code => snapshot.Permissions.Contains(code, StringComparer.Ordinal))
             ? new(userId, tenantId, sessionId) : null;
     }
 

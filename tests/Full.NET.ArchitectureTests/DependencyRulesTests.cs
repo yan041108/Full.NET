@@ -67,10 +67,6 @@ public sealed class DependencyRulesTests
         const string prefix = "Full.NET.Modules.";
         var expected = Directory
             .EnumerateFiles(Path.Combine(root, "src", "Modules"), "*.csproj", SearchOption.AllDirectories)
-            .Concat(Directory.EnumerateFiles(
-                Path.Combine(root, "samples", "enterprise-request", "src"),
-                "*.csproj",
-                SearchOption.AllDirectories))
             .Select(Path.GetFileNameWithoutExtension)
             .Where(name => name is not null
                 && name.StartsWith(prefix, StringComparison.Ordinal)
@@ -1103,7 +1099,7 @@ public sealed class DependencyRulesTests
             Array.Empty<string>(),
             module.Dependencies.ToArray());
         CollectionAssert.AreEquivalent(
-            new[] { "Files", "Notifications" },
+            new[] { "Files" },
             module.OptionalContractDependencies.ToArray());
     }
 
@@ -1586,7 +1582,6 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Mqtt.MqttModule).Assembly,
         typeof(Full.NET.Modules.Cryptography.CryptographyModule).Assembly,
         typeof(Full.NET.Modules.Webhooks.WebhooksModule).Assembly,
-        typeof(Full.NET.Modules.EnterpriseRequest.EnterpriseRequestModule).Assembly,
     ];
 
     public static readonly Assembly DataDapper =

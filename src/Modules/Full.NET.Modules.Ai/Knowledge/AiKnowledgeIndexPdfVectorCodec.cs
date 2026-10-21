@@ -66,8 +66,15 @@ internal static class AiKnowledgeIndexPdfVectorCodec
     /// <remarks>不能据此改变 ready；数据库消费者仍须核对任务/操作、来源版本、可信租户和精确模型批准。</remarks>
     internal static AiKnowledgeIndexPdfVectorSnapshot ReadBatch(byte[] manifestBytes, int ordinal, byte[] bytes, CancellationToken token)
     {
+        return ReadBatch(AiKnowledgeIndexPdfVerifiedManifest.Capture(manifestBytes, token), ordinal, bytes, token);
+    }
+
+    /// <summary>同次操作复用完整清单证明；仍独立验证每批实际向量载荷和页范围。</summary>
+    internal static AiKnowledgeIndexPdfVectorSnapshot ReadBatch(
+        AiKnowledgeIndexPdfVerifiedManifest verified, int ordinal, byte[] bytes, CancellationToken token)
+    {
         token.ThrowIfCancellationRequested();
-        var manifest = AiKnowledgeIndexPdfManifestCodec.Decode(manifestBytes, token);
+        var manifest = verified.Manifest;
         if (ordinal < 0 || ordinal >= manifest.Batches.Count) throw Invalid();
         var captured = Capture(bytes, token); var payload = DecodeFrozen(captured, token); var expected = manifest.Batches[ordinal];
         if (payload.Identity != manifest.Identity || payload.PlanHash != manifest.Summary.PlanHash || payload.Ordinal != ordinal

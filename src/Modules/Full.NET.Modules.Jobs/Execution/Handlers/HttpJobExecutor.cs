@@ -99,12 +99,16 @@ internal sealed class HttpJobExecutor(
             return;
         }
 
-        var summary = await BuildFailureSummaryAsync(
-                request.Method.Method,
-                uri,
-                response,
-                cancellationToken)
-            .ConfigureAwait(false);
+        string summary;
+        try
+        {
+            summary = await BuildFailureSummaryAsync(request.Method.Method, uri, response, timeoutSource.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            summary = $"HTTP {(int)response.StatusCode}; response body deadline exceeded.";
+        }
         throw new InvalidOperationException(summary);
     }
 

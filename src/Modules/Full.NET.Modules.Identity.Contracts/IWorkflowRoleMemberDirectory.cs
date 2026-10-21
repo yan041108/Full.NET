@@ -23,12 +23,13 @@ public interface IWorkflowRoleMemberDirectory
         IReadOnlyCollection<Guid> roleIds,
         CancellationToken cancellationToken = default);
 
-    /// <summary>按角色批量解析当前可信作用域内的活动成员用户标识。</summary>
+    /// <summary>按角色批量解析有界的活动成员，调用方通过上限加一判断超限，禁止当作完整角色名册。</summary>
     /// <param name="roleIds">待解析的角色标识集合。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>
     /// <returns>以角色标识为键、去重且稳定排序后的活动用户标识列表为值。</returns>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> FindActiveMemberUserIdsByRoleIdsAsync(
         IReadOnlyCollection<Guid> roleIds,
+        int maximumMembersPerRole,
         CancellationToken cancellationToken = default);
 }
 

@@ -17,21 +17,26 @@ internal sealed class HostJobDefinitionQueryService(
     public async Task<Result<PagedResult<HostJobDefinitionResponse>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostJobDefinitionListFilter? filter = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = offset, ["PageSize"] = pageSize,
+            ["JobKey"] = SqlSearchPattern.ContainsLiteral(filter?.JobKey),
+            ["DisplayName"] = SqlSearchPattern.ContainsLiteral(filter?.DisplayName),
+            ["GroupName"] = filter?.GroupName?.Trim() is { Length: > 0 } groupName ? groupName : null,
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                JobSql.CountDefinitions,
-                cancellationToken: cancellationToken)
+                JobSql.CountDefinitionsFiltered,
+                parameters, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<JobDefinitionRecord>(
-                ResolveListStatement(),
-                JobsSqlParameters.Create(
-                    ("Offset", offset),
-                    ("PageSize", pageSize)
-                ),
+                databaseOptions.Value.Provider == DatabaseProvider.MySql ? JobSql.ListDefinitionsMySqlFiltered : JobSql.ListDefinitionsSqlServerFiltered,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<HostJobDefinitionResponse>>.Success(
@@ -104,3 +109,6 @@ internal sealed class HostJobDefinitionQueryService(
             "The job definition was not found.",
             ErrorType.NotFound));
 }
+
+/// <summary>分页列表的显式筛选条件。</summary>
+internal sealed record HostJobDefinitionListFilter(string? JobKey = null, string? DisplayName = null, string? GroupName = null, string? Status = null);

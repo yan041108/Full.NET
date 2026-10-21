@@ -5,6 +5,13 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// </summary>
 public interface ITenantActiveMemberCountPort
 {
+    /// <summary>批量读取最多 100 个租户的权威用量；没有记录的租户返回零。</summary>
+    /// <param name="tenantIds">显式租户集合。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按租户标识索引的权威用量。</returns>
+    Task<IReadOnlyDictionary<Guid, long>> CountActiveMembersByTenantsAsync(
+        IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default);
+
     /// <summary>统计租户内状态为 <see cref="TenantMemberStatuses.Active"/> 的成员数量。</summary>
     /// <param name="tenantId">目标租户标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>

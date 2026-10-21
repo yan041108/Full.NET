@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Document.Contracts;

@@ -8,7 +8,10 @@ namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 /// <summary>导入任务执行进度 JSON 文档，携带能力标记与逐行结果。</summary>
 internal sealed record ImportExportExecutionStateDocument(
     IReadOnlyDictionary<string, bool>? CapabilityFlags,
-    IReadOnlyList<StaticImportRowExecutionResult> Rows);
+    IReadOnlyList<StaticImportRowExecutionResult> Rows)
+{
+    public string? PreparedPlanJson { get; init; }
+}
 
 /// <summary>导入任务持久化记录与 API 响应映射。</summary>
 internal static class ImportExportTaskMapper

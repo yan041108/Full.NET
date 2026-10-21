@@ -169,17 +169,15 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
             scanned++;
             try
             {
-                var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(
+                var checkpoint = await GenerationRollbackCheckpointStore.ReadMetadataAsync(
                     workspaceRoot,
                     candidate.ApplyRunId,
                     cancellationToken).ConfigureAwait(false);
-                var snapshot = await GenerationWorkspaceStore.CaptureAsync(
-                    workspaceRoot,
-                    Array.Empty<GeneratedArtifact>(),
-                    cancellationToken).ConfigureAwait(false);
+                var currentManifest = await GenerationWorkspaceStore.ReadManifestOrEmptyAsync(
+                    workspaceRoot, cancellationToken).ConfigureAwait(false);
                 if (!WorkspaceMatchesPostRollbackState(
                         checkpoint,
-                        snapshot.PreviousManifest))
+                        currentManifest))
                 {
                     skipped++;
                     continue;
@@ -229,7 +227,7 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
     }
 
     private static bool WorkspaceMatchesPostRollbackState(
-        GenerationRollbackCheckpoint checkpoint,
+        GenerationRollbackCheckpointMetadata checkpoint,
         GenerationManifest? currentManifest)
     {
         var expected = checkpoint.PreviousManifest;

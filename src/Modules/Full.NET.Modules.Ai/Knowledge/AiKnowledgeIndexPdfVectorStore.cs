@@ -31,7 +31,7 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         var state = await CurrentAsync(binding, taskId, leaseToken, null, token).ConfigureAwait(false);
         if (state is null) return null;
         // CurrentAsync 已冻结原字节并验证完整清单；调用方不能缩减期望集合。
-        var manifest = AiKnowledgeIndexPdfManifestCodec.Decode(state.Manifest.Payload, token);
+        var manifest = state.Verified.Manifest;
         var before = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
         if (before is null || before.Count != manifest.Batches.Count) return null;
         var operations = new HashSet<Guid>();
@@ -85,7 +85,7 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         var state = await CurrentAsync(binding, taskId, leaseToken, null, token).ConfigureAwait(false);
         if (state is null) return false;
         AiKnowledgeIndexPdfVectorSnapshot frozen;
-        try { frozen = AiKnowledgeIndexPdfVectorCodec.ReadBatch(state.Manifest.Payload, ordinal, bytes, token); }
+        try { frozen = AiKnowledgeIndexPdfVectorCodec.ReadBatch(state.Verified, ordinal, bytes, token); }
         catch (InvalidDataException) { return false; }
         var p = Parameters(binding, state, ordinal, token);
         p["OperationId"] = operationId; p["InputCount"] = frozen.Payload.Chunks.Count;
@@ -137,7 +137,7 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
             Parameters(binding, state, ordinal, token), token).ConfigureAwait(false), state, ordinal, token);
         if (row is null) return null;
         AiKnowledgeIndexPdfVectorSnapshot snapshot;
-        try { snapshot = AiKnowledgeIndexPdfVectorCodec.ReadBatch(state.Manifest.Payload, ordinal, row.Payload, token); }
+        try { snapshot = AiKnowledgeIndexPdfVectorCodec.ReadBatch(state.Verified, ordinal, row.Payload, token); }
         catch (InvalidDataException) { return null; }
         if (snapshot.Payload.Dimensions != row.Dimensions || snapshot.Payload.Chunks.Count != row.InputCount
             || row.RequestHash != Fingerprint(row.Id, state.Model, snapshot.Payload)) return null;
@@ -182,13 +182,14 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         row = row with { Payload = row.Payload.ToArray() };
         if (row.PayloadHash != Convert.ToHexString(SHA256.HashData(row.Payload))
             || (expected is not null && row.PayloadHash != expected.Manifest.PayloadHash)) return null;
-        AiKnowledgeIndexPdfManifest manifest;
-        try { manifest = AiKnowledgeIndexPdfManifestCodec.Decode(row.Payload, token); }
+        AiKnowledgeIndexPdfVerifiedManifest verified;
+        try { verified = expected?.Verified ?? AiKnowledgeIndexPdfVerifiedManifest.Capture(row.Payload, token); }
         catch (InvalidDataException) { return null; }
+        var manifest = verified.Manifest;
         if (!Matches(manifest.Identity, binding, authority)) return null;
         var final = await AuthorityAsync(binding, taskId, leaseToken, authority.Source, authority.Session, token).ConfigureAwait(false);
         return final is not null && Matches(manifest.Identity, binding, final)
-            && (expected is null || SameModel(expected, final.Model)) ? new(final.Source, final.Session, final.Model, row) : null;
+            && (expected is null || SameModel(expected, final.Model)) ? new(final.Source, final.Session, final.Model, row, verified) : null;
     }
 
     // 同主键/版本不能掩盖目的地或调用选项变化，证明全过程冻结批准模型的完整请求绑定。
@@ -208,10 +209,9 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion
             || model.TenantId == Guid.Empty || (model.TenantId.HasValue && model.TenantId != tenant.Id) || Dimensions(model) == 0) return null;
         if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
-        foreach (var permission in Permissions)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(session, Permissions, token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
         }
         token.ThrowIfCancellationRequested(); NoTransaction();
@@ -258,6 +258,6 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         : (tasks.IsTenant ? AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerTenant : AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerHost);
     private sealed record Authority(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model);
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model,
-        AiKnowledgeIndexTextManifestRecord Manifest);
+        AiKnowledgeIndexTextManifestRecord Manifest, AiKnowledgeIndexPdfVerifiedManifest Verified);
     private sealed class LeaseExpiredDuringWriteException : Exception;
 }

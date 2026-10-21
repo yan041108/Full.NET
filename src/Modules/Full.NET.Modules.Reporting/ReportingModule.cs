@@ -71,6 +71,7 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<ReportingExportTaskQueryService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
+        services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ReportingExportTaskRunner>();
         services.TryAddScoped<ReportingExportTaskManagementService>();
         services.AddOptions<Configuration.ReportingExportOptions>()
@@ -116,6 +117,7 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingDefinitionQueryService>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
+        services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ReportingExportTaskRunner>();
         services.AddOptions<Configuration.ReportingExportOptions>()
             .Bind(configuration.GetSection(Configuration.ReportingExportOptions.SectionName))

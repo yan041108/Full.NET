@@ -37,6 +37,9 @@
       "name": "AiAgentTools"
     },
     {
+      "name": "AuditingLogTimeline"
+    },
+    {
       "name": "AuditingHostAccessLogs"
     },
     {
@@ -1853,6 +1856,22 @@
             "in": "path",
             "name": "sessionId",
             "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "beforeCreatedAtUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "beforeMessageId",
             "schema": {
               "format": "uuid",
               "type": "string"
@@ -10112,6 +10131,124 @@
         ]
       }
     },
+    "/api/v1/auditing/timeline": {
+      "get": {
+        "operationId": "auditingQueryLogTimeline",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "toUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "traceId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sessionId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clientIpFingerprint",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogTimelineResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AuditingLogTimeline"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "identityLogin",
@@ -14036,6 +14173,30 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -14043,10 +14204,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HostDocumentVersionResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfHostDocumentVersionResponse"
                 }
               }
             },
@@ -16984,6 +17142,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "fromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "toUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -17823,6 +17997,16 @@
     "/api/v1/files/host-folders/tree": {
       "get": {
         "operationId": "filesGetHostFolderTree",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parentId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -17856,6 +18040,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         },
         "security": [
@@ -17881,6 +18075,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -17888,10 +18106,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GoViewProjectResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfGoViewProjectSummaryResponse"
                 }
               }
             },
@@ -18143,6 +18358,30 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -18150,10 +18389,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GoViewProjectVersionResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfGoViewProjectVersionSummaryResponse"
                 }
               }
             },
@@ -18263,6 +18499,13 @@
             "name": "displayNameContains",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "isActive",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -20022,6 +20265,34 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "roleType",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -20715,6 +20986,17 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "userIds",
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            }
           }
         ],
         "responses": {
@@ -21304,6 +21586,57 @@
                 "integer",
                 "string"
               ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "username",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "displayName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "phone",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "email",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "organizationTenantId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "organizationUnitId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
             }
           }
         ],
@@ -23324,6 +23657,34 @@
                 "integer",
                 "string"
               ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "displayName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "groupName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -30323,6 +30684,55 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "userIds",
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unitsPage",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "positionsPage",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "unitSearch",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "positionSearch",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -35394,6 +35804,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -35401,10 +35835,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PrintingTemplateResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfPrintingTemplateSummaryResponse"
                 }
               }
             },
@@ -35656,6 +36087,30 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -35663,10 +36118,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PrintingTemplateVersionResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfPrintingTemplateVersionSummaryResponse"
                 }
               }
             },
@@ -36499,6 +36951,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         },
         "security": [
@@ -37081,6 +37543,30 @@
           },
           {
             "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "nameContains",
             "schema": {
               "type": "string"
@@ -37092,10 +37578,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReportingDefinitionResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfReportingDefinitionSummaryResponse"
                 }
               }
             },
@@ -37408,6 +37891,30 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
@@ -37415,10 +37922,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReportingDefinitionVersionResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfReportingDefinitionVersionSummaryResponse"
                 }
               }
             },
@@ -38919,6 +39423,34 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "configKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "displayName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "groupName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -40094,6 +40626,27 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -40512,6 +41065,27 @@
                 "integer",
                 "string"
               ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "label",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "value",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -42445,6 +43019,27 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -42839,6 +43434,34 @@
                 "integer",
                 "string"
               ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -47714,6 +48337,12 @@
               "null",
               "string"
             ]
+          },
+          "previewGrant": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "type": "object"
@@ -48750,6 +49379,9 @@
           "createdAtUtc": {
             "format": "date-time",
             "type": "string"
+          },
+          "hasOlderMessages": {
+            "type": "boolean"
           },
           "id": {
             "format": "uuid",
@@ -56679,6 +57311,61 @@
         ],
         "type": "object"
       },
+      "GoViewProjectSummaryResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "latestPublishedVersionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectKey": {
+            "type": "string"
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "projectKey",
+          "name",
+          "latestPublishedVersionNumber",
+          "isEnabled",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
+        ],
+        "type": "object"
+      },
       "GoViewProjectVersionResponse": {
         "properties": {
           "canvasJson": {
@@ -56720,6 +57407,49 @@
           "projectId",
           "versionNumber",
           "canvasJson",
+          "changeNote",
+          "publishedByUserId",
+          "publishedAtUtc"
+        ],
+        "type": "object"
+      },
+      "GoViewProjectVersionSummaryResponse": {
+        "properties": {
+          "changeNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publishedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publishedByUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "versionNumber",
           "changeNote",
           "publishedByUserId",
           "publishedAtUtc"
@@ -57585,12 +58315,28 @@
               "string"
             ]
           },
+          "previewGrant": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previewPollUntilUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "providerKey": {
             "type": "string"
           },
           "requestedByUserId": {
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "sourceFileId": {
             "format": "uuid",
@@ -57672,6 +58418,12 @@
             "type": "boolean"
           },
           "mimeType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previewGrant": {
             "type": [
               "null",
               "string"
@@ -58350,12 +59102,6 @@
       },
       "HostFolderTreeNode": {
         "properties": {
-          "children": {
-            "items": {
-              "$ref": "#/components/schemas/HostFolderTreeNode"
-            },
-            "type": "array"
-          },
           "displayOrder": {
             "format": "int32",
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -58363,6 +59109,9 @@
               "integer",
               "string"
             ]
+          },
+          "hasChildren": {
+            "type": "boolean"
           },
           "id": {
             "format": "uuid",
@@ -58393,7 +59142,7 @@
           "name",
           "displayOrder",
           "revision",
-          "children"
+          "hasChildren"
         ],
         "type": "object"
       },
@@ -59580,11 +60329,27 @@
             },
             "type": "array"
           },
+          "positionsTotal": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
           "units": {
             "items": {
               "$ref": "#/components/schemas/OrganizationUnitResponse"
             },
             "type": "array"
+          },
+          "unitsTotal": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "userPositions": {
             "items": {
@@ -61265,6 +62030,76 @@
         ],
         "type": "object"
       },
+      "LogCorrelationSnapshot": {
+        "properties": {
+          "applicationSessionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "centerSessionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clientIpFingerprint": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentSpanId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sessionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "spanId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "userId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "LogFileList": {
         "properties": {
           "isTruncated": {
@@ -61365,6 +62200,84 @@
         "required": [
           "username",
           "password"
+        ],
+        "type": "object"
+      },
+      "LogTimelineCoverage": {
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "status"
+        ],
+        "type": "object"
+      },
+      "LogTimelineEntry": {
+        "properties": {
+          "correlation": {
+            "$ref": "#/components/schemas/LogCorrelationSnapshot"
+          },
+          "id": {
+            "type": "string"
+          },
+          "occurredAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "occurredAtUtc",
+          "summary",
+          "correlation"
+        ],
+        "type": "object"
+      },
+      "LogTimelineResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LogTimelineEntry"
+            },
+            "type": "array"
+          },
+          "fromUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/LogTimelineCoverage"
+            },
+            "type": "array"
+          },
+          "toUtc": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromUtc",
+          "toUtc",
+          "entries",
+          "sources",
+          "partial"
         ],
         "type": "object"
       },
@@ -64068,6 +64981,88 @@
         ],
         "type": "object"
       },
+      "PagedResultOfGoViewProjectSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GoViewProjectSummaryResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfGoViewProjectVersionSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GoViewProjectVersionSummaryResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfHostAnnouncementReadReceiptResponse": {
         "properties": {
           "items": {
@@ -64319,6 +65314,47 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/HostDocumentShareResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfHostDocumentVersionResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HostDocumentVersionResponse"
             },
             "type": "array"
           },
@@ -65626,6 +66662,88 @@
         ],
         "type": "object"
       },
+      "PagedResultOfPrintingTemplateSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrintingTemplateSummaryResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfPrintingTemplateVersionSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrintingTemplateVersionSummaryResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfReceivedHostAnnouncementListItemResponse": {
         "properties": {
           "items": {
@@ -65672,6 +66790,88 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/ReportingDataSourceListItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfReportingDefinitionSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportingDefinitionSummaryResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfReportingDefinitionVersionSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportingDefinitionVersionSummaryResponse"
             },
             "type": "array"
           },
@@ -66942,6 +68142,65 @@
         ],
         "type": "object"
       },
+      "PrintingTemplateSummaryResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "formSchemaKey": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "latestPublishedVersionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "templateKey",
+          "name",
+          "formSchemaKey",
+          "latestPublishedVersionNumber",
+          "isEnabled",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
+        ],
+        "type": "object"
+      },
       "PrintingTemplateVersionResponse": {
         "properties": {
           "changeNote": {
@@ -66983,6 +68242,49 @@
           "templateId",
           "versionNumber",
           "layoutHtml",
+          "changeNote",
+          "publishedByUserId",
+          "publishedAtUtc"
+        ],
+        "type": "object"
+      },
+      "PrintingTemplateVersionSummaryResponse": {
+        "properties": {
+          "changeNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publishedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publishedByUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "templateId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "templateId",
+          "versionNumber",
           "changeNote",
           "publishedByUserId",
           "publishedAtUtc"
@@ -67540,6 +68842,16 @@
       },
       "ReplaceHostRoleMembersRequest": {
         "properties": {
+          "candidateUserIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
           "userIds": {
             "items": {
               "format": "uuid",
@@ -67897,6 +69209,82 @@
         ],
         "type": "object"
       },
+      "ReportingDefinitionSummaryResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dataSourceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "latestPublishedVersionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "queryPortKey": {
+            "type": "string"
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "groupId",
+          "dataSourceId",
+          "definitionKey",
+          "name",
+          "description",
+          "queryPortKey",
+          "latestPublishedVersionNumber",
+          "isEnabled",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
+        ],
+        "type": "object"
+      },
       "ReportingDefinitionVersionResponse": {
         "properties": {
           "changeNote": {
@@ -67954,6 +69342,58 @@
           "queryPortKey",
           "parameterSchema",
           "layoutConfigJson",
+          "changeNote",
+          "publishedByUserId",
+          "publishedAtUtc"
+        ],
+        "type": "object"
+      },
+      "ReportingDefinitionVersionSummaryResponse": {
+        "properties": {
+          "changeNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dataSourceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "definitionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publishedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publishedByUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "queryPortKey": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "definitionId",
+          "versionNumber",
+          "dataSourceId",
+          "queryPortKey",
           "changeNote",
           "publishedByUserId",
           "publishedAtUtc"

@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using Full.NET.Modules.Ocr.Domain;
@@ -6,7 +7,7 @@ using Full.NET.Modules.Ocr.Persistence;
 namespace Full.NET.Modules.Ocr.Connectivity;
 
 /// <summary>PaddleOCR 身份证识别 HTTP 适配器。</summary>
-internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
+internal sealed class PaddleOcrIdCardClient(IHttpClientFactory httpClientFactory) : IPaddleOcrIdCardClient
 {
     public const string HttpClientName = "Full.NET.Ocr.PaddleIdCard";
 
@@ -26,7 +27,7 @@ internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
         string fileName,
         CancellationToken cancellationToken = default)
     {
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var client = httpClientFactory.CreateClient("Full.NET.Ocr.Recognize");
         using var form = new MultipartFormDataContent();
         using var streamContent = new StreamContent(content);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
@@ -43,8 +44,8 @@ internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
 
         try
         {
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var rawJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            var rawJson = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return (false, null, Truncate(rawJson), $"HTTP {(int)response.StatusCode}: {rawJson}");
@@ -69,7 +70,7 @@ internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
         string? apiKey,
         CancellationToken cancellationToken = default)
     {
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        using var client = httpClientFactory.CreateClient("Full.NET.Ocr.Health");
         using var request = new HttpRequestMessage(HttpMethod.Get, BuildHealthEndpoint(config.BaseUrl));
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
@@ -78,7 +79,7 @@ internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
 
         try
         {
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 return (true, "Provider health endpoint responded successfully.");

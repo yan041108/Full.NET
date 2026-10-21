@@ -18,6 +18,8 @@ import {
 /** Host 用户管理页读取的租户机构参考聚合。 */
 export interface HostUserOrganizationReference {
   units: OrganizationUnit[];
+  unitsTotal: number;
+  positionsTotal: number;
   positions: OrganizationPosition[];
   userUnits: OrganizationUserUnit[];
   userPositions: OrganizationUserPosition[];
@@ -28,6 +30,7 @@ export function isHostUserOrganizationReference(
   value: unknown
 ): value is HostUserOrganizationReference {
   return isRecord(value)
+    && typeof value.unitsTotal === 'number' && typeof value.positionsTotal === 'number'
     && Array.isArray(value.units)
     && value.units.every(isOrganizationUnit)
     && Array.isArray(value.positions)

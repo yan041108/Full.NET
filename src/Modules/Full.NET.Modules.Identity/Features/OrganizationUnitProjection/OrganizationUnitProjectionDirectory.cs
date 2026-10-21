@@ -8,6 +8,19 @@ namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 internal sealed class OrganizationUnitProjectionDirectory(IQueryExecutor queryExecutor)
     : IOrganizationUnitProjectionDirectory
 {
+    public async Task<IReadOnlyDictionary<Guid, OrganizationUnitProjectionEntry>> FindActiveUnitsAsync(
+        Guid tenantId, IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken = default)
+    {
+        if (unitIds.Count > 100) throw new ArgumentOutOfRangeException(nameof(unitIds));
+        if (unitIds.Count == 0) return new Dictionary<Guid, OrganizationUnitProjectionEntry>();
+        var rows = await queryExecutor.QueryAsync<OrganizationUnitProjectionRecord>(
+            OrganizationUnitProjectionSql.FindByTenantAndUnits,
+            IdentitySqlParameters.Create(("TenantId", tenantId), ("UnitIds", unitIds.Distinct().ToArray())),
+            cancellationToken).ConfigureAwait(false);
+        return rows.Where(row => row.IsActive).ToDictionary(row => row.UnitId,
+            row => new OrganizationUnitProjectionEntry(row.UnitId, row.Name));
+    }
+
     public async Task<OrganizationUnitProjectionEntry?> FindActiveUnitAsync(
         Guid tenantId,
         Guid unitId,

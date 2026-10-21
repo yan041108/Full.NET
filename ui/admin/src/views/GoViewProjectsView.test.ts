@@ -23,7 +23,7 @@ function mountView() {
 
 describe('GoViewProjectsView', () => {
   beforeEach(() => {
-    listMock.mockResolvedValue([]);
+    listMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   });
 
   it('hides create action without permission', async () => {

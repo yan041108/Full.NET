@@ -73,10 +73,9 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
 
     private async Task<bool> AuthorizedAsync(SessionBindingSnapshot original, CancellationToken token)
     {
-        foreach (var permission in Permissions)
         {
             Check(token); if (!ValidIdentity(original)) return false;
-            var actor = await authorization.AuthorizeAsync(original, permission, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(original, Permissions, token).ConfigureAwait(false);
             Check(token);
             if (!ValidIdentity(original) || actor is null || actor.UserId != original.UserId || actor.TenantId != original.TenantId || actor.SessionId != original.SessionId) return false;
         }

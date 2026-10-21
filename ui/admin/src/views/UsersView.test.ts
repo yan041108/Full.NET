@@ -235,6 +235,7 @@ describe('Vue 用户管理页', () => {
       version: 1
     });
     getOrgReferenceMock.mockReset().mockResolvedValue({
+      unitsTotal: 0, positionsTotal: 0,
       units: [],
       positions: [],
       userUnits: [],
@@ -246,6 +247,8 @@ describe('Vue 用户管理页', () => {
     const wrapper = mountUsers(['identity.users.read']);
     await flushPromises();
 
+    expect(listUsersMock).toHaveBeenCalledTimes(1);
+    expect(getOrgReferenceMock).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain('活动用户');
     expect(wrapper.find('[data-testid="users-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-export"]').exists()).toBe(false);
@@ -433,14 +436,16 @@ describe('Vue 用户管理页', () => {
     ]);
     await flushPromises();
 
-    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId);
+    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId, expect.any(AbortSignal),
+      expect.objectContaining({ userIds: expect.any(Array), unitsPage: 1, positionsPage: 1 }));
   });
 
   it('Host 目录仅有 identity.users.read 且已选租户时会加载组织参考数据', async () => {
     mountUsers(['identity.users.read']);
     await flushPromises();
 
-    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId);
+    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId, expect.any(AbortSignal),
+      expect.objectContaining({ userIds: expect.any(Array), unitsPage: 1, positionsPage: 1 }));
   });
 
   it('Host 目录有 identity.users.update 时显示机构分配入口', async () => {
@@ -616,6 +621,7 @@ describe('Vue 用户管理页', () => {
         isPrimary: true
       });
     getOrgReferenceMock.mockResolvedValue({
+      unitsTotal: 1, positionsTotal: 0,
       units: [orgUnit],
       positions: [],
       userUnits: [],
@@ -725,6 +731,7 @@ describe('Vue 用户管理页', () => {
         version: 2
       });
     getOrgReferenceMock.mockResolvedValue({
+      unitsTotal: 1, positionsTotal: 0,
       units: [orgUnit],
       positions: [],
       userUnits: [orgUnitAssignment],

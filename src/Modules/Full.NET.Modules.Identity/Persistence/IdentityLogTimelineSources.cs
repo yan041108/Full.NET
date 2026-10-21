@@ -11,9 +11,8 @@ internal static class IdentityLogTimelineSources
 {
     public static void Register(IServiceCollection services)
     {
-        services.AddScoped<ILogTimelineReader>(provider => new SqlLogTimelineReader(
-            provider.GetRequiredService<IQueryExecutor>(), provider.GetRequiredService<IOptions<DatabaseOptions>>(),
-            "identity.auth.audit", "identity.authentication_events.read", AuthAuditSqlServer, AuthAuditMySql));
+        // 只去重本模块的同一工厂描述符，不能按接口去重而吞掉其他模块的时间线来源。
+        if (!services.Contains(AuthAuditReader)) services.Add(AuthAuditReader);
     }
 
     private static readonly SqlStatement AuthAuditSqlServer = new(
@@ -46,4 +45,9 @@ internal static class IdentityLogTimelineSources
         ORDER BY OccurredAtUtc, Id
         LIMIT @FetchSize
         """, SqlDataScope.HostOnly);
+
+    private static readonly ServiceDescriptor AuthAuditReader = ServiceDescriptor.Scoped<ILogTimelineReader>(
+        provider => new SqlLogTimelineReader(
+            provider.GetRequiredService<IQueryExecutor>(), provider.GetRequiredService<IOptions<DatabaseOptions>>(),
+            "identity.auth.audit", "identity.authentication_events.read", AuthAuditSqlServer, AuthAuditMySql));
 }

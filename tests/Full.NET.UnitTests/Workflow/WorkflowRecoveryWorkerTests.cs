@@ -42,7 +42,8 @@ public sealed class WorkflowRecoveryWorkerTests
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        var scanner = new WorkflowRecoveryScanner(query, command, clock, ids);
+        var scanner = new WorkflowRecoveryScanner(query, command, clock, ids,
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), Options.Create(new WorkflowRecoveryWorkerOptions()));
 
         await scanner.ScanAsync(CancellationToken.None);
         await scanner.ScanAsync(CancellationToken.None);

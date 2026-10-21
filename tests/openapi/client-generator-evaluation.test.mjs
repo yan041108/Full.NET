@@ -133,7 +133,12 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
     assert.equal(Object.keys(files).every(fileName => fileName.endsWith('.generated.ts')), true);
     assert.match(files['models.generated.ts'], /export interface HostUserResponse/u);
     assert.match(files['guards.generated.ts'], /export function readHostUserResponse/u);
-    assert.match(files['guards.generated.ts'], /client\.invalid_host_user_response/u);
+    const readers = await import(`data:text/javascript;base64,${Buffer.from(
+      stripTypeScriptTypes(files['guards.generated.ts'])
+    ).toString('base64')}`);
+    assert.throws(() => readers.readHostUserResponse(null), {
+      message: 'client.invalid_host_user_response'
+    });
     assert.match(files['operations.generated.ts'], /http\.request<unknown>/u);
     assert.match(files['operations.generated.ts'], /return readHostUserResponse\(value\)/u);
     assert.match(files['operations.generated.ts'], /http\.requestBlob\(/u);

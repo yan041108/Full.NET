@@ -47,10 +47,10 @@ export async function listAiChatSessions(
 
 export async function getAiChatSession(
   id: string,
-  signal?: AbortSignal
+  signal?: AbortSignal, before?: { createdAtUtc: string; id: string }
 ): Promise<AiChatSession> {
   const value = await request<unknown>(
-    `/api/v1/ai/chat/sessions/${encodeURIComponent(id)}`,
+    `/api/v1/ai/chat/sessions/${encodeURIComponent(id)}${before ? `?beforeCreatedAtUtc=${encodeURIComponent(before.createdAtUtc)}&beforeMessageId=${encodeURIComponent(before.id)}` : ''}`,
     { method: 'GET' },
     signal
   );

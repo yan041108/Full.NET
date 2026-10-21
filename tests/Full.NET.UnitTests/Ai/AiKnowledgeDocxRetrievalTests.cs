@@ -45,7 +45,7 @@ public sealed partial class AiKnowledgeIndexDocxActivationTests
         var model = new AiModelConfigRecord { Id = f.Source.ModelConfigId, Version = 1, IsEnabled = true,
             ProviderKey = f.Source.ModelProviderKey, ModelId = f.Source.ModelId, EndpointBaseUrl = f.Source.ModelEndpointBaseUrl };
         var query = new DocxRetrievalQuery(f.Query, row, f.Payloads, model) { Manifest = f.ManifestRow };
-        var auth = Substitute.For<ICurrentSessionAuthorization>();
+        var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
         auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
         { Assert.IsFalse(f.Transactions.HasTransaction); return new AuthorizedSessionActor(row.OwnerUserId, f.Tenant.Id, Guid.CreateVersion7()); });
         var roles = Substitute.For<IActiveRoleDirectory>(); var orgs = Substitute.For<ICurrentTenantOrganizationUnitDirectory>();

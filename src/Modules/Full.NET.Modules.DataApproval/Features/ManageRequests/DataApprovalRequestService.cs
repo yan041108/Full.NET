@@ -9,7 +9,6 @@ using Full.NET.Modules.DataApproval.Domain;
 using Full.NET.Modules.DataApproval.Features.ManageScenarios;
 using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Persistence;
-using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -25,7 +24,7 @@ internal sealed class DataApprovalRequestService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    ISerialRuleChangeApprovalSource serialRuleApprovalSource,
+    IEnumerable<IDataApprovalScenarioHandler> scenarioHandlers,
     DataApprovalScenarioService scenarioService,
     IWorkflowInstanceCanceller workflowCanceller,
     DataApprovalRequestLinkService linkService,
@@ -110,19 +109,13 @@ internal sealed class DataApprovalRequestService(
                 .ConfigureAwait(false);
         }
 
-        var beforeSnapshotJson = (string?)null;
-        if (RequiresSerialRuleBeforeSnapshot(normalized.ScenarioKey))
-        {
-            var snapshot = await serialRuleApprovalSource
-                .GetSnapshotAsync(normalized.TargetEntityId, cancellationToken)
-                .ConfigureAwait(false);
-            if (!snapshot.IsSuccess)
-            {
-                return Result<DataApprovalRequestResponse>.Failure(snapshot.Error!);
-            }
-
-            beforeSnapshotJson = snapshot.Value!.SnapshotJson;
-        }
+        var scenario = scenarioHandlers.SingleOrDefault(handler => handler.Supports(normalized.ScenarioKey));
+        if (scenario is null)
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.ScenarioUnsupported, "The approval scenario provider is unavailable.", ErrorType.Validation));
+        var snapshot = await scenario.GetSnapshotAsync(normalized.ScenarioKey, normalized.TargetEntityId, cancellationToken).ConfigureAwait(false);
+        if (!snapshot.IsSuccess) return Result<DataApprovalRequestResponse>.Failure(snapshot.Error!);
+        var beforeSnapshotJson = snapshot.Value;
 
         var binding = await scenarioService
             .ResolveForCreateAsync(normalized.ScenarioKey, cancellationToken)
@@ -440,10 +433,6 @@ internal sealed class DataApprovalRequestService(
         var trimmed = value?.Trim();
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
-
-    private static bool RequiresSerialRuleBeforeSnapshot(string scenarioKey) =>
-        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostUpdate, StringComparison.Ordinal) ||
-        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostDisable, StringComparison.Ordinal);
 
     internal static DataApprovalRequestResponse Map(DataApprovalRequestRecord row) =>
         new(

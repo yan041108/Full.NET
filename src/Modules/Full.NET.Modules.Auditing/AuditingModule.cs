@@ -189,6 +189,7 @@ public sealed class AuditingModule : IFullNetModule
             AuditDetailsRetentionOptionsValidator>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddSingleton<AuditingRetentionCursor>();
         services.TryAddScoped<AuditingRetentionRunner>();
         services.TryAddScoped<AuditDetailsRetentionRunner>();
         services.TryAddScoped<AuditDetailsCleanupCheckpointStore>();

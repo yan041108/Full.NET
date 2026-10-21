@@ -64,7 +64,7 @@ public sealed class HostRoleQueryServiceTests
             object? parameters = null,
             CancellationToken cancellationToken = default)
         {
-            Assert.AreEqual(IdentitySql.CountHostRoles, statement);
+            Assert.AreEqual(IdentitySql.CountHostRolesFiltered, statement);
             return Task.FromResult<T?>((T)(object)(long)roles.Count);
         }
 
@@ -73,7 +73,7 @@ public sealed class HostRoleQueryServiceTests
             object? parameters = null,
             CancellationToken cancellationToken = default)
         {
-            if (statement == IdentitySql.ListHostRolesSqlServer)
+            if (statement == IdentitySql.ListHostRolesSqlServerFiltered)
             {
                 return Task.FromResult<IReadOnlyList<T>>(
                     roles.Cast<T>().ToArray());

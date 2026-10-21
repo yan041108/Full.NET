@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -18,12 +19,12 @@ internal sealed class WebhookSubscriptionManagementService(
     ICurrentTenant currentTenant,
     WebhookSigningSecretProtector signingSecretProtector,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public Task<Result<WebhookSubscriptionResponse>> CreateAsync(
         CreateWebhookSubscriptionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
 
@@ -69,6 +70,16 @@ internal sealed class WebhookSubscriptionManagementService(
                 "Event type is required.",
                 ErrorType.Validation));
         }
+
+        var budget = WebhookSqlParameters.Create(("TenantId", currentTenant.Id.Value),
+            ("EventType", eventType), ("MaximumTargets", 500));
+        await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+            ? WebhookSubscriptionSql.EnsureFanoutBudgetMySql : WebhookSubscriptionSql.EnsureFanoutBudgetSqlServer,
+            budget, cancellationToken).ConfigureAwait(false);
+        if (await commandExecutor.ExecuteAsync(WebhookSubscriptionSql.ReserveFanoutSlot,
+            budget, cancellationToken).ConfigureAwait(false) != 1)
+            return Result<WebhookSubscriptionResponse>.Failure(new Error(
+                WebhookErrorCodes.FanoutBudgetExceeded, "An event may have at most 500 subscriptions per tenant.", ErrorType.Validation));
 
         var now = clock.UtcNow;
         var id = idGenerator.NewId();

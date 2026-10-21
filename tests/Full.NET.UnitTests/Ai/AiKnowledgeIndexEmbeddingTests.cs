@@ -71,7 +71,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
         Assert.AreEqual(f.Model.EndpointBaseUrl, f.Factory.Binding.Endpoint.AbsoluteUri.TrimEnd('/'));
         await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
         foreach (var permission in new[] { AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload })
-            Assert.IsTrue(f.Authorization.ReceivedCalls().Any(call => Equals(call.GetArguments()[1], permission)));
+            Assert.IsTrue(f.Authorization.ReceivedCalls().Any(call => call.GetArguments()[1] is IReadOnlyCollection<string> batch && batch.Contains(permission)));
         f.Generator.LastVector![0] = 99;
         Assert.AreEqual(1f, result.Chunks[0].Vector.Span[0]);
         if (tenant) await f.TenantFiles.Received(1).OpenReadyContentAsync("ai", f.Binding.VersionId, f.Source.FileId, Arg.Any<CancellationToken>());
@@ -370,7 +370,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
             var batches = new AiKnowledgeIndexBatchStore(Query, Command, tasks, ids);
             var sessions = new AiKnowledgeIndexSessionService(Query, Command, Substitute.For<ICommandTransaction>(), Transactions, tenant, Clock, ids, tasks, Authorization);
             service = new(Query, tenant, Transactions, tasks, sessions, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope, Correlation);
-            Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call => Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
+            Authorization.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(call => Denied || call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(async _ =>
             {
                 if (BeforeSessionRead is not null) await BeforeSessionRead();

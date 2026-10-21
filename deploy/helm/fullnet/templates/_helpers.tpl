@@ -167,6 +167,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- if or .Values.roles.api .Values.roles.worker -}}
+  {{- if or (empty .Values.dataProtection.certificateSecretName) (empty .Values.dataProtection.certificateSecretKey) (empty .Values.dataProtection.certificatePasswordSecretKey) -}}
+    {{- fail "API/Worker require Data Protection certificate Secret name, certificate key and password key." -}}
+  {{- end -}}
   {{- if and (eq .Values.dataProtection.existingClaimName "") (not .Values.dataProtection.persistence.create) -}}
     {{- fail "API/Worker require dataProtection.existingClaimName or persistence.create with a verified RWX StorageClass." -}}
   {{- end -}}

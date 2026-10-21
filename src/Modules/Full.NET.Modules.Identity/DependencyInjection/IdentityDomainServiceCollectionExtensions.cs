@@ -24,7 +24,6 @@ using Full.NET.Modules.Identity.Features.PublicRegistrationWays;
 using Full.NET.Modules.Identity.Features.RecoverAccount;
 using Full.NET.Modules.Identity.Features.RegisterAccount;
 using Full.NET.Modules.Identity.Features.RegistrationInvitations;
-using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Identity.Features.QueryHostModuleCatalog;
 using Full.NET.Modules.Identity.Features.QueryHostModuleSelection;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;

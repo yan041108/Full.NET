@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -71,7 +72,7 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
         HttpResponseMessage response;
         try
         {
-            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -86,7 +87,7 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new WeChatMiniProgramTransportException(
@@ -104,7 +105,7 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
         HttpResponseMessage response;
         try
         {
-            response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -119,7 +120,7 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new WeChatMiniProgramTransportException(

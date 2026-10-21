@@ -42,7 +42,7 @@ function mountView() {
 describe('ReportingDefinitionsView', () => {
   beforeEach(() => {
     groupsMock.mockResolvedValue([]);
-    definitionsMock.mockResolvedValue([]);
+    definitionsMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
     queryPortsMock.mockResolvedValue([]);
     dataSourcesMock.mockResolvedValue({ items: [], page: 1, pageSize: 200, total: 0 });
   });

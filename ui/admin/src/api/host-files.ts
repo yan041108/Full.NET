@@ -32,6 +32,8 @@ export async function listHostFiles(
   options?: {
     folderId?: string;
     fileNameContains?: string;
+    fromUtc?: string;
+    toUtc?: string;
   },
   signal?: AbortSignal
 ): Promise<HostFilePage> {
@@ -41,7 +43,9 @@ export async function listHostFiles(
       page,
       pageSize,
       folderId: options?.folderId,
-      fileNameContains: options?.fileNameContains
+      fileNameContains: options?.fileNameContains,
+      fromUtc: options?.fromUtc,
+      toUtc: options?.toUtc
     },
     signal
   );
@@ -120,9 +124,10 @@ export async function downloadHostFileContent(
 
 /** 查询 Host 虚拟目录树。 */
 export async function listHostFolderTree(
+  parentId?: string,
   signal?: AbortSignal
 ): Promise<HostFolderTreeNode[]> {
-  return filesGetHostFolderTree(http, {}, signal);
+  return filesGetHostFolderTree(http, { parentId }, signal);
 }
 
 /** 创建 Host 虚拟目录。 */

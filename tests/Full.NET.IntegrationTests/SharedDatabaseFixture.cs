@@ -205,24 +205,24 @@ public static class SharedDatabaseFixture
         labels["fullnet.bounded-owner"] = _boundedSession;
     }
 
-    /// <summary>集中日志容量沿用外层独享会话，创建前设置硬限额；不接管既有容器。</summary>
-    internal static void ApplyBoundedLogResources(CreateContainerParameters parameters, string role, int cpuCount = 1)
+    /// <summary>新建消息测试容器始终设置硬限额；独享验收另附外层会话，不接管既有容器。</summary>
+    internal static void ApplyMessagingContainerResources(CreateContainerParameters parameters, string role, int cpuCount = 1)
     {
-        if (!BoundedContainers) return;
         if (cpuCount is < 1 or > 2 || role != "elasticsearch" && cpuCount != 1)
             throw new ArgumentOutOfRangeException(nameof(cpuCount), "只有 ES 容量档允许显式一核或两核。");
         var budget = role switch
         {
             "kafka" => (Memory: 2L << 30, Cpu: 1_000_000_000L),
+            "connect" => (Memory: 2L << 30, Cpu: 1_000_000_000L),
             "elasticsearch" => (Memory: 2L << 30, Cpu: cpuCount * 1_000_000_000L),
             "collector" => (Memory: 512L << 20, Cpu: 500_000_000L),
-            _ => throw new ArgumentException("未知日志测试资源角色。", nameof(role)),
+            _ => throw new ArgumentException("未知消息测试资源角色。", nameof(role)),
         };
         var limits = parameters.HostConfig ??= new();
         limits.Memory = budget.Memory;
         limits.MemorySwap = budget.Memory;
         limits.NanoCPUs = budget.Cpu;
-        ApplyBoundedOwnership(parameters.Labels);
+        if (BoundedContainers) ApplyBoundedOwnership(parameters.Labels);
         if (role == "elasticsearch") parameters.Labels["fullnet.logging.es-cpus"] = cpuCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 

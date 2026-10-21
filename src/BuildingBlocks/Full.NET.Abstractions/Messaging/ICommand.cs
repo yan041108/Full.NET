@@ -21,6 +21,15 @@ public interface ICommand<TResult>;
 /// </remarks>
 public interface ITransactionalCommand;
 
+/// <summary>显式声明认证拒绝仍需提交的安全状态；默认业务失败始终回滚。</summary>
+public interface ITransactionalRejectionPolicy
+{
+    /// <summary>只允许保留已知拒绝分支的计数、撤销或审计，不得覆盖后段业务失败。</summary>
+    /// <param name="error">处理器返回的稳定业务错误。</param>
+    /// <returns>是否允许在向调用方返回该拒绝结果时提交安全状态。</returns>
+    bool ShouldCommitRejection(Error error);
+}
+
 /// <summary>
 /// 表示需要事务且返回结果的命令，同时满足 <see cref="ICommand{TResult}"/> 与事务契约。
 /// </summary>

@@ -265,7 +265,7 @@ public sealed class HostUserFieldProjectionTests
             CancellationToken cancellationToken = default)
         {
             Statements.Add(statement);
-            object? value = statement == IdentitySql.CountHostUsers
+            object? value = statement == HostUserSearchSql.CountSqlServer
                 ? 1L
                 : statement == IdentitySql.FindHostUserProjectionBaseById
                     ? CreateRow()
@@ -279,7 +279,7 @@ public sealed class HostUserFieldProjectionTests
             CancellationToken cancellationToken = default)
         {
             Statements.Add(statement);
-            object[] values = statement == IdentitySql.ListHostUsersSqlServer
+            object[] values = statement == HostUserSearchSql.ListSqlServer || statement == IdentitySql.ListHostUsersSqlServer
                 ? [CreateRow()]
                 : statement == IdentitySql.ListHostUserPreferredLocales
                     ? [new HostUserPreferredLocaleRow { Id = TargetUserId, Value = "zh-CN" }]

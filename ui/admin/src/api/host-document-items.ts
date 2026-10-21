@@ -1,3 +1,4 @@
+import { isRecord, isInteger, type PagedResult } from '@fullnet/client-contracts';
 import {
   documentHostAddItemVersion,
   documentHostCreateItem,
@@ -137,16 +138,16 @@ export async function downloadDocumentContent(
   return documentHostDownloadItemContent(http, { itemId }, signal);
 }
 
-/** 查询文档项的全部历史版本列表。 */
+/** 查询文档项的历史版本分页。 */
 export async function listDocumentVersions(
   itemId: string,
-  signal?: AbortSignal
-): Promise<HostDocumentVersionResponse[]> {
-  const value = await documentHostListItemVersions(http, { itemId }, signal);
-  if (!isHostDocumentVersionList(value)) {
+  signal?: AbortSignal, page = 1, pageSize = 20
+): Promise<PagedResult<HostDocumentVersionResponse>> {
+  const value = await documentHostListItemVersions(http, { itemId, page, pageSize }, signal);
+  if (!isRecord(value) || !isHostDocumentVersionList(value.items) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
     throw new Error('client.invalid_document_version_list');
   }
-  return value;
+  return value as unknown as PagedResult<HostDocumentVersionResponse>;
 }
 
 /** 预览文档内容；传入 versionId 时预览指定历史版本，否则预览当前版本。 */

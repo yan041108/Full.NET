@@ -31,6 +31,10 @@ internal interface IWeChatNativePayClient
         string outTradeNo,
         CancellationToken cancellationToken = default);
 
+    /// <summary>按已持久化的退款单号查询权威状态，供处理中的退款收敛。</summary>
+    Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig,
+        string outRefundNo, CancellationToken cancellationToken = default);
+
     /// <summary>调用微信国内退款；相同退款单号必须保持幂等。</summary>
     /// <param name="merchantConfig">商户配置。</param>
     /// <param name="outTradeNo">商户订单号。</param>
@@ -51,3 +55,7 @@ internal interface IWeChatNativePayClient
         string reason,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>渠道退款查询快照；应用前必须校验单号、金额和币种。</summary>
+internal sealed record WeChatRefundQueryResult(bool Succeeded, string? ProviderRefundId, string? OutRefundNo,
+    string? StatusKey, long? AmountMinor, string? Currency, string? FailMessage);

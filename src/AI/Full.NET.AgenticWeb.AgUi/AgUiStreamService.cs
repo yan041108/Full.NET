@@ -73,9 +73,11 @@ public sealed class AgUiStreamService(IAgentRunAgUiReader reader)
                 return Failure(AiErrorCodes.AgentRunEventsCursorExpired, ErrorType.Conflict);
             }
 
-            progress = await reader.TryGetProgressAsync(runId, scopeKey, cancellationToken).ConfigureAwait(false);
             var events = await reader.ListEventsAfterAsync(runId, lastSentSequence, DefaultBatchSize, cancellationToken)
                 .ConfigureAwait(false);
+            // 无新事件的心跳轮不读取将被丢弃的预算和步骤明细；归属检查仍逐轮执行。
+            if (events.Count > 0 || IsTerminal(snapshot.StatusKey))
+                progress = await reader.TryGetProgressAsync(runId, scopeKey, cancellationToken).ConfigureAwait(false);
             foreach (var persisted in events)
             {
                 foreach (var mapped in AgUiEventMapper.MapPersistedEvent(snapshot, persisted))

@@ -11,5 +11,8 @@ internal sealed class WebhookDeliveryWorkerOptions
 
     public int MaxAttempts { get; set; } = 5;
 
+    /// <summary>领取后允许占用的秒数；外发超时必须小于租约。</summary>
+    public int LeaseSeconds { get; set; } = 60;
+
     public int TimeoutSeconds { get; set; } = 30;
 }

@@ -22,4 +22,7 @@
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.ImportExport.Contracts/Full.NET.Modules.ImportExport.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations/**/*.sql" />
+  </ItemGroup>
 </Project>

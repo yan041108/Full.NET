@@ -270,10 +270,9 @@ internal sealed class AiKnowledgeIndexDocxActivationStore(IQueryExecutor query, 
         if (frozen is null || frozen.Generation < 0 || frozen.IndexTaskId != taskId || Snapshot(frozen) != session) return false;
         // 读取历史活动代次另走读取者授权；写入或恢复重建必须继续保有原重建权限。
         string[] required = frozen.Generation > 0 ? [.. Permissions, AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild] : Permissions;
-        foreach (var permission in required)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => authorization.AuthorizeAsync(session, permission, ct), token).ConfigureAwait(false);
+            var actor = await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => authorization.AuthorizeAllAsync(session, required, ct), token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return false;
         }
         token.ThrowIfCancellationRequested(); NoTransaction(); return session.TenantId == tenant.Id;

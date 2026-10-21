@@ -95,6 +95,17 @@ test('MySQL shadow connector requires ROW binlog semantics via runbook and scope
   assert.match(verify, /FULL/i);
 });
 
+for (const profile of ['shadow', 'capacity']) {
+  test(`MySQL ${profile} bounds schema history to its captured outbox`, async () => {
+    const { config } = await readJson(`deploy/messaging/connectors/mysql-outbox-${profile}.json`);
+    assert.equal(config['database.include.list'], '${FULLNET_MYSQL_DATABASE}');
+    assert.equal(config['table.include.list'], '${FULLNET_MYSQL_DATABASE}.fn_messaging_outbox_event');
+    assert.equal(config['schema.history.internal.store.only.captured.databases.ddl'], 'true');
+    assert.equal(config['schema.history.internal.store.only.captured.tables.ddl'], 'true');
+    assert.equal(config['snapshot.mode'], 'no_data');
+  });
+}
+
 test('SQL Server CDC scripts use stable capture instance and are not DbUp migrations', async () => {
   const enable = await read('deploy/messaging/sqlserver/enable-outbox-cdc.sql');
   const disable = await read('deploy/messaging/sqlserver/disable-outbox-cdc.sql');

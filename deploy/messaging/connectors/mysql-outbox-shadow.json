@@ -12,6 +12,8 @@
     "table.include.list": "${FULLNET_MYSQL_DATABASE}.fn_messaging_outbox_event",
     "topic.prefix": "fullnet.dev.shadow.mysql",
     "snapshot.mode": "no_data",
+    "schema.history.internal.store.only.captured.databases.ddl": "true",
+    "schema.history.internal.store.only.captured.tables.ddl": "true",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "key.converter.schemas.enable": "false",
     "schema.history.internal.kafka.topic": "fullnet.dev.shadow.internal.schema-history.mysql",

@@ -11,6 +11,8 @@ internal sealed class AdministrativeRegionQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>显式树接口的节点预算；管理页面使用逐层 children 接口，不加载完整深树。</summary>
+    internal const int MaxTreeNodes = 10_000;
     /// <summary>分页查询行政区域扁平列表。</summary>
     public async Task<Result<PagedResult<AdministrativeRegionResponse>>> ListAsync(
         int page,
@@ -99,9 +101,14 @@ internal sealed class AdministrativeRegionQueryService(
     {
         maxDepth = Math.Clamp(maxDepth, 1, 5);
         var rows = await queryExecutor.QueryAsync<AdministrativeRegionTreeRecord>(
-                AdministrativeRegionSql.ListAllForTree,
-                cancellationToken: cancellationToken)
+                databaseOptions.Value.Provider == DatabaseProvider.MySql
+                    ? AdministrativeRegionSql.TreeMySql : AdministrativeRegionSql.TreeSqlServer,
+                RegionsSqlParameters.Create(("ParentId", parentId), ("MaxDepth", maxDepth), ("MaxNodes", MaxTreeNodes + 1)),
+                cancellationToken)
             .ConfigureAwait(false);
+        if (rows.Count > MaxTreeNodes)
+            return Result<IReadOnlyList<AdministrativeRegionTreeNodeResponse>>.Failure(new Error(
+                RegionsErrorCodes.TreeTooLarge, "The region tree is too large; narrow its root or depth.", ErrorType.BusinessRule));
 
         var roots = new List<AdministrativeRegionTreeRecord>();
         var childrenByParentId = new Dictionary<Guid, AdministrativeRegionTreeRecord[]>();

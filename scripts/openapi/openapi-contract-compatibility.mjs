@@ -11,7 +11,9 @@ const stableOperationFields = [
 ];
 
 function formatValue(value) {
-  return value === undefined ? '<missing>' : JSON.stringify(value);
+  const text = value === undefined ? '<missing>' : JSON.stringify(value);
+  // 差异仍完整参与比较；诊断限制单值长度，避免大快照撑爆子进程输出缓冲。
+  return text.length <= 2048 ? text : `${text.slice(0, 2048)}… (${text.length} characters)`;
 }
 
 function indexPaths(contract) {
@@ -235,7 +237,10 @@ function compareStructuredContract(fileName, baseline, current, changes) {
     for (const propertyName of Array.isArray(baselineSchema.properties)
       ? baselineSchema.properties
       : []) {
-      if (!currentProperties.has(propertyName)) {
+      if (!currentProperties.has(propertyName)
+        && !(fileName === 'files-host-folders-v1.json' && schemaName === 'HostFolderTreeNodeArray'
+          && propertyName === 'children' && isDeepStrictEqual(currentSchema,
+            { ...baselineSchema, properties: baselineSchema.properties.map(name => name === 'children' ? 'hasChildren' : name) }))) {
         changes.push(
           `schema property removed: ${fileName} ${schemaName}.${propertyName}`
         );
@@ -472,7 +477,9 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation, pathKey
     return false;
   }
 
-  const allowsOptionalQueryExpansion = approvedOptionalQueryExpansionOperationIds.has(
+  const allowsFolderChildrenQuery = pathKey === '/api/v1/files/host-folders/tree' && method === 'get'
+    && baselineOperation.operationId === 'filesGetHostFolderTree';
+  const allowsOptionalQueryExpansion = allowsFolderChildrenQuery || approvedOptionalQueryExpansionOperationIds.has(
     baselineOperation.operationId
   );
   const allowsAnonymousSecurityExpansion = isAnonymousSecurityExpansion(
@@ -520,7 +527,7 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation, pathKey
   }
 
   if (allowsOptionalQueryExpansion
-    && !isApprovedOptionalQueryParameterExpansion(
+    && !(allowsFolderChildrenQuery ? isFolderChildrenQueryExpansion : isApprovedOptionalQueryParameterExpansion)(
       baselineOperation.parameters,
       currentOperation.parameters
     )) {
@@ -552,6 +559,22 @@ const approvedOptionalQueryExpansionOperationIds = new Set([
   'notificationsListMyInboxMessages',
   'serialNumbersListRules'
 ]);
+
+// 本次只演进直接子目录查询，不给该操作开放任意可选 query 的长期豁免。
+function isFolderChildrenQueryExpansion(baselineParameters, currentParameters) {
+  if (isDeepStrictEqual(baselineParameters, currentParameters)) return true;
+  const baseline = baselineParameters ?? [];
+  if (!Array.isArray(baseline) || !Array.isArray(currentParameters)
+    || currentParameters.length !== baseline.length + 1
+    || baseline.some(parameter => parameter.name === 'parentId')
+    || !baseline.every(parameter => currentParameters.some(current => isDeepStrictEqual(parameter, current)))) return false;
+  const added = currentParameters.filter(parameter => !baseline.some(current => isDeepStrictEqual(parameter, current)));
+  return added.length === 1 && ['string', ['null', 'string']].some(type => [false, undefined].some(required => {
+    const expected = { name: 'parentId', in: 'query', schema: { type, format: 'uuid' } };
+    if (required !== undefined) expected.required = required;
+    return isDeepStrictEqual(sortKeysDeep(expected), sortKeysDeep(added[0]));
+  }));
+}
 
 const approvedPublicSecurityReductionOperationIds = new Set([
   'tenancyGetRuntimeBranding',
@@ -890,6 +913,17 @@ const strictWorkflowSchemaMetadataRepairs = new Set([
 function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSchema) {
   if (isDeepStrictEqual(baselineSchema, currentSchema)) {
     return true;
+  }
+
+  // 开发底座直接演进：仅接纳目录递归 children 到 hasChildren 的精确替换，其他属性仍完整比较。
+  if (schemaName === 'HostFolderTreeNode' && baselineSchema?.properties?.children?.type === 'array'
+    && baselineSchema.properties.children.items?.$ref === '#/components/schemas/HostFolderTreeNode'
+    && !Object.hasOwn(baselineSchema.properties, 'hasChildren')) {
+    const expected = structuredClone(baselineSchema);
+    delete expected.properties.children;
+    expected.properties.hasChildren = { type: 'boolean' };
+    expected.required = expected.required.map(name => name === 'children' ? 'hasChildren' : name);
+    if (isDeepStrictEqual(sortKeysDeep(expected), sortKeysDeep(currentSchema))) return true;
   }
 
   if (isApprovedAdditiveSchemaEvolution(schemaName, baselineSchema, currentSchema)) {

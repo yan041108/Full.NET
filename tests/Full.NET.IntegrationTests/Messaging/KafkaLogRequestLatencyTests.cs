@@ -3,6 +3,7 @@ extern alias consumerhost;
 
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using Confluent.Kafka;
 using Full.NET.Logging.Kafka;
 using Full.NET.LogConsumer;
@@ -33,8 +34,9 @@ public sealed class KafkaLogRequestLatencyTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Full.NET.slnx"))) root = root.Parent;
         Assert.IsNotNull(root, "Kafka 请求验收必须在仓库本地运行。");
-        var directory = Path.Combine(root.FullName, independent ? "artifacts/logging-request-process" : writeElasticsearch ? "artifacts/logging-request-es" : "artifacts/logging-request-kafka");
-        Directory.CreateDirectory(directory);
+        // 测试入口拥有 TEMP 生命周期，成功后回收；不在源码目录累积请求回放产物。
+        var directory = Directory.CreateTempSubdirectory(independent ? "fullnet-logging-request-process-"
+            : writeElasticsearch ? "fullnet-logging-request-es-" : "fullnet-logging-request-kafka-").FullName;
         var reportPath = Path.Combine(directory, "result.json");
         File.Delete(reportPath);
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -82,18 +84,40 @@ public sealed class KafkaLogRequestLatencyTests
                         partition => consumer.QueryWatermarkOffsets(partition, TimeSpan.FromSeconds(10)).High.Value);
                     var seen = ends.Keys.ToDictionary(partition => partition, _ => 0L);
                     var lines = new List<string>();
-                    var batch = new List<KafkaLogInput>(8);
+                    // 收据对账在请求结束后串行执行，使用协调器既有上限减少 ES/Commit 往返；期限与全量断言保持不变。
+                    const int receiptBatchMaxRecords = BatchLogDeliveryProcessor.MaximumRecords;
+                    var batch = new List<KafkaLogInput>(receiptBatchMaxRecords);
                     var processor = es is null || independent ? null : new BatchLogDeliveryProcessor(es.Sink, new UnexpectedDlq(),
                         new KafkaLogOffsetCommitter(consumer), new Dictionary<int, int> { [1] = 30 }, 16384);
+                    var receiptClock = Stopwatch.StartNew();
+                    var stop = DateTime.UtcNow.AddSeconds(30);
+                    var completedBatches = 0;
+                    var committedRecords = 0;
+                    var maximumFlushMilliseconds = 0d;
                     async Task FlushAsync()
                     {
                         if (batch.Count == 0) return;
-                        var outcome = await processor!.ProcessAsync(batch, () => true, token);
-                        Assert.AreEqual(LogDeliveryDisposition.Completed, outcome.Disposition);
-                        Assert.AreEqual(batch.Count, outcome.CommittedRecords);
-                        batch.Clear();
+                        var flushClock = Stopwatch.StartNew();
+                        try
+                        {
+                            var outcome = await processor!.ProcessAsync(batch, () => true, token);
+                            Assert.AreEqual(LogDeliveryDisposition.Completed, outcome.Disposition);
+                            Assert.AreEqual(batch.Count, outcome.CommittedRecords);
+                            completedBatches++;
+                            committedRecords += outcome.CommittedRecords;
+                            batch.Clear();
+                        }
+                        catch (Exception error)
+                        {
+                            // 只记录计数、耗时与取消来源，不泄露日志正文、凭据或目标地址。
+                            Console.WriteLine(FormattableString.Invariant($"receipt_failure expected={ends.Values.Sum()} consumed={lines.Count} committed={committedRecords} batches={completedBatches} batch_records={batch.Count} elapsed_ms={receiptClock.Elapsed.TotalMilliseconds:F2} flush_ms={flushClock.Elapsed.TotalMilliseconds:F2} prior_max_flush_ms={maximumFlushMilliseconds:F2} receipt_cancelled={token.IsCancellationRequested} parent_cancelled={deadline.IsCancellationRequested} stop_reached={DateTime.UtcNow >= stop} exception={error.GetType().Name} inner={error.InnerException?.GetType().Name}"));
+                            throw;
+                        }
+                        finally
+                        {
+                            maximumFlushMilliseconds = Math.Max(maximumFlushMilliseconds, flushClock.Elapsed.TotalMilliseconds);
+                        }
                     }
-                    var stop = DateTime.UtcNow.AddSeconds(30);
                     while (seen.Any(pair => pair.Value < ends[pair.Key]) && DateTime.UtcNow < stop)
                     {
                         token.ThrowIfCancellationRequested();
@@ -114,13 +138,20 @@ public sealed class KafkaLogRequestLatencyTests
                         {
                             batch.Add(new KafkaLogInput(record.Topic, record.Partition.Value, record.Offset.Value,
                                 key, record.Message.Value, record.Message.Key));
-                            if (batch.Count == 8) await FlushAsync();
+                            if (batch.Count == receiptBatchMaxRecords) await FlushAsync();
                         }
                     }
+                    if (processor is not null)
+                        Console.WriteLine(FormattableString.Invariant($"receipt_drain expected={ends.Values.Sum()} consumed={lines.Count} committed={committedRecords} batches={completedBatches} elapsed_ms={receiptClock.Elapsed.TotalMilliseconds:F2} max_flush_ms={maximumFlushMilliseconds:F2} receipt_cancelled={token.IsCancellationRequested} parent_cancelled={deadline.IsCancellationRequested} stop_reached={DateTime.UtcNow >= stop}"));
                     Assert.IsTrue(seen.All(pair => pair.Value == ends[pair.Key]), "必须读至排空后的 Broker 高位点。");
                     if (es is not null)
                     {
                         await FlushAsync();
+                        if (processor is not null)
+                        {
+                            Assert.AreEqual(ends.Values.Sum(), (long)committedRecords, "全部收据必须成功写入并提交，不能靠减少输入满足预算。");
+                            Console.WriteLine(FormattableString.Invariant($"receipt_complete expected={ends.Values.Sum()} consumed={lines.Count} committed={committedRecords} batches={completedBatches} batch_max_records={receiptBatchMaxRecords} elapsed_ms={receiptClock.Elapsed.TotalMilliseconds:F2} max_flush_ms={maximumFlushMilliseconds:F2}"));
+                        }
                         var committed = consumer.Committed(ends.Keys, TimeSpan.FromSeconds(10));
                         while (independent && committed.Any(position => position.Offset.Value != ends[position.TopicPartition]))
                         {
@@ -138,6 +169,7 @@ public sealed class KafkaLogRequestLatencyTests
                         elasticsearchProof = new
                         {
                             standaloneProcessId = process?.Id,
+                            inProcessBatchMaxRecords = processor is null ? (int?)null : receiptBatchMaxRecords,
                             documents = await es.VerifyAsync(lines, token),
                             committedOffsets = committed.Select(position => new
                             {

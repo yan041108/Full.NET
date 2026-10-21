@@ -17,10 +17,12 @@ namespace Full.NET.IntegrationTests.Messaging;
 [DoNotParallelize]
 public sealed class KafkaLogConsumerElasticsearchReplayTests
 {
-    private static ContainerBuilder BoundedElasticsearch(ContainerBuilder builder) => SharedDatabaseFixture.BoundedContainers
-        ? builder.WithImagePullPolicy(PullPolicy.Never)
-            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "elasticsearch"))
-        : builder;
+    private static ContainerBuilder BoundedElasticsearch(ContainerBuilder builder)
+    {
+        builder = builder.WithCreateParameterModifier(parameters =>
+            SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "elasticsearch"));
+        return SharedDatabaseFixture.BoundedContainers ? builder.WithImagePullPolicy(PullPolicy.Never) : builder;
+    }
     [TestMethod]
     public async Task ElasticsearchWriteBeforeFailedCommitReplaysSameDocumentId()
     {

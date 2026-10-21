@@ -1,3 +1,6 @@
+using DbUp;
+using Full.NET.Modularity.Modules;
+using Full.NET.Modules.EnterpriseRequest;
 using System.Net;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -29,7 +32,8 @@ internal sealed class FullNetApiFactory(
     string connectionString,
     IReadOnlyDictionary<string, string?>? settingsOverrides = null,
     IPAddress? connectionRemoteIpAddress = null,
-    Action<IServiceCollection>? configureTestServices = null) : WebApplicationFactory<Program>
+    Action<IServiceCollection>? configureTestServices = null,
+    bool includeEnterpriseRequest = false) : WebApplicationFactory<Program>
 {
     public const string TestPassword = "FullNet!2026Integration";
 
@@ -72,6 +76,14 @@ internal sealed class FullNetApiFactory(
                         connectionRemoteIpAddress));
             }
 
+            if (includeEnterpriseRequest)
+            {
+                services.AddFullNetModule(new EnterpriseRequestModule(), hostContext.Configuration);
+                services.AddFullNetModuleCatalogSnapshot(module => FullNetModuleDescriptor.Create(
+                    module.Name, module.Name, "1.0.0", module.Dependencies, ["Api", "Worker", "Migrator"],
+                    module.Name == "EnterpriseRequest" ? FullNetModuleSourceClassification.Application : FullNetModuleSourceClassification.Official,
+                    FullNetModuleHealthCapability.None));
+            }
             services.AddFullNetSeeding(hostContext.Configuration);
             services.PostConfigure<FusionCacheOptions>(options =>
             {
@@ -189,6 +201,17 @@ internal sealed class FullNetApiFactory(
     {
         await RunDbUpMigrationsAsync(provider, connectionString, cancellationToken)
             .ConfigureAwait(false);
+        if (includeEnterpriseRequest)
+        {
+            // 应用拥有的显式迁移入口，与官方迁移资源分离；API 进程只由测试工厂装配。
+            var migration = provider == DatabaseProvider.SqlServer
+                ? DeployChanges.To.SqlDatabase(connectionString)
+                : DeployChanges.To.MySqlDatabase(connectionString);
+            var segment = provider == DatabaseProvider.SqlServer ? ".Migrations.SqlServer." : ".Migrations.MySql.";
+            var result = migration.WithScriptsEmbeddedInAssembly(typeof(EnterpriseRequestModule).Assembly,
+                name => name.Contains(segment, StringComparison.Ordinal)).Build().PerformUpgrade();
+            if (!result.Successful) throw new InvalidOperationException("Sample migration failed.", result.Error);
+        }
         using var bootstrapClient = CreateClient();
         await using var scope = Services.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider
@@ -291,7 +314,7 @@ internal sealed class FullNetApiFactory(
             connectionString,
             settingsOverrides,
             connectionRemoteIpAddress,
-            configureTestServices);
+            configureTestServices, includeEnterpriseRequest);
     }
 
     public async Task<string> CreateHostAccessTokenAsync(

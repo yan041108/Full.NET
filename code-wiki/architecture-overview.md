@@ -155,8 +155,7 @@ src/
 │   ├── Full.NET.Modules.Workflow.Contracts
 │   ├── Full.NET.Modules.Mqtt                # MQTT：设备消息接入
 │   ├── Full.NET.Modules.Webhooks            # Webhook：出站事件投递
-│   ├── Full.NET.Modules.Cryptography        # 加密：对称/非对称、密钥管理
-│   └── Full.NET.Modules.EnterpriseRequest   # 企业请求样板：跨模块审批样例
+│   └── Full.NET.Modules.Cryptography        # 加密：对称/非对称、密钥管理
 │
 ├── AI/                                       # AI Provider 与 Agent 抽象（业务无关）
 │   ├── Full.NET.AI.Abstractions              # AI 抽象：凭据、连接探针、模型客户端
@@ -405,3 +404,6 @@ Integration 层 (src/.../Integration/)
 - `CrudSceneGuard` 阻止非授权场景下的批量生成
 - 所有装配命令均为 `*ApplyCommand` 模式，可被宿主 `ModuleIntegrationHostOrchestrator` 编排为单一事务
 - 命名、主键、Schema 草稿由 `NamingProfile` / `PrimaryKeyProfile` / `FullNetCrudSchema` 强约束，避免运行时漂移
+
+
+示例模块 `samples/enterprise-request` 由应用组合根显式注册，不属于官方 Composition 或迁移闭包。Identity 挑战投递端口归属 Identity.Contracts，Notifications 提供实现；DataApproval 通过自身场景端口使用流水号适配器。事务命令默认对失败 Result 回滚，认证拒绝的计数、撤销和审计通过明确的拒绝提交策略保留。文档应用入口通过操作类型检查 ACL，HTTP 仅适配受信任身份。

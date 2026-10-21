@@ -65,4 +65,8 @@ internal sealed class IdentityOidcStoreSqlResolver(IOptions<DatabaseOptions> dat
         DatabaseProvider.MySql => IdentityOidcSql.FindScopesByResourceMySql,
         _ => throw new InvalidOperationException("The configured database provider is not supported."),
     };
+    internal SqlStatement PruneTokens() => Provider == DatabaseProvider.MySql
+        ? IdentityOidcSql.PruneTokensMySql : IdentityOidcSql.PruneTokens;
+    internal SqlStatement PruneAuthorizations() => Provider == DatabaseProvider.MySql
+        ? IdentityOidcSql.PruneAuthorizationsMySql : IdentityOidcSql.PruneAuthorizations;
 }

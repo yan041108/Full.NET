@@ -92,7 +92,7 @@ public static class FullNetModuleCatalog
     [
         new IdentityModule(),
         new AuditingModule(),
-        // ... 全部 30 个稳定模块（详见 §3.1）
+        // ... 全部 29 个官方稳定模块（详见 §3.1）
     ];
 }
 ```
@@ -120,8 +120,8 @@ public static class FullNetModuleCatalog
 | `Platform` | Minimal + Auditing, Files, Notifications, Calendar, Platform, Regions, Jobs, Messaging, ObservabilityAdmin, Mqtt, Cryptography |
 | `Content` | Platform + Document |
 | `Saas` | Platform + Payments, Webhooks |
-| `Enterprise` | Platform + Webhooks, Workflow, ImportExport, Reporting, Printing, EnterpriseRequest |
-| `Full`（默认） | `OfficialModuleNames` 全集（30 个稳定键） |
+| `Enterprise` | Platform + Webhooks, Workflow, ImportExport, Reporting, Printing |
+| `Full`（默认） | `OfficialModuleNames` 全集（29 个官方稳定键） |
 
 > 启用 `FullNet:Modules:Enabled` 显式列表时优先级最高，跳过 Preset；空集、含空名、含未知名或缺少 Identity 都会抛 `InvalidOperationException`。
 
@@ -139,7 +139,7 @@ public static class FullNetModuleCatalog
 
 ### 3.1 已落地模块
 
-> 30 个稳定模块键与 [`FullNetModuleSelection.OfficialModuleNames`](file:///G:/wwwroot/github_fork/Full.NET/src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 一一对应；`EnterpriseRequest` 位于 `samples/` 目录，但已注册到 `CreateAllModules()` 与 `OfficialModuleNames`。
+> 29 个官方稳定模块键与 [`FullNetModuleSelection.OfficialModuleNames`](file:///G:/wwwroot/github_fork/Full.NET/src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 一一对应；`EnterpriseRequest` 位于 `samples/`，由应用通过静态扩展入口显式装配，来源分类为 Application，不进入官方编译和迁移闭包。
 
 | 模块 | 稳定键 | 项目 | 核心职责 |
 |------|--------|------|----------|
@@ -185,7 +185,7 @@ public static class FullNetModuleCatalog
 | `Full.NET.Modules.Organization.Contracts` | 无（仅 Organization 主项目自引用） | OpenAPI/序列化隔离，暂无外部模块消费者 |
 | `Full.NET.Modules.Settings.Contracts` | 无（仅 Settings 主项目自引用） | OpenAPI/序列化隔离，暂无外部模块消费者 |
 | `Full.NET.Modules.Tenancy.Contracts` | Payments | 租户订阅履约 Port |
-| `Full.NET.Modules.Notifications.Contracts` | Identity | Identity 账号挑战邮件投递 Port |
+| `Full.NET.Modules.Notifications.Contracts` | 无（仅 Notifications 主项目自引用） | 通知模块公开 DTO；挑战投递端口归属 Identity.Contracts |
 | `Full.NET.Modules.Workflow.Contracts` | Notifications、DataApproval、Webhooks、EnterpriseRequest（sample） | 工作流实例启动/取消 Port、终端事件 Sink |
 | `Full.NET.Modules.ImportExport.Contracts` | Organization、EnterpriseRequest（sample） | 静态 Schema 贡献 Port |
 | `Full.NET.Modules.Reporting.Contracts` | 无（仅 Reporting 主项目自引用） | OpenAPI/序列化隔离 |
@@ -195,7 +195,7 @@ public static class FullNetModuleCatalog
 | `Full.NET.Modules.K3Cloud.Contracts` | 无（仅 K3Cloud 主项目自引用） | OpenAPI/序列化隔离 |
 | `Full.NET.Modules.Ocr.Contracts` | 无（仅 Ocr 主项目自引用） | OpenAPI/序列化隔离 |
 | `Full.NET.Modules.Payments.Contracts` | 无（仅 Payments 主项目自引用） | OpenAPI/序列化隔离 |
-| `Full.NET.Modules.DataApproval.Contracts` | 无（仅 DataApproval 主项目自引用） | 业务模块内部 Port |
+| `Full.NET.Modules.DataApproval.Contracts` | SerialNumbers | 审批提交、场景策略和消费方拥有的场景处理端口 |
 
 是否保留独立 `.Contracts` 项目以 **真实跨模块编译引用** 为准；禁止在 wiki 中假设 Identity 仍引用 `Organization.Contracts`。
 
@@ -272,7 +272,7 @@ Consumer Port 范例见 [`OrganizationUnitProjectionContracts.cs`](../src/Module
 | Mqtt | `mqtt` | `fn_mqtt_*` |
 | Webhooks | `webhooks` | `fn_webhooks_subscription`、`fn_webhooks_delivery` |
 | Cryptography | `cryptography` | `fn_cryptography_gm_key` |
-| EnterpriseRequest（sample） | `enterprise_request` | `fn_enterprise_request_*` |
+| EnterpriseRequest（sample） | `enterprise_request` | `demo_enterprise_request_*` |
 
 > 注意：`fn` 是 Full.NET 官方 OwnerKey（固定保留）；具体产品使用脚手架冻结的项目 OwnerKey。
 

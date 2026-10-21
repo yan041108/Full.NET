@@ -28,7 +28,7 @@ public sealed class SerialNumbersModule : IFullNetModule
 
     /// <summary>
     /// 显式声明的运行时依赖：Identity 提供受信任用户与权限目录；
-    /// 不得在未注册 Identity 模块的宿主中启用本模块。
+    /// DataApproval 提供规则变更审批门禁，依赖图不包含反向业务契约。
     /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "DataApproval"];
 
@@ -52,6 +52,7 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<SerialNumberPreviewService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioHandler, SerialRuleApprovalScenarioHandler>());
         services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<SerialRuleUpdateApprovalService>();
@@ -81,8 +82,10 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<IDataApprovalScenarioPolicyPort, Features.DataApprovalBridge.WorkerSerialRuleApprovalScenarioPolicy>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioHandler, SerialRuleApprovalScenarioHandler>());
         services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
+        services.TryAddScoped<ISerialRuleChangeApprovalSource, Features.DataApprovalBridge.SerialRuleChangeApprovalSource>();
         services.TryAddScoped<ISerialRuleChangeApprovalApplier, Features.DataApprovalBridge.SerialRuleChangeApprovalApplier>();
         services.TryAddScoped<ISerialRuleDisableApprovalApplier, Features.DataApprovalBridge.SerialRuleDisableApprovalApplier>();
     }

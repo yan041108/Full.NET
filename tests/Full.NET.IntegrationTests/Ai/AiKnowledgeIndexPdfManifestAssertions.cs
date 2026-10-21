@@ -137,6 +137,11 @@ internal static class AiKnowledgeIndexPdfManifestAssertions
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult<AuthorizedSessionActor?>(binding != expected || permissionCode == DeniedPermission ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
         }
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(SessionBindingSnapshot binding, IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<AuthorizedSessionActor?>(binding != expected || permissionCodes.Contains(DeniedPermission!) ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
+        }
     }
     private sealed class ExpireAfterInsert(ICommandExecutor inner, AiOperationBudgetAssertions.TestClock clock) : ICommandExecutor
     {

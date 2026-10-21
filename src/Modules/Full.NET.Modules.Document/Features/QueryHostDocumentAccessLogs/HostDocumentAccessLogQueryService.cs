@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -10,7 +11,7 @@ namespace Full.NET.Modules.Document.Features.QueryHostDocumentAccessLogs;
 /// <summary>Host 文档访问日志分页只读查询。</summary>
 internal sealed class HostDocumentAccessLogQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<PagedResult<HostDocumentAccessLogResponse>>> ListAsync(
         int page,
@@ -37,6 +38,7 @@ internal sealed class HostDocumentAccessLogQueryService(
                     ("DocumentItemId", documentItemId),
                     ("AccessTypeKey", accessTypeKey),
                     ("SourceKey", sourceKey),
+                    ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize)),
                 async (reader, _) =>

@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Observability;
@@ -56,17 +57,17 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapGet("/{itemId:guid}/versions", async (
-            Guid itemId,
+            Guid itemId, int? page, int? pageSize,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListVersionsAsync(itemId, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListVersionsAsync(itemId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("documentHostListItemVersions")
-        .Produces<IReadOnlyList<HostDocumentVersionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<HostDocumentVersionResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)

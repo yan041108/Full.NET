@@ -19,9 +19,10 @@ import { http } from './http';
 export async function listSettingsConfigEntries(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { configKey?: string; displayName?: string; groupName?: string; status?: string } = {}
 ): Promise<SettingsConfigEntryPage> {
-  return settingsListHostConfigEntries(http, { page, pageSize }, signal);
+  return settingsListHostConfigEntries(http, { page, pageSize, ...filters }, signal);
 }
 
 /** 全量配置项列表（不分页），对应 Admin.NET queryConfigList 全量场景。 */

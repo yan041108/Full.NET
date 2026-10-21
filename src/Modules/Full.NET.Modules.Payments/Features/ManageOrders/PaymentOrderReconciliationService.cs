@@ -1,3 +1,4 @@
+using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -23,7 +24,8 @@ internal sealed class PaymentOrderReconciliationService(
     PaymentOrderQueryService queries,
     IWeChatNativePayClient weChatNativePayClient,
     IAlipayPagePayClient alipayPagePayClient,
-    IClock clock)
+    IClock clock,
+    PaymentRefundReconciliationService refunds)
 {
     /// <summary>按订单标识查询渠道交易并回写本地状态。</summary>
     /// <param name="orderId">订单标识。</param>
@@ -46,7 +48,13 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.NotFound));
         }
 
-        if (order.TradeStateKey is PaymentTradeStateKeys.Refunded or PaymentTradeStateKeys.Refunding)
+        if (order.TradeStateKey == PaymentTradeStateKeys.Refunding)
+        {
+            var outcome = await refunds.ReconcileAsync(order, cancellationToken).ConfigureAwait(false);
+            return outcome.IsSuccess ? await queries.GetByIdAsync(orderId, cancellationToken).ConfigureAwait(false)
+                : Result<PaymentOrderResponse>.Failure(outcome.Error!);
+        }
+        if (order.TradeStateKey == PaymentTradeStateKeys.Refunded)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.OrderStateInvalid,

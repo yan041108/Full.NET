@@ -41,6 +41,18 @@ public static class DatabaseCatalogQueries
           AND TABLE_TYPE = 'VIEW'
         """;
 
+    /// <summary>精确定位当前库单个基础表，避免下载完整目录。</summary>
+    public const string FindTableSqlServer = ListTablesSqlServer + " AND TABLE_NAME = @TableName";
+
+    /// <summary>精确定位当前库单个基础表，避免下载完整目录。</summary>
+    public const string FindTableMySql = ListTablesMySql + " AND TABLE_NAME = @TableName";
+
+    /// <summary>精确定位当前库单个视图，避免下载完整目录。</summary>
+    public const string FindViewSqlServer = ListViewsSqlServer + " AND TABLE_NAME = @TableName";
+
+    /// <summary>精确定位当前库单个视图，避免下载完整目录。</summary>
+    public const string FindViewMySql = ListViewsMySql + " AND TABLE_NAME = @TableName";
+
     /// <summary>SQL Server 单表列元数据，按序数排序。</summary>
     public const string ListColumnsSqlServer =
         """

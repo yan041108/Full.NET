@@ -14,6 +14,8 @@ namespace Full.NET.Modules.Files.Serialization;
 [JsonSerializable(typeof(PagedResult<HostFileReferenceClaimResponse>))]
 [JsonSerializable(typeof(HostFolderTreeNode))]
 [JsonSerializable(typeof(HostFolderTreeNode[]))]
+// Mapper 保留接口声明类型；不能再依赖递归 Children 属性间接生成列表元数据。
+[JsonSerializable(typeof(IReadOnlyList<HostFolderTreeNode>))]
 [JsonSerializable(typeof(HostFolderResponse))]
 [JsonSerializable(typeof(CreateHostFolderRequest))]
 [JsonSerializable(typeof(UpdateHostFolderRequest))]

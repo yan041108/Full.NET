@@ -24,6 +24,48 @@ namespace Full.NET.IntegrationTests.Notifications;
 /// </summary>
 internal static class NotificationDeliveryWorkerAssertions
 {
+    /// <summary>同一数据库和提供程序延迟下比较串行与四路执行，并验证每条终态只提交一次。</summary>
+    internal static async Task VerifyConcurrencyAsync(FullNetApiFactory factory, Action<string> evidence, Action? advanceClock = null)
+    {
+        using var client = factory.CreateClientForHost("localhost");
+        var token = await NotificationProfileBindingAssertions.LoginAsHostAdminAsync(client, default);
+        var user = await NotificationProfileBindingAssertions.GetCurrentUserAsync(client, token, default);
+        var fixture = await CreateRouteAsync(client, token, user.Id, default);
+        await ProcessPendingAsync(factory, default);
+        var harness = factory.Services.GetRequiredService<TestNotificationProviderHarness>();
+        foreach (var scenario in new[] { (Concurrency: 1, LeaseStress: false), (Concurrency: 4, LeaseStress: false), (Concurrency: 1, LeaseStress: true) })
+        {
+            if (scenario.LeaseStress && advanceClock is null) continue;
+            var concurrency = scenario.Concurrency;
+            factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<NotificationDeliveryWorkerOptions>>().Value.MaxConcurrency = concurrency;
+            var deliveries = new List<NotificationDeliveryResponse>();
+            for (var i = 0; i < 8; i++)
+            {
+                var intent = await CreateIntentAsync(client, token, fixture, user.Id, $"parallel-{concurrency}-{scenario.LeaseStress}-{i}", default);
+                deliveries.Add(await WaitDeliveryAsync(client, token, intent.Id, default));
+            }
+            harness.Reset(TestNotificationProviderMode.Slow);
+            harness.SlowDelay = scenario.LeaseStress ? TimeSpan.Zero : TimeSpan.FromMilliseconds(150);
+            harness.OnSend = scenario.LeaseStress ? advanceClock : null;
+            var watch = Stopwatch.StartNew();
+            Assert.AreEqual(8, await ProcessPendingAsync(factory, default));
+            watch.Stop();
+            Assert.AreEqual(8, harness.SendCount);
+            Assert.AreEqual(8, DistinctIdempotencyCount(harness));
+            Assert.IsTrue(harness.PeakConcurrency <= concurrency);
+            Assert.IsTrue(concurrency == 1 ? harness.PeakConcurrency == 1 : harness.PeakConcurrency > 1);
+            foreach (var item in deliveries)
+            {
+                var result = await GetDeliveryAsync(client, token, item.Id, default);
+                Assert.AreEqual("sent", result.StatusKey);
+                Assert.AreEqual(1, result.Attempts.Count);
+            }
+            Assert.AreEqual(0, await ProcessPendingAsync(factory, default));
+            evidence($"notifications concurrency={concurrency} lease_stress={scenario.LeaseStress} count=8 peak={harness.PeakConcurrency} elapsed_ms={watch.Elapsed.TotalMilliseconds:F2} errors=0 duplicates=0");
+        }
+        harness.OnSend = null;
+    }
+
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)

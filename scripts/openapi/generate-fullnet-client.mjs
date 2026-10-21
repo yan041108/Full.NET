@@ -145,6 +145,11 @@ function renderGuards(schemas, operations) {
       `function normalize${name}IntegerJson(value: unknown): unknown {\n`
       + `  return ${integerNormalizationExpression(schemas[name], 'value', normalizedSchemas)};\n}`)].join('\n\n')
     + '\n\n'
+    + "// 统一失败关闭与错误码，避免每个生成读取器重复携带异常和返回分支。\n"
+    + "function requireValidResponse(value: unknown, valid: boolean, responseKind: string): unknown {\n"
+    + "  if (!valid) throw new Error('client.invalid_' + responseKind);\n"
+    + "  return value;\n"
+    + "}\n\n"
     + "const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\n"
     + "// 服务端 Int64 可按 JSON 字符串输出；客户端仅在无精度损失时归一为既有 number 契约。\n"
     + "function normalizeWireInteger(value: unknown): unknown {\n"
@@ -189,12 +194,7 @@ function renderReader(functionName, returnType, schema, errorKey, predicateName 
     : guardExpression(schema, valueName);
   return `export function ${functionName}(value: unknown): ${returnType} {\n`
     + (normalizes ? `  const normalizedValue = ${normalization};\n` : '')
-    + `  if (!(${condition})) {\n`
-    + `    throw new Error('${errorKey}');\n`
-    + '  }\n'
-    + (predicateName
-      ? `  return ${valueName};\n`
-      : `  return ${valueName} as ${returnType};\n`)
+    + `  return requireValidResponse(${valueName}, ${condition}, '${errorKey.slice('client.invalid_'.length)}') as ${returnType};\n`
     + '}';
 }
 

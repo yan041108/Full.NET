@@ -159,9 +159,10 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         }
 
         if (enableCollectorListener) containerBuilder = containerBuilder.WithPortBinding(2020, assignRandomHostPort: true);
+        containerBuilder = containerBuilder.WithCreateParameterModifier(parameters =>
+            SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "kafka"));
         if (SharedDatabaseFixture.BoundedContainers)
-            containerBuilder = containerBuilder.WithImagePullPolicy(PullPolicy.Never)
-                .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyBoundedLogResources(parameters, "kafka"));
+            containerBuilder = containerBuilder.WithImagePullPolicy(PullPolicy.Never);
         NativeContainerResourceProfile.Lease? resourceLease = null;
         IContainer container;
         try

@@ -37,8 +37,9 @@ internal static class ReportingExportTaskSql
         SELECT TOP (@BatchSize) TenantId
         FROM fn_reporting_export_task
         WHERE {ClaimablePredicate}
+          AND (@AfterTenantId IS NULL OR TenantId > @AfterTenantId)
         GROUP BY TenantId
-        ORDER BY MIN(CreatedAtUtc), TenantId
+        ORDER BY TenantId
         """, SqlDataScope.Global);
 
     /// <summary>MySQL Worker 调度目录。</summary>
@@ -48,8 +49,9 @@ internal static class ReportingExportTaskSql
         SELECT TenantId
         FROM fn_reporting_export_task
         WHERE {ClaimablePredicate}
+          AND (@AfterTenantId IS NULL OR TenantId > @AfterTenantId)
         GROUP BY TenantId
-        ORDER BY MIN(CreatedAtUtc), TenantId
+        ORDER BY TenantId
         LIMIT @BatchSize
         """, SqlDataScope.Global);
 
@@ -246,7 +248,7 @@ internal static class ReportingExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -266,7 +268,7 @@ internal static class ReportingExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -284,7 +286,7 @@ internal static class ReportingExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -302,7 +304,15 @@ internal static class ReportingExportTaskSql
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
-          AND LeaseId = @LeaseId
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement RenewExecutionLease = new(
+        "reporting.export.task.renew_execution_lease",
+        """
+        UPDATE fn_reporting_export_task
+        SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
+        WHERE TenantId = @TenantId AND Id = @Id AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

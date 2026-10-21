@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Full.NET.Modules.Identity.Persistence;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
@@ -45,6 +46,8 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(Dictionary<string, string?>))]
 [JsonSerializable(typeof(BatchHostUserStatusItem))]
 [JsonSerializable(typeof(Guid[]))]
+[JsonSerializable(typeof(PagedResult<MyTenantInvitationResponse>))]
+[JsonSerializable(typeof(HostRoleMemberStamp[]))]
 [JsonSerializable(typeof(HostUserResponse))]
 [JsonSerializable(typeof(HostUserProjectedFieldsResponse))]
 [JsonSerializable(typeof(PagedResult<HostUserResponse>))]

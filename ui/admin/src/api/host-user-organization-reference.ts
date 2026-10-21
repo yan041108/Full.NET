@@ -18,11 +18,12 @@ import { http } from './http';
 /** 查询 Host 用户管理页所需的组织参考数据，并对响应结构做失败关闭校验。 */
 export async function getHostUserOrganizationReference(
   tenantId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: { userIds?: string[]; unitsPage?: number; positionsPage?: number; unitSearch?: string; positionSearch?: string } = {}
 ): Promise<HostUserOrganizationReference> {
   const value = await organizationGetHostUserManagementReference(
     http,
-    { tenantId },
+    { tenantId, ...options },
     signal
   );
   if (!isHostUserOrganizationReference(value)) {

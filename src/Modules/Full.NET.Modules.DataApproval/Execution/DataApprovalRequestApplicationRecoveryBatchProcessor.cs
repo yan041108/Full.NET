@@ -17,14 +17,29 @@ internal sealed class DataApprovalRequestApplicationRecoveryBatchProcessor(
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
     DataApprovalRequestApplicationService applicationService,
-    ILogger<DataApprovalRequestApplicationRecoveryBatchProcessor> logger)
+    ILogger<DataApprovalRequestApplicationRecoveryBatchProcessor> logger,
+    DataApprovalRecoveryCursor<DataApprovalRequestApplicationRecoveryBatchProcessor>? cursor = null)
 {
+    private readonly DataApprovalRecoveryCursor<DataApprovalRequestApplicationRecoveryBatchProcessor> _cursor = cursor ?? new();
     private readonly DataApprovalRequestApplicationRecoveryWorkerOptions _options = workerOptions.Value;
 
     /// <summary>扫描并处理一批待应用请求。</summary>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>本批处理数量。</returns>
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
+    {
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ProcessCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cursor.Gate.Release();
+        }
+    }
+
+    private async Task<int> ProcessCoreAsync(CancellationToken cancellationToken)
     {
         var batchSize = Math.Clamp(_options.BatchSize, 1, 50);
         var notBeforeUtc = clock.UtcNow.AddSeconds(-_options.RetryDelaySeconds);
@@ -38,7 +53,10 @@ internal sealed class DataApprovalRequestApplicationRecoveryBatchProcessor(
                 statement,
                 DataApprovalSqlParameters.Create(
                     ("BatchSize", batchSize),
-                    ("NotBeforeUtc", notBeforeUtc)),
+                    ("NotBeforeUtc", notBeforeUtc),
+                    ("HasCursor", _cursor.Id is null ? 0 : 1),
+                    ("AfterSubmittedAtUtc", _cursor.SubmittedAtUtc),
+                    ("AfterId", _cursor.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
         var processed = 0;
@@ -63,7 +81,7 @@ internal sealed class DataApprovalRequestApplicationRecoveryBatchProcessor(
                     .ConfigureAwait(false);
                 processed++;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
             {
                 logger.LogError(
                     exception,
@@ -76,6 +94,8 @@ internal sealed class DataApprovalRequestApplicationRecoveryBatchProcessor(
             }
         }
 
+        _cursor.Id = rows.Count == batchSize ? rows[^1].Id : null;
+        if (rows.Count > 0) _cursor.SubmittedAtUtc = rows[^1].SubmittedAtUtc;
         return processed;
     }
 

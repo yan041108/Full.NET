@@ -40,9 +40,11 @@ export async function revealHostUserProfileFields(
 export async function listHostUsers(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { username?: string; displayName?: string; phone?: string; email?: string; status?: string;
+    organizationTenantId?: string; organizationUnitId?: string } = {}
 ): Promise<HostUserPage> {
-  return identityListHostUsers(http, { page, pageSize }, signal);
+  return identityListHostUsers(http, { page, pageSize, ...filters }, signal);
 }
 
 /** 导出 Host 用户列表的结构化数据。 */

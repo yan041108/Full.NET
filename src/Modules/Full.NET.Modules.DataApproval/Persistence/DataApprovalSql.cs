@@ -170,6 +170,8 @@ internal static class DataApprovalSql
         WHERE StatusKey = 'in_review'
           AND ApplicationStatusKey IN ('pending_apply', 'failed_retryable')
           AND (LastApplicationAttemptAtUtc IS NULL OR LastApplicationAttemptAtUtc < @NotBeforeUtc)
+          AND (@HasCursor = 0 OR SubmittedAtUtc > @AfterSubmittedAtUtc
+               OR (SubmittedAtUtc = @AfterSubmittedAtUtc AND Id > @AfterId))
         ORDER BY SubmittedAtUtc ASC, Id ASC
         """,
         SqlDataScope.Global);
@@ -182,6 +184,8 @@ internal static class DataApprovalSql
         WHERE StatusKey = 'in_review'
           AND ApplicationStatusKey IN ('pending_apply', 'failed_retryable')
           AND (LastApplicationAttemptAtUtc IS NULL OR LastApplicationAttemptAtUtc < @NotBeforeUtc)
+          AND (@HasCursor = 0 OR SubmittedAtUtc > @AfterSubmittedAtUtc
+               OR (SubmittedAtUtc = @AfterSubmittedAtUtc AND Id > @AfterId))
         ORDER BY SubmittedAtUtc ASC, Id ASC
         LIMIT @BatchSize
         """,
@@ -197,6 +201,8 @@ internal static class DataApprovalSql
           AND WorkflowInstanceId IS NULL
           AND RecoveryStatusKey IN ('pending_link', 'failed_retryable', 'none')
           AND (LastRecoveryAttemptAtUtc IS NULL OR LastRecoveryAttemptAtUtc < @NotBeforeUtc)
+          AND (@HasCursor = 0 OR SubmittedAtUtc > @AfterSubmittedAtUtc
+               OR (SubmittedAtUtc = @AfterSubmittedAtUtc AND Id > @AfterId))
         ORDER BY SubmittedAtUtc ASC, Id ASC
         """,
         SqlDataScope.Global);
@@ -210,6 +216,8 @@ internal static class DataApprovalSql
           AND WorkflowInstanceId IS NULL
           AND RecoveryStatusKey IN ('pending_link', 'failed_retryable', 'none')
           AND (LastRecoveryAttemptAtUtc IS NULL OR LastRecoveryAttemptAtUtc < @NotBeforeUtc)
+          AND (@HasCursor = 0 OR SubmittedAtUtc > @AfterSubmittedAtUtc
+               OR (SubmittedAtUtc = @AfterSubmittedAtUtc AND Id > @AfterId))
         ORDER BY SubmittedAtUtc ASC, Id ASC
         LIMIT @BatchSize
         """,

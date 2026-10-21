@@ -46,7 +46,7 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(AiChatPermissions.Read));
 
         group.MapGet("/{sessionId:guid}", async (
-            Guid sessionId,
+            Guid sessionId, DateTimeOffset? beforeCreatedAtUtc, Guid? beforeMessageId,
             AiChatSessionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -57,7 +57,7 @@ internal static class Endpoint
                 return Results.Unauthorized();
             }
 
-            var result = await queries.GetByIdAsync(sessionId, userId, cancellationToken)
+            var result = await queries.GetByIdAsync(sessionId, userId, cancellationToken, beforeCreatedAtUtc, beforeMessageId)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

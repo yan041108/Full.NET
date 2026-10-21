@@ -60,6 +60,8 @@ describe('Host 用户组织参考 API', () => {
 
   it('校验聚合参考响应结构', async () => {
     requestMock.mockResolvedValueOnce({
+      unitsTotal: 1,
+      positionsTotal: 1,
       units: [{
         id: unitId,
         parentId: null,

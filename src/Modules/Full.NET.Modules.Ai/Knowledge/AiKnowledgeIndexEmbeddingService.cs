@@ -164,9 +164,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
     {
         token.ThrowIfCancellationRequested();
         if (session.UserId != binding.OwnerUserId || session.SessionId == Guid.Empty || session.TenantId != tenant.Id) return false;
-        foreach (var permission in Permissions)
         {
-            var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(session, Permissions, token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return false;
         }
         token.ThrowIfCancellationRequested(); return true;

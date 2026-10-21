@@ -4,6 +4,9 @@ namespace Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 
 internal static class TenantMembershipSql
 {
+    public static readonly SqlStatement CountActiveMembersByTenantsForHost = new(
+        "identity.tenant_members.count_active_by_tenants_host", "SELECT TenantId, COUNT(1) AS UsageValue FROM fn_identity_tenant_member WHERE TenantId IN @TenantIds AND Status = @ActiveStatus GROUP BY TenantId", SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CountActiveMembershipsByUserId = new(
         "identity.tenant_members.count_active_by_user",
         """
@@ -263,6 +266,25 @@ internal static class TenantMembershipSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement CountPendingInvitationsForInvitee = new(
+        "identity.tenant_invitations.count_pending_for_invitee",
+        """
+        SELECT COUNT(1) FROM fn_identity_tenant_invitation
+        WHERE Status = @PendingStatus AND ExpiresAtUtc > @NowUtc
+          AND (TargetUserId = @UserId OR (@NormalizedEmail IS NOT NULL AND TargetUserId IS NULL
+               AND LOWER(TargetEmail) = @NormalizedEmail))
+        """, SqlDataScope.Global);
+
+    public static readonly SqlStatement ListPendingInvitationsPageSqlServer = new(
+        "identity.tenant_invitations.list_pending_page.sql_server",
+        ListPendingInvitationsForInvitee.Text + " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListPendingInvitationsPageMySql = new(
+        "identity.tenant_invitations.list_pending_page.mysql",
+        ListPendingInvitationsForInvitee.Text + " LIMIT @PageSize OFFSET @Offset",
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertInvitation = new(
         "identity.tenant_invitations.insert",
         """
@@ -333,6 +355,22 @@ internal static class TenantMembershipSql
         INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
         WHERE member.TenantId = @TenantId
           AND member.UserId = @UserId
+          AND member.Status = @ActiveStatus
+          AND userAccount.IsActive = 1
+          AND userAccount.ScopeKey = 'host'
+          AND userAccount.TenantId IS NULL
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement FindActiveMemberSelectionsByUserIds = new(
+        "identity.tenant_members.find_active_selections_by_user_ids",
+        """
+        SELECT userAccount.Id, userAccount.Username, userAccount.DisplayName, userAccount.PreferredLocale
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.UserId IN @UserIds
           AND member.Status = @ActiveStatus
           AND userAccount.IsActive = 1
           AND userAccount.ScopeKey = 'host'

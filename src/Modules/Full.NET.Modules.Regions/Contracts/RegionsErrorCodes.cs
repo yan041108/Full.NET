@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Regions.Contracts;
 /// <summary>行政区域模块稳定错误码前缀与具体错误键。</summary>
 public static class RegionsErrorCodes
 {
+    /// <summary>树查询超过节点预算，调用方须缩小根或深度。</summary>
+    public const string TreeTooLarge = "regions.administrative_region_tree_too_large";
     /// <summary>错误码前缀，用于资源文件分组。</summary>
     public const string Prefix = "regions.";
 

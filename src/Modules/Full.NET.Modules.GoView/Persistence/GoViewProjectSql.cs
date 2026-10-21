@@ -108,4 +108,27 @@ internal static class GoViewProjectSql
           AND VersionNumber = @VersionNumber
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountProjects = new("goview.countprojects", "SELECT COUNT(1) FROM fn_goview_project WHERE (@NameContains IS NULL OR Name LIKE @NameContains)", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ProjectExists = new("goview.projectexists", "SELECT COUNT(1) FROM fn_goview_project WHERE Id = @ProjectId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountVersions = new("goview.countversions", "SELECT COUNT(1) FROM fn_goview_project_version WHERE ProjectId = @ProjectId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListProjectSummariesSqlServer = new(
+        "goview.project_summaries.sqlserver",
+        """
+        SELECT Id, ProjectKey, Name, '' AS CanvasJson, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_goview_project WHERE (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListProjectSummariesMySql = new(
+        "goview.project_summaries.mysql",
+        """
+        SELECT Id, ProjectKey, Name, '' AS CanvasJson, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_goview_project WHERE (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesSqlServer = new(
+        "goview.version_summaries.sqlserver",
+        """
+        SELECT Id, ProjectId, VersionNumber, '' AS CanvasJson, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_goview_project_version WHERE ProjectId = @ProjectId ORDER BY VersionNumber DESC, Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesMySql = new(
+        "goview.version_summaries.mysql",
+        """
+        SELECT Id, ProjectId, VersionNumber, '' AS CanvasJson, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_goview_project_version WHERE ProjectId = @ProjectId ORDER BY VersionNumber DESC, Id DESC LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
 }

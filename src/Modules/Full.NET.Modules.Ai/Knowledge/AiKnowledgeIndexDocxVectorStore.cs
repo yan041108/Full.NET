@@ -210,10 +210,9 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
         if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion
             || model.TenantId == Guid.Empty || (model.TenantId.HasValue && model.TenantId != tenant.Id) || Dimensions(model) == 0) return null;
         if (await ReadAuthorityAsync(ct => sessions.ReadHeldAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false) != session) return null;
-        foreach (var permission in Permissions)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await ReadAuthorityAsync(ct => authorization.AuthorizeAsync(session, permission, ct), token).ConfigureAwait(false);
+            var actor = await ReadAuthorityAsync(ct => authorization.AuthorizeAllAsync(session, Permissions, ct), token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
         }
         token.ThrowIfCancellationRequested(); NoTransaction();

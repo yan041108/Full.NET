@@ -151,6 +151,7 @@ function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
 
 async function startRedisContainer() {
   const container = await new GenericContainer('redis:8.6')
+    .withResourcesQuota({ memory: 0.25, cpu: 0.25 })
     .withExposedPorts(6379)
     .withWaitStrategy(Wait.forListeningPorts())
     .start();
@@ -162,6 +163,7 @@ async function startRedisContainer() {
 async function startDatabaseContainer(provider) {
   if (provider === 'MySql') {
     const container = await new GenericContainer('mysql:8.0')
+      .withResourcesQuota({ memory: 1.5, cpu: 1 })
       .withEnvironment({
         MYSQL_DATABASE: 'fullnet',
         MYSQL_USER: 'fullnet',
@@ -187,9 +189,12 @@ async function startDatabaseContainer(provider) {
   const container = await new GenericContainer(
     'mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04'
   )
+    .withResourcesQuota({ memory: 3, cpu: 1 })
     .withEnvironment({
       ACCEPT_EULA: 'Y',
-      MSSQL_SA_PASSWORD: sqlPassword
+      MSSQL_SA_PASSWORD: sqlPassword,
+      // CU14 的内部内存预算给 3 GiB 容器中的非缓冲池开销留出余量。
+      MSSQL_MEMORY_LIMIT_MB: '2048'
     })
     .withExposedPorts(1433)
     .withWaitStrategy(Wait.forListeningPorts())
@@ -309,6 +314,7 @@ export async function bootstrapStack() {
   // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
   const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
   const isolatedBuildArgs = [
+    '--configuration', 'Release',
     '-p:UseArtifactsOutput=true',
     `-p:ArtifactsPath=${stackArtifactsPath}`,
     '-m:1',
@@ -321,7 +327,7 @@ export async function bootstrapStack() {
   await runDotnet(['build', migratorProjectPath, ...isolatedBuildArgs], sharedEnv);
   const migratorAssemblyPath = path.join(
     stackArtifactsPath,
-    'bin/Full.NET.Host.Migrator/debug/Full.NET.Host.Migrator.dll'
+    'bin/Full.NET.Host.Migrator/release/Full.NET.Host.Migrator.dll'
   );
   await runDotnet([
     migratorAssemblyPath,
@@ -337,7 +343,7 @@ export async function bootstrapStack() {
   await runDotnet(['build', apiProjectPath, ...isolatedBuildArgs], sharedEnv);
   const apiAssemblyPath = path.join(
     stackArtifactsPath,
-    'bin/Full.NET.Host.Api/debug/Full.NET.Host.Api.dll'
+    'bin/Full.NET.Host.Api/release/Full.NET.Host.Api.dll'
   );
 
   const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
@@ -408,7 +414,7 @@ export async function bootstrapStack() {
   await runDotnet(['build', workerProjectPath, ...isolatedBuildArgs], sharedEnv);
   const workerAssemblyPath = path.join(
     stackArtifactsPath,
-    'bin/Full.NET.Host.Worker/debug/Full.NET.Host.Worker.dll'
+    'bin/Full.NET.Host.Worker/release/Full.NET.Host.Worker.dll'
   );
   const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
   mkdirSync(path.dirname(workerLogPath), { recursive: true });

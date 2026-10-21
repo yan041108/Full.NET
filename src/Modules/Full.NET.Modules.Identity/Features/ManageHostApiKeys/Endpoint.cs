@@ -22,7 +22,7 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? userId,
-            string? displayNameContains,
+            string? displayNameContains, bool? isActive,
             HostApiKeyQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -33,7 +33,7 @@ internal static class Endpoint
                     pageSize ?? 20,
                     userId,
                     displayNameContains,
-                    cancellationToken)
+                    cancellationToken, isActive)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

@@ -86,6 +86,8 @@ public static partial class GenerationWorkspaceStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
+        RejectPendingManifestRecovery(fullRoot);
+        RejectPendingDeleteRecovery(fullRoot);
         RejectPendingWriteRecovery(fullRoot);
         var manifest = await ReadManifestAsync(fullRoot, cancellationToken)
             .ConfigureAwait(false);

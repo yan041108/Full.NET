@@ -50,12 +50,10 @@ internal sealed class TenantCommercialReactivateGate(
             return Result<bool>.Success(true);
         }
 
-        var subscriptions = await queryExecutor.QueryAsync<TenantSubscriptionRecord>(
-                TenantSubscriptionSql.ListByTenant,
-                Persistence.TenancySqlParameters.Create(("TenantId", tenant.Id)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (subscriptions.Any(row => ActiveSubscriptionStatuses.Contains(row.Status)))
+        var activeSubscriptions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            TenantSubscriptionSql.CountActive, Persistence.TenancySqlParameters.Create(("TenantId", tenant.Id)),
+            cancellationToken).ConfigureAwait(false);
+        if (activeSubscriptions > 0)
         {
             return Result<bool>.Success(true);
         }

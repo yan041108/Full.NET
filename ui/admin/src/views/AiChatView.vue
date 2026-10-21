@@ -43,6 +43,18 @@ async function loadSession(id: string) {
   const result = await getAiChatSession(id);
   if (scope === epoch && current === readEpoch && selectedSessionId.value === id) activeSession.value = result;
 }
+async function loadOlderMessages() {
+  const current = activeSession.value;
+  const first = current?.messages[0];
+  if (!current?.hasOlderMessages || !first || loading.value || sending.value) return;
+  const scope = epoch; const read = ++readEpoch; loading.value = true;
+  try {
+    const result = await getAiChatSession(current.id, undefined, { createdAtUtc: first.createdAtUtc, id: first.id });
+    if (scope === epoch && read === readEpoch && selectedSessionId.value === current.id) activeSession.value = result;
+  } catch (error) { showProblem(error, t('aiChat.loadFailed')); }
+  finally { if (scope === epoch) loading.value = false; }
+}
+
 async function loadSessions() {
   if (session.switching || !session.can('ai.chat.sessions.read')) return;
   const scope = epoch; loading.value = true; problem.value = undefined;
@@ -275,6 +287,9 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
           </header>
 
           <div class="ai-chat-messages">
+            <ElButton v-if="activeSession?.hasOlderMessages" :disabled="loading || sending" @click="loadOlderMessages">
+              {{ t('common.loadOlder') }}
+            </ElButton>
             <article
               v-for="message in visibleMessages"
               :key="message.id"

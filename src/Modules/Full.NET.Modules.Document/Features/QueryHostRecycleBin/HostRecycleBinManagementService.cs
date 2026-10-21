@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -19,9 +20,18 @@ internal sealed class HostRecycleBinManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostDocumentItemQueryService itemQueries,
-    IClock clock)
+    IClock clock,
+    IDocumentAccessPolicy accessPolicy)
 {
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        RestoreHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
+            () => RestoreAuthorizedAsync(itemId, actorUserId, request, cancellationToken), cancellationToken);
+
+    private Task<Result<HostDocumentItemResponse>> RestoreAuthorizedAsync(
         Guid itemId,
         Guid actorUserId,
         RestoreHostDocumentItemRequest request,
@@ -38,6 +48,12 @@ internal sealed class HostRecycleBinManagementService(
     }
 
     public Task<Result<bool>> PurgeAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Delete,
+            () => PurgeAuthorizedAsync(itemId, cancellationToken), cancellationToken);
+
+    private Task<Result<bool>> PurgeAuthorizedAsync(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {

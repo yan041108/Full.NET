@@ -88,6 +88,7 @@ export async function validateRepositorySqlNaming(repositoryRoot = defaultReposi
 
 function inspectSql(sql, file, profile, debt, violations) {
   const lines = sql.split(/\r?\n/);
+  const recoveryProcedureLines = collectRecoveryProcedureLines(lines);
   const cteNames = collectCteNames(lines);
   const tables = collectTableReferences(lines, cteNames);
   for (const reference of tables) {
@@ -123,7 +124,7 @@ function inspectSql(sql, file, profile, debt, violations) {
     const containsUnsupportedDdl = /\bCREATE\s+(?:OR\s+ALTER\s+)?(?:VIEW|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bDROP\s+(?:TABLE|VIEW|COLUMN|INDEX|CONSTRAINT|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN)\b|\bALTER\s+TABLE\b.*\bRENAME\b/i
       .test(text);
     const supportedDropConstraint = /^\s*ALTER\s+TABLE\s+(?:[A-Za-z][A-Za-z0-9_]*\.)?[A-Za-z][A-Za-z0-9_]*\s+DROP\s+CONSTRAINT\s+[A-Za-z][A-Za-z0-9_]*\s*;?\s*$/i.test(text);
-    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint) {
+    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint && !recoveryProcedureLines.has(index)) {
       violations.push(violation(
         'FNSQL003',
         'unsupported_sql',
@@ -134,6 +135,27 @@ function inspectSql(sql, file, profile, debt, violations) {
       ));
     }
   });
+}
+
+/** 只识别无参、创建后调用并清理的静态恢复过程；过程体继续逐行接受全部 SQL 规则。 */
+function collectRecoveryProcedureLines(lines) {
+  const supported = new Set();
+  const text = lines.map(stripComment);
+  text.forEach((line, start) => {
+    const create = /^\s*CREATE\s+PROCEDURE\s+(fn_[a-z][a-z0-9_]{0,59})\s*\(\s*\)\s*$/iu.exec(line);
+    if (!create || !/^\s*DELIMITER\s+\$\$\s*$/iu.test(text[start - 1] ?? '')
+      || !/^\s*BEGIN\s*$/iu.test(text[start + 1] ?? '')) return;
+    const name = create[1];
+    const drop = new RegExp(`^\\s*DROP\\s+PROCEDURE\\s+IF\\s+EXISTS\\s+${name}\\s*;\\s*$`, 'iu');
+    const call = new RegExp(`^\\s*CALL\\s+${name}\\s*\\(\\s*\\)\\s*;\\s*$`, 'iu');
+    let end = start + 2;
+    while (end < text.length && !/^\s*END\$\$\s*$/iu.test(text[end])) end++;
+    if (end === text.length || !/^\s*DELIMITER\s*;\s*$/iu.test(text[end + 1] ?? '')
+      || !call.test(text[end + 2] ?? '') || !drop.test(text[end + 3] ?? '')
+      || !drop.test(text[start - 2] ?? '')) return;
+    supported.add(start - 2); supported.add(start); supported.add(end + 3);
+  });
+  return supported;
 }
 
 function collectTableReferences(lines, cteNames) {

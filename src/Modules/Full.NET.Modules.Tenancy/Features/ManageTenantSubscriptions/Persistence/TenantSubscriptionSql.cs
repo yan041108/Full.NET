@@ -16,6 +16,36 @@ internal static class TenantSubscriptionSql
         ",
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement CountActive = new(
+        "tenancy.subscriptions.count_active",
+        """
+        SELECT COUNT(1) FROM fn_tenancy_tenant_subscription
+        WHERE TenantId = @TenantId AND Status IN ('Trial', 'Active', 'PastDue')
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindById = new(
+        "tenancy.subscriptions.find_by_id",
+        """
+        SELECT Id, TenantId, PackageId, Status, TrialEndsAtUtc,
+               CurrentPeriodStartUtc, CurrentPeriodEndUtc, CancelledAtUtc, Version
+        FROM fn_tenancy_tenant_subscription WHERE TenantId = @TenantId AND Id = @Id
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountByTenant = new(
+        "tenancy.subscriptions.count_by_tenant",
+        "SELECT COUNT(1) FROM fn_tenancy_tenant_subscription WHERE TenantId = @TenantId",
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListPageSqlServer = new(
+        "tenancy.subscriptions.list_page.sql_server",
+        ListByTenant.Text + " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListPageMySql = new(
+        "tenancy.subscriptions.list_page.mysql",
+        ListByTenant.Text + " LIMIT @PageSize OFFSET @Offset",
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "tenancy.subscriptions.insert",
         @"

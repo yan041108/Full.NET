@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Printing.Contracts;
@@ -6,7 +7,7 @@ using Full.NET.Modules.Printing.Persistence;
 namespace Full.NET.Modules.Printing.Features.ManageTemplates;
 
 /// <summary>打印模板只读查询。</summary>
-internal sealed class PrintingTemplateQueryService(IQueryExecutor queryExecutor)
+internal sealed class PrintingTemplateQueryService(IQueryExecutor queryExecutor, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task<Result<PrintingTemplateResponse>> GetByIdAsync(
         Guid templateId,
@@ -22,41 +23,44 @@ internal sealed class PrintingTemplateQueryService(IQueryExecutor queryExecutor)
             : Result<PrintingTemplateResponse>.Success(PrintingTemplateMapper.MapTemplate(row));
     }
 
-    public async Task<Result<IReadOnlyList<PrintingTemplateResponse>>> ListAsync(
+    public async Task<Result<PagedResult<PrintingTemplateSummaryResponse>>> ListAsync(
         string? nameContains,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
     {
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
         var filter = NormalizeFilter(nameContains);
+        var parameters = PrintingSqlParameters.Create([("NameContains", filter is null ? null : $"%{filter}%"),
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize)]);
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(PrintingTemplateSql.CountTemplates,
+            parameters, cancellationToken).ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<PrintingTemplateRecord>(
-                PrintingTemplateSql.ListTemplates,
-                PrintingSqlParameters.Create([
-                    ("NameContains", filter is null ? null : $"%{filter}%")]),
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? PrintingTemplateSql.ListTemplateSummariesMySql : PrintingTemplateSql.ListTemplateSummariesSqlServer,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<IReadOnlyList<PrintingTemplateResponse>>.Success(
-            rows.Select(PrintingTemplateMapper.MapTemplate).ToArray());
+        return Result<PagedResult<PrintingTemplateSummaryResponse>>.Success(
+            new PagedResult<PrintingTemplateSummaryResponse>(rows.Select(row => new PrintingTemplateSummaryResponse(row.Id, row.TemplateKey, row.Name, row.FormSchemaKey, row.LatestPublishedVersionNumber, row.IsEnabled, row.CreatedAtUtc, row.UpdatedAtUtc, row.Version)).ToArray(), page, pageSize, total));
     }
 
-    public async Task<Result<IReadOnlyList<PrintingTemplateVersionResponse>>> ListVersionsAsync(
+    public async Task<Result<PagedResult<PrintingTemplateVersionSummaryResponse>>> ListVersionsAsync(
         Guid templateId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
     {
-        if (await queryExecutor.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(
-                    PrintingTemplateSql.FindTemplateById,
-                    PrintingSqlParameters.Create([("TemplateId", templateId)]),
-                    cancellationToken)
-                .ConfigureAwait(false) is null)
-        {
-            return NotFoundVersions();
-        }
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
+        var parameters = PrintingSqlParameters.Create([("TemplateId", templateId),
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize)]);
+        if (await queryExecutor.QuerySingleOrDefaultAsync<long>(PrintingTemplateSql.TemplateExists,
+            parameters, cancellationToken).ConfigureAwait(false) == 0) return NotFoundVersions();
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(PrintingTemplateSql.CountVersions,
+            parameters, cancellationToken).ConfigureAwait(false);
 
         var rows = await queryExecutor.QueryAsync<PrintingTemplateVersionRecord>(
-                PrintingTemplateSql.ListVersions,
-                PrintingSqlParameters.Create([("TemplateId", templateId)]),
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? PrintingTemplateSql.ListVersionSummariesMySql : PrintingTemplateSql.ListVersionSummariesSqlServer,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<IReadOnlyList<PrintingTemplateVersionResponse>>.Success(
-            rows.Select(PrintingTemplateMapper.MapVersion).ToArray());
+        return Result<PagedResult<PrintingTemplateVersionSummaryResponse>>.Success(
+            new PagedResult<PrintingTemplateVersionSummaryResponse>(rows.Select(row => new PrintingTemplateVersionSummaryResponse(row.Id, row.TemplateId, row.VersionNumber, row.ChangeNote, row.PublishedByUserId, row.PublishedAtUtc)).ToArray(), page, pageSize, total));
     }
 
     public async Task<Result<PrintingTemplateVersionResponse>> GetVersionAsync(
@@ -85,18 +89,18 @@ internal sealed class PrintingTemplateQueryService(IQueryExecutor queryExecutor)
     private static Result<PrintingTemplateResponse> NotFoundTemplate() =>
         Result<PrintingTemplateResponse>.Failure(new Error(
             PrintingErrorCodes.TemplateNotFound,
-            "The printing template was not found.",
+            "The Printing template was not found.",
             ErrorType.NotFound));
 
-    private static Result<IReadOnlyList<PrintingTemplateVersionResponse>> NotFoundVersions() =>
-        Result<IReadOnlyList<PrintingTemplateVersionResponse>>.Failure(new Error(
+    private static Result<PagedResult<PrintingTemplateVersionSummaryResponse>> NotFoundVersions() =>
+        Result<PagedResult<PrintingTemplateVersionSummaryResponse>>.Failure(new Error(
             PrintingErrorCodes.TemplateNotFound,
-            "The printing template was not found.",
+            "The Printing template was not found.",
             ErrorType.NotFound));
 
     private static Result<PrintingTemplateVersionResponse> NotFoundVersion() =>
         Result<PrintingTemplateVersionResponse>.Failure(new Error(
             PrintingErrorCodes.TemplateVersionNotFound,
-            "The printing template version was not found.",
+            "The Printing template version was not found.",
             ErrorType.NotFound));
 }

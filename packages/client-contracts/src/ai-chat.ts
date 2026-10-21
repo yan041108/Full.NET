@@ -70,6 +70,7 @@ export interface AiChatSession {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
+  hasOlderMessages?: boolean;
 }
 
 export interface AiChatSessionPage {

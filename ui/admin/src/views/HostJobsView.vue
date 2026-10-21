@@ -37,7 +37,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtClientPagination,
+  useArtServerPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -154,35 +154,9 @@ const {
 } = useArtCrudTableLayout();
 
 // 过滤后的数据
-const filteredDefinitions = computed(() => {
-  let rows = allDefinitions.value;
-  const filters = appliedFilters.value;
 
-  if (filters.jobKey.trim()) {
-    const keyword = filters.jobKey.trim().toLowerCase();
-    rows = rows.filter(d => d.jobKey.toLowerCase().includes(keyword));
-  }
 
-  if (filters.displayName.trim()) {
-    const keyword = filters.displayName.trim().toLowerCase();
-    rows = rows.filter(d => d.displayName.toLowerCase().includes(keyword));
-  }
-
-  if (filters.status === 'enabled') {
-    rows = rows.filter(d => d.isEnabled);
-  } else if (filters.status === 'disabled') {
-    rows = rows.filter(d => !d.isEnabled);
-  }
-
-  if (filters.groupName.trim()) {
-    const group = filters.groupName.trim();
-    rows = rows.filter(d => d.groupName === group);
-  }
-
-  return rows;
-});
-
-const { page, pageSize, total, pagedItems: pagedDefinitions, resetPage } = useArtClientPagination(filteredDefinitions);
+const { page, pageSize, total, pagedItems: pagedDefinitions, resetPage } = useArtServerPagination(allDefinitions, load);
 
 // 表格列
 const tableColumns = computed<ArtTableColumnOption[]>({
@@ -367,33 +341,27 @@ function applyFieldErrors(): boolean {
   return !fieldErrors.displayName;
 }
 
-async function fetchAllDefinitions(): Promise<HostJobDefinition[]> {
-  const pageLimit = 100;
-  const firstPage = await listHostJobDefinitions(1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostJobDefinitions(current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
 
+
+let listVersion = 0;
 async function load(): Promise<void> {
+  const version = ++listVersion;
   loading.value = true;
   problem.value = undefined;
   try {
     const [definitions, groups] = await Promise.all([
-      fetchAllDefinitions(),
+      listHostJobDefinitions(page.value, pageSize.value, undefined, appliedFilters.value),
       listHostJobGroups().catch(() => [] as HostJobGroup[])
     ]);
-    allDefinitions.value = definitions;
+    if (version !== listVersion) return;
+    allDefinitions.value = definitions.items; total.value = definitions.total;
     jobGroups.value = groups;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (version !== listVersion) return;
     problem.value = toProblem(error);
   } finally {
-    loading.value = false;
+    if (version === listVersion) loading.value = false;
   }
 }
 

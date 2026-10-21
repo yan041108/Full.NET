@@ -73,13 +73,15 @@ doc.paths['/api/v1/files/host-files/{fileId}/references'] = {
 doc.paths['/api/v1/files/host-folders/tree'] = {
   get: withSecurity({
     operationId: 'filesGetHostFolderTree',
+    parameters: [{ name: 'parentId', in: 'query', schema: { type: 'string', format: 'uuid' } }],
     responses: {
       200: {
         description: 'OK',
         content: { 'application/json': { schema: { type: 'array', items: ref('HostFolderTreeNode') } } }
       },
       ...problem(401),
-      ...problem(403)
+      ...problem(403),
+      ...problem(422)
     },
     tags: ['FilesHostFolders']
   })
@@ -197,14 +199,14 @@ doc.components.schemas.PagedResultOfHostFileReferenceClaimResponse = {
 
 doc.components.schemas.HostFolderTreeNode = {
   type: 'object',
-  required: ['id', 'parentId', 'name', 'displayOrder', 'revision', 'children'],
+  required: ['id', 'parentId', 'name', 'displayOrder', 'revision', 'hasChildren'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     parentId: { type: ['null', 'string'], format: 'uuid' },
     name: { type: 'string' },
     displayOrder: { type: 'integer' },
     revision: { type: ['integer', 'string'], format: 'int64' },
-    children: { type: 'array', items: ref('HostFolderTreeNode') }
+    hasChildren: { type: 'boolean' }
   }
 };
 

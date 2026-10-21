@@ -22,7 +22,8 @@ internal sealed record IdentityOidcRetentionResult(
 internal sealed class IdentityOidcRetentionRunner(
     ICommandExecutor commandExecutor,
     IClock clock,
-    IOptions<IdentityOidcOptions> oidcOptions)
+    IOptions<IdentityOidcOptions> oidcOptions,
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task<IdentityOidcRetentionResult> RunOnceAsync(
         IdentityOidcRetentionOptions options,
@@ -36,14 +37,14 @@ internal sealed class IdentityOidcRetentionRunner(
 
         var threshold = clock.UtcNow.AddDays(-options.RetentionDays);
         var tokensDeleted = await commandExecutor.ExecuteAsync(
-                IdentityOidcSql.PruneTokens,
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? IdentityOidcSql.PruneTokensMySql : IdentityOidcSql.PruneTokens,
                 IdentitySqlParameters.Create(
                     ("Threshold", threshold),
                     ("ValidStatus", OpenIddictConstants.Statuses.Valid)),
                 cancellationToken)
             .ConfigureAwait(false);
         var authorizationsDeleted = await commandExecutor.ExecuteAsync(
-                IdentityOidcSql.PruneAuthorizations,
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql ? IdentityOidcSql.PruneAuthorizationsMySql : IdentityOidcSql.PruneAuthorizations,
                 IdentitySqlParameters.Create(
                     ("Threshold", threshold),
                     ("ValidStatus", OpenIddictConstants.Statuses.Valid)),

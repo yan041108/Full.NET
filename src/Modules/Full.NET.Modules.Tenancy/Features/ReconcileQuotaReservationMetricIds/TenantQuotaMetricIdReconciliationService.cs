@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -11,23 +12,32 @@ namespace Full.NET.Modules.Tenancy.Features.ReconcileQuotaReservationMetricIds;
 internal sealed class TenantQuotaMetricIdReconciliationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    IClock clock)
+    IClock clock, IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task<Result<ReconcileTenantQuotaMetricIdsResponse>> ReconcileAsync(
         ReconcileTenantQuotaMetricIdsRequest request,
         CancellationToken cancellationToken = default)
     {
         var dryRun = request.DryRun;
-        var outstanding = await queryExecutor.QueryAsync<OutstandingReservationRow>(
-                TenantQuotaSql.ListReservationsWithNullMetricId,
-                TenancySqlParameters.Create(),
-                cancellationToken)
-            .ConfigureAwait(false);
         var repaired = 0;
         var skipped = 0;
+        var scanned = 0;
+        Guid? afterId = null;
+        while (true)
+        {
+            var outstanding = await queryExecutor.QueryAsync<OutstandingReservationRow>(
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                    ? TenantQuotaSql.ListReservationsWithNullMetricIdMySql : TenantQuotaSql.ListReservationsWithNullMetricId,
+                TenancySqlParameters.Create(("AfterId", afterId)), cancellationToken).ConfigureAwait(false);
+            scanned += outstanding.Count;
+            if (outstanding.Count == 0) break;
+            // 同一批次内同租户同指标只解析一次；缓存只活在这次有界修复页内。
+            var metrics = new Dictionary<(Guid TenantId, string MetricCode), TenantQuotaMetricRecord?>();
         foreach (var row in outstanding)
         {
-            var metric = await queryExecutor.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(
+            if (!metrics.TryGetValue((row.TenantId, row.MetricCode), out var metric))
+            {
+                metric = await queryExecutor.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(
                     TenantQuotaSql.FindMetric,
                     TenancySqlParameters.Create(
                         ("TenantId", row.TenantId),
@@ -35,6 +45,8 @@ internal sealed class TenantQuotaMetricIdReconciliationService(
                         ("PeriodKey", TenantQuotaDefaults.PeriodKey)),
                     cancellationToken)
                 .ConfigureAwait(false);
+                metrics[(row.TenantId, row.MetricCode)] = metric;
+            }
             if (metric is null)
             {
                 skipped++;
@@ -62,9 +74,13 @@ internal sealed class TenantQuotaMetricIdReconciliationService(
             repaired++;
         }
 
+            afterId = outstanding[^1].Id;
+            if (outstanding.Count < 500) break;
+        }
+
         return Result<ReconcileTenantQuotaMetricIdsResponse>.Success(
             new ReconcileTenantQuotaMetricIdsResponse(
-                outstanding.Count,
+                scanned,
                 repaired,
                 skipped,
                 dryRun));

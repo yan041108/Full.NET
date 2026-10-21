@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -7,7 +8,7 @@ using Full.NET.Modules.K3Cloud.Persistence;
 namespace Full.NET.Modules.K3Cloud.Connectivity;
 
 /// <summary>金蝶 K3Cloud WebAPI 客户端；会话基于 Cookie，禁止通用远程方法反射调用。</summary>
-internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
+internal sealed class K3CloudWebApiClient(IHttpClientFactory httpClientFactory) : IK3CloudWebApiClient
 {
     public const string HttpClientName = "Full.NET.K3Cloud.WebApi";
 
@@ -113,7 +114,7 @@ internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
     }
 
     private static async Task<(bool Succeeded, string Message)> LoginAsync(
-        HttpClient client,
+        K3CloudSession client,
         K3CloudConnectionConfigRecord config,
         string password,
         CancellationToken cancellationToken)
@@ -129,32 +130,31 @@ internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
         return (succeeded, message);
     }
 
-    private static HttpClient CreateSessionClient()
+    private K3CloudSession CreateSessionClient() => new(httpClientFactory.CreateClient(HttpClientName));
+
+    // Cookie 仅归属于本次登录/业务操作；连接池可共享，商户和租户登录状态不能共享。
+    private sealed class K3CloudSession(HttpClient client) : IDisposable
     {
-        var handler = new HttpClientHandler
-        {
-            CookieContainer = new CookieContainer(),
-            UseCookies = true,
-        };
-        var client = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(30),
-        };
-        return client;
+        internal HttpClient Client { get; } = client;
+        internal CookieContainer Cookies { get; } = new();
+        public void Dispose() => Client.Dispose();
     }
 
     private static async Task<string> PostAsync(
-        HttpClient client,
-        string baseUrl,
-        string path,
-        string body,
-        CancellationToken cancellationToken)
+        K3CloudSession client, string baseUrl, string path, string body, CancellationToken cancellationToken)
     {
         var requestUri = new Uri(new Uri(NormalizeBaseUrl(baseUrl)), path);
-        using var content = new StringContent(body, Encoding.UTF8, "application/json");
-        using var response = await client.PostAsync(requestUri, content, cancellationToken).ConfigureAwait(false);
+        using var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+        var cookies = client.Cookies.GetCookieHeader(requestUri);
+        if (cookies.Length > 0) request.Headers.TryAddWithoutValidation("Cookie", cookies);
+        using var response = await client.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (response.Headers.TryGetValues("Set-Cookie", out var values))
+            foreach (var value in values) client.Cookies.SetCookies(requestUri, value);
+        return await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>按金蝶 WebAPI 协议构造请求，保持参数次序与 JSON 类型。</summary>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { ElButton, ElCard, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type {
   AuditingAccessLog,
   AuditingAccessLogQuery,
@@ -18,7 +18,6 @@ import AuditLogDetailDrawer, {
 import AuditLogExportDialog from './components/AuditLogExportDialog.vue';
 import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
 import {
-  useArtClientPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -51,8 +50,17 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const filteredItems = computed(() => items.value);
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
+const page = ref(1);
+const pageSize = ref(20);
+const pagedItems = computed(() => items.value);
+const currentCursor = ref<string>();
+const nextCursor = ref<string>();
+const previousCursors: Array<{ cursor: string | undefined; page: number }> = [];
+const canPrevious = ref(false);
+let loadVersion = 0;
+let readController: AbortController | undefined;
+onUnmounted(() => { loadVersion += 1; readController?.abort(); });
+
 
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
@@ -91,41 +99,40 @@ function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
-/** 页面只保留一份访问日志快照，刷新时重新按游标拉全量数据并重算表格高度。 */
+/** 每次只读取用户请求的一页；最多保留 100 个不透明回退游标，不保留历史行。 */
 async function load(): Promise<void> {
-  loading.value = true;
-  problem.value = undefined;
-  try {
-    items.value = await fetchAllLogs(activeQuery.value);
-    resetPage();
-    await nextTick(updateTableHeight);
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    loading.value = false;
-  }
+  currentCursor.value = undefined; nextCursor.value = undefined;
+  previousCursors.length = 0; canPrevious.value = false; page.value = 1;
+  await loadCursor();
 }
 
-/** 服务端使用 cursor 翻页；前端需要按顺序拼接全部页，避免本地筛选只看到首屏数据。 */
-async function fetchAllLogs(query: AuditingAccessLogQuery): Promise<AuditingAccessLog[]> {
-  const collected: AuditingAccessLog[] = [];
-  let cursor: string | null | undefined;
-  let hasMore = true;
-
-  while (hasMore) {
-    const options = {
-      ...query,
-      ...(cursor ? { cursor } : {})
-    };
-    const pageResult = Object.keys(options).length === 0
-      ? await listAuditingAccessLogsByCursor()
-      : await listAuditingAccessLogsByCursor(options);
-    collected.push(...pageResult.items);
-    cursor = pageResult.nextCursor;
-    hasMore = pageResult.hasMore;
-  }
-
-  return collected;
+async function loadCursor(): Promise<void> {
+  const version = ++loadVersion;
+  readController?.abort();
+  const controller = new AbortController(); readController = controller;
+  loading.value = true; problem.value = undefined;
+  try {
+    const result = await listAuditingAccessLogsByCursor({
+      ...activeQuery.value, cursor: currentCursor.value, limit: pageSize.value
+    }, controller.signal);
+    if (version !== loadVersion) return;
+    items.value = result.items; nextCursor.value = result.hasMore ? result.nextCursor ?? undefined : undefined;
+    canPrevious.value = previousCursors.length > 0;
+    await nextTick(updateTableHeight);
+  } catch (error: unknown) {
+    if (version === loadVersion && !controller.signal.aborted) problem.value = toProblem(error);
+  } finally { if (version === loadVersion) loading.value = false; }
+}
+async function nextPage(): Promise<void> {
+  if (loading.value || !nextCursor.value) return;
+  previousCursors.push({ cursor: currentCursor.value, page: page.value });
+  if (previousCursors.length > 100) previousCursors.shift();
+  currentCursor.value = nextCursor.value; page.value += 1; await loadCursor();
+}
+async function previousPage(): Promise<void> {
+  if (loading.value) return;
+  const previous = previousCursors.pop(); if (!previous) return;
+  currentCursor.value = previous.cursor; page.value = previous.page; await loadCursor();
 }
 
 /** 搜索动作先把表单值冻结为当前查询快照，再统一触发重新加载。 */
@@ -370,14 +377,8 @@ function openDetail(row: AuditingAccessLog): void {
           </el-table>
 
           <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
+            <ElButton :disabled="loading || !canPrevious" @click="previousPage">{{ t('common.previousPage') }}</ElButton>
+            <ElButton :disabled="loading || !nextCursor" @click="nextPage">{{ t('common.nextPage') }}</ElButton>
           </div>
         </div>
       </div>

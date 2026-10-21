@@ -323,7 +323,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 - `Identity`：解析受信用户与作用域
 - `DataApproval`：硬依赖。启用流水号时必须同时启用数据审批
-- `DataApproval` 反过来只把 `SerialNumbers` 列为可选契约：未启用流水号时审批仍可运行
+- `DataApproval` 仅依赖自己定义的 `IDataApprovalScenarioHandler`，流水号注册场景适配器；未启用流水号时审批服务仍可解析，缺失场景提供者的创建或应用明确失败
 
 ---
 
@@ -337,8 +337,8 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 - Host 公告：发布、受众范围（用户/组织）、已读回执、统计
 - 站内信收件箱：Host 与 Tenant 双作用域共用一张表，按 `TenantScopeKey` 隔离
-- 通知模板：草稿/版本/发布、多语言、参数 Schema、ChannelKey 分发
-- 通知 Intent：业务模块生成统一投递意图 → 投影为 Inbox + 渠道投递
+- 通知模板：草稿/版本/发布、参数 Schema；Inbox 按收件人语言选择，外部渠道当前仍使用 Intent 默认语言版本
+- 通知 Intent：业务模块生成投递意图；当前按模板的单一 ChannelKey 投影 Inbox 或创建外部 Delivery，尚无一次 Intent 跨渠道编排
 - 渠道适配：SMTP、AliyunSms、DingTalk、WeCom、WeChatMiniProgram
 - 收件端点管理：邮箱/手机号绑定、验证码确认（限流策略独立）
 - SignalR 实时推送：基于可靠事件触发，由 Outbox 投递
@@ -352,14 +352,14 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 |----|------|
 | `NotificationsModule` | 模块入口；声明 `Dependencies: Identity, Organization, Files`、`OptionalContractDependencies: Workflow` |
 | `NotificationDeliveryHostedProcessor` | Worker 后台领取循环（仅在 `AddBackgroundServices` 注册） |
-| `NotificationDeliveryBatchProcessor` | 批处理 Intent → Inbox + 渠道分发 |
+| `NotificationDeliveryBatchProcessor` | 领取外部 Delivery 租约，事务外调用 Adapter，条件提交 Attempt 与结果 |
 | `InboxIntentProjectionService` | Intent → 收件箱行投影 |
-| `WorkflowNotificationProjectionService` | Workflow 提醒事件 → Inbox + 渠道分发 |
+| `WorkflowNotificationProjectionService` | Workflow 提醒事件 → Intent；内建模板当前投影 Inbox |
 | `NotificationRealtimeDelivery` | SignalR 推送器（由 Outbox 事件触发） |
-| `NotificationTemplateSelector` | 模板选择器：按 Key + Locale + Channel |
+| `NotificationTemplateSelector` | 按可信作用域、模板键和偏好语言选择已发布版本；外部发送尚未按收件人语言接通 |
 | `NotificationProviderTypeCatalog` | 渠道适配器目录 |
 | `RecipientEndpointVerificationService` | 收件端点验证码生成与校验 |
-| `IIdentityChallengeDeliveryPort` | Identity 调用的账号挑战邮件 Port（`Notifications.Contracts`） |
+| `IIdentityChallengeDeliveryPort` | Identity 调用的账号挑战邮件 Port（`Identity.Contracts`） |
 | `AnnouncementPublishedIntegrationEvent` | 公告发布实时事件 |
 | `InboxMessageReceivedIntegrationEvent` | 站内信送达实时事件 |
 | `InboxReadStateChangedIntegrationEvent` | 已读状态变更实时事件 |
@@ -375,13 +375,14 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `fn_notifications_template` | 通知模板：TemplateKey, LocaleTag, ChannelKey, LatestPublishedVersionId |
 | `fn_notifications_template_version` | 模板已发布版本 |
 | `fn_notifications_inbox_message` | 站内信收件箱：RecipientUserId, Title, TenantScopeKey |
-| `fn_notifications_recipient_endpoint` | 收件端点：UserId, ChannelKey, EndpointValue（哈希存储） |
+| `fn_notifications_recipient_endpoint` | 收件端点：UserId、ProviderProfileVersionId、EndpointKindKey、ProtectedValue（加密）与 MaskedValue |
 | `fn_notifications_recipient_endpoint_challenge` | 端点验证码：EndpointId, Code, ExpiresAtUtc |
 | `fn_notifications_provider_profile` | 渠道配置版本 |
 | `fn_notifications_provider_profile_version` | 渠道配置已发布版本 |
-| `fn_notifications_binding` | 业务事件 → 通知模板绑定 |
-| `fn_notifications_delivery` | 渠道投递记录：IntentId, Status, ProviderName |
-| `fn_notifications_intent` | 通知 Intent：Source, Recipient, TemplateKey |
+| `fn_notifications_binding` | Producer/Scene/Channel 的路由绑定草稿及最新发布版本引用 |
+| `fn_notifications_delivery` | 渠道投递：IntentId、RecipientId、ProviderProfileVersionId、StatusKey、租约和 Revision |
+| `fn_notifications_intent` | 通知意图：ProducerKey、SceneKey、幂等键及模板/Binding/路由/参数快照 |
+| `fn_notifications_preference` | 用户渠道关闭、营销同意与静默 JSON；尚未接入生产发送路径 |
 | `fn_notifications_intent_attachment` | Intent 附件引用（Files 模块） |
 | `fn_notifications_wechat_miniprogram_binding` | 小程序绑定 |
 | `fn_notifications_wechat_miniprogram_subscription` | 小程序订阅 |
@@ -399,7 +400,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 | 事件 | 来源 | 处理 |
 |------|------|------|
-| `WorkflowTodoAssignedIntegrationEvent` | Workflow | 生成 Inbox + 渠道提醒 |
+| `WorkflowTodoAssignedIntegrationEvent` | Workflow | 通过内建模板生成 Inbox；外部适配器存在不等于自动跨渠道提醒 |
 | `WorkflowTodoReminderRequestedIntegrationEvent` | Workflow | 催办提醒 |
 | `WorkflowTodoEscalationRequestedIntegrationEvent` | Workflow | 升级提醒 |
 | `WorkflowInstanceCompletedIntegrationEvent` | Workflow | 完成提醒通知 |
@@ -408,9 +409,19 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ### 11.6 依赖
 
-- `Identity`：用户目录、`IdentityAccountChallengePurpose`、IIdentityChallengeDeliveryPort Port 暴露给 Identity 调用
+- `Identity`：用户目录、`IdentityAccountChallengePurpose` 与由消费方拥有的 `IIdentityChallengeDeliveryPort`
 - `Organization`：公告受众校验、机构作用域
 - `Files`：通知附件（`IHostFileReferenceClaimProbe` 实现）
+
+### 11.7 当前缺口与证据边界（2026-10-19）
+
+基于 `main@49345c3c` 静态复核，整改清单及验收场景见[Notifications 现有计划](../docs/superpowers/plans/2026-08-30-notifications-platform-extension.md#review-2026-10-19)。未运行本轮双库、AOT 或厂商测试，以下不表示修复完成：
+
+- **P1 投递正确性：** Failover 将完整候选列表物化为可领取 Delivery；Match 条件恒为 true；提前回执和 Revision 冲突可能丢失状态推进；一般异常不计入 Attempt，可能绕过重试预算，Unknown 自动重发也需按渠道幂等/对账能力收敛。
+- **P1 发送治理：** 偏好函数/表未进入发送路径；缺少 Provider/租户/Producer/Scene 跨实例发送配额；小程序订阅记录尚不约束发送。
+- **P2 语言与产品：** 外部渠道未按收件人冻结语言模板；Inbox 缺结构化深链、个人归档和业务撤回，工作台尚未聚合。已读、归档、撤回不应混为单一状态。
+- **当前显示能力：** 邮件/短信详情已提示 Sent 不代表送达；SMTP、企微和小程序 ReceiptMode 为 None。适配器实现、真实厂商验证和容量分别记录，容量保持 `Capacity-not-verified`。
+- **整改顺序：** 投递正确性 → 偏好/配额/订阅/语言快照 → 深链/归档/撤回/工作台及按需扩展渠道。历史规则单测与切片验收不能外推为完整链路已验收。
 
 ---
 
@@ -674,7 +685,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 | 类 | 职责 |
 |----|------|
-| `DataApprovalModule` | 模块入口；`Dependencies: Identity, Workflow`、`OptionalContractDependencies: SerialNumbers` |
+| `DataApprovalModule` | 模块入口；`Dependencies: Identity, Workflow`；通过自身场景端口接收业务适配器 |
 | `DataApprovalRequestService` | 审批请求 CRUD |
 | `DataApprovalRequestLinkService` | 请求 → 工作流实例链接 |
 | `DataApprovalRequestApplicationService` | 业务应用层（外部发起方） |
@@ -1235,7 +1246,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 ## 二十九、EnterpriseRequest 企业请求样板模块（sample）
 
 > 项目：[`samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest`](file:///G:/wwwroot/github_fork/Full.NET/samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest)
-> 稳定模块键：`EnterpriseRequest`
+> 稳定模块键：`EnterpriseRequest`；应用显式装配，官方 Full / Enterprise 预设不包含该示例，迁移资源由示例程序集拥有。
 
 ### 29.1 职责
 
@@ -1268,7 +1279,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 | 模块 | 硬依赖 | 可选契约依赖 |
 |------|--------|--------------|
-| `Identity` | （根，无） | Files, Notifications |
+| `Identity` | （根，无） | Files |
 | `Tenancy` | Identity | Files, Printing |
 | `Organization` | Identity, Tenancy | ImportExport |
 | `Settings` | Identity | （无） |
@@ -1293,7 +1304,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `Ocr` | Identity, Tenancy, Files | （无） |
 | `ObservabilityAdmin` | Identity, Settings | （无） |
 | `Workflow` | Files, Identity, Notifications, Organization, Tenancy | （无） |
-| `DataApproval` | Identity, Workflow | SerialNumbers |
+| `DataApproval` | Identity, Workflow | （无） |
 | `Mqtt` | Identity | （无） |
 | `Webhooks` | Identity, Tenancy | Workflow |
 | `Cryptography` | Identity | （无） |
@@ -1307,8 +1318,8 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `Platform` | Minimal + Auditing, Files, Notifications, Calendar, Platform, Regions, Jobs, Messaging, ObservabilityAdmin, Mqtt, Cryptography |
 | `Content` | Platform + Document |
 | `Saas` | Platform + Payments, Webhooks |
-| `Enterprise` | Platform + Webhooks, Workflow, ImportExport, Reporting, Printing, EnterpriseRequest |
-| `Full`（默认） | OfficialModuleNames 全集（30 个稳定键） |
+| `Enterprise` | Platform + Webhooks, Workflow, ImportExport, Reporting, Printing |
+| `Full`（默认） | OfficialModuleNames 全集（29 个官方稳定键） |
 
 > 预设裁剪仅决定运行时注册子集；模块源码、迁移脚本、Contracts 项目编译闭包不受预设影响。
 
@@ -1319,7 +1330,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `IHostFileReferenceClaimProbe` | Files.Contracts | Identity、Tenancy、Document、Workflow、Notifications、Ocr、Reporting | 事务内声明文件引用 |
 | `ITenantResourceFileOwner` | Files.Contracts | ImportExport、Reporting | 租户文件所有权（产物） |
 | `IHostFileRetentionContributor` | Files.Contracts | Tenancy | 租户 Logo 文件保留 |
-| `IIdentityChallengeDeliveryPort` | Notifications.Contracts | Notifications | Identity 账号挑战邮件投递 |
+| `IIdentityChallengeDeliveryPort` | Identity.Contracts | Notifications | Identity 账号挑战邮件投递 |
 | `IWorkflowInstanceStarter` | Workflow.Contracts | Workflow（主项目） | 业务模块启动工作流 |
 | `IWorkflowInstanceCanceller` | Workflow.Contracts | Workflow（主项目） | 业务模块取消工作流 |
 | `IWorkflowInstanceCompletedSink` | Workflow.Contracts | Notifications、DataApproval、Webhooks、EnterpriseRequest | 完成事件回调 |

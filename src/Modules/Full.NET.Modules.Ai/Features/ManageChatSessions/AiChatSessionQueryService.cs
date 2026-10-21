@@ -70,7 +70,7 @@ internal sealed class AiChatSessionQueryService(
     public async Task<Result<AiChatSessionResponse>> GetByIdAsync(
         Guid sessionId,
         Guid ownerUserId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, DateTimeOffset? beforeCreatedAtUtc = null, Guid? beforeMessageId = null)
     {
         var scope = AiChatScope.Resolve(currentTenant);
         var session = await FindOwnedSessionAsync(scope, sessionId, ownerUserId, cancellationToken)
@@ -80,11 +80,14 @@ internal sealed class AiChatSessionQueryService(
             return NotFound();
         }
 
-        var messages = await queryExecutor.QueryAsync<AiChatMessageRecord>(
-                AiChatSql.ListMessagesBySession,
-                AiSqlParameters.Create(("SessionId", sessionId)),
+        var window = await queryExecutor.QueryAsync<AiChatMessageRecord>(
+                databaseOptions.Value.Provider == DatabaseProvider.MySql ? AiChatSql.ListMessageWindowMySql : AiChatSql.ListMessageWindowSqlServer,
+                AiSqlParameters.Create(("SessionId", sessionId), ("Take", 51),
+                    ("HasBefore", beforeCreatedAtUtc.HasValue && beforeMessageId.HasValue ? 1 : 0),
+                    ("BeforeCreatedAtUtc", beforeCreatedAtUtc), ("BeforeMessageId", beforeMessageId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        var messages = window.Take(50).Reverse().ToArray();
         var derived = messages.Where(message => message.IsKnowledgeAnswer || message.KnowledgeLineage is not null)
             .Select(message => new AiKnowledgeAnswerHistoryEntry(message.Id, message.SessionId, message.KnowledgeLineage)).ToArray();
         IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage> verified = new Dictionary<Guid, AiKnowledgeAnswerLineage>();
@@ -92,7 +95,8 @@ internal sealed class AiChatSessionQueryService(
             verified = await historyGuard.AuthorizeBatchAsync(derived, ownerUserId, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (AiChatScope.Resolve(currentTenant) != scope) return NotFound();
-        return Result<AiChatSessionResponse>.Success(AiChatMapper.MapAuthorizedDetail(session, messages, clock.UtcNow, verified));
+        return Result<AiChatSessionResponse>.Success(AiChatMapper.MapAuthorizedDetail(session, messages, clock.UtcNow, verified) with
+        { HasOlderMessages = window.Count > 50 });
     }
     /// <summary>以用户和租户双重条件读取会话。</summary>
     /// <param name="scope">从可信上下文取得的租户或 Host 范围。</param>

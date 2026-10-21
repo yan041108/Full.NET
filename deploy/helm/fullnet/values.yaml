@@ -68,6 +68,8 @@ dataProtection:
   # 优先引用已有 RWX Claim；否则仅在 StorageClass 已验证 RWX/快照/备份时创建 PVC。
   existingClaimName: ""
   certificateSecretName: fullnet-dp-cert
+  certificateSecretKey: certificate.pfx
+  certificatePasswordSecretKey: password
   persistence:
     create: false
     storageClassName: ""

@@ -220,10 +220,10 @@ public sealed class AiKnowledgeIndexSessionTests
             Session = new(Binding.OwnerUserId, tenantId, Guid.CreateVersion7(), "stamp", "host", tenantId is { } value ? $"tenant:{value:N}" : "host", kind);
             var command = Substitute.For<ICommandExecutor>(); var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(TaskId, Guid.CreateVersion7());
             Clock.UtcNow.Returns(now); var auth = Substitute.For<IBackgroundSessionAuthorization>();
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            auth.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                Assert.IsFalse(State.HasTransaction); PermissionCalls++;
-                return (string)call[1]! == DeniedPermission ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
+                Assert.IsFalse(State.HasTransaction); PermissionCalls += call.ArgAt<IReadOnlyCollection<string>>(1).Count;
+                return call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
             });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Row);
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Source);

@@ -28,8 +28,10 @@ internal sealed class DingTalkApprovalSyncService(
     DingTalkAccessTokenCache tokenCache,
     IDingTalkTransport transport,
     IOptions<DingTalkApprovalSyncOptions> options,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    DingTalkApprovalPollCursor? pollCursor = null)
 {
+    private readonly DingTalkApprovalPollCursor _pollCursor = pollCursor ?? new();
     private readonly DingTalkApprovalSyncOptions _options = options.Value;
 
     public async Task<Result<PagedResult<DingTalkApprovalSyncResponse>>> ListAsync(
@@ -99,6 +101,19 @@ internal sealed class DingTalkApprovalSyncService(
 
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
     {
+        await _pollCursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ProcessPendingCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _pollCursor.Gate.Release();
+        }
+    }
+
+    private async Task<int> ProcessPendingCoreAsync(CancellationToken cancellationToken)
+    {
         if (!_options.Enabled)
         {
             return 0;
@@ -113,7 +128,10 @@ internal sealed class DingTalkApprovalSyncService(
                     ("PendingOutbound", DingTalkApprovalSyncStatusKeys.PendingOutbound),
                     ("OutboundFailed", DingTalkApprovalSyncStatusKeys.OutboundFailed),
                     ("Running", DingTalkApprovalSyncStatusKeys.Running),
-                    ("BatchSize", 20)),
+                    ("BatchSize", 20),
+                    ("HasCursor", _pollCursor.Id is null ? 0 : 1),
+                    ("AfterCreatedAtUtc", _pollCursor.CreatedAtUtc),
+                    ("AfterId", _pollCursor.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
         var processed = 0;
@@ -126,6 +144,8 @@ internal sealed class DingTalkApprovalSyncService(
             }
         }
 
+        _pollCursor.Id = rows.Count == 20 ? rows[^1].Id : null;
+        if (rows.Count > 0) _pollCursor.CreatedAtUtc = rows[^1].CreatedAtUtc;
         return processed;
     }
 

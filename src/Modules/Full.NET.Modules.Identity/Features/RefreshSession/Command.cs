@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Http;
@@ -7,7 +8,11 @@ namespace Full.NET.Modules.Identity.Features.RefreshSession;
 
 internal sealed record Command(
     string RefreshToken,
-    ClientRequestContext Client) : ICommand<RefreshSessionResult>, ITransactionalCommand;
+    ClientRequestContext Client) : ICommand<RefreshSessionResult>, ITransactionalCommand, ITransactionalRejectionPolicy
+{
+    // 仅此拒绝分支允许保留安全副作用；其余失败不能提交业务写入。
+    public bool ShouldCommitRejection(Error error) => error.Code is IdentityErrorCodes.RefreshTokenReuseDetected or IdentityErrorCodes.InvalidRefreshToken;
+}
 
 internal sealed record RefreshSessionResult(
     TokenResponse Token,

@@ -968,10 +968,24 @@ internal static class JobSql
         new(
             "jobs.clear_executions_by_definition",
             """
+            DELETE TOP (500) FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+              AND Status IN ('succeeded', 'failed', 'cancelled')
+              AND CreatedAtUtc <= @CutoffUtc
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClearExecutionsByDefinitionMySql =
+        new(
+            "jobs.clear_executions_by_definition.mysql",
+            """
             DELETE FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND JobDefinitionId = @JobDefinitionId
               AND Status IN ('succeeded', 'failed', 'cancelled')
+              AND CreatedAtUtc <= @CutoffUtc
+            ORDER BY CreatedAtUtc, Id LIMIT 500
             """,
             SqlDataScope.HostOnly);
 
@@ -1021,6 +1035,15 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement DeleteExpiredWorkerInstances = new(
+        "jobs.delete_expired_worker_instances",
+        "DELETE TOP (500) FROM fn_jobs_worker_instance WHERE TenantId IS NULL AND LastHeartbeatAtUtc < @CutoffUtc",
+        SqlDataScope.HostOnly);
+    public static readonly SqlStatement DeleteExpiredWorkerInstancesMySql = new(
+        "jobs.delete_expired_worker_instances.mysql",
+        "DELETE FROM fn_jobs_worker_instance WHERE TenantId IS NULL AND LastHeartbeatAtUtc < @CutoffUtc ORDER BY LastHeartbeatAtUtc, InstanceId LIMIT 500",
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListWorkerInstances =
         new(
             "jobs.list_worker_instances",
@@ -1028,8 +1051,19 @@ internal static class JobSql
             SELECT InstanceId, HostProfile, StartedAtUtc,
                    LastHeartbeatAtUtc, WorkerVersion
             FROM fn_jobs_worker_instance
-            WHERE TenantId IS NULL
+            WHERE TenantId IS NULL AND LastHeartbeatAtUtc >= @RecentSinceUtc
             ORDER BY LastHeartbeatAtUtc DESC, InstanceId
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.HostOnly);    public static readonly SqlStatement CountDefinitionsFiltered = new(
+        "jobs.countdefinitions.filtered",
+        CountDefinitions.Text + " AND (@JobKey IS NULL OR JobKey LIKE @JobKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'enabled' AND IsEnabled = 1) OR (@Status = 'disabled' AND IsEnabled = 0))", CountDefinitions.Scope, CountDefinitions.TenantBinding);
+    public static readonly SqlStatement ListDefinitionsSqlServerFiltered = new(
+        "jobs.listdefinitionssqlserver.filtered",
+        ListDefinitionsSqlServer.Text.Replace("ORDER BY", " AND (@JobKey IS NULL OR JobKey LIKE @JobKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'enabled' AND IsEnabled = 1) OR (@Status = 'disabled' AND IsEnabled = 0)) ORDER BY", StringComparison.Ordinal),
+        ListDefinitionsSqlServer.Scope, ListDefinitionsSqlServer.TenantBinding);
+    public static readonly SqlStatement ListDefinitionsMySqlFiltered = new(
+        "jobs.listdefinitionsmysql.filtered",
+        ListDefinitionsMySql.Text.Replace("ORDER BY", " AND (@JobKey IS NULL OR JobKey LIKE @JobKey ESCAPE '!') AND (@DisplayName IS NULL OR DisplayName LIKE @DisplayName ESCAPE '!') AND (@GroupName IS NULL OR GroupName = @GroupName) AND (@Status IS NULL OR (@Status = 'enabled' AND IsEnabled = 1) OR (@Status = 'disabled' AND IsEnabled = 0)) ORDER BY", StringComparison.Ordinal),
+        ListDefinitionsMySql.Scope, ListDefinitionsMySql.TenantBinding);
+
 }

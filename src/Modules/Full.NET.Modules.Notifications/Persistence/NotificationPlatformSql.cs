@@ -57,6 +57,15 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListTemplateLocalesByKeys = new(
+        "notifications.platform.template.list_locales_by_keys",
+        """
+        SELECT TemplateKey, Id, LocaleTag, DefaultLocaleTag, LatestPublishedVersionId
+        FROM fn_notifications_template
+        WHERE TenantScopeKey = @TenantScopeKey AND TemplateKey IN @TemplateKeys
+        ORDER BY TemplateKey, LocaleTag, Id
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement CountForScope = new(
         "notifications.platform.template.count_for_scope",
         """

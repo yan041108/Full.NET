@@ -3,7 +3,7 @@ using Full.NET.Abstractions.Results;
 
 namespace Full.NET.Data.Dapper;
 
-/// <summary>最外层命令拥有提交与临时观测，嵌套执行只参与已有事务。</summary>
+/// <summary>最外层命令拥有提交与临时观测；嵌套失败使所属连接事务只能回滚。</summary>
 internal sealed class DapperCommandTransaction(IDbTransactionCoordinator session) : ICommandTransaction, ICommandCommitObserver
 {
     private readonly List<Action> _observations = [];
@@ -26,7 +26,13 @@ internal sealed class DapperCommandTransaction(IDbTransactionCoordinator session
 
         if (session.HasTransaction)
         {
-            return await action(cancellationToken).ConfigureAwait(false);
+            try { return await action(cancellationToken).ConfigureAwait(false); }
+            catch
+            {
+                // 包装器可能把异常还原为失败 Result；连接级回滚标记不能随异常被吞掉。
+                session.MarkRollbackOnly();
+                throw;
+            }
         }
 
         await session.BeginAsync(cancellationToken).ConfigureAwait(false);
@@ -58,7 +64,17 @@ internal sealed class DapperCommandTransaction(IDbTransactionCoordinator session
 
         if (session.HasTransaction)
         {
-            return await action(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var nested = await action(cancellationToken).ConfigureAwait(false);
+                if (!nested.IsSuccess) session.MarkRollbackOnly();
+                return nested;
+            }
+            catch
+            {
+                session.MarkRollbackOnly();
+                throw;
+            }
         }
 
         await session.BeginAsync(cancellationToken).ConfigureAwait(false);

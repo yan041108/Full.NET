@@ -84,9 +84,9 @@ public sealed class JobExecutionHostedProcessorTests
             queryExecutor.ObservedBacklogHostContext,
             "Jobs HostedProcessor 必须在 Host Context 内读取积压快照。");
         Assert.AreEqual(1, queryExecutor.BacklogReadCount);
-        Assert.AreEqual(1, queryExecutor.ScheduleReadCount);
+        Assert.AreEqual(0, queryExecutor.ScheduleReadCount, "计划调度由独立控制面负责，执行批次不再调度。");
         CollectionAssert.AreEqual(
-            new[] { "backlog", "schedules", "executions" },
+            new[] { "backlog", "executions" },
             queryExecutor.QueryOrder.ToArray());
         Assert.IsFalse(
             currentTenant.IsAvailable,

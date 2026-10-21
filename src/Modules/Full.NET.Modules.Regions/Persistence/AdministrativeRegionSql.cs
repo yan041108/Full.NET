@@ -20,6 +20,11 @@ internal static class AdministrativeRegionSql
           AND (@Level IS NULL OR Level = @Level)
         """;
 
+    public static readonly SqlStatement ListImportSnapshot = new(
+        "regions.administrative_region.list_import_snapshot",
+        $"SELECT {Projection} FROM fn_regions_administrative_region",
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListSqlServer = new(
         "regions.administrative_region.list.sql_server",
         $"""
@@ -84,14 +89,27 @@ internal static class AdministrativeRegionSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement ListAllForTree = new(
-        "regions.administrative_region.list_all_for_tree",
-        """
-        SELECT Id, ParentId, Code, Name, Level, DisplayOrder
-        FROM fn_regions_administrative_region
-        ORDER BY DisplayOrder, Name, Code, Id
-        """,
+    public static readonly SqlStatement TreeSqlServer = new(
+        "regions.administrative_region.tree.sql_server",
+        CreateTreeText(false),
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement TreeMySql = new(
+        "regions.administrative_region.tree.mysql",
+        CreateTreeText(true),
+        SqlDataScope.HostOnly);
+
+    // 局部请求仅遍历子树；MySQL 在递归阶段截断，SQL Server 用 TOP 提前结束读取。
+    // 不在 SQL 中排序整棵树：服务仅在未超限时按各层排序，避免为拒绝大树仍遍历、排序全部节点。
+    private static string CreateTreeText(bool mysql) =>
+        "WITH " + (mysql ? "RECURSIVE " : "") + "RegionTree AS ("
+        + "SELECT Id, ParentId, Code, Name, Level, DisplayOrder, 1 AS Depth "
+        + "FROM fn_regions_administrative_region WHERE "
+        + "((@ParentId IS NULL AND ParentId IS NULL) OR ParentId=@ParentId) "
+        + "UNION ALL SELECT child.Id, child.ParentId, child.Code, child.Name, child.Level, child.DisplayOrder, parent.Depth+1 "
+        + "FROM fn_regions_administrative_region child INNER JOIN RegionTree parent ON child.ParentId=parent.Id "
+        + "WHERE parent.Depth < @MaxDepth" + (mysql ? " LIMIT @MaxNodes" : "") + ") "
+        + "SELECT " + (mysql ? "" : "TOP (@MaxNodes) ")
+        + "Id, ParentId, Code, Name, Level, DisplayOrder FROM RegionTree";
 
     public static readonly SqlStatement ListParentLinks = new(
         "regions.administrative_region.list_parent_links",

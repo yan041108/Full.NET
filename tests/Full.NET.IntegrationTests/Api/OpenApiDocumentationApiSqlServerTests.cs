@@ -12,7 +12,9 @@ public sealed class OpenApiDocumentationApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            // 客户端 manifest 包含示例应用操作，导出工厂必须按相同模块集合组合。
+            includeEnterpriseRequest: true);
         await factory.InitializeAsync();
         using var client = factory.CreateClient();
 

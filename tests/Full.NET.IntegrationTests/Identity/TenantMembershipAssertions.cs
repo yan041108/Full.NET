@@ -91,9 +91,10 @@ internal static class TenantMembershipAssertions
         using var listResponse = await hostClient.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         var pendingInvitations = await listResponse.Content
-            .ReadFromJsonAsync<IReadOnlyList<MyTenantInvitationResponse>>(cancellationToken);
+            .ReadFromJsonAsync<PagedResult<MyTenantInvitationResponse>>(cancellationToken);
         Assert.IsNotNull(pendingInvitations);
-        Assert.IsTrue(pendingInvitations!.Any(item => item.Id == invitation.Invitation.Id));
+        Assert.IsTrue(pendingInvitations.Total >= 1);
+        Assert.IsTrue(pendingInvitations.Items.Any(item => item.Id == invitation.Invitation.Id));
 
         using var acceptByIdRequest = new HttpRequestMessage(
             HttpMethod.Post,

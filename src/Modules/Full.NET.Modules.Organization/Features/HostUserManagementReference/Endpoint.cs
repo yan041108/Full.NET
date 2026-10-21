@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Hosting.Api;
@@ -21,7 +22,8 @@ internal static class Endpoint
             .WithTags("OrganizationHostUserManagement");
 
         group.MapGet("/reference", async (
-            Guid tenantId,
+            Guid tenantId, [FromQuery] Guid[]? userIds, int? unitsPage, int? positionsPage,
+            string? unitSearch, string? positionSearch,
             ClaimsPrincipal principal,
             HostUserManagementReferenceService service,
             IApiResultMapper mapper,
@@ -41,7 +43,7 @@ internal static class Endpoint
                 return Results.Forbid();
             }
 
-            var result = await service.GetReferenceAsync(tenantId, cancellationToken)
+            var result = await service.GetReferenceAsync(tenantId, cancellationToken, userIds, unitsPage ?? 1, positionsPage ?? 1, unitSearch, positionSearch)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -55,7 +57,8 @@ internal static class Endpoint
                 canAccessUserUnits ? value.Units : [],
                 canAccessUserPositions ? value.Positions : [],
                 canAccessUserUnits ? value.UserUnits : [],
-                canAccessUserPositions ? value.UserPositions : []));
+                canAccessUserPositions ? value.UserPositions : [])
+            { UnitsTotal = canAccessUserUnits ? value.UnitsTotal : 0, PositionsTotal = canAccessUserPositions ? value.PositionsTotal : 0 });
         })
         .WithName("organizationGetHostUserManagementReference")
         .Produces<HostUserManagementOrganizationReferenceResponse>(StatusCodes.Status200OK)

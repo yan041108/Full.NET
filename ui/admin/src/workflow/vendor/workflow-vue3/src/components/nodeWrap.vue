@@ -109,7 +109,7 @@
   </el-drawer>
 </template>
 <script setup>
-import { onMounted, ref, watch, getCurrentInstance, computed } from "vue";
+import { ref, watch, watchEffect, getCurrentInstance, computed } from "vue";
 import { ElButton, ElDrawer, ElInput, ElMessage } from "element-plus";
 import $func from "../utils/index.js";
 import { useStore } from '../stores/index.js'
@@ -752,17 +752,10 @@ const refreshNodeError = () => {
     if (cfg.errorTip !== nextTip) cfg.errorTip = nextTip
 }
 
-onMounted(() => {
+// 仅收集本节点校验实际读取的字段，不能让每个祖先重复遍历完整后代子树。
+watchEffect(() => {
     refreshNodeError()
 })
-
-watch(
-    () => props.nodeConfig,
-    () => {
-        refreshNodeError()
-    },
-    { deep: true }
-)
 let emits = defineEmits(["update:flowPermission", "update:nodeConfig"]);
 let {
     setPromoter,

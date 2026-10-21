@@ -34,6 +34,7 @@ public sealed class DocumentModule : IFullNetModule
     /// 匿名分享访问 POST 端点限流策略，按 IP 分区防止口令暴力与计数滥用。
     /// </summary>
     internal const string AnonymousShareAccessRateLimitPolicy = "document-anonymous-share-access";
+    internal const string AnonymousPreviewPollRateLimitPolicy = "document-anonymous-preview-poll";
 
     /// <summary>模块稳定键，用于 Composition Host Profile 排序与依赖解析。</summary>
     public string Name => "Document";
@@ -50,6 +51,10 @@ public sealed class DocumentModule : IFullNetModule
     /// </summary>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
+        services.TryAddSingleton<DocumentSharePreviewGrantService>();
+        services.TryAddScoped<IDocumentActorContext, Http.HttpDocumentActorContext>();
+        services.TryAddScoped<IDocumentAccessPolicy, DocumentAccessPolicy>();
         Persistence.DocumentLogTimelineSources.Register(services);
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
@@ -181,6 +186,9 @@ public sealed class DocumentModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
+        services.TryAddScoped<IDocumentActorContext, Http.HttpDocumentActorContext>();
+        services.TryAddScoped<IDocumentAccessPolicy, DocumentAccessPolicy>();
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
             .RegisterMaterializers(

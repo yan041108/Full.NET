@@ -16,6 +16,7 @@ import {
 import type {
   FullNetProblemDetails,
   ReportingDefinition,
+  ReportingDefinitionSummary,
   ReportingExecutionPage,
   ReportingExecutionParameterValue
 } from '@fullnet/client-contracts';
@@ -24,12 +25,13 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { executeReportingDefinition } from '../api/reporting-executions';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { getReportingDefinition, listReportingDefinitions } from '../api/reporting-definitions';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
 const { t } = useAdminI18n();
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingDefinitionSummary[]>([]);
+const selectedDefinition = ref<ReportingDefinition>();
 const selectedDefinitionId = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 const result = ref<ReportingExecutionPage>();
@@ -38,9 +40,6 @@ const pageSize = ref(50);
 const loading = ref(false);
 const executing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-
-const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 
@@ -61,16 +60,23 @@ watchLoading(executing);
 onMounted(async () => {
   loading.value = true;
   try {
-    definitions.value = (await listReportingDefinitions())
+    definitions.value = (await listReportingDefinitions()).items
       .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
     selectedDefinitionId.value = definitions.value[0]?.id ?? '';
-    resetParameters();
+    await onDefinitionChanged();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'reportingExecute.loadFailed');
   } finally {
     loading.value = false;
   }
 });
+
+let searchVersion = 0;
+async function searchDefinitions(keyword: string): Promise<void> {
+  const version = ++searchVersion;
+  const result = await listReportingDefinitions({ nameContains: keyword, pageSize: 20 });
+  if (version === searchVersion) definitions.value = result.items.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
+}
 
 function resetParameters(): void {
   for (const key of Object.keys(parameterValues)) {
@@ -81,7 +87,12 @@ function resetParameters(): void {
   }
 }
 
-function onDefinitionChanged(): void {
+async function onDefinitionChanged(): Promise<void> {
+  const id = selectedDefinitionId.value;
+  selectedDefinition.value = undefined;
+  const detail = id ? await getReportingDefinition(id) : undefined;
+  if (selectedDefinitionId.value !== id) return;
+  selectedDefinition.value = detail;
   resetParameters();
   result.value = undefined;
   page.value = 1;
@@ -139,7 +150,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         <ElFormItem :label="t('reportingExecute.fieldDefinition')">
           <ElSelect
             v-model="selectedDefinitionId"
-            filterable
+            filterable remote :remote-method="searchDefinitions"
             data-testid="reporting-execute-definition"
             @change="onDefinitionChanged"
           >

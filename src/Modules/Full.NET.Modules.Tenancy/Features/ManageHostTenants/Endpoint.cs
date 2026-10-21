@@ -19,6 +19,7 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            string? identifier, string? name, string? domain, string? status,
             HostTenantQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -27,7 +28,7 @@ internal static class Endpoint
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
-                    cancellationToken)
+                    cancellationToken, new HostTenantListFilter(identifier, name, domain, status))
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

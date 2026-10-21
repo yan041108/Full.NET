@@ -80,7 +80,7 @@
     "openapi:client:snapshot": "node scripts/openapi/snapshot-client-openapi.mjs",
     "openapi:client:generate": "node scripts/openapi/generate-fullnet-client.mjs",
     "test:openapi:breaking": "node scripts/openapi/check-openapi-breaking-changes.mjs",
-    "test:workspace": "node tests/client-workspace.test.mjs",
+    "test:workspace": "node --test tests/client-workspace.test.mjs tests/client-audit-policy.test.mjs tests/client-braces-security.test.mjs tests/client-toolchain-compatibility.test.mjs",
     "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --filter=!@fullnet/admin-layui --if-present test",
     "build:clients": "pnpm --recursive --filter=!@fullnet/admin-layui --if-present build",
     "test:e2e:admin": "pnpm --filter @fullnet/admin-parity-e2e test",
@@ -103,24 +103,41 @@
     "overrides": {
       "glob": "10.5.0",
       "@intlify/message-compiler": "9.14.5",
-      "@dcloudio/uni-cli-shared>@intlify/core-base": "9.1.11",
+      "@dcloudio/uni-cli-shared>@intlify/core-base": "9.14.5",
+      "@dcloudio/uni-cli-shared>@intlify/shared": "9.14.5",
       "@intlify/message-resolver@9.1.9": "9.1.11",
       "@intlify/message-resolver@9.1.10": "9.1.11",
       "@jimp/jpeg>jpeg-js": "0.4.4",
       "@dcloudio/uni-mp-weixin>ws": "8.21.0",
       "@dcloudio/uni-cli-shared>adm-zip": "0.6.1",
-      "@dcloudio/uni-nvue-styler>postcss": "8.5.19",
       "browserslist": "4.28.8",
       "nanoid": "3.3.18",
-      "express@4.20.0>path-to-regexp": "0.1.13",
       "undici": "7.29.1",
-      "brace-expansion": "2.1.6",
-      "@grpc/grpc-js": "1.14.5"
+      "brace-expansion": "2.1.7",
+      "@grpc/grpc-js": "1.14.5",
+      "braces": "workspace:@fullnet/braces@0.1.0",
+      "vue": "3.5.42",
+      "@vue/server-renderer": "3.5.42",
+      "source-map-js": "1.2.2",
+      "proxy-addr": "2.0.8",
+      "@dcloudio/vite-plugin-uni>@vitejs/plugin-legacy": "6.1.1",
+      "@dcloudio/vite-plugin-uni>@vitejs/plugin-vue-jsx": "4.2.0",
+      "@dcloudio/uni-cli-shared>esbuild": "0.25.12",
+      "@dcloudio/vite-plugin-uni>express": "4.22.3",
+      "@babel/core@7.25.2": "7.29.7",
+      "postcss": "8.5.23",
+      "postcss-selector-parser": "7.1.6",
+      "qs": "6.16.1",
+      "dockerode>uuid": "11.1.1",
+      "@dcloudio/uni-mp-weixin>jimp": "1.6.1"
     },
     "peerDependencyRules": {
       "allowedVersions": {
-        "@dcloudio/vite-plugin-uni>vite": "5.4.21"
+        "@dcloudio/vite-plugin-uni>vite": "6.4.4"
       }
+    },
+    "patchedDependencies": {
+      "@dcloudio/uni-mp-weixin@3.0.0-5010520260709002": "patches/@dcloudio__uni-mp-weixin@3.0.0-5010520260709002.patch"
     }
   }
 }

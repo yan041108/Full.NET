@@ -9,6 +9,10 @@ namespace Full.NET.Modules.Notifications.Features.ManageMyHostAnnouncements;
 internal sealed class HostAnnouncementRecipientGuard(
     ITenantOrganizationUserMembershipReader membershipReader)
 {
+    internal Task<IReadOnlyList<TenantOrganizationMembershipEntry>> ListMembershipsAsync(
+        Guid userId, CancellationToken cancellationToken) =>
+        membershipReader.ListActiveMembershipsAsync(userId, cancellationToken);
+
     /// <summary>判断用户是否可接收指定公告。</summary>
     public async Task<bool> IsRecipientAsync(
         Guid userId,

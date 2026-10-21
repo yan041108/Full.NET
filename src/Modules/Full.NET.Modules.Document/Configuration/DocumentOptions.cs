@@ -11,4 +11,6 @@ public sealed class DocumentOptions
     /// 匿名分享访问端点每分钟允许的请求数（按客户端 IP 分区）。
     /// </summary>
     public int AnonymousShareAccessRateLimitPermitLimitPerMinute { get; set; } = 30;
+    /// <summary>已签发预览凭据的状态和输出请求预算，按 IP 分区；不用于口令尝试。</summary>
+    public int AnonymousPreviewPollRateLimitPermitLimitPerMinute { get; set; } = 120;
 }

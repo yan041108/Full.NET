@@ -17,7 +17,10 @@ public sealed class ReportingExportOptions
     /// <summary>单次迭代最多处理的任务数。</summary>
     public int BatchSize { get; init; } = 20;
 
-    /// <summary>执行租约秒数；长导出必须能在到期前完成或由请求内路径持有。</summary>
+    /// <summary>单次执行的总时间预算；续租不能延长该截止时间。</summary>
+    public int ExecutionTimeoutSeconds { get; init; } = 900;
+
+    /// <summary>执行租约秒数；持有期间独立续租，失租立即取消执行。</summary>
     public int LeaseSeconds { get; init; } = 300;
 }
 
@@ -37,6 +40,8 @@ internal sealed class ReportingExportOptionsValidator : IValidateOptions<Reporti
             return ValidateOptionsResult.Fail("报表导出批大小必须在 1 到 200 之间。");
         }
 
+        if (options.ExecutionTimeoutSeconds is < 30 or > 7200)
+            return ValidateOptionsResult.Fail("ExecutionTimeoutSeconds must be between 30 and 7200.");
         if (options.LeaseSeconds is < 30 or > 3600)
         {
             return ValidateOptionsResult.Fail("报表导出租约必须在 30 到 3600 秒之间。");

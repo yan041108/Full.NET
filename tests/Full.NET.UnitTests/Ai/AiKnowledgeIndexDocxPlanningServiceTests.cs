@@ -638,9 +638,9 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
                 var model = new AiModelConfigRecord { Id = ModelId, Version = 1, TenantId = TenantId, IsEnabled = true,
                 ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = Endpoint, OrganizationId = Organization, ApiKeyProtected = "protected" }; AfterModel?.Invoke();
                 if (BeforeModelAsync is not null) await BeforeModelAsync(_.ArgAt<CancellationToken>(2)); return model; });
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>
-            { Assert.IsFalse(State.HasTransaction); AuthCalls++; AfterAuthorize?.Invoke(); if (BeforeAuthorizeAsync is not null) await BeforeAuthorizeAsync(call.ArgAt<CancellationToken>(2));
-                return call.ArgAt<SessionBindingSnapshot>(0) != Session || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(
+            auth.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(async call =>
+            { Assert.IsFalse(State.HasTransaction); foreach (var permission in call.ArgAt<IReadOnlyCollection<string>>(1)) { AuthCalls++; AfterAuthorize?.Invoke(); } if (BeforeAuthorizeAsync is not null) await BeforeAuthorizeAsync(call.ArgAt<CancellationToken>(2));
+                return call.ArgAt<SessionBindingSnapshot>(0) != Session || call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(
                 InitialFault == "actor-user" ? Guid.CreateVersion7() : Session.UserId,
                 InitialFault == "actor-tenant" ? Guid.CreateVersion7() : Session.TenantId,
                 InitialFault == "actor-session" ? Guid.CreateVersion7() : Session.SessionId); });

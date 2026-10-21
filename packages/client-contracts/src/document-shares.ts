@@ -31,10 +31,12 @@ export interface HostDocumentSharePage {
 }
 
 export interface AccessHostDocumentShareRequest {
+  previewGrant?: string | null;
   password?: string | null;
 }
 
 export interface HostDocumentShareAccessResponse {
+  previewGrant?: string | null;
   shareId: string;
   documentId: string;
   shareCode: string;
@@ -108,6 +110,7 @@ export function isHostDocumentSharePage(value: unknown): value is HostDocumentSh
 
 export function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
   return isRecord(value)
+    && (value.previewGrant === undefined || value.previewGrant === null || (typeof value.previewGrant === 'string' && value.previewGrant.length <= 4096))
     && (value.password === undefined || isNullableString(value.password));
 }
 

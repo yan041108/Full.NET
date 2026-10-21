@@ -155,5 +155,8 @@ internal static class AiKnowledgeAnswerFeedbackReviewAssertions
     private sealed class CancelAfterWrite(ICommandExecutor inner) : ICommandExecutor
     { public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) { await inner.ExecuteAsync(statement, parameters, cancellationToken); throw new OperationCanceledException(); } }
     private sealed class DenyPermission(ICurrentSessionAuthorization inner, string denied) : ICurrentSessionAuthorization
-    { public Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default) => permissionCode == denied ? Task.FromResult<AuthorizedSessionActor?>(null) : inner.AuthorizeAsync(permissionCode, cancellationToken); }
+    {
+        public Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default) => permissionCode == denied ? Task.FromResult<AuthorizedSessionActor?>(null) : inner.AuthorizeAsync(permissionCode, cancellationToken);
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default) => permissionCodes.Contains(denied, StringComparer.Ordinal) ? Task.FromResult<AuthorizedSessionActor?>(null) : inner.AuthorizeAllAsync(permissionCodes, cancellationToken);
+    }
 }

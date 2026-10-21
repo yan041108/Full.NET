@@ -25,6 +25,8 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            string? username, string? displayName, string? phone, string? email, string? status,
+            Guid? organizationTenantId, Guid? organizationUnitId,
             HostUserQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -40,7 +42,8 @@ internal static class Endpoint
                     page ?? 1,
                     pageSize ?? 20,
                     includeProfile: true,
-                    cancellationToken)
+                    cancellationToken,
+                    new HostUserListFilter(username, displayName, phone, email, status, organizationTenantId, organizationUnitId))
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

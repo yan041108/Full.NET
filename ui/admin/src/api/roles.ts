@@ -43,9 +43,10 @@ export async function getAuthorizationTree(
 export async function listHostRoles(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { code?: string; name?: string; status?: string; roleType?: string } = {}
 ): Promise<HostRolePage> {
-  return identityListHostRoles(http, { page, pageSize }, signal);
+  return identityListHostRoles(http, { page, pageSize, ...filters }, signal);
 }
 
 /** 创建 Host 角色。 */
@@ -121,18 +122,20 @@ export async function listHostRoleMembers(
   roleId: string,
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  userIds?: readonly string[]
 ): Promise<HostRoleMembersPage> {
-  return listHostRoleMembersRequest(http, roleId, page, pageSize, signal);
+  return listHostRoleMembersRequest(http, roleId, page, pageSize, signal, userIds);
 }
 
 export async function replaceHostRoleMembers(
   roleId: string,
   userIds: string[],
   version: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  candidateUserIds?: readonly string[]
 ): Promise<HostRoleMembersAssignment> {
-  return replaceHostRoleMembersRequest(http, roleId, { userIds, version }, signal);
+  return replaceHostRoleMembersRequest(http, roleId, { userIds, version, candidateUserIds }, signal);
 }
 
 /** 读取 Host 角色数据权限范围，并对返回机器码做失败关闭校验。 */

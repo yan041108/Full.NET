@@ -30,18 +30,25 @@ describe('Vue 访问日志页', () => {
       });
   });
 
-  it('挂载时自动拉取全部游标页并按顺序展示', async () => {
+  it('每次只拉取当前游标页，翻页替换列表并可返回上一页', async () => {
     const wrapper = mount(AccessLogsView, { global: { plugins: [createPinia()] } });
     await flushPromises();
 
-    expect(listMock).toHaveBeenNthCalledWith(1);
-    expect(listMock).toHaveBeenNthCalledWith(2, { cursor: 'cursor-next' });
+    expect(listMock).toHaveBeenCalledTimes(1);
+    expect(listMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ limit: 20 }), expect.any(AbortSignal));
     expect(wrapper.text()).toContain('/first');
+    expect(wrapper.text()).not.toContain('/second');
+    await wrapper.get('.custom-pagination .el-button:last-child').trigger('click');
+    await flushPromises();
+    expect(listMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 'cursor-next', limit: 20 }), expect.any(AbortSignal));
     expect(wrapper.text()).toContain('/second');
-    expect(wrapper.text().indexOf('/first')).toBeLessThan(
-      wrapper.text().indexOf('/second')
-    );
-    expect(wrapper.find('.el-pagination').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('/first');
+    listMock.mockResolvedValueOnce({ items: [createLog('01912345-6789-7abc-8def-0123456789ab', '/first')], nextCursor: 'cursor-next', hasMore: true });
+    await wrapper.get('.custom-pagination .el-button:first-child').trigger('click');
+    await flushPromises();
+    expect(listMock).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: undefined }), expect.any(AbortSignal));
+    expect(wrapper.text()).toContain('/first');
+    wrapper.unmount();
   });
 
   it('启用 contains 时显示 24 小时范围并用同一筛选重新加载', async () => {

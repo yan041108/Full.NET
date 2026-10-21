@@ -28,16 +28,23 @@ internal static class ImportExportErrorReceiptRenderer
         "http://schemas.openxmlformats.org/package/2006/relationships";
 
     /// <summary>生成仅包含失败行的 xlsx 错误回执。</summary>
-    public static byte[] Render(IReadOnlyList<StaticImportRowExecutionResult> failedRows)
+    public static byte[] Render(IReadOnlyList<StaticImportRowExecutionResult> failedRows, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(failedRows);
-        var rows = failedRows.Select(row => new[]
+        cancellationToken.ThrowIfCancellationRequested();
+        var rows = failedRows.Select(row =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new[]
         {
             EscapeFormulaText(row.LineNumber.ToString()),
             EscapeFormulaText(row.ErrorCode ?? string.Empty),
             EscapeFormulaText(row.Message ?? string.Empty),
+        };
         });
-        return CreateWorkbook(ReceiptHeaders, rows);
+        var result = CreateWorkbook(ReceiptHeaders, rows);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     private static byte[] CreateWorkbook(

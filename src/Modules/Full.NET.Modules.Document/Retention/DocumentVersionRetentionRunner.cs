@@ -36,6 +36,8 @@ internal sealed class DocumentVersionRetentionRunner(
             return DocumentVersionRetentionResult.Empty;
         }
 
+        // 最大历史数不得低于最小总保留量，否则不可裁剪的头项会反复耗尽批次预算。
+        var retainedHistory = Math.Max(options.MaximumRetainedHistoryVersions, options.MinimumRetainedVersionsPerItem - 1);
         var candidates = await queryExecutor
             .QueryAsync<DocumentVersionRetentionCandidateRecord>(
                 _provider == DatabaseProvider.MySql
@@ -43,18 +45,20 @@ internal sealed class DocumentVersionRetentionRunner(
                     : DocumentVersionRetentionSql.ListItemsWithExcessHistorySqlServer,
                 DocumentSqlParameters.Create(
                     ("BatchSize", options.BatchSize),
-                    ("MaximumRetainedHistoryVersions", options.MaximumRetainedHistoryVersions)),
+                    ("MaximumRetainedHistoryVersions", retainedHistory)),
                 cancellationToken)
             .ConfigureAwait(false);
 
+        var remaining = Math.Clamp(options.BatchSize, 1, 1000);
         var versionsDeleted = 0;
         var itemsProcessed = 0;
         foreach (var candidate in candidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (remaining == 0) break;
             itemsProcessed++;
 
-            var excessCount = candidate.HistoryCount - options.MaximumRetainedHistoryVersions;
+            var excessCount = candidate.HistoryCount - retainedHistory;
             if (excessCount <= 0)
             {
                 continue;
@@ -68,13 +72,16 @@ internal sealed class DocumentVersionRetentionRunner(
                     DocumentSqlParameters.Create(
                         ("DocumentItemId", candidate.DocumentItemId),
                         ("CurrentVersionId", candidate.CurrentVersionId),
-                        ("TakeCount", excessCount)),
+                        ("TakeCount", Math.Min(excessCount, remaining))),
                     cancellationToken)
                 .ConfigureAwait(false);
 
             foreach (var version in versions)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (remaining == 0) break;
+                // 失败尝试同样消耗预算，避免并发删除/最小保留冲突使本轮工作量失去上界。
+                remaining--;
                 if (await deletionService
                         .TryDeleteVersionForRetentionAsync(
                             candidate.DocumentItemId,

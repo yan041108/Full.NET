@@ -127,7 +127,7 @@ public sealed class AiKnowledgeAskLifecycleTests
         {
             Tenant.SetHost(); var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
-            var auth = Substitute.For<ICurrentSessionAuthorization>();
+            var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { BeforePermission?.Invoke(); return call.ArgAt<string>(0) == Denied ? null : new AuthorizedSessionActor(Actor, null, Guid.CreateVersion7()); });
             var generationModel = Guid.CreateVersion7();

@@ -147,6 +147,8 @@ public sealed class RecipientEndpointVerificationTransactionTests
     private sealed class AttemptCoordinator : IDbTransactionCoordinator
     {
         private int _baseline;
+        public bool IsRollbackOnly { get; private set; }
+        public void MarkRollbackOnly() => IsRollbackOnly = true;
         public bool HasTransaction { get; private set; }
         public int Attempts { get; set; }
         public int Commits { get; private set; }
@@ -155,6 +157,7 @@ public sealed class RecipientEndpointVerificationTransactionTests
         /// <param name="cancellationToken">取消令牌。</param>
         public Task BeginAsync(CancellationToken cancellationToken)
         {
+            IsRollbackOnly = false;
             _baseline = Attempts;
             HasTransaction = true;
             return Task.CompletedTask;

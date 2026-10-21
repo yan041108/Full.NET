@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
 import {
   validateMigrationPairs,
   validateRepositorySqlNaming,
@@ -108,4 +110,22 @@ test('仓库 SQL 与登记的 C# 静态 SQL 不存在未登记命名债务', asy
   const violations = await validateRepositorySqlNaming(repositoryRoot);
 
   assert.deepEqual(violations, []);
+});
+
+
+test('静态恢复过程可识别，过程体的危险查询和不完整清理仍失败', async () => {
+  const fixture = path.join(fixtureRoot, 'static-recovery-procedure.sql');
+  const options = { repositoryRoot, debt: { schemaVersion: 1, items: [] } };
+  assert.deepEqual(await validateSqlNaming([fixture], options), []);
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'fullnet-naming-recovery-'));
+  try {
+    const valid = await readFile(fixture, 'utf8');
+    const unsafe = path.join(temporary, 'unsafe.sql');
+    await writeFile(unsafe, valid.replace('    IF NOT EXISTS', '    SELECT * FROM fn_settings_config_entry;\n    IF NOT EXISTS'));
+    assert.ok((await validateSqlNaming([unsafe], options)).some(item => item.ruleId === 'FNSQL001'));
+    await writeFile(unsafe, valid.replace('CALL fn_settings_trace_recovery();', 'CALL fn_settings_other();'));
+    assert.ok((await validateSqlNaming([unsafe], options)).some(item => item.ruleId === 'FNSQL003'));
+    await writeFile(unsafe, valid.replace('    IF NOT EXISTS', "    PREPARE p FROM @ddl;\n    IF NOT EXISTS"));
+    assert.ok((await validateSqlNaming([unsafe], options)).some(item => item.ruleId === 'FNSQL002'));
+  } finally { await rm(temporary, { recursive: true, force: true }); }
 });

@@ -1,32 +1,9 @@
 import type { HttpClient } from './http.js';
+import type { LogTimelineResponse } from './generated/models.generated.js';
+export type { LogTimelineEntry, LogTimelineResponse } from './generated/models.generated.js';
 
 /** 关联字段均为可空；没有采集不等于空 GUID 或空字符串。 */
-export interface LogCorrelation {
-  traceId: string | null;
-  spanId: string | null;
-  parentSpanId: string | null;
-  requestId: string | null;
-  userId: string | null;
-  tenantId: string | null;
-  sessionId: string | null;
-  centerSessionId: string | null;
-  applicationSessionId: string | null;
-  clientIpFingerprint: string | null;
-}
-export interface LogTimelineEntry {
-  id: string;
-  source: string;
-  occurredAtUtc: string;
-  summary: string;
-  correlation: LogCorrelation;
-}
-export interface LogTimelineResponse {
-  fromUtc: string;
-  toUtc: string;
-  entries: LogTimelineEntry[];
-  sources: Array<{ source: string; status: string }>;
-  partial: boolean;
-}
+export type { LogCorrelationSnapshot as LogCorrelation } from './generated/models.generated.js';
 export interface LogTimelineQuery {
   fromUtc: string;
   toUtc: string;
@@ -42,7 +19,7 @@ const date = (value: unknown): value is string => typeof value === 'string' && N
 const correlationKeys = ['traceId', 'spanId', 'parentSpanId', 'requestId', 'userId', 'tenantId',
   'sessionId', 'centerSessionId', 'applicationSessionId', 'clientIpFingerprint'];
 const correlation = (value: unknown): boolean => record(value)
-  && correlationKeys.every(key => value[key] === null || typeof value[key] === 'string');
+  && correlationKeys.every(key => value[key] === undefined || value[key] === null || typeof value[key] === 'string');
 export function isLogTimelineResponse(value: unknown): value is LogTimelineResponse {
   return record(value) && date(value.fromUtc) && date(value.toUtc) && typeof value.partial === 'boolean'
     && Array.isArray(value.entries) && value.entries.length <= 200 && value.entries.every(entry =>

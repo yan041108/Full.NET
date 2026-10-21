@@ -10,6 +10,19 @@ internal static class IntegrationTestAuthHelper
 {
     public const string ClearedPassword = "FullNet!2026Cleared";
 
+    /// <summary>成员编辑会推进角色版本；后续管理写入必须读取新快照，不能复用赋权前版本。</summary>
+    internal static async Task<HostRoleResponse> ReadCurrentHostRoleAsync(HttpClient client, string token, Guid roleId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/identity/roles/{roleId:D}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var role = await response.Content.ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(role);
+        return role;
+    }
+
     /// <summary>新创建 Host 用户默认要求首次改密；完成改密以便后续 OIDC 协议用例可签发令牌。</summary>
     public static async Task ClearInitialPasswordChangeRequirementAsync(
         HttpClient client,

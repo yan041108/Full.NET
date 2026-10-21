@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import {
   ElButton,
@@ -16,6 +16,7 @@ import {
   ElTableColumn,
   ElTree
 } from 'element-plus';
+import type { LoadFunction } from 'element-plus';
 import type {
   BatchDeleteHostFilesResponse,
   BatchUploadHostFilesResponse,
@@ -56,6 +57,8 @@ defineOptions({ name: 'HostFilesView' });
 
 interface AppliedFilters {
   fileName: string;
+  fromUtc?: string;
+  toUtc?: string;
 }
 
 interface TreeNode {
@@ -63,6 +66,7 @@ interface TreeNode {
   label: string;
   folder: HostFolderTreeNode | null;
   children?: TreeNode[];
+  isLeaf?: boolean;
 }
 
 const ROOT_NODE_ID = '__root__';
@@ -70,6 +74,9 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<HostFile[]>([]);
 const folderTree = ref<TreeNode[]>([]);
+const folderGeneration = ref(0);
+let folderController = new AbortController();
+onBeforeUnmount(() => folderController.abort());
 const selectedFolder = ref<HostFolderTreeNode | null>(null);
 const selectedFiles = ref<File[]>([]);
 const uploadResults = ref<BatchUploadHostFilesResponse | null>(null);
@@ -126,7 +133,9 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
     key: 'fileName',
     label: t('hostFiles.fileName'),
     placeholder: t('hostFiles.searchPlaceholder')
-  }
+  },
+  { key: 'fromUtc', label: t('accessLogs.fromUtc'), placeholder: '2026-10-01T00:00:00Z' },
+  { key: 'toUtc', label: t('accessLogs.toUtc'), placeholder: '2026-10-02T00:00:00Z' }
 ]);
 
 watchLoading(loading);
@@ -144,7 +153,7 @@ function mapFolderNodes(nodes: HostFolderTreeNode[]): TreeNode[] {
     id: node.id,
     label: node.name,
     folder: node,
-    children: mapFolderNodes(node.children)
+    isLeaf: !node.hasChildren
   }));
 }
 
@@ -153,20 +162,43 @@ async function refreshAll(): Promise<void> {
 }
 
 async function loadFolders(): Promise<void> {
+  folderController.abort();
+  folderController = new AbortController();
+  const generation = ++folderGeneration.value;
+  const signal = folderController.signal;
   try {
-    const tree = await listHostFolderTree();
+    const tree = await listHostFolderTree(undefined, signal);
+    if (generation !== folderGeneration.value || signal.aborted) return;
     folderTree.value = [
       {
         id: ROOT_NODE_ID,
         label: t('hostFiles.rootFolder'),
         folder: null,
+        isLeaf: false,
         children: mapFolderNodes(tree)
       }
     ];
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (generation === folderGeneration.value && !signal.aborted) problem.value = toProblem(error);
   }
 }
+
+// 刷新后旧节点的回包只能完成旧代次，不能污染新的目录树。
+const loadFolderChildren: LoadFunction = async (node, resolve, reject) => {
+  if (node.level === 0) { resolve(folderTree.value); return; }
+  const data = node.data as TreeNode;
+  if (data.id === ROOT_NODE_ID) { resolve(folderTree.value[0]?.children ?? []); return; }
+  const generation = folderGeneration.value;
+  const signal = folderController.signal;
+  try {
+    const rows = await listHostFolderTree(data.id, signal);
+    if (generation !== folderGeneration.value || signal.aborted) { resolve([]); return; }
+    resolve(mapFolderNodes(rows));
+  } catch (error: unknown) {
+    if (generation === folderGeneration.value && !signal.aborted) problem.value = toProblem(error);
+    reject();
+  }
+};
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -179,7 +211,9 @@ async function load(): Promise<void> {
         : undefined;
     const pageResult = await listHostFiles(page.value, pageSize.value, {
       folderId,
-      fileNameContains: appliedFilters.value.fileName
+      fileNameContains: appliedFilters.value.fileName,
+      fromUtc: appliedFilters.value.fromUtc,
+      toUtc: appliedFilters.value.toUtc
     });
     items.value = pageResult.items;
     total.value = pageResult.total;
@@ -198,7 +232,14 @@ function onFolderSelected(node: TreeNode): void {
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
-  appliedFilters.value = { fileName: params.fileName ?? '' };
+  const fileName = params.fileName ?? '';
+  let fromUtc = params.fromUtc; let toUtc = params.toUtc;
+  if (fileName.trim() && !fromUtc && !toUtc) {
+    const now = new Date();
+    fromUtc = new Date(now.getTime() - 86_400_000).toISOString(); toUtc = now.toISOString();
+    searchForm.value.fromUtc = fromUtc; searchForm.value.toUtc = toUtc;
+  }
+  appliedFilters.value = { fileName, fromUtc, toUtc };
   resetPage();
   void load();
 }
@@ -501,9 +542,13 @@ function toProblem(
       <el-card shadow="never" class="host-files-tree-card">
         <h2>{{ t('hostFiles.folderTreeTitle') }}</h2>
         <el-tree
+          :key="folderGeneration"
           :data="folderTree"
           node-key="id"
-          default-expand-all
+          lazy
+          :load="loadFolderChildren"
+          :props="{ isLeaf: 'isLeaf' }"
+          :default-expanded-keys="[ROOT_NODE_ID]"
           highlight-current
           @node-click="onFolderSelected"
         />
@@ -595,7 +640,7 @@ function toProblem(
               :loading="loading"
               full-class="art-crud-table-main"
               layout="refresh,size,fullscreen,settings"
-              @refresh="load"
+              @refresh="refreshAll"
             >
               <template #left>
                 <PermissionGate code="files.files.delete">

@@ -114,6 +114,15 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>撤销单调转换按有界会话集合执行；重复撤销保持幂等。</summary>
+    public static readonly SqlStatement RevokeApplicationSessionBatch = new(
+        "identity.revoke_oidc_application_session_batch",
+        """
+        UPDATE fn_identity_oidc_application_session
+        SET RevokedAtUtc = @RevokedAtUtc, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id IN @SessionIds AND RevokedAtUtc IS NULL
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement RevokeApplicationSession = new(
         "identity.revoke_oidc_application_session",
         """

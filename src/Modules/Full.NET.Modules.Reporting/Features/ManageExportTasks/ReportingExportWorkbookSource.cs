@@ -59,7 +59,7 @@ internal sealed class ReportingExportWorkbookSource(
         byte[] workbookBytes;
         try
         {
-            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!);
+            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!, cancellationToken);
         }
         catch (InvalidDataException)
         {

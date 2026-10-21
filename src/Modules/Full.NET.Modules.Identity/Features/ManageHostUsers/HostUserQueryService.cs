@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
@@ -12,7 +13,8 @@ internal sealed class HostUserQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
     IUserFieldProjectionResolver projectionResolver,
-    IPermissionSnapshotReader permissionSnapshots)
+    IPermissionSnapshotReader permissionSnapshots,
+    IActiveTenantContextResolver? tenantResolver = null)
 {
     private const string HostScope = "host";
     public async Task<Result<PagedResult<HostUserResponse>>> ListAsync(
@@ -20,31 +22,51 @@ internal sealed class HostUserQueryService(
         int page,
         int pageSize,
         bool includeProfile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        HostUserListFilter? filter = null)
     {
+        filter ??= new();
+        if (filter.OrganizationUnitId.HasValue != filter.OrganizationTenantId.HasValue
+            || new[] { filter.Username, filter.DisplayName, filter.Phone, filter.Email }.Any(value => value?.Length > 128)
+            || (filter.Status is not null and not "" and not "active" and not "inactive"))
+            return Result<PagedResult<HostUserResponse>>.Failure(new Error(ValidationErrorCodes.Failed,
+                "The user search filters are invalid.", ErrorType.Validation));
+        var projection = await projectionResolver.ResolveAsync(actorUserId, null,
+            FieldProjectionResourceKeys.HostUsers, cancellationToken).ConfigureAwait(false);
+        if ((!string.IsNullOrWhiteSpace(filter.Phone) && !projection.FieldKeys.Contains("phone_number"))
+            || (!string.IsNullOrWhiteSpace(filter.Email) && !projection.FieldKeys.Contains("email")))
+            return Result<PagedResult<HostUserResponse>>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                "The requested profile filter is not readable.", ErrorType.Forbidden));
+        if (filter.OrganizationTenantId is { } tenantId && (tenantResolver is null
+            || await tenantResolver.ResolveActiveByIdAsync(tenantId, cancellationToken).ConfigureAwait(false) is null))
+            return Result<PagedResult<HostUserResponse>>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                "The organization tenant is not available.", ErrorType.Forbidden));
+        var revealPhone = !string.IsNullOrWhiteSpace(filter.Phone)
+            && (await ResolveRevealAccessAsync(actorUserId, cancellationToken).ConfigureAwait(false)).CanRevealPhoneNumber;
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize),
+            ("Username", SqlSearchPattern.ContainsLiteral(filter.Username)),
+            ("DisplayName", SqlSearchPattern.ContainsLiteral(filter.DisplayName)),
+            ("Phone", SqlSearchPattern.ContainsLiteral(filter.Phone)), ("Email", SqlSearchPattern.ContainsLiteral(filter.Email)),
+            ("RevealPhone", revealPhone), ("IsActive", filter.Status == "active" ? true : filter.Status == "inactive" ? false : (bool?)null),
+            ("OrganizationTenantId", filter.OrganizationTenantId), ("OrganizationUnitId", filter.OrganizationUnitId));
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                IdentitySql.CountHostUsers,
+                databaseOptions.Value.Provider == DatabaseProvider.MySql ? HostUserSearchSql.CountMySql : HostUserSearchSql.CountSqlServer,
+                parameters,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => IdentitySql.ListHostUsersSqlServer,
-            DatabaseProvider.MySql => IdentitySql.ListHostUsersMySql,
+            DatabaseProvider.SqlServer => HostUserSearchSql.ListSqlServer,
+            DatabaseProvider.MySql => HostUserSearchSql.ListMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<HostUserListRow>(
                 statement,
-                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        var projection = await projectionResolver.ResolveAsync(
-                actorUserId,
-                tenantId: null,
-                FieldProjectionResourceKeys.HostUsers,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var projectedFields = await LoadProjectedFieldsAsync(

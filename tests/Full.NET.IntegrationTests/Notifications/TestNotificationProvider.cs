@@ -35,6 +35,7 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var activeSend = harness.EnterSend();
         harness.Record(request);
         switch (harness.Mode)
         {
@@ -138,6 +139,24 @@ internal enum TestNotificationProviderMode
 internal sealed class TestNotificationProviderHarness
 {
     private readonly ConcurrentBag<string> _idempotencyKeys = [];
+    private int _active;
+    private int _peak;
+
+    public int PeakConcurrency => Volatile.Read(ref _peak);
+
+    public IDisposable EnterSend()
+    {
+        var active = Interlocked.Increment(ref _active);
+        int peak;
+        do { peak = Volatile.Read(ref _peak); if (peak >= active) break; }
+        while (Interlocked.CompareExchange(ref _peak, active, peak) != peak);
+        return new SendLease(this);
+    }
+
+    private sealed class SendLease(TestNotificationProviderHarness owner) : IDisposable
+    {
+        public void Dispose() => Interlocked.Decrement(ref owner._active);
+    }
 
     public TestNotificationProviderMode Mode { get; set; } = TestNotificationProviderMode.Succeed;
 
@@ -149,12 +168,20 @@ internal sealed class TestNotificationProviderHarness
 
     public IReadOnlyCollection<string> IdempotencyKeys => _idempotencyKeys.ToArray();
 
-    public void Record(NotificationProviderRequest request) =>
+    public Action? OnSend { get; set; }
+
+    public void Record(NotificationProviderRequest request)
+    {
         _idempotencyKeys.Add(request.IdempotencyKey);
+        OnSend?.Invoke();
+    }
 
     public void Reset(TestNotificationProviderMode mode = TestNotificationProviderMode.Succeed)
     {
+        if (Volatile.Read(ref _active) != 0) throw new InvalidOperationException("不能重置仍在发送的测试提供程序。");
+        Volatile.Write(ref _peak, 0);
         Mode = mode;
+        OnSend = null;
         while (_idempotencyKeys.TryTake(out _))
         {
         }

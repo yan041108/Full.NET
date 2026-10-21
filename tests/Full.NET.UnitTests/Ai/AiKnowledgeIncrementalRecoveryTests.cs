@@ -44,7 +44,7 @@ public sealed class AiKnowledgeIncrementalRecoveryTests
             read = true;
             if (scenario == "scope") tenant.SetTenant(new TenantContext(Guid.CreateVersion7(), "other", "Other"));
         });
-        var auth = Substitute.For<ICurrentSessionAuthorization>();
+        var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
         auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             scenario == "deny" || (scenario == "revoke" && read) ? null : new AuthorizedSessionActor(actor, tenant.Id, Guid.CreateVersion7()));
         var guard = new AiKnowledgePermissionGuard(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());

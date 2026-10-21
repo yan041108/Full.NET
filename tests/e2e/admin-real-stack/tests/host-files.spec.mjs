@@ -80,7 +80,7 @@ test('受限 Host 账号访问文件 API 被拒绝且导航裁剪', async ({
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
 });
 
-test('Host 管理员可管理虚拟目录、更新元数据并查询引用（清单 31）', async ({ request }, testInfo) => {
+test('Host 管理员可管理虚拟目录、更新元数据并查询引用（清单 31）', async ({ page, request }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
@@ -103,12 +103,25 @@ test('Host 管理员可管理虚拟目录、更新元数据并查询引用（清
   const folder = await folderResponse.json();
   expect(folder.id).toBeTruthy();
 
+  const createChild = async (parentId, name) => {
+    const response = await request.post(`${apiBaseUrl}/api/v1/files/host-folders`, {
+      headers: jsonHeaders, data: { parentId, name, displayOrder: 0 }
+    });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const child = await createChild(folder.id, `e2e-child-${stamp}`);
+  const grandchild = await createChild(child.id, `e2e-grandchild-${stamp}`);
+
   const treeResponse = await request.get(`${apiBaseUrl}/api/v1/files/host-folders/tree`, {
     headers: authHeaders
   });
   expect(treeResponse.ok()).toBeTruthy();
   const tree = await treeResponse.json();
   expect(Array.isArray(tree)).toBe(true);
+  expect(tree.find(item => item.id === folder.id)?.hasChildren).toBe(true);
+  expect(tree.some(item => item.id === child.id || item.id === grandchild.id)).toBe(false);
+
 
   const fileName = uniqueFileName(clientKind, 'e2e-meta');
   const uploaded = await uploadHostFileViaApi(request, clientKind, {
@@ -170,6 +183,30 @@ test('Host 管理员可管理虚拟目录、更新元数据并查询引用（清
   expect(referencesResponse.ok()).toBeTruthy();
   const references = await referencesResponse.json();
   expect(Array.isArray(references.items)).toBe(true);
+
+  // 使用真实返回值驱动逐层展开；模拟接口测试不能证明数据库布尔投影与页面契约一致。
+  const treeRequests = [];
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/v1/files/host-folders/tree') treeRequests.push(url.searchParams.get('parentId'));
+  });
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /文件管理/);
+  const directoryTree = page.locator('.host-files-tree-card .el-tree');
+  await expect(directoryTree.getByText(folder.name, { exact: true })).toBeVisible();
+  await expect(directoryTree.getByText(child.name, { exact: true })).toHaveCount(0);
+  expect(treeRequests).not.toContain(folder.id);
+  await directoryTree.locator('.el-tree-node__content').filter({ hasText: folder.name })
+    .locator('.el-tree-node__expand-icon').click();
+  await expect(directoryTree.getByText(child.name, { exact: true })).toBeVisible();
+  expect(treeRequests).toContain(folder.id);
+  await expect(directoryTree.getByText(grandchild.name, { exact: true })).toHaveCount(0);
+  expect(treeRequests).not.toContain(child.id);
+  await directoryTree.locator('.el-tree-node__content').filter({ hasText: child.name })
+    .locator('.el-tree-node__expand-icon').click();
+  await expect(directoryTree.getByText(grandchild.name, { exact: true })).toBeVisible();
+  expect(treeRequests).toContain(child.id);
+
 });
 
 test('Vue 文件管理可编辑元数据并查看引用（清单 31）', async ({ page, request }, testInfo) => {

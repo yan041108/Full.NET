@@ -948,10 +948,6 @@ internal static class FilesHostFileManagementAssertions
                 return true;
             }
 
-            if (ContainsFolder(node.Children, folderId, folderName))
-            {
-                return true;
-            }
         }
 
         return false;

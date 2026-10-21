@@ -365,6 +365,12 @@ function classifyBuildingBlock(filePath, targets) {
 }
 
 function classifyIntegrationPath(filePath, targets) {
+  if (filePath === 'tests/Full.NET.IntegrationTests/Api/PerformanceApiTests.cs'
+    || filePath === 'tests/Full.NET.IntegrationTests/Api/PerformanceFollowupAssertions.cs') {
+    addTarget(targets, filterTarget('performance-remediation',
+      'FullyQualifiedName~PerformanceApiSqlServerTests|FullyQualifiedName~PerformanceApiMySqlTests'));
+    return '性能修复同场景双库 Integration';
+  }
   if (filePath === 'tests/Full.NET.IntegrationTests/Observability/AuditB1MetricsPipelineTests.cs') {
     addTarget(targets, { kind: 'shard', name: 'auditing-metrics' });
     return 'B1 真实指标导出与正式告警 Integration';

@@ -43,8 +43,12 @@ internal static class OAuthAuthorizationStateSql
     public static readonly SqlStatement DeleteExpired = new(
         "identity.delete_expired_oauth_authorization_states",
         """
-        DELETE FROM fn_identity_oauth_authorization_state
+        DELETE TOP (500) FROM fn_identity_oauth_authorization_state
         WHERE ExpiresAtUtc <= @NowUtc
         """,
+        SqlDataScope.HostOnly);
+    public static readonly SqlStatement DeleteExpiredMySql = new(
+        "identity.delete_expired_oauth_authorization_states.mysql",
+        "DELETE FROM fn_identity_oauth_authorization_state WHERE ExpiresAtUtc <= @NowUtc ORDER BY ExpiresAtUtc, Id LIMIT 500",
         SqlDataScope.HostOnly);
 }

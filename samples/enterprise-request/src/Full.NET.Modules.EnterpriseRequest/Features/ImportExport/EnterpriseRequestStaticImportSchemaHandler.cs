@@ -19,7 +19,7 @@ internal sealed class EnterpriseRequestStaticImportSchemaHandler(
         "organizationUnitId",
     ];
 
-    public string SchemaKey => StaticImportSchemaKeys.DemoEnterpriseRequests;
+    public string SchemaKey => EnterpriseRequestImportSchemaKeys.EnterpriseRequests;
 
     public StaticImportSchemaDefinition GetDefinition() =>
         new(

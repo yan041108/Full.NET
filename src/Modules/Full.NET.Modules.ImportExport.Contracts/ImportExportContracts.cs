@@ -24,8 +24,6 @@ public static class StaticImportSchemaKeys
     /// <summary>Organization 租户职位固定模板导入。</summary>
     public const string OrganizationTenantPositions = "organization.tenant_positions";
 
-    /// <summary>Enterprise Request 样板单据 CSV 导入。</summary>
-    public const string DemoEnterpriseRequests = "demo.enterprise_requests";
 }
 
 /// <summary>静态导入 Schema 授权作用域。</summary>
@@ -110,6 +108,12 @@ public sealed record StaticImportPreviewContext(
 {
     /// <summary>执行时由调度方提供的持久化任务标识；预览时为空，处理器以它和原始行号建立幂等。</summary>
     public Guid? TaskId { get; init; }
+
+    /// <summary>调度方绑定的不可变源文件。</summary>
+    public Guid? SourceFileId { get; init; }
+
+    /// <summary>处理器持久化的纯数据执行计划；不保存授权结果。</summary>
+    public string? PreparedPlanJson { get; init; }
 }
 
 /// <summary>单行预校验结果。</summary>
@@ -152,7 +156,12 @@ public sealed record StaticImportRowExecutionResult(
 /// <summary>静态导入批量执行汇总。</summary>
 /// <param name="Rows">本批逐行执行结果。</param>
 public sealed record StaticImportBatchExecutionResult(
-    IReadOnlyList<StaticImportRowExecutionResult> Rows);
+    IReadOnlyList<StaticImportRowExecutionResult> Rows)
+{
+    /// <summary>供调度方保存并在下一批重用的纯数据计划。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? PreparedPlanJson { get; init; }
+}
 
 /// <summary>消费方模块实现的静态 Schema 处理器。</summary>
 public interface IStaticImportSchemaHandler

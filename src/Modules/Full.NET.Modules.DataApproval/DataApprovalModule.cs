@@ -34,11 +34,6 @@ public sealed class DataApprovalModule : IFullNetModule
     /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Workflow"];
 
-    /// <summary>
-    /// DataApproval 模块可选消费 SerialNumbers 模块的契约，未启用时仍可独立运行。
-    /// </summary>
-    public IReadOnlyCollection<string> OptionalContractDependencies => ["SerialNumbers"];
-
     /// <inheritdoc />
     public void AddServices(
         IServiceCollection services,
@@ -82,6 +77,8 @@ public sealed class DataApprovalModule : IFullNetModule
 #endif
         services.TryAddScoped<DataApprovalRequestLinkService>();
         services.TryAddScoped<DataApprovalRequestApplicationService>();
+        services.TryAddSingleton<DataApprovalRecoveryCursor<DataApprovalRequestRecoveryBatchProcessor>>();
+        services.TryAddSingleton<DataApprovalRecoveryCursor<DataApprovalRequestApplicationRecoveryBatchProcessor>>();
         services.TryAddScoped<DataApprovalRequestRecoveryBatchProcessor>();
         services.AddHostedService<DataApprovalRequestRecoveryHostedProcessor>();
         services.TryAddScoped<DataApprovalRequestApplicationRecoveryBatchProcessor>();

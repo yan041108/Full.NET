@@ -103,7 +103,7 @@ public sealed class FullNetModuleSelectionTests
     }
 
     [TestMethod]
-    public void Enterprise_preset_enables_workflow_delivery_and_sample_module()
+    public void Enterprise_preset_enables_workflow_delivery_and_excludes_sample_module()
     {
         var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
         {
@@ -113,7 +113,7 @@ public sealed class FullNetModuleSelectionTests
         CollectionAssert.AreEquivalent(
             FullNetModuleSelection.EnterprisePresetModuleNames.ToArray(),
             enabled.ToArray());
-        Assert.IsTrue(enabled.Contains("EnterpriseRequest"));
+        Assert.IsFalse(enabled.Contains("EnterpriseRequest"));
         Assert.IsTrue(enabled.Contains("Workflow"));
         Assert.IsTrue(enabled.Contains("ImportExport"));
     }

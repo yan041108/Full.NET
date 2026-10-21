@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { EditPen, Message, Promotion } from '@element-plus/icons-vue';
 import {
   ElBadge,
@@ -220,47 +220,54 @@ async function ensureHostUserOptions(): Promise<void> {
   }
 }
 
+let loadingTask: Promise<void> | undefined;
+let reloadRequested = false;
+let loadVersion = 0;
+let disposed = false;
+onUnmounted(() => { disposed = true; loadVersion += 1; reloadRequested = false; });
+
 async function load(): Promise<void> {
-  if (activePane.value === 'compose') {
-    return;
+  if (disposed || activePane.value === 'compose') return;
+  loadVersion += 1;
+  reloadRequested = true;
+  if (loadingTask) return loadingTask;
+  loadingTask = drainReloads();
+  try { await loadingTask; }
+  finally {
+    loadingTask = undefined;
+    if (reloadRequested && !disposed) void load();
   }
+}
 
+/** 一个请求组执行期间只保留一次后续刷新，实时提示不能扩大并发。 */
+async function drainReloads(): Promise<void> {
   loading.value = true;
-  problem.value = undefined;
   try {
-    const filters = appliedFilters.value;
-    const unread = await getInboxUnreadCount();
-    unreadCount.value = unread.unreadCount;
-
-    if (activePane.value === 'sent') {
-      if (!canSend.value) {
-        return;
+    while (reloadRequested && !disposed) {
+      reloadRequested = false;
+      const version = loadVersion;
+      const pane = activePane.value;
+      const request = { page: page.value, pageSize: pageSize.value, ...appliedFilters.value };
+      if (pane === 'compose') continue;
+      try {
+        const unread = await getInboxUnreadCount();
+        if (pane === 'sent' && !canSend.value) continue;
+        const result = pane === 'sent'
+          ? { pane: 'sent' as const, page: await listSentInboxMessages({ page: request.page, pageSize: request.pageSize, title: request.title }) }
+          : { pane: 'received' as const, page: await listInboxMessages(request) };
+        // 旧页面/筛选结果不得覆盖较新的刷新要求。
+        if (disposed || version !== loadVersion) continue;
+        problem.value = undefined;
+        unreadCount.value = unread.unreadCount;
+        if (result.pane === 'sent') sentItems.value = result.page.items;
+        else pagedItems.value = result.page.items;
+        total.value = result.page.total;
+        await nextTick(updateTableHeight);
+      } catch (error: unknown) {
+        if (!disposed && version === loadVersion) problem.value = toProblem(error);
       }
-
-      const pageResult = await listSentInboxMessages({
-        page: page.value,
-        pageSize: pageSize.value,
-        title: filters.title
-      });
-      sentItems.value = pageResult.items;
-      total.value = pageResult.total;
-    } else {
-      const pageResult = await listInboxMessages({
-        page: page.value,
-        pageSize: pageSize.value,
-        title: filters.title,
-        status: filters.status
-      });
-      pagedItems.value = pageResult.items;
-      total.value = pageResult.total;
     }
-
-    await nextTick(updateTableHeight);
-  } catch (error: unknown) {
-    problem.value = toProblem(error);
-  } finally {
-    loading.value = false;
-  }
+  } finally { loading.value = false; }
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {

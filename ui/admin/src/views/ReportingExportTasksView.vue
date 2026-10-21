@@ -21,6 +21,7 @@ import { Plus } from '@element-plus/icons-vue';
 import type {
   FullNetProblemDetails,
   ReportingDefinition,
+  ReportingDefinitionSummary,
   ReportingExportTask,
   ReportingExportTaskParameterValue
 } from '@fullnet/client-contracts';
@@ -31,7 +32,7 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { getReportingDefinition, listReportingDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
   downloadReportingExportTask,
@@ -43,7 +44,8 @@ defineOptions({ name: 'ReportingExportTasksView' });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingDefinitionSummary[]>([]);
+const selectedDefinition = ref<ReportingDefinition>();
 const loading = ref(false);
 const creating = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -72,9 +74,6 @@ const canCreate = () => session.can('reporting.export_tasks.create');
 const canRead = () => session.can('reporting.export_tasks.read');
 const canDownload = () => session.can('reporting.export_tasks.download');
 
-const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
-
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 
 function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
@@ -100,6 +99,21 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
   return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
+async function onDefinitionChanged(): Promise<void> {
+  const id = selectedDefinitionId.value;
+  selectedDefinition.value = undefined;
+  const detail = id ? await getReportingDefinition(id) : undefined;
+  if (selectedDefinitionId.value !== id) return;
+  selectedDefinition.value = detail;
+  resetParameters();
+}
+let definitionSearchVersion = 0;
+async function searchDefinitions(keyword: string): Promise<void> {
+  const version = ++definitionSearchVersion;
+  const result = await listReportingDefinitions({ nameContains: keyword, pageSize: 20 });
+  if (version === definitionSearchVersion) definitions.value = result.items.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
+}
+
 function resetParameters(): void {
   for (const key of Object.keys(parameterValues)) {
     delete parameterValues[key];
@@ -110,10 +124,10 @@ function resetParameters(): void {
 }
 
 async function loadDefinitions(): Promise<void> {
-  definitions.value = (await listReportingDefinitions())
+  definitions.value = (await listReportingDefinitions()).items
     .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
   selectedDefinitionId.value = definitions.value[0]?.id ?? '';
-  resetParameters();
+  await onDefinitionChanged();
 }
 
 async function load(): Promise<void> {
@@ -303,9 +317,10 @@ onMounted(async () => {
         <ElFormItem :label="t('reportingExportTasks.fieldDefinition')">
           <ElSelect
             v-model="selectedDefinitionId"
+            filterable remote :remote-method="searchDefinitions"
             data-testid="reporting-export-definition"
             class="w-full"
-            @change="resetParameters"
+            @change="onDefinitionChanged"
           >
             <ElOption
               v-for="definition in definitions"

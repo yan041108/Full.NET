@@ -9,6 +9,8 @@
 **批准依据：** [`2026-08-30-unified-notifications-workflow-design-assessment.md`](../../verification/2026-08-30-unified-notifications-workflow-design-assessment.md)
 **实施计划：** [`2026-08-30-notifications-platform-extension.md`](../plans/2026-08-30-notifications-platform-extension.md)
 
+**2026-10-19 实现复核：** 本规格描述目标约束，不代表各项均已接通生产路径。基于 `main@49345c3c9823360071433adb4928e09691a35d62` 的静态审查发现 Failover 目标物化、Match 条件、提前/并发回执、异常重试预算存在缺口；偏好、配额、订阅发送约束及外部渠道按收件人选语言仍未闭环。问题与分批整改建议统一见[现有计划的复核章节](../plans/2026-08-30-notifications-platform-extension.md#review-2026-10-19)。本次只更新文档，不表示代码修复、验收通过或授权自动实施；既有 Approved 设计约束继续有效。
+
 ## 1. 决策摘要
 
 统一消息中心是独立平台模块，不以 Workflow 是否实现为前提。现有公告、Host 站内信、未读/已读、SignalR 与 Outbox 修复链路继续作为内建基础能力；新增范围是 Tenant 收件箱、不可变模板版本、逻辑通知、接收人解析、外部渠道投递、多个 Provider Profile、显式场景绑定、回执、偏好、重试、对账和运维控制面。

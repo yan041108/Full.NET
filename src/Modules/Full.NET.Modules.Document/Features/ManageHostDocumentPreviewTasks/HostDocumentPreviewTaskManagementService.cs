@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -19,13 +20,26 @@ internal sealed class HostDocumentPreviewTaskManagementService(
     IHostFileContentReader hostFileContentReader,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options)
+    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options,
+    IDocumentAccessPolicy accessPolicy)
 {
-    public async Task<Result<HostDocumentPreviewTaskResponse>> CreateAsync(
+    public Task<Result<HostDocumentPreviewTaskResponse>> CreateAsync(
         CreateHostDocumentPreviewTaskRequest request,
         Guid requestedByUserId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(request.DocumentItemId, DocumentOperation.Read,
+            () => CreateAuthorizedAsync(request, requestedByUserId, cancellationToken), cancellationToken);
+
+    internal async Task<Result<HostDocumentPreviewTaskResponse>> CreateAuthorizedAsync(
+        CreateHostDocumentPreviewTaskRequest request,
+        Guid? requestedByUserId,
+        CancellationToken cancellationToken = default, Guid? creationTaskId = null)
     {
+        if (creationTaskId is Guid replayId)
+        {
+            var replay = await FindReplayAsync(replayId, request, requestedByUserId, cancellationToken).ConfigureAwait(false);
+            if (replay is not null) return Result<HostDocumentPreviewTaskResponse>.Success(replay);
+        }
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
@@ -52,7 +66,7 @@ internal sealed class HostDocumentPreviewTaskManagementService(
         }
 
         var probe = contentProbe.Value!;
-        var taskId = idGenerator.NewId();
+        var taskId = creationTaskId ?? idGenerator.NewId();
         try
         {
             if (!DocumentOfficePreviewSourcePolicy.IsOfficeMime(probe.ContentType))
@@ -77,6 +91,8 @@ internal sealed class HostDocumentPreviewTaskManagementService(
             var sourceMimeType = probe.ContentType;
             var now = clock.UtcNow;
             var providerKey = options.CurrentValue.ProviderKey;
+            try
+            {
             await commandExecutor.ExecuteAsync(
                     DocumentPreviewTaskSql.Insert,
                     DocumentSqlParameters.Create(
@@ -98,6 +114,13 @@ internal sealed class HostDocumentPreviewTaskManagementService(
                         ("Version", 1L)),
                     cancellationToken)
                 .ConfigureAwait(false);
+            }
+            catch (DataCommandException error) when (creationTaskId.HasValue && error.Kind == DataCommandFailureKind.UniqueConstraint)
+            {
+                var replay = await FindReplayAsync(taskId, request, requestedByUserId, cancellationToken).ConfigureAwait(false);
+                if (replay is null) throw;
+                return Result<HostDocumentPreviewTaskResponse>.Success(replay);
+            }
         }
         finally
         {
@@ -113,6 +136,18 @@ internal sealed class HostDocumentPreviewTaskManagementService(
         return created is null
             ? Result<HostDocumentPreviewTaskResponse>.Failure(TaskNotFoundError())
             : Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(created));
+    }
+
+    private async Task<HostDocumentPreviewTaskResponse?> FindReplayAsync(Guid taskId,
+        CreateHostDocumentPreviewTaskRequest request, Guid? requestedByUserId, CancellationToken token)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
+            DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), token).ConfigureAwait(false);
+        if (existing is null) return null;
+        if (existing.DocumentItemId != request.DocumentItemId || existing.RequestedByUserId != requestedByUserId
+            || existing.VersionId != request.VersionId)
+            throw new InvalidOperationException("Preview creation operation identity is bound to another request.");
+        return HostDocumentPreviewTaskMapper.Map(existing);
     }
 
     private async Task<Result<Guid>> ResolveFileIdAsync(

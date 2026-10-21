@@ -1,3 +1,4 @@
+import { isRecord, isInteger, type PagedResult, type ReportingDefinitionSummary, type ReportingDefinitionVersionSummary, isReportingDefinitionSummary, isReportingDefinitionVersionSummary } from '@fullnet/client-contracts';
 import {
   isReportingDefinition,
   isReportingDefinitionList,
@@ -21,7 +22,7 @@ import {
 import { request } from './http';
 
 function buildDefinitionListQuery(query: ReportingDefinitionListQuery): string {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ page: String(query.page ?? 1), pageSize: String(query.pageSize ?? 20) });
   if (query.groupId?.trim()) {
     params.set('groupId', query.groupId.trim());
   }
@@ -102,16 +103,16 @@ export async function getReportingQueryPort(
 export async function listReportingDefinitions(
   query: ReportingDefinitionListQuery = {},
   signal?: AbortSignal
-): Promise<ReportingDefinition[]> {
+): Promise<PagedResult<ReportingDefinitionSummary>> {
   const value = await request<unknown>(
     `/api/v1/reporting/definitions${buildDefinitionListQuery(query)}`,
     { method: 'GET' },
     signal
   );
-  if (!isReportingDefinitionList(value)) {
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isReportingDefinitionSummary) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
     throw new Error('client.invalid_reporting_definition_list');
   }
-  return value;
+  return value as unknown as PagedResult<ReportingDefinitionSummary>;
 }
 
 export async function getReportingDefinition(
@@ -183,15 +184,15 @@ export async function publishReportingDefinition(
 
 export async function listReportingDefinitionVersions(
   id: string,
-  signal?: AbortSignal
-): Promise<ReportingDefinitionVersion[]> {
+  signal?: AbortSignal, page = 1, pageSize = 20
+): Promise<PagedResult<ReportingDefinitionVersionSummary>> {
   const value = await request<unknown>(
-    `/api/v1/reporting/definitions/${encodeURIComponent(id)}/versions`,
+    `/api/v1/reporting/definitions/${encodeURIComponent(id)}/versions?page=${page}&pageSize=${pageSize}`,
     { method: 'GET' },
     signal
   );
-  if (!isReportingDefinitionVersionList(value)) {
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isReportingDefinitionVersionSummary) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
     throw new Error('client.invalid_reporting_definition_version_list');
   }
-  return value;
+  return value as unknown as PagedResult<ReportingDefinitionVersionSummary>;
 }

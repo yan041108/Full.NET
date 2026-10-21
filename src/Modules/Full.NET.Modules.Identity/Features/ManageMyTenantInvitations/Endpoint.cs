@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using System.Security.Claims;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
@@ -16,6 +17,7 @@ internal static class Endpoint
         endpoints.MapGet(
                 "/api/v1/me/tenant-invitations",
                 async (
+                    int? page, int? pageSize,
                     HttpContext httpContext,
                     MyTenantInvitationQueryService queries,
                     IApiResultMapper mapper,
@@ -26,13 +28,13 @@ internal static class Endpoint
                         return Results.Unauthorized();
                     }
 
-                    var result = await queries.ListPendingAsync(userId, cancellationToken)
+                    var result = await queries.ListPendingAsync(userId, cancellationToken, page ?? 1, pageSize ?? 20)
                         .ConfigureAwait(false);
                     return mapper.Map(result, httpContext);
                 })
             .WithTags("IdentityMe")
             .WithName("identityListMyTenantInvitations")
-            .Produces<IReadOnlyList<MyTenantInvitationResponse>>(StatusCodes.Status200OK)
+            .Produces<PagedResult<MyTenantInvitationResponse>>(StatusCodes.Status200OK)
             .RequireAuthorization();
 
         endpoints.MapPost(

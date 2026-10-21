@@ -38,7 +38,7 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('PrintingPreviewView', () => {
   beforeEach(() => {
-    listMock.mockResolvedValue([]);
+    listMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   });
 
   it('shows preview action entry point', async () => {

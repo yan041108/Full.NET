@@ -7,6 +7,7 @@ import {
   deleteHostFile,
   downloadHostFileContent,
   listHostFiles,
+  listHostFolderTree,
   openHostFileBlob,
   uploadHostFile
 } from '../api/host-files';
@@ -60,6 +61,7 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
   beforeEach(() => {
+    vi.mocked(listHostFolderTree).mockReset().mockResolvedValue([]);
     listMock.mockReset().mockResolvedValue({
       items: [sampleFile],
       page: 1,
@@ -70,6 +72,40 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
     deleteMock.mockReset();
     downloadMock.mockReset().mockResolvedValue(new Blob(['hello'], { type: 'text/plain' }));
     openBlobMock.mockReset();
+  });
+
+  it('目录初始只读根节点，展开时读取指定父节点并标记叶节点', async () => {
+    const folder = { id: '01912345-6789-7abc-8def-0123456789ac', parentId: null,
+      name: 'Docs', displayOrder: 0, revision: 0, hasChildren: true };
+    vi.mocked(listHostFolderTree).mockResolvedValueOnce([folder]);
+    const wrapper = mountWithPermissions(['files.files.read']);
+    await flushPromises();
+    expect(listHostFolderTree).toHaveBeenCalledTimes(1);
+    vi.mocked(listHostFolderTree).mockResolvedValueOnce([{ ...folder, id: sampleFile.id, parentId: folder.id, name: 'Child', hasChildren: false }]);
+    const tree = wrapper.findComponent({ name: 'ElTree' });
+    const load = tree.props('load') as (node: unknown, resolve: (nodes: unknown[]) => void, reject: () => void) => Promise<void>;
+    const resolve = vi.fn();
+    await load({ level: 2, data: { id: folder.id, folder } }, resolve, vi.fn());
+    expect(listHostFolderTree).toHaveBeenLastCalledWith(folder.id, expect.any(AbortSignal));
+    expect(resolve).toHaveBeenCalledWith([expect.objectContaining({ label: 'Child', isLeaf: true })]);
+    wrapper.unmount();
+  });
+
+  it('刷新取消的旧根请求不能覆盖新目录或错误状态', async () => {
+    let rejectOld!: (reason: unknown) => void;
+    const old = new Promise<never>((_resolve, reject) => { rejectOld = reject; });
+    vi.mocked(listHostFolderTree).mockReturnValueOnce(old).mockResolvedValueOnce([]);
+    const wrapper = mountWithPermissions(['files.files.read']);
+    await flushPromises();
+    const oldSignal = vi.mocked(listHostFolderTree).mock.calls[0]![1]!;
+    wrapper.findComponent({ name: 'ArtTableHeader' }).vm.$emit('refresh');
+    await flushPromises();
+    expect(oldSignal.aborted).toBe(true);
+    rejectOld(new Error('old directory failure'));
+    await flushPromises();
+    expect(wrapper.text()).not.toContain('old directory failure');
+    expect(listHostFolderTree).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
   });
 
   it('\u4ec5\u6709 read \u65f6\u4e0d\u663e\u793a\u4e0a\u4f20\u3001\u4e0b\u8f7d\u4e0e\u5220\u9664\u6309\u94ae', async () => {

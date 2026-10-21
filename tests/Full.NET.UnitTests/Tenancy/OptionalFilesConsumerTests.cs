@@ -57,12 +57,12 @@ public sealed class OptionalFilesConsumerTests
         fixture.Queries.QueryAsync<TenantQuotaMetricBackfillCandidate>(
                 Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<TenantQuotaMetricBackfillCandidate>());
-        fixture.Queries.QueryAsync<TenantQuotaMetricRecord>(
+        fixture.Queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
                 Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
-            .Returns(new[] { new TenantQuotaMetricRecord(
+            .Returns(new[] { new TenantQuotaUsageBaselineRecord(
                 Guid.CreateVersion7(), tenantId, TenantQuotaMetricCodes.IdentitySeats,
                 TenantQuotaDefaults.PeriodKey, 100, 0, 0, 1) });
-        fixture.Members.CountActiveMembersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(3);
+        fixture.Members.CountActiveMembersByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid,long> { [tenantId] = 3 });
 
         var result = await fixture.Services.GetRequiredService<TenantQuotaUsageBaselineService>()
             .ReconcileAsync(new ReconcileTenantQuotaUsageBaselineRequest(DryRun: true));
@@ -70,7 +70,7 @@ public sealed class OptionalFilesConsumerTests
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(1, result.Value!.CandidateCount);
         Assert.AreEqual(0, result.Value.AppliedCount);
-        await fixture.Members.Received(1).CountActiveMembersAsync(tenantId, Arg.Any<CancellationToken>());
+        await fixture.Members.Received(1).CountActiveMembersByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>());
         Assert.AreEqual(0, fixture.Commands.ReceivedCalls().Count());
     }
 

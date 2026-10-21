@@ -87,6 +87,7 @@ public sealed class WorkflowRecoveryHostedProcessorTests
         using var provider = new ServiceCollection().BuildServiceProvider();
         var processor = new WorkflowRecoveryHostedProcessor(
             provider.GetRequiredService<IServiceScopeFactory>(),
+            new Full.NET.Abstractions.Time.SystemClock(),
             Options.Create(new WorkflowRecoveryWorkerOptions
             {
                 BatchSize = 7,

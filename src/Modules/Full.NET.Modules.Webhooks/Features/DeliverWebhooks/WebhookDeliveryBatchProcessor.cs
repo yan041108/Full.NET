@@ -30,59 +30,57 @@ internal sealed class WebhookDeliveryBatchProcessor(
 
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
     {
-        var items = await ClaimAsync(cancellationToken).ConfigureAwait(false);
-        if (items.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var item in items)
+        var processed = 0;
+        // 只有实际执行槽空闲才领取下一条，慢目标不会消耗尚未开始记录的租约。
+        for (var index = 0; index < Math.Clamp(_options.BatchSize, 1, 50); index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await DeliverOneAsync(item, cancellationToken).ConfigureAwait(false);
+            var items = await ClaimAsync(cancellationToken).ConfigureAwait(false);
+            if (items.Count == 0) break;
+            await DeliverOneAsync(items[0], cancellationToken).ConfigureAwait(false);
+            processed++;
         }
-
-        return items.Count;
+        return processed;
     }
 
-    private async Task<IReadOnlyList<WebhookDeliveryWorkItem>> ClaimAsync(
+    internal async Task<IReadOnlyList<WebhookDeliveryWorkItem>> ClaimAsync(
         CancellationToken cancellationToken)
     {
-        var batchSize = Math.Clamp(_options.BatchSize, 1, 50);
         var now = clock.UtcNow;
         var parameters = WebhookSqlParameters.Create(
-            ("BatchSize", batchSize),
-            ("Now", now),
-            ("PendingStatus", WebhookDeliveryStatuses.Pending));
-        if (databaseOptions.Value.Provider == DatabaseProvider.SqlServer)
+            ("BatchSize", 1), ("Now", now),
+            ("ExpiredBefore", now.AddSeconds(-LeaseSeconds)), ("PendingStatus", WebhookDeliveryStatuses.Pending));
+        return await transaction.ExecuteAsync(async token =>
         {
             var rows = await queryExecutor.QueryAsync<WebhookDeliveryWorkItem>(
-                    WebhookDeliverySql.ClaimPendingSqlServer,
-                    parameters,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return rows.ToArray();
-        }
-
-        return await transaction.ExecuteAsync(
-                async token =>
-                {
-                    var rows = await queryExecutor.QueryAsync<WebhookDeliveryWorkItem>(
-                            WebhookDeliverySql.ClaimPendingMySql,
-                            parameters,
-                            token)
-                        .ConfigureAwait(false);
-                    return (IReadOnlyList<WebhookDeliveryWorkItem>)rows.ToArray();
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+                databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? WebhookDeliverySql.ClaimPendingSqlServer : WebhookDeliverySql.ClaimPendingMySql,
+                parameters, token).ConfigureAwait(false);
+            var claimed = new List<WebhookDeliveryWorkItem>();
+            foreach (var row in rows)
+            {
+                var affected = await commandExecutor.ExecuteAsync(WebhookDeliverySql.Claim,
+                    WebhookSqlParameters.Create(("DeliveryId", row.Id), ("Version", row.Version),
+                        ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))), token).ConfigureAwait(false);
+                if (affected == 1) claimed.Add(row with { Version = row.Version + 1 });
+            }
+            return (IReadOnlyList<WebhookDeliveryWorkItem>)claimed;
+        }, cancellationToken).ConfigureAwait(false);
     }
+
+    private int LeaseSeconds => Math.Clamp(_options.LeaseSeconds, 60, 3600);
 
     private async Task DeliverOneAsync(
         WebhookDeliveryWorkItem item,
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var owned = await commandExecutor.ExecuteAsync(WebhookDeliverySql.RenewLease,
+            WebhookSqlParameters.Create(("DeliveryId", item.Id), ("Version", item.Version),
+                ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds))), cancellationToken).ConfigureAwait(false);
+        if (owned != 1) return;
+        using var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        attemptCancellation.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, LeaseSeconds - 5)));
         try
         {
             if (!Uri.TryCreate(item.TargetUrl, UriKind.Absolute, out var targetUri))
@@ -94,7 +92,7 @@ internal sealed class WebhookDeliveryBatchProcessor(
 
             var (allowed, reason) = await WebhookDeliverySsrfGuard.ValidateAsync(
                     targetUri,
-                    cancellationToken)
+                    attemptCancellation.Token)
                 .ConfigureAwait(false);
             if (!allowed)
             {
@@ -123,11 +121,11 @@ internal sealed class WebhookDeliveryBatchProcessor(
             using var response = await client.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken)
+                    attemptCancellation.Token)
                 .ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                await MarkDeliveredAsync(item, now, cancellationToken).ConfigureAwait(false);
+                await MarkDeliveredAsync(item, clock.UtcNow, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -138,14 +136,19 @@ internal sealed class WebhookDeliveryBatchProcessor(
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            await MarkFailureAsync(item, clock.UtcNow, "Webhook delivery timed out.", cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
         {
             logger.LogWarning(
                 exception,
                 "Webhook delivery {DeliveryId} to {TargetUrl} failed.",
                 item.Id,
                 item.TargetUrl);
-            await MarkFailureAsync(item, now, exception.Message, cancellationToken).ConfigureAwait(false);
+            await MarkFailureAsync(item, clock.UtcNow, exception.Message, cancellationToken).ConfigureAwait(false);
         }
     }
 

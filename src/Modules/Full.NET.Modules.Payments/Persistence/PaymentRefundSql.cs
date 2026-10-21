@@ -87,6 +87,15 @@ internal static class PaymentRefundSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListUnsettledByOrderId = new(
+        "payments.list_unsettled_refunds_by_order",
+        $"""
+        SELECT {SelectColumns} FROM fn_payment_refund AS refunds
+        WHERE refunds.OrderId = @OrderId
+          AND refunds.RefundStateKey IN ('created', 'provider_unknown', 'processing', 'failed')
+        ORDER BY refunds.CreatedAtUtc DESC, refunds.Id
+        """, SqlDataScope.HostOnly);
+
     public static readonly string CountSqlServer = """
         SELECT COUNT(1)
         FROM fn_payment_refund AS refunds

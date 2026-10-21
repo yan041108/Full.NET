@@ -27,8 +27,11 @@ internal static class DocumentShareSecurityAssertions
             [
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Create,
+                HostDocumentPermissions.AddVersion,
+                HostDocumentPermissions.Delete,
                 HostDocumentSharePermissions.Read,
                 HostDocumentSharePermissions.Create,
+                HostDocumentSharePermissions.UpdateStatus,
             ],
             cancellationToken);
 
@@ -46,6 +49,119 @@ internal static class DocumentShareSecurityAssertions
         await VerifyLegacyGetIsClosedAsync(client, share.ShareCode, cancellationToken);
         await VerifyWrongPasswordDoesNotConsumeAsync(factory, client, share, cancellationToken);
         await VerifyConcurrentLimitIsAtomicAsync(factory, client, share, password, cancellationToken);
+        await VerifyPreviewGrantChainAsync(factory, client, identity.AccessToken, password, cancellationToken);
+    }
+
+    /// <summary>预览创建操作只能消费一次访问，重试和轮询不续期，且凭据随分享和文档撤销。</summary>
+    private static async Task VerifyPreviewGrantChainAsync(FullNetApiFactory factory, HttpClient client,
+        string token, string password, CancellationToken cancellationToken)
+    {
+        var document = await CreateDocumentAsync(client, token, cancellationToken);
+        using (var upload = new MultipartFormDataContent())
+        {
+            var file = new ByteArrayContent("office-preview-grant-test"u8.ToArray());
+            file.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            upload.Add(file, "file", "preview.docx");
+            using var request = Authorized(HttpMethod.Post, $"{ItemsPath}/{document.Id:D}/versions/upload", token);
+            request.Content = upload;
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            document = (await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken))!;
+            Assert.IsNotNull(document);
+        }
+        var share = await CreateShareAsync(client, token, document.Id, password, cancellationToken);
+        var root = $"/api/v1/document/public/shares/{share.ShareCode}";
+        using var accessResponse = await client.PostAsJsonAsync(root + "/access", new AccessHostDocumentShareRequest(password), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, accessResponse.StatusCode);
+        var access = await accessResponse.Content.ReadFromJsonAsync<HostDocumentShareAccessResponse>(cancellationToken);
+        Assert.IsNotNull(access);
+        Assert.IsFalse(string.IsNullOrEmpty(access.PreviewGrant));
+        var creation = new AccessHostDocumentShareRequest { PreviewGrant = access.PreviewGrant };
+        var attempts = await Task.WhenAll(Enumerable.Range(0, 2)
+            .Select(_ => client.PostAsJsonAsync(root + "/preview-task", creation, cancellationToken)));
+        HostDocumentPreviewTaskResponse? task = null;
+        try
+        {
+            foreach (var response in attempts)
+            {
+                Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+                var current = await response.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken);
+                Assert.IsNotNull(current);
+                Assert.IsNull(current.RequestedByUserId, "匿名预览不能伪造用户身份。");
+                Assert.IsNotNull(current.PreviewPollUntilUtc);
+                Assert.IsFalse(string.IsNullOrEmpty(current.PreviewGrant));
+                if (task is not null)
+                {
+                    Assert.AreEqual(task.Id, current.Id, "并发创建必须复用固定操作标识。");
+                    Assert.AreEqual(task.PreviewPollUntilUtc, current.PreviewPollUntilUtc, "重试不能延长原始截止时间。");
+                }
+                task = current;
+            }
+        }
+        finally { foreach (var response in attempts) response.Dispose(); }
+        Assert.IsNotNull(task);
+        Assert.AreEqual(1, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
+        long managementVersion;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var count = await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<long>(
+                new SqlStatement("test.document_share.preview_task_count",
+                    "SELECT COUNT(*) FROM fn_document_preview_task WHERE DocumentItemId=@Id", SqlDataScope.HostOnly),
+                new { Id = document.Id }, cancellationToken);
+            Assert.AreEqual(1L, count);
+            managementVersion = await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<long>(
+                new SqlStatement("test.document_share.current_version",
+                    "SELECT Version FROM fn_document_share WHERE TenantId IS NULL AND Id=@Id", SqlDataScope.HostOnly),
+                new { Id = share.Id }, cancellationToken);
+        }
+        var poll = new AccessHostDocumentShareRequest { PreviewGrant = task.PreviewGrant };
+        var status = root + $"/preview-tasks/{task.Id:D}";
+        using (var response = await client.PostAsJsonAsync(status, poll, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var loaded = await response.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken);
+            Assert.IsNotNull(loaded);
+            Assert.AreEqual(task.Id, loaded.Id);
+            Assert.AreEqual(document.Id, loaded.DocumentItemId);
+        }
+        await DocumentAnonymousPreviewExecutionAssertions.VerifyAsync(factory, client, document, task.Id, status, poll, cancellationToken);
+        using (var response = await client.PostAsJsonAsync(status, creation, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "创建凭据不能读取任务。");
+        using (var response = await client.PostAsJsonAsync(root + "/preview-task", poll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "任务凭据不能创建另一任务。");
+        using (var response = await client.PostAsJsonAsync(root + $"/preview-tasks/{Guid.CreateVersion7():D}", poll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "任务凭据不能跨任务使用。");
+        using (var response = await client.PostAsJsonAsync(root + "/content", poll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, "预览凭据不能替代原始下载口令。");
+        Assert.AreEqual(1, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
+
+        // 另一个有效分享用于证明文档删除也会撤销凭据，不能把拒绝归因于上一分享已停用。
+        var second = await CreateShareAsync(client, token, document.Id, password, cancellationToken);
+        var secondRoot = $"/api/v1/document/public/shares/{second.ShareCode}";
+        using var secondAccessResponse = await client.PostAsJsonAsync(secondRoot + "/access", new AccessHostDocumentShareRequest(password), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondAccessResponse.StatusCode);
+        var secondAccess = await secondAccessResponse.Content.ReadFromJsonAsync<HostDocumentShareAccessResponse>(cancellationToken);
+        Assert.IsNotNull(secondAccess);
+        using var secondCreateResponse = await client.PostAsJsonAsync(secondRoot + "/preview-task",
+            new AccessHostDocumentShareRequest { PreviewGrant = secondAccess.PreviewGrant }, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, secondCreateResponse.StatusCode);
+        var secondTask = await secondCreateResponse.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken);
+        Assert.IsNotNull(secondTask);
+        var secondPoll = new AccessHostDocumentShareRequest { PreviewGrant = secondTask.PreviewGrant };
+        var secondStatus = secondRoot + $"/preview-tasks/{secondTask.Id:D}";
+        using (var response = await client.PostAsJsonAsync(secondStatus, secondPoll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using (var response = await client.SendAsync(AuthorizedJson(HttpMethod.Post, $"{SharesPath}/{share.Id:D}/status",
+                   token, new UpdateHostDocumentShareStatusRequest(false, managementVersion)), cancellationToken))
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using (var response = await client.PostAsJsonAsync(status, poll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "停用分享后旧凭据立即失效。");
+        using (var response = await client.SendAsync(AuthorizedJson(HttpMethod.Post, $"{ItemsPath}/{document.Id:D}/delete",
+                   token, new DeleteHostDocumentItemRequest(document.Version)), cancellationToken))
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using (var response = await client.PostAsJsonAsync(secondStatus, secondPoll, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "软删除文档后另一个仍启用分享的凭据也必须拒绝。");
     }
 
     private static async Task<HostDocumentItemResponse> CreateDocumentAsync(

@@ -373,12 +373,25 @@ internal static class IdentityOidcSql
     public static readonly SqlStatement PruneAuthorizations = new(
         "identity.prune_oidc_authorizations",
         """
+        DELETE TOP (500) FROM fn_identity_oidc_authorization
+        WHERE CreationDateUtc < @Threshold
+          AND Status <> @ValidStatus
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_identity_oidc_token AS token
+              WHERE token.AuthorizationId = fn_identity_oidc_authorization.Id)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement PruneAuthorizationsMySql = new(
+        "identity.prune_oidc_authorizations.mysql",
+        """
         DELETE FROM fn_identity_oidc_authorization
         WHERE CreationDateUtc < @Threshold
           AND Status <> @ValidStatus
           AND NOT EXISTS (
               SELECT 1 FROM fn_identity_oidc_token AS token
               WHERE token.AuthorizationId = fn_identity_oidc_authorization.Id)
+        LIMIT 500
         """,
         SqlDataScope.HostOnly);
 
@@ -635,9 +648,19 @@ internal static class IdentityOidcSql
     public static readonly SqlStatement PruneTokens = new(
         "identity.prune_oidc_tokens",
         """
+        DELETE TOP (500) FROM fn_identity_oidc_token
+        WHERE CreationDateUtc < @Threshold
+          AND (Status <> @ValidStatus OR ExpirationDateUtc < @Threshold)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement PruneTokensMySql = new(
+        "identity.prune_oidc_tokens.mysql",
+        """
         DELETE FROM fn_identity_oidc_token
         WHERE CreationDateUtc < @Threshold
           AND (Status <> @ValidStatus OR ExpirationDateUtc < @Threshold)
+        LIMIT 500
         """,
         SqlDataScope.HostOnly);
 }

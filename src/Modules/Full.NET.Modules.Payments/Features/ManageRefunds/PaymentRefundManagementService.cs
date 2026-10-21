@@ -85,7 +85,7 @@ internal sealed class PaymentRefundManagementService(
                     refundStateKey,
                     providerResult.ProviderRefundId,
                     providerResult.FailMessage,
-                    keepOrderRefunding: providerResult.Succeeded,
+                    keepOrderRefunding: providerResult.Succeeded && refundStateKey != PaymentRefundStateKeys.Closed,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!persisted)
@@ -341,7 +341,7 @@ internal sealed class PaymentRefundManagementService(
                     : keepOrderRefunding
                         ? PaymentTradeStateKeys.Refunding
                         : PaymentTradeStateKeys.Succeeded;
-                await commandExecutor.ExecuteAsync(
+                var orderUpdated = await commandExecutor.ExecuteAsync(
                         PaymentOrderSql.ClaimTradeState,
                         PaymentSqlParameters.Create(
                             ("OrderId", intent.OrderId),
@@ -352,6 +352,7 @@ internal sealed class PaymentRefundManagementService(
                             ("ExpectedTradeStateKey", PaymentTradeStateKeys.Refunding)),
                         token)
                     .ConfigureAwait(false);
+                if (orderUpdated != 1) throw new InvalidOperationException("Refund order changed during completion.");
                 return true;
             },
             cancellationToken);

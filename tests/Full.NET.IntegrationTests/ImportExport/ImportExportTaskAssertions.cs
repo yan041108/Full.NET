@@ -32,8 +32,8 @@ internal static class ImportExportTaskAssertions
         Assert.IsNotNull(schemas);
         Assert.IsTrue(schemas.Any(schema =>
             schema.SchemaKey == StaticImportSchemaKeys.OrganizationTenantPositions));
-        Assert.IsTrue(schemas.Any(schema =>
-            schema.SchemaKey == StaticImportSchemaKeys.DemoEnterpriseRequests));
+        Assert.IsFalse(schemas.Any(schema =>
+            schema.SchemaKey.StartsWith("demo.", StringComparison.Ordinal)));
 
         var templatePath =
             $"/api/v1/import-export/schemas/{StaticImportSchemaKeys.OrganizationTenantPositions}"

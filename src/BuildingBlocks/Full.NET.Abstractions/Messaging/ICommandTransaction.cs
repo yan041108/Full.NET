@@ -25,14 +25,33 @@ public interface ICommandTransaction
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// 在当前作用域事务内异步执行返回 <see cref="Result{T}"/> 的操作，保持失败传播语义。
+    /// 在当前作用域事务内执行 Result 操作；失败结果必须回滚，参与已有事务时使所属事务不可提交。
     /// </summary>
     /// <typeparam name="T">成功时的值类型。</typeparam>
     /// <param name="action">需要在事务中执行的异步 Result 委托。</param>
     /// <param name="cancellationToken">用于取消事务与操作的令牌。</param>
     /// <returns>封装成功值或错误的结果实例。</returns>
-    Task<Result<T>> ExecuteResultAsync<T>(
+    async Task<Result<T>> ExecuteResultAsync<T>(
         Func<CancellationToken, Task<Result<T>>> action,
-        CancellationToken cancellationToken) =>
-        ExecuteAsync(action, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ExecuteAsync(async token =>
+            {
+                var result = await action(token).ConfigureAwait(false);
+                return result.IsSuccess ? result : throw new CommandResultRollbackException<T>(result);
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CommandResultRollbackException<T> rollback)
+        {
+            return rollback.Result;
+        }
+    }
+}
+
+/// <summary>默认事务适配内部信号：失败结果必须先通过异常路径回滚，再还原结果。</summary>
+internal sealed class CommandResultRollbackException<T>(Result<T> result) : Exception
+{
+    public Result<T> Result { get; } = result;
 }

@@ -14,28 +14,32 @@ internal sealed class HostDictTypeQueryService(
     public async Task<Result<PagedResult<DictTypeResponse>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostDictTypeListFilter? filter = null)
     {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = ((long)Math.Max(page, 1) - 1) * Math.Clamp(pageSize, 1, 100),
+            ["PageSize"] = Math.Clamp(pageSize, 1, 100),
+            ["Code"] = SqlSearchPattern.ContainsLiteral(filter?.Code),
+            ["Name"] = SqlSearchPattern.ContainsLiteral(filter?.Name),
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+        };
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                DictTypeSql.CountHostDictTypes,
-                cancellationToken: cancellationToken)
+                DictTypeSql.CountHostDictTypesFiltered,
+                parameters, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => DictTypeSql.ListHostDictTypesSqlServer,
-            DatabaseProvider.MySql => DictTypeSql.ListHostDictTypesMySql,
+            DatabaseProvider.SqlServer => DictTypeSql.ListHostDictTypesSqlServerFiltered,
+            DatabaseProvider.MySql => DictTypeSql.ListHostDictTypesMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<DictTypeRecord>(
                 statement,
-                SettingsSqlParameters.Create(
-                    ("Offset", offset),
-                    ("PageSize", pageSize)
-                ),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -113,3 +117,6 @@ internal sealed record DictTypeIdentityRecord(
     int DisplayOrder,
     bool IsActive,
     int Version);
+
+/// <summary>字典目录分页筛选。</summary>
+internal sealed record HostDictTypeListFilter(string? Code = null, string? Name = null, string? Status = null);

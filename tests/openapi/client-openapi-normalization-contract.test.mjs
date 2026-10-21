@@ -204,8 +204,9 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 623);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 623);
+  assert.equal(manifest.entries.length, 624);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 624);
+  assert.ok(manifest.entries.some(entry => entry.operationId === 'auditingQueryLogTimeline' && entry.status === 'generated'));
   for (const [generatedGroup, operationIds] of [
     ['ai-index-grants', ['aiCreateKnowledgeIndexGrant', 'aiListKnowledgeIndexGrants', 'aiRevokeKnowledgeIndexGrant']],
     ['ai-feedback-evaluation', ['aiAdmitFeedbackEvaluationCandidate', 'aiPrepareFeedbackEvaluationCandidate']]
@@ -253,6 +254,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'ai-mcp-remote-connections',
       'ai-model-configs',
       'ai-prompts',
+      'auditing',
       'auditing-host-access-logs',
       'auditing-host-exception-logs',
       'auditing-host-operation-logs',
@@ -348,7 +350,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    623
+    624
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

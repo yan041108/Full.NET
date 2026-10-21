@@ -7,6 +7,10 @@ internal interface IDbTransactionCoordinator
 {
     bool HasTransaction { get; }
 
+    bool IsRollbackOnly { get; }
+
+    void MarkRollbackOnly();
+
     Task BeginAsync(CancellationToken cancellationToken);
 
     Task CommitAsync(CancellationToken cancellationToken);

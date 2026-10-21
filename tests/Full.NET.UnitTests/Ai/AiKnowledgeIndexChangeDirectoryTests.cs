@@ -149,7 +149,7 @@ public sealed class AiKnowledgeIndexChangeDirectoryTests
             void ChangeScope() => tenant.SetTenant(new(Guid.CreateVersion7(), "other", "Other"));
             Query.AfterRead = () => { if (scenario == "scope" || scenario == "late_page_scope" && Query.PageReads == 2) ChangeScope(); };
             Query.AfterOwnerRead = () => { if (scenario == "late_owner_scope" && Query.PageRead) ChangeScope(); };
-            var auth = Substitute.For<ICurrentSessionAuthorization>();
+            var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => scenario == "deny" || scenario == "revoke" && Query.PageRead
                 ? null : new AuthorizedSessionActor(Actor, tenant.Id, Guid.CreateVersion7()));
             var guard = new AiKnowledgePermissionGuard(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());

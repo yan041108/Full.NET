@@ -108,7 +108,7 @@ internal sealed class WorkflowAssigneePublishValidator(
         }
 
         var members = await roleMemberDirectory
-            .FindActiveMemberUserIdsByRoleIdsAsync(roleIds, cancellationToken)
+            .FindActiveMemberUserIdsByRoleIdsAsync(roleIds, 1, cancellationToken)
             .ConfigureAwait(false);
         return roleIds.All(roleId =>
             members.TryGetValue(roleId, out var userIds) && userIds.Count > 0);

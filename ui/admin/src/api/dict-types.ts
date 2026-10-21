@@ -27,11 +27,11 @@ import { http } from './http';
 export async function listSettingsDictTypes(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal, filters: { code?: string; name?: string; status?: string } = {}
 ): Promise<SettingsDictTypePage> {
   const value = await settingsListHostDictTypes(
     http,
-    { page, pageSize },
+    { page, pageSize, ...filters },
     signal
   );
   if (!isSettingsDictTypePage(value)) {
@@ -114,11 +114,11 @@ export async function listSettingsDictItems(
   dictTypeId: string,
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal, filters: { label?: string; value?: string; status?: string } = {}
 ): Promise<SettingsDictItemPage> {
   const value = await settingsListHostDictItems(
     http,
-    { dictTypeId, page, pageSize },
+    { dictTypeId, page, pageSize, ...filters },
     signal
   );
   if (!isSettingsDictItemPage(value)) {

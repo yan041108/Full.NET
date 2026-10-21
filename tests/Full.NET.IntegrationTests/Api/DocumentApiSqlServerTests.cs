@@ -111,4 +111,11 @@ public sealed class DocumentApiSqlServerTests
 
         await DocumentShareRateLimitAssertions.VerifyAsync(factory);
     }
+    [TestMethod]
+    public async Task Project_review_remediation_authorization_and_leases_are_enforced()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await ProjectReviewRemediationAssertions.VerifyAsync(factory);
+    }
 }

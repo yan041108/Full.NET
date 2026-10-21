@@ -2,12 +2,14 @@ using System.Diagnostics;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.Modules.Notifications.Execution;
 
@@ -26,7 +28,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<NotificationDeliveryWorkerOptions> workerOptions,
     NotificationRecipientEndpointProtector recipientEndpointProtector,
-    ILogger<NotificationDeliveryBatchProcessor> logger)
+    ILogger<NotificationDeliveryBatchProcessor> logger,
+    IServiceScopeFactory executionScopeFactory)
 {
     private readonly NotificationDeliveryWorkerOptions _options = workerOptions.Value;
     private readonly IReadOnlyDictionary<string, INotificationProviderAdapter> _adapters =
@@ -34,26 +37,43 @@ internal sealed class NotificationDeliveryBatchProcessor(
 
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
     {
-        var leaseOwner = idGenerator.NewId().ToString("N");
-        var now = clock.UtcNow;
-        var claimed = await ClaimAsync(
-                leaseOwner,
-                now,
-                now.AddSeconds(_options.LeaseSeconds),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (claimed.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var delivery in claimed)
+        var processed = 0;
+        while (processed < _options.BatchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ProcessOneAsync(delivery, cancellationToken).ConfigureAwait(false);
+            var slots = Math.Min(_options.MaxConcurrency, _options.BatchSize - processed);
+            var now = clock.UtcNow;
+            // 只为可以立即执行的槽位领取租约，不让尚未获得执行机会的投递在本地排队过期。
+            var claimed = await ClaimAsync(idGenerator.NewId().ToString("N"), now,
+                now.AddSeconds(_options.LeaseSeconds), slots, cancellationToken).ConfigureAwait(false);
+            if (claimed.Count == 0) break;
+            if (claimed.Count > slots) throw new InvalidOperationException("Notification claim exceeded available execution slots.");
+            if (_options.MaxConcurrency == 1)
+            {
+                await ProcessOneAsync(claimed[0], cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // 每个活动槽位拥有独立 DbSession 和可信 Host 上下文。
+                await Parallel.ForEachAsync(claimed,
+                    new ParallelOptions { MaxDegreeOfParallelism = slots, CancellationToken = cancellationToken },
+                    async (delivery, token) =>
+                    {
+                        await using var scope = executionScopeFactory.CreateAsyncScope();
+                        var currentTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+                        currentTenant.SetHost();
+                        try
+                        {
+                            await scope.ServiceProvider.GetRequiredService<NotificationDeliveryBatchProcessor>()
+                                .ProcessOneAsync(delivery, token).ConfigureAwait(false);
+                        }
+                        finally { currentTenant.Clear(); }
+                    }).ConfigureAwait(false);
+            }
+            processed += claimed.Count;
+            if (claimed.Count < slots) break;
         }
-
-        return claimed.Count;
+        return processed;
     }
 
     public async Task SampleBacklogAsync(CancellationToken cancellationToken)
@@ -77,9 +97,10 @@ internal sealed class NotificationDeliveryBatchProcessor(
         string leaseOwner,
         DateTimeOffset now,
         DateTimeOffset leaseExpiresAt,
+        int take,
         CancellationToken cancellationToken)
     {
-        var batchSize = Math.Clamp(_options.BatchSize, 1, 50);
+        var batchSize = Math.Clamp(take, 1, 50);
         if (databaseOptions.Value.Provider == DatabaseProvider.SqlServer)
         {
             var rows = await queryExecutor.QueryAsync<NotificationDeliveryRecord>(

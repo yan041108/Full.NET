@@ -27,7 +27,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtClientPagination,
+  useArtServerPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -151,51 +151,9 @@ const canDisable = computed(() => session.can('settings.dict_types.disable'));
 // 硬删除仅对已禁用的字典类型/字典项开放，对应 Admin.NET DeleteDict。
 const canDelete = computed(() => session.can('settings.dict_types.delete'));
 
-const filteredDictTypes = computed(() => {
-  let rows = allDictTypes.value;
-  const filters = typeAppliedFilters.value;
 
-  if (filters.code.trim()) {
-    const keyword = filters.code.trim().toLowerCase();
-    rows = rows.filter(dictType => dictType.code.toLowerCase().includes(keyword));
-  }
 
-  if (filters.name.trim()) {
-    const keyword = filters.name.trim().toLowerCase();
-    rows = rows.filter(dictType => dictType.name.toLowerCase().includes(keyword));
-  }
 
-  if (filters.status === 'active') {
-    rows = rows.filter(dictType => dictType.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(dictType => !dictType.isActive);
-  }
-
-  return rows;
-});
-
-const filteredDictItems = computed(() => {
-  let rows = allDictItems.value;
-  const filters = itemAppliedFilters.value;
-
-  if (filters.label.trim()) {
-    const keyword = filters.label.trim().toLowerCase();
-    rows = rows.filter(item => item.label.toLowerCase().includes(keyword));
-  }
-
-  if (filters.value.trim()) {
-    const keyword = filters.value.trim().toLowerCase();
-    rows = rows.filter(item => item.value.toLowerCase().includes(keyword));
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(item => item.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(item => !item.isActive);
-  }
-
-  return rows;
-});
 
 const {
   page: typePage,
@@ -203,7 +161,7 @@ const {
   total: typeTotal,
   pagedItems: pagedDictTypes,
   resetPage: resetTypePage
-} = useArtClientPagination(filteredDictTypes);
+} = useArtServerPagination(allDictTypes, load);
 
 const {
   page: itemPage,
@@ -211,7 +169,7 @@ const {
   total: itemTotal,
   pagedItems: pagedDictItems,
   resetPage: resetItemPage
-} = useArtClientPagination(filteredDictItems);
+} = useArtServerPagination(allDictItems, () => selectedType.value ? loadItems(selectedType.value.id) : Promise.resolve());
 
 // 固定列对齐 Admin.NET：序号、名称、编码、排序、状态
 const typeTableColumns = computed<ArtTableColumnOption[]>({
@@ -460,35 +418,20 @@ function tagStyleFromColor(color: string | null | undefined): Record<string, str
   return undefined;
 }
 
-async function fetchAllDictTypes(): Promise<SettingsDictType[]> {
-  const pageLimit = 100;
-  const firstPage = await listSettingsDictTypes(1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listSettingsDictTypes(current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
 
-async function fetchAllDictItems(dictTypeId: string): Promise<SettingsDictItem[]> {
-  const pageLimit = 100;
-  const firstPage = await listSettingsDictItems(dictTypeId, 1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listSettingsDictItems(dictTypeId, current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
 
+
+
+let typeListGeneration = 0;
+let itemListGeneration = 0;
 async function load(): Promise<void> {
+  const generation = ++typeListGeneration;
   loading.value = true;
   problem.value = undefined;
   try {
-    allDictTypes.value = await fetchAllDictTypes();
+    const result = await listSettingsDictTypes(typePage.value, typePageSize.value, undefined, typeAppliedFilters.value);
+    if (generation !== typeListGeneration) return;
+    allDictTypes.value = result.items; typeTotal.value = result.total;
     if (selectedType.value) {
       const refreshed = allDictTypes.value.find(item => item.id === selectedType.value!.id);
       selectedType.value = refreshed;
@@ -500,21 +443,26 @@ async function load(): Promise<void> {
     }
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (generation !== typeListGeneration) return;
     problem.value = toProblem(error, 'dictTypes.loadFailed');
   } finally {
-    loading.value = false;
+    if (generation === typeListGeneration) loading.value = false;
   }
 }
 
 async function loadItems(dictTypeId: string): Promise<void> {
+  const generation = ++itemListGeneration;
   itemsLoading.value = true;
   try {
-    allDictItems.value = await fetchAllDictItems(dictTypeId);
+    const result = await listSettingsDictItems(dictTypeId, itemPage.value, itemPageSize.value, undefined, itemAppliedFilters.value);
+    if (generation !== itemListGeneration || dictTypeId !== selectedType.value?.id) return;
+    allDictItems.value = result.items; itemTotal.value = result.total;
     await nextTick(updateItemsTableHeight);
   } catch (error: unknown) {
+    if (generation !== itemListGeneration) return;
     problem.value = toProblem(error, 'dictItems.loadFailed');
   } finally {
-    itemsLoading.value = false;
+    if (generation === itemListGeneration) itemsLoading.value = false;
   }
 }
 
@@ -555,6 +503,7 @@ async function openItems(dictType: SettingsDictType): Promise<void> {
 }
 
 function closeItems(): void {
+  ++itemListGeneration; itemsLoading.value = false;
   selectedType.value = undefined;
   allDictItems.value = [];
 }

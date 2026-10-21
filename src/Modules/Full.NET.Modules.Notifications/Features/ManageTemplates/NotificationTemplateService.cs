@@ -387,18 +387,16 @@ internal sealed class NotificationTemplateService(
         CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, IReadOnlyList<NotificationTemplateLocaleStateRecord>>(StringComparer.Ordinal);
-        foreach (var templateKey in templateKeys)
+        foreach (var keys in templateKeys.Distinct(StringComparer.Ordinal).Chunk(100))
         {
-            var states = await queryExecutor.QueryAsync<NotificationTemplateLocaleStateRecord>(
-                    NotificationPlatformSql.ListTemplateLocalesByKey,
-                    NotificationPlatformSqlParameters.Create(
-                        ("TenantScopeKey", scope.TenantScopeKey),
-                        ("TemplateKey", templateKey)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            result[templateKey] = states.ToArray();
+            var rows = await queryExecutor.QueryAsync<NotificationTemplateKeyLocaleStateRecord>(
+                NotificationPlatformSql.ListTemplateLocalesByKeys,
+                NotificationPlatformSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey), ("TemplateKeys", keys)),
+                cancellationToken).ConfigureAwait(false);
+            foreach (var group in rows.GroupBy(row => row.TemplateKey, StringComparer.Ordinal))
+                result[group.Key] = group.Select(row => new NotificationTemplateLocaleStateRecord(
+                    row.Id, row.LocaleTag, row.DefaultLocaleTag, row.LatestPublishedVersionId)).ToArray();
         }
-
         return result;
     }
 

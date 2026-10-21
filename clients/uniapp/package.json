@@ -20,7 +20,7 @@
     "@dcloudio/uni-mp-alipay": "3.0.0-5010520260709002",
     "@dcloudio/uni-mp-weixin": "3.0.0-5010520260709002",
     "@dcloudio/uni-ui": "1.5.12",
-    "vue": "3.4.21",
+    "vue": "3.5.42",
     "vue-i18n": "9.14.5"
   },
   "devDependencies": {
@@ -28,12 +28,13 @@
     "@dcloudio/uni-cli-shared": "3.0.0-5010520260709002",
     "@dcloudio/vite-plugin-uni": "3.0.0-5010520260709002",
     "@types/node": "24.10.1",
-    "@vue/compiler-sfc": "3.4.21",
+    "@vue/compiler-sfc": "3.5.42",
     "@vueuse/core": "11.3.0",
     "sass-embedded": "1.100.0",
     "typescript": "5.9.3",
-    "vite": "5.4.21",
-    "vitest": "3.2.6",
-    "vue-tsc": "2.2.12"
+    "vite": "6.4.4",
+    "vitest": "4.1.11",
+    "vue-tsc": "2.2.12",
+    "sass": "npm:sass-embedded@1.100.0"
   }
 }

@@ -181,6 +181,7 @@ public sealed class AiKnowledgeIncrementalRecoveryTests
     private sealed class RevocableSession(AuthorizedSessionActor actor) : ICurrentSessionAuthorization
     {
         internal bool Allowed { get; set; } = true;
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default) => Task.FromResult(Allowed && permissionCodes.Count > 0 && permissionCodes.All(p => !string.IsNullOrWhiteSpace(p)) ? actor : null);
         public Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default) => Task.FromResult(Allowed ? actor : null);
     }
 

@@ -5,11 +5,18 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 internal static class WorkflowDefinitionCompiler
 {
+    // 同时约束递归栈、拓扑分析和后续运行计划的工作量，预算在任何递归之前检查。
+    internal const int MaximumNodes = 128;
+    internal const int MaximumEdges = 512;
     /// <summary>编译工作流图并验证节点类型、拓扑及抄送配置。</summary>
     /// <param name="draft">待编译的工作流定义草稿。</param>
     /// <returns>包含规范化定义或稳定错误码的编译结果。</returns>
     public static WorkflowCompilationResult Compile(WorkflowDefinitionDraft draft)
     {
+        if (draft.Nodes.Count > MaximumNodes)
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
+        }
         if (draft.SchemaVersion != WorkflowNodeTypeCatalog.Current.DefinitionSchemaVersion ||
             draft.Nodes.Any(node =>
                 WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var definition) &&
@@ -113,6 +120,11 @@ internal static class WorkflowDefinitionCompiler
             node => node.NodeKey,
             ReadNextNodeKeys,
             StringComparer.Ordinal);
+
+        if (edges.Values.Sum(keys => keys.Length) > MaximumEdges)
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
+        }
 
         if (edges.Values.SelectMany(keys => keys).Any(key => !nodeByKey.ContainsKey(key)))
         {

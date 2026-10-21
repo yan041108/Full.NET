@@ -30,11 +30,12 @@ import { http } from './http';
 export async function listHostJobDefinitions(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { jobKey?: string; displayName?: string; groupName?: string; status?: string } = {}
 ): Promise<HostJobDefinitionPage> {
   const value = await jobsListHostJobDefinitions(
     http,
-    { page, pageSize },
+    { page, pageSize, ...filters },
     signal
   );
   if (!isHostJobDefinitionPage(value)) {

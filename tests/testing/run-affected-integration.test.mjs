@@ -22,6 +22,14 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('性能修复夹具必须同时覆盖两种数据库提供程序', () => {
+  assert.deepEqual(classifyChangedPaths(['tests/Full.NET.IntegrationTests/Api/PerformanceApiTests.cs',
+    'tests/Full.NET.IntegrationTests/Api/PerformanceFollowupAssertions.cs']).targets, [{
+    kind: 'filter', name: 'performance-remediation',
+    filter: 'FullyQualifiedName~PerformanceApiSqlServerTests|FullyQualifiedName~PerformanceApiMySqlTests'
+  }]);
+});
+
 test('纯文档和客户端改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'docs/development/getting-started.md',

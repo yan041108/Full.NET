@@ -162,16 +162,16 @@ internal static class DocumentAdminNetParityAssertions
                        manager.AccessToken,
                        new SetHostDocumentPermissionsRequest(
                            documentId,
-                           [new HostDocumentPermissionEntry(delegateUser.UserId, "read")])),
+                           [new HostDocumentPermissionEntry(delegateUser.UserId, "read"), new HostDocumentPermissionEntry(manager.UserId, "manage")])),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
             var permissions = await setResponse.Content
                 .ReadFromJsonAsync<IReadOnlyList<HostDocumentPermissionResponse>>(cancellationToken);
             Assert.IsNotNull(permissions);
-            Assert.AreEqual(1, permissions.Count);
-            Assert.AreEqual(delegateUser.UserId, permissions[0].UserId);
-            Assert.AreEqual("read", permissions[0].PermissionLevel);
+            Assert.AreEqual(2, permissions.Count);
+            Assert.IsTrue(permissions.Any(permission => permission.UserId == delegateUser.UserId && permission.PermissionLevel == "read"));
+
         }
 
         using var listResponse = await client.SendAsync(
@@ -181,7 +181,7 @@ internal static class DocumentAdminNetParityAssertions
         var listed = await listResponse.Content
             .ReadFromJsonAsync<IReadOnlyList<HostDocumentPermissionResponse>>(cancellationToken);
         Assert.IsNotNull(listed);
-        Assert.AreEqual(1, listed.Count);
+        Assert.AreEqual(2, listed.Count);
     }
 
     private static async Task VerifySharesAsync(

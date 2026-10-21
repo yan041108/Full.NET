@@ -76,6 +76,85 @@ internal static class AnnouncementReadReceiptSql
             """,
             SqlDataScope.HostOnly);
 
+    private const string ReceivedFilter = """
+        AND (@Title IS NULL OR LOWER(announcement.Title) LIKE @Title ESCAPE '!')
+        AND (@IsRead IS NULL OR (@IsRead = 1 AND receipt.ReadAtUtc IS NOT NULL)
+             OR (@IsRead = 0 AND receipt.ReadAtUtc IS NULL))
+        AND (announcement.AudienceKind = @AudienceAll
+             OR (announcement.AudienceKind = @AudienceUsers AND EXISTS (
+                 SELECT 1 FROM fn_notifications_announcement_target_user targetUser
+                 WHERE targetUser.AnnouncementId = announcement.Id AND targetUser.UserId = @UserId))
+             OR (announcement.AudienceKind = @AudienceOrganizations AND EXISTS (
+                 SELECT 1 FROM fn_notifications_announcement_target_organization targetOrganization
+                 WHERE targetOrganization.AnnouncementId = announcement.Id
+        """;
+
+    // 成员关系由 Organization 权威端口解析，以单个 JSON 参数传入，避免集合参数上限与跨模块 JOIN。
+    private const string MembershipSqlServer = """
+                 AND EXISTS (SELECT 1 FROM OPENJSON(@Memberships) WITH (
+                     TenantId uniqueidentifier '$.tenantId', OrganizationUnitId uniqueidentifier '$.organizationUnitId') membership
+                     WHERE membership.TenantId = targetOrganization.TenantId
+                       AND membership.OrganizationUnitId = targetOrganization.OrganizationUnitId))))
+        """;
+    private const string MembershipMySql = """
+                 AND EXISTS (SELECT 1 FROM JSON_TABLE(@Memberships, '$[*]' COLUMNS (
+                     TenantId VARCHAR(36) PATH '$.tenantId', OrganizationUnitId VARCHAR(36) PATH '$.organizationUnitId')) membership
+                     WHERE UNHEX(REPLACE(membership.TenantId, '-', '')) = targetOrganization.TenantId
+                       AND UNHEX(REPLACE(membership.OrganizationUnitId, '-', '')) = targetOrganization.OrganizationUnitId))))
+        """;
+
+    public static readonly SqlStatement ListReceivedSqlServer = new(
+        "notifications.announcement_received.list.sqlserver",
+        $"""
+        SELECT announcement.Id, announcement.Title, '' AS Content, announcement.Kind, announcement.AudienceKind, announcement.PublishedAtUtc, announcement.PublishedByUserId, receipt.ReadAtUtc
+        FROM fn_notifications_announcement announcement
+        LEFT JOIN fn_notifications_announcement_read_receipt receipt
+          ON receipt.AnnouncementId = announcement.Id AND receipt.UserId = @UserId
+        WHERE {PublishedHostWhereClause}
+        {ReceivedFilter}
+        {MembershipSqlServer}
+        ORDER BY announcement.PublishedAtUtc DESC, announcement.Id OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountReceivedSqlServer = new(
+        "notifications.announcement_received.count.sqlserver",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_notifications_announcement announcement
+        LEFT JOIN fn_notifications_announcement_read_receipt receipt
+          ON receipt.AnnouncementId = announcement.Id AND receipt.UserId = @UserId
+        WHERE {PublishedHostWhereClause}
+        {ReceivedFilter}
+        {MembershipSqlServer}
+
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListReceivedMySql = new(
+        "notifications.announcement_received.list.mysql",
+        $"""
+        SELECT announcement.Id, announcement.Title, '' AS Content, announcement.Kind, announcement.AudienceKind, announcement.PublishedAtUtc, announcement.PublishedByUserId, receipt.ReadAtUtc
+        FROM fn_notifications_announcement announcement
+        LEFT JOIN fn_notifications_announcement_read_receipt receipt
+          ON receipt.AnnouncementId = announcement.Id AND receipt.UserId = @UserId
+        WHERE {PublishedHostWhereClause}
+        {ReceivedFilter}
+        {MembershipMySql}
+        ORDER BY announcement.PublishedAtUtc DESC, announcement.Id LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountReceivedMySql = new(
+        "notifications.announcement_received.count.mysql",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_notifications_announcement announcement
+        LEFT JOIN fn_notifications_announcement_read_receipt receipt
+          ON receipt.AnnouncementId = announcement.Id AND receipt.UserId = @UserId
+        WHERE {PublishedHostWhereClause}
+        {ReceivedFilter}
+        {MembershipMySql}
+
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement InsertIfAbsent =
         new(
             "notifications.announcement_read_receipt.insert_if_absent",

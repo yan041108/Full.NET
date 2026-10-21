@@ -17,13 +17,14 @@ internal sealed class HostApiKeyQueryService(
         int pageSize,
         Guid? userId,
         string? displayNameContains,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool? isActive = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = IdentitySqlParameters.Create(
             ("UserId", userId),
+            ("IsActive", isActive),
             ("DisplayNameContains", NormalizeFilter(displayNameContains)),
             ("Offset", offset),
             ("PageSize", pageSize));

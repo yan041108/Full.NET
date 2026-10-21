@@ -40,7 +40,6 @@ using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Mqtt;
 using Full.NET.Modules.Webhooks;
 using Full.NET.Modules.Cryptography;
-using Full.NET.Modules.EnterpriseRequest;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -260,7 +259,6 @@ public static class FullNetModuleCatalog
         new MqttModule(),
         new WebhooksModule(),
         new CryptographyModule(),
-        new EnterpriseRequestModule(),
     ];
 
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>

@@ -150,6 +150,9 @@ internal sealed class HostUserManagementService(
     {
         ArgumentNullException.ThrowIfNull(request);
         var rows = request.Rows ?? [];
+        if (rows.Count > 1000)
+            return Result<ImportHostUsersResponse>.Failure(new Error(
+                ValidationErrorCodes.Failed, "User import cannot exceed 1000 rows.", ErrorType.Validation));
         var results = new List<ImportHostUserRowResult>(rows.Count);
         var succeeded = 0;
         var line = 0;

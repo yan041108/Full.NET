@@ -22,7 +22,7 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             string? folderId,
-            string? fileNameContains,
+            string? fileNameContains, DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
             HostFileQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -30,7 +30,7 @@ internal static class Endpoint
         {
             var filter = HostFileQueryService
                 .ParseFolderFilter(folderId)
-                .WithFileNameContains(fileNameContains);
+                .WithFileNameContains(fileNameContains) with { FromUtc = fromUtc, ToUtc = toUtc };
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,

@@ -263,47 +263,13 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-const filteredRoles = computed(() => {
-  let rows = allRoles.value;
-  const filters = appliedFilters.value;
 
-  if (filters.code.trim()) {
-    const keyword = filters.code.trim().toLowerCase();
-    rows = rows.filter(role => role.code.toLowerCase().includes(keyword));
-  }
 
-  if (filters.name.trim()) {
-    const keyword = filters.name.trim().toLowerCase();
-    rows = rows.filter(role => role.name.toLowerCase().includes(keyword));
-  }
+const pagedRoles = computed(() => allRoles.value);
+watch([page, pageSize, appliedFilters], () => { void load(); });
 
-  if (filters.status === 'active') {
-    rows = rows.filter(role => role.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(role => !role.isActive);
-  }
 
-  if (filters.roleType === 'system') {
-    rows = rows.filter(role => role.isSystem);
-  } else if (filters.roleType === 'custom') {
-    rows = rows.filter(role => !role.isSystem);
-  }
 
-  return rows;
-});
-
-const pagedRoles = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return filteredRoles.value.slice(start, start + pageSize.value);
-});
-
-watch(filteredRoles, rows => {
-  total.value = rows.length;
-  const maxPage = Math.max(1, Math.ceil(rows.length / pageSize.value) || 1);
-  if (page.value > maxPage) {
-    page.value = maxPage;
-  }
-});
 
 onMounted(() => {
   void load();
@@ -336,33 +302,25 @@ function updateTableHeight(): void {
   tableHeight.value = Math.max(240, window.innerHeight - top - 68);
 }
 
+let roleListGeneration = 0;
 async function load(): Promise<void> {
+  const generation = ++roleListGeneration;
   loading.value = true;
   problem.value = undefined;
   try {
-    allRoles.value = await fetchAllRoles();
-    total.value = filteredRoles.value.length;
+    const result = await listHostRoles(page.value, pageSize.value, undefined, appliedFilters.value);
+    if (generation !== roleListGeneration) return;
+    allRoles.value = result.items; total.value = result.total;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (generation !== roleListGeneration) return;
     problem.value = toProblem(error, 'roles.loadFailed');
   } finally {
-    loading.value = false;
+    if (generation === roleListGeneration) loading.value = false;
   }
 }
 
-async function fetchAllRoles(): Promise<HostRole[]> {
-  const pageSizeLimit = 100;
-  const firstPage = await listHostRoles(1, pageSizeLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageSizeLimit);
 
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostRoles(current, pageSizeLimit);
-    items.push(...nextPage.items);
-  }
-
-  return items;
-}
 
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = {
@@ -884,42 +842,51 @@ async function removeRole(role: HostRole): Promise<void> {
   }
 }
 
-async function fetchAllHostUsers(): Promise<HostUser[]> {
-  const pageSizeLimit = 100;
-  const firstPage = await listHostUsers(1, pageSizeLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageSizeLimit);
-
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostUsers(current, pageSizeLimit);
-    items.push(...nextPage.items);
-  }
-
-  return items.filter(user => user.isActive);
-}
-
-async function openMembers(role: HostRole): Promise<void> {
-  if (role.isSystem || role.isSuperAdministrator || changing.value || !role.isActive) {
-    return;
-  }
-
-  changing.value = true;
-  problem.value = undefined;
+const memberCandidatePage = ref(1);
+const memberCandidateTotal = ref(0);
+const memberSearch = ref('');
+const loadedMemberCandidateIds = ref<string[]>([]);
+let memberCandidateGeneration = 0;
+let memberCandidateController: AbortController | undefined;
+let memberSearchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(memberCandidatePage, () => { if (membersVisible.value) void loadMemberCandidates(); });
+watch(memberSearch, () => {
+  clearTimeout(memberSearchTimer);
+  memberSearchTimer = setTimeout(() => {
+    if (memberCandidatePage.value !== 1) memberCandidatePage.value = 1;
+    else if (membersVisible.value) void loadMemberCandidates();
+  }, 250);
+});
+onUnmounted(() => { clearTimeout(memberSearchTimer); ++roleListGeneration; ++memberCandidateGeneration; memberCandidateController?.abort(); });
+async function loadMemberCandidates(initial = false): Promise<void> {
+  const role = editingRole.value; if (!role) return;
+  const generation = ++memberCandidateGeneration;
+  memberCandidateController?.abort(); const controller = new AbortController(); memberCandidateController = controller;
   try {
-    const [membersPage, users] = await Promise.all([
-      listHostRoleMembers(role.id, 1, 100),
-      fetchAllHostUsers()
-    ]);
-    editingRole.value = role;
-    selectableUsers.value = users;
-    selectedMemberUserIds.value = membersPage.items.map(item => item.userId);
-    membersVersion.value = membersPage.version;
-    membersVisible.value = true;
+    const users = await listHostUsers(memberCandidatePage.value, 20, controller.signal, { username: memberSearch.value, status: 'active' });
+    const members = await listHostRoleMembers(role.id, 1, 100, controller.signal, users.items.map(user => user.id));
+    if (generation !== memberCandidateGeneration) return;
+    if (!initial && members.version !== membersVersion.value) throw new Error('client.role_members_changed');
+    if (initial) membersVersion.value = members.version;
+    const loaded = new Set(loadedMemberCandidateIds.value);
+    const selected = new Set(selectedMemberUserIds.value);
+    const existing = new Set(members.items.map(item => item.userId));
+    for (const user of users.items) if (!loaded.has(user.id)) { loaded.add(user.id); if (existing.has(user.id)) selected.add(user.id); }
+    if (loaded.size > 10000) throw new Error('client.role_candidate_budget_exceeded');
+    loadedMemberCandidateIds.value = [...loaded]; selectedMemberUserIds.value = [...selected];
+    selectableUsers.value = users.items; memberCandidateTotal.value = users.total;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'roles.operationFailed');
-  } finally {
-    changing.value = false;
+    if (generation === memberCandidateGeneration) problem.value = toProblem(error, 'roles.loadFailed');
   }
+}
+async function openMembers(role: HostRole): Promise<void> {
+  if (role.isSystem || role.isSuperAdministrator || changing.value || !role.isActive) return;
+  changing.value = true; problem.value = undefined;
+  editingRole.value = role; memberCandidatePage.value = 1; memberSearch.value = '';
+  loadedMemberCandidateIds.value = []; selectedMemberUserIds.value = [];
+  selectableUsers.value = []; memberCandidateTotal.value = 0;
+  await loadMemberCandidates(true);
+  membersVisible.value = true; changing.value = false;
 }
 
 async function saveMembers(): Promise<void> {
@@ -934,7 +901,7 @@ async function saveMembers(): Promise<void> {
     await replaceHostRoleMembers(
       role.id,
       [...selectedMemberUserIds.value].sort(),
-      membersVersion.value
+      membersVersion.value, undefined, loadedMemberCandidateIds.value
     );
     membersVisible.value = false;
     editingRole.value = null;
@@ -1426,6 +1393,7 @@ function toProblem(
     </el-dialog>
 
     <el-dialog v-model="membersVisible" :title="t('roles.membersTitle')" width="560px">
+      <ElInput v-model="memberSearch" clearable :placeholder="t('users.searchAccountPlaceholder')" />
       <p v-if="selectableUsers.length === 0" class="art-dialog-hint">
         {{ t('roles.membersEmpty') }}
       </p>
@@ -1435,6 +1403,7 @@ function toProblem(
           <code translate="no">{{ user.username }}</code>
         </el-checkbox>
       </el-checkbox-group>
+      <ElPagination v-model:current-page="memberCandidatePage" :page-size="20" :total="memberCandidateTotal" layout="prev, pager, next" />
       <template #footer>
         <el-button @click="membersVisible = false">{{ t('status.back') }}</el-button>
         <PermissionGate code="identity.roles.replace_members">

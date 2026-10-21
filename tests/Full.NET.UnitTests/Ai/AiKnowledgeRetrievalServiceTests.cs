@@ -162,7 +162,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             var r = new RetrievalFixture { F = new(scoped) }; var f = r.F; r.Actor = f.Binding.OwnerUserId; Assert.IsTrue(await f.Activate()); f.ReadRow = ReadRow(f);
             r.Model = await f.Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(AiModelConfigSql.FindAvailableForHostChat, new(), default) ?? throw new InvalidOperationException();
             r.Query = new(f.Query) { Rows = [f.ReadRow], Vectors = f.Payloads, Model = r.Model };
-            var auth = Substitute.For<ICurrentSessionAuthorization>();
+            var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsFalse(f.Transactions.HasTransaction); r.PermissionCalls++; r.BeforeAuthorization?.Invoke(); var permission = call.ArgAt<string>(0);
                 r.BeforePermission?.Invoke(permission); return r.Denied || r.DeniedPermission == permission ? null : new AuthorizedSessionActor(r.Actor, f.Tenant.Id, Guid.CreateVersion7()); });

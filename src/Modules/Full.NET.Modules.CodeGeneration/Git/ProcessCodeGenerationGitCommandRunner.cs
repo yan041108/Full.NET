@@ -22,6 +22,11 @@ internal sealed class ProcessCodeGenerationGitCommandRunner : ICodeGenerationGit
         ArgumentException.ThrowIfNullOrWhiteSpace(workingDirectory);
         ArgumentNullException.ThrowIfNull(arguments);
         cancellationToken.ThrowIfCancellationRequested();
+        // Git 可能等待凭据、网络或钩子；即使调用方处于不可取消的提交区间也必须释放工作区锁。
+        var callerToken = cancellationToken;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromMinutes(2));
+        cancellationToken = deadline.Token;
 
         var startInfo = new ProcessStartInfo
         {
@@ -34,6 +39,7 @@ internal sealed class ProcessCodeGenerationGitCommandRunner : ICodeGenerationGit
             StandardOutputEncoding = Utf8,
             StandardErrorEncoding = Utf8,
         };
+        startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
         if (configuration is not null)
         {
             foreach (var entry in configuration)
@@ -70,10 +76,21 @@ internal sealed class ProcessCodeGenerationGitCommandRunner : ICodeGenerationGit
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        return new GitCommandResult(
-            process.ExitCode,
-            await stdoutTask.ConfigureAwait(false),
-            await stderrTask.ConfigureAwait(false));
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            return new GitCommandResult(process.ExitCode,
+                await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false));
+        }
+        catch (OperationCanceledException)
+        {
+            // 退出和管道收尾先于工作区门释放，禁止超时后仍遗留修改同一工作区的 Git 子进程。
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            try { await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            callerToken.ThrowIfCancellationRequested();
+            return new GitCommandResult(-1, string.Empty, "Git command exceeded its execution deadline.");
+        }
     }
 }

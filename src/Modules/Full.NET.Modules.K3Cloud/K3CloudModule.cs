@@ -40,6 +40,8 @@ public sealed class K3CloudModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<K3CloudPasswordProtector>();
+        services.AddHttpClient(K3CloudWebApiClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
         services.TryAddSingleton<K3CloudWebApiClient>();
         services.TryAddSingleton<IK3CloudWebApiClient>(static provider =>
             provider.GetRequiredService<K3CloudWebApiClient>());

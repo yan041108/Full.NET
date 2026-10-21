@@ -119,7 +119,10 @@ public sealed class AuditingAccessLogWritePathTests
 
             await executor.Written.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.AreEqual(1, executor.CallCount);
-            Assert.AreEqual(22, executor.Parameters?.Count);
+            Assert.IsNotNull(executor.Parameters);
+            Assert.AreEqual(24, executor.Parameters.Count);
+            Assert.IsTrue(executor.Parameters.ContainsKey("a0_CorrelationJson"));
+            Assert.IsTrue(executor.Parameters.ContainsKey("a1_CorrelationJson"));
         }
         finally
         {

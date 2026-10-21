@@ -93,3 +93,23 @@ public sealed record GoViewProjectPreviewResponse(
     int VersionNumber,
     string CanvasJson,
     DateTimeOffset GeneratedAtUtc);
+
+/// <summary>目录摘要，不包含画布正文；正文通过详情端点读取。</summary>
+public sealed record GoViewProjectSummaryResponse(
+    Guid Id,
+    string ProjectKey,
+    string Name,
+    int LatestPublishedVersionNumber,
+    bool IsEnabled,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    int Version);
+
+/// <summary>目录摘要，不包含画布正文；正文通过详情端点读取。</summary>
+public sealed record GoViewProjectVersionSummaryResponse(
+    Guid Id,
+    Guid ProjectId,
+    int VersionNumber,
+    string? ChangeNote,
+    Guid PublishedByUserId,
+    DateTimeOffset PublishedAtUtc);

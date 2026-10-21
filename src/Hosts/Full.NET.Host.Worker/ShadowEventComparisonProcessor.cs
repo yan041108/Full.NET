@@ -112,6 +112,11 @@ internal sealed class ShadowEventComparisonProcessor : BackgroundService
             var duplicate = seenEventIds.Contains(observed.EventId);
             if (!duplicate)
             {
+                if (seenEventIds.Count >= _shadowOptions.MaximumObservedEvents)
+                {
+                    // 不丢弃旧去重证据；拒绝把超预算后的观察报告为完整一致。
+                    throw new InvalidOperationException("Shadow comparison observation is incomplete: distinct event budget exceeded.");
+                }
                 seenEventIds.Add(observed.EventId);
             }
 

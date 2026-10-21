@@ -1,3 +1,4 @@
+export type { PagedResult } from './paged-result.js';
 export {
   areEquivalentPreV1ErrorCodes,
   normalizePreV1ErrorCode
@@ -1713,3 +1714,10 @@ export { isAiAgentReconciliationResponse } from './ai-agent-reconciliation.js';
 export type { AiAgentReconciliationResponse, ReconcileAiAgentRunRequest } from './ai-agent-reconciliation.js';
 
 export * from './log-timeline.js';
+
+export { isGoViewProjectSummary } from './goview-projects.js';
+export type { GoViewProjectSummary, GoViewProjectVersionSummary } from './goview-projects.js';
+export { isPrintingTemplateSummary } from './printing-templates.js';
+export type { PrintingTemplateSummary, PrintingTemplateVersionSummary } from './printing-templates.js';
+export { isReportingDefinitionSummary, isReportingDefinitionVersionSummary } from './reporting-definitions.js';
+export type { ReportingDefinitionSummary, ReportingDefinitionVersionSummary } from './reporting-definitions.js';

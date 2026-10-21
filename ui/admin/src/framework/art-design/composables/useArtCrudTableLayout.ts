@@ -179,3 +179,24 @@ export function useArtClientPagination<T>(filteredItems: Ref<T[]>, initialPageSi
     resetPage
   };
 }
+
+/** 服务端列表只保留当前页，页码变化与筛选重置均发起一次受控刷新。 */
+export function useArtServerPagination<T>(items: Readonly<Ref<readonly T[]>>, reload: () => Promise<void>) {
+  const page = ref(1);
+  const pageSize = ref(20);
+  const total = ref(0);
+  const pagedItems = computed(() => [...items.value]);
+  watch([page, pageSize], ([, size], [, previousSize]) => {
+    if (size !== previousSize && page.value !== 1) { page.value = 1; return; }
+    void reload();
+  });
+  watch(total, count => {
+    const last = Math.max(1, Math.ceil(count / pageSize.value));
+    if (page.value > last) page.value = last;
+  });
+  function resetPage(): void {
+    if (page.value === 1) void reload();
+    else page.value = 1;
+  }
+  return { page, pageSize, total, pagedItems, resetPage };
+}

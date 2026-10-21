@@ -11,51 +11,57 @@ internal static class WorkflowRecoverySql
         NextAttemptAtUtc, LastError, CreatedAtUtc, UpdatedAtUtc
         """;
 
-    public static readonly SqlStatement ScanExpiredLeases = new(
-        "workflow.recovery.scan_expired_leases",
-        """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
-               instance.Id AS InstanceId, NULLIF(instance.Id, instance.Id) AS StepId
-        FROM fn_workflow_instance AS instance
-        WHERE instance.StatusKey = 'active'
-          AND instance.LeaseExpiresAtUtc IS NOT NULL
-          AND instance.LeaseExpiresAtUtc <= @Now
-        """,
+    public static readonly SqlStatement ScanExpiredLeasesSqlServer = new(
+        "workflow.recovery.scan_expired_leases.sql_server",
+        CreateScanText(false, false,
+            "instance.LeaseExpiresAtUtc IS NOT NULL AND instance.LeaseExpiresAtUtc <= @Now"),
+        SqlDataScope.Global);
+    public static readonly SqlStatement ScanExpiredLeasesMySql = new(
+        "workflow.recovery.scan_expired_leases.mysql",
+        CreateScanText(true, false,
+            "instance.LeaseExpiresAtUtc IS NOT NULL AND instance.LeaseExpiresAtUtc <= @Now"),
+        SqlDataScope.Global);
+    public static readonly SqlStatement ScanStuckInstancesSqlServer = new(
+        "workflow.recovery.scan_stuck_instances.sql_server",
+        CreateScanText(false, false,
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+        SqlDataScope.Global);
+    public static readonly SqlStatement ScanStuckInstancesMySql = new(
+        "workflow.recovery.scan_stuck_instances.mysql",
+        CreateScanText(true, false,
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+        SqlDataScope.Global);
+    public static readonly SqlStatement ScanIncompleteStepsSqlServer = new(
+        "workflow.recovery.scan_incomplete_steps.sql_server",
+        CreateScanText(false, true,
+            "step.StatusKey='active' AND step.NodeTypeKey='human.approval' AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
+        SqlDataScope.Global);
+    public static readonly SqlStatement ScanIncompleteStepsMySql = new(
+        "workflow.recovery.scan_incomplete_steps.mysql",
+        CreateScanText(true, true,
+            "step.StatusKey='active' AND step.NodeTypeKey='human.approval' AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
 
-    public static readonly SqlStatement ScanStuckInstances = new(
-        "workflow.recovery.scan_stuck_instances",
-        """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
-               instance.Id AS InstanceId, NULLIF(instance.Id, instance.Id) AS StepId
-        FROM fn_workflow_instance AS instance
-        WHERE instance.StatusKey = 'active'
-          AND (instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now)
-          AND NOT EXISTS (
-              SELECT 1
-              FROM fn_workflow_todo AS todo
-              WHERE todo.InstanceId = instance.Id
-                AND todo.StatusKey = 'active')
-        """,
-        SqlDataScope.Global);
+    // 扫描仅返回本模块尚未占用的有界候选；插入端仍须去重以覆盖多 Worker 的竞争窗口。
+    private static string CreateScanText(bool mysql, bool steps, string predicate) =>
+        "SELECT " + (mysql ? "" : "TOP (@BatchSize) ")
+        + "instance.TenantId, instance.ScopeKey, instance.TenantScopeKey, instance.Id AS InstanceId, "
+        + (steps ? "step.Id" : "NULLIF(instance.Id, instance.Id)") + " AS StepId "
+        + "FROM fn_workflow_instance AS instance "
+        + (steps ? "INNER JOIN fn_workflow_step AS step ON step.InstanceId=instance.Id " : "")
+        + "WHERE instance.StatusKey='active' AND " + predicate
+        + " AND NOT EXISTS (SELECT 1 FROM fn_workflow_recovery_task AS existing "
+        + "WHERE existing.OpenOccupancyKey=" + OccupancyKey(mysql, steps)
+        + " AND existing.StatusKey IN ('pending','failed','dead_lettered')) "
+        + "ORDER BY instance.Id" + (steps ? ",step.Id" : "") + (mysql ? " LIMIT @BatchSize" : "");
 
-    public static readonly SqlStatement ScanIncompleteSteps = new(
-        "workflow.recovery.scan_incomplete_steps",
-        """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
-               instance.Id AS InstanceId, step.Id AS StepId
-        FROM fn_workflow_step AS step
-        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
-        WHERE instance.StatusKey = 'active'
-          AND step.StatusKey = 'active'
-          AND step.NodeTypeKey = 'human.approval'
-          AND NOT EXISTS (
-              SELECT 1
-              FROM fn_workflow_todo AS todo
-              WHERE todo.StepId = step.Id
-                AND todo.StatusKey = 'active')
-        """,
-        SqlDataScope.Global);
+    // 与双库迁移中的生成列表达式一致，利用现有唯一索引查占用，避免逐候选扫描恢复任务表。
+    private static string OccupancyKey(bool mysql, bool steps) => mysql
+        ? "CONCAT(instance.TenantScopeKey,'|',HEX(instance.Id),'|',@KindKey,'|'," + (steps ? "HEX(step.Id)" : "'NONE'") + ")"
+        : "CONCAT(instance.TenantScopeKey,N'|',CONVERT(nvarchar(36),instance.Id) COLLATE Latin1_General_100_BIN2,N'|',"
+          + "CONVERT(nvarchar(32),@KindKey) COLLATE Latin1_General_100_BIN2,N'|',CONVERT(nvarchar(36),"
+          + (steps ? "step.Id" : "CONVERT(uniqueidentifier,'00000000-0000-0000-0000-000000000000')")
+          + ") COLLATE Latin1_General_100_BIN2)";
 
     public static readonly SqlStatement InsertOpenTask = new(
         "workflow.recovery.insert_open_task",

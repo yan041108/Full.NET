@@ -14,27 +14,32 @@ internal sealed class HostTenantPackageQueryService(
     public async Task<Result<PagedResult<TenantPackageSummary>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostTenantPackageListFilter? filter = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = offset, ["PageSize"] = pageSize,
+            ["Code"] = SqlSearchPattern.ContainsLiteral(filter?.Code),
+            ["Name"] = SqlSearchPattern.ContainsLiteral(filter?.Name),
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                TenantPackageSql.CountHostPackages,
-                cancellationToken: cancellationToken)
+                TenantPackageSql.CountHostPackagesFiltered,
+                parameters, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => TenantPackageSql.ListHostPackagesSqlServer,
-            DatabaseProvider.MySql => TenantPackageSql.ListHostPackagesMySql,
+            DatabaseProvider.SqlServer => TenantPackageSql.ListHostPackagesSqlServerFiltered,
+            DatabaseProvider.MySql => TenantPackageSql.ListHostPackagesMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<TenantPackageRecord>(
                 statement,
-                TenancySqlParameters.Create(
-                    ("Offset", offset),
-                    ("PageSize", pageSize)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -99,3 +104,6 @@ internal sealed record TenantPackageIdentityRecord(
     string? Description,
     bool IsActive,
     int Version);
+
+/// <summary>分页列表的显式筛选条件。</summary>
+internal sealed record HostTenantPackageListFilter(string? Code = null, string? Name = null, string? Status = null);

@@ -313,6 +313,11 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             cancellationToken.ThrowIfCancellationRequested(); Assert.AreEqual(expected, binding);
             return Task.FromResult<AuthorizedSessionActor?>(Denied ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
         }
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(SessionBindingSnapshot binding, IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); Assert.AreEqual(expected, binding);
+            return Task.FromResult<AuthorizedSessionActor?>(Denied ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
+        }
     }
     internal sealed class ControlledFiles(Guid expectedFile, Guid expectedVersion, byte[] bytes, string hash) : IHostFileReferenceReader, IHostFileContentReader, ITenantResourceFileStore
     {

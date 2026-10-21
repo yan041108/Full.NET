@@ -188,6 +188,12 @@ const appliedFilters = ref<AppliedFilters>({
 });
 const selectedUnitId = ref<string | null>(null);
 const selectedOrgTenantId = ref('');
+const orgUnitsPage = ref(1);
+const orgPositionsPage = ref(1);
+const orgUnitsTotal = ref(0);
+const orgPositionsTotal = ref(0);
+const positionSearch = ref('');
+let referenceSearchTimer: ReturnType<typeof setTimeout> | undefined;
 const orgFilter = ref('');
 const page = ref(1);
 const pageSize = ref(20);
@@ -562,21 +568,22 @@ const transferRoles = computed(() =>
     }))
 );
 
-const orgUnitTreeOptions = computed(() =>
-  mapOrganizationUnitTreeToSelectOptions(
-    buildOrganizationUnitTree(orgUnits.value.filter(unit => unit.isActive))
-  )
-);
-
-const positionOptions = computed(() =>
-  orgPositions.value
-    .filter(position => position.isActive)
-    .sort((left, right) => left.displayOrder - right.displayOrder)
-    .map(position => ({
-      value: position.id,
-      label: position.name
-    }))
-);
+const orgUnitTreeOptions = computed(() => {
+  const options = mapOrganizationUnitTreeToSelectOptions(buildOrganizationUnitTree(orgUnits.value.filter(unit => unit.isActive)));
+  const present = new Set(orgUnits.value.map(unit => unit.id));
+  for (const assignment of userUnits.value.filter(item => item.userId === editingUser.value?.id && item.isActive)) {
+    if (!present.has(assignment.unitId)) { options.push({ value: assignment.unitId, label: assignment.unitName }); present.add(assignment.unitId); }
+  }
+  return options;
+});
+const positionOptions = computed(() => {
+  const options = orgPositions.value.filter(position => position.isActive).sort((a,b) => a.displayOrder-b.displayOrder)
+    .map(position => ({ value: position.id, label: position.name }));
+  const present = new Set(options.map(item => item.value));
+  for (const assignment of userPositions.value.filter(item => item.userId === editingUser.value?.id && item.isActive))
+    if (!present.has(assignment.positionId)) { options.push({ value: assignment.positionId, label: assignment.positionName }); present.add(assignment.positionId); }
+  return options;
+});
 
 const orgTreeData = computed<OrgTreeNode[]>(() => {
   const keyword = orgFilter.value.trim().toLowerCase();
@@ -643,65 +650,16 @@ function mapOrgTreeNodes(nodes: OrganizationUnitTreeNode[]): OrgTreeNode[] {
   }));
 }
 
-const filteredUsers = computed(() => {
-  let rows = allUsers.value;
-  const filters = appliedFilters.value;
-
-  if (filters.username.trim()) {
-    const keyword = filters.username.trim().toLowerCase();
-    rows = rows.filter(user => user.username.toLowerCase().includes(keyword));
-  }
-
-  if (filters.displayName.trim()) {
-    const keyword = filters.displayName.trim().toLowerCase();
-    rows = rows.filter(user => user.displayName.toLowerCase().includes(keyword));
-  }
-
-  if (filters.phone.trim() && hasEffectiveField('phone_number')) {
-    const keyword = filters.phone.trim().toLowerCase();
-    rows = rows.filter(user => user.profile?.phoneNumber?.toLowerCase().includes(keyword));
-  }
-
-  if (filters.email.trim() && hasEffectiveField('email')) {
-    const keyword = filters.email.trim().toLowerCase();
-    rows = rows.filter(user => user.profile?.email?.toLowerCase().includes(keyword));
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(user => user.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(user => !user.isActive);
-  }
-
-  if (selectedUnitId.value) {
-    const userIds = new Set(
-      userUnits.value
-        .filter(item => item.isActive && item.unitId === selectedUnitId.value)
-        .map(item => item.userId)
-    );
-    rows = rows.filter(user => userIds.has(user.id));
-  }
-
-  return rows;
+const pagedUsers = computed(() => allUsers.value);
+watch([page, pageSize, appliedFilters, selectedUnitId], () => { void load(); });
+watch(orgFilter, () => {
+  clearTimeout(referenceSearchTimer);
+  referenceSearchTimer = setTimeout(() => { orgUnitsPage.value = 1; void reloadOrganizationReference(); }, 250);
 });
-
-const pagedUsers = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return filteredUsers.value.slice(start, start + pageSize.value);
-});
-
-watch(filteredUsers, rows => {
-  total.value = rows.length;
-  const maxPage = Math.max(1, Math.ceil(rows.length / pageSize.value) || 1);
-  if (page.value > maxPage) {
-    page.value = maxPage;
-  }
-});
+onUnmounted(() => clearTimeout(referenceSearchTimer));
 
 onMounted(() => {
-  if (!selectedOrgTenantId.value) {
-    selectedOrgTenantId.value = resolveDefaultOrgTenantId();
-  }
+  // 初次租户选择由 load 同步设置并抑制监听，避免挂载时发送两份列表请求。
   void loadHostUserProfileDictOptions()
     .then(options => {
       profileDictOptions.value = options;
@@ -742,8 +700,10 @@ watch(selectedOrgTenantId, (tenantId, previousTenantId) => {
     return;
   }
 
-  void reloadOrganizationReference();
-});
+  selectedUnitId.value = null;
+  orgUnitsPage.value = 1; orgPositionsPage.value = 1;
+  void load();
+}, { flush: 'sync' });
 
 watch(editorPrimaryUnitId, primaryUnitId => {
   if (!primaryUnitId) {
@@ -970,7 +930,15 @@ function loadOrgFromUser(user: HostUser | null): void {
   editorPositionId.value = positions.find(item => item.isPrimary)?.positionId ?? '';
 }
 
+let loadGeneration = 0;
+let loadController: AbortController | undefined;
+let referenceGeneration = 0;
+let referenceController: AbortController | undefined;
+onUnmounted(() => { ++loadGeneration; ++referenceGeneration; loadController?.abort(); referenceController?.abort(); });
 async function load(): Promise<void> {
+  const generation = ++loadGeneration;
+  const directoryGeneration = ++referenceGeneration; referenceController?.abort(); ++roleLabelsRequestId;
+  loadController?.abort(); const controller = new AbortController(); loadController = controller;
   loading.value = true;
   problem.value = undefined;
   suppressOrgTenantReload = true;
@@ -979,25 +947,38 @@ async function load(): Promise<void> {
       selectedOrgTenantId.value = resolveDefaultOrgTenantId();
     }
 
-    const users = await fetchAllUsers();
-    const rolePage = await listHostRoles(1, 200).catch(() => ({
+    suppressOrgTenantReload = false;
+    const tenantId = selectedOrgTenantId.value;
+    const userPage = await listHostUsers(page.value, pageSize.value, controller.signal, {
+      ...appliedFilters.value,
+      organizationTenantId: selectedUnitId.value ? tenantId || undefined : undefined,
+      organizationUnitId: selectedUnitId.value ?? undefined
+    });
+    if (generation !== loadGeneration) return;
+    const users = userPage.items;
+    const rolePage = await listHostRoles(1, 100, controller.signal).catch(() => ({
       items: [] as HostRole[],
       page: 1,
       pageSize: 200,
       total: 0
     }));
 
+    if (generation !== loadGeneration) return;
     roles.value = rolePage.items;
 
     let orgLoadFailed = false;
-    if (selectedOrgTenantId.value && canManageOrganizations.value) {
+    if (tenantId && canManageOrganizations.value) {
       try {
-        const orgReference = await loadOrganizationReference(selectedOrgTenantId.value);
-        orgUnits.value = orgReference.orgUnits;
-        orgPositions.value = orgReference.orgPositions;
-        userUnits.value = orgReference.userUnits;
-        userPositions.value = orgReference.userPositions;
+        const orgReference = await loadOrganizationReference(tenantId, users.map(user => user.id), controller.signal);
+        if (generation !== loadGeneration) return;
+        if (directoryGeneration === referenceGeneration) {
+          orgUnitsTotal.value = orgReference.unitsTotal; orgPositionsTotal.value = orgReference.positionsTotal;
+          orgUnits.value = orgReference.orgUnits; orgPositions.value = orgReference.orgPositions;
+          userUnits.value = orgReference.userUnits; userPositions.value = orgReference.userPositions;
+        }
       } catch {
+        if (generation !== loadGeneration) return;
+        if (directoryGeneration !== referenceGeneration) return;
         orgLoadFailed = true;
         orgUnits.value = [];
         orgPositions.value = [];
@@ -1016,18 +997,24 @@ async function load(): Promise<void> {
     if (orgLoadFailed) {
       ElMessage.warning(t('users.orgReferenceLoadFailed'));
     }
-    total.value = filteredUsers.value.length;
+    total.value = userPage.total;
     await hydrateRoleLabels(pagedUsers.value);
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (generation !== loadGeneration) return;
     problem.value = toProblem(error, 'users.loadFailed');
   } finally {
+    if (generation === loadGeneration) {
     suppressOrgTenantReload = false;
     loading.value = false;
+    }
   }
 }
 
 async function reloadOrganizationReference(): Promise<void> {
+  const generation = ++referenceGeneration;
+  referenceController?.abort(); const controller = new AbortController(); referenceController = controller;
+  const tenantId = selectedOrgTenantId.value;
   if (!selectedOrgTenantId.value || !canManageOrganizations.value) {
     orgUnits.value = [];
     orgPositions.value = [];
@@ -1038,44 +1025,52 @@ async function reloadOrganizationReference(): Promise<void> {
   }
 
   try {
-    const orgReference = await loadOrganizationReference(selectedOrgTenantId.value);
+    const orgReference = await loadOrganizationReference(tenantId, undefined, controller.signal);
+    if (generation !== referenceGeneration || tenantId !== selectedOrgTenantId.value) return;
+    orgUnitsTotal.value = orgReference.unitsTotal; orgPositionsTotal.value = orgReference.positionsTotal;
     orgUnits.value = orgReference.orgUnits;
     orgPositions.value = orgReference.orgPositions;
     userUnits.value = orgReference.userUnits;
     userPositions.value = orgReference.userPositions;
     allUsers.value = enrichUsers(allUsers.value);
   } catch (error: unknown) {
+    if (generation !== referenceGeneration) return;
     problem.value = toProblem(error, 'users.loadFailed');
   }
 }
 
-async function loadOrganizationReference(tenantId: string): Promise<{
+async function changeUnitsPage(value: number): Promise<void> {
+  orgUnitsPage.value = value; await reloadOrganizationReference();
+}
+async function changePositionsPage(value: number): Promise<void> {
+  orgPositionsPage.value = value; await reloadOrganizationReference();
+}
+let positionSearchTimer: ReturnType<typeof setTimeout> | undefined;
+onUnmounted(() => clearTimeout(positionSearchTimer));
+function searchPositions(value: string): void {
+  positionSearch.value = value;
+  clearTimeout(positionSearchTimer);
+  positionSearchTimer = setTimeout(() => { orgPositionsPage.value = 1; void reloadOrganizationReference(); }, 250);
+}
+
+async function loadOrganizationReference(tenantId: string, userIds = allUsers.value.map(user => user.id), signal?: AbortSignal): Promise<{
+  unitsTotal: number; positionsTotal: number;
   orgUnits: OrganizationUnit[];
   orgPositions: OrganizationPosition[];
   userUnits: OrganizationUserUnit[];
   userPositions: OrganizationUserPosition[];
 }> {
-  const reference = await getHostUserOrganizationReference(tenantId);
+  const reference = await getHostUserOrganizationReference(tenantId, signal, {
+    userIds, unitsPage: orgUnitsPage.value, positionsPage: orgPositionsPage.value,
+    unitSearch: orgFilter.value, positionSearch: positionSearch.value
+  });
   return {
+    unitsTotal: reference.unitsTotal, positionsTotal: reference.positionsTotal,
     orgUnits: reference.units,
     orgPositions: reference.positions,
     userUnits: reference.userUnits,
     userPositions: reference.userPositions
   };
-}
-
-async function fetchAllUsers(): Promise<HostUser[]> {
-  const pageSizeLimit = 100;
-  const firstPage = await listHostUsers(1, pageSizeLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageSizeLimit);
-
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostUsers(current, pageSizeLimit);
-    items.push(...nextPage.items);
-  }
-
-  return items;
 }
 
 function enrichUsers(source: HostUser[]): UserRow[] {
@@ -1252,17 +1247,34 @@ async function submitEditor(): Promise<void> {
   await updateUser();
 }
 
+async function refreshUserAssignments(userId: string): Promise<void> {
+  const tenantId = selectedOrgTenantId.value;
+  if (!tenantId) return;
+  const reference = await getHostUserOrganizationReference(tenantId, undefined, { userIds: [userId],
+    unitsPage: orgUnitsPage.value, positionsPage: orgPositionsPage.value,
+    unitSearch: orgFilter.value, positionSearch: positionSearch.value });
+  if (tenantId !== selectedOrgTenantId.value) throw new Error('client.organization_context_changed');
+  const retained = new Set([...allUsers.value.map(user => user.id), userId]);
+  userUnits.value = [...userUnits.value.filter(item => retained.has(item.userId) && item.userId !== userId),
+    ...reference.userUnits.filter(item => item.userId === userId)];
+  userPositions.value = [...userPositions.value.filter(item => retained.has(item.userId) && item.userId !== userId),
+    ...reference.userPositions.filter(item => item.userId === userId)];
+}
+
 async function syncOrgAssignments(userId: string): Promise<void> {
   if (!selectedOrgTenantId.value) {
     return;
   }
 
-  await syncUserUnitAssignments(userId);
-  await syncUserPositionAssignments(userId);
-  await reloadOrganizationReference();
+  await refreshUserAssignments(userId);
+  const tenantId = selectedOrgTenantId.value;
+  await syncUserUnitAssignments(userId, tenantId);
+  await syncUserPositionAssignments(userId, tenantId);
+  await refreshUserAssignments(userId);
 }
 
-async function syncUserUnitAssignments(userId: string): Promise<void> {
+async function syncUserUnitAssignments(userId: string, expectedTenantId = selectedOrgTenantId.value): Promise<void> {
+  if (expectedTenantId !== selectedOrgTenantId.value) throw new Error('client.organization_context_changed');
   if (!selectedOrgTenantId.value || !canMutateHostOrgUnits.value) {
     return;
   }
@@ -1338,7 +1350,8 @@ async function syncUserUnitAssignments(userId: string): Promise<void> {
   }
 }
 
-async function syncUserPositionAssignments(userId: string): Promise<void> {
+async function syncUserPositionAssignments(userId: string, expectedTenantId = selectedOrgTenantId.value): Promise<void> {
+  if (expectedTenantId !== selectedOrgTenantId.value) throw new Error('client.organization_context_changed');
   if (!selectedOrgTenantId.value || !canManageUserPositions.value) {
     return;
   }
@@ -1589,8 +1602,9 @@ async function saveOrgUnits(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
+    await refreshUserAssignments(user.id);
     await syncUserUnitAssignments(user.id);
-    await reloadOrganizationReference();
+    await refreshUserAssignments(user.id);
     editorOpen.value = false;
     ElMessage.success(t('users.orgUnitsSuccess'));
     await load();
@@ -1610,8 +1624,9 @@ async function saveOrgPositions(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
+    await refreshUserAssignments(user.id);
     await syncUserPositionAssignments(user.id);
-    await reloadOrganizationReference();
+    await refreshUserAssignments(user.id);
     editorOpen.value = false;
     ElMessage.success(t('users.positionsSuccess'));
     await load();
@@ -2122,6 +2137,9 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
             :expand-on-click-node="false"
             @node-click="handleOrgSelect"
           />
+          <ElPagination :current-page="orgUnitsPage" :total="orgUnitsTotal" :page-size="100"
+            layout="prev, pager, next, total" @current-change="changeUnitsPage" />
+
           <p v-if="!selectedOrgTenantId" class="users-org-panel__empty">
             {{ t('users.orgTreeEmptyNoTenant') }}
           </p>
@@ -2431,6 +2449,10 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :selected-role-ids="selectedRoleIds"
       :org-unit-tree-options="orgUnitTreeOptions"
       :position-options="positionOptions"
+      :units-page="orgUnitsPage" :units-total="orgUnitsTotal"
+      :positions-page="orgPositionsPage" :positions-total="orgPositionsTotal"
+      @units-page-change="changeUnitsPage" @positions-page-change="changePositionsPage"
+      @positions-search="searchPositions" @units-search="orgFilter = $event"
       :primary-unit-id="editorPrimaryUnitId"
       :subsidiary-unit-ids="editorSubsidiaryUnitIds"
       :position-id="editorPositionId"

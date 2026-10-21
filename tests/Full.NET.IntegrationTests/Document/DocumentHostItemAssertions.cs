@@ -257,11 +257,12 @@ internal static class DocumentHostItemAssertions
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, versionsResponse.StatusCode);
-            var versions = await versionsResponse.Content.ReadFromJsonAsync<HostDocumentVersionResponse[]>(
+            var versions = await versionsResponse.Content.ReadFromJsonAsync<PagedResult<HostDocumentVersionResponse>>(
                 cancellationToken);
             Assert.IsNotNull(versions);
-            Assert.AreEqual(1, versions.Length);
-            Assert.AreEqual(item.CurrentVersion!.Id, versions[0].Id);
+            Assert.AreEqual(1L, versions.Total);
+            Assert.HasCount(1, versions.Items);
+            Assert.AreEqual(item.CurrentVersion!.Id, versions.Items[0].Id);
         }
 
         using (var previewResponse = await client.SendAsync(
@@ -456,11 +457,12 @@ internal static class DocumentHostItemAssertions
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, versionsResponse.StatusCode);
-            var versions = await versionsResponse.Content.ReadFromJsonAsync<List<HostDocumentVersionResponse>>(
+            var versions = await versionsResponse.Content.ReadFromJsonAsync<PagedResult<HostDocumentVersionResponse>>(
                 cancellationToken);
             Assert.IsNotNull(versions);
-            Assert.AreEqual(1, versions.Count);
-            Assert.AreEqual(2, versions[0].VersionNumber);
+            Assert.AreEqual(1L, versions.Total);
+            Assert.HasCount(1, versions.Items);
+            Assert.AreEqual(2, versions.Items[0].VersionNumber);
         }
 
         using (var currentDeleteResponse = await client.SendAsync(

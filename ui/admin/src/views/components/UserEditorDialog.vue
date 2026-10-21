@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ElPagination,
   ElButton,
   ElDatePicker,
   ElDialog,
@@ -51,6 +52,10 @@ const props = defineProps<{
   selectedRoleIds: string[];
   orgUnitTreeOptions: OrganizationUnitTreeSelectOption[];
   positionOptions: Array<{ value: string; label: string }>;
+  unitsPage?: number;
+  unitsTotal?: number;
+  positionsPage?: number;
+  positionsTotal?: number;
   primaryUnitId: string;
   subsidiaryUnitIds: string[];
   positionId: string;
@@ -89,6 +94,10 @@ const emit = defineEmits<{
   'update:primaryUnitId': [value: string];
   'update:subsidiaryUnitIds': [value: string[]];
   'update:positionId': [value: string];
+  'units-page-change': [value: number];
+  'positions-page-change': [value: number];
+  'positions-search': [value: string];
+  'units-search': [value: string];
   submit: [];
   cancel: [];
   'reveal-profile-field': [fieldKey: 'phone_number' | 'id_card_number'];
@@ -743,6 +752,7 @@ defineExpose({
       >
         <div class="users-editor-dialog__form">
           <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
+            <ElInput :placeholder="translate('users.orgTreeFilterPlaceholder')" clearable @input="emit('units-search', $event)" />
             <el-form-item :label="translate('users.primaryOrg')">
               <el-tree-select
                 :model-value="primaryUnitId || undefined"
@@ -774,6 +784,8 @@ defineExpose({
                 @update:model-value="emit('update:subsidiaryUnitIds', $event ?? [])"
               />
             </el-form-item>
+            <ElPagination :current-page="unitsPage ?? 1" :total="unitsTotal ?? 0" :page-size="100"
+              layout="prev, pager, next" @current-change="emit('units-page-change', $event)" />
           </div>
         </div>
       </el-tab-pane>
@@ -787,6 +799,7 @@ defineExpose({
           <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
             <el-form-item :label="translate('users.positionName')">
               <el-select
+                remote :remote-method="(value: string) => emit('positions-search', value)"
                 :model-value="positionId || undefined"
                 :disabled="!canManageUserPositions"
                 clearable
@@ -802,6 +815,9 @@ defineExpose({
                   :value="option.value"
                 />
               </el-select>
+              <ElPagination :current-page="positionsPage ?? 1" :total="positionsTotal ?? 0" :page-size="100"
+                layout="prev, pager, next" @current-change="emit('positions-page-change', $event)" />
+
             </el-form-item>
           </div>
         </div>

@@ -25,7 +25,7 @@ export interface HostFolderTreeNode {
   name: string;
   displayOrder: number;
   revision: number;
-  children: HostFolderTreeNode[];
+  hasChildren: boolean;
 }
 
 export interface HostFolder {

@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -14,7 +15,8 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IHostFileContentReader hostFileContentReader,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<PagedResult<HostDocumentPreviewTaskResponse>>> ListAsync(
         int page,
@@ -37,6 +39,7 @@ internal sealed class HostDocumentPreviewTaskQueryService(
                 statement,
                 DocumentSqlParameters.Create(
                     ("DocumentItemId", documentItemId),
+                    ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize)),
                 async (reader, _) =>
@@ -57,6 +60,17 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
+        var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
+            DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+        if (task is not null && await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+            return Result<HostDocumentPreviewTaskResponse>.Failure(error);
+        return await GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<Result<HostDocumentPreviewTaskResponse>> GetAuthorizedAsync(
+        Guid taskId,
+        CancellationToken cancellationToken = default)
+    {
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
                 DocumentPreviewTaskSql.FindById,
@@ -69,6 +83,17 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     }
 
     public async Task<Result<HostFileContent>> OpenOutputContentAsync(
+        Guid taskId,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
+            DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+        if (task is not null && await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+            return Result<HostFileContent>.Failure(error);
+        return await OpenOutputContentAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<Result<HostFileContent>> OpenOutputContentAuthorizedAsync(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {

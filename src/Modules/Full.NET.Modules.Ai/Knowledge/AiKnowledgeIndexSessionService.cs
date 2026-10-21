@@ -78,10 +78,9 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         if (row.Generation > 0)
         {
             // 代次来自持久化任务；新增重建权限撤销后，所有文件、模型与续租阶段都必须停止。
-            foreach (var permission in new[] { AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild })
             {
                 token.ThrowIfCancellationRequested(); NoTransaction(); if (!Valid(binding, session)) return null;
-                var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+                var actor = await authorization.AuthorizeAllAsync(session, new[] { AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild }, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested(); NoTransaction();
                 if (!Valid(binding, session) || actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
             }
@@ -123,10 +122,9 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
 
     private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
     {
-        foreach (var permission in Permissions)
         {
             token.ThrowIfCancellationRequested(); NoTransaction(); if (!Valid(binding, session)) return false;
-            var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+            var actor = await authorization.AuthorizeAllAsync(session, Permissions, token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return false;
         }
         token.ThrowIfCancellationRequested(); NoTransaction(); return Valid(binding, session);

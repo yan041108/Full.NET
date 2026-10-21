@@ -180,6 +180,8 @@ internal static class OrganizationDataScopeFilteringAssertions
             createdUser.Id,
             visibleUnit.Id,
             cancellationToken);
+        var currentRole = await IntegrationTestAuthHelper.ReadCurrentHostRoleAsync(client, hostAdminToken, createdRole.Id, cancellationToken);
+        Assert.IsTrue(currentRole.Version > customScope.Version, "用户赋权必须推进角色版本，后续范围更新使用当前快照。");
         using var updateSelfScopeRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
@@ -187,7 +189,7 @@ internal static class OrganizationDataScopeFilteringAssertions
             new UpdateHostRoleDataScopeRequest(
                 RoleDataScopeKinds.Self,
                 [],
-                customScope.Version));
+                currentRole.Version));
         using var updateSelfScopeResponse = await client.SendAsync(
             updateSelfScopeRequest,
             cancellationToken);

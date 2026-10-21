@@ -150,7 +150,7 @@ internal sealed class TenantUnitManagementService(
             return ValidationFailure("Parent unit id is invalid.");
         }
 
-        if (parentId is Guid parsedParentId)
+        if (parentId != record.ParentId && parentId is Guid parsedParentId)
         {
             if (parsedParentId == unitId)
             {

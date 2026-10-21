@@ -6,15 +6,25 @@ import test from 'node:test';
 const frozenCommit = 'ec6eae92';
 const frozenDirectory = 'ui/admin-layui';
 
-test('Layui 存量目录必须保持 2026-08-02 冻结基线', () => {
+test('Layui 存量目录必须保持 2026-08-02 冻结基线及已授权安全补丁', async () => {
   const result = spawnSync(
     'git',
-    ['diff', '--exit-code', '--name-only', frozenCommit, '--', frozenDirectory],
+    ['diff', '--exit-code', '--name-only', frozenCommit, '--', frozenDirectory, `:(exclude)${frozenDirectory}/package.json`],
     {
       cwd: process.cwd(),
       encoding: 'utf8'
     }
   );
+
+  // 本次所有者授权清零依赖漏洞，只接纳精确 Vitest 补丁；其余清单仍逐字段冻结。
+  const frozenPackage = spawnSync('git', ['show', `${frozenCommit}:${frozenDirectory}/package.json`], {
+    cwd: process.cwd(), encoding: 'utf8'
+  });
+  assert.equal(frozenPackage.status, 0, frozenPackage.stderr.trim());
+  const expectedPackage = JSON.parse(frozenPackage.stdout);
+  expectedPackage.devDependencies.vitest = '4.1.11';
+  const actualPackage = JSON.parse(await readFile(`${frozenDirectory}/package.json`, 'utf8'));
+  assert.deepEqual(actualPackage, expectedPackage, '仅授权 Vitest 4.1.11 安全补丁，其他冻结依赖与配置不可变化。');
 
   assert.equal(
     result.status,

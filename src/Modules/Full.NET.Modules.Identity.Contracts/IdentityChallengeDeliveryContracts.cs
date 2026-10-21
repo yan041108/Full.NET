@@ -1,10 +1,9 @@
 using Full.NET.Abstractions.Results;
-using Full.NET.Modules.Identity.Contracts;
 
-namespace Full.NET.Modules.Notifications.Contracts;
+namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>Identity 账号挑战邮件投递意图；明文凭据仅存在于受控投递边界。</summary>
-/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Credential 为明文一次性口令，仅允许存在于投递边界，禁止写入日志或缓存。</remarks>
+/// <remarks>进程内意图不承担线格式契约。 Credential 为明文一次性口令，仅允许存在于投递边界，禁止写入日志或缓存。</remarks>
 /// <param name="ChallengeId">本次账号挑战的稳定标识，用于幂等与投递追踪。</param>
 /// <param name="Purpose">挑战用途机器码，决定邮件文案与链接目标。</param>
 /// <param name="NormalizedEmail">已规范化的目标邮箱地址；投递方不再二次校验格式。</param>

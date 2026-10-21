@@ -17,7 +17,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     {
         var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); f.ReadRow = ReadRow(f); f.Denied = true;
         var reader = Guid.CreateVersion7(); var denied = false; var reads = 0; var permissions = new List<string>();
-        var auth = Substitute.For<ICurrentSessionAuthorization>();
+        var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
         auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             Assert.IsFalse(f.Transactions.HasTransaction); var permission = call.ArgAt<string>(0); permissions.Add(permission);

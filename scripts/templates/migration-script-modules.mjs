@@ -38,7 +38,6 @@ const SHARED_STEMS = new Set([
 const STEM_MODULE_OVERRIDES = new Map([
   ['HostRoleDataScope', 'Identity'],
   ['IdentityHostUserProfileAuthority', 'Identity'],
-  ['DemoEnterpriseRequest', 'EnterpriseRequest'],
   ['CodeGenerationTemplate', 'Platform'],
   ['CodeGenerationRun', 'Platform'],
   ['CodeGenerationApply', 'Platform'],

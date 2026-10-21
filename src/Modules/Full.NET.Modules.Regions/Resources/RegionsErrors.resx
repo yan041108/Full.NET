@@ -13,4 +13,5 @@
   <data name="regions.administrative_region_parent_cycle" xml:space="preserve"><value>父子关系会形成环。</value></data>
   <data name="regions.administrative_region_import_invalid" xml:space="preserve"><value>导入请求无效。</value></data>
   <data name="regions.administrative_region_import_parent_unresolved" xml:space="preserve"><value>导入项的父级编码无法解析。</value></data>
+  <data name="regions.administrative_region_tree_too_large" xml:space="preserve"><value>区域树超过节点上限，请缩小根节点或查询深度。</value></data>
 </root>

@@ -130,7 +130,7 @@ internal static class EnterpriseRequestAssertions
 
         using var createContent = new MultipartFormDataContent
         {
-            { new StringContent(StaticImportSchemaKeys.DemoEnterpriseRequests), "schemaKey" },
+            { new StringContent(EnterpriseRequestImportSchemaKeys.EnterpriseRequests), "schemaKey" },
             { new StringContent("requests"), "worksheetKey" },
         };
         var fileContent = new ByteArrayContent(csvBytes);
@@ -148,7 +148,7 @@ internal static class EnterpriseRequestAssertions
         var created = await createResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(cancellationToken);
         Assert.IsNotNull(created);
         Assert.AreEqual(ImportExportTaskStatusKeys.PreviewSucceeded, created!.StatusKey);
-        Assert.AreEqual(StaticImportSchemaKeys.DemoEnterpriseRequests, created.SchemaKey);
+        Assert.AreEqual(EnterpriseRequestImportSchemaKeys.EnterpriseRequests, created.SchemaKey);
 
         using var executeRequest = new HttpRequestMessage(HttpMethod.Post, $"{ImportTasksPath}/{created.Id:D}/execute");
         executeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

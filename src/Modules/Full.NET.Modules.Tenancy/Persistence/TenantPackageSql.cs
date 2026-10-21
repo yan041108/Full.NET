@@ -151,5 +151,16 @@ internal static class TenantPackageSql
         FROM fn_tenancy_tenant
         WHERE TenantPackageId = @PackageId
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.HostOnly);    public static readonly SqlStatement CountHostPackagesFiltered = new(
+        "tenancy.counthostpackages.filtered",
+        CountHostPackages.Text + " WHERE (@Code IS NULL OR Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountHostPackages.Scope, CountHostPackages.TenantBinding);
+    public static readonly SqlStatement ListHostPackagesSqlServerFiltered = new(
+        "tenancy.listhostpackagessqlserver.filtered",
+        ListHostPackagesSqlServer.Text.Replace("ORDER BY", " WHERE (@Code IS NULL OR package.Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR package.Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND package.IsActive = 1) OR (@Status = 'inactive' AND package.IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostPackagesSqlServer.Scope, ListHostPackagesSqlServer.TenantBinding);
+    public static readonly SqlStatement ListHostPackagesMySqlFiltered = new(
+        "tenancy.listhostpackagesmysql.filtered",
+        ListHostPackagesMySql.Text.Replace("ORDER BY", " WHERE (@Code IS NULL OR package.Code LIKE @Code ESCAPE '!') AND (@Name IS NULL OR package.Name LIKE @Name ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND package.IsActive = 1) OR (@Status = 'inactive' AND package.IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListHostPackagesMySql.Scope, ListHostPackagesMySql.TenantBinding);
+
 }

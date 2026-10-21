@@ -13,6 +13,8 @@ internal sealed class DocumentOptionsValidator : IValidateOptions<DocumentOption
                 $"{DocumentOptions.SectionName}:AnonymousShareAccessRateLimitPermitLimitPerMinute must be at least 1.");
         }
 
+        if (options.AnonymousPreviewPollRateLimitPermitLimitPerMinute is < 1 or > 600)
+            return ValidateOptionsResult.Fail("Document:AnonymousPreviewPollRateLimitPermitLimitPerMinute must be between 1 and 600.");
         return ValidateOptionsResult.Success;
     }
 }

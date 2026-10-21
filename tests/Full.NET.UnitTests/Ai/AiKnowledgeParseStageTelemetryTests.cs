@@ -45,7 +45,8 @@ public sealed class AiKnowledgeParseStageTelemetryTests
     [DataRow("docx", false, "complete-hang")][DataRow("docx", true, "complete-hang")]
     public async Task Parse_stage_sandbox_cancel_stops_observation_after_child_cleanup(string format, bool deadline, string mode)
     {
-        using var f = new SandboxFixture(format, mode, deadline ? 1000 : 10000);
+        // 启动标记观察最多 8 秒；沙箱预算必须覆盖冷启动，才是在验证已运行子进程的取消清理。
+        using var f = new SandboxFixture(format, mode, 10000);
         using var stop = new CancellationTokenSource(); using var capture = new AgentTelemetryCapture();
         var cleanedAtStop = false;
         using var listener = new ActivityListener

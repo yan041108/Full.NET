@@ -22,9 +22,10 @@ import { http } from './http';
 export async function listHostTenants(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { identifier?: string; name?: string; domain?: string; status?: string } = {}
 ): Promise<HostTenantPage> {
-  const value = await tenancyListHostTenants(http, { page, pageSize }, signal);
+  const value = await tenancyListHostTenants(http, { page, pageSize, ...filters }, signal);
   // 生成守卫不校验 identifier 模式与非空域名；页面仍要求手写契约。
   if (!isHostTenantPage(value)) {
     throw new Error('client.invalid_host_tenant_page');

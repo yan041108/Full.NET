@@ -153,6 +153,17 @@ internal static class AiKnowledgeRetrievalAssertions
         internal Guid Actor = actor; internal bool Denied; internal int Calls; internal Func<int, Task>? BeforeAuthorization;
         // 同一请求的原交互会话保持稳定，不能每次授权伪造新登录。
         internal Guid SessionId = Guid.CreateVersion7();
+        // 保留逐权限故障注入时点；生产集合授权的真实往返另由双库性能夹具计数。
+        public async Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default)
+        {
+            AuthorizedSessionActor? result = null;
+            foreach (var permission in permissionCodes)
+            {
+                result = await AuthorizeAsync(permission, cancellationToken);
+                if (result is null) return null;
+            }
+            return result;
+        }
         public async Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default)
         { cancellationToken.ThrowIfCancellationRequested(); Assert.IsFalse(state.HasTransaction); Calls++; if (BeforeAuthorization is not null) await BeforeAuthorization(Calls); return Denied ? null : new(Actor, tenant, SessionId); }
     }
@@ -160,6 +171,10 @@ internal static class AiKnowledgeRetrievalAssertions
     {
         public Task<AuthorizedSessionActor?> AuthorizeAsync(SessionBindingSnapshot binding, string permissionCode, CancellationToken cancellationToken = default)
             => throw new AssertFailedException("读取证明不能依赖原写入会话在线。");
+
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(SessionBindingSnapshot binding,
+            IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default) =>
+            throw new AssertFailedException("Read proof cannot use the original writer session.");
     }
     private sealed class Relationships(IDataTransactionState state) : IActiveRoleDirectory, ICurrentTenantOrganizationUnitDirectory
     {

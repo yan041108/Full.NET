@@ -1,3 +1,4 @@
+using Full.NET.Hosting.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -81,9 +82,9 @@ internal sealed partial class WeChatNativePayClient(
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         var client = httpClientFactory.CreateClient(HttpClientName);
-        using var response = await client.SendAsync(request, cancellationToken)
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken)
+        var responseBody = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -198,6 +199,18 @@ internal sealed partial class WeChatNativePayClient(
             parsed.Status ?? PaymentRefundStateKeys.Processing);
     }
 
+    /// <summary>在本地事务外查询退款；完整保留渠道身份和金额供应用层绑定校验。</summary>
+    public async Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig,
+        string outRefundNo, CancellationToken cancellationToken = default)
+    {
+        var response = await SendSignedRequestAsync(merchantConfig, HttpMethod.Get,
+            DomesticRefundPath + "/" + Uri.EscapeDataString(outRefundNo), string.Empty, cancellationToken).ConfigureAwait(false);
+        if (response.IsFailure) return new(false, null, null, null, null, null, "Refund query failed.");
+        var parsed = JsonSerializer.Deserialize(response.Body!, ProviderJson.WeChatDomesticRefundResponse);
+        return new(parsed is not null, parsed?.RefundId, parsed?.OutRefundNo, parsed?.Status,
+            parsed?.Amount?.Refund, parsed?.Amount?.Currency, null);
+    }
+
     /// <summary>拉取并解密微信支付平台证书公钥 PEM。</summary>
     /// <param name="merchantConfig">商户配置。</param>
     /// <param name="platformSerialNo">平台证书序列号。</param>
@@ -281,9 +294,9 @@ internal sealed partial class WeChatNativePayClient(
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         var client = httpClientFactory.CreateClient(HttpClientName);
-        using var response = await client.SendAsync(request, cancellationToken)
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken)
+        var body = await BoundedHttpContent.ReadAsStringAsync(response.Content, 2 * 1024 * 1024, cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -354,7 +367,9 @@ internal sealed partial class WeChatNativePayClient(
 
     private sealed record WeChatDomesticRefundResponse(
         [property: JsonPropertyName("refund_id")] string? RefundId,
-        [property: JsonPropertyName("status")] string? Status);
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("out_refund_no")] string? OutRefundNo,
+        [property: JsonPropertyName("amount")] WeChatRefundAmount? Amount);
 
     private sealed record WeChatCertificatesResponse(
         [property: JsonPropertyName("data")] WeChatCertificateItem[]? Data);

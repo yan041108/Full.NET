@@ -1,3 +1,4 @@
+import { isRecord, isInteger, type PagedResult, type PrintingTemplateSummary, isPrintingTemplateSummary } from '@fullnet/client-contracts';
 import {
   isPrintingTemplate,
   isPrintingTemplatePreview,
@@ -15,18 +16,18 @@ import { http, request } from './http';
 
 export async function listPrintingTemplates(
   nameContains?: string,
-  signal?: AbortSignal
-): Promise<PrintingTemplate[]> {
-  const params = new URLSearchParams();
+  signal?: AbortSignal, page = 1, pageSize = 20
+): Promise<PagedResult<PrintingTemplateSummary>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (nameContains) {
     params.set('nameContains', nameContains);
   }
   const suffix = params.size > 0 ? `?${params.toString()}` : '';
   const value = await request<unknown>(`/api/v1/printing/templates${suffix}`, { method: 'GET' }, signal);
-  if (!Array.isArray(value) || !value.every(isPrintingTemplate)) {
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isPrintingTemplateSummary) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
     throw new Error('client.invalid_printing_template_list');
   }
-  return value;
+  return value as unknown as PagedResult<PrintingTemplateSummary>;
 }
 
 export async function createPrintingTemplate(

@@ -25,7 +25,7 @@ internal sealed class DocumentPreviewTaskRecord
 
     public string? ErrorCode { get; init; }
 
-    public Guid RequestedByUserId { get; init; }
+    public Guid? RequestedByUserId { get; init; }
 
     public DateTimeOffset CreatedAtUtc { get; init; }
 

@@ -3,6 +3,7 @@
 
 export interface AccessHostDocumentShareRequest {
   readonly password?: null | string;
+  readonly previewGrant?: null | string;
 }
 
 export interface AccessLogCursorPageResponse {
@@ -208,6 +209,7 @@ export interface AiChatSessionListItem {
 
 export interface AiChatSessionResponse {
   readonly createdAtUtc: string;
+  readonly hasOlderMessages?: boolean;
   readonly id: string;
   readonly isGenerating: boolean;
   readonly messages: Array<AiChatMessageResponse>;
@@ -1932,8 +1934,28 @@ export interface GoViewProjectResponse {
   readonly version: number;
 }
 
+export interface GoViewProjectSummaryResponse {
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly latestPublishedVersionNumber: number;
+  readonly name: string;
+  readonly projectKey: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface GoViewProjectVersionResponse {
   readonly canvasJson: string;
+  readonly changeNote: null | string;
+  readonly id: string;
+  readonly projectId: string;
+  readonly publishedAtUtc: string;
+  readonly publishedByUserId: string;
+  readonly versionNumber: number;
+}
+
+export interface GoViewProjectVersionSummaryResponse {
   readonly changeNote: null | string;
   readonly id: string;
   readonly projectId: string;
@@ -2111,8 +2133,10 @@ export interface HostDocumentPreviewTaskResponse {
   readonly errorCode: null | string;
   readonly id: string;
   readonly outputFileId: null | string;
+  readonly previewGrant?: null | string;
+  readonly previewPollUntilUtc?: null | string;
   readonly providerKey: string;
-  readonly requestedByUserId: string;
+  readonly requestedByUserId: null | string;
   readonly sourceFileId: string;
   readonly startedAtUtc: null | string;
   readonly statusKey: string;
@@ -2127,6 +2151,7 @@ export interface HostDocumentShareAccessResponse {
   readonly fileSizeBytes: number;
   readonly hasPassword: boolean;
   readonly mimeType: null | string;
+  readonly previewGrant?: null | string;
   readonly shareCode: string;
   readonly shareId: string;
   readonly title: string;
@@ -2256,8 +2281,8 @@ export interface HostFolderResponse {
 }
 
 export interface HostFolderTreeNode {
-  readonly children: Array<HostFolderTreeNode>;
   readonly displayOrder: number;
+  readonly hasChildren: boolean;
   readonly id: string;
   readonly name: string;
   readonly parentId: null | string;
@@ -2504,7 +2529,9 @@ export interface HostTenantMembersPageResponse {
 
 export interface HostUserManagementOrganizationReferenceResponse {
   readonly positions: Array<OrganizationPositionResponse>;
+  readonly positionsTotal?: number;
   readonly units: Array<OrganizationUnitResponse>;
+  readonly unitsTotal?: number;
   readonly userPositions: Array<OrganizationUserPositionResponse>;
   readonly userUnits: Array<OrganizationUserUnitResponse>;
 }
@@ -2818,6 +2845,19 @@ export interface LocalePreferenceResponse {
   readonly profileVersion: number;
 }
 
+export interface LogCorrelationSnapshot {
+  readonly applicationSessionId?: null | string;
+  readonly centerSessionId?: null | string;
+  readonly clientIpFingerprint?: null | string;
+  readonly parentSpanId?: null | string;
+  readonly requestId?: null | string;
+  readonly sessionId?: null | string;
+  readonly spanId?: null | string;
+  readonly tenantId?: null | string;
+  readonly traceId?: null | string;
+  readonly userId?: null | string;
+}
+
 export interface LogFileList {
   readonly isTruncated: boolean;
   readonly items: Array<LogFileSummary>;
@@ -2842,6 +2882,27 @@ export interface LogFileTail {
 export interface LoginRequest {
   readonly password: string;
   readonly username: string;
+}
+
+export interface LogTimelineCoverage {
+  readonly source: string;
+  readonly status: string;
+}
+
+export interface LogTimelineEntry {
+  readonly correlation: LogCorrelationSnapshot;
+  readonly id: string;
+  readonly occurredAtUtc: string;
+  readonly source: string;
+  readonly summary: string;
+}
+
+export interface LogTimelineResponse {
+  readonly entries: Array<LogTimelineEntry>;
+  readonly fromUtc: string;
+  readonly partial: boolean;
+  readonly sources: Array<LogTimelineCoverage>;
+  readonly toUtc: string;
 }
 
 export interface ModuleCatalogEntryResponse {
@@ -3353,6 +3414,20 @@ export interface PagedResultOfExceptionLogResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfGoViewProjectSummaryResponse {
+  readonly items: Array<GoViewProjectSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfGoViewProjectVersionSummaryResponse {
+  readonly items: Array<GoViewProjectVersionSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfHostAnnouncementReadReceiptResponse {
   readonly items: Array<HostAnnouncementReadReceiptResponse>;
   readonly page: number;
@@ -3397,6 +3472,13 @@ export interface PagedResultOfHostDocumentPreviewTaskResponse {
 
 export interface PagedResultOfHostDocumentShareResponse {
   readonly items: Array<HostDocumentShareResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfHostDocumentVersionResponse {
+  readonly items: Array<HostDocumentVersionResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -3619,6 +3701,20 @@ export interface PagedResultOfPersonalScheduleResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfPrintingTemplateSummaryResponse {
+  readonly items: Array<PrintingTemplateSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfPrintingTemplateVersionSummaryResponse {
+  readonly items: Array<PrintingTemplateVersionSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfReceivedHostAnnouncementListItemResponse {
   readonly items: Array<ReceivedHostAnnouncementListItemResponse>;
   readonly page: number;
@@ -3628,6 +3724,20 @@ export interface PagedResultOfReceivedHostAnnouncementListItemResponse {
 
 export interface PagedResultOfReportingDataSourceListItem {
   readonly items: Array<ReportingDataSourceListItem>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfReportingDefinitionSummaryResponse {
+  readonly items: Array<ReportingDefinitionSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfReportingDefinitionVersionSummaryResponse {
+  readonly items: Array<ReportingDefinitionVersionSummaryResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -3879,10 +3989,31 @@ export interface PrintingTemplateResponse {
   readonly version: number;
 }
 
+export interface PrintingTemplateSummaryResponse {
+  readonly createdAtUtc: string;
+  readonly formSchemaKey: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly latestPublishedVersionNumber: number;
+  readonly name: string;
+  readonly templateKey: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface PrintingTemplateVersionResponse {
   readonly changeNote: null | string;
   readonly id: string;
   readonly layoutHtml: string;
+  readonly publishedAtUtc: string;
+  readonly publishedByUserId: string;
+  readonly templateId: string;
+  readonly versionNumber: number;
+}
+
+export interface PrintingTemplateVersionSummaryResponse {
+  readonly changeNote: null | string;
+  readonly id: string;
   readonly publishedAtUtc: string;
   readonly publishedByUserId: string;
   readonly templateId: string;
@@ -4016,6 +4147,7 @@ export interface ReplaceHostRoleFieldGrantsRequest {
 }
 
 export interface ReplaceHostRoleMembersRequest {
+  readonly candidateUserIds?: null | Array<string>;
   readonly userIds: Array<string>;
   readonly version: number;
 }
@@ -4086,6 +4218,21 @@ export interface ReportingDefinitionResponse {
   readonly version: number;
 }
 
+export interface ReportingDefinitionSummaryResponse {
+  readonly createdAtUtc: string;
+  readonly dataSourceId: string;
+  readonly definitionKey: string;
+  readonly description: null | string;
+  readonly groupId: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly latestPublishedVersionNumber: number;
+  readonly name: string;
+  readonly queryPortKey: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface ReportingDefinitionVersionResponse {
   readonly changeNote: null | string;
   readonly dataSourceId: string;
@@ -4093,6 +4240,17 @@ export interface ReportingDefinitionVersionResponse {
   readonly id: string;
   readonly layoutConfigJson: string;
   readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly publishedAtUtc: string;
+  readonly publishedByUserId: string;
+  readonly queryPortKey: string;
+  readonly versionNumber: number;
+}
+
+export interface ReportingDefinitionVersionSummaryResponse {
+  readonly changeNote: null | string;
+  readonly dataSourceId: string;
+  readonly definitionId: string;
+  readonly id: string;
   readonly publishedAtUtc: string;
   readonly publishedByUserId: string;
   readonly queryPortKey: string;

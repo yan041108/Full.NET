@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Full.NET.Modules.Identity.Serialization;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -13,7 +16,8 @@ internal sealed class HostRoleDataScopeService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IOrganizationUnitProjectionDirectory organizationUnitProjection,
-    IClock clock)
+    IClock clock,
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
     public async Task<Result<HostRoleDataScopeResponse>> GetAsync(
         Guid roleId,
@@ -38,6 +42,13 @@ internal sealed class HostRoleDataScopeService(
         UpdateHostRoleDataScopeRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.UnitIds is { Count: > 100 })
+            return Result<HostRoleDataScopeResponse>.Failure(new Error(ValidationErrorCodes.Failed,
+                "At most 100 organization units are allowed.", ErrorType.Validation));
+        var role = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+            IdentitySql.FindHostRoleById, IdentitySqlParameters.Create(("RoleId", roleId)), cancellationToken).ConfigureAwait(false);
+        if (role is null) return NotFound();
+        if (role.IsSystem || role.IsSuperAdministrator) return SystemLocked();
         var validation = await ValidateUpdateRequestAsync(request, cancellationToken)
             .ConfigureAwait(false);
         if (validation is not null)
@@ -76,18 +87,9 @@ internal sealed class HostRoleDataScopeService(
                 return CustomUnitsRequired();
             }
 
-            foreach (var unitId in unitIds)
-            {
-                var unit = await organizationUnitProjection.FindActiveUnitAsync(
-                        request.TenantId.Value,
-                        unitId,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (unit is null)
-                {
-                    return UnitNotFound();
-                }
-            }
+            var units = await organizationUnitProjection.FindActiveUnitsAsync(
+                request.TenantId.Value, unitIds, cancellationToken).ConfigureAwait(false);
+            if (units.Count != unitIds.Length) return UnitNotFound();
         }
         else if (unitIds.Length > 0)
         {
@@ -142,14 +144,13 @@ internal sealed class HostRoleDataScopeService(
                 IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        foreach (var unitId in unitIds)
-        {
+        if (unitIds.Length > 0)
             await commandExecutor.ExecuteAsync(
-                    IdentitySql.InsertRoleDataScopeUnit,
-                    IdentitySqlParameters.Create(("RoleId", roleId), ("UnitId", unitId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+                databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                    ? IdentitySql.InsertRoleDataScopeUnitsMySql : IdentitySql.InsertRoleDataScopeUnitsSqlServer,
+                IdentitySqlParameters.Create(("RoleId", roleId),
+                    ("UnitIdsJson", JsonSerializer.Serialize(unitIds, IdentityJsonSerializerContext.Default.GuidArray))),
+                cancellationToken).ConfigureAwait(false);
 
         return await GetAsync(roleId, cancellationToken).ConfigureAwait(false);
     }

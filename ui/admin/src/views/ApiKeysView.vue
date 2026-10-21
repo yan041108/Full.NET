@@ -23,7 +23,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtClientPagination,
+  useArtServerPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -92,30 +92,9 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const filteredItems = computed(() => {
-  let rows = allItems.value;
-  const filters = appliedFilters.value;
 
-  if (filters.displayName.trim()) {
-    const keyword = filters.displayName.trim().toLowerCase();
-    rows = rows.filter(item => item.displayName.toLowerCase().includes(keyword));
-  }
 
-  if (filters.userId.trim()) {
-    const keyword = filters.userId.trim().toLowerCase();
-    rows = rows.filter(item => item.userId.toLowerCase().includes(keyword));
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(item => item.isActive);
-  } else if (filters.status === 'disabled') {
-    rows = rows.filter(item => !item.isActive);
-  }
-
-  return rows;
-});
-
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
+const { page, pageSize, total, pagedItems, resetPage } = useArtServerPagination(allItems, load);
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
@@ -234,28 +213,23 @@ function applyFieldErrors(): boolean {
   return !fieldErrors.userId && !fieldErrors.displayName;
 }
 
-async function fetchAllApiKeys(): Promise<HostApiKey[]> {
-  const pageLimit = 100;
-  const firstPage = await listHostApiKeys(1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostApiKeys(current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
 
+
+let listVersion = 0;
 async function load(): Promise<void> {
+  const version = ++listVersion;
   loading.value = true;
   problem.value = undefined;
   try {
-    allItems.value = await fetchAllApiKeys();
+    const result = await listHostApiKeys(page.value, pageSize.value, appliedFilters.value.userId, appliedFilters.value.displayName, undefined, appliedFilters.value.status ? appliedFilters.value.status === 'active' : undefined);
+    if (version !== listVersion) return;
+    allItems.value = result.items; total.value = result.total;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (version !== listVersion) return;
     problem.value = toProblem(error, 'apiKeys.loadFailed');
   } finally {
-    loading.value = false;
+    if (version === listVersion) loading.value = false;
   }
 }
 

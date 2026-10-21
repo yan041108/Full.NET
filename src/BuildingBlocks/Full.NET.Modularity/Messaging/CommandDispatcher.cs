@@ -45,7 +45,7 @@ public sealed class CommandDispatcher(
         return pipeline(cancellationToken);
     }
 
-    private Task<Result<TResult>> HandleCoreAsync<TCommand, TResult>(
+    private async Task<Result<TResult>> HandleCoreAsync<TCommand, TResult>(
         TCommand command,
         CancellationToken cancellationToken)
         where TCommand : ICommand<TResult>
@@ -54,13 +54,20 @@ public sealed class CommandDispatcher(
 
         if (command is ITransactionalCommand)
         {
-            return (transaction ?? throw new InvalidOperationException(
-                    "No command transaction is registered."))
-                .ExecuteAsync(
-                    ct => handler.HandleAsync(command, ct),
-                    cancellationToken);
+            var coordinator = transaction ?? throw new InvalidOperationException(
+                "No command transaction is registered.");
+            // 把明确允许提交的认证拒绝作为事务成功值携带，HTTP 仍收到原始失败结果。
+            var outcome = await coordinator.ExecuteResultAsync(async ct =>
+            {
+                var result = await handler.HandleAsync(command, ct).ConfigureAwait(false);
+                return result.IsSuccess ||
+                       command is ITransactionalRejectionPolicy policy && policy.ShouldCommitRejection(result.Error!)
+                    ? Result<Result<TResult>>.Success(result)
+                    : Result<Result<TResult>>.Failure(result.Error!);
+            }, cancellationToken).ConfigureAwait(false);
+            return outcome.IsSuccess ? outcome.Value! : Result<TResult>.Failure(outcome.Error!);
         }
 
-        return handler.HandleAsync(command, cancellationToken);
+        return await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
     }
 }

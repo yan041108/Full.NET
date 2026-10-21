@@ -109,6 +109,7 @@ public sealed class JobsModule : IFullNetModule
                 IValidateOptions<JobsWorkerOptions>,
                 JobsWorkerOptionsValidator>());
         services.AddHostedService<JobExecutionHostedProcessor>();
+        services.AddHostedService<JobsControlPlaneHostedProcessor>();
         services.TryAddSingleton<JobWorkerHeartbeatService>();
         services
             .AddOpenTelemetry()

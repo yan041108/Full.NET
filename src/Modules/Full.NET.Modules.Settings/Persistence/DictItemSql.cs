@@ -188,4 +188,15 @@ internal static class DictItemSql
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountByTypeIdFiltered = new(
+        "settings.countbytypeid.filtered",
+        CountByTypeId.Text + " AND (@Label IS NULL OR Label LIKE @Label ESCAPE '!') AND (@Value IS NULL OR Value LIKE @Value ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountByTypeId.Scope, CountByTypeId.TenantBinding);
+    public static readonly SqlStatement ListByTypeIdSqlServerFiltered = new(
+        "settings.listbytypeidsqlserver.filtered",
+        ListByTypeIdSqlServer.Text.Replace("ORDER BY", " AND (@Label IS NULL OR Label LIKE @Label ESCAPE '!') AND (@Value IS NULL OR Value LIKE @Value ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListByTypeIdSqlServer.Scope, ListByTypeIdSqlServer.TenantBinding);
+    public static readonly SqlStatement ListByTypeIdMySqlFiltered = new(
+        "settings.listbytypeidmysql.filtered",
+        ListByTypeIdMySql.Text.Replace("ORDER BY", " AND (@Label IS NULL OR Label LIKE @Label ESCAPE '!') AND (@Value IS NULL OR Value LIKE @Value ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0)) ORDER BY", StringComparison.Ordinal),
+        ListByTypeIdMySql.Scope, ListByTypeIdMySql.TenantBinding);
 }

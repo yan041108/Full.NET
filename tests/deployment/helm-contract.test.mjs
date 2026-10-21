@@ -497,3 +497,20 @@ test('production Local files require persistent storage and an exclusive single 
   const workerAccepted=render(['--set','roles.api=false','--set','roles.worker=true','--set','logging.localFile.existingClaimName=log-files','--set','worker.replicaCount=1','--set','worker.hpa.enabled=false']);
   assert.equal(workerAccepted.status,0,workerAccepted.stderr);assert.doesNotMatch(workerAccepted.stdout,/kind: HorizontalPodAutoscaler/);
 });
+
+
+test('API and Worker mount the configured Data Protection certificate and inject its password from Secret', () => {
+  for (const role of ['api', 'worker']) {
+    const args = ['template', 'fullnet-review', chartDir, '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'), '--set', 'dataProtection.certificateSecretName=review-dp',
+      '--set', 'dataProtection.certificateSecretKey=custom.pfx', '--set', 'dataProtection.certificatePasswordSecretKey=custom-password'];
+    const result = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map(p => /\s/.test(p) ? `"${p}"` : p).join(' '), {encoding:'utf8', shell:true, cwd:repositoryRoot})
+      : spawnSync('helm', args, {encoding:'utf8', cwd:repositoryRoot});
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /name: DataProtection__CertificatePath\s+value: \/var\/fullnet\/data-protection-certificate\/active.pfx/);
+    assert.match(result.stdout, /name: DataProtection__CertificatePassword\s+valueFrom:\s+secretKeyRef:\s+name: review-dp\s+key: custom-password/);
+    assert.match(result.stdout, /secretName: review-dp\s+items:\s+- key: custom.pfx\s+path: active.pfx/);
+    assert.match(result.stdout, /mountPath: \/var\/fullnet\/data-protection-certificate\s+readOnly: true/);
+  }
+});

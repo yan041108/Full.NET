@@ -14,11 +14,12 @@ import { http } from './http';
 export async function listHostTenantPackages(
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { code?: string; name?: string; status?: string } = {}
 ): Promise<HostTenantPackagePage> {
   const value = await tenancyListHostTenantPackages(
     http,
-    { page, pageSize },
+    { page, pageSize, ...filters },
     signal
   );
   // 生成守卫不校验 code 模式；页面仍要求手写契约。

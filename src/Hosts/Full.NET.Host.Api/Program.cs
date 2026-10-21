@@ -45,9 +45,10 @@ app.UseFullNetRequestLogging();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeExceptionHandler);
 app.UseExceptionHandler();
 app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
-app.UseRateLimiter();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthentication);
 app.UseAuthentication();
+// 限流分区依赖已验证身份；匿名请求仍按原来的来源地址分区。
+app.UseRateLimiter();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthorization);
 app.UseAuthorization();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeEndpoints);

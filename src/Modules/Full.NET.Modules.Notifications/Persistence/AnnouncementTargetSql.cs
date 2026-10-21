@@ -66,4 +66,28 @@ internal static class AnnouncementTargetSql
                 (@Id, @AnnouncementId, @TenantId, @OrganizationUnitId)
             """,
             SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertUsersSqlServer = new(
+        "notifications.insert_announcement_targets.users.sqlserver",
+        """
+        INSERT INTO fn_notifications_announcement_target_user (Id, AnnouncementId, UserId)
+        SELECT rowData.Id, @AnnouncementId, rowData.UserId FROM OPENJSON(@Rows) WITH (Id uniqueidentifier '$.id', UserId uniqueidentifier '$.userId') AS rowData
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertUsersMySql = new(
+        "notifications.insert_announcement_targets.users.mysql",
+        """
+        INSERT INTO fn_notifications_announcement_target_user (Id, AnnouncementId, UserId)
+        SELECT UNHEX(REPLACE(rowData.Id, '-', '')), @AnnouncementId, UNHEX(REPLACE(rowData.UserId, '-', '')) FROM JSON_TABLE(@Rows, '$[*]' COLUMNS (Id CHAR(36) PATH '$.id', UserId CHAR(36) PATH '$.userId')) AS rowData
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertOrganizationsSqlServer = new(
+        "notifications.insert_announcement_targets.organizations.sqlserver",
+        """
+        INSERT INTO fn_notifications_announcement_target_organization (Id, AnnouncementId, TenantId, OrganizationUnitId)
+        SELECT rowData.Id, @AnnouncementId, rowData.TenantId, rowData.OrganizationUnitId FROM OPENJSON(@Rows) WITH (Id uniqueidentifier '$.id', TenantId uniqueidentifier '$.tenantId', OrganizationUnitId uniqueidentifier '$.organizationUnitId') AS rowData
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement InsertOrganizationsMySql = new(
+        "notifications.insert_announcement_targets.organizations.mysql",
+        """
+        INSERT INTO fn_notifications_announcement_target_organization (Id, AnnouncementId, TenantId, OrganizationUnitId)
+        SELECT UNHEX(REPLACE(rowData.Id, '-', '')), @AnnouncementId, UNHEX(REPLACE(rowData.TenantId, '-', '')), UNHEX(REPLACE(rowData.OrganizationUnitId, '-', '')) FROM JSON_TABLE(@Rows, '$[*]' COLUMNS (Id CHAR(36) PATH '$.id', TenantId CHAR(36) PATH '$.tenantId', OrganizationUnitId CHAR(36) PATH '$.organizationUnitId')) AS rowData
+        """, SqlDataScope.HostOnly);
 }

@@ -215,15 +215,16 @@ public sealed class HostAnnouncementManagementServiceTests
 
     private static HostAnnouncementAudienceValidator CreateAudienceValidator()
     {
-        var hostUsers = Substitute.For<IHostUserDirectory>();
-        hostUsers.FindActiveHostUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new HostUserDirectoryEntry(Guid.CreateVersion7(), "demo", "Demo"));
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        hostUsers.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<IReadOnlyCollection<Guid>>()!.ToDictionary(id => id, id => new HostUserDirectoryEntry(id, "demo", "Demo")));
         var organizations = Substitute.For<ITenantOrganizationUnitDirectory>();
         organizations.FindActiveUnitAsync(
                 Arg.Any<Guid>(),
                 Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .Returns(new TenantOrganizationUnitDirectoryEntry(Guid.CreateVersion7(), "root", "Root"));
+        organizations.AreActiveUnitsAsync(Arg.Any<IReadOnlyCollection<TenantOrganizationMembershipTarget>>(), Arg.Any<CancellationToken>()).Returns(true);
         return new HostAnnouncementAudienceValidator(hostUsers, organizations);
     }
 

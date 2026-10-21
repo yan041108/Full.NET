@@ -45,7 +45,7 @@ public sealed class MqttModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<Security.MqttPublishRateLimiter>();
-        services.TryAddScoped<Infrastructure.MqttBrokerPublisher>();
+        services.TryAddSingleton<Infrastructure.MqttBrokerPublisher>();
         services.TryAddScoped<Features.ManageControlPlane.MqttBrokerStatusService>();
         services.TryAddScoped<Features.ManageControlPlane.MqttClientQueryService>();
         services.TryAddScoped<Features.ManageControlPlane.MqttMessageQueryService>();

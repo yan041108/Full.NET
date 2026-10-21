@@ -160,6 +160,12 @@ internal static class MessagingInboxTestSupport
             int schemaVersion,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(EventDeliveryOwner.CdcKafka);
+        public Task<IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner>> GetDeliveryOwnersAsync(
+            IReadOnlyCollection<IntegrationEventTopicDefinition> topics, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner>>(
+                topics.DistinctBy(topic => (topic.EventType, topic.SchemaVersion)).ToDictionary(
+                    topic => (topic.EventType, topic.SchemaVersion), _ => EventDeliveryOwner.CdcKafka));
+
     }
 
     internal sealed class DownstreamOutboxSubscription : IIntegrationEventSubscription

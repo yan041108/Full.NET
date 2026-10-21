@@ -75,12 +75,9 @@ internal sealed class TenantSubscriptionManagementService(
                 ErrorType.Validation));
         }
 
-        var existingActive = (await queryExecutor.QueryAsync<TenantSubscriptionRecord>(
-                    TenantSubscriptionSql.ListByTenant,
-                    Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId)),
-                    cancellationToken)
-                .ConfigureAwait(false))
-            .Any(row => AllowedStatuses.Contains(row.Status));
+        var existingActive = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            TenantSubscriptionSql.CountActive,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId)), cancellationToken).ConfigureAwait(false) > 0;
         if (existingActive)
         {
             return Result<TenantSubscriptionResponse>.Failure(new Error(
@@ -138,12 +135,10 @@ internal sealed class TenantSubscriptionManagementService(
         CancelTenantSubscriptionRequest request,
         CancellationToken cancellationToken)
     {
-        var existing = (await queryExecutor.QueryAsync<TenantSubscriptionRecord>(
-                    TenantSubscriptionSql.ListByTenant,
-                    Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId)),
-                    cancellationToken)
-                .ConfigureAwait(false))
-            .FirstOrDefault(row => row.Id == subscriptionId);
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantSubscriptionRecord>(
+            TenantSubscriptionSql.FindById,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("Id", subscriptionId)),
+            cancellationToken).ConfigureAwait(false);
         if (existing is null)
         {
             return Result<TenantSubscriptionResponse>.Failure(new Error(

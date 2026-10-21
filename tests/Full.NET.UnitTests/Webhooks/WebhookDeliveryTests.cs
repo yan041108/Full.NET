@@ -1,3 +1,4 @@
+using Full.NET.Data.Dapper;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -59,7 +60,7 @@ public sealed class WebhookDeliveryTests
         var processor = new WebhookDeliveryBatchProcessor(
             query,
             Substitute.For<ICommandExecutor>(),
-            Substitute.For<ICommandTransaction>(),
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             Substitute.For<IHttpClientFactory>(),
             new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
@@ -199,7 +200,7 @@ public sealed class WebhookDeliveryTests
                     "https://93.184.216.34/hooks/callback",
                     protectedSecret,
                     "fullnet.workflow.instance.completed"),
-            ]));
+            ]), Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
 
         var command = Substitute.For<ICommandExecutor>();
         command.ExecuteAsync(
@@ -208,7 +209,7 @@ public sealed class WebhookDeliveryTests
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(1));
 
-        var transaction = Substitute.For<ICommandTransaction>();
+        var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator());
         var processor = new WebhookDeliveryBatchProcessor(
             query,
             command,
@@ -253,7 +254,7 @@ public sealed class WebhookDeliveryTests
                     "https://127.0.0.1/hooks/callback",
                     "protected",
                     "fullnet.workflow.instance.completed"),
-            ]));
+            ]), Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
 
         var command = Substitute.For<ICommandExecutor>();
         command.ExecuteAsync(
@@ -265,7 +266,7 @@ public sealed class WebhookDeliveryTests
         var processor = new WebhookDeliveryBatchProcessor(
             query,
             command,
-            Substitute.For<ICommandTransaction>(),
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             Substitute.For<IHttpClientFactory>(),
             new WebhookSigningSecretProtector(
                 DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
@@ -284,6 +285,55 @@ public sealed class WebhookDeliveryTests
             WebhookDeliverySql.MarkDelivered,
             Arg.Any<IReadOnlyDictionary<string, object?>>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Timeout_is_counted_and_does_not_abort_the_following_delivery()
+    {
+        var protector = new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests)));
+        var query = Substitute.For<IQueryExecutor>();
+        var first = new WebhookDeliveryWorkItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "{}", 0, 1,
+            Guid.NewGuid(), "https://93.184.216.34/hook", protector.Protect("secret"), "event");
+        var second = first with { Id = Guid.NewGuid() };
+        query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([first]),
+                Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([second]),
+                Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
+        var commands = Substitute.For<ICommandExecutor>();
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>()).Returns(1);
+        var calls = 0;
+        var clients = Substitute.For<IHttpClientFactory>();
+        clients.CreateClient(WebhookHttpClientNames.Delivery).Returns(_ => new HttpClient(new CaptureHandler((_, _) => ++calls == 1
+            ? Task.FromException<HttpResponseMessage>(new TaskCanceledException("provider timeout"))
+            : Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)))));
+        var processor = new WebhookDeliveryBatchProcessor(query, commands,
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients, protector,
+            new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+        Assert.AreEqual(2, await processor.ProcessPendingAsync(default));
+        await commands.Received(1).ExecuteAsync(WebhookDeliverySql.MarkFailed,
+            Arg.Is<IReadOnlyDictionary<string, object?>>(p => (Guid)p!["DeliveryId"]! == first.Id && (int)p!["Version"]! == 2), Arg.Any<CancellationToken>());
+        await commands.Received(1).ExecuteAsync(WebhookDeliverySql.MarkDelivered,
+            Arg.Is<IReadOnlyDictionary<string, object?>>(p => (Guid)p!["DeliveryId"]! == second.Id), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Lost_claim_never_sends_to_the_provider()
+    {
+        var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([
+                new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "{}", 0, 1, Guid.NewGuid(),
+                    "https://93.184.216.34/hook", "secret", "event")]));
+        var clients = Substitute.For<IHttpClientFactory>();
+        var processor = new WebhookDeliveryBatchProcessor(query, Substitute.For<ICommandExecutor>(),
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,
+            new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
+            new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+        Assert.AreEqual(0, await processor.ProcessPendingAsync(default));
+        clients.DidNotReceive().CreateClient(Arg.Any<string>());
     }
 
     private sealed class CaptureHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> onSend)

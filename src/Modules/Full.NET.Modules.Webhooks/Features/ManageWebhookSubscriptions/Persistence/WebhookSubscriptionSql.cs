@@ -5,6 +5,29 @@ namespace Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persiste
 
 internal static class WebhookSubscriptionSql
 {
+    public static readonly SqlStatement EnsureFanoutBudgetSqlServer = new(
+        "webhooks.subscriptions.ensure_budget.sql_server",
+        """
+        INSERT INTO fn_webhooks_fanout_budget (TenantId, EventType, UsedCount)
+        SELECT @TenantId, @EventType, 0
+        WHERE NOT EXISTS (SELECT 1 FROM fn_webhooks_fanout_budget WITH (UPDLOCK, HOLDLOCK)
+            WHERE TenantId = @TenantId AND EventType = @EventType)
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement EnsureFanoutBudgetMySql = new(
+        "webhooks.subscriptions.ensure_budget.mysql",
+        """
+        INSERT INTO fn_webhooks_fanout_budget (TenantId, EventType, UsedCount)
+        VALUES (@TenantId, @EventType, 0) ON DUPLICATE KEY UPDATE UsedCount = UsedCount
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ReserveFanoutSlot = new(
+        "webhooks.subscriptions.reserve_fanout_slot",
+        """
+        UPDATE fn_webhooks_fanout_budget SET UsedCount = UsedCount + 1
+        WHERE TenantId = @TenantId AND EventType = @EventType AND UsedCount < @MaximumTargets
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement ListByTenant = new(
         "webhooks.subscriptions.list_by_tenant",
         @"

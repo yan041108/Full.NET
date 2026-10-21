@@ -117,4 +117,27 @@ internal static class PrintingTemplateSql
           AND VersionNumber = @VersionNumber
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountTemplates = new("printing.counttemplates", "SELECT COUNT(1) FROM fn_printing_template WHERE (@NameContains IS NULL OR Name LIKE @NameContains)", SqlDataScope.HostOnly);
+    public static readonly SqlStatement TemplateExists = new("printing.templateexists", "SELECT COUNT(1) FROM fn_printing_template WHERE Id = @TemplateId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountVersions = new("printing.countversions", "SELECT COUNT(1) FROM fn_printing_template_version WHERE TemplateId = @TemplateId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListTemplateSummariesSqlServer = new(
+        "printing.template_summaries.sqlserver",
+        """
+        SELECT Id, TemplateKey, Name, FormSchemaKey, '' AS LayoutHtml, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_printing_template WHERE (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListTemplateSummariesMySql = new(
+        "printing.template_summaries.mysql",
+        """
+        SELECT Id, TemplateKey, Name, FormSchemaKey, '' AS LayoutHtml, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_printing_template WHERE (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesSqlServer = new(
+        "printing.version_summaries.sqlserver",
+        """
+        SELECT Id, TemplateId, VersionNumber, '' AS LayoutHtml, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_printing_template_version WHERE TemplateId = @TemplateId ORDER BY VersionNumber DESC, Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesMySql = new(
+        "printing.version_summaries.mysql",
+        """
+        SELECT Id, TemplateId, VersionNumber, '' AS LayoutHtml, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_printing_template_version WHERE TemplateId = @TemplateId ORDER BY VersionNumber DESC, Id DESC LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
 }

@@ -51,11 +51,22 @@ internal sealed partial class PaymentWeChatNotifyService(
         string rawBody,
         CancellationToken cancellationToken = default)
     {
+        // 平台证书回源在事务外完成；事务内重新核对版本，禁止把旧配置用于新商户状态。
+        var expectedConfig = await queryExecutor.QuerySingleOrDefaultAsync<PaymentMerchantConfigRecord>(
+            PaymentMerchantConfigSql.FindById,
+            PaymentSqlParameters.Create(("MerchantConfigId", merchantConfigId)), cancellationToken)
+            .ConfigureAwait(false);
+        if (expectedConfig is null || !expectedConfig.IsEnabled
+            || string.IsNullOrWhiteSpace(expectedConfig.ApiV3KeyProtected))
+            return FailAck("Merchant configuration is unavailable.");
+        var publicKeyPem = await certificateResolver.ResolvePublicKeyPemAsync(
+            expectedConfig, platformSerial, cancellationToken).ConfigureAwait(false);
+        if (publicKeyPem is null) return FailAck("Notify signature verification failed.");
         try
         {
             return await transaction.ExecuteAsync(
                 token => HandleCoreAsync(merchantConfigId, requestPath, timestamp, nonce, signature,
-                    platformSerial, rawBody, token), cancellationToken).ConfigureAwait(false);
+                    platformSerial, rawBody, expectedConfig.Version, publicKeyPem, token), cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
@@ -82,6 +93,8 @@ internal sealed partial class PaymentWeChatNotifyService(
         string signature,
         string platformSerial,
         string rawBody,
+        int expectedConfigVersion,
+        string publicKeyPem,
         CancellationToken cancellationToken)
     {
         var merchantConfig = await queryExecutor.QuerySingleOrDefaultAsync<PaymentMerchantConfigRecord>(
@@ -89,7 +102,7 @@ internal sealed partial class PaymentWeChatNotifyService(
                 PaymentSqlParameters.Create(("MerchantConfigId", merchantConfigId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (merchantConfig is null || !merchantConfig.IsEnabled)
+        if (merchantConfig is null || !merchantConfig.IsEnabled || merchantConfig.Version != expectedConfigVersion)
         {
             return FailAck("Merchant configuration is unavailable.");
         }
@@ -99,11 +112,6 @@ internal sealed partial class PaymentWeChatNotifyService(
             return FailAck("Merchant API v3 key is not configured.");
         }
 
-        var publicKeyPem = await certificateResolver.ResolvePublicKeyPemAsync(
-                merchantConfig,
-                platformSerial,
-                cancellationToken)
-            .ConfigureAwait(false);
         if (publicKeyPem is null
             || !WeChatPaySignatureVerifier.Verify(
                 publicKeyPem,

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -48,25 +49,6 @@ public sealed class HostRoleMembersServiceTests
                 Arg.Any<object>(),
                 Arg.Any<CancellationToken>())
             .Returns([previousUserId]);
-        fixture.Query.QuerySingleOrDefaultAsync<IdentityUserRecord>(
-                IdentitySql.FindHostUserById,
-                Arg.Any<object>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new IdentityUserRecord(
-                UserId,
-                null,
-                "host",
-                "demo",
-                "DEMO",
-                "Demo User",
-                "hash",
-                true,
-                0,
-                null,
-                Guid.CreateVersion7().ToString("N"),
-                DateTimeOffset.UtcNow,
-                null,
-                1));
 
         var result = await fixture.Service.ReplaceAsync(
             RoleId,
@@ -77,21 +59,17 @@ public sealed class HostRoleMembersServiceTests
             IdentitySql.DeleteHostRoleMemberAssignments,
             Arg.Any<object>(),
             Arg.Any<CancellationToken>());
-        await fixture.Command.Received(1).ExecuteAsync(
-            IdentitySql.EnsureUserRole,
-            Arg.Is<IdentityUserRole>(item =>
-                item != null
-                && item.UserId == UserId
-                && item.RoleId == RoleId),
-            Arg.Any<CancellationToken>());
-        await fixture.Command.Received(2).ExecuteAsync(
-            IdentitySql.RotateSecurityStamp,
-            Arg.Any<object>(),
-            Arg.Any<CancellationToken>());
-        await fixture.Command.Received(2).ExecuteAsync(
-            IdentitySql.RevokeAllUserSessions,
-            Arg.Any<object>(),
-            Arg.Any<CancellationToken>());
+        await fixture.Command.Received(1).ExecuteAsync(HostRoleMembersSql.InsertMembersSqlServer,
+            Arg.Any<object>(), Arg.Any<CancellationToken>());
+        var revoke = fixture.Command.ReceivedCalls().Single(call =>
+            ReferenceEquals(call.GetArguments()[0], HostRoleMembersSql.RevokeSessionsSqlServer)).GetArguments()[1];
+        var values = (IReadOnlyDictionary<string, object?>)revoke!;
+        using var stamps = JsonDocument.Parse((string)values["UserStampsJson"]!);
+        var rows = stamps.RootElement.EnumerateArray().ToArray();
+        CollectionAssert.AreEquivalent(new[] { UserId, previousUserId }, rows.Select(row => row.GetProperty("userId").GetGuid()).ToArray());
+        Assert.AreEqual(2, rows.Select(row => row.GetProperty("securityStamp").GetString()).Distinct().Count());
+        await fixture.Command.DidNotReceive().ExecuteAsync(IdentitySql.RotateSecurityStamp, Arg.Any<object>(), Arg.Any<CancellationToken>());
+
     }
 
     [TestMethod]
@@ -108,6 +86,72 @@ public sealed class HostRoleMembersServiceTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(IdentityErrorCodes.RoleSystemLocked, result.Error!.Code);
+    }
+
+    [TestMethod]
+    public async Task Thousand_members_use_bounded_database_calls()
+    {
+        var fixture = new Fixture();
+        var ids = Enumerable.Range(0, 1000).Select(_ => Guid.CreateVersion7()).ToArray();
+        var databaseOrder = ids.Reverse().ToArray();
+        fixture.Query.QueryAsync<HostRoleMemberUserState>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(databaseOrder.Select(id => new HostRoleMemberUserState(id, true)).ToArray());
+        var result = await fixture.Service.ReplaceAsync(RoleId, new ReplaceHostRoleMembersRequest(ids, 3));
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsLessThanOrEqualTo(10, fixture.Query.ReceivedCalls().Count() + fixture.Command.ReceivedCalls().Count());
+        var revoke = fixture.Command.ReceivedCalls().Single(call =>
+            ReferenceEquals(call.GetArguments()[0], HostRoleMembersSql.RevokeSessionsSqlServer)).GetArguments()[1];
+        using var stamps = JsonDocument.Parse((string)((IReadOnlyDictionary<string, object?>)revoke!)["UserStampsJson"]!);
+        CollectionAssert.AreEqual(databaseOrder, stamps.RootElement.EnumerateArray()
+            .Select(row => row.GetProperty("userId").GetGuid()).ToArray(), "分块必须沿用数据库返回的锁定顺序。");
+    }
+
+    [TestMethod]
+    public async Task Missing_member_stops_before_assignment_or_revocation()
+    {
+        var fixture = new Fixture();
+        fixture.Query.QueryAsync<HostRoleMemberUserState>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<HostRoleMemberUserState>());
+        var result = await fixture.Service.ReplaceAsync(RoleId, new ReplaceHostRoleMembersRequest([UserId], 3));
+        Assert.IsFalse(result.IsSuccess);
+        await fixture.Command.DidNotReceive().ExecuteAsync(IdentitySql.DeleteHostRoleMemberAssignments, Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Candidate_save_preserves_members_not_shown_in_loaded_pages()
+    {
+        var fixture = new Fixture(); var unseen = Guid.CreateVersion7(); var removed = Guid.CreateVersion7();
+        fixture.Query.QueryAsync<Guid>(IdentitySql.ListHostRoleMemberUserIds, Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns([unseen, removed]);
+        var result = await fixture.Service.ReplaceAsync(RoleId,
+            new ReplaceHostRoleMembersRequest([UserId], 3) { CandidateUserIds = [UserId, removed] });
+        Assert.IsTrue(result.IsSuccess);
+        CollectionAssert.AreEquivalent(new[] { unseen, UserId }, result.Value!.UserIds.ToArray());
+        var insert = fixture.Command.ReceivedCalls().Single(call => ReferenceEquals(call.GetArguments()[0], HostRoleMembersSql.InsertMembersSqlServer));
+        var parameters = (IReadOnlyDictionary<string,object?>)insert.GetArguments()[1]!;
+        CollectionAssert.AreEquivalent(new[] { unseen, UserId }, JsonSerializer.Deserialize<Guid[]>((string)parameters["UserIdsJson"]!)!);
+    }
+
+    [TestMethod]
+    public async Task List_decodes_empty_candidate_marker_after_original_budget_check()
+    {
+        var fixture = new Fixture();
+        var empty = await fixture.Service.ListAsync(RoleId, 1, 20, userIds: [Guid.Empty]);
+        Assert.IsTrue(empty.IsSuccess);
+        Assert.AreEqual(0L, empty.Value!.Total);
+        Assert.IsEmpty(empty.Value.Items);
+        await fixture.Query.DidNotReceive().QuerySingleOrDefaultAsync<long>(
+            Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>());
+        await fixture.Query.DidNotReceive().QueryAsync<HostRoleMemberRow>(
+            Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>());
+
+        var budget = new Fixture();
+        var rejected = await budget.Service.ListAsync(RoleId, 1, 20,
+            userIds: Enumerable.Repeat(Guid.Empty, 101).ToArray());
+        Assert.IsFalse(rejected.IsSuccess);
+        Assert.AreEqual(ValidationErrorCodes.Failed, rejected.Error!.Code);
+        await budget.Query.DidNotReceive().QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+            Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>());
     }
 
     private sealed class Fixture
@@ -148,6 +192,9 @@ public sealed class HostRoleMembersServiceTests
                     Arg.Any<object>(),
                     Arg.Any<CancellationToken>())
                 .Returns(Array.Empty<Guid>());
+            Query.QueryAsync<HostRoleMemberUserState>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
+                .Returns(call => JsonSerializer.Deserialize<Guid[]>((string)((IReadOnlyDictionary<string, object?>)call.Arg<object>()!)["UserIdsJson"]!)!
+                    .Select(id => new HostRoleMemberUserState(id, true)).ToArray());
             Command = Substitute.For<ICommandExecutor>();
             Command.ExecuteAsync(
                     Arg.Any<SqlStatement>(),

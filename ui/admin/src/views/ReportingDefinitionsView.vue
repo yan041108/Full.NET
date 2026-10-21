@@ -11,6 +11,7 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
   ElSelect,
   ElSwitch,
   ElTable,
@@ -22,7 +23,8 @@ import type { FormInstance } from 'element-plus';
 import type {
   FullNetProblemDetails,
   ReportingDefinition,
-  ReportingDefinitionVersion,
+  ReportingDefinitionSummary,
+  ReportingDefinitionVersionSummary,
   ReportingGroup,
   ReportingParameterSchemaEntry,
   ReportingQueryPortDefinition
@@ -42,6 +44,7 @@ import {
   createReportingGroup,
   deleteReportingDefinition,
   deleteReportingGroup,
+  getReportingDefinition,
   listReportingDefinitions,
   listReportingDefinitionVersions,
   listReportingGroups,
@@ -58,11 +61,16 @@ type DefinitionEditorMode = 'create' | 'edit';
 
 const { t } = useAdminI18n();
 const groups = ref<ReportingGroup[]>([]);
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingDefinitionSummary[]>([]);
 const queryPorts = ref<ReportingQueryPortDefinition[]>([]);
 const dataSourceOptions = ref<Array<{ value: string; label: string; providerKey: string }>>([]);
 const selectedGroupId = ref<string>();
-const versions = ref<ReportingDefinitionVersion[]>([]);
+const versions = ref<ReportingDefinitionVersionSummary[]>([]);
+const definitionPage = ref(1);
+const definitionTotal = ref(0);
+const versionPage = ref(1);
+const versionTotal = ref(0);
+const versionDefinitionId = ref('');
 const loading = ref(false);
 const acting = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -112,19 +120,7 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   { key: 'name', label: t('reportingDefinitions.fieldName'), type: 'input' }
 ]);
 
-const filteredDefinitions = computed(() => {
-  const keyword = appliedFilters.value.name.trim().toLowerCase();
-  let rows = definitions.value;
-  if (selectedGroupId.value) {
-    rows = rows.filter(item => item.groupId === selectedGroupId.value);
-  }
-  if (keyword) {
-    rows = rows.filter(item =>
-      item.name.toLowerCase().includes(keyword)
-      || item.definitionKey.toLowerCase().includes(keyword));
-  }
-  return rows;
-});
+const filteredDefinitions = computed(() => definitions.value);
 
 const selectedQueryPort = computed(() =>
   queryPorts.value.find(port => port.queryPortKey === definitionForm.queryPortKey));
@@ -168,7 +164,7 @@ async function loadPage(): Promise<void> {
       listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true })
     ]);
     groups.value = groupRows;
-    definitions.value = definitionRows;
+    definitions.value = definitionRows.items; definitionTotal.value = definitionRows.total;
     queryPorts.value = portRows;
     dataSourceOptions.value = dataSourcePage.items.map(item => ({
       value: item.id,
@@ -178,6 +174,7 @@ async function loadPage(): Promise<void> {
     if (!selectedGroupId.value && groups.value.length > 0) {
       selectedGroupId.value = groups.value[0]?.id;
     }
+    await loadDefinitions();
     updateTableHeight();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
@@ -186,16 +183,31 @@ async function loadPage(): Promise<void> {
   }
 }
 
+async function loadDefinitions(): Promise<void> {
+  const result = await listReportingDefinitions({ groupId: selectedGroupId.value,
+    nameContains: appliedFilters.value.name, page: definitionPage.value, pageSize: 20 });
+  definitions.value = result.items; definitionTotal.value = result.total;
+}
+
+async function loadVersions(): Promise<void> {
+  if (!versionDefinitionId.value) return;
+  const result = await listReportingDefinitionVersions(versionDefinitionId.value, undefined, versionPage.value, 20);
+  versions.value = result.items; versionTotal.value = result.total;
+}
+
 function selectGroup(groupId: string): void {
   selectedGroupId.value = groupId;
+  definitionPage.value = 1; void loadDefinitions();
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = { name: params.name ?? '' };
+  definitionPage.value = 1; void loadDefinitions();
 }
 
 function resetSearch(): void {
   appliedFilters.value = { name: '' };
+  definitionPage.value = 1; void loadDefinitions();
 }
 
 function openCreateGroup(): void {
@@ -297,7 +309,8 @@ function openCreateDefinition(): void {
   definitionEditorOpen.value = true;
 }
 
-function openEditDefinition(definition: ReportingDefinition): void {
+async function openEditDefinition(summary: ReportingDefinitionSummary): Promise<void> {
+  const definition = await getReportingDefinition(summary.id);
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
   definitionForm.definitionKey = definition.definitionKey;
@@ -349,6 +362,7 @@ async function submitDefinition(): Promise<void> {
       ElMessage.success(t('reportingDefinitions.updateSuccess'));
     }
     definitionEditorOpen.value = false;
+    await loadDefinitions();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
   } finally {
@@ -356,7 +370,7 @@ async function submitDefinition(): Promise<void> {
   }
 }
 
-async function confirmDeleteDefinition(definition: ReportingDefinition): Promise<void> {
+async function confirmDeleteDefinition(definition: ReportingDefinitionSummary): Promise<void> {
   try {
     await ElMessageBox.confirm(
       t('reportingDefinitions.confirmDeleteDefinition', { name: definition.name }),
@@ -377,7 +391,7 @@ async function confirmDeleteDefinition(definition: ReportingDefinition): Promise
   }
 }
 
-async function publishCurrentDefinition(definition: ReportingDefinition): Promise<void> {
+async function publishCurrentDefinition(definition: ReportingDefinitionSummary): Promise<void> {
   acting.value = true;
   problem.value = undefined;
   try {
@@ -385,11 +399,7 @@ async function publishCurrentDefinition(definition: ReportingDefinition): Promis
       changeNote: publishNote.value.trim() || null,
       version: definition.version
     });
-    const refreshed = await listReportingDefinitions({ groupId: definition.groupId });
-    definitions.value = definitions.value.map(item => {
-      const updated = refreshed.find(row => row.id === item.id);
-      return updated ?? item;
-    });
+    await loadDefinitions();
     ElMessage.success(t('reportingDefinitions.publishSuccess'));
     publishNote.value = '';
   } catch (error: unknown) {
@@ -399,11 +409,11 @@ async function publishCurrentDefinition(definition: ReportingDefinition): Promis
   }
 }
 
-async function openVersions(definition: ReportingDefinition): Promise<void> {
+async function openVersions(definition: ReportingDefinitionSummary): Promise<void> {
   acting.value = true;
   try {
-    versions.value = await listReportingDefinitionVersions(definition.id);
-    editingDefinition.value = definition;
+    versionDefinitionId.value = definition.id; versionPage.value = 1;
+    await loadVersions();
     versionsDrawerOpen.value = true;
   } catch (error: unknown) {
     problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
@@ -535,6 +545,9 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
               </template>
             </ElTableColumn>
           </ElTable>
+          <ElPagination v-model:current-page="definitionPage" :total="definitionTotal" :page-size="20"
+            layout="prev, pager, next, total" @current-change="loadDefinitions" />
+
         </div>
       </ElCard>
     </div>
@@ -634,6 +647,9 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         <ElTableColumn prop="publishedAtUtc" :label="t('reportingDefinitions.fieldPublishedAt')" min-width="180" />
         <ElTableColumn prop="changeNote" :label="t('reportingDefinitions.fieldChangeNote')" />
       </ElTable>
+      <ElPagination v-model:current-page="versionPage" :total="versionTotal" :page-size="20"
+        layout="prev, pager, next, total" @current-change="loadVersions" />
+
     </ElDrawer>
   </div>
 </template>

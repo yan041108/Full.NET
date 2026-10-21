@@ -59,7 +59,7 @@
         "name",
         "displayOrder",
         "revision",
-        "children"
+        "hasChildren"
       ]
     },
     "HostFolderResponse": {

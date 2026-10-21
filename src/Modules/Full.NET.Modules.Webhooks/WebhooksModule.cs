@@ -81,12 +81,22 @@ public sealed class WebhooksModule : IFullNetModule
                 client.Timeout = TimeSpan.FromSeconds(30);
                 client.MaxResponseContentBufferSize = 64 * 1024;
             })
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-            {
-                AllowAutoRedirect = false,
-            });
+            .ConfigurePrimaryHttpMessageHandler(() => CreateDeliveryHandler());
         services.AddScoped<WebhookSigningSecretProtector>();
         services.AddScoped<WebhookDeliveryBatchProcessor>();
+    }
+
+    private static SocketsHttpHandler CreateDeliveryHandler()
+    {
+        var connector = new WebhookNetworkConnector(System.Net.Dns.GetHostAddressesAsync,
+            WebhookNetworkConnector.ConnectSocketAsync);
+        return new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false, UseProxy = false, UseCookies = false,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            ConnectCallback = (context, cancellation) => connector.ConnectAsync(
+                context.InitialRequestMessage.RequestUri!, context.DnsEndPoint, cancellation),
+        };
     }
 
     /// <summary>

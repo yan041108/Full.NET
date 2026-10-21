@@ -78,13 +78,29 @@ public static class McpClientRegistration
     /// <summary>池中连接复用也不能跳过 URI 校验；HTTP/1.1 固定经过受控 TCP 连接回调。</summary>
     private sealed class PolicyHandler(McpEndpointPolicy policy) : DelegatingHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             policy.ValidateEndpoint(request.RequestUri!);
             request.Version = HttpVersion.Version11;
             request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
-            return base.SendAsync(request, cancellationToken);
+            var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (request.Method != HttpMethod.Post) return response;
+            try
+            {
+                // POST SSE 可能包含要求客户端立即回复的反向 RPC，不能等待 EOF 后再交给 SDK。
+                if (string.Equals(response.Content.Headers.ContentType?.MediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
+                {
+                    response.Content = new BoundedMcpSseContent(response.Content, 4 * 1024 * 1024, TimeSpan.FromSeconds(30), cancellationToken);
+                    return response;
+                }
+                // 普通 JSON 响应仍在解析前落实字节/时间预算；GET 通知流保持流式。
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(TimeSpan.FromSeconds(30));
+                await response.Content.LoadIntoBufferAsync(4 * 1024 * 1024, deadline.Token).ConfigureAwait(false);
+                return response;
+            }
+            catch { response.Dispose(); throw; }
         }
     }
 }

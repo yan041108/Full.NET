@@ -23,6 +23,14 @@ internal sealed class DocumentRateLimiterPolicyConfigurator(
             .Get<DocumentOptions>() ?? new DocumentOptions();
 
         rateLimiter.AddPolicy(
+            DocumentModule.AnonymousPreviewPollRateLimitPolicy,
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                { PermitLimit = settings.AnonymousPreviewPollRateLimitPermitLimitPerMinute,
+                    Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+
+        rateLimiter.AddPolicy(
             DocumentModule.AnonymousShareAccessRateLimitPolicy,
             httpContext => RateLimitPartition.GetFixedWindowLimiter(
                 httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -37,6 +45,7 @@ internal sealed class DocumentRateLimiterPolicyConfigurator(
 
     public void Configure(RateLimitPolicyErrorCodes registry)
     {
+        registry.MapPolicy(DocumentModule.AnonymousPreviewPollRateLimitPolicy, CommonErrorCodes.RateLimited);
         registry.MapPolicy(
             DocumentModule.AnonymousShareAccessRateLimitPolicy,
             CommonErrorCodes.RateLimited);

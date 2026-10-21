@@ -141,9 +141,8 @@ internal sealed class AiKnowledgeIndexDocxPlanningService(IQueryExecutor query, 
     {
         Check(token);
         if (session.UserId != binding.OwnerUserId || session.SessionId == Guid.Empty || session.TenantId != tenant.Id) return false;
-        foreach (var permission in Permissions)
         {
-            var actor = await BoundAsync(ct => authorization.AuthorizeAsync(session, permission, ct), token).ConfigureAwait(false);
+            var actor = await BoundAsync(ct => authorization.AuthorizeAllAsync(session, Permissions, ct), token).ConfigureAwait(false);
             Check(token);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return false;
         }

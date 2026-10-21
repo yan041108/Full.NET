@@ -20,9 +20,10 @@ internal sealed class ReportingExportTaskHostedProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var processed = 0;
             try
             {
-                await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -33,8 +34,8 @@ internal sealed class ReportingExportTaskHostedProcessor(
                 ReportingExportTaskHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = TimeSpan.FromSeconds(Math.Max(options.CurrentValue.PollSeconds, 5));
-            await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+            var delay = GetDelayAfterBatch(processed);
+            if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
         }
     }
 
@@ -59,6 +60,11 @@ internal sealed class ReportingExportTaskHostedProcessor(
 
         return processed;
     }
+    /// <summary>满批立即继续排空；空批、未满与故障后的零计数按当前配置退避。</summary>
+    internal TimeSpan GetDelayAfterBatch(int processedCount) =>
+        processedCount >= Math.Clamp(options.CurrentValue.BatchSize, 1, 200)
+            ? TimeSpan.Zero : TimeSpan.FromSeconds(Math.Max(options.CurrentValue.PollSeconds, 5));
+
 }
 
 /// <summary>报表导出 Worker 日志。</summary>

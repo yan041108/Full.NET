@@ -43,7 +43,6 @@ public static class FullNetModuleSelection
         "GoView",
         "K3Cloud",
         "Ocr",
-        "EnterpriseRequest",
     ];
 
     // 模板裁剪可启用的实现后，仍保留完整官方契约来源，允许未安装的可选生产者。
@@ -135,7 +134,7 @@ public static class FullNetModuleSelection
     ];
 
     /// <summary>
-    /// Enterprise 预设模块键：Platform 基础上追加 Webhooks、工作流、数据交付与 EnterpriseRequest 样板。
+    /// Enterprise 预设模块键：Platform 基础上追加 Webhooks、工作流与数据交付。
     /// </summary>
     public static readonly IReadOnlyList<string> EnterprisePresetModuleNames =
     [
@@ -159,7 +158,6 @@ public static class FullNetModuleSelection
         "ImportExport",
         "Reporting",
         "Printing",
-        "EnterpriseRequest",
     ];
 
     /// <summary>

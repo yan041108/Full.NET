@@ -7,7 +7,7 @@ namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 
 /// <summary>校验 Host 公告受众配置与跨模块目录投影。</summary>
 internal sealed class HostAnnouncementAudienceValidator(
-    IHostUserDirectory hostUserDirectory,
+    IHostUserBatchSelectionDirectory hostUserDirectory,
     ITenantOrganizationUnitDirectory organizationUnitDirectory)
 {
     /// <summary>
@@ -20,6 +20,8 @@ internal sealed class HostAnnouncementAudienceValidator(
         IReadOnlyList<HostAnnouncementTargetOrganization>? targetOrganizations,
         CancellationToken cancellationToken)
     {
+        if (targetUserIds is { Count: > 100 } || targetOrganizations is { Count: > 100 })
+            return InvalidAudience("At most 100 explicit targets are allowed.");
         var normalizedKind = NormalizeKind(kind);
         if (normalizedKind is null)
         {
@@ -57,15 +59,9 @@ internal sealed class HostAnnouncementAudienceValidator(
                 return InvalidAudience("User-audience announcements require at least one target user.");
             }
 
-            foreach (var userId in users)
-            {
-                var entry = await hostUserDirectory.FindActiveHostUserAsync(userId, cancellationToken)
-                    .ConfigureAwait(false);
-                if (entry is null)
-                {
-                    return InvalidAudience("One or more target users do not exist or are disabled.");
-                }
-            }
+            var activeUsers = await hostUserDirectory.FindActiveHostUsersAsync(users, cancellationToken).ConfigureAwait(false);
+            if (activeUsers.Count != users.Count)
+                return InvalidAudience("One or more target users do not exist or are disabled.");
 
             return Result<HostAnnouncementAudienceState>.Success(
                 new HostAnnouncementAudienceState(normalizedKind, normalizedAudience, users, organizations));
@@ -81,18 +77,9 @@ internal sealed class HostAnnouncementAudienceValidator(
             return InvalidAudience("Organization-audience announcements require at least one target organization.");
         }
 
-        foreach (var target in organizations)
-        {
-            var entry = await organizationUnitDirectory.FindActiveUnitAsync(
-                    target.TenantId,
-                    target.OrganizationUnitId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (entry is null)
-            {
-                return InvalidAudience("One or more target organizations do not exist or are disabled.");
-            }
-        }
+        if (!await organizationUnitDirectory.AreActiveUnitsAsync(organizations.Select(target =>
+                new TenantOrganizationMembershipTarget(target.TenantId, target.OrganizationUnitId)).ToArray(), cancellationToken).ConfigureAwait(false))
+            return InvalidAudience("One or more target organizations do not exist or are disabled.");
 
         return Result<HostAnnouncementAudienceState>.Success(
             new HostAnnouncementAudienceState(normalizedKind, normalizedAudience, users, organizations));

@@ -16,4 +16,10 @@ public interface IEffectiveEventDeliveryOwnerResolver
         string eventType,
         int schemaVersion,
         CancellationToken cancellationToken = default);
+    /// <summary>一次读取当前持久化所有权快照，解析运维目录中的多个事件流。</summary>
+    /// <param name="topics">受信任的静态事件流目录。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>事件类型和版本对应的有效所有者，不用于跨业务事务缓存所有权。</returns>
+    Task<IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner>> GetDeliveryOwnersAsync(
+        IReadOnlyCollection<IntegrationEventTopicDefinition> topics, CancellationToken cancellationToken = default);
 }

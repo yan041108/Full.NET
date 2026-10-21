@@ -93,4 +93,7 @@
           Link="Workflow\Fixtures\workflow-form-schema-v1.json"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+  </ItemGroup>
 </Project>

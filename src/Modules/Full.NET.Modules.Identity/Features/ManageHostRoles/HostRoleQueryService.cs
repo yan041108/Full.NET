@@ -15,25 +15,33 @@ internal sealed class HostRoleQueryService(
     public async Task<Result<PagedResult<HostRoleResponse>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostRoleListFilter? filter = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = offset, ["PageSize"] = pageSize,
+            ["Code"] = SqlSearchPattern.ContainsLiteral(filter?.Code),
+            ["Name"] = SqlSearchPattern.ContainsLiteral(filter?.Name),
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+            ["RoleType"] = string.IsNullOrWhiteSpace(filter?.RoleType) ? null : filter.RoleType.Trim(),
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                IdentitySql.CountHostRoles,
-                cancellationToken: cancellationToken)
+                IdentitySql.CountHostRolesFiltered,
+                parameters, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => IdentitySql.ListHostRolesSqlServer,
-            DatabaseProvider.MySql => IdentitySql.ListHostRolesMySql,
+            DatabaseProvider.SqlServer => IdentitySql.ListHostRolesSqlServerFiltered,
+            DatabaseProvider.MySql => IdentitySql.ListHostRolesMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = (await queryExecutor.QueryAsync<HostRoleListRow>(
                 statement,
-                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
         var permissionCodesByRole = await LoadPermissionCodesByRoleIdsAsync(
@@ -139,3 +147,6 @@ internal sealed class HostRoleQueryService(
             "The host role was not found.",
             ErrorType.NotFound));
 }
+
+/// <summary>分页列表的显式筛选条件。</summary>
+internal sealed record HostRoleListFilter(string? Code = null, string? Name = null, string? Status = null, string? RoleType = null);

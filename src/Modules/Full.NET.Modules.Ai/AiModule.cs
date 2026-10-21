@@ -305,6 +305,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiAgentCompletedReceiptReconciliation>();
         services.TryAddScoped<AiAgentTerminalBudgetRepairProcessor>();
         services.TryAddSingleton<IAgentModelRunner>(_ => AgentFrameworkRuntime.CreateRunner());
+        services.AddHostedService<AiAgentHeartbeatHostedService>();
         services.AddHostedService<AiAgentRunHostedProcessor>();
     }
 

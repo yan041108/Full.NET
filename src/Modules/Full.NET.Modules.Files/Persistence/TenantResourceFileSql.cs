@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Files.Persistence;
 internal static class TenantResourceFileSql
 {
     /// <summary>清理仅扫描当前租户和所属资源，覆盖 pending 与可重试墓碑。</summary>
+    public static readonly SqlStatement SumReadyBytesByTenantsForHost = new(
+        "files.tenant_resource_file.sum_ready_by_tenants_host", "SELECT TenantId, COALESCE(SUM(SizeBytes), 0) AS UsageValue FROM fn_files_tenant_resource_file WHERE TenantId IN @TenantIds AND StatusKey = 'ready' GROUP BY TenantId", SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListOwnedSqlServer = new("files.tenant_resource_file.list_owned.sqlserver",
         "SELECT Id, OriginalFileName, CreatedAtUtc FROM fn_files_tenant_resource_file WHERE TenantId=@TenantId AND OwnerModuleKey=@OwnerModuleKey AND ResourceId=@ResourceId ORDER BY CreatedAtUtc, Id OFFSET 0 ROWS FETCH NEXT @PageSize ROWS ONLY",
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);

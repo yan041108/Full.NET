@@ -210,7 +210,7 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
                 [new(Guid.CreateVersion7(), Rows[0].DocumentId, Rows[0].VersionId, 0, null, 0, 10)]);
             Json = AiKnowledgeAnswerLineageCodec.Encode(Data);
             AuthorizingActor = Data.ActorUserId;
-            var auth = Substitute.For<ICurrentSessionAuthorization>();
+            var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { var p = call.ArgAt<string>(0); Permissions.Add(p); BeforePort?.Invoke("authorization");
                 return p == Denied ? null : new AuthorizedSessionActor(AuthorizingActor, Tenant.Id, Guid.CreateVersion7()); });

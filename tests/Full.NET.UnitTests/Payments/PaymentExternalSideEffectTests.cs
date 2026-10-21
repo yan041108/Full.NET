@@ -268,7 +268,8 @@ public sealed class PaymentExternalSideEffectTests
             new PaymentRefundManagementService(
                 store, store, transaction, refundQueries, weChat, clock, ids),
             new PaymentOrderReconciliationService(
-                store, store, transaction, orderQueries, weChat, alipay, clock));
+                store, store, transaction, orderQueries, weChat, alipay, clock,
+                new PaymentRefundReconciliationService(store, store, transaction, weChat, clock)));
     }
 
     /// <summary>构造合法创建请求。</summary>

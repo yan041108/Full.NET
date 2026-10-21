@@ -20,29 +20,33 @@ internal sealed class HostTenantQueryService(
     public async Task<Result<PagedResult<TenantSummary>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HostTenantListFilter? filter = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Offset"] = offset, ["PageSize"] = pageSize,
+            ["Identifier"] = SqlSearchPattern.ContainsLiteral(filter?.Identifier),
+            ["Name"] = SqlSearchPattern.ContainsLiteral(filter?.Name),
+            ["Domain"] = SqlSearchPattern.ContainsLiteral(filter?.Domain),
+            ["Status"] = string.IsNullOrWhiteSpace(filter?.Status) ? null : filter.Status.Trim(),
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                TenantSql.CountHostTenants,
-                cancellationToken: cancellationToken)
+                TenantSql.CountHostTenantsFiltered,
+                parameters, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => TenantSql.ListHostTenantsSqlServer,
-            DatabaseProvider.MySql => TenantSql.ListHostTenantsMySql,
+            DatabaseProvider.SqlServer => TenantSql.ListHostTenantsSqlServerFiltered,
+            DatabaseProvider.MySql => TenantSql.ListHostTenantsMySqlFiltered,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var rows = await queryExecutor.QueryAsync<HostTenantRecord>(
                 statement,
-                new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["Offset"] = offset,
-                    ["PageSize"] = pageSize,
-                },
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -110,3 +114,6 @@ internal sealed record HostTenantRecord(
     Guid? OwnerUserId,
     string ProvisioningStatus,
     string? ProvisioningStep);
+
+/// <summary>分页列表的显式筛选条件。</summary>
+internal sealed record HostTenantListFilter(string? Identifier = null, string? Name = null, string? Domain = null, string? Status = null);

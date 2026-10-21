@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -13,7 +14,8 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 internal sealed class HostDocumentShareQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<PagedResult<HostDocumentShareResponse>>> PageAsync(
         int page,
@@ -43,6 +45,7 @@ internal sealed class HostDocumentShareQueryService(
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
                 DocumentSqlParameters.Create(
+                    ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize),
                     ("IsEnabled", query.IsEnabled),
@@ -81,6 +84,9 @@ internal sealed class HostDocumentShareQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        if (record is not null && await accessPolicy.CheckAsync(record.DocumentId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+            return Result<HostDocumentShareResponse>.Failure(error);
+
         return record is null
             ? NotFound()
             : Result<HostDocumentShareResponse>.Success(Map(record));
@@ -96,6 +102,9 @@ internal sealed class HostDocumentShareQueryService(
                 DocumentSqlParameters.Create(("ShareCode", shareCode)),
                 cancellationToken)
             .ConfigureAwait(false);
+
+        if (record is not null && await accessPolicy.CheckAsync(record.DocumentId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+            return Result<HostDocumentShareResponse>.Failure(error);
 
         return record is null
             ? CodeNotFound()

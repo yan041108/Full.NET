@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Observability;
@@ -250,7 +251,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
-        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .RequireRateLimiting(DocumentModule.AnonymousPreviewPollRateLimitPolicy)
         .AllowAnonymous();
 
         publicGroup.MapPost("/{shareCode}/preview-tasks/{taskId:guid}/content", async (
@@ -277,7 +278,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
-        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .RequireRateLimiting(DocumentModule.AnonymousPreviewPollRateLimitPolicy)
         .AllowAnonymous();
     }
 

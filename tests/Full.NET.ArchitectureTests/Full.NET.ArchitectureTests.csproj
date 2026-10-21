@@ -54,4 +54,7 @@
     <PackageReference Include="NetArchTest.Rules" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+  </ItemGroup>
 </Project>

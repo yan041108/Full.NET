@@ -273,7 +273,7 @@ public sealed record HostDocumentItemResponse(
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
 /// <param name="DocumentId">目标文档标识。</param>
-/// <param name="Permissions">权限条目集合；为空集合表示清空所有非管理员显式授权。</param>
+/// <param name="Permissions">权限条目集合；为空集合表示恢复仅按模块权限控制。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SetHostDocumentPermissionsRequest(
     Guid DocumentId,
@@ -286,7 +286,7 @@ public sealed record SetHostDocumentPermissionsRequest(
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
 /// <param name="UserId">被授权用户标识。</param>
-/// <param name="PermissionLevel">权限级别稳定机器码，如 viewer/editor/owner。</param>
+/// <param name="PermissionLevel">权限级别稳定机器码，read/write/delete/share/manage。</param>
 public sealed record HostDocumentPermissionEntry(
     Guid UserId,
     string PermissionLevel);
@@ -488,7 +488,11 @@ public sealed record HostDocumentShareResponse(
 /// <param name="Password">访问口令；与分享创建时设置的口令匹配才允许访问，null 表示无口令。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AccessHostDocumentShareRequest(
-    string? Password = null);
+    string? Password = null)
+{
+    /// <summary>短期预览凭据；不授予原始文件下载能力。</summary>
+    public string? PreviewGrant { get; init; }
+}
 
 /// <summary>匿名分享访问响应：仅回传文档定位、标题元数据与实际下载/展示入口，不含口令相关字段。</summary>
 /// <remarks>
@@ -512,7 +516,11 @@ public sealed record HostDocumentShareAccessResponse(
     string? MimeType,
     long FileSizeBytes,
     bool HasPassword,
-    int AccessCountRemaining);
+    int AccessCountRemaining)
+{
+    /// <summary>已原子消费一次访问后的短期任务创建凭据。</summary>
+    public string? PreviewGrant { get; init; }
+}
 
 /// <summary>
 /// 文档统计汇总响应契约，提供总量级别的聚合指标。

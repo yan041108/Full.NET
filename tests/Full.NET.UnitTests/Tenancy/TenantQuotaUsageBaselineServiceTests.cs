@@ -29,13 +29,13 @@ public sealed class TenantQuotaUsageBaselineServiceTests
 
         StubNoMissingQuotaMetrics(queries);
 
-        queries.QueryAsync<TenantQuotaMetricRecord>(
-                TenantQuotaSql.ListMetricsByMetricCode,
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
+                TenantQuotaSql.ListBaselinePageSqlServer,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[]
             {
-                new TenantQuotaMetricRecord(
+                new TenantQuotaUsageBaselineRecord(
                     metricId,
                     tenantId,
                     TenantQuotaMetricCodes.IdentitySeats,
@@ -45,7 +45,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                     0,
                     1),
             });
-        members.CountActiveMembersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(3);
+        members.CountActiveMembersByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid,long> { [tenantId] = 3 });
 
         var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
@@ -56,6 +56,14 @@ public sealed class TenantQuotaUsageBaselineServiceTests
         Assert.AreEqual(0, result.Value.AppliedCount);
         Assert.IsTrue(result.Value.DryRun);
         Assert.Contains(tenantId, result.Value.TenantIds);
+        var invalidCursor = await service.ReconcileAsync(new ReconcileTenantQuotaUsageBaselineRequest { AfterTenantId = Guid.Empty });
+        Assert.IsFalse(invalidCursor.IsSuccess);
+        Assert.AreEqual(ValidationErrorCodes.Failed, invalidCursor.Error!.Code);
+        await queries.Received(1).QueryAsync<TenantQuotaUsageBaselineRecord>(
+            TenantQuotaSql.ListBaselinePageSqlServer,
+            Arg.Is<IReadOnlyDictionary<string, object?>>(parameters =>
+                parameters != null && parameters["AfterTenantId"] == null && !parameters.ContainsKey("EmptyId")),
+            Arg.Any<CancellationToken>());
         await commands.DidNotReceive().ExecuteAsync(
             TenantQuotaSql.UpdateMetricUsedValue,
             Arg.Any<IReadOnlyDictionary<string, object?>>(),
@@ -76,13 +84,13 @@ public sealed class TenantQuotaUsageBaselineServiceTests
 
         StubNoMissingQuotaMetrics(queries);
 
-        queries.QueryAsync<TenantQuotaMetricRecord>(
-                TenantQuotaSql.ListMetricsByMetricCode,
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
+                TenantQuotaSql.ListBaselinePageSqlServer,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[]
             {
-                new TenantQuotaMetricRecord(
+                new TenantQuotaUsageBaselineRecord(
                     metricId,
                     tenantId,
                     TenantQuotaMetricCodes.IdentitySeats,
@@ -92,7 +100,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                     0,
                     2),
             });
-        members.CountActiveMembersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(4);
+        members.CountActiveMembersByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid,long> { [tenantId] = 4 });
         commands.ExecuteAsync(
                 TenantQuotaSql.UpdateMetricUsedValue,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
@@ -124,13 +132,13 @@ public sealed class TenantQuotaUsageBaselineServiceTests
 
         StubNoMissingQuotaMetrics(queries);
 
-        queries.QueryAsync<TenantQuotaMetricRecord>(
-                TenantQuotaSql.ListMetricsByMetricCode,
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
+                TenantQuotaSql.ListBaselinePageSqlServer,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[]
             {
-                new TenantQuotaMetricRecord(
+                new TenantQuotaUsageBaselineRecord(
                     Guid.CreateVersion7(),
                     tenantId,
                     TenantQuotaMetricCodes.IdentitySeats,
@@ -165,13 +173,13 @@ public sealed class TenantQuotaUsageBaselineServiceTests
 
         StubNoMissingQuotaMetrics(queries);
 
-        queries.QueryAsync<TenantQuotaMetricRecord>(
-                TenantQuotaSql.ListMetricsByMetricCode,
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
+                TenantQuotaSql.ListBaselinePageSqlServer,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[]
             {
-                new TenantQuotaMetricRecord(
+                new TenantQuotaUsageBaselineRecord(
                     metricId,
                     tenantId,
                     TenantQuotaMetricCodes.FilesStorageBytes,
@@ -181,7 +189,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                     0,
                     1),
             });
-        storage.SumReadyStorageBytesAsync(tenantId, Arg.Any<CancellationToken>()).Returns(4096);
+        storage.SumReadyStorageBytesByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid,long> { [tenantId] = 4096 });
 
         var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
@@ -191,7 +199,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(1, result.Value!.CandidateCount);
-        await storage.Received(1).SumReadyStorageBytesAsync(tenantId, Arg.Any<CancellationToken>());
+        await storage.Received(1).SumReadyStorageBytesByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>());
         await members.DidNotReceive().CountActiveMembersAsync(
             Arg.Any<Guid>(),
             Arg.Any<CancellationToken>());
@@ -238,12 +246,12 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[] { new TenantQuotaMetricBackfillCandidate(tenantId) });
-        queries.QueryAsync<TenantQuotaMetricRecord>(
-                TenantQuotaSql.ListMetricsByMetricCode,
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(
+                TenantQuotaSql.ListBaselinePageSqlServer,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<TenantQuotaMetricRecord>());
-        storage.SumReadyStorageBytesAsync(tenantId, Arg.Any<CancellationToken>()).Returns(2048);
+            .Returns(new[] { new TenantQuotaUsageBaselineRecord(null, tenantId, TenantQuotaMetricCodes.FilesStorageBytes, TenantQuotaDefaults.PeriodKey, TenantQuotaDefaults.FilesStorageBytesLimit, 0, 0, 1) });
+        storage.SumReadyStorageBytesByTenantsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Contains(tenantId)), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid,long> { [tenantId] = 2048 });
         commands.ExecuteAsync(
                 TenantQuotaSql.InsertMetric,
                 Arg.Any<IReadOnlyDictionary<string, object?>>(),

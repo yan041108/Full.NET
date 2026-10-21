@@ -21,17 +21,32 @@ internal sealed class OidcAuthorizationManagementService(
     OidcManagementAuditWriter auditWriter,
     IClock clock)
 {
-    public Task<Result<OidcAuthorizationResponse>> RevokeAsync(
+    public async Task<Result<OidcAuthorizationResponse>> RevokeAsync(
         Guid authorizationId,
         OidcManagementActorContext actor,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => RevokeCoreAsync(authorizationId, actor, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        Guid revokedUserId = default;
+        IReadOnlyCollection<Guid> revokedSessions = Array.Empty<Guid>();
+        var result = await transaction.ExecuteResultAsync(
+            token => RevokeCoreAsync(authorizationId, actor, (userId, sessions) =>
+            {
+                revokedUserId = userId;
+                revokedSessions = sessions;
+            }, token), cancellationToken).ConfigureAwait(false);
+        // 广播只加速客户端退出；权威撤销和审计成功提交后才允许发出通知。
+        if (result.IsSuccess && revokedSessions.Count > 0)
+        {
+            await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                revokedUserId, revokedSessions, cancellationToken).ConfigureAwait(false);
+        }
+        return result;
+    }
 
     private async Task<Result<OidcAuthorizationResponse>> RevokeCoreAsync(
         Guid authorizationId,
         OidcManagementActorContext actor,
+        Action<Guid, IReadOnlyCollection<Guid>> recordRevocation,
         CancellationToken cancellationToken)
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcAuthorizationDetailRow>(
@@ -77,11 +92,7 @@ internal sealed class OidcAuthorizationManagementService(
                 .ConfigureAwait(false);
             if (revokedSessionIds.Count > 0)
             {
-                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
-                        userId,
-                        revokedSessionIds,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                recordRevocation(userId, revokedSessionIds);
             }
         }
 

@@ -17,18 +17,18 @@ internal static class Endpoint
             .WithTags("ReportingDefinitions");
 
         group.MapGet("/", async (
-            Guid? groupId,
+            Guid? groupId, int? page, int? pageSize,
             string? nameContains,
             ReportingDefinitionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(groupId, nameContains, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListAsync(groupId, nameContains, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("reportingListDefinitions")
-        .Produces<IReadOnlyList<ReportingDefinitionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<ReportingDefinitionSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingDefinitionPermissions.Read));
 
         group.MapGet("/{definitionId:guid}", async (
@@ -115,17 +115,17 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingDefinitionPermissions.Publish));
 
         group.MapGet("/{definitionId:guid}/versions", async (
-            Guid definitionId,
+            Guid definitionId, int? page, int? pageSize,
             ReportingDefinitionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListVersionsAsync(definitionId, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListVersionsAsync(definitionId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("reportingListDefinitionVersions")
-        .Produces<IReadOnlyList<ReportingDefinitionVersionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<ReportingDefinitionVersionSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingDefinitionPermissions.Read));
 
         group.MapGet("/{definitionId:guid}/versions/{versionNumber:int}", async (

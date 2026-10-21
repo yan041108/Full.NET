@@ -7,6 +7,7 @@ namespace Full.NET.Modules.Webhooks.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(WebhookSubscriptionResponse))]
+[JsonSerializable(typeof(Full.NET.Modules.Webhooks.Features.DeliverWebhooks.WebhookDeliveryInsertRow[]))]
 [JsonSerializable(typeof(WebhookSubscriptionResponse[]))]
 [JsonSerializable(typeof(IReadOnlyList<WebhookSubscriptionResponse>))]
 [JsonSerializable(typeof(CreateWebhookSubscriptionRequest))]

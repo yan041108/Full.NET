@@ -38,7 +38,8 @@ internal sealed class AuditingRetentionRunner(
     ICommandExecutor commandExecutor,
     ICommandTransaction commandTransaction,
     IClock clock,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    AuditingRetentionCursor? cursor = null)
 {
     private static readonly AuditingRetentionCategory[] Categories =
     [
@@ -48,11 +49,20 @@ internal sealed class AuditingRetentionRunner(
         AuditingRetentionCategory.Outbound,
     ];
 
+    private readonly AuditingRetentionCursor _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
 
     public async Task<AuditingRetentionResult> RunOnceAsync(
         AuditingRetentionOptions options,
         CancellationToken cancellationToken)
+    {
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false); }
+        finally { _cursor.Gate.Release(); }
+    }
+
+    private async Task<AuditingRetentionResult> RunCoreAsync(
+        AuditingRetentionOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled)
@@ -74,8 +84,10 @@ internal sealed class AuditingRetentionRunner(
 
         while (batches < options.MaxBatchesPerRun && active.Any(value => value))
         {
-            foreach (var category in Categories)
+            var roundStart = _cursor.NextCategory;
+            foreach (var offset in Enumerable.Range(0, Categories.Length))
             {
+                var category = Categories[(roundStart + offset) % Categories.Length];
                 if (batches >= options.MaxBatchesPerRun)
                 {
                     break;
@@ -95,6 +107,7 @@ internal sealed class AuditingRetentionRunner(
                     .ConfigureAwait(false);
                 deleted[index] += affectedRows;
                 batches++;
+                _cursor.NextCategory = (index + 1) % Categories.Length;
 
                 // 不足一批表示该类别已追平当前截止时间，本轮不再重复探测。
                 if (affectedRows < options.BatchSize)

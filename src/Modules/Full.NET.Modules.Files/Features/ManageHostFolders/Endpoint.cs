@@ -18,18 +18,20 @@ internal static class Endpoint
             .WithTags("FilesHostFolders");
 
         group.MapGet("/tree", async (
+            Guid? parentId,
             HostFolderQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.GetTreeAsync(cancellationToken).ConfigureAwait(false);
+            var result = await queries.GetTreeAsync(parentId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("filesGetHostFolderTree")
         .Produces<IReadOnlyList<HostFolderTreeNode>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));
 
         group.MapPost("/", async (

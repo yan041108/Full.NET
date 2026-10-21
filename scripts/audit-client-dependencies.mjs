@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const policyUrl = new URL('../security/client-audit-policy.json', import.meta.url);
+const severityLevels = ['info', 'low', 'moderate', 'high', 'critical'];
 const retryableAuditErrorCodes = new Set([
   'ERR_SOCKET_TIMEOUT',
   'ERR_PNPM_AUDIT_BAD_RESPONSE'
@@ -46,41 +47,50 @@ function validateExceptionMetadata(exception, now) {
   }
 }
 
-/** 根据版本化策略检查 npm audit JSON，只返回经过审查的高危例外。 */
+/** 按版本化严重级别门槛校验官方 npm 报告；未知结构和不一致计数必须失败关闭。 */
 export function evaluateAuditReport(report, policy, now = new Date()) {
-  if (!report || typeof report !== 'object' || !report.advisories || typeof report.advisories !== 'object') {
+  if (!report || typeof report !== 'object' || !report.advisories || typeof report.advisories !== 'object'
+    || Array.isArray(report.advisories)) {
     throw new Error('Audit JSON does not expose an advisories object.');
   }
-  if (!policy || policy.version !== 1 || !Array.isArray(policy.exceptions)) {
+  if (!policy || policy.version !== 1 || !Array.isArray(policy.exceptions)
+    || !severityLevels.includes(policy.minimumSeverity)) {
     throw new Error('Client audit policy is invalid or unsupported.');
   }
 
   const acceptedExceptions = [];
+  const findingCounts = Object.fromEntries(severityLevels.map(severity => [severity, 0]));
   for (const advisory of Object.values(report.advisories)) {
     if (!advisory || typeof advisory !== 'object') {
       throw new Error('Audit JSON contains an invalid advisory entry.');
     }
+    if (!severityLevels.includes(advisory.severity)) {
+      throw new Error('Audit JSON contains an invalid severity.');
+    }
     if (advisory.severity === 'critical') {
       throw new Error(`Critical advisory is never allowed: ${advisory.github_advisory_id ?? 'unknown'}.`);
     }
-    if (advisory.severity !== 'high') {
+    const findings = Array.isArray(advisory.findings) ? advisory.findings : [];
+    const paths = findings.flatMap(finding => Array.isArray(finding?.paths) ? finding.paths : []);
+    if (findings.length === 0 || findings.some(finding => !Array.isArray(finding?.paths) || finding.paths.length === 0)
+      || paths.some(path => typeof path !== 'string' || path.length === 0)) {
+      throw new Error(`Advisory ${advisory.github_advisory_id ?? 'unknown'} does not expose non-empty findings paths.`);
+    }
+    // npm 元数据按受影响版本组计数；一条公告可以包含多个版本，不能按公告条数核对。
+    findingCounts[advisory.severity] += findings.length;
+    if (severityLevels.indexOf(advisory.severity) < severityLevels.indexOf(policy.minimumSeverity)) {
       continue;
     }
 
     const exception = policy.exceptions.find(item => getExceptionAdvisory(item) === advisory.github_advisory_id);
     if (!exception) {
-      throw new Error(`Unreviewed high advisory: ${advisory.github_advisory_id ?? 'unknown'}.`);
+      throw new Error(`Unreviewed ${advisory.severity} advisory: ${advisory.github_advisory_id ?? 'unknown'}.`);
     }
     validateExceptionMetadata(exception, now);
     if (advisory.module_name !== exception.package) {
       throw new Error(`Advisory ${getExceptionAdvisory(exception)} does not match the reviewed package ${exception.package}.`);
     }
 
-    const findings = Array.isArray(advisory.findings) ? advisory.findings : [];
-    const paths = findings.flatMap(finding => Array.isArray(finding?.paths) ? finding.paths : []);
-    if (paths.length === 0 || paths.some(path => typeof path !== 'string' || path.length === 0)) {
-      throw new Error(`Advisory ${getExceptionAdvisory(exception)} does not expose non-empty findings paths.`);
-    }
     if (paths.some(path => !exception.allowedPaths.includes(path))) {
       throw new Error(`Advisory ${getExceptionAdvisory(exception)} is outside the reviewed uni-app toolchain.`);
     }
@@ -93,17 +103,14 @@ export function evaluateAuditReport(report, policy, now = new Date()) {
   }
 
   const counts = report.metadata?.vulnerabilities;
-  if (!counts || typeof counts.high !== 'number' || typeof counts.critical !== 'number') {
-    throw new Error('Audit JSON does not expose high and critical metadata counts.');
+  if (!counts || severityLevels.some(severity => !Number.isSafeInteger(counts[severity]) || counts[severity] < 0)) {
+    throw new Error('Audit JSON does not expose reliable severity metadata counts.');
   }
-  const advisoryCounts = Object.values(report.advisories).reduce((result, advisory) => {
-    if (advisory.severity === 'high' || advisory.severity === 'critical') {
-      result[advisory.severity] += 1;
-    }
-    return result;
-  }, { high: 0, critical: 0 });
-  if (counts.high !== advisoryCounts.high || counts.critical !== advisoryCounts.critical) {
-    throw new Error('Audit JSON advisory counts do not match metadata.');
+  if (Object.keys(counts).some(severity => !severityLevels.includes(severity))) {
+    throw new Error('Audit JSON contains unknown severity metadata.');
+  }
+  if (severityLevels.some(severity => counts[severity] !== findingCounts[severity])) {
+    throw new Error('Audit JSON finding counts do not match metadata.');
   }
 
   return { acceptedExceptions };
@@ -178,7 +185,7 @@ async function main() {
     console.log(`Accepted reviewed security exception ${exception.advisory} for ${exception.package}.`);
     console.log(`Paths: ${exception.paths.join(', ')}`);
   }
-  console.log('Client audit gate found no unreviewed critical or high advisories.');
+  console.log(`Client audit gate found no unreviewed ${policy.minimumSeverity} or higher advisories.`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

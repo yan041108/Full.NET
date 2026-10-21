@@ -5,6 +5,44 @@ namespace Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 
 internal static class TenantQuotaSql
 {
+    public static readonly SqlStatement ListBaselinePageSqlServer = new(
+        "tenancy.quota.baseline_page.sqlserver",
+        """
+        SELECT metric.Id, metric.TenantId, metric.MetricCode, metric.PeriodKey,
+               metric.LimitValue, metric.UsedValue, metric.ReservedValue, metric.Version
+        FROM fn_tenancy_quota_metric metric
+        WHERE metric.MetricCode = @MetricCode AND metric.PeriodKey = @PeriodKey
+          AND (@AfterTenantId IS NULL OR metric.TenantId > @AfterTenantId)
+        UNION ALL
+        SELECT CAST(NULL AS uniqueidentifier) AS Id, tenant.Id AS TenantId, @MetricCode AS MetricCode, @PeriodKey AS PeriodKey,
+               @DefaultLimit AS LimitValue, 0 AS UsedValue, 0 AS ReservedValue, 0 AS Version
+        FROM fn_tenancy_tenant tenant
+        WHERE tenant.LifecycleStatus = @LifecycleStatus AND (@AfterTenantId IS NULL OR tenant.Id > @AfterTenantId)
+          AND NOT EXISTS (SELECT 1 FROM fn_tenancy_quota_metric existing
+              WHERE existing.TenantId = tenant.Id AND existing.MetricCode = @MetricCode AND existing.PeriodKey = @PeriodKey)
+        ORDER BY TenantId
+        OFFSET 0 ROWS FETCH NEXT @Take ROWS ONLY
+        """, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListBaselinePageMySql = new(
+        "tenancy.quota.baseline_page.mysql",
+        """
+        SELECT metric.Id, metric.TenantId, metric.MetricCode, metric.PeriodKey,
+               metric.LimitValue, metric.UsedValue, metric.ReservedValue, metric.Version
+        FROM fn_tenancy_quota_metric metric
+        WHERE metric.MetricCode = @MetricCode AND metric.PeriodKey = @PeriodKey
+          AND (@AfterTenantId IS NULL OR metric.TenantId > @AfterTenantId)
+        UNION ALL
+        SELECT CAST(NULL AS BINARY(16)) AS Id, tenant.Id AS TenantId, @MetricCode AS MetricCode, @PeriodKey AS PeriodKey,
+               @DefaultLimit AS LimitValue, 0 AS UsedValue, 0 AS ReservedValue, 0 AS Version
+        FROM fn_tenancy_tenant tenant
+        WHERE tenant.LifecycleStatus = @LifecycleStatus AND (@AfterTenantId IS NULL OR tenant.Id > @AfterTenantId)
+          AND NOT EXISTS (SELECT 1 FROM fn_tenancy_quota_metric existing
+              WHERE existing.TenantId = tenant.Id AND existing.MetricCode = @MetricCode AND existing.PeriodKey = @PeriodKey)
+        ORDER BY TenantId
+        LIMIT @Take
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindMetric = new(
         "tenancy.quota.find_metric",
         """
@@ -185,10 +223,20 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement ListReservationsWithNullMetricId = new(
         "tenancy.quota.list_reservations_null_metric_id",
         """
+        SELECT TOP (500) Id, TenantId, MetricCode, Version
+        FROM fn_tenancy_quota_reservation
+        WHERE MetricId IS NULL AND (@AfterId IS NULL OR Id > @AfterId)
+        ORDER BY Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListReservationsWithNullMetricIdMySql = new(
+        "tenancy.quota.list_reservations_null_metric_id.mysql",
+        """
         SELECT Id, TenantId, MetricCode, Version
         FROM fn_tenancy_quota_reservation
-        WHERE MetricId IS NULL
-        ORDER BY CreatedAtUtc, Id
+        WHERE MetricId IS NULL AND (@AfterId IS NULL OR Id > @AfterId)
+        ORDER BY Id LIMIT 500
         """,
         SqlDataScope.HostOnly);
 
@@ -229,6 +277,21 @@ internal sealed record TenantQuotaMetricRecord(
     long UsedValue,
     long ReservedValue,
     int Version);
+
+/// <summary>对账读取投影；指标尚未供给时 Id 为 null，不用空 UUID 冒充已分配的持久化标识。</summary>
+internal sealed record TenantQuotaUsageBaselineRecord(
+    Guid? Id,
+    Guid TenantId,
+    string MetricCode,
+    string PeriodKey,
+    long LimitValue,
+    long UsedValue,
+    long ReservedValue,
+    int Version)
+{
+    // UNION 可将 MySQL Version 提升为 bigint；JIT 属性映射与 Native 显式读取保持同一逻辑类型。
+    public TenantQuotaUsageBaselineRecord() : this(null, default, string.Empty, string.Empty, 0, 0, 0, 0) { }
+}
 
 internal sealed record TenantQuotaReservationRecord(
     Guid Id,

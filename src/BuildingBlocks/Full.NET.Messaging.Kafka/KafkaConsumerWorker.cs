@@ -41,15 +41,63 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
 
         var consumerGroups = BuildConsumerGroups();
+        if (consumerGroups.Count > 64)
+            throw new InvalidOperationException("Kafka consumer groups exceed the 64-thread budget.");
         if (consumerGroups.Count == 0)
         {
             _logger.LogWarning("Kafka messaging is enabled but no integration event subscriptions are registered.");
             return;
         }
         var workers = consumerGroups
-            .Select(group => RunConsumerGroupAsync(group, stoppingToken))
+            // Consume 只有同步接口；每组使用专用线程隔离阻塞，不能长期占用线程池。
+            .Select(group => (Func<CancellationToken, Task>)(token =>
+                StartConsumerGroup(() => RunConsumerGroupAsync(group, token), group.ConsumerName, token)))
             .ToArray();
-        await Task.WhenAll(workers).ConfigureAwait(false);
+        await SuperviseConsumerGroups(workers, stoppingToken).ConfigureAwait(false);
+    }
+
+    /// <summary>任一组故障立即取消其他轮询，等全部组排空后向宿主传播失败。</summary>
+    internal static async Task SuperviseConsumerGroups(IReadOnlyList<Func<CancellationToken, Task>> groups,
+        CancellationToken cancellationToken)
+    {
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        async Task ObserveAsync(Func<CancellationToken, Task> group)
+        {
+            try { await group(stop.Token).ConfigureAwait(false); }
+            catch (Exception failure)
+            {
+                if (!stop.IsCancellationRequested)
+                {
+                    try { await stop.CancelAsync().ConfigureAwait(false); }
+                    catch (Exception cancellationFailure) { throw new AggregateException(failure, cancellationFailure); }
+                }
+                throw;
+            }
+        }
+        await Task.WhenAll(groups.Select(ObserveAsync)).ConfigureAwait(false);
+    }
+
+    /// <summary>线程承载同步轮询，异步关闭完成后再报告终态；所有异常交还宿主观察。</summary>
+    internal static Task StartConsumerGroup(Func<Task> run, string name, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested) return Task.FromCanceled(cancellationToken);
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var pending = run();
+                _ = pending.ContinueWith(finished =>
+                {
+                    if (finished.IsFaulted) completion.TrySetException(finished.Exception!.InnerExceptions);
+                    else if (finished.IsCanceled) completion.TrySetCanceled(cancellationToken);
+                    else completion.TrySetResult();
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }
+            catch (Exception exception) { completion.TrySetException(exception); }
+        }) { IsBackground = true, Name = $"Full.NET Kafka {name}" };
+        thread.Start();
+        return completion.Task;
     }
 
     private IReadOnlyList<ConsumerGroupPlan> BuildConsumerGroups()

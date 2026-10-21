@@ -31,9 +31,9 @@ public sealed class HostAnnouncementAudienceValidatorTests
     [TestMethod]
     public async Task Validate_rejects_unknown_host_user_targets()
     {
-        var hostUsers = Substitute.For<IHostUserDirectory>();
-        hostUsers.FindActiveHostUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns((HostUserDirectoryEntry?)null);
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        hostUsers.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>());
         var validator = new HostAnnouncementAudienceValidator(
             hostUsers,
             Substitute.For<ITenantOrganizationUnitDirectory>());
@@ -72,9 +72,9 @@ public sealed class HostAnnouncementAudienceValidatorTests
 
     private static HostAnnouncementAudienceValidator CreateValidator()
     {
-        var hostUsers = Substitute.For<IHostUserDirectory>();
-        hostUsers.FindActiveHostUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new HostUserDirectoryEntry(Guid.CreateVersion7(), "demo", "Demo"));
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        hostUsers.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<IReadOnlyCollection<Guid>>()!.ToDictionary(id => id, id => new HostUserDirectoryEntry(id, "demo", "Demo")));
         return new HostAnnouncementAudienceValidator(
             hostUsers,
             Substitute.For<ITenantOrganizationUnitDirectory>());

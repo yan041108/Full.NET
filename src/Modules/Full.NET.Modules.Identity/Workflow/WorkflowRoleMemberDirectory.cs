@@ -129,35 +129,31 @@ internal sealed class WorkflowRoleMemberDirectory(
     /// <param name="cancellationToken">请求取消令牌。</param>
     /// <returns>以角色标识为键、去重且稳定排序后的活动用户标识列表为值。</returns>
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> FindActiveMemberUserIdsByRoleIdsAsync(
-        IReadOnlyCollection<Guid> roleIds,
-        CancellationToken cancellationToken = default)
+        IReadOnlyCollection<Guid> roleIds, int maximumMembersPerRole, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(roleIds);
-        var distinctRoleIds = roleIds.Distinct().ToArray();
-        if (distinctRoleIds.Length == 0)
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumMembersPerRole, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumMembersPerRole, 21);
+        if (roleIds.Count > 5) throw new ArgumentException("Workflow role source cannot exceed five roles.", nameof(roleIds));
+        var result = new Dictionary<Guid, IReadOnlyList<Guid>>();
+        foreach (var roleId in roleIds.Distinct())
         {
-            return new Dictionary<Guid, IReadOnlyList<Guid>>();
+            var mysql = databaseOptions.Value.Provider == DatabaseProvider.MySql;
+            var parameters = IdentitySqlParameters.Create(("RoleIds", new[] { roleId }), ("MemberLimit", maximumMembersPerRole));
+            var statement = mysql ? WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIdsMySql
+                : WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIds;
+            if (!currentTenant.IsHost)
+            {
+                var scope = ResolveTenantScope();
+                parameters["TenantId"] = scope.TenantId;
+                parameters["TenantScopeKey"] = scope.TenantScopeKey;
+                statement = mysql ? WorkflowRoleMemberSql.ListActiveTenantRoleMembersByRoleIdsMySql
+                    : WorkflowRoleMemberSql.ListActiveTenantRoleMembersByRoleIds;
+            }
+            var rows = await queryExecutor.QueryAsync<WorkflowRoleMemberRow>(statement, parameters, cancellationToken).ConfigureAwait(false);
+            if (rows.Count > 0) result[roleId] = rows.Select(row => row.UserId).Distinct().ToArray();
         }
-
-        var rows = currentTenant.IsHost
-            ? await queryExecutor.QueryAsync<WorkflowRoleMemberRow>(
-                    WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIds,
-                    IdentitySqlParameters.Create(("RoleIds", distinctRoleIds)),
-                    cancellationToken)
-                .ConfigureAwait(false)
-            : await queryExecutor.QueryAsync<WorkflowRoleMemberRow>(
-                    WorkflowRoleMemberSql.ListActiveTenantRoleMembersByRoleIds,
-                    IdentitySqlParameters.Create(
-                        ("TenantId", ResolveTenantScope().TenantId),
-                        ("TenantScopeKey", ResolveTenantScope().TenantScopeKey),
-                        ("RoleIds", distinctRoleIds)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        return rows
-            .GroupBy(row => row.RoleId)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<Guid>)group.Select(item => item.UserId).Distinct().ToArray());
+        return result;
     }
 
     /// <summary>将数据库投影映射为 Workflow Contract 最小角色条目。</summary>

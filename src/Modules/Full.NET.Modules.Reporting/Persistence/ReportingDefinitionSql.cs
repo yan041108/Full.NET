@@ -164,4 +164,27 @@ internal static class ReportingDefinitionSql
           AND version.VersionNumber = @VersionNumber
         """,
         SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountSummaries = new("reporting.countsummaries", "SELECT COUNT(1) FROM fn_reporting_definition WHERE (@GroupId IS NULL OR GroupId = @GroupId) AND (@NameContains IS NULL OR Name LIKE @NameContains)", SqlDataScope.HostOnly);
+    public static readonly SqlStatement DefinitionExists = new("reporting.definitionexists", "SELECT COUNT(1) FROM fn_reporting_definition WHERE Id = @DefinitionId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement CountVersionSummaries = new("reporting.countversionsummaries", "SELECT COUNT(1) FROM fn_reporting_definition_version WHERE DefinitionId = @DefinitionId", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListSummariesSqlServer = new(
+        "reporting.definition_summaries.sqlserver",
+        """
+        SELECT Id, GroupId, DataSourceId, DefinitionKey, Name, Description, QueryPortKey, '' AS ParameterSchemaJson, '' AS LayoutConfigJson, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_reporting_definition WHERE (@GroupId IS NULL OR GroupId = @GroupId) AND (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListSummariesMySql = new(
+        "reporting.definition_summaries.mysql",
+        """
+        SELECT Id, GroupId, DataSourceId, DefinitionKey, Name, Description, QueryPortKey, '' AS ParameterSchemaJson, '' AS LayoutConfigJson, LatestPublishedVersionNumber, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version FROM fn_reporting_definition WHERE (@GroupId IS NULL OR GroupId = @GroupId) AND (@NameContains IS NULL OR Name LIKE @NameContains) ORDER BY Name, Id LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesSqlServer = new(
+        "reporting.version_summaries.sqlserver",
+        """
+        SELECT Id, DefinitionId, VersionNumber, DataSourceId, QueryPortKey, '' AS ParameterSchemaJson, '' AS LayoutConfigJson, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_reporting_definition_version WHERE DefinitionId = @DefinitionId ORDER BY VersionNumber DESC, Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListVersionSummariesMySql = new(
+        "reporting.version_summaries.mysql",
+        """
+        SELECT Id, DefinitionId, VersionNumber, DataSourceId, QueryPortKey, '' AS ParameterSchemaJson, '' AS LayoutConfigJson, ChangeNote, PublishedByUserId, PublishedAtUtc FROM fn_reporting_definition_version WHERE DefinitionId = @DefinitionId ORDER BY VersionNumber DESC, Id DESC LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
 }

@@ -307,6 +307,8 @@ internal static class IdentityApiKeyAssertions
             username,
             FullNetApiFactory.TestPassword,
             cancellationToken);
+        var currentRole = await IntegrationTestAuthHelper.ReadCurrentHostRoleAsync(client, adminToken, role.Id, cancellationToken);
+        Assert.IsTrue(currentRole.Version > grantedRole.Version, "成员编辑必须推进角色并发版本。");
         using var revokePermissionRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{role.Id:D}/permissions",
@@ -316,7 +318,7 @@ internal static class IdentityApiKeyAssertions
                     IdentityApiKeyManagementPermissions.Create,
                     IdentityApiKeyManagementPermissions.Read,
                 ],
-                grantedRole.Version));
+                currentRole.Version));
         using var revokePermissionResponse = await client.SendAsync(
             revokePermissionRequest,
             cancellationToken);

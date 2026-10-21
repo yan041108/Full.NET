@@ -125,6 +125,62 @@ internal static class SignatureCanonicalRequest
     public static string ComputeContentHash(ReadOnlySpan<byte> body) =>
         Convert.ToHexStringLower(SHA256.HashData(body));
 
+    public static async Task<string> ReadContentHashAsync(
+        HttpRequest request,
+        int maxBodyBytes,
+        CancellationToken cancellationToken)
+    {
+        request.EnableBuffering();
+        var originalPosition = request.Body.CanSeek ? request.Body.Position : 0L;
+        try
+        {
+            if (request.ContentLength is long contentLength && contentLength > maxBodyBytes)
+            {
+                throw new SignatureCanonicalizationException(
+                    IdentitySignatureErrorCodes.RequestBodyTooLarge,
+                    "The request body exceeds the configured signature limit.");
+            }
+
+            if (request.Body.CanSeek)
+            {
+                request.Body.Position = 0;
+            }
+
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var buffer = new byte[8_192];
+            var totalBytes = 0;
+            while (true)
+            {
+                var read = await request.Body
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+                    .ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                totalBytes += read;
+                if (totalBytes > maxBodyBytes)
+                {
+                    throw new SignatureCanonicalizationException(
+                        IdentitySignatureErrorCodes.RequestBodyTooLarge,
+                        "The request body exceeds the configured signature limit.");
+                }
+
+                hash.AppendData(buffer, 0, read);
+            }
+
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
+        finally
+        {
+            if (request.Body.CanSeek)
+            {
+                request.Body.Position = originalPosition;
+            }
+        }
+    }
+
     public static async Task<byte[]> ReadBodyAsync(
         HttpRequest request,
         int maxBodyBytes,

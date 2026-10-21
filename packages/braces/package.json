@@ -1,0 +1,25 @@
+{
+  "name": "@fullnet/braces",
+  "version": "0.1.0",
+  "private": true,
+  "description": "基于 braces 3.0.3 的有界递归安全修复包，仅用于客户端工具链",
+  "main": "index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "test": "node --test ../../tests/client-braces-security.test.mjs"
+  },
+  "dependencies": {
+    "fill-range": "7.1.1"
+  },
+  "fullnetUpstream": {
+    "package": "braces",
+    "version": "3.0.3",
+    "source": "https://github.com/micromatch/braces/tree/3.0.3",
+    "advisory": "GHSA-vfj7-8cjw-p6xm",
+    "gitHead": "74b2db2938fad48a2ea54a9c8bf27a37a62c350d",
+    "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA=="
+  }
+}

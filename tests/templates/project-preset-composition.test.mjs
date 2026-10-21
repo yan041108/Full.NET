@@ -38,8 +38,8 @@ test('minimal projection excludes unselected module implementation references', 
 
 test('enterprise projection retains selected optional modules', () => {
   const result = projectCompositionSource(sources, resolvePresetModules('enterprise'));
-  assert.match(result.catalog, /new EnterpriseRequestModule\(\)/);
-  assert.match(result.project, /Full\.NET\.Modules\.EnterpriseRequest\.csproj/);
+  assert.doesNotMatch(result.catalog, /new EnterpriseRequestModule\(\)/);
+  assert.doesNotMatch(result.project, /Full\.NET\.Modules\.EnterpriseRequest\.csproj/);
   assert.doesNotMatch(result.catalog, /new PaymentsModule\(\)/);
 });
 

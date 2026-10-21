@@ -5,7 +5,7 @@ export const PRESET_MODULE_CLOSURE = {
   minimal: ['Identity', 'Tenancy', 'Settings', 'Organization'],
   platform: ['Identity', 'Tenancy', 'Settings', 'Organization', 'Auditing', 'Files', 'Notifications', 'Calendar', 'Platform', 'Regions', 'Jobs', 'Messaging', 'ObservabilityAdmin', 'Mqtt', 'Cryptography'],
   saas: ['Identity', 'Tenancy', 'Settings', 'Organization', 'Auditing', 'Files', 'Notifications', 'Calendar', 'Platform', 'Regions', 'Jobs', 'Messaging', 'ObservabilityAdmin', 'Mqtt', 'Cryptography', 'Payments', 'Webhooks'],
-  enterprise: ['Identity', 'Tenancy', 'Settings', 'Organization', 'Auditing', 'Files', 'Notifications', 'Calendar', 'Platform', 'Regions', 'Jobs', 'Messaging', 'ObservabilityAdmin', 'Mqtt', 'Cryptography', 'Webhooks', 'Workflow', 'ImportExport', 'Reporting', 'Printing', 'EnterpriseRequest'],
+  enterprise: ['Identity', 'Tenancy', 'Settings', 'Organization', 'Auditing', 'Files', 'Notifications', 'Calendar', 'Platform', 'Regions', 'Jobs', 'Messaging', 'ObservabilityAdmin', 'Mqtt', 'Cryptography', 'Webhooks', 'Workflow', 'ImportExport', 'Reporting', 'Printing'],
 };
 export const VALID_PRESETS = Object.keys(PRESET_MODULE_CLOSURE);
 export const OWNER_KEY_PATTERN = /^[a-z][a-z0-9]{1,11}$/;

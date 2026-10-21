@@ -288,7 +288,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
   await page.route('**/api/v1/organization/host-user-management/reference?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ units: [], positions: [], userUnits: [], userPositions: [] })
+    body: JSON.stringify({ units: [], positions: [], userUnits: [], userPositions: [], unitsTotal: 0, positionsTotal: 0 })
   }));
 
   await page.goto('/');
@@ -1768,6 +1768,31 @@ test('API Key 创建、轮换、一次性明文与禁用在两端保持一致', 
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
   await expect(rowByName.getByText('已禁用', { exact: true }).first()).toBeVisible();
+});
+
+test('Host 文件目录只在展开时加载下一层', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const rootId = '01912345-6789-7abc-8def-0123456789c0';
+  const childId = '01912345-6789-7abc-8def-0123456789c1';
+  const calls = [];
+  await page.route('**/api/v1/files/host-folders/tree**', async route => {
+    const parent = new URL(route.request().url()).searchParams.get('parentId'); calls.push(parent);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(parent === rootId
+      ? [{ id: childId, parentId: rootId, name: 'Child folder', displayOrder: 0, revision: 0, hasChildren: false }]
+      : [{ id: rootId, parentId: null, name: 'Root folder', displayOrder: 0, revision: 0, hasChildren: true }]) });
+  });
+  await page.route('**/api/v1/files/host-files**', route => route.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 }) }));
+  await page.goto('/'); await openNavigationLink(page, /文件管理/);
+  const tree = page.locator('.host-files-tree-card .el-tree');
+  await expect(tree.getByText('Root folder', { exact: true })).toBeVisible();
+  expect(calls).toEqual([null]);
+  await expect(tree.getByText('Child folder', { exact: true })).toHaveCount(0);
+  await tree.locator('.el-tree-node__content').filter({ hasText: 'Root folder' }).locator('.el-tree-node__expand-icon').click();
+  await expect(tree.getByText('Child folder', { exact: true })).toBeVisible();
+  expect(calls).toEqual([null, rootId]);
+  await tree.getByText('Child folder', { exact: true }).click();
+  await expect.poll(() => calls.length).toBe(2);
 });
 
 test('Host 文件列表与上传删除在两端保持一致', async ({ page }, testInfo) => {

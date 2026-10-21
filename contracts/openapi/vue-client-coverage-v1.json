@@ -1246,6 +1246,17 @@
       "routePrefixes": [
         "/api/v1/ai/knowledge-answer-feedback"
       ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/log-timeline.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts",
+        "packages/client-contracts/src/log-timeline.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "routePrefixes": [
+        "/api/v1/auditing/timeline"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -2007,6 +2018,12 @@
       "apiModule": "ui/admin/src/api/ai-feedback-evaluation.ts",
       "consumers": [
         "ui/admin/src/components/AiFeedbackEvaluationPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/log-timeline.ts",
+      "consumers": [
+        "ui/admin/src/views/LogTimelineView.vue"
       ]
     }
   ]

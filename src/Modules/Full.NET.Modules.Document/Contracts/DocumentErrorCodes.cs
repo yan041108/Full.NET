@@ -18,6 +18,9 @@ public static class DocumentErrorCodes
     /// <summary>目标文档不存在、已删除或属于其他租户。</summary>
     public const string NotFound = "document.host_document.not_found";
 
+    /// <summary>当前用户没有目标文档的操作授权。</summary>
+    public const string AccessDenied = "document.host_document.access_denied";
+
     /// <summary>乐观并发冲突：文档已被其他请求修改，请重新读取。</summary>
     public const string VersionConflict = "document.host_document.version_conflict";
 

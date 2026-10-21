@@ -29,7 +29,7 @@ internal sealed class AdministrativeRegionImportService(
             return Result<ImportAdministrativeRegionsPreviewResponse>.Failure(validationError!);
         }
 
-        var existingByCode = await LoadExistingSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+        var (existingByCode, _) = await LoadImportSnapshotAsync(cancellationToken).ConfigureAwait(false);
         var (normalizedItems, skippedCount) = NormalizeImportItems(request.Items, existingByCode);
         if (AdministrativeRegionTreeRules.ImportWouldCreateCycle(
                 normalizedItems.ToDictionary(
@@ -66,21 +66,16 @@ internal sealed class AdministrativeRegionImportService(
         Guid actorUserId,
         CancellationToken cancellationToken)
     {
-        var preview = await PreviewAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!preview.IsSuccess)
-        {
-            return Result<ImportAdministrativeRegionsApplyResponse>.Failure(preview.Error!);
-        }
-
         if (!TryValidateRequestShell(request, out var mergeMode, out var validationError))
-        {
             return Result<ImportAdministrativeRegionsApplyResponse>.Failure(validationError!);
-        }
-
-        var existingByCode = await LoadExistingSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+        var (existingByCode, codeToId) = await LoadImportSnapshotAsync(cancellationToken).ConfigureAwait(false);
         var (normalizedItems, skippedCount) = NormalizeImportItems(request.Items, existingByCode);
         var importByCode = normalizedItems.ToDictionary(item => item.Code, StringComparer.Ordinal);
-        var codeToId = await LoadCodeToIdMapAsync(cancellationToken).ConfigureAwait(false);
+        if (AdministrativeRegionTreeRules.ImportWouldCreateCycle(normalizedItems.ToDictionary(
+            item => item.Code, item => new ImportRegionItemSnapshot(item.Code, item.ParentCode), StringComparer.Ordinal)))
+            return Result<ImportAdministrativeRegionsApplyResponse>.Failure(new Error(
+                RegionsErrorCodes.ImportInvalid, "Import dataset contains parent cycles.", ErrorType.Validation));
+        var preview = AdministrativeRegionImportDiffEngine.Compute(existingByCode, normalizedItems, mergeMode, skippedCount);
         var now = clock.UtcNow;
         var addedCount = 0;
         var updatedCount = 0;
@@ -152,14 +147,17 @@ internal sealed class AdministrativeRegionImportService(
 
         var removedCount = 0;
         if (string.Equals(mergeMode, AdministrativeRegionImportMergeModes.Replace, StringComparison.Ordinal)
-            && preview.Value!.Removed.Count > 0)
+            && preview.Removed.Count > 0)
         {
-            var codes = preview.Value.Removed.Select(item => item.Code).ToArray();
-            removedCount = await commandExecutor.ExecuteAsync(
-                    ResolveDeleteByCodesStatement(),
-                    RegionsSqlParameters.Create(("Codes", codes)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var codes = preview.Removed.Select(item => item.Code).ToArray();
+            // 每条语句限制参数数；所有块仍参与同一应用事务，失败整体回滚。
+            foreach (var batch in codes.Chunk(500))
+            {
+                removedCount += await commandExecutor.ExecuteAsync(
+                        ResolveDeleteByCodesStatement(),
+                        RegionsSqlParameters.Create(("Codes", batch)), cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
 
         var manifestId = idGenerator.NewId();
@@ -193,52 +191,19 @@ internal sealed class AdministrativeRegionImportService(
                     actorUserId)));
     }
 
-    private async Task<Dictionary<string, AdministrativeRegionDiffSnapshot>> LoadExistingSnapshotsAsync(
-        CancellationToken cancellationToken)
+    private async Task<(Dictionary<string, AdministrativeRegionDiffSnapshot> Existing, Dictionary<string, Guid> Ids)>
+        LoadImportSnapshotAsync(CancellationToken cancellationToken)
     {
-        var links = await queryExecutor.QueryAsync<AdministrativeRegionCodeLinkRecord>(
-                AdministrativeRegionSql.ListCodeLinks,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        // 一次模块内快照同时提供预览、父编码与 Id 映射，避免逐行回源及应用时重复全表读取。
+        var records = await queryExecutor.QueryAsync<AdministrativeRegionRecord>(
+            AdministrativeRegionSql.ListImportSnapshot, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var codes = records.ToDictionary(row => row.Id, row => row.Code);
         var snapshots = new Dictionary<string, AdministrativeRegionDiffSnapshot>(StringComparer.Ordinal);
-        foreach (var link in links)
-        {
-            var record = await queryExecutor.QuerySingleOrDefaultAsync<AdministrativeRegionRecord>(
-                    AdministrativeRegionSql.FindByCode,
-                    RegionsSqlParameters.Create(("Code", link.Code)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (record is null)
-            {
-                continue;
-            }
-
-            snapshots[record.Code] = new AdministrativeRegionDiffSnapshot(
-                record.Code,
-                record.Name,
-                record.ShortName,
-                record.MergerName,
-                record.ZipCode,
-                record.CityCode,
-                record.Level,
-                record.RegionType,
-                record.PinYin,
-                record.Longitude,
-                record.Latitude,
-                record.DisplayOrder,
-                link.ParentCode);
-        }
-
-        return snapshots;
-    }
-
-    private async Task<Dictionary<string, Guid>> LoadCodeToIdMapAsync(CancellationToken cancellationToken)
-    {
-        var links = await queryExecutor.QueryAsync<AdministrativeRegionCodeLinkRecord>(
-                AdministrativeRegionSql.ListCodeLinks,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return links.ToDictionary(link => link.Code, link => link.Id, StringComparer.Ordinal);
+        foreach (var row in records)
+            snapshots[row.Code] = new(row.Code, row.Name, row.ShortName, row.MergerName, row.ZipCode,
+                row.CityCode, row.Level, row.RegionType, row.PinYin, row.Longitude, row.Latitude,
+                row.DisplayOrder, row.ParentId is { } parentId ? codes.GetValueOrDefault(parentId) : null);
+        return (snapshots, records.ToDictionary(row => row.Code, row => row.Id, StringComparer.Ordinal));
     }
 
     private static (List<AdministrativeRegionDiffSnapshot> Items, int SkippedCount) NormalizeImportItems(

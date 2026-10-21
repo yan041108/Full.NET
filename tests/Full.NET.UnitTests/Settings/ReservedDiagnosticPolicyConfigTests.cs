@@ -57,13 +57,7 @@ public sealed class ReservedDiagnosticPolicyConfigTests
         var record = new ConfigEntryRecord(
             id, DiagnosticPolicyLimits.ConfigKey, "diagnostic policy", null, null,
             ConfigValueKinds.Json, "{}", 0, true, now, null, 1);
-        var query = Substitute.For<IQueryExecutor>();
-        query.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
-                Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ConfigEntryIdentityRecord?>(identity));
-        query.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
-                Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ConfigEntryRecord?>(record));
+        var query = new ReservedEntryQuery(identity, record);
         var reads = new HostConfigEntryQueryService(query, Options.Create(new DatabaseOptions()));
         var management = new HostConfigEntryManagementService(
             query,
@@ -84,6 +78,18 @@ public sealed class ReservedDiagnosticPolicyConfigTests
         Assert.IsFalse((await management.BatchDeleteAsync([id])).IsSuccess);
         Assert.IsFalse((await management.BatchUpdateValuesAsync(
             [new ConfigValueUpdate(DiagnosticPolicyLimits.ConfigKey, "{}")])).IsSuccess);
+    }
+
+    // 显式夹具支持内部投影，不要求为动态代理开放生产程序集内部类型。
+    private sealed class ReservedEntryQuery(ConfigEntryIdentityRecord identity, ConfigEntryRecord record) : IQueryExecutor
+    {
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult((T?)(typeof(T) == typeof(ConfigEntryIdentityRecord) ? (object)identity : record));
+
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<T>>([(T)(object)identity]);
     }
 
     private sealed class InlineTransaction : ICommandTransaction

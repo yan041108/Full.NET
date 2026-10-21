@@ -133,7 +133,11 @@ public sealed record AiChatSessionResponse(
     IReadOnlyList<AiChatMessageResponse> Messages,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version)
+{
+    /// <summary>当前消息窗口之前仍有历史，可使用第一条消息的时间和标识继续向前读取。</summary>
+    public bool HasOlderMessages { get; init; }
+}
 
 /// <remarks>
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。

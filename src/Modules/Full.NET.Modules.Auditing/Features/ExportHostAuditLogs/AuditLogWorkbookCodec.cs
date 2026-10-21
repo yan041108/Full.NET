@@ -23,19 +23,14 @@ internal static class AuditLogWorkbookCodec
     public static byte[] Export(
         string sheetName,
         IReadOnlyList<string> headers,
-        IEnumerable<IReadOnlyList<string>> rows)
+        IEnumerable<IReadOnlyList<string>> rows, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
         ArgumentNullException.ThrowIfNull(headers);
         ArgumentNullException.ThrowIfNull(rows);
 
-        var materializedRows = rows.Take(MaximumExportRows + 1).ToArray();
-        if (materializedRows.Length > MaximumExportRows)
-        {
-            throw new InvalidOperationException("Export row count exceeds workbook limit.");
-        }
-
-        return CreateWorkbook(sheetName, headers, materializedRows);
+        cancellationToken.ThrowIfCancellationRequested();
+        return CreateWorkbook(sheetName, headers, rows, cancellationToken);
     }
 
     internal static string EscapeFormulaText(string value) =>
@@ -46,7 +41,7 @@ internal static class AuditLogWorkbookCodec
     private static byte[] CreateWorkbook(
         string sheetName,
         IReadOnlyList<string> headers,
-        IReadOnlyList<IReadOnlyList<string>> rows)
+        IEnumerable<IReadOnlyList<string>> rows, CancellationToken cancellationToken)
     {
         using var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
@@ -110,23 +105,39 @@ internal static class AuditLogWorkbookCodec
                             new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"),
                             new XAttribute("Target", "worksheets/sheet1.xml")))));
 
-            var allRows = new[] { headers }.Concat(rows).ToArray();
-            var sheetRows = allRows.Select((row, rowIndex) =>
-                new XElement(
-                    SpreadsheetNamespace + "row",
-                    new XAttribute("r", rowIndex + 1),
-                    row.Select((value, columnIndex) => CreateInlineCell(
-                        CellReference(columnIndex, rowIndex + 1),
-                        SanitizeXmlText(value)))));
-            WriteEntry(
-                archive,
-                "xl/worksheets/sheet1.xml",
-                new XDocument(
-                    new XElement(
-                        SpreadsheetNamespace + "worksheet",
-                        new XElement(SpreadsheetNamespace + "sheetData", sheetRows))));
+            var entry = archive.CreateEntry("xl/worksheets/sheet1.xml", CompressionLevel.Fastest);
+            using var stream = entry.Open();
+            using var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false) });
+            writer.WriteStartDocument();
+            writer.WriteStartElement("worksheet", SpreadsheetNamespace.NamespaceName);
+            writer.WriteStartElement("sheetData", SpreadsheetNamespace.NamespaceName);
+            var rowNumber = 0;
+            foreach (var row in new[] { headers }.Concat(rows))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++rowNumber > MaximumExportRows + 1)
+                    throw new InvalidOperationException("Export row count exceeds workbook limit.");
+                writer.WriteStartElement("row", SpreadsheetNamespace.NamespaceName);
+                writer.WriteAttributeString("r", rowNumber.ToString(CultureInfo.InvariantCulture));
+                for (var column = 0; column < row.Count; column++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    writer.WriteStartElement("c", SpreadsheetNamespace.NamespaceName);
+                    writer.WriteAttributeString("r", CellReference(column, rowNumber));
+                    writer.WriteAttributeString("t", "inlineStr");
+                    writer.WriteStartElement("is", SpreadsheetNamespace.NamespaceName);
+                    writer.WriteStartElement("t", SpreadsheetNamespace.NamespaceName);
+                    writer.WriteAttributeString("xml", "space", "http://www.w3.org/XML/1998/namespace", "preserve");
+                    writer.WriteString(SanitizeXmlText(EscapeFormulaText(row[column])));
+                    writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndDocument();
+
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return output.ToArray();
     }
 
@@ -135,15 +146,6 @@ internal static class AuditLogWorkbookCodec
         var sanitized = string.Concat(value.Where(character => character is not ':' and not '\\' and not '/' and not '?' and not '*' and not '[' and not ']'));
         return sanitized.Length > 31 ? sanitized[..31] : sanitized;
     }
-
-    private static XElement CreateInlineCell(string reference, string value) =>
-        new(
-            SpreadsheetNamespace + "c",
-            new XAttribute("r", reference),
-            new XAttribute("t", "inlineStr"),
-            new XElement(
-                SpreadsheetNamespace + "is",
-                new XElement(SpreadsheetNamespace + "t", value)));
 
     private static void WriteEntry(ZipArchive archive, string entryName, XDocument document)
     {

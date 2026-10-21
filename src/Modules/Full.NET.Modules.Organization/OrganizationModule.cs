@@ -123,6 +123,7 @@ public sealed class OrganizationModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHostedService<UserUnitProjectionPublicationHostedService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.OrganizationDapperAotMaterializerContributor()
             .RegisterMaterializers(

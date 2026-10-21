@@ -65,6 +65,19 @@ internal sealed class TenantMemberSelectionDirectory(
         return record is null ? null : Map(record);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, TenantUserDirectoryEntry>> FindActiveTenantMembersAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        if (userIds.Count > 100) throw new ArgumentOutOfRangeException(nameof(userIds));
+        if (userIds.Count == 0) return new Dictionary<Guid, TenantUserDirectoryEntry>();
+        var rows = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
+            TenantMembershipSql.FindActiveMemberSelectionsByUserIds,
+            IdentitySqlParameters.Create(("ActiveStatus", TenantMemberStatuses.Active), ("UserIds", userIds.Distinct().ToArray())),
+            cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(row => row.Id, Map);
+    }
+
     private static TenantUserDirectoryEntry Map(HostUserDirectoryRecord record) =>
         new(record.Id, record.Username, record.DisplayName, record.PreferredLocale);
 

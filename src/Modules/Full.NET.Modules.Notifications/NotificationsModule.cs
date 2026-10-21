@@ -305,6 +305,7 @@ public sealed class NotificationsModule : IFullNetModule
                 services.TryAddEnumerable(ServiceDescriptor.Singleton<
                     IValidateOptions<DingTalkApprovalSyncOptions>,
                     DingTalkApprovalSyncOptionsValidator>());
+                services.TryAddSingleton<Features.ManageDingTalkApprovalSync.DingTalkApprovalPollCursor>();
                 services.TryAddScoped<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncService>();
                 services.TryAddSingleton<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncCallbackVerifier>();
             }

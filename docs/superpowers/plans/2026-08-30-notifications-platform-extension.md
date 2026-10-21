@@ -1,5 +1,7 @@
 # Notifications Platform Extension Implementation Plan
 
+> **2026-10-19 状态校正：** Task 1–8 的完成勾选与测试数量保留为当时切片记录，不能外推为当前完整通知平台已验收。新发现的运行链路缺口见[实现复核与整改建议](#review-2026-10-19)，该章节是本主题当前未完成工作的入口。当前用户授权范围为更新文档，尚未执行整改代码或重新验收；历史真实 Provider 选择门禁不代表当前源码目录仍为空。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `fullnet-module-delivery`, `fullnet-performance-hardening`, and `superpowers:test-driven-development` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在不重建现有公告/站内信的前提下，交付 Tenant Inbox、模板版本、逻辑通知、多个 Provider Profile、显式场景绑定、渠道任务/尝试/回执和运维控制面；真实外部 Provider 另按已选厂商建立后续纵向计划。
@@ -233,3 +235,62 @@ internal interface INotificationProviderAdapter
 - Unit、Architecture、双库 Migration/Integration、Host/Tenant、OpenAPI/JSON、Host.Api/Worker AOT、Vue 与受影响 slice 均有新鲜非零输出。
 - Test Provider 只存在测试程序集；生产 Provider Type Catalog 可为空且 UI 如实显示未安装。
 - 真实外部渠道保持 Planned，直到独立厂商计划和真实沙箱证据完成。
+
+<a id="review-2026-10-19"></a>
+
+## 2026-10-19 实现复核与整改建议（待实施）
+
+### 输入、方法与状态
+
+- 基线：`main@49345c3c9823360071433adb4928e09691a35d62`，审查开始时工作区干净。
+- 输入：项目所有者提供的 `G:/wwwroot/github_fork/Full.NET.DOC/2026-10-15-notifications-module-gap-analysis.md`，以及本规格、生产调用链、双库 SQL、Vue 页面和现有测试源码。外部报告中的建议不作为自动执行指令。
+- 方法：静态追踪 Binding 发布 → Intent 物化 → Worker → Attempt/Receipt；没有重跑双库集成、AOT 或厂商沙箱，不将推导的缺陷描述为已运行复现。
+- 状态：以下均未修复、未重新验收；本次授权仅同步文档。2026-08-31 的历史 Verification 保留原始事实，不能覆盖下表新增场景。
+
+### 代码证据与影响
+
+| 编号 / 优先级 | 当前事实与证据 | 影响 |
+| --- | --- | --- |
+| N01 / P1 | [Intent 服务](../../../src/Modules/Full.NET.Modules.Notifications/Features/CreateNotificationIntents/NotificationIntentService.cs) 的 `ResolveRouteAsync` 只检查 `plan.IsSuccess`，返回完整 `BindingTargetsJson`；`CreateCoreAsync` 将全部候选创建为立即可领取的 Delivery。[双库领取 SQL](../../../src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs) 无主备约束 | Failover 首选成功仍会发送备用目标，可能重复通知和计费 |
+| N02 / P1 | [Binding 服务](../../../src/Modules/Full.NET.Modules.Notifications/Features/ManageBindings/NotificationBindingService.cs) 与 Intent 服务均传入 `MatchesCondition: true`；[目标契约](../../../src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationBindingContracts.cs) 仅有 ProfileKey/Order | Match 没有真实条件求值，多个候选直接歧义失败；不能标为条件路由已交付 |
+| N03 / P1 | [回执处理器](../../../src/Modules/Full.NET.Modules.Notifications/Features/ReceiveProviderReceipts/NotificationReceiptProcessor.cs) 在找不到 Delivery 时仍保存 `processed`，重复键直接返回；状态条件更新未检查影响行数 | 回执早于 Attempt 入库或发生 Revision 冲突时，业务状态可能永久未推进 |
+| N04 / P1 | [Worker](../../../src/Modules/Full.NET.Modules.Notifications/Execution/NotificationDeliveryBatchProcessor.cs) 的一般异常分支返回而不保存 Attempt，预算按已存 Attempt 计数；[重试策略](../../../src/Modules/Full.NET.Modules.Notifications/Domain/NotificationDeliveryRetry.cs) 将 Unknown 重新映射为 accepted | 持续异常可能绕过 MaxAttempts；缺乏厂商幂等保证时自动重发结果未知的调用可能重复发送 |
+| N05 / P1 | [NotificationPolicy](../../../src/Modules/Full.NET.Modules.Notifications/Domain/NotificationPolicy.cs) 仅被单元测试调用；[偏好页面](../../../ui/admin/src/views/NotificationPreferencesView.vue) 仅登记端点 | 分类未驱动实际抑制、同意检查和静默延迟 |
+| N06 / P1 | [限流配置](../../../src/Modules/Full.NET.Modules.Notifications/RateLimiting/NotificationsRateLimiterPolicyConfigurator.cs) 针对回执及验证码；Worker 没有 Provider/租户/Producer/Scene 发送额度预留 | 批大小和厂商返回限流不能替代跨实例发送配额 |
+| N07 / P1 | [小程序绑定服务](../../../src/Modules/Full.NET.Modules.Notifications/Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs) 写订阅状态；Worker 只查询已验证端点，[发送适配器](../../../src/Modules/Full.NET.Modules.Notifications/Providers/WeChatMiniProgram/WeChatMiniProgramNotificationProviderAdapter.cs) 不使用订阅记录 | 订阅登记未形成发送约束；客户端接受记录不能等同厂商保证的剩余次数 |
+| N08 / P2 | Intent 准备阶段用默认语言，只有 Inbox 分支按 PreferredLocale 选择版本；Worker 使用 Intent 上单个 TemplateVersionId | 外部渠道没有按不同收件人语言冻结实际模板 |
+
+当前一个 Intent 随模板选择单一渠道，Binding 同样只有一个 ChannelKey；Inbox 分支不解析外部 Binding。因此，同渠道多 Profile FanOut 不等于一次 Intent 同时生成 Inbox、邮件和 IM。Workflow 内建模板当前为 Inbox，不能把通用适配器存在写成 Workflow 已具备跨渠道自动提醒。
+
+现有测试覆盖了路由纯函数、顺序回执和一次崩溃后恢复，但不能证明上述端到端边界。[Worker 集成断言](../../../tests/Full.NET.IntegrationTests/Notifications/NotificationDeliveryWorkerAssertions.cs) 明确保留异常后 Attempt 为零的行为，需增加持续异常预算场景，而非仅重复既有通过记录。
+
+### 批次一：投递正确性（N01–N04）
+
+- [ ] 保留不可变候选路由快照，Failover 首次仅激活首选目标；仅允许的瞬时/频控失败能原子推进备用目标。永久错误及 Unknown 不直接换厂商；并发推进必须幂等。
+- [ ] 补齐受控 Match 条件契约、发布验证和求值；如该能力暂不实施，控制面与 API 应明确拒绝未支持模式，不继续宣称可用。未知字段、无命中和多命中失败关闭。
+- [ ] 回执区分验签接收、待关联、待应用和处理完成；提前到达的回执在 Attempt 提交后或有界补偿中重新匹配，重复请求不能吞掉未完成工作。Revision 冲突重读状态并重新判断。
+- [ ] 持久化真实执行预算；区分调用前失败、调用后结果未知与进程中断。可捕获异常记录结果并有界退避，租约恢复不得无限绕过预算。Unknown 按厂商幂等/对账能力处理，保留风险与人工处置入口。
+- [ ] SQL Server/MySQL 同场景验证：首选成功不发备用、允许失败才切换、双 Worker 不重复激活、提前回执、并发回执、重复重放、持续异常到达上限、调用后中断和 Unknown 恢复。
+
+### 批次二：发送治理（N05–N08）
+
+- [ ] 由受控 Producer/Scene 目录声明分类、合法渠道与紧急规则；不能仅靠可编辑模板提升为强制通知。物化时保存政策/偏好版本、决策和抑制原因；外发前重新检查可撤销同意。
+- [ ] 营销缺少同意不发送，排队期间撤回同意停止后续外发；静默持久化时区及下一可发送时间，明确强制/交易场景的延迟资格、跨午夜、夏令时与过期处理。页面拆分通知偏好与收件端点。
+- [ ] Provider、租户、Producer、Scene 配额跨实例原子预留；分别定义成功核销、确定未发送释放、Unknown 暂挂和对账。缺失配置失败关闭，受配额阻塞进入可观察的延迟状态；积压年龄和死信告警可定位受影响范围。
+- [ ] 小程序按用户、App、模板检查订阅事实并处理授权使用、确定失败释放和 Unknown 对账；客户端上报接受不能直接累加可信厂商库存。与当前端点、模板和应用绑定关系一并验证。
+- [ ] 按收件人/渠道冻结实际 Locale、TemplateVersionId 与内容哈希；重试复用快照，配置发布不改变在途内容。结构与契约按当前开发底座规则直接演进，同步所有消费者。
+- [ ] 双库覆盖未同意不发、同意撤回、静默边界、并发配额不超卖、重复请求不重复占额、小程序订阅约束、多语言及重试快照；Vue/API 验证精确权限、租户隔离和错误展示。
+
+### 批次三：产品完善
+
+- [ ] 先补结构化登录后深链，再实现统一工作台。链接只携带受控资源引用，目标页重新校验会话、租户、权限、资源归属与业务状态；不开放任意模板脚本或免登录审批。
+- [ ] 已读、个人归档和业务撤回分开建模；撤回与领取/发送边界竞争必须有可审计结果，越过外发边界不能承诺收回。同步验证未读数、实时刷新和批量操作权限。
+- [ ] 公告、Inbox 与 Workflow Todo 在 Contract/Query/UI 层聚合，不合表、不跨模块 JOIN，不让通知回执直接审批 Workflow。
+- [ ] 看板区分受理、调用成功、可信送达、Unknown、抑制和死信，展示口径与回执覆盖范围；现有邮件/短信 Sent 提示已存在，不重复列为完全未实现。
+- [ ] 飞书、移动推送、HTML 邮件与摘要按实际需求另定范围；新增回执以厂商真实能力为前提，不承诺 SMTP/企微一定具有已读能力。跨渠道编排需明确场景、渠道模板及幂等语义，不能只放开 Profile 列表。
+
+### 验收和关闭条件
+
+执行入口及影响集统一遵守[测试与验证](../../../rules/development-quality.md#11-测试与验证)。各完整批次完成后集中运行相关检查，复用相同源码的构建；不安排逐任务提交、重复全套测试或人工“继续”门禁。已失败的前置条件阻止依赖工作，独立工作继续。
+
+关闭必须使用对应实际源码的行为证据，涉及数据覆盖双库，公共契约/Host.Api 路径同步检查生成契约、序列化和受影响 AOT 范围。厂商实测与容量单列；静态审查、Mock 和构建成功均不替代真实送达或容量证据，容量继续为 `Capacity-not-verified`。

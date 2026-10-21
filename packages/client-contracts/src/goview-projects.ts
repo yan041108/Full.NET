@@ -88,3 +88,12 @@ export function isGoViewProjectPreview(value: unknown): value is GoViewProjectPr
     typeof value.generatedAtUtc === 'string'
   );
 }
+
+export type GoViewProjectSummary = Omit<GoViewProject, 'canvasJson'>;
+export type GoViewProjectVersionSummary = Omit<GoViewProjectVersion, 'canvasJson'>;
+export function isGoViewProjectSummary(value: unknown): value is GoViewProjectSummary {
+  return isRecord(value) && isGuid(value.id) && typeof value.projectKey === 'string'
+    && typeof value.name === 'string' && typeof value.latestPublishedVersionNumber === 'number'
+    && typeof value.isEnabled === 'boolean' && typeof value.createdAtUtc === 'string'
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string') && typeof value.version === 'number';
+}

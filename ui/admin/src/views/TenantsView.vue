@@ -33,7 +33,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
-  useArtClientPagination,
+  useArtServerPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -106,6 +106,8 @@ const editorForm = reactive({
 const subscriptionDialogOpen = ref(false);
 const subscriptionTenant = ref<HostTenant | null>(null);
 const subscriptionRows = ref<TenantSubscription[]>([]);
+const subscriptionPage = ref(1);
+const subscriptionTotal = ref(0);
 const subscriptionLoading = ref(false);
 const fieldErrors = reactive({
   identifier: '',
@@ -150,36 +152,10 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const filteredTenants = computed(() => {
-  let rows = allTenants.value;
-  const filters = appliedFilters.value;
 
-  if (filters.identifier.trim()) {
-    const keyword = filters.identifier.trim().toLowerCase();
-    rows = rows.filter(tenant => tenant.identifier.toLowerCase().includes(keyword));
-  }
-
-  if (filters.name.trim()) {
-    const keyword = filters.name.trim().toLowerCase();
-    rows = rows.filter(tenant => tenant.name.toLowerCase().includes(keyword));
-  }
-
-  if (filters.domain.trim()) {
-    const keyword = filters.domain.trim().toLowerCase();
-    rows = rows.filter(tenant => tenant.domain.toLowerCase().includes(keyword));
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(tenant => tenant.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(tenant => !tenant.isActive);
-  }
-
-  return rows;
-});
 
 const { page, pageSize, total, pagedItems: pagedTenants, resetPage } =
-  useArtClientPagination(filteredTenants);
+  useArtServerPagination(allTenants, load);
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
@@ -312,17 +288,7 @@ function applyFieldErrors(): boolean {
   return !fieldErrors.identifier && !fieldErrors.name && !fieldErrors.domain;
 }
 
-async function fetchAllTenants(): Promise<HostTenant[]> {
-  const pageLimit = 100;
-  const firstPage = await listHostTenants(1, pageLimit);
-  const items = [...firstPage.items];
-  const totalPages = Math.ceil(firstPage.total / pageLimit);
-  for (let current = 2; current <= totalPages; current += 1) {
-    const nextPage = await listHostTenants(current, pageLimit);
-    items.push(...nextPage.items);
-  }
-  return items;
-}
+
 
 async function loadPackages(): Promise<void> {
   try {
@@ -333,16 +299,21 @@ async function loadPackages(): Promise<void> {
   }
 }
 
+let listVersion = 0;
 async function load(): Promise<void> {
+  const version = ++listVersion;
   loading.value = true;
   problem.value = undefined;
   try {
-    allTenants.value = await fetchAllTenants();
+    const result = await listHostTenants(page.value, pageSize.value, undefined, appliedFilters.value);
+    if (version !== listVersion) return;
+    allTenants.value = result.items; total.value = result.total;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
+    if (version !== listVersion) return;
     problem.value = toProblem(error, 'tenants.loadFailed');
   } finally {
-    loading.value = false;
+    if (version === listVersion) loading.value = false;
   }
 }
 
@@ -463,12 +434,24 @@ async function saveEdit(): Promise<void> {
   }
 }
 
+async function loadSubscriptionPage(): Promise<void> {
+  const tenant = subscriptionTenant.value;
+  if (!tenant) return;
+  subscriptionLoading.value = true;
+  try {
+    const result = await listTenantSubscriptions(tenant.id, subscriptionPage.value, 20);
+    subscriptionRows.value = result.items;
+    subscriptionTotal.value = result.total;
+  } finally { subscriptionLoading.value = false; }
+}
+
 async function openSubscriptions(tenant: HostTenant): Promise<void> {
   subscriptionTenant.value = tenant;
   subscriptionDialogOpen.value = true;
+  subscriptionPage.value = 1;
   subscriptionLoading.value = true;
   try {
-    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+    await loadSubscriptionPage();
   } catch {
     ElMessage.error(t('common.loadFailed'));
   } finally {
@@ -494,7 +477,7 @@ async function startTrialSubscription(): Promise<void> {
       currentPeriodStartUtc: start.toISOString(),
       currentPeriodEndUtc: end.toISOString()
     });
-    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+    await loadSubscriptionPage();
     await load();
     ElMessage.success(t('tenants.subscriptionTrialStarted'));
   } catch {
@@ -512,7 +495,7 @@ async function cancelActiveSubscription(row: TenantSubscription): Promise<void> 
   subscriptionLoading.value = true;
   try {
     await cancelTenantSubscription(tenant.id, row.id, row.version);
-    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+    await loadSubscriptionPage();
     ElMessage.success(t('tenants.subscriptionCancelled'));
   } catch {
     ElMessage.error(t('common.saveFailed'));
@@ -1216,6 +1199,9 @@ function toProblem(
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-model:current-page="subscriptionPage" :page-size="20" :total="subscriptionTotal"
+        layout="prev, pager, next, total" @current-change="loadSubscriptionPage" />
+
       <template #footer>
         <el-button @click="subscriptionDialogOpen = false">{{ t('users.cancel') }}</el-button>
         <el-button type="primary" :loading="subscriptionLoading" @click="startTrialSubscription">

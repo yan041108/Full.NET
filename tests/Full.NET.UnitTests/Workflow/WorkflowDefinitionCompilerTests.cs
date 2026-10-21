@@ -9,6 +9,17 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowDefinitionCompilerTests
 {
     [TestMethod]
+    public void Compile_rejects_oversized_graph_before_recursive_topology_checks()
+    {
+        var nodes = Enumerable.Range(0, WorkflowDefinitionCompiler.MaximumNodes + 1)
+            .Select(index => Node($"node-{index}", "start", "{}"))
+            .ToArray();
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1, nodes));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionTopologyUnsupported, result.ErrorCode);
+    }
+
+    [TestMethod]
     public void Compile_produces_stable_canonical_json_and_hash_for_reordered_object_keys()
     {
         var first = CompileValid("{\"label\":\"审批\",\"nextNodeKeys\":[\"end\"]}");

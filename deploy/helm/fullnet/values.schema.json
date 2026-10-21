@@ -22,6 +22,14 @@
     "else": {"properties": {"api": {"properties": {"replicaCount": {"minimum": 2}}}, "worker": {"properties": {"replicaCount": {"minimum": 2}}}}}
   }],
   "properties": {
+    "dataProtection": {
+      "type": "object",
+      "properties": {
+        "certificateSecretName": { "type": "string", "minLength": 1 },
+        "certificateSecretKey": { "type": "string", "minLength": 1 },
+        "certificatePasswordSecretKey": { "type": "string", "minLength": 1 }
+      }
+    },
     "production": { "type": "boolean" },
     "dotnetEnvironment": {
       "type": "string",

@@ -22,6 +22,7 @@ export interface HostRoleMembersPage {
 export interface ReplaceHostRoleMembersRequest {
   readonly userIds: readonly string[];
   readonly version: number;
+  readonly candidateUserIds?: readonly string[];
 }
 
 /** 替换 Host 角色成员结果。 */
@@ -74,10 +75,13 @@ export async function listHostRoleMembers(
   roleId: string,
   page = 1,
   pageSize = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  userIds?: readonly string[]
 ): Promise<HostRoleMembersPage> {
+  const candidates = userIds === undefined ? '' : (userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000'])
+    .map(id => `&userIds=${encodeURIComponent(id)}`).join('');
   const value = await http.request<unknown>(
-    `/api/v1/identity/roles/${roleId}/members?page=${page}&pageSize=${pageSize}`,
+    `/api/v1/identity/roles/${roleId}/members?page=${page}&pageSize=${pageSize}${candidates}`,
     { method: 'GET' },
     signal
   );

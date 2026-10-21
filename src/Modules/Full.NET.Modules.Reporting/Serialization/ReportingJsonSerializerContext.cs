@@ -5,6 +5,8 @@ using Full.NET.Modules.Reporting.Contracts;
 namespace Full.NET.Modules.Reporting.Serialization;
 
 /// <summary>Reporting 模块 JSON 源生成上下文。</summary>
+[JsonSerializable(typeof(PagedResult<ReportingDefinitionSummaryResponse>))]
+[JsonSerializable(typeof(PagedResult<ReportingDefinitionVersionSummaryResponse>))]
 [JsonSerializable(typeof(PagedResult<ReportingDataSourceListItem>))]
 [JsonSerializable(typeof(ReportingDataSourceListItem))]
 [JsonSerializable(typeof(ReportingDataSourceResponse))]
@@ -12,6 +14,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(UpdateReportingDataSourceRequest))]
 [JsonSerializable(typeof(TestReportingDataSourceResult))]
 [JsonSerializable(typeof(ReportingGroupResponse))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingGroupResponse>))]
 [JsonSerializable(typeof(CreateReportingGroupRequest))]
 [JsonSerializable(typeof(UpdateReportingGroupRequest))]
 [JsonSerializable(typeof(ReportingDefinitionResponse))]

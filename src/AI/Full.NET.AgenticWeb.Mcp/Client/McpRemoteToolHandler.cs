@@ -32,12 +32,12 @@ internal sealed class McpRemoteToolHandler(
             tool.EndpointUrl,
             tool.ServiceAccessToken,
             cancellationToken).ConfigureAwait(false);
-        var liveTools = await client.ListToolsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var liveTools = await McpToolCatalogReader.ReadAsync(client, tool.RemoteToolName, cancellationToken).ConfigureAwait(false);
         var live = liveTools.FirstOrDefault(item => string.Equals(item.Name, tool.RemoteToolName, StringComparison.Ordinal));
         string? liveHash = null;
-        if (live is not null && live.JsonSchema.ValueKind != JsonValueKind.Undefined)
+        if (live is not null && live.InputSchema.ValueKind != JsonValueKind.Undefined)
         {
-            liveHash = McpRemoteCapabilityPolicy.ComputeSchemaHash(live.JsonSchema.GetRawText());
+            liveHash = McpRemoteCapabilityPolicy.ComputeSchemaHash(live.InputSchema.GetRawText());
         }
         if (!McpRemoteCapabilityPolicy.CanExecute(tool, liveHash, out var rejection))
         {

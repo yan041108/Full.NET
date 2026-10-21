@@ -1,3 +1,4 @@
+using Full.NET.Modules.Document.Security;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -20,7 +21,8 @@ internal sealed class HostDocumentItemQueryService(
     IHostFileContentReader hostFileContentReader,
     DocumentAccessLogRecorder accessLogRecorder,
     DocumentItemTagAssignmentService documentItemTagAssignmentService,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IDocumentAccessPolicy accessPolicy)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
         int page,
@@ -40,6 +42,7 @@ internal sealed class HostDocumentItemQueryService(
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
                 DocumentSqlParameters.Create(
+                    ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize),
                     ("TagId", tagId)),
@@ -71,7 +74,13 @@ internal sealed class HostDocumentItemQueryService(
                 pageResult.Total));
     }
 
-    public async Task<Result<HostDocumentItemResponse>> GetByIdAsync(
+    public Task<Result<HostDocumentItemResponse>> GetByIdAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+            () => GetByIdAuthorizedAsync(itemId, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostDocumentItemResponse>> GetByIdAuthorizedAsync(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {
@@ -93,7 +102,14 @@ internal sealed class HostDocumentItemQueryService(
         return Result<HostDocumentItemResponse>.Success(Map(record, tags));
     }
 
-    public async Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
+    public Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
+        Guid itemId,
+        DocumentAccessObservation? accessObservation = null,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+            () => OpenCurrentVersionContentAuthorizedAsync(itemId, accessObservation, cancellationToken), cancellationToken);
+
+    internal async Task<Result<HostFileContent>> OpenCurrentVersionContentAuthorizedAsync(
         Guid itemId,
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
@@ -126,10 +142,19 @@ internal sealed class HostDocumentItemQueryService(
         return contentResult;
     }
 
-    public async Task<Result<IReadOnlyList<HostDocumentVersionResponse>>> ListVersionsAsync(
+    public Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAsync(
         Guid itemId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+            () => ListVersionsAuthorizedAsync(itemId, page, pageSize, cancellationToken), cancellationToken);
+
+    private async Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAuthorizedAsync(
+        Guid itemId, int page, int pageSize,
+        CancellationToken cancellationToken)
     {
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
+        var parameters = DocumentSqlParameters.Create(("DocumentItemId", itemId), ("Id", itemId),
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize));
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
@@ -138,21 +163,32 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
         if (item is null)
         {
-            return Result<IReadOnlyList<HostDocumentVersionResponse>>.Failure(NotFoundError());
+            return Result<PagedResult<HostDocumentVersionResponse>>.Failure(NotFoundError());
         }
 
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            DocumentItemSql.CountVersionsByItemId, parameters, cancellationToken).ConfigureAwait(false);
         var versions = await queryExecutor
             .QueryAsync<DocumentVersionRecord>(
-                DocumentItemSql.ListVersionsByItemId,
-                DocumentSqlParameters.Create(("DocumentItemId", itemId)),
+                databaseOptions.Value.Provider == DatabaseProvider.MySql
+                    ? DocumentItemSql.ListVersionsPageMySql : DocumentItemSql.ListVersionsPageSqlServer,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return Result<IReadOnlyList<HostDocumentVersionResponse>>.Success(
-            versions.Select(HostDocumentItemResponseMapper.MapVersion).ToArray());
+        return Result<PagedResult<HostDocumentVersionResponse>>.Success(
+            new PagedResult<HostDocumentVersionResponse>(versions.Select(HostDocumentItemResponseMapper.MapVersion).ToArray(), page, pageSize, total));
     }
 
-    public async Task<Result<HostFileContent>> OpenVersionPreviewAsync(
+    public Task<Result<HostFileContent>> OpenVersionPreviewAsync(
+        Guid itemId,
+        Guid? versionId,
+        DocumentAccessObservation? accessObservation = null,
+        CancellationToken cancellationToken = default) =>
+        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+            () => OpenVersionPreviewAuthorizedAsync(itemId, versionId, accessObservation, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostFileContent>> OpenVersionPreviewAuthorizedAsync(
         Guid itemId,
         Guid? versionId,
         DocumentAccessObservation? accessObservation = null,

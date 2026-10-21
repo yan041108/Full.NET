@@ -115,7 +115,7 @@ test('Host 管理员可查询区域树并 CRUD（清单 38 API）', async ({ req
       headers,
       data: {
         datasetKey: 'china.administrative',
-        datasetVersion: `e2e-${stamp}`,
+        datasetVersion: '2.0.0',
         sourceDigest: `digest-${stamp}`,
         mergeMode: 'merge',
         items: [
@@ -138,7 +138,7 @@ test('Host 管理员可查询区域树并 CRUD（清单 38 API）', async ({ req
       }
     }
   );
-  expect(previewResponse.ok()).toBeTruthy();
+  expect(previewResponse.status(), await previewResponse.text()).toBe(200);
   const preview = await previewResponse.json();
   expect(preview.added.length + preview.updated.length).toBeGreaterThanOrEqual(0);
 
@@ -155,6 +155,11 @@ test('Host 管理员可打开区域管理页并维护节点（清单 38 UI）', 
   test.skip(testInfo.project.metadata.clientKind !== 'vue', '区域管理页仅验收 Vue');
   const stamp = Date.now().toString(36);
   const code = uniqueRegionCode();
+  const childCode = `39${code.slice(2)}`;
+  const treeRequests = [];
+  page.on('request', request => {
+    if (request.url().includes('/regions/administrative-regions/tree')) treeRequests.push(request.url());
+  });
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /区域管理/, '平台');
@@ -171,6 +176,24 @@ test('Host 管理员可打开区域管理页并维护节点（清单 38 UI）', 
   const table = page.getByTestId('administrative-regions-tree-table');
   const row = crudTableRow(table, 'vue', code);
   await expect(row).toBeVisible({ timeout: 15_000 });
+
+  await row.getByTestId('administrative-regions-add-child').click();
+  await page.getByTestId('administrative-regions-editor-code').fill(childCode);
+  await page.getByTestId('administrative-regions-editor-name').fill(`E2E Child ${stamp}`);
+  await page.getByTestId('administrative-regions-editor-submit').click();
+  const child = crudTableRow(table, 'vue', childCode);
+  await expect(child).toHaveCount(0);
+  const childrenResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname.endsWith('/regions/administrative-regions/children') && url.searchParams.has('parentId') && response.ok();
+  });
+  await row.locator('.el-table__expand-icon').click();
+  await childrenResponse;
+  await expect(child).toBeVisible();
+  expect(treeRequests).toEqual([]);
+  await child.getByTestId('administrative-regions-delete').click();
+  await page.getByRole('button', { name: '确定' }).click();
+  await expect(child).toHaveCount(0, { timeout: 15_000 });
 
   await row.getByTestId('administrative-regions-delete').click();
   await page.getByRole('button', { name: '确定' }).click();

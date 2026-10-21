@@ -18,7 +18,7 @@ public sealed class EnterpriseRequestApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantCrudContractAsync(factory);
     }
@@ -28,7 +28,7 @@ public sealed class EnterpriseRequestApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantSubmitForApprovalWhenDefinitionPublishedAsync(factory);
     }
@@ -39,7 +39,7 @@ public sealed class EnterpriseRequestApiMySqlTests
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
-            ImportExportSyncSettings);
+            ImportExportSyncSettings, includeEnterpriseRequest: true);
 
         await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
     }

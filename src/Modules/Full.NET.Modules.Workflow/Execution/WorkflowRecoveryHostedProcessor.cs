@@ -8,14 +8,17 @@ namespace Full.NET.Modules.Workflow.Execution;
 
 /// <summary>Worker 轮询恢复任务；满批立即继续，未满才等待 Poll。</summary>
 /// <param name="scopeFactory">每轮创建独立作用域以解析扫描器与批处理器。</param>
+/// <param name="clock">控制发现扫描频率的 UTC 时钟。</param>
 /// <param name="options">轮询间隔与批大小。</param>
 /// <param name="logger">记录迭代失败的日志器。</param>
 internal sealed class WorkflowRecoveryHostedProcessor(
     IServiceScopeFactory scopeFactory,
+    IClock clock,
     IOptions<WorkflowRecoveryWorkerOptions> options,
     ILogger<WorkflowRecoveryHostedProcessor> logger) : BackgroundService
 {
     private readonly WorkflowRecoveryWorkerOptions _options = options.Value;
+    private DateTimeOffset _nextScanAtUtc = DateTimeOffset.MinValue;
 
     /// <summary>未满批时的轮询间隔。</summary>
     internal TimeSpan PollingDelay => TimeSpan.FromMilliseconds(_options.PollMilliseconds);
@@ -56,7 +59,14 @@ internal sealed class WorkflowRecoveryHostedProcessor(
         await using var scope = scopeFactory.CreateAsyncScope();
         var scanner = scope.ServiceProvider.GetRequiredService<WorkflowRecoveryScanner>();
         var processor = scope.ServiceProvider.GetRequiredService<WorkflowRecoveryBatchProcessor>();
-        await scanner.ScanAsync(cancellationToken).ConfigureAwait(false);
+        var now = clock.UtcNow;
+        if (now >= _nextScanAtUtc)
+        {
+            // 先推进时间，故障时仍退避；满扫描批次允许下一轮继续发现，不限制消费排空。
+            _nextScanAtUtc = now.AddSeconds(_options.ScanIntervalSeconds);
+            if (await scanner.ScanAsync(cancellationToken).ConfigureAwait(false) >= _options.BatchSize)
+                _nextScanAtUtc = now;
+        }
         return await processor.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
     }
 

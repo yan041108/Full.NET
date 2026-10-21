@@ -36,8 +36,10 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
     ICommandExecutor commandExecutor,
     IEnumerable<IHostFileReferenceClaimProbe> probes,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    HostFileScanCursor<PendingHostFileReferenceClaimReconciliationRunner>? cursor = null)
 {
+    private readonly HostFileScanCursor<PendingHostFileReferenceClaimReconciliationRunner> _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
     private readonly IReadOnlyDictionary<string, IHostFileReferenceClaimProbe> _probes =
         probes.ToDictionary(probe => probe.ConsumerModule, StringComparer.Ordinal);
@@ -45,6 +47,20 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
     public async Task<PendingHostFileReferenceClaimReconciliationResult> RunOnceAsync(
         PendingHostFileReferenceClaimReconciliationOptions options,
         CancellationToken cancellationToken)
+    {
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cursor.Gate.Release();
+        }
+    }
+
+    private async Task<PendingHostFileReferenceClaimReconciliationResult> RunCoreAsync(
+        PendingHostFileReferenceClaimReconciliationOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled)
@@ -59,9 +75,9 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
         var released = 0;
         var probeFailures = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterUpdatedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
+        var hasCursor = _cursor.Id is not null;
+        var afterUpdatedAtUtc = _cursor.Timestamp;
+        Guid? afterId = _cursor.Id;
 
         while (batches < options.MaxBatchesPerRun)
         {
@@ -81,6 +97,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -167,8 +184,11 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
             hasCursor = true;
             afterUpdatedAtUtc = last.UpdatedAtUtc;
             afterId = last.Id;
+            _cursor.Timestamp = afterUpdatedAtUtc;
+            _cursor.Id = afterId;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }

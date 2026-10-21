@@ -20,9 +20,8 @@ internal sealed class AiKnowledgePermissionGuard(ICurrentSessionAuthorization au
         if (principal?.Identity is { IsAuthenticated: true, AuthenticationType: "FullNET.ApiKey" or "FullNET.Signature" }
             && principal.HasClaim(claim => claim.Type == FullNetIdentityClaimTypes.ApiKeyId))
             return await credentials.AuthorizeAsync(permissions, token).ConfigureAwait(false) == actor;
-        foreach (var permission in permissions)
-            if ((await authorization.AuthorizeAsync(permission, token).ConfigureAwait(false))?.UserId != actor) return false;
-        return true;
+        // 仅合并当前边界的权限集合；调用方在收费、读取及输出边界仍必须重新调用。
+        return (await authorization.AuthorizeAllAsync(permissions.ToArray(), token).ConfigureAwait(false))?.UserId == actor;
     }
 }
 

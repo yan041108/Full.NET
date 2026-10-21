@@ -281,8 +281,8 @@ public sealed class AiKnowledgeIndexVectorStoreTests
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AfterModel?.Invoke(); return ModelDenied ? null : model; });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             { var saved = Rows is null ? Row : Rows.GetValueOrDefault(ReadSqlParameter<int>(call[1], "BatchOrdinal")); Reads++; AfterRead?.Invoke(); return saved; });
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
-            { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(session.UserId, session.TenantId, session.SessionId); });
+            auth.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { Assert.IsFalse(State.HasTransaction); AuthCalls += call.ArgAt<IReadOnlyCollection<string>>(1).Count; return Denied || call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(session.UserId, session.TenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsTrue(State.HasTransaction); Writes++; if (Failure is not null) throw Failure;
                 if (Unique) throw new DataCommandException(DataCommandFailureKind.UniqueConstraint, new IOException());

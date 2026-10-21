@@ -1,48 +1,6 @@
 {
   "schemaVersion": 1,
   "tables": {
-    "demo_enterprise_request_enterprise_request": {
-      "comment": "企业申请示例主表",
-      "columns": {
-        "ApplicantUserId": "申请人用户标识",
-        "CreatedAtUtc": "创建时间(UTC)",
-        "CreatedById": "创建人标识",
-        "DeletedAtUtc": "删除时间(UTC)",
-        "DeletedById": "删除人标识",
-        "Id": "逻辑主键",
-        "IsDeleted": "是否已软删除",
-        "OrganizationUnitId": "机构单元标识",
-        "RequestNumber": "申请单号",
-        "Status": "状态",
-        "TenantId": "所属租户标识",
-        "Title": "标题",
-        "TotalAmount": "申请总金额",
-        "UpdatedAtUtc": "更新时间(UTC)",
-        "UpdatedById": "更新人标识",
-        "Version": "乐观并发版本号"
-      }
-    },
-    "demo_enterprise_request_enterprise_request_line": {
-      "comment": "企业申请示例明细表",
-      "columns": {
-        "CreatedAtUtc": "创建时间(UTC)",
-        "CreatedById": "创建人标识",
-        "DeletedAtUtc": "删除时间(UTC)",
-        "DeletedById": "删除人标识",
-        "Id": "逻辑主键",
-        "IsDeleted": "是否已软删除",
-        "ItemDescription": "申请项目说明",
-        "LineAmount": "明细金额",
-        "LineNumber": "明细行号",
-        "Quantity": "数量",
-        "RequestId": "所属申请标识",
-        "TenantId": "所属租户标识",
-        "UnitPrice": "单价",
-        "UpdatedAtUtc": "更新时间(UTC)",
-        "UpdatedById": "更新人标识",
-        "Version": "乐观并发版本号"
-      }
-    },
     "fn_ai_agent_approval": {
       "comment": "人工智能agent approval表",
       "columns": {
@@ -1478,6 +1436,18 @@
         "UnitId": "机构单元标识"
       }
     },
+    "fn_identity_organization_user_unit_projection": {
+      "comment": "身份模块机构隶属读投影",
+      "columns": {
+        "AssignmentId": "源隶属标识",
+        "IsActive": "是否启用",
+        "SourceUpdatedAtUtc": "源更新时间 UTC",
+        "SourceVersion": "源版本",
+        "TenantId": "租户标识",
+        "UnitId": "部门标识",
+        "UserId": "用户标识"
+      }
+    },
     "fn_identity_refresh_session": {
       "comment": "用户刷新令牌会话",
       "columns": {
@@ -2476,6 +2446,7 @@
         "Id": "逻辑主键",
         "IsActive": "是否启用",
         "IsPrimary": "是否主关联",
+        "PublishedProjectionVersion": "已发布读投影源版本",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UnitId": "机构单元标识",
         "UpdatedAtUtc": "更新时间(UTC)",
@@ -3140,6 +3111,14 @@
         "SubscriptionId": "Subscription标识",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_webhooks_fanout_budget": {
+      "comment": "Webhook 事件流扇出容量",
+      "columns": {
+        "EventType": "事件类型",
+        "TenantId": "租户标识",
+        "UsedCount": "已保留订阅数量"
       }
     },
     "fn_webhooks_subscription": {

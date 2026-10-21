@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.GoView.Contracts;
 using Full.NET.Modules.Identity.Contracts;
@@ -16,17 +17,17 @@ internal static class Endpoint
             .WithTags("GoViewProjects");
 
         group.MapGet("/", async (
-            string? nameContains,
+            string? nameContains, int? page, int? pageSize,
             GoViewProjectQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(nameContains, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListAsync(nameContains, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("goviewListProjects")
-        .Produces<IReadOnlyList<GoViewProjectResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<GoViewProjectSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(GoViewProjectPermissions.Read));
 
         group.MapGet("/{projectId:guid}", async (
@@ -100,17 +101,17 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(GoViewProjectPermissions.Publish));
 
         group.MapGet("/{projectId:guid}/versions", async (
-            Guid projectId,
+            Guid projectId, int? page, int? pageSize,
             GoViewProjectQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListVersionsAsync(projectId, cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListVersionsAsync(projectId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("goviewListProjectVersions")
-        .Produces<IReadOnlyList<GoViewProjectVersionResponse>>(StatusCodes.Status200OK)
+        .Produces<PagedResult<GoViewProjectVersionSummaryResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(GoViewProjectPermissions.Read));
 
         group.MapGet("/{projectId:guid}/versions/{versionNumber:int}", async (

@@ -18,9 +18,11 @@ export async function probeBuildResources() {
   if (process.platform === 'win32') {
     const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       '$m = Get-CimInstance Win32_OperatingSystem; [Console]::Write(($m.FreeVirtualMemory * 1KB).ToString([Globalization.CultureInfo]::InvariantCulture))'],
-    { windowsHide: true, timeout: 5000, maxBuffer: 4096 });
+    { windowsHide: true, timeout: 15000, maxBuffer: 4096 });
     value.freeCommitGiB = Number(stdout.trim()) / GiB;
   }
+  // WMI 在负载下可能需要数秒；返回前重采物理可用量，不能用等待前的旧值准入。
+  value.freePhysicalGiB = os.freemem() / GiB;
   sample = { at: Date.now(), value };
   return value;
 }

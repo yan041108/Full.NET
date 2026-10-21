@@ -1,22 +1,39 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Microsoft.Extensions.Options;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 
 namespace Full.NET.Modules.Files.Features.ManageHostFolders;
 
 /// <summary>Host 虚拟目录树只读查询。</summary>
-internal sealed class HostFolderQueryService(IQueryExecutor queryExecutor)
+internal sealed class HostFolderQueryService(IQueryExecutor queryExecutor, IOptions<DatabaseOptions> databaseOptions)
 {
+    internal const int MaximumDepth = 32;
+    internal const int MaximumChildren = 1000;
+
+    /// <summary>只读取当前父节点的一层，超预算明确拒绝，不把整棵树放入内存或 JSON 递归。</summary>
     public async Task<Result<IReadOnlyList<HostFolderTreeNode>>> GetTreeAsync(
-        CancellationToken cancellationToken = default)
+        Guid? parentId = null, CancellationToken cancellationToken = default)
     {
-        var rows = await queryExecutor.QueryAsync<HostFolderRecord>(
-                HostFolderSql.ListActive,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return Result<IReadOnlyList<HostFolderTreeNode>>.Success(BuildTree(rows));
+        cancellationToken.ThrowIfCancellationRequested();
+        var mysql = databaseOptions.Value.Provider == DatabaseProvider.MySql;
+        var rows = await queryExecutor.QueryAsync<HostFolderChildRecord>(
+            mysql ? HostFolderSql.ListChildrenMySql : HostFolderSql.ListChildrenSqlServer,
+            new Dictionary<string, object?> { ["ParentId"] = parentId, ["TakeCount"] = MaximumChildren + 1 },
+            cancellationToken).ConfigureAwait(false);
+        if (rows.Count > MaximumChildren)
+            return Result<IReadOnlyList<HostFolderTreeNode>>.Failure(new Error(FilesErrorCodes.FolderQueryLimitExceeded,
+                "Too many child folders; narrow the folder scope.", ErrorType.BusinessRule));
+        return Result<IReadOnlyList<HostFolderTreeNode>>.Success(rows.Select(row => new HostFolderTreeNode(
+            row.Id, row.ParentId, row.Name, row.DisplayOrder, row.Revision, row.HasChildren)).ToArray());
     }
+
+    /// <summary>祖先链最多读取深度上限；父关系不可变，新增节点不能绕过已有层级预算。</summary>
+    internal Task<int> GetDepthAsync(Guid folderId, CancellationToken cancellationToken) =>
+        queryExecutor.QuerySingleOrDefaultAsync<int>(databaseOptions.Value.Provider == DatabaseProvider.MySql
+                ? HostFolderSql.AncestorDepthMySql : HostFolderSql.AncestorDepthSqlServer,
+            new Dictionary<string, object?> { ["FolderId"] = folderId, ["MaxDepth"] = MaximumDepth }, cancellationToken);
 
     public async Task<Result<HostFolderResponse>> GetByIdAsync(
         Guid folderId,
@@ -55,44 +72,6 @@ internal sealed class HostFolderQueryService(IQueryExecutor queryExecutor)
             record.CreatedByUserId,
             record.UpdatedAtUtc,
             record.UpdatedByUserId);
-
-    private static IReadOnlyList<HostFolderTreeNode> BuildTree(
-        IEnumerable<HostFolderRecord> rows)
-    {
-        var allRows = rows.ToArray();
-        var childrenByParent = allRows
-            .Where(row => row.ParentId is not null)
-            .GroupBy(row => row.ParentId!.Value)
-            .ToDictionary(group => group.Key, group => group.ToArray());
-
-        HostFolderTreeNode BuildNode(HostFolderRecord record)
-        {
-            var childRows = childrenByParent.TryGetValue(record.Id, out var matches)
-                ? matches
-                : Array.Empty<HostFolderRecord>();
-            var children = childRows
-                .OrderBy(child => child.DisplayOrder)
-                .ThenBy(child => child.Name, StringComparer.Ordinal)
-                .ThenBy(child => child.Id)
-                .Select(BuildNode)
-                .ToArray();
-            return new HostFolderTreeNode(
-                record.Id,
-                record.ParentId,
-                record.Name,
-                record.DisplayOrder,
-                record.Revision,
-                children);
-        }
-
-        return allRows
-            .Where(row => row.ParentId is null)
-            .OrderBy(root => root.DisplayOrder)
-            .ThenBy(root => root.Name, StringComparer.Ordinal)
-            .ThenBy(root => root.Id)
-            .Select(BuildNode)
-            .ToArray();
-    }
 
     private static Result<T> FolderNotFound<T>() =>
         Result<T>.Failure(new Error(

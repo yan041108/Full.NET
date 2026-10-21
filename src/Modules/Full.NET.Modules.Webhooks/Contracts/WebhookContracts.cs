@@ -33,6 +33,9 @@ public static class WebhookDeliveryStatuses
 /// </summary>
 public static class WebhookErrorCodes
 {
+    /// <summary>同一租户事件流的订阅扇出超过工作预算。</summary>
+    public const string FanoutBudgetExceeded = "webhooks.fanout_budget_exceeded";
+
     /// <summary>模块错误码通用前缀；所有具体错误码以前缀 + '.' + 后缀拼接，避免跨模块冲突。</summary>
     public const string Prefix = "webhooks.";
 

@@ -103,3 +103,13 @@ export function isPrintingTemplatePreview(value: unknown): value is PrintingTemp
     && isRecord(value.boundFields)
     && typeof value.generatedAtUtc === 'string';
 }
+
+export type PrintingTemplateSummary = Omit<PrintingTemplate, 'layoutHtml'>;
+export type PrintingTemplateVersionSummary = Omit<PrintingTemplateVersion, 'layoutHtml'>;
+export function isPrintingTemplateSummary(value: unknown): value is PrintingTemplateSummary {
+  return isRecord(value) && isGuid(value.id) && typeof value.templateKey === 'string'
+    && typeof value.name === 'string' && typeof value.formSchemaKey === 'string'
+    && typeof value.latestPublishedVersionNumber === 'number' && typeof value.isEnabled === 'boolean'
+    && typeof value.createdAtUtc === 'string' && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
+    && typeof value.version === 'number';
+}

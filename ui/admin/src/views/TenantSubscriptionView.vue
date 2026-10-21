@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElMessage, ElTable, ElTableColumn } from 'element-plus';
+import { ElButton, ElCard, ElMessage, ElPagination, ElTable, ElTableColumn } from 'element-plus';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useSessionStore } from '../auth/session';
 import { listTenantSubscriptions, type TenantSubscription } from '../api/tenant-subscriptions';
@@ -11,6 +11,8 @@ const { t } = useAdminI18n();
 const session = useSessionStore();
 const loading = ref(false);
 const rows = ref<TenantSubscription[]>([]);
+const page = ref(1);
+const total = ref(0);
 const tenantId = computed(() => session.currentUser?.tenantId ?? '');
 
 async function refresh(): Promise<void> {
@@ -21,7 +23,9 @@ async function refresh(): Promise<void> {
 
   loading.value = true;
   try {
-    rows.value = await listTenantSubscriptions(tenantId.value);
+    const result = await listTenantSubscriptions(tenantId.value, page.value, 20);
+    rows.value = result.items;
+    total.value = result.total;
   } catch {
     ElMessage.error(t('common.loadFailed'));
   } finally {
@@ -49,6 +53,7 @@ onMounted(() => {
         <ElTableColumn prop="status" :label="t('tenancy.tenantSubscriptions.status')" />
         <ElTableColumn prop="currentPeriodEndUtc" :label="t('tenancy.tenantSubscriptions.periodEnd')" />
       </ElTable>
+      <ElPagination v-model:current-page="page" :total="total" :page-size="20" layout="prev, pager, next, total" @current-change="refresh" />
     </ElCard>
   </div>
 </template>
