@@ -34,19 +34,20 @@ internal static class AiKnowledgePdfModelChunker
         ArgumentNullException.ThrowIfNull(knowledge);
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(options);
-        if (AiKnowledgePdfOutputReader.ValidateDocument(document, token) != AiKnowledgePdfReadFailure.None)
+        var parsed = AiKnowledgeParsedDocument.FromPdf(document, token);
+        if (parsed is null)
             return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
         var chunks = new List<AiKnowledgePdfChunk>();
         var totalTokens = 0;
         var totalCharacters = 0;
-        foreach (var page in document.Pages)
+        foreach (var block in parsed.Blocks)
         {
             token.ThrowIfCancellationRequested();
             // 首页先由既有入口验证 options；之后只向下收紧剩余预算，不构造非法的零预算。
             if (chunks.Count > 0 && chunks.Count >= options.MaxChunks) return Rejected(AiKnowledgeChunkFailure.TooManyChunks);
             if (chunks.Count > 0 && totalTokens >= options.MaxTotalTokens) return Rejected(AiKnowledgeChunkFailure.TotalTokenBudgetExceeded);
             var remaining = chunks.Count == 0 ? options : options with { MaxChunks = options.MaxChunks - chunks.Count, MaxTotalTokens = options.MaxTotalTokens - totalTokens };
-            var text = new AiKnowledgeParsedText(page.Text, document.ContentHash, document.SizeBytes, AiKnowledgeTextSource.PdfPage);
+            var text = new AiKnowledgeParsedText(block.Text, parsed.ContentHash, parsed.SizeBytes, AiKnowledgeTextSource.PdfPage);
             var result = AiKnowledgeModelChunker.ChunkCore(knowledge, model, text, AiKnowledgeTextFormat.PlainText, remaining, token);
             if (!result.IsSuccess) return new(null, result.Failure, result.ChunkFailure);
             foreach (var chunk in result.Output!.Chunks.Chunks)
@@ -55,12 +56,14 @@ internal static class AiKnowledgePdfModelChunker
                 if (chunk.Text.Length > AiKnowledgeTextChunker.MaxTotalCharacters - totalCharacters) return Rejected(AiKnowledgeChunkFailure.OutputTooLarge);
                 totalTokens += chunk.TokenCount;
                 totalCharacters += chunk.Text.Length;
-                chunks.Add(new(chunks.Count, page.PageNumber, chunk.Offset, chunk.Length, chunk.Text, chunk.EmbeddingText, chunk.TokenCount));
+                var position = block.Locate(chunk.Offset, chunk.Length);
+                if (position?.PageNumber is not { } pageNumber) return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
+                chunks.Add(new(chunks.Count, pageNumber, position.Offset, position.Length, chunk.Text, chunk.EmbeddingText, chunk.TokenCount));
             }
         }
         token.ThrowIfCancellationRequested();
         return new(new(knowledge.Id, knowledge.Version, knowledge.TenantId, model.Id, model.Version, model.ProviderKey,
-            model.ModelId, document.ContentHash.ToLowerInvariant(), AiKnowledgeParsedPdf.ParserVersion, AiKnowledgeCl100kTokenizer.Version,
+            model.ModelId, parsed.ContentHash, parsed.ParserVersion, AiKnowledgeCl100kTokenizer.Version,
             options, Array.AsReadOnly(chunks.ToArray())), AiKnowledgeModelChunkFailure.None);
     }
 

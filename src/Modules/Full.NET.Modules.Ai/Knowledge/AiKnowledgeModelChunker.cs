@@ -51,6 +51,14 @@ internal static class AiKnowledgeModelChunker
             || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large")
             || !OfficialDestination(model.EndpointBaseUrl))
             return new(null, AiKnowledgeModelChunkFailure.UnsupportedModel);
+        // PDF 页由外层完整快照保留页坐标；普通文本使用同一来源边界，原结构分块继续决定格式失败分类。
+        ArgumentNullException.ThrowIfNull(document);
+        if (document.Source != AiKnowledgeTextSource.PdfPage && format is AiKnowledgeTextFormat.PlainText or AiKnowledgeTextFormat.Markdown)
+        {
+            var parsed = AiKnowledgeParsedDocument.FromText(document, format, token);
+            if (parsed is null) return new(null, AiKnowledgeModelChunkFailure.ChunkingFailed, AiKnowledgeChunkFailure.InvalidDocument);
+            document = new(parsed.Blocks[0].Text, document.ContentHash, parsed.SizeBytes);
+        }
         var tokenizer = AiKnowledgeCl100kTokenizer.Get(token);
         var result = AiKnowledgeStructuredChunker.Chunk(document, tokenizer, AiKnowledgeCl100kTokenizer.Version, format, options, token);
         if (!result.IsSuccess) return new(null, AiKnowledgeModelChunkFailure.ChunkingFailed, result.Failure);

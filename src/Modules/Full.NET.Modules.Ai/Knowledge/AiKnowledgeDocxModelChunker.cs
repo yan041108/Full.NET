@@ -30,8 +30,8 @@ internal static class AiKnowledgeDocxModelChunker
         AiKnowledgeParsedDocx document, AiKnowledgeChunkOptions options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(knowledge); ArgumentNullException.ThrowIfNull(model); ArgumentNullException.ThrowIfNull(options);
-        var frozen = AiKnowledgeDocxStructure.Freeze(document, token);
-        if (frozen is null) return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
+        var parsed = AiKnowledgeParsedDocument.FromDocx(document, token);
+        if (parsed?.Docx is not { } frozen) return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
         if (knowledge.Id == Guid.Empty || knowledge.Version <= 0 || !model.IsEnabled
             || !AiKnowledgePolicy.IsKnownClassification(knowledge.DataClassification)
             || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId, knowledge.EmbeddingModelVersion, model.Id, model.Version))
@@ -44,9 +44,9 @@ internal static class AiKnowledgeDocxModelChunker
             || model.EndpointBaseUrl.AsSpan(origin.Length) is not ("/v1" or "/v1/" or ":443/v1" or ":443/v1/"))
             return new(null, AiKnowledgeModelChunkFailure.UnsupportedModel);
         var tokenizer = AiKnowledgeCl100kTokenizer.Get(token); var chunks = new List<AiKnowledgeDocxChunk>(); var tokens = 0; var characters = 0;
-        foreach (var block in frozen.Blocks)
+        foreach (var block in parsed.Blocks)
         {
-            token.ThrowIfCancellationRequested(); var text = frozen.Text.Substring(block.Offset, block.Length);
+            token.ThrowIfCancellationRequested(); var text = block.Text;
             if (string.IsNullOrWhiteSpace(text)) continue;
             if (chunks.Count > 0 && chunks.Count >= options.MaxChunks) return Rejected(AiKnowledgeChunkFailure.TooManyChunks);
             if (chunks.Count > 0 && tokens >= options.MaxTotalTokens) return Rejected(AiKnowledgeChunkFailure.TotalTokenBudgetExceeded);
@@ -62,7 +62,9 @@ internal static class AiKnowledgeDocxModelChunker
                 if (chunk.Length > AiKnowledgeTextChunker.MaxTotalCharacters - characters || AiEmbeddingContentPolicy.ValidateInputs([chunk.Text]) is not null)
                     return Rejected(AiKnowledgeChunkFailure.OutputTooLarge);
                 tokens += chunk.TokenCount; characters += chunk.Length;
-                chunks.Add(new(chunks.Count, block.Sequence, block.Offset + chunk.Offset, chunk.Length, chunk.Text, chunk.TokenCount));
+                var position = block.Locate(chunk.Offset, chunk.Length);
+                if (position?.BlockSequence is not { } blockSequence) return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
+                chunks.Add(new(chunks.Count, blockSequence, position.Offset, position.Length, chunk.Text, chunk.TokenCount));
             }
         }
         token.ThrowIfCancellationRequested();

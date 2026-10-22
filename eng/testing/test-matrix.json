@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 8607,
+      "minimum": 8631,
       "timeout": "10m",
       "selections": {
         "project-review-remediation": {
@@ -35,9 +35,13 @@
           "filter": "FullyQualifiedName~WeComAccessTokenCacheTests|FullyQualifiedName~DingTalkAccessTokenCacheTests|FullyQualifiedName~MqttPublishRateLimiterTests|FullyQualifiedName~WeChatPayPlatformCertificateResolverTests|FullyQualifiedName~McpClientConnectionManagerTests",
           "minimum": 19
         },
+        "ai-parsed-document": {
+          "filter": "FullyQualifiedName~AiKnowledgeParsedDocumentTests",
+          "minimum": 24
+        },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 5105
+          "minimum": 5129
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison|FullyQualifiedName~RagFeedbackAdmission|FullyQualifiedName~RagRetrievalExecution",
