@@ -427,6 +427,10 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ## 十二、Workflow 工作流模块
 
+> 2026-10-23 专项修订：完整 Workflow-Vue3 节点整改与两项已复现待修缺陷以[现行规格](../docs/superpowers/specs/2026-08-20-workflow-module-design.md#53-完整节点整改矩阵2026-10-23)为准；目标为 18 类可添加节点加发起/结束，排除 LogicFlow。以下接口/事件说明描述已有实现，新增节点尚未实现；Webhooks 仅直接消费完成集成事件，不实现三种终态 Sink。
+
+> 表单设计器最新目标：VForm3 先完整原样迁入，保留全部组件/布局/属性/预览/工具栏，独立设计 JSON 无损保存回显后再二开。当前仍为精简子集及简化 Schema 链路；目标契约见[规格 §6](../docs/superpowers/specs/2026-08-20-workflow-module-design.md#6-表单引擎与跨端渲染)，实施只按[完整迁入计划](../docs/superpowers/plans/2026-10-23-vform3-full-source-migration.md)，不能从下文已有服务/表结构推断目标已交付。
+
 > 项目：[`src/Modules/Full.NET.Modules.Workflow`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Workflow)
 > 稳定模块键：`Workflow`
 > 公开契约：[`src/Modules/Full.NET.Modules.Workflow.Contracts`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Workflow.Contracts)
@@ -461,7 +465,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `WorkflowApprovalActivationWriter` | 审批激活写入器 |
 | `WorkflowCcTransitionWriter` | 抄送写入器 |
 | `WorkflowNotificationOutboxPublisher` | 通知事件 Outbox 发布 |
-| `IWorkflowInstanceCompletedSink` | 终端事件 Sink（供 Notifications、DataApproval、Webhooks 实现） |
+| `IWorkflowInstanceCompletedSink` | 终端事件 Sink（供 Notifications、DataApproval、EnterpriseRequest 实现；Webhooks 直接处理完成集成事件） |
 | `IWorkflowInstanceRejectedSink` | 终端事件 Sink |
 | `IWorkflowInstanceCancelledSink` | 终端事件 Sink |
 | `IWorkflowPublishedDefinitionDirectory` | 已发布定义读取 Port |
@@ -492,9 +496,9 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `WorkflowTodoAssignedIntegrationEvent` | Notifications（Inbox + 渠道提醒） |
 | `WorkflowTodoReminderRequestedIntegrationEvent` | Notifications（催办） |
 | `WorkflowTodoEscalationRequestedIntegrationEvent` | Notifications（升级） |
-| `WorkflowInstanceCompletedIntegrationEvent` | Notifications、DataApproval、Webhooks、EnterpriseRequest（通过 Sink） |
-| `WorkflowInstanceRejectedIntegrationEvent` | Notifications、DataApproval、Webhooks、EnterpriseRequest（通过 Sink） |
-| `WorkflowInstanceCancelledIntegrationEvent` | Notifications、DataApproval、Webhooks、EnterpriseRequest（通过 Sink） |
+| `WorkflowInstanceCompletedIntegrationEvent` | Notifications、DataApproval、EnterpriseRequest（通过 Sink）；Webhooks 通过 `WorkflowInstanceCompletedWebhookHandler` 直接消费 |
+| `WorkflowInstanceRejectedIntegrationEvent` | Notifications、DataApproval、EnterpriseRequest（通过 Sink）；Webhooks 尚无对应处理器 |
+| `WorkflowInstanceCancelledIntegrationEvent` | Notifications、DataApproval、EnterpriseRequest（通过 Sink）；Webhooks 尚无对应处理器 |
 
 ### 12.5 依赖
 
@@ -1333,9 +1337,9 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `IIdentityChallengeDeliveryPort` | Identity.Contracts | Notifications | Identity 账号挑战邮件投递 |
 | `IWorkflowInstanceStarter` | Workflow.Contracts | Workflow（主项目） | 业务模块启动工作流 |
 | `IWorkflowInstanceCanceller` | Workflow.Contracts | Workflow（主项目） | 业务模块取消工作流 |
-| `IWorkflowInstanceCompletedSink` | Workflow.Contracts | Notifications、DataApproval、Webhooks、EnterpriseRequest | 完成事件回调 |
-| `IWorkflowInstanceRejectedSink` | Workflow.Contracts | Notifications、DataApproval、Webhooks、EnterpriseRequest | 驳回事件回调 |
-| `IWorkflowInstanceCancelledSink` | Workflow.Contracts | Notifications、DataApproval、Webhooks、EnterpriseRequest | 取消事件回调 |
+| `IWorkflowInstanceCompletedSink` | Workflow.Contracts | Notifications、DataApproval、EnterpriseRequest | 完成事件回调；Webhooks 另以集成事件处理器消费完成事件 |
+| `IWorkflowInstanceRejectedSink` | Workflow.Contracts | Notifications、DataApproval、EnterpriseRequest | 驳回事件回调 |
+| `IWorkflowInstanceCancelledSink` | Workflow.Contracts | Notifications、DataApproval、EnterpriseRequest | 取消事件回调 |
 | `IStaticImportSchemaHandler` | ImportExport.Contracts | Organization、EnterpriseRequest | 业务模块贡献导入 Schema |
 | `IPrintingTenantProfileBindingSource` | Printing.Contracts | Tenancy | 租户打印配置读取 |
 | `ITenantSubscriptionPaymentFulfillmentPort` | Tenancy.Contracts | Payments | 租户订阅履约 |

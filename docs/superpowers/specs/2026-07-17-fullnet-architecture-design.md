@@ -368,9 +368,9 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 
 提供数据库元数据读取、模型定义、后端、SQL、Vue 管理页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；当前已实现嵌入 Naming Profile 的表名、索引/约束确定性摘要和稳定协议校验纯函数，元数据读取、模板渲染、CLI 与 Vue 纵向样例继续推进；既有 Layui 生成产物冻结，不再扩展。`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
 
-### 6.10 Workflow（批准设计，尚未实现）
+### 6.10 Workflow（已有内核；完整节点与原版表单整改 Planned）
 
-采用 Full.NET 自有审批领域内核，拥有不可变定义/表单版本、实例、步骤、Todo、抄送、表单提交、执行日志和恢复控制面。Workflow-Vue3 与 VForm3 只承担受控设计/Web 适配，服务端把 Draft 编译为单一 Workflow IR 与 `WorkflowFormSchema`；uni-app 使用自研静态轻量渲染器。Workflow Todo 与 Notifications Inbox 分离，业务模块通过最小 Port 或有真实消费者的版本化事件协作。完整边界见 [`Workflow Spec`](2026-08-20-workflow-module-design.md)。
+采用 Full.NET 自有审批领域内核，拥有不可变定义/表单版本、实例、步骤、Todo、抄送、表单提交、执行日志和恢复控制面。Workflow-Vue3 Draft 编译为单一 Workflow IR，完整节点整改排除 LogicFlow。2026-10-23 用户要求 VForm3 先完整源码迁入，保留全部组件、布局、属性、预览、工具栏及无损设计稿，再二开；设计 JSON 独立持久化，发布时绑定不可变设计/渲染快照及服务端业务校验投影，不能只存简化 `WorkflowFormSchema` 后反推回显。Web 设计/渲染使用完整原版及隔离运行域，服务端权限、租户和字段校验保持权威；uni-app 使用明确支持的自研静态投影。Workflow Todo 与 Notifications Inbox 分离，业务模块通过最小 Port 或有真实消费者的版本化事件协作。完整边界和当前未实现范围见 [`Workflow Spec`](2026-08-20-workflow-module-design.md)，表单按[唯一活动计划](../plans/2026-10-23-vform3-full-source-migration.md)执行；本次只更新设计，不提升验收状态。
 
 ### 6.11 AI 聊天运行边界（2026-09-07 审查修复）
 

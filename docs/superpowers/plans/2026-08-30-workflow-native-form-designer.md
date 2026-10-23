@@ -1,5 +1,7 @@
 # Workflow Native Form Designer Implementation Plan
 
+> **2026-10-23 历史范围说明：** 本页原生受限设计器切片保留为历史记录，不再作为表单设计器后续目标。用户要求 VForm3 先完整原样迁入、无损保存设计稿后再二开，唯一活动入口见[完整迁入计划](2026-10-23-vform3-full-source-migration.md)；不能以本页简化编辑器替代原版全部功能验收。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 交付不依赖 VForm3、符合严格 CSP 的 Workflow 表单定义管理与受限可视化编辑闭环。

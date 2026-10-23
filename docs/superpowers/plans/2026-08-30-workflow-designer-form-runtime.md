@@ -1,6 +1,6 @@
 # Workflow Designer and Cross-Platform Form Runtime Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `fullnet-module-delivery`, `fullnet-performance-hardening`, and `superpowers:test-driven-development` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **历史计划，不再作为后续执行入口。** 本页保留 2026-08-30 的目标、停止原因和未完成项；VForm3 后续采用 2026-10-23 用户批准的[完整原版迁入计划](2026-10-23-vform3-full-source-migration.md)，全部组件、布局、属性、预览、工具栏和设计稿必须完整保留后再二开。下文受限组件及保存前转换约束已被[规格 §6](../specs/2026-08-20-workflow-module-design.md#6-表单引擎与跨端渲染)替代；历史停止不表示新目标被取消。Workflow 节点整改另见规格 §13。
 
 **Goal:** 在已验证的 Workflow 核心之上交付 Workflow-Vue3 树形设计器、VForm3 后台表单设计器、受控 Vue Web Adapter，以及 H5/微信/支付宝共用的轻量 `FullNetFormRenderer`。
 

@@ -1,6 +1,6 @@
 # VForm3 ESM 源码适配实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **状态（2026-10-23）：历史实施记录，后续方向已替代。** 下文勾选和验证只证明 2026-09-04 的精简子集范围。用户最新要求完整原样迁入 VForm3，保留全部组件、布局、属性、预览、工具栏及无损设计稿；唯一活动入口为[完整迁入计划](2026-10-23-vform3-full-source-migration.md)。本页的裁剪目录、保存前压缩 Schema、回退简化面板及旧包体限制不再约束后续目标，不得据此宣称完整原版已交付。
 
 **目标：** 用当前 Vue 3.5/Vite 8 可静态分析的仓库内 ESM 安全子集替换 `vform3-builds@3.0.10` UMD 入口，修复工作流表单 JSON 已加载但画布不刷新的真实浏览器回归，同时保持现有 Host API、Workflow Schema 和移动端边界不变。
 
