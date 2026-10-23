@@ -76,8 +76,40 @@ API 可执行文件 SHA-256 为 `69fc16c987c65cc0eb1527821627723d66de89f18dd1270
 
 ## 限定边界
 
-原生证据分层核对：50 个场景使用实际隔离解析器和 Native AOT C# 消费端；完整 Host 影响集验证原生 API 协议与来源链路、Worker 已结算 PDF/统一文档代次恢复。真实格式的双库新代次记账与持久化由托管业务影响集验证，不能据此宣称已完成“Native Worker 从真实解析到受控模型首次派发、记账与激活”的整段新生成联动；原计划 AI-A05 的这一剩余条件继续保留，不随 F01–F05 格式批次关闭。
+F01–F05 批次当时的原生证据分层核对：50 个场景使用实际隔离解析器和 Native AOT C# 消费端；完整 Host 影响集验证原生 API 协议与来源链路、Worker 已结算 PDF/统一文档代次恢复。真实格式的双库新代次记账与持久化由托管业务影响集验证，不能据此宣称已完成“Native Worker 从真实解析到受控模型首次派发、记账与激活”的整段新生成联动；当时 AI-A05 的这一剩余条件不随格式批次关闭。该缺口随后由下方 AI-A05 专项的双库原生完整生成结果补齐。
 
-原生 Worker 的过程日志另外出现 `DataApproval request recovery worker iteration failed` / `InvalidOperationException`。本批没有修改 DataApproval、Workflow 或 Worker Host 源码，脱敏日志不足以确定该异常根因；本次 AI 聚焦结果不能用来认证所有后台处理器健康。最小原始日志保留在 `native-output/runtime-results/process-logs`，该现象需要另行专项定位，不把它记为已修复。
+F01–F05 原生 Worker 的过程日志另外出现 `DataApproval request recovery worker iteration failed` / `InvalidOperationException`。当时没有修改 DataApproval、Workflow 或 Worker Host 源码，脱敏日志不足以确定根因，未将其记为已修复。最小原始日志保留在 `native-output/runtime-results/process-logs`；随后专项的实际根因、修复及双库原生恢复结果见下节，不能外推为所有后台处理器的完整健康认证。
 
 上传白名单不保证格式的任意变体均可解析。宏、外链、主动内容、裁剪图片及不支持的复杂结构明确拒绝；OCR 任一文字低于 0.8 拒绝整份。图片表格只承诺本批实际验证的完整矩形有线表格，不声明无边框、任意合并、图表或照片语义能力。部署默认关闭新解析档，需先执行配套迁移，再设置可信绝对路径和实际验收镜像摘要。配置、恢复及安全附件展示见[运维说明](../operations/ai-knowledge-bases.md#多格式解析与离线-ocr2026-10-23本地限定范围验收通过)。
+
+## AI-A05 与 DataApproval 后续批次（2026-10-23）
+
+本批规定影响集已实际通过，AI-A05 按本地限定范围关闭。没有改变 AI 生产生成实现、HTTP/SQL/客户端契约或前端，因此复用上方输入不变的 AI、格式和客户端证据；不重复运行全部 AI 或前端回归。
+
+用户随后授权补齐原生首次生成整段链路并定位 DataApproval 异常，关联实现完成后集中测试，提交本地 main、不推送。该批代码基线为 `362400d34857c6f4af8e085f65fd543f53dea9cc`，快照 `ai-native-generation-20261023`；不改写上方 F01–F05 批次的历史证据与当时限制。
+
+实际 Worker 服务组合回归复现 `Unable to resolve service for type 'Full.NET.Modules.Tenancy.Contracts.ITenantFeatureEntitlementPort' while attempting to activate 'Full.NET.Modules.Workflow.Features.ManageInstances.WorkflowInstanceManagementService'`。DataApproval 恢复构造 Workflow 启动 Port 时需要真实租户权益实现，而 Tenancy 原后台入口未注册它。修复在 Tenancy 的后台入口注册真实权益查询服务与 Port，API 入口使用相同的幂等注册；没有空实现、跳过权益或关闭处理器。回归同时解析两类 DataApproval 恢复消费者，并检查权益 Port 的实际实现类型；原生 Worker 的两类 DataApproval 迭代错误均加入失败日志标记。
+
+新增双库原生生成用例从原生 API 创建模型批准、上传真实 TXT/CSV/DOCX/扫描 PDF/PNG 并入队开始，由实际 Native Worker 执行真实隔离解析、首次受控模型派发、费用结算、完整向量/清单持久化及激活，再经原生 API 召回、生成带引用答案并写入 v3 依赖。TXT 与多批 CSV 在费用/向量提交后通过临时数据库触发器阻断激活；移除故障后用原会话重试，恢复进程配置无效解析脚本且模型拒绝重复 Embedding，请求数、原账本及向量原字节必须保持不变，输出明确的 `persisted-generation` 记录，不能以未触发恢复的正向用例替代。
+
+模型只是协议夹具，不是 OpenAI 云服务或真实模型质量证明。`tests/ai-parsing/run-native-generation.mjs` 创建带随机归属的 Docker 内部网络，官方模型域名仅在临时 SDK 容器内解析到该容器自己的地址；临时 CA 同样只写入该自动回收容器。正式 API/Worker 保留原生产目的地、DNS 地址检查、TLS 验证和真实凭据保护，测试没有注入模型工厂或放宽生产网络规则。原始文件来自上一批自制夹具，解析镜像继续使用上方实际不可变摘要；没有生产用户数据、生产密钥或付费云调用。
+
+后续批次原始记录位于 `C:\Users\Administrator\AppData\Local\Temp\fullnet-native-generation-20261023`。治理/测试工具/解析边界 Node 260 项通过。完整 Native API/Worker 发布命令均实际退出 0，API 9 条、Worker 7 条第三方警告全部命中原登记规则，未登记警告为零；本批继续使用受控 10 GiB SDK 编译容器、单 GC 堆及 8 GiB 编译堆上限，目标运行环境不继承该编译器配置。API 可执行文件 SHA-256 为 `239f11f15192e9ae0f07c06d2a3124bbefe27d056b57e711cec01d802dd1d142`，Worker 为 `db26bd4d0d2d7e720095bd8e74f00fd19cad50191cf34e01d0cd639c03cece33`。
+
+| 后续批次检查 | 实际结果 |
+| --- | --- |
+| DataApproval、Workflow 及 `TenantFeatureEntitlementPortTests` 单元影响集 | 428 项全部成功，零失败/跳过，4.944 秒；Release 构建零警告/错误，1m49.25s，记录 `unit-verified.log` |
+| API/Worker AOT 分析 | 两个 Host 均零警告/错误；API 9m03.95s、Worker 19.43s，记录 `aot-analysis.log` |
+| 架构 `api-native-aot` 影响集 | 73 项全部成功，零失败/跳过，11.623s；Release 构建零警告/错误，19.70s，记录 `architecture-final.log` |
+| 双库租户权益与 DataApproval 重启恢复 | 48 项全部成功，零失败/跳过，13m33.789s；发现列表与 TRX UID 完整匹配，Release 构建零警告/错误，1m24.52s，记录 `integration-final.log` 与 `integration-results/focused.trx` |
+| 基础 Smoke | 8 项全部成功，零失败/跳过，6m38.012s；使用 canonical `argumentsFor('smoke')`，记录同上日志 |
+| Linux Native API/Worker 完整生成及后台恢复 | `node tests/ai-parsing/run-native-generation.mjs <临时 native-config.json>`；10 项全部成功，零失败/跳过，26m47.308s，发现列表与 TRX UID 完整匹配；SDK 消费者构建零警告/错误，3m38.66s；记录 `native-runtime.log` 与 `native-runtime/results/native-generation.trx` |
+| Integration 分片发现核对 | 1348 项形成互斥完整分区，无遗漏或重复；SQL Server API 205、MySQL API 205、迁移 564、基础设施 294、消息重型 80，记录 `integration-partitions.log`；没有执行全部 1348 项 |
+
+排错轮次保留真实失败：首次组合测试准确暴露权益 Port 缺失；随后测试准备先后暴露同步释放异步 DbSession、未带入正式 Worker 的 MemoryPack 序列化注册，以及三处原生夹具可空性编译错误。测试准备已按正式宿主基础设施与异步释放约定修正，未为换绿修改业务权限、异常处理或裁剪门禁。最终单元影响集已通过；Integration 夹具与原生运行按各自实际输入另行构建，不把排队、发现或构建成功充当运行通过。
+
+原生 10 项为双库 API 闭包 2 项、真实待审批请求恢复 2 项、五格式首次生成及定向恢复 2 项、既有 PDF/统一文档已结算恢复 4 项。TRX 包含 10 条 `nativeGeneration` 与 4 条 `persisted-generation` 记录；每库 TXT 恢复前后 Embedding 请求数均为 1，CSV 均为 4，原预算账本和向量字节不变；CSV 每库为 2 个真实生成批次、18 个已知计费 Token。五格式答案均来自原生 API 的实际模型 HTTP 协议，带有效版本引用和 v3 依赖；Token 数是夹具给定用量，不是云模型计量认证。
+
+本轮 SDK、临时数据库、解析子容器及模型内部网络已退出，`native-runtime/resources.jsonl` 的 `reaper-clean` 核对本批容器、网络和卷均为空；共享 SQL Server/Redis 未改动。已生成的最小原始记录保留。上一批删除命令策略拒绝仍有效，本轮复用的原生编译输出继续保留，不声称已清理这些二进制。未取得独立代码审查：当前没有多代理授权，已有审查工具也不提供本地工作区独立审查；自行检查不计为独立审查。
+
+架构首轮在资源锁等待达到 30 分钟上限时退出，未构建、未运行，记录 `architecture.log`；原生验收释放资源后重新申请，实际构建与 73 项测试全部通过，不把排队超时改写为通过。

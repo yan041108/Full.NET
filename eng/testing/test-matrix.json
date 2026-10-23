@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9088,
+      "minimum": 9089,
       "timeout": "10m",
       "selections": {
         "project-review-remediation": {
@@ -181,6 +181,18 @@
     ],
     "minimum": 46,
     "timeout": "90m"
+  },
+  "nativeKnowledgeGenerationIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeWorkerKnowledgeGenerationE2ETests|FullyQualifiedName~NativeWorkerPdfE2ETests|FullyQualifiedName~NativeApiAiE2ETests|FullyQualifiedName~NativeWorkerDataApprovalRecoveryE2ETests",
+    "requiredTestTypes": [
+      "NativeWorkerKnowledgeGenerationE2ETests",
+      "NativeWorkerPdfE2ETests",
+      "NativeApiAiE2ETests",
+      "NativeWorkerDataApprovalRecoveryE2ETests"
+    ],
+    "minimum": 10,
+    "timeout": "45m"
   },
   "nativeAotNotificationsIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
