@@ -24,9 +24,8 @@ internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
         }
 
         var permissionScopeMask = ResolvePermissionScopeMask(principal, effectiveScope.Value);
-        var definition = catalog.Permissions.SingleOrDefault(permission =>
-            string.Equals(permission.Code, permissionCode, StringComparison.Ordinal));
-        if (definition is null || (definition.Scope & permissionScopeMask) == 0)
+        if (!catalog.PermissionsByCode.TryGetValue(permissionCode, out var definition)
+            || (definition.Scope & permissionScopeMask) == 0)
         {
             return false;
         }

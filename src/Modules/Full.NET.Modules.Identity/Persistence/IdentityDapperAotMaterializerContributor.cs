@@ -30,6 +30,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityAuthorizationRow>(ReadIdentityAuthorizationRow);
         registrar.Register<IdentityProfileRecord>(ReadIdentityProfileRecord);
         registrar.Register<RefreshSessionRecord>(ReadRefreshSessionRecord);
+        registrar.Register<AccessSessionValidationRecord>(ReadAccessSessionValidationRecord);
         registrar.Register<HostUserDirectoryRecord>(ReadHostUserDirectoryRecord);
         registrar.Register<HostTenantUserDirectoryRecord>(ReadHostTenantUserDirectoryRecord);
         registrar.Register<HostUserListRow>(ReadHostUserListRow);
@@ -52,7 +53,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<AuthenticationEventResponse>(ReadAuthenticationEventResponse);
         registrar.Register<OnlineSessionRevokeRow>(ReadOnlineSessionRevokeRow);
         registrar.Register<ApiKeyListRow>(ReadApiKeyListRow);
-        registrar.Register<ApiKeyAuthenticationRow>(ReadApiKeyAuthenticationRow);
+        registrar.Register<ApiKeyAuthenticationRow>(ReadApiKeyAuthenticationRow<ApiKeyAuthenticationRow>);
+        registrar.Register<ApiKeyAuthenticationWithQuotaRow>(ReadApiKeyAuthenticationWithQuotaRow);
         registrar.Register<OpenAccessClientDetailRow>(ReadOpenAccessClientDetailRow);
         registrar.Register<OpenAccessClientAccessLogRow>(ReadOpenAccessClientAccessLogRow);
         registrar.Register<OpenAccessClientAccessKeyRow>(ReadOpenAccessClientAccessKeyRow);
@@ -158,6 +160,21 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             ProfileVersion = AotDataReaderExtensions.ReadInt32(reader, 6),
             MustChangePassword = AotDataReaderExtensions.ReadBoolean(reader, 7),
             PasswordChangedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+        };
+
+    private static AccessSessionValidationRecord ReadAccessSessionValidationRecord(DbDataReader reader) =>
+        new()
+        {
+            UserId = reader.GetGuid(0),
+            ExpiresAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 1),
+            ConsumedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 2),
+            RevokedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 3),
+            ActiveTenantId = AotDataReaderExtensions.ReadNullableGuid(reader, 4),
+            TenantId = AotDataReaderExtensions.ReadNullableGuid(reader, 5),
+            ScopeKey = reader.GetString(6),
+            IsActive = AotDataReaderExtensions.ReadBoolean(reader, 7),
+            LockoutEndUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+            SecurityStamp = reader.GetString(9),
         };
 
     private static RefreshSessionRecord ReadRefreshSessionRecord(DbDataReader reader) =>
@@ -449,8 +466,17 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
         };
 
-    private static ApiKeyAuthenticationRow ReadApiKeyAuthenticationRow(DbDataReader reader) =>
-        new()
+    private static ApiKeyAuthenticationWithQuotaRow ReadApiKeyAuthenticationWithQuotaRow(DbDataReader reader)
+    {
+        var row = ReadApiKeyAuthenticationRow<ApiKeyAuthenticationWithQuotaRow>(reader);
+        row.OpenAccessClientId = AotDataReaderExtensions.ReadNullableGuid(reader, 15);
+        row.DailyRequestQuota = reader.IsDBNull(16) ? null : AotDataReaderExtensions.ReadInt32(reader, 16);
+        return row;
+    }
+
+    private static TRow ReadApiKeyAuthenticationRow<TRow>(DbDataReader reader)
+        where TRow : ApiKeyAuthenticationRow, new() =>
+        new TRow()
         {
             ApiKeyId = reader.GetGuid(0),
             UserId = reader.GetGuid(1),

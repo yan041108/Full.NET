@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Authorization;
@@ -19,6 +20,7 @@ internal sealed class AuthorizationCatalog
         Modules = modules;
         NavigationModuleKeys = navigationModuleKeys;
         Permissions = permissions;
+        PermissionsByCode = permissions.ToFrozenDictionary(permission => permission.Code, StringComparer.Ordinal);
         Navigation = navigation;
         Actions = actions;
     }
@@ -31,6 +33,9 @@ internal sealed class AuthorizationCatalog
 
     /// <summary>全局权限定义，按 Code 字典序排序，代码为唯一主键。</summary>
     public IReadOnlyList<PermissionDefinition> Permissions { get; }
+
+    /// <summary>启动校验后建立的只读权限索引，按精确权限码查询。</summary>
+    public FrozenDictionary<string, PermissionDefinition> PermissionsByCode { get; }
 
     /// <summary>导航菜单定义（含父子引用），按 Order/Id 排序。</summary>
     public IReadOnlyList<NavigationDefinition> Navigation { get; }

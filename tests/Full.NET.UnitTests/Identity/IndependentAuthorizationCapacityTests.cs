@@ -53,8 +53,8 @@ public sealed class IndependentAuthorizationCapacityTests
         CreateFixture(bool oidc, Exception failure)
     {
         var query = Substitute.For<IQueryExecutor>();
-        query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
-            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns<RefreshSessionRecord?>(_ => throw failure);
+        query.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns<AccessSessionValidationRecord?>(_ => throw failure);
         query.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
             IdentityOidcSessionSql.FindApplicationSessionValidationById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>())

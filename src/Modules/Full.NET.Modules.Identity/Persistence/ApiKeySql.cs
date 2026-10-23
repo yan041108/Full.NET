@@ -62,9 +62,12 @@ internal static class ApiKeySql
                apiKey.LastUsedAtUtc,
                identityUser.SecurityStamp,
                identityUser.IsActive AS UserIsActive,
-               identityUser.LockoutEndUtc AS UserLockoutEndUtc
+               identityUser.LockoutEndUtc AS UserLockoutEndUtc,
+               client.Id AS OpenAccessClientId,
+               client.DailyRequestQuota
         FROM fn_identity_api_key AS apiKey
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = apiKey.UserId
+        LEFT JOIN fn_identity_open_access_client AS client ON client.ApiKeyId = apiKey.Id
         WHERE apiKey.KeyHash = @KeyHash
           AND identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL

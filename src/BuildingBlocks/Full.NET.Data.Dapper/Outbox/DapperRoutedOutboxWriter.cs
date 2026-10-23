@@ -41,13 +41,12 @@ internal sealed class DapperRoutedOutboxWriter(
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentNullException.ThrowIfNull(payload);
 
-        await ownershipGate.AcquireProducerAsync(
+        var lockedOwner = await ownershipGate.AcquireProducerAsync(
             eventType,
             schemaVersion,
             cancellationToken).ConfigureAwait(false);
-        var owner = await ownerResolver
-            .GetDeliveryOwnerAsync(eventType, schemaVersion, cancellationToken)
-            .ConfigureAwait(false);
+        // 锁持有至事务结束；直接解析锁内快照，仍保留目录的切流约束与未登记流默认值。
+        var owner = ownerResolver.ResolveDeliveryOwner(eventType, schemaVersion, lockedOwner);
 
         switch (owner)
         {
@@ -92,13 +91,11 @@ internal sealed class DapperRoutedOutboxWriter(
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        await ownershipGate.AcquireProducerAsync(
+        var lockedOwner = await ownershipGate.AcquireProducerAsync(
             eventType,
             schemaVersion,
             cancellationToken).ConfigureAwait(false);
-        var owner = await ownerResolver
-            .GetDeliveryOwnerAsync(eventType, schemaVersion, cancellationToken)
-            .ConfigureAwait(false);
+        var owner = ownerResolver.ResolveDeliveryOwner(eventType, schemaVersion, lockedOwner);
 
         switch (owner)
         {

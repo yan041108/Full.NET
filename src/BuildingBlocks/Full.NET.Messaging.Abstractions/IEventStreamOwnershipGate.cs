@@ -8,13 +8,14 @@ namespace Full.NET.Messaging.Abstractions;
 public interface IEventStreamOwnershipGate
 {
     /// <summary>
-    /// 获取生产者侧事务级排它锁；防止切流过程中 Legacy 与 CDC 同时向同一事件流写入 Outbox 记录。
+    /// 获取生产者侧事务级共享锁并返回锁内所有者；所有权变更须等待业务事务结束。
     /// </summary>
     /// <param name="eventType">事件契约类型名，与 <see cref="EventStreamOwnershipRecord.MessageType"/> 对齐。</param>
     /// <param name="schemaVersion">事件 Schema 版本号。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>获取成功返回 true；若存在并发所有权变更事务在途则返回 false，业务应中止当前请求。</returns>
-    Task<bool> AcquireProducerAsync(
+    /// <returns>锁定读取的所有者；流未登记时返回空值，由目录决定默认链路。</returns>
+    /// <exception cref="EventDeliveryProducerFencedException">流处于回滚准备状态，禁止继续写入。</exception>
+    Task<EventDeliveryOwner?> AcquireProducerAsync(
         string eventType,
         int schemaVersion,
         CancellationToken cancellationToken = default);

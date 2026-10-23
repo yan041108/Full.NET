@@ -55,6 +55,16 @@ internal sealed class OpenAccessClientAccessSupport(
                 IdentitySqlParameters.Create(("ApiKeyId", apiKeyId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        return await TryGetQuotaExceededErrorAsync(quota, accessKeyId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>复用本次认证刚读取的配额；仍实时统计用量，不跨调用保留快照。</summary>
+    internal async Task<Error?> TryGetQuotaExceededErrorAsync(
+        OpenAccessClientQuotaRow? quota,
+        string accessKeyId,
+        CancellationToken cancellationToken)
+    {
         if (quota?.DailyRequestQuota is not int dailyQuota || dailyQuota <= 0)
         {
             return null;

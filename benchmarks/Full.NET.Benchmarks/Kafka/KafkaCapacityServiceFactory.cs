@@ -166,6 +166,9 @@ public static class KafkaCapacityServiceFactory
 
     private sealed class KafkaCapacityCdcOwnerResolver : IEffectiveEventDeliveryOwnerResolver
     {
+        public EventDeliveryOwner ResolveDeliveryOwner(string eventType, int schemaVersion, EventDeliveryOwner? persistedOwner) =>
+            EventDeliveryOwner.CdcKafka;
+
         public Task<EventDeliveryOwner> GetDeliveryOwnerAsync(
             string eventType,
             int schemaVersion,
@@ -181,11 +184,11 @@ public static class KafkaCapacityServiceFactory
 
     private sealed class KafkaCapacityPermissiveOwnershipGate : IEventStreamOwnershipGate
     {
-        public Task<bool> AcquireProducerAsync(
+        public Task<EventDeliveryOwner?> AcquireProducerAsync(
             string eventType,
             int schemaVersion,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+            Task.FromResult<EventDeliveryOwner?>(null);
 
         public Task<bool> AcquireConsumerAsync(
             string eventType,

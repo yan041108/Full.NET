@@ -34,11 +34,11 @@ public sealed class AiToolCurrentSessionTests
         var user = Guid.NewGuid();
         var session = Guid.NewGuid();
         var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
-        var record = new RefreshSessionRecord { UserId = scenario == "actor" ? Guid.NewGuid() : user, SessionId = session,
+        var record = new AccessSessionValidationRecord { UserId = scenario == "actor" ? Guid.NewGuid() : user,
             SecurityStamp = "stamp", ScopeKey = "host", IsActive = scenario != "disabled",
             ExpiresAtUtc = now.AddHours(1), RevokedAtUtc = scenario == "revoked" ? now : null };
         var queries = Substitute.For<IQueryExecutor>();
-        queries.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(record);
+        queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(record);
         var claims = new List<Claim> { new("sub", user.ToString()), new("sid", session.ToString()),
             new(FullNetIdentityClaimTypes.SecurityStamp, "stamp"), new(FullNetIdentityClaimTypes.ActorScope, "host"),
             new(FullNetIdentityClaimTypes.Scope, "host"), new(FullNetIdentityClaimTypes.Permission, "permission"),

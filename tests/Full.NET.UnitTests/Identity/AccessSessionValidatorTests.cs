@@ -109,11 +109,11 @@ public sealed class AccessSessionValidatorTests
     {
         var fixture = new Fixture(CreateRecord());
         fixture.QueryExecutor
-            .QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-                IdentitySql.FindRefreshSessionById,
+            .QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(
+                IdentitySql.FindAccessSessionValidationById,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
-            .Returns<RefreshSessionRecord?>(_ =>
+            .Returns<AccessSessionValidationRecord?>(_ =>
                 throw new InvalidOperationException("Simulated session state outage."));
 
         var accepted = await fixture.Validator.IsValidAsync(CreatePrincipal());
@@ -180,7 +180,7 @@ public sealed class AccessSessionValidatorTests
 
         Assert.IsFalse(accepted);
         await fixture.QueryExecutor.DidNotReceiveWithAnyArgs()
-            .QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+            .QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(
                 default!,
                 default,
                 default);
@@ -212,38 +212,26 @@ public sealed class AccessSessionValidatorTests
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "unit-test"));
     }
 
-    private static RefreshSessionRecord CreateRecord(
+    private static AccessSessionValidationRecord CreateRecord(
         string securityStamp = "stamp",
         string scopeKey = "host",
         Guid? activeTenantId = null) => new()
     {
-        SessionId = SessionId,
         UserId = UserId,
-        FamilyId = Guid.NewGuid(),
-        ClientId = "fullnet-web",
-        TokenHash = "hash",
         ExpiresAtUtc = Now.AddHours(1),
         ActiveTenantId = activeTenantId,
-        CreatedAtUtc = Now.AddMinutes(-10),
-        SessionVersion = 1,
         ScopeKey = scopeKey,
-        Username = "admin",
-        NormalizedUsername = "ADMIN",
-        DisplayName = "系统管理员",
-        PasswordHash = "hash",
         IsActive = true,
         SecurityStamp = securityStamp,
-        UserCreatedAtUtc = Now.AddDays(-1),
-        UserVersion = 1,
     };
 
     private sealed class Fixture
     {
-        public Fixture(RefreshSessionRecord record)
+        public Fixture(AccessSessionValidationRecord record)
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
-            QueryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-                    IdentitySql.FindRefreshSessionById,
+            QueryExecutor.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(
+                    IdentitySql.FindAccessSessionValidationById,
                     Arg.Any<object?>(),
                     Arg.Any<CancellationToken>())
                 .Returns(record);

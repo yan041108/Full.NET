@@ -9,6 +9,16 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class EffectiveEventDeliveryOwnerResolverTests
 {
     [TestMethod]
+    public void Locked_missing_stream_uses_directory_default_without_reading_store()
+    {
+        var store = Substitute.For<IEventStreamOwnershipStore>();
+        var catalog = new IntegrationEventSubscriptionCatalog([], []);
+        var resolver = new EffectiveEventDeliveryOwnerResolver(() => catalog, store);
+        Assert.AreEqual(EventDeliveryOwner.LegacyPolling, resolver.ResolveDeliveryOwner("fullnet.notifications.inbox.received", 1, null));
+        Assert.AreEqual(0, store.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
     public async Task Unregistered_existing_stream_falls_back_to_legacy_polling()
     {
         var store = Substitute.For<IEventStreamOwnershipStore>();
