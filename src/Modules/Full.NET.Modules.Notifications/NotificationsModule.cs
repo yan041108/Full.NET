@@ -93,6 +93,7 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateService>();
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<Features.CreateNotificationIntents.NotificationLifecycleService>();
         services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
         services.TryAddScoped<Execution.NotificationAttachmentLoader>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -101,6 +102,9 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageProviderProfiles.NotificationProviderProfileService>();
         services.TryAddScoped<Features.ManageBindings.NotificationBindingService>();
         services.TryAddScoped<Features.ManageDeliveries.NotificationDeliveryService>();
+        services.TryAddScoped<Features.ManagePreferences.NotificationPreferenceService>();
+        services.TryAddScoped<Features.ManageProducerScenes.NotificationProducerSceneService>();
+        services.TryAddScoped<Features.ManageQuotas.NotificationQuotaService>();
         services.TryAddScoped<Features.ReceiveProviderReceipts.NotificationReceiptProcessor>();
         services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
         services.TryAddScoped<Features.ManageRecipientEndpoints.RecipientEndpointStore>();
@@ -166,6 +170,9 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ManageBindings.Endpoint.Map(endpoints);
         Features.ManageDeliveries.Endpoint.Map(endpoints);
         Features.ReceiveProviderReceipts.Endpoint.Map(endpoints);
+        Features.ManagePreferences.Endpoint.Map(endpoints);
+        Features.ManageProducerScenes.Endpoint.Map(endpoints);
+        Features.ManageQuotas.Endpoint.Map(endpoints);
         Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
         Features.VerifyRecipientEndpoints.Endpoint.Map(endpoints);
         // 可选适配能力的路由、服务和轮询入口必须使用相同开关，避免禁用时仍推断不存在的 DI 参数。
@@ -215,6 +222,7 @@ public sealed class NotificationsModule : IFullNetModule
             Full.NET.Modules.Files.Contracts.IHostFileReferenceClaimProbe,
             Features.IntentAttachments.NotificationIntentAttachmentProbe>());
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationTemplateProvisioner>();
+        services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProducerSceneProvisioner>();
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProjectionService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -248,6 +256,7 @@ public sealed class NotificationsModule : IFullNetModule
             IValidateOptions<NotificationDeliveryWorkerOptions>,
             NotificationDeliveryWorkerOptionsValidator>());
         services.TryAddScoped<NotificationDeliveryBatchProcessor>();
+        services.TryAddScoped<Execution.NotificationQuotaGovernor>();
         services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
         services.TryAddScoped<Execution.NotificationAttachmentLoader>();
         services.TryAddScoped<Features.ReceiveProviderReceipts.NotificationReceiptProcessor>();

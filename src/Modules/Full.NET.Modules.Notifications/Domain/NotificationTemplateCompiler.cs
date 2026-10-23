@@ -26,7 +26,7 @@ internal static partial class NotificationTemplateCompiler
     public const string RecipientTypeUser = "user";
     public const string DispatchModeSingle = "single";
     public const string IntentStatusAccepted = "accepted";
-    public const string EmptyRouteSnapshotJson = "[]";
+    public const string EmptyRouteTargetsJson = "[]";
 
     private static readonly HashSet<string> ContentCategories = new(StringComparer.Ordinal)
     {

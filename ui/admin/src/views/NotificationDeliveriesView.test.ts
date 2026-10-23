@@ -3,22 +3,28 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import NotificationDeliveriesView from './NotificationDeliveriesView.vue';
 import { useSessionStore } from '../auth/session';
+import { ElMessageBox } from 'element-plus';
 import { getNotificationIntent } from '../api/notification-intents';
 import {
   getNotificationDelivery,
   listNotificationDeliveries,
   retryNotificationDelivery,
+  reconcileNotificationDelivery,
+  getNotificationDeliverySummary,
   type NotificationDeliveryResponse
 } from '../api/notification-platform';
 
 vi.mock('../api/notification-intents', () => ({
-  getNotificationIntent: vi.fn()
+  getNotificationIntent: vi.fn(), revokeNotificationIntent: vi.fn()
 }));
 
 vi.mock('../api/notification-platform', () => ({
   getNotificationDelivery: vi.fn(),
   listNotificationDeliveries: vi.fn(),
-  retryNotificationDelivery: vi.fn()
+  retryNotificationDelivery: vi.fn(),
+  getNotificationDeliverySummary: vi.fn().mockResolvedValue([]),
+  deadLetterNotificationDelivery: vi.fn(),
+  reconcileNotificationDelivery: vi.fn()
 }));
 
 const listMock = vi.mocked(listNotificationDeliveries);
@@ -114,6 +120,23 @@ describe('Vue 投递运维页', () => {
 
     expect(wrapper.find('[data-testid="notification-deliveries-retry-reason"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(true);
+  });
+
+  it('Unknown 对账独立授权，证据引用及当前 Revision 传到 API', async () => {
+    getMock.mockResolvedValueOnce(delivery('unknown'));
+    vi.mocked(reconcileNotificationDelivery).mockResolvedValueOnce(delivery('sent'));
+    // 第三方重载在 spy 类型中交叉为字符串与对象；替身保持真实 prompt 的输入结果形状。
+    vi.spyOn(ElMessageBox, 'prompt').mockResolvedValueOnce({ value: 'provider-case-1', action: 'confirm' } as never);
+    const wrapper = mountWithPermissions(['notifications.deliveries.read', 'notifications.deliveries.reconcile', 'notifications.deliveries.retry']);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-deliveries-load"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="notification-reconcile-accepted"]').trigger('click');
+    await flushPromises();
+    expect(reconcileNotificationDelivery).toHaveBeenCalledWith(delivery('unknown').id, 2, 'confirmed_accepted', 'provider-case-1');
+    wrapper.unmount();
+    vi.restoreAllMocks();
   });
 
   it('email 渠道 sent 状态提示不等同于已送达', async () => {

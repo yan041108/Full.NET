@@ -111,6 +111,67 @@ describe('Notifications 实时客户端', () => {
     await controller.dispose();
   });
 
+  it('传输加载期间退出认证不启动迟到连接', async () => {
+    const session = createSession();
+    const connection = createConnection();
+    let finish!: (value: NotificationsHubConnection) => void;
+    const loading = new Promise<NotificationsHubConnection>(resolve => { finish = resolve; });
+    const factory = vi.fn(() => loading);
+    const controller = createNotificationsRealtimeController({
+      session, onMessage: vi.fn(), connectionFactory: factory
+    });
+    session.publish(authenticatedSnapshot(null));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(factory).toHaveBeenCalledOnce();
+    session.publish(anonymousSnapshot());
+    finish(connection);
+    await controller.whenSettled();
+    expect(connection.start).not.toHaveBeenCalled();
+    await controller.dispose();
+  });
+
+  it('传输加载期间切换租户只启动新上下文连接', async () => {
+    const session = createSession();
+    const oldConnection = createConnection();
+    const nextConnection = createConnection();
+    let finish!: (value: NotificationsHubConnection) => void;
+    const factory = vi.fn().mockImplementationOnce(() =>
+      new Promise<NotificationsHubConnection>(resolve => { finish = resolve; }))
+      .mockResolvedValue(nextConnection);
+    const controller = createNotificationsRealtimeController({
+      session, onMessage: vi.fn(), connectionFactory: factory
+    });
+    session.publish(authenticatedSnapshot(null));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(factory).toHaveBeenCalledOnce();
+    session.publish(authenticatedSnapshot('tenant-id'));
+    finish(oldConnection);
+    await controller.whenSettled();
+    expect(oldConnection.start).not.toHaveBeenCalled();
+    expect(nextConnection.start).toHaveBeenCalledOnce();
+    await controller.dispose();
+  });
+
+  it('传输加载失败后重新加载并恢复连接', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const connection = createConnection();
+    const factory = vi.fn().mockRejectedValueOnce(new Error('chunk unavailable'))
+      .mockResolvedValue(connection);
+    const controller = createNotificationsRealtimeController({
+      session, onMessage: vi.fn(), connectionFactory: factory
+    });
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    expect(connection.start).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    await controller.whenSettled();
+    expect(connection.start).toHaveBeenCalledOnce();
+    await controller.dispose();
+  });
+
   it('首次连接失败后按退避重新创建连接并恢复', async () => {
     vi.useFakeTimers();
     const session = createSession();

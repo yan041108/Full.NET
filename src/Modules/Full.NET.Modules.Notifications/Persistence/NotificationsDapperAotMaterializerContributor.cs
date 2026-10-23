@@ -32,6 +32,8 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationIntentAttachmentRecord>(ReadIntentAttachment);
         registrar.Register<NotificationRecipientRecord>(ReadRecipient);
         registrar.Register<NotificationDeliveryRecord>(ReadDelivery);
+        registrar.Register<NotificationPreferenceRecord>(ReadPreference);
+        registrar.Register<NotificationProducerSceneRecord>(ReadProducerScene);
         registrar.Register<NotificationDeliveryAttemptRecord>(ReadDeliveryAttempt);
         registrar.Register<NotificationReceiptRecord>(ReadReceipt);
         registrar.Register<NotificationRecipientEndpointRecord>(ReadRecipientEndpoint);
@@ -41,6 +43,31 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationProviderProfileVersionRecord>(ReadProfileVersion);
         registrar.Register<NotificationBindingRecord>(ReadBinding);
         registrar.Register<NotificationBindingVersionRecord>(ReadBindingVersion);
+        registrar.Register<NotificationQuotaPolicyRecord>(ReadQuotaPolicy);
+        registrar.Register<NotificationQuotaResolutionRecord>(ReadQuotaResolution);
+        registrar.Register<NotificationQuotaCounterRecord>(ReadQuotaCounter);
+        registrar.Register<NotificationQuotaReservationRecord>(ReadQuotaReservation);
+        registrar.Register<NotificationQuotaAbandonedReservationRecord>(ReadQuotaAbandonedReservation);
+        registrar.Register<NotificationQuotaOutstandingRecord>(ReadQuotaOutstanding);
+        registrar.Register<WeChatMiniProgramBindingRecord>(reader => new WeChatMiniProgramBindingRecord
+        {
+            Id = reader.GetGuid(0), TenantScopeKey = reader.GetString(1), UserId = reader.GetGuid(2),
+            AppId = reader.GetString(3), ProviderProfileVersionId = reader.GetGuid(4),
+            OpenIdProtected = reader.GetString(5), OpenIdMask = reader.GetString(6), OpenIdSha256Hex = reader.GetString(7),
+            UnionIdProtected = AotDataReaderExtensions.ReadNullableString(reader, 8),
+            UnionIdMask = AotDataReaderExtensions.ReadNullableString(reader, 9), VerificationStatusKey = reader.GetString(10),
+            RecipientEndpointId = AotDataReaderExtensions.ReadNullableGuid(reader, 11),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
+            UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+        });
+        registrar.Register<WeChatMiniProgramSubscriptionRecord>(reader => new WeChatMiniProgramSubscriptionRecord
+        {
+            BindingId = reader.GetGuid(0), TemplateId = reader.GetString(1), StatusKey = reader.GetString(2),
+            AuthorizedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 3),
+        });
+        registrar.Register<NotificationDeliverySummaryRecord>(reader => new NotificationDeliverySummaryRecord(
+            reader.GetString(0), reader.GetString(1), reader.GetString(2), Convert.ToInt64(reader.GetValue(3), System.Globalization.CultureInfo.InvariantCulture),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 4)));
     }
 
     private static AnnouncementRecord ReadAnnouncementRecord(DbDataReader reader) =>
@@ -129,6 +156,12 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             ScopeKey = reader.GetString(9),
             TenantScopeKey = reader.GetString(10),
             IntentId = AotDataReaderExtensions.ReadNullableGuid(reader, 11),
+            ArchivedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12),
+            RevokedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+            RevocationReason = AotDataReaderExtensions.ReadNullableString(reader, 14),
+            DeepLinkJson = AotDataReaderExtensions.ReadNullableString(reader, 15),
+            ProducerKey = AotDataReaderExtensions.ReadNullableString(reader, 16),
+            SceneKey = AotDataReaderExtensions.ReadNullableString(reader, 17),
         };
 
     private static NotificationRecipientEndpointRecord ReadRecipientEndpoint(DbDataReader reader) =>
@@ -300,7 +333,43 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             AotDataReaderExtensions.ReadInt64(reader, 10),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13));
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+            AotDataReaderExtensions.ReadNullableString(reader, 14),
+            reader.IsDBNull(15) ? null : AotDataReaderExtensions.ReadInt64(reader, 15),
+            AotDataReaderExtensions.ReadNullableString(reader, 16),
+            AotDataReaderExtensions.ReadNullableString(reader, 17));
+
+    private static NotificationPreferenceRecord ReadPreference(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetGuid(4),
+            reader.GetString(5),
+            reader.GetBoolean(6),
+            reader.GetBoolean(7),
+            AotDataReaderExtensions.ReadNullableString(reader, 8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadInt64(reader, 10));
+
+    /// <summary>读取受控 Producer/Scene 目录行；列顺序必须与 NotificationPlatformSql 的目录投影完全一致。</summary>
+    private static NotificationProducerSceneRecord ReadProducerScene(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            reader.GetString(7),
+            AotDataReaderExtensions.ReadBoolean(reader, 8),
+            AotDataReaderExtensions.ReadBoolean(reader, 9),
+            reader.GetGuid(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
+            AotDataReaderExtensions.ReadInt64(reader, 13));
 
     private static NotificationDeliveryAttemptRecord ReadDeliveryAttempt(DbDataReader reader) =>
         new(
@@ -392,5 +461,59 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(8),
             reader.GetGuid(9),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 10));
+
+    /// <summary>读取配额政策行；列顺序必须与 NotificationPlatformSql 的配额政策投影完全一致。</summary>
+    private static NotificationQuotaPolicyRecord ReadQuotaPolicy(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            AotDataReaderExtensions.ReadInt32(reader, 6),
+            AotDataReaderExtensions.ReadInt32(reader, 7),
+            AotDataReaderExtensions.ReadBoolean(reader, 8),
+            reader.GetGuid(9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadInt64(reader, 12));
+
+    /// <summary>读取按维度解析出的生效配额政策行。</summary>
+    private static NotificationQuotaResolutionRecord ReadQuotaResolution(DbDataReader reader) =>
+        new(
+            reader.GetString(0),
+            reader.GetGuid(1),
+            AotDataReaderExtensions.ReadInt32(reader, 2),
+            AotDataReaderExtensions.ReadInt32(reader, 3));
+
+    private static NotificationQuotaCounterRecord ReadQuotaCounter(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadInt32(reader, 1),
+            AotDataReaderExtensions.ReadInt32(reader, 2),
+            AotDataReaderExtensions.ReadInt32(reader, 3));
+
+    private static NotificationQuotaReservationRecord ReadQuotaReservation(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 3));
+
+    private static NotificationQuotaAbandonedReservationRecord ReadQuotaAbandonedReservation(
+        DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 3),
+            AotDataReaderExtensions.ReadInt64(reader, 4));
+
+    private static NotificationQuotaOutstandingRecord ReadQuotaOutstanding(DbDataReader reader) =>
+        new(
+            reader.GetString(0),
+            reader.GetString(1),
+            AotDataReaderExtensions.ReadInt64(reader, 2));
 }
 #endif

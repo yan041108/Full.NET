@@ -38,6 +38,9 @@ internal sealed class SmtpNotificationProviderAdapter(
 
     public string? RecipientEndpointKindKey => "email";
 
+    // SMTP 没有幂等键去重语义，结果未知时只能暂挂等待对账。
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
     public async ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken)
@@ -88,6 +91,7 @@ internal sealed class SmtpNotificationProviderAdapter(
         {
             var category = exception.FailureKind switch
             {
+                SmtpTransportFailureKind.Unknown => NotificationDeliveryRetry.Unknown,
                 SmtpTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 SmtpTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,
                 _ => NotificationDeliveryRetry.Permanent,

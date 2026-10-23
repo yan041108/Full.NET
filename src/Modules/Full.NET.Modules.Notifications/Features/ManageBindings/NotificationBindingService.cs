@@ -354,6 +354,7 @@ internal sealed class NotificationBindingService(
             producer.Value!,
             scene.Value!,
             channel,
+            mode.Value!,
             targets);
         return !json.IsSuccess
             ? Result<PreparedBindingDraft>.Failure(json.Error!)
@@ -380,9 +381,22 @@ internal sealed class NotificationBindingService(
         var items = new List<NotificationBindingTargetInput>();
         foreach (var target in targets.EnumerateArray())
         {
+            NotificationBindingTargetConditionInput? condition = null;
+            if (target.TryGetProperty("condition", out var conditionElement)
+                && conditionElement.ValueKind == JsonValueKind.Object)
+            {
+                condition = new NotificationBindingTargetConditionInput(
+                    conditionElement.GetProperty("parameterName").GetString() ?? string.Empty,
+                    conditionElement.GetProperty("operatorKey").GetString() ?? string.Empty,
+                    conditionElement.TryGetProperty("expectedValue", out var expected)
+                        ? expected.GetString()
+                        : null);
+            }
+
             items.Add(new NotificationBindingTargetInput(
                 target.GetProperty("profileKey").GetString() ?? string.Empty,
-                target.GetProperty("order").GetInt32()));
+                target.GetProperty("order").GetInt32(),
+                condition));
         }
 
         return Result<ParsedBindingDraft>.Success(
@@ -399,7 +413,7 @@ internal sealed class NotificationBindingService(
         CancellationToken cancellationToken)
     {
         var scope = NotificationInboxScope.Resolve(currentTenant);
-        var resolved = new List<(string ProfileKey, Guid ProfileVersionId, int Order, bool IsEnabled)>(
+        var resolved = new List<(string ProfileKey, Guid ProfileVersionId, int Order, bool IsEnabled, NotificationBindingTargetConditionInput? Condition)>(
             draft.Targets.Count);
         foreach (var target in draft.Targets)
         {
@@ -443,7 +457,7 @@ internal sealed class NotificationBindingService(
                     ErrorType.Validation));
             }
 
-            resolved.Add((profile.ProfileKey, profile.LatestPublishedVersionId.Value, target.Order, profile.IsEnabled));
+            resolved.Add((profile.ProfileKey, profile.LatestPublishedVersionId.Value, target.Order, profile.IsEnabled, target.Condition));
         }
 
         var mode = dispatchModeKey switch
@@ -453,21 +467,34 @@ internal sealed class NotificationBindingService(
             "match" => NotificationDispatchMode.Match,
             _ => NotificationDispatchMode.Single,
         };
-        var plan = NotificationRoutePlanner.Plan(
-            mode,
-            resolved.Select(item => new NotificationRouteCandidate(
-                    item.ProfileKey,
-                    draft.ChannelKey,
-                    item.Order,
-                    item.IsEnabled,
-                    MatchesCondition: true))
-                .ToArray());
-        if (!plan.IsSuccess)
+        if (mode == NotificationDispatchMode.Match)
         {
-            return Result<string>.Failure(new Error(
-                plan.ErrorCode ?? NotificationsErrorCodes.RouteProfileUnavailable,
-                "The binding route is invalid.",
-                ErrorType.BusinessRule));
+            if (resolved.Any(item => item.Condition is null))
+            {
+                return Result<string>.Failure(new Error(
+                    NotificationsErrorCodes.BindingValidationFailed,
+                    "Match targets must declare controlled conditions.",
+                    ErrorType.Validation));
+            }
+        }
+        else
+        {
+            var plan = NotificationRoutePlanner.Plan(
+                mode,
+                resolved.Select(item => new NotificationRouteCandidate(
+                        item.ProfileKey,
+                        draft.ChannelKey,
+                        item.Order,
+                        item.IsEnabled,
+                        MatchesCondition: true))
+                    .ToArray());
+            if (!plan.IsSuccess)
+            {
+                return Result<string>.Failure(new Error(
+                    plan.ErrorCode ?? NotificationsErrorCodes.RouteProfileUnavailable,
+                    "The binding route is invalid.",
+                    ErrorType.BusinessRule));
+            }
         }
 
         using var stream = new MemoryStream();
@@ -480,6 +507,20 @@ internal sealed class NotificationBindingService(
                 writer.WriteString("profileKey", item.ProfileKey);
                 writer.WriteString("profileVersionId", item.ProfileVersionId);
                 writer.WriteNumber("order", item.Order);
+                if (item.Condition is { } condition)
+                {
+                    writer.WritePropertyName("condition");
+                    writer.WriteStartObject();
+                    writer.WriteString("parameterName", condition.ParameterName);
+                    writer.WriteString("operatorKey", condition.OperatorKey);
+                    if (condition.ExpectedValue is not null)
+                    {
+                        writer.WriteString("expectedValue", condition.ExpectedValue);
+                    }
+
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEndObject();
             }
 

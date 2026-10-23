@@ -30,7 +30,7 @@ public sealed class NotificationDeliveryLeaseTests
         var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
         var claimed = Enumerable.Range(0, 8).Select(_ => new NotificationDeliveryRecord(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email", Guid.NewGuid(), null,
-            "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null)).ToArray();
+            "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null, null, null, null, null)).ToArray();
         var queries = new LeaseQueries(claimed);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var renewals = 0;
@@ -58,6 +58,7 @@ public sealed class NotificationDeliveryLeaseTests
                 Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
                 Options.Create(new NotificationDeliveryWorkerOptions { MaxConcurrency = 2, BatchSize = 8 }),
                 new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
+                null!,
                 NullLogger<NotificationDeliveryBatchProcessor>.Instance, sp.GetRequiredService<IServiceScopeFactory>());
         });
         await using var provider = services.BuildServiceProvider();
@@ -116,17 +117,18 @@ public sealed class NotificationDeliveryLeaseTests
         queries.QuerySingleOrDefaultAsync<NotificationProviderProfileVersionRecord>(
             Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns<NotificationProviderProfileVersionRecord?>(_ => throw new OperationCanceledException());
-        queries.QuerySingleOrDefaultAsync<long>(NotificationPlatformSql.CountAttemptsByDelivery,
+        queries.QuerySingleOrDefaultAsync<int>(NotificationPlatformSql.FindLastAttemptNumber,
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns<long>(_ => throw new AttemptBudgetReachedException());
+            .Returns<int>(_ => throw new AttemptBudgetReachedException());
         var processor = new NotificationDeliveryBatchProcessor(queries, commands,
             Substitute.For<ICommandTransaction>(), [], null!, null!, clock, Substitute.For<IIdGenerator>(),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
+            null!,
             NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "email", Guid.NewGuid(), null, "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null);
+            "email", Guid.NewGuid(), null, "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null, null, null, null, null);
 
         var task = (Task)typeof(NotificationDeliveryBatchProcessor)
             .GetMethod("ProcessOneAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -157,10 +159,11 @@ public sealed class NotificationDeliveryLeaseTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
+            null!,
             NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
         var delivery = new NotificationDeliveryRecord(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email", Guid.NewGuid(), null,
-            "accepted", 1, "old-worker", now.AddSeconds(secondsUntilExpiry), 1, null, now, null);
+            "accepted", 1, "old-worker", now.AddSeconds(secondsUntilExpiry), 1, null, now, null, null, null, null, null);
 
         // 直接进入单条执行边界，模拟批次前项已耗尽后项租约，避免领取逻辑掩盖陈旧快照。
         var task = (Task)typeof(NotificationDeliveryBatchProcessor)

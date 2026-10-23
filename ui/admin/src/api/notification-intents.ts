@@ -1,9 +1,15 @@
 import {
   isNotificationIntentResponse,
+  notificationsRevokeIntent,
   type CreateNotificationIntentRequest,
   type NotificationIntentResponse
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http, request } from './http';
+
+/** 业务撤回仅停止边界前投递，不能保证收回已外发消息。 */
+export function revokeNotificationIntent(intentId: string, revision: number, reason: string) {
+  return notificationsRevokeIntent(http, { intentId, body: { revision, reason } });
+}
 
 /** 创建通知意图；邮件渠道可附带 Files 模块已上传文件标识。 */
 export async function createNotificationIntent(

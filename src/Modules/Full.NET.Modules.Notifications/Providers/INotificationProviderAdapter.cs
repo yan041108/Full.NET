@@ -18,6 +18,15 @@ internal interface INotificationProviderAdapter
     /// </summary>
     string? RecipientEndpointKindKey { get; }
 
+    /// <summary>
+    /// 调用后结果未知（是否已送达无法判定）时是否允许自动重试。
+    /// </summary>
+    /// <remarks>
+    /// 只有能够用业务幂等键或可信回执对账证明不会重复发送的厂商才可以返回 <see langword="true"/>；
+    /// 默认失败关闭，未知结果会暂挂为 <c>unknown</c> 并等待回执对账或人工处置，不得自动换取新尝试。
+    /// </remarks>
+    bool AllowsAutomaticRetryAfterUnknownResult { get; }
+
     ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken);

@@ -7,7 +7,6 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
-  ElMessage,
   ElOption,
   ElSelect,
   ElTable,
@@ -31,10 +30,11 @@ import {
   verifyMyRecipientEndpoint
 } from '../api/notification-platform';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { showProblem, showSuccess } from '../feedback/fullNetMessage';
 
 defineOptions({ name: 'NotificationPreferencesView' });
 
-/** 当前切片开放 SMTP 邮箱、阿里云短信、钉钉与企微 userId 端点；静默时段和营销同意继续保持诚实的未交付状态。 */
+/** 收件端点登记与发送偏好分开建模；此页只承担地址验证和删除。 */
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const profiles = ref<NotificationProviderProfileResponse[]>([]);
@@ -155,7 +155,9 @@ async function load(): Promise<void> {
   errorMessage.value = undefined;
   try {
     const [profilePage, endpointItems] = await Promise.all([
-      listNotificationProviderProfiles(1, 100),
+      session.can('notifications.provider_profiles.read')
+        ? listNotificationProviderProfiles(1, 100)
+        : Promise.resolve({ items: [] }),
       listMyRecipientEndpoints()
     ]);
     profiles.value = profilePage.items;
@@ -206,7 +208,7 @@ async function validateRegisterForm(): Promise<boolean> {
 
 /** 登记待验证端点；请求体不携带用户、租户或验证状态。 */
 async function createEndpoint(): Promise<void> {
-  if (saving.value || !(await validateRegisterForm())) {
+  if (!canUpdate.value || saving.value || !(await validateRegisterForm())) {
     return;
   }
 
@@ -221,9 +223,9 @@ async function createEndpoint(): Promise<void> {
     registerForm.rawValue = '';
     registerFormRef.value?.clearValidate(['rawValue']);
     endpoints.value = await listMyRecipientEndpoints();
-    ElMessage.success(t('notificationPreferences.createSuccess'));
-  } catch {
-    errorMessage.value = t('notificationPreferences.operationFailed');
+    showSuccess(t('notificationPreferences.createSuccess'));
+  } catch (error) {
+    showProblem(error, t('notificationPreferences.operationFailed'));
   } finally {
     saving.value = false;
   }
@@ -231,6 +233,9 @@ async function createEndpoint(): Promise<void> {
 
 /** 二次点击确认后删除本人端点，避免误操作立即使后续投递失去地址。 */
 async function removeEndpoint(endpointId: string): Promise<void> {
+  if (!canUpdate.value || deletingId.value) {
+    return;
+  }
   if (pendingDeleteId.value !== endpointId) {
     pendingDeleteId.value = endpointId;
     return;
@@ -242,9 +247,9 @@ async function removeEndpoint(endpointId: string): Promise<void> {
     await deleteMyRecipientEndpoint(endpointId);
     pendingDeleteId.value = undefined;
     endpoints.value = await listMyRecipientEndpoints();
-    ElMessage.success(t('notificationPreferences.deleteSuccess'));
-  } catch {
-    errorMessage.value = t('notificationPreferences.operationFailed');
+    showSuccess(t('notificationPreferences.deleteSuccess'));
+  } catch (error) {
+    showProblem(error, t('notificationPreferences.operationFailed'));
   } finally {
     deletingId.value = undefined;
   }
@@ -285,9 +290,9 @@ async function sendVerification(endpointId: string): Promise<void> {
   try {
     const response = await sendMyRecipientEndpointVerification(endpointId);
     resendAvailableAt.value[endpointId] = response.resendAvailableAtUtc;
-    ElMessage.success(t('notificationPreferences.sendCodeSuccess'));
-  } catch {
-    errorMessage.value = t('notificationPreferences.operationFailed');
+    showSuccess(t('notificationPreferences.sendCodeSuccess'));
+  } catch (error) {
+    showProblem(error, t('notificationPreferences.operationFailed'));
   } finally {
     sendingId.value = undefined;
   }
@@ -307,9 +312,9 @@ async function verifyEndpoint(endpointId: string): Promise<void> {
     );
     verificationCodes.value[endpointId] = '';
     delete resendAvailableAt.value[endpointId];
-    ElMessage.success(t('notificationPreferences.verifySuccess'));
-  } catch {
-    errorMessage.value = t('notificationPreferences.operationFailed');
+    showSuccess(t('notificationPreferences.verifySuccess'));
+  } catch (error) {
+    showProblem(error, t('notificationPreferences.operationFailed'));
   } finally {
     verifyingId.value = undefined;
   }
@@ -345,7 +350,7 @@ function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boo
 
 <template>
   <section class="notification-preferences-view art-page-stack art-full-height">
-    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('notificationPreferences.title') }}</h1>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('navigation.notificationRecipientEndpoints.title') }}</h1>
     <p class="art-sr-heading">{{ t('notificationPreferences.description') }}</p>
 
     <ElAlert
@@ -539,12 +544,6 @@ function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boo
           />
         </ElCard>
 
-        <ElCard class="notification-preferences-policy" shadow="never">
-          <template #header>
-            <h2>{{ t('notificationPreferences.policyTitle') }}</h2>
-          </template>
-          <p class="art-muted">{{ t('notificationPreferences.policyUnavailable') }}</p>
-        </ElCard>
       </div>
     </div>
   </section>

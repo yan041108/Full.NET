@@ -40,6 +40,9 @@ internal sealed partial class DingTalkNotificationProviderAdapter(
 
     public string? RecipientEndpointKindKey => "dingtalk";
 
+    // 钉钉工作通知没有幂等键去重语义，结果未知时只能暂挂等待对账。
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
     public async ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken)
@@ -92,6 +95,7 @@ internal sealed partial class DingTalkNotificationProviderAdapter(
         {
             var category = exception.FailureKind switch
             {
+                DingTalkTransportFailureKind.Unknown => NotificationDeliveryRetry.Unknown,
                 DingTalkTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 DingTalkTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,
                 _ => NotificationDeliveryRetry.Permanent,

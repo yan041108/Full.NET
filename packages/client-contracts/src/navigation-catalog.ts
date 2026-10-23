@@ -240,9 +240,24 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/notifications/deliveries'
   },
   {
+    componentKey: 'notification-producer-scenes',
+    routeName: 'notification-producer-scenes',
+    path: '/notifications/producer-scenes'
+  },
+  {
+    componentKey: 'notification-quotas',
+    routeName: 'notification-quotas',
+    path: '/notifications/quotas'
+  },
+  {
     componentKey: 'notification-preferences',
     routeName: 'notification-preferences',
     path: '/notifications/preferences'
+  },
+  {
+    componentKey: 'notification-recipient-endpoints',
+    routeName: 'notification-recipient-endpoints',
+    path: '/notifications/recipient-endpoints'
   },
   {
     componentKey: 'host-jobs',

@@ -40,9 +40,10 @@ internal sealed record WeChatMiniProgramSubscribeSendCommand(
 /// <summary>微信传输失败分类。</summary>
 internal enum WeChatMiniProgramTransportFailureKind
 {
-    Permanent,
-    Transient,
-    RateLimited,
+    Permanent = 0,
+    Transient = 1,
+    RateLimited = 2,
+    Unknown = 3,
 }
 
 /// <summary>分类后的小程序传输异常。</summary>

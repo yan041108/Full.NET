@@ -174,7 +174,26 @@ onBeforeUnmount(() => loadController?.abort());
 
 onMounted(() => {
   void loadList();
+  openRouteResource();
 });
+
+// 同一路径会复用缓存页面；先取消旧读取，再按当前链接重新验证资源归属与业务状态。
+watch([() => router.currentRoute.value.path, () => router.currentRoute.value.query.resourceId], ([path], [oldPath]) => {
+  if (path === '/workflow/instances' || oldPath === '/workflow/instances') openRouteResource();
+});
+
+function openRouteResource(): void {
+  loadController?.abort();
+  loading.value = false;
+  instance.value = undefined;
+  executionLogs.value = [];
+  const route = router.currentRoute.value;
+  const id = route.query.resourceId;
+  if (route.path === '/workflow/instances' && typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) && session.can('workflow.instances.read')) {
+    instanceId.value = id;
+    void load();
+  }
+}
 
 watch(activeTab, () => {
   listPage.value = 1;

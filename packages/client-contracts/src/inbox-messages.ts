@@ -6,6 +6,12 @@ export interface InboxMessage {
   readAtUtc: string | null;
   createdAtUtc: string;
   createdByUserId: string | null;
+  archivedAtUtc?: string | null;
+  revokedAtUtc?: string | null;
+  revocationReason?: string | null;
+  producerKey?: string | null;
+  sceneKey?: string | null;
+  deepLink?: { resourceTypeKey: 'workflow_todo' | 'workflow_instance'; resourceId: string } | null;
 }
 
 export interface InboxMessagePage {
@@ -48,11 +54,14 @@ export function isInboxMessage(value: unknown): value is InboxMessage {
   return isRecord(value)
     && isGuid(value.id)
     && isNonEmptyString(value.title)
-    && isNonEmptyString(value.content)
+    && (isNonEmptyString(value.content) || (value.content === '' && typeof value.revokedAtUtc === 'string'))
     && (value.status === 'unread' || value.status === 'read')
     && (value.readAtUtc === null || typeof value.readAtUtc === 'string')
     && typeof value.createdAtUtc === 'string'
-    && (value.createdByUserId === null || isGuid(value.createdByUserId));
+    && (value.createdByUserId === null || isGuid(value.createdByUserId))
+    && (value.deepLink === undefined || value.deepLink === null
+      || (isRecord(value.deepLink) && isGuid(value.deepLink.resourceId)
+        && (value.deepLink.resourceTypeKey === 'workflow_todo' || value.deepLink.resourceTypeKey === 'workflow_instance')));
 }
 
 export function isInboxMessagePage(value: unknown): value is InboxMessagePage {

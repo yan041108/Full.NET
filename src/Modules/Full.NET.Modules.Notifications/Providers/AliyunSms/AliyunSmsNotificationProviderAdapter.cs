@@ -37,6 +37,9 @@ internal sealed partial class AliyunSmsNotificationProviderAdapter(
 
     public string? RecipientEndpointKindKey => "sms";
 
+    // 阿里云短信按调用计费且不承诺 outId 去重，结果未知时只能暂挂等待回执对账。
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
     public async ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken)
@@ -90,6 +93,7 @@ internal sealed partial class AliyunSmsNotificationProviderAdapter(
         {
             var category = exception.FailureKind switch
             {
+                AliyunSmsTransportFailureKind.Unknown => NotificationDeliveryRetry.Unknown,
                 AliyunSmsTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 AliyunSmsTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,
                 _ => NotificationDeliveryRetry.Permanent,

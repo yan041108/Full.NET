@@ -7,6 +7,8 @@ import {
   notificationsMarkAllMyInboxMessagesRead,
   notificationsMarkMyInboxMessageRead,
   notificationsSendHostInboxMessage,
+  notificationsArchiveMyInboxMessage,
+  notificationsArchiveMyInboxMessages,
   type InboxMessage,
   type InboxMessagePage,
   type InboxUnreadCount,
@@ -19,6 +21,9 @@ export interface InboxMessageListQuery {
   pageSize?: number;
   title?: string;
   status?: 'read' | 'unread' | '';
+  archived?: boolean;
+  producerKey?: string;
+  sceneKey?: string;
 }
 
 function buildListQuery(query: InboxMessageListQuery): string {
@@ -31,7 +36,19 @@ function buildListQuery(query: InboxMessageListQuery): string {
   if (query.status) {
     params.set('status', query.status);
   }
+  if (query.archived) params.set('archived', 'true');
+  if (query.producerKey?.trim()) params.set('producerKey', query.producerKey.trim());
+  if (query.sceneKey?.trim()) params.set('sceneKey', query.sceneKey.trim());
   return params.toString();
+}
+
+/** 归档与已读分开，批量入口使用独立精确权限。 */
+export async function archiveInboxMessages(ids: string[], batch: boolean): Promise<InboxUnreadCount> {
+  const value = batch
+    ? await notificationsArchiveMyInboxMessages(http, { body: { messageIds: ids } })
+    : await notificationsArchiveMyInboxMessage(http, { messageId: ids[0]! });
+  if (!isInboxUnreadCount(value)) throw new Error('client.invalid_inbox_unread_count');
+  return value;
 }
 
 /** 分页查询当前用户站内信列表，并对响应页做失败关闭校验。 */

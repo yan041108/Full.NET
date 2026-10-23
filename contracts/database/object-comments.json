@@ -429,7 +429,7 @@
       }
     },
     "fn_ai_knowledge_index_vector": {
-      "comment": "知识库已结算文本及多格式向量批次派生数据",
+      "comment": "知识库已结算文本或PDF向量批次派生数据",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
         "Dimensions": "Dimensions",
@@ -437,7 +437,7 @@
         "FormatKey": "格式键",
         "Id": "逻辑主键",
         "ModelId": "模型标识",
-        "Payload": "由完整清单绑定的有界来源区间及小端向量载荷",
+        "Payload": "完整有界文本或PDF分页片段与小端向量载荷",
         "PayloadHash": "载荷哈希",
         "ProviderKey": "存储提供程序键"
       }
@@ -2019,19 +2019,25 @@
     "fn_notifications_delivery": {
       "comment": "通知渠道投递表",
       "columns": {
+        "AttemptBudgetUsed": "已消耗的自动尝试预算",
         "BindingVersionId": "场景绑定版本标识",
         "ChannelKey": "渠道键",
+        "ContentSnapshotJson": "按收件人冻结的语言、模板版本与内容快照(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
+        "DispatchLeaseGeneration": "最近一次越过外发边界的租约世代，不证明厂商已调用成功",
         "Id": "逻辑主键",
         "IntentId": "通知意图标识",
         "LeaseExpiresAtUtc": "租约过期时间(UTC)",
         "LeaseGeneration": "租约世代",
         "LeaseOwnerKey": "租约持有者键",
         "NextAttemptAtUtc": "下次重试时间(UTC)",
+        "PolicyDecisionKey": "物化时采用的发送政策决策键",
+        "PreferenceVersion": "物化时采用的收件人渠道偏好版本",
         "ProviderProfileVersionId": "渠道配置版本标识",
         "RecipientId": "收件人标识",
         "Revision": "修订号",
         "StatusKey": "状态键",
+        "SuppressionReasonCode": "阻止发送的稳定原因码",
         "UpdatedAtUtc": "更新时间(UTC)"
       }
     },
@@ -2097,13 +2103,19 @@
     "fn_notifications_inbox_message": {
       "comment": "通知收件箱消息表",
       "columns": {
+        "ArchivedAtUtc": "个人归档时间（UTC），不改变已读状态",
         "Content": "内容",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedByUserId": "创建人用户标识",
+        "DeepLinkJson": "登录后受控资源引用，不构成访问授权",
         "Id": "逻辑主键",
         "IntentId": "通知意图标识",
+        "ProducerKey": "生成通知的业务生产者稳定键",
         "ReadAtUtc": "已读时间(UTC)",
         "RecipientUserId": "接收人用户标识",
+        "RevocationReason": "业务撤回的审计原因",
+        "RevokedAtUtc": "业务撤回时间（UTC），不承诺收回外发消息",
+        "SceneKey": "业务场景稳定键，用于收件箱筛选",
         "ScopeKey": "作用域键",
         "Status": "状态",
         "TenantId": "租户标识；NULL 表示 Host 级",
@@ -2159,6 +2171,25 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_notifications_producer_scene": {
+      "comment": "通知业务生产者与场景受控目录表",
+      "columns": {
+        "AllowedChannelKeysJson": "目录声明的合法渠道键(JSON)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "EmergencyOverrideAllowed": "是否允许在静默时段紧急覆盖",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "PolicyCategoryKey": "目录声明的政策类别键",
+        "ProducerKey": "业务生产者键",
+        "SceneKey": "业务场景键",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_notifications_provider_profile": {
       "comment": "通知渠道配置表",
       "columns": {
@@ -2192,6 +2223,52 @@
         "PublishedById": "发布人标识",
         "SecretReference": "密钥引用",
         "VersionNumber": "版本号"
+      }
+    },
+    "fn_notifications_quota_counter": {
+      "comment": "通知发送配额窗口计数器；占用次数为累计预留减去确定释放",
+      "columns": {
+        "ConsumedCount": "成功核销次数",
+        "Id": "逻辑主键",
+        "PolicyId": "配额政策标识",
+        "ReleasedCount": "确定未发送而释放的次数；释放后额度回到窗口",
+        "ReservedCount": "累计预留次数；含已核销与暂挂对账",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "WindowSeconds": "窗口长度（秒）",
+        "WindowStartUtc": "窗口起点(UTC)"
+      }
+    },
+    "fn_notifications_quota_policy": {
+      "comment": "通知发送配额政策表；子租户精确声明优先于 host 通配声明",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "DimensionKey": "配额维度键：provider/tenant/producer/scene",
+        "DimensionValue": "配额维度取值；* 表示该维度全部取值",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "MaxCount": "单个窗口内允许的发送上限（不含已释放的确定未发送）",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号",
+        "WindowSeconds": "固定窗口长度（秒）；窗口起点按 Unix 时间对齐"
+      }
+    },
+    "fn_notifications_quota_reservation": {
+      "comment": "通知发送配额预留台账；一次领取一批预留，按结果核销、释放或暂挂对账",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DeliveryId": "投递标识",
+        "DimensionKey": "配额维度键",
+        "Id": "逻辑主键",
+        "LeaseGeneration": "预留所属领取世代；同一次领取只占额一次",
+        "PolicyId": "配额政策标识",
+        "StateKey": "预留状态：reserved/consumed/released/pending_reconciliation",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "WindowStartUtc": "预留所属窗口起点(UTC)"
       }
     },
     "fn_notifications_receipt": {
@@ -2253,6 +2330,20 @@
         "RecipientEndpointId": "收件端点标识",
         "TenantScopeKey": "租户作用域唯一键",
         "UserId": "用户标识"
+      }
+    },
+    "fn_notifications_subscription_grant": {
+      "comment": "一次性本地订阅同意台账，客户端记录不是厂商库存证明",
+      "columns": {
+        "AuthorizationId": "客户端订阅交互幂等标识，不代表厂商可信库存",
+        "BindingId": "用户与应用绑定标识",
+        "CreatedAtUtc": "本地授权事实登记时间（UTC）",
+        "DeliveryId": "预留该授权的投递标识",
+        "Id": "应用生成的授权台账标识",
+        "LeaseGeneration": "预留投递租约世代",
+        "ReportedStatusKey": "首次客户端上报的不可变接受或拒绝状态，用于拒绝冲突重放",
+        "StateKey": "本地授权可用、预留、核销或待对账状态",
+        "TemplateId": "微信订阅模板标识"
       }
     },
     "fn_notifications_template": {

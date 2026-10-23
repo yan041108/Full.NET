@@ -2,6 +2,20 @@
   "version": 1,
   "targets": [
     {
+      "name": "Vue authenticated SignalR lazy JavaScript",
+      "dist": "ui/admin/dist",
+      "asset": {
+        "directory": "assets",
+        "assetPrefix": "notifications-signalr-",
+        "assetSuffix": ".js"
+      },
+      "budget": {
+        "minifiedBytes": 55116,
+        "gzipBytes": 14040,
+        "maxRegressionPercent": 5
+      }
+    },
+    {
       "name": "Vue initial static JavaScript",
       "dist": "ui/admin/dist",
       "entry": {

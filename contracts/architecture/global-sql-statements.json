@@ -3075,8 +3075,8 @@
       ]
     },
     {
-      "statementName": "notifications.platform.delivery_attempt.count_by_delivery",
-      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountAttemptsByDelivery",
+      "statementName": "notifications.platform.delivery_attempt.find_last_number",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindLastAttemptNumber",
       "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
@@ -6754,6 +6754,827 @@
         "assignment.TenantId=unit.TenantId",
         "assignment.UnitId=unit.Id",
         "assignment.Id IN @AssignmentIds"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.delivery_summary",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.Summary",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE i.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.dead_letter",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.DeadLetter",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND Revision = @Revision AND StatusKey IN ('failed', 'unknown')"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.archive",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.Archive",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey AND RecipientUserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.set_inbox_metadata",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.SetInboxMetadata",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.lock_intent.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.LockIntentSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND TenantScopeKey = @TenantScopeKey AND StatusKey <> 'revoked'"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.lock_intent.my_sql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.LockIntentMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND TenantScopeKey = @TenantScopeKey AND StatusKey <> 'revoked' FOR UPDATE"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.enter_send_boundary",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.EnterSendBoundary",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND IntentId = @IntentId AND Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.revoke_intent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.RevokeIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND TenantScopeKey = @TenantScopeKey AND Revision = @Revision AND StatusKey <> 'revoked'"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.stop_deliveries",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.StopDeliveries",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE IntentId = @IntentId AND StatusKey = 'accepted'"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.count_crossed",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.CountCrossed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE IntentId = @IntentId AND DispatchLeaseGeneration IS NOT NULL"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.revoke_inbox",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.RevokeInbox",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE IntentId = @IntentId AND TenantScopeKey = @TenantScopeKey AND RevokedAtUtc IS NULL"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.revoke_available",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.RevokeAvailable",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE BindingId = @BindingId AND TemplateId = @TemplateId AND StateKey IN ('available', 'reserved')"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE BindingId = @BindingId AND TemplateId = @TemplateId AND AuthorizationId = @AuthorizationId)"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.lock_binding.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.LockBindingSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按可信用户/应用唯一索引加行锁；将 Unicode 参数明确转换到 ASCII 机器码列类型，避免堆表 SERIALIZABLE 范围锁升级和并发分区表锁死锁。",
+      "requiredSqlFragments": [
+        "WITH (UPDLOCK, HOLDLOCK, ROWLOCK, INDEX(UX_fn_notifications_wechat_miniprogram_binding_Scope_User_App), FORCESEEK)",
+        "WHERE TenantScopeKey = CAST(@TenantScopeKey AS varchar(64)) AND UserId = @UserId",
+        "AND AppId = CAST(@AppId AS varchar(32))"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.lock_binding.my_sql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.LockBindingMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey AND UserId = @UserId AND AppId = @AppId FOR UPDATE"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.find_available.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.FindAvailableSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE b.TenantScopeKey = @TenantScopeKey AND b.UserId = @UserId AND b.AppId = @AppId"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.find_available.my_sql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.FindAvailableMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE b.TenantScopeKey = @TenantScopeKey AND b.UserId = @UserId AND b.AppId = @AppId"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.reserve",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.Reserve",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND StateKey = 'available'"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.count_unresolved",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.CountUnresolved",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId AND StateKey IN ('reserved', 'revoked_reserved', 'pending_reconciliation')"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.resolve",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.Resolve",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId AND LeaseGeneration = @LeaseGeneration AND StateKey IN ('reserved', 'revoked_reserved')"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.suspend_abandoned",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.SuspendAbandoned",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "操作仅访问通知自有表；会话入口先验证可信作用域与当前用户，Worker 先取得租约及固定业务锚点。撤回与外发以意图行锁排序，授权台账以已验证绑定串行，所有外部调用在事务外。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId AND LeaseGeneration <> @LeaseGeneration AND StateKey IN ('reserved', 'revoked_reserved')"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.count_dead_letters",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.CountDeadLetters",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 只采样通知投递的闭合失败状态，不读取租户或收件人内容，不作为发送授权。",
+      "requiredSqlFragments": [
+        "StatusKey = 'dead_lettered'"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.insert_if_absent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertDeliveryIfAbsent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "通知 Worker 以已经领取的投递或已解析收件人锚点访问本模块记录；预算、租约和候选激活在事务内受 CAS 与幂等条件约束，指标只采样闭合状态，不读取正文或收件地址。",
+      "requiredSqlFragments": [
+        "WHERE Id = @RecipientId",
+        "WHERE RecipientId = @RecipientId",
+        "AND ChannelKey = @ChannelKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.find_attempt_budget",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindAttemptBudget",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "通知 Worker 以已经领取的投递或已解析收件人锚点访问本模块记录；预算、租约和候选激活在事务内受 CAS 与幂等条件约束，指标只采样闭合状态，不读取正文或收件地址。",
+      "requiredSqlFragments": [
+        "SELECT AttemptBudgetUsed FROM fn_notifications_delivery WHERE Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.lock_for_quota.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.LockDeliveryForQuotaSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND LeaseGeneration = @LeaseGeneration",
+        "AND LeaseExpiresAtUtc > @Now AND StatusKey IN ('accepted', 'unknown')"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.lock_for_quota.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.LockDeliveryForQuotaMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND LeaseGeneration = @LeaseGeneration",
+        "AND LeaseExpiresAtUtc > @Now AND StatusKey IN ('accepted', 'unknown')"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.refund_governance_budget",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.RefundGovernanceAttemptBudget",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "通知 Worker 以已经领取的投递或已解析收件人锚点访问本模块记录；预算、租约和候选激活在事务内受 CAS 与幂等条件约束，指标只采样闭合状态，不读取正文或收件地址。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND LeaseGeneration = @LeaseGeneration",
+        "AND Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.receipt.list_pending_by_provider_message_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListPendingReceiptsByProviderMessageId",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "回执由闭合厂商验签与消息锚点解析，补偿仅命中该厂商及消息号或已持久化回执 Id；未关联记录不能直接完成。",
+      "requiredSqlFragments": [
+        "WHERE ProviderTypeKey = @ProviderTypeKey",
+        "AND ProviderMessageId = @ProviderMessageId",
+        "AND ProcessStatusKey IN ('pending_association', 'pending_apply')"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.receipt.update_processing",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateReceiptProcessing",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "回执由闭合厂商验签与消息锚点解析，补偿仅命中该厂商及消息号或已持久化回执 Id；未关联记录不能直接完成。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.count_awaiting_reconciliation",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountDeliveryAwaitingReconciliation",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "通知 Worker 以已经领取的投递或已解析收件人锚点访问本模块记录；预算、租约和候选激活在事务内受 CAS 与幂等条件约束，指标只采样闭合状态，不读取正文或收件地址。",
+      "requiredSqlFragments": [
+        "WHERE StatusKey = 'unknown'"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.preference.find_by_user_channel",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindPreferenceByUserChannel",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey",
+        "AND UserId = @UserId",
+        "AND ChannelKey = @ChannelKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.preference.list_by_user",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListPreferencesByUser",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey",
+        "AND UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.preference.update",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdatePreference",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey",
+        "AND UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.preference.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertPreference",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey",
+        "AND UserId = @UserId",
+        "AND ChannelKey = @ChannelKey)"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.find_by_key",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProducerScene",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey",
+        "AND ProducerKey = @ProducerKey",
+        "AND SceneKey = @SceneKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProducerSceneById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountProducerScenesForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListProducerScenesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListProducerScenesMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.update",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateProducerScene",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey",
+        "AND Version = @Version"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.producer_scene.set_enabled",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.SetProducerSceneEnabled",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey",
+        "AND Version = @Version"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindQuotaPolicyById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountQuotaPoliciesForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListQuotaPoliciesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListQuotaPoliciesMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.update",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateQuotaPolicy",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey",
+        "AND Version = @Version"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.set_enabled",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.SetQuotaPolicyEnabled",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND TenantScopeKey = @TenantScopeKey",
+        "AND Version = @Version"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.resolve",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ResolveQuotaPolicies",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHEN p.TenantScopeKey = @TenantScopeKey AND p.DimensionValue = d.DimensionValue THEN 1",
+        "WHEN p.TenantScopeKey = @TenantScopeKey AND p.DimensionValue = '*' THEN 2",
+        "AND (p.TenantScopeKey = @TenantScopeKey OR p.TenantScopeKey = 'host')"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.lock.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.LockQuotaPolicySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_policy.lock.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.LockQuotaPolicyMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_counter.find",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindQuotaCounter",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE PolicyId = @PolicyId",
+        "AND WindowStartUtc = @WindowStartUtc"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_counter.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertQuotaCounter",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE PolicyId = @PolicyId",
+        "AND WindowStartUtc = @WindowStartUtc)"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_counter.increment_reserved",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.IncrementQuotaCounterReserved",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE PolicyId = @PolicyId",
+        "AND WindowStartUtc = @WindowStartUtc",
+        "AND ReservedCount - ReleasedCount < @MaxCount"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_counter.consume",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ConsumeQuotaCounter",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE PolicyId = @PolicyId",
+        "AND WindowStartUtc = @WindowStartUtc"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_counter.release",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ReleaseQuotaCounter",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE PolicyId = @PolicyId",
+        "AND WindowStartUtc = @WindowStartUtc"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertQuotaReservation",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId",
+        "AND PolicyId = @PolicyId",
+        "AND LeaseGeneration = @LeaseGeneration)"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.resolve",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ResolveQuotaReservations",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId",
+        "AND LeaseGeneration = @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.list_reserved",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListReservedQuotaReservations",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId",
+        "AND LeaseGeneration = @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.list_abandoned.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListAbandonedQuotaReservationsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId",
+        "AND LeaseGeneration < @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.list_abandoned.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListAbandonedQuotaReservationsMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId",
+        "AND LeaseGeneration < @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.resolve_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ResolveQuotaReservationById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND StateKey <> @StateKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.list_for_message",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListQuotaReservationsForMessage",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 先验证有效投递租约并从可信意图解析生效政策；在本地事务内按固定政策/窗口/投递世代锚点预留或 CAS 收敛，不向管理请求开放无作用域操作。",
+      "requiredSqlFragments": [
+        "WHERE q.DeliveryId = @DeliveryId",
+        "AND a.ProviderMessageId = @ProviderMessageId)"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.count_outstanding",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountQuotaOutstandingByScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.quota_reservation.count_outstanding.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountQuotaOutstandingByScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_subscription.count_authorized",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.CountAuthorizedSubscription",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "可信会话或投递意图提供 TenantScopeKey；本人偏好另约束 UserId，目录与配额写入再校验 Version。只访问通知自有表，不接收客户端租户标识。",
+      "requiredSqlFragments": [
+        "WHERE b.TenantScopeKey = @TenantScopeKey",
+        "AND b.UserId = @UserId",
+        "AND b.AppId = @AppId"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.count_sendable",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.CountSendableReservation",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 在意图行锁与绑定行锁内，按本轮投递及租约世代确认确切授权未撤销；新的同意不复活旧预留。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId AND LeaseGeneration = @LeaseGeneration AND StateKey = 'reserved'"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.find_report",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.FindReport",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "在可信用户/应用绑定行锁内，按绑定、模板和上报标识读取不可变原始上报；重复上报不覆盖后来的撤回，同键不同状态失败关闭。",
+      "requiredSqlFragments": [
+        "WHERE BindingId = @BindingId AND TemplateId = @TemplateId AND AuthorizationId = @AuthorizationId"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.revoke_binding",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.RevokeBinding",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "同一绑定行锁与事务内作废旧身份的本地许可；新的绑定不能继承旧 OpenId 的同意，保留未知结果对账事实。",
+      "requiredSqlFragments": [
+        "WHERE BindingId = @BindingId AND StateKey IN ('available', 'reserved')"
+      ]
+    },
+    {
+      "statementName": "notifications.subscription_grant.reset_binding_subscriptions",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationSubscriptionGrantSql.ResetBindingSubscriptions",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationSubscriptionGrantSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "同一绑定行锁与事务内作废旧身份的本地许可；新的绑定不能继承旧 OpenId 的同意，保留未知结果对账事实。",
+      "requiredSqlFragments": [
+        "WHERE BindingId = @BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.reconcile",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.Reconcile",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "独立对账权限先验证可信租户和投递所有权，CAS 排除活动租约；仅按固定投递锚点在同一事务收敛未决许可、额度和 B0 审计。",
+      "requiredSqlFragments": [
+        "WHERE Id = @Id AND Revision = @Revision AND StatusKey IN ('unknown', 'dead_lettered')"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.pending_quotas",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.PendingQuotas",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "独立对账权限先验证可信租户和投递所有权，CAS 排除活动租约；仅按固定投递锚点在同一事务收敛未决许可、额度和 B0 审计。",
+      "requiredSqlFragments": [
+        "FROM fn_notifications_quota_reservation WHERE DeliveryId = @DeliveryId"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.reconcile_subscription",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.ReconcileSubscription",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "独立对账权限先验证可信租户和投递所有权，CAS 排除活动租约；仅按固定投递锚点在同一事务收敛未决许可、额度和 B0 审计。",
+      "requiredSqlFragments": [
+        "WHERE DeliveryId = @DeliveryId AND StateKey IN ('reserved', 'revoked_reserved', 'pending_reconciliation')"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.delivery_summary.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.SummarySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只聚合当前可信作用域的通知自有表；SQL Server 使用 COUNT_BIG 保持与 MySQL COUNT 的 Int64 持久化映射一致。",
+      "requiredSqlFragments": [
+        "WHERE i.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.recover_receipts.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.RecoverableReceiptsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 在可信 Host 范围每轮最多恢复五十条已验签且存在同厂商消息号 Attempt 的回执；不读取其他模块，不重新发送，逐条短事务重验状态机及 Revision。",
+      "requiredSqlFragments": [
+        "r.ProcessStatusKey IN ('pending_association', 'pending_apply')",
+        "a.ProviderMessageId = r.ProviderMessageId AND p.ProviderTypeKey = r.ProviderTypeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.recover_receipts.my_sql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.RecoverableReceiptsMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Worker 在可信 Host 范围每轮最多恢复五十条已验签且存在同厂商消息号 Attempt 的回执；不读取其他模块，不重新发送，逐条短事务重验状态机及 Revision。",
+      "requiredSqlFragments": [
+        "r.ProcessStatusKey IN ('pending_association', 'pending_apply')",
+        "a.ProviderMessageId = r.ProviderMessageId AND p.ProviderTypeKey = r.ProviderTypeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.revoked_unused_quotas",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.RevokedUnusedQuotas",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "可信作用域意图行锁及 Revision 撤回成功后，仅收敛本意图已停止、当前世代且未跨外发边界的预留；旧 Unknown 与已外发保留对账，许可释放及 B0 审计同事务。",
+      "requiredSqlFragments": [
+        "d.IntentId = @IntentId AND d.StatusKey = 'suppressed'",
+        "d.DispatchLeaseGeneration IS NULL OR d.DispatchLeaseGeneration <> d.LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.lifecycle.release_revoked_unused_subscriptions",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationLifecycleSql.ReleaseRevokedUnusedSubscriptions",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationLifecycleSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "可信作用域意图行锁及 Revision 撤回成功后，仅收敛本意图已停止、当前世代且未跨外发边界的预留；旧 Unknown 与已外发保留对账，许可释放及 B0 审计同事务。",
+      "requiredSqlFragments": [
+        "d.IntentId = @IntentId",
+        "d.DispatchLeaseGeneration IS NULL OR d.DispatchLeaseGeneration <> d.LeaseGeneration"
       ]
     }
   ]

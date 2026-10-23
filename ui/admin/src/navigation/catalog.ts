@@ -232,9 +232,21 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.notificationDeliveries.title',
     captionKey: 'navigation.notificationDeliveries.caption'
   }],
+  ['notification-producer-scenes', {
+    titleKey: 'navigation.notificationProducerScenes.title',
+    captionKey: 'navigation.notificationProducerScenes.caption'
+  }],
+  ['notification-quotas', {
+    titleKey: 'navigation.notificationQuotas.title',
+    captionKey: 'navigation.notificationQuotas.caption'
+  }],
   ['notification-preferences', {
     titleKey: 'navigation.notificationPreferences.title',
     captionKey: 'navigation.notificationPreferences.caption'
+  }],
+  ['notification-recipient-endpoints', {
+    titleKey: 'navigation.notificationRecipientEndpoints.title',
+    captionKey: 'navigation.notificationRecipientEndpoints.caption'
   }],
   ['notification-dingtalk-approval-sync', {
     titleKey: 'navigation.dingtalkApprovalSync.title',

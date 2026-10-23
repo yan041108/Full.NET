@@ -25,9 +25,10 @@ internal sealed record AliyunSmsSendCommand(
 /// <summary>阿里云 SMS 传输失败分类；Adapter 映射为 Worker 重试语义。</summary>
 internal enum AliyunSmsTransportFailureKind
 {
-    Permanent,
-    Transient,
-    RateLimited,
+    Permanent = 0,
+    Transient = 1,
+    RateLimited = 2,
+    Unknown = 3,
 }
 
 /// <summary>分类后的阿里云 SMS 传输异常。</summary>

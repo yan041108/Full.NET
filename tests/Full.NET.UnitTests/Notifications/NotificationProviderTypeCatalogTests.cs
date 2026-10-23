@@ -35,6 +35,9 @@ public sealed class NotificationProviderTypeCatalogTests
     {
         public string? RecipientEndpointKindKey => null;
 
+        // 目录用例不涉及调用，按失败关闭默认不放开未知结果自动重试。
+        public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
         public NotificationProviderTypeDescriptor Descriptor { get; } = new(
             "test.notification",
             "1.0.0",

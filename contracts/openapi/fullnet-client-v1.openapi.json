@@ -205,10 +205,22 @@
       "name": "NotificationsTemplates"
     },
     {
+      "name": "NotificationsIntents"
+    },
+    {
       "name": "NotificationsBindings"
     },
     {
       "name": "NotificationsDeliveries"
+    },
+    {
+      "name": "NotificationsPreferences"
+    },
+    {
+      "name": "NotificationsProducerScenes"
+    },
+    {
+      "name": "NotificationsQuotas"
     },
     {
       "name": "NotificationsRecipientEndpoints"
@@ -27210,6 +27222,204 @@
         ]
       }
     },
+    "/api/v1/notifications/deliveries/{deliveryId}/dead-letter": {
+      "post": {
+        "operationId": "notificationsDeadLetterDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deliveryId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryNotificationDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsDeliveries"
+        ]
+      }
+    },
+    "/api/v1/notifications/deliveries/{deliveryId}/reconcile": {
+      "post": {
+        "operationId": "notificationsReconcileDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deliveryId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileNotificationDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsDeliveries"
+        ]
+      }
+    },
     "/api/v1/notifications/deliveries/{deliveryId}/retry": {
       "post": {
         "operationId": "notificationsRetryDelivery",
@@ -27294,6 +27504,57 @@
               }
             },
             "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsDeliveries"
+        ]
+      }
+    },
+    "/api/v1/notifications/deliveries/summary": {
+      "get": {
+        "operationId": "notificationsGetDeliverySummary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDeliverySummaryResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -27925,6 +28186,105 @@
         ]
       }
     },
+    "/api/v1/notifications/intents/{intentId}/revoke": {
+      "post": {
+        "operationId": "notificationsRevokeIntent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeNotificationIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRevocationResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsIntents"
+        ]
+      }
+    },
     "/api/v1/notifications/my-host-announcements": {
       "get": {
         "operationId": "notificationsListMyHostAnnouncements",
@@ -28288,6 +28648,27 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "archived",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "producerKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sceneKey",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -28300,6 +28681,75 @@
               }
             },
             "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsMyInboxMessages"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-inbox-messages/{messageId}/archive": {
+      "post": {
+        "operationId": "notificationsArchiveMyInboxMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "messageId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxUnreadCountResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -28389,6 +28839,74 @@
               }
             },
             "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsMyInboxMessages"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-inbox-messages/archive-batch": {
+      "post": {
+        "operationId": "notificationsArchiveMyInboxMessages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveInboxMessagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxUnreadCountResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -28497,6 +29015,196 @@
         ],
         "tags": [
           "NotificationsMyInboxMessages"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-preferences": {
+      "get": {
+        "operationId": "notificationsListMyPreferences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationPreferenceResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsPreferences"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-preferences/{channelKey}": {
+      "put": {
+        "operationId": "notificationsUpdateMyPreference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMyNotificationPreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferenceResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsPreferences"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-preferences/channels": {
+      "get": {
+        "operationId": "notificationsListMyPreferenceChannels",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsPreferences"
         ]
       }
     },
@@ -28884,6 +29592,354 @@
         ],
         "tags": [
           "NotificationsRecipientEndpoints"
+        ]
+      }
+    },
+    "/api/v1/notifications/producer-scenes": {
+      "get": {
+        "operationId": "notificationsListProducerScenes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfNotificationProducerSceneResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsProducerScenes"
+        ]
+      },
+      "post": {
+        "operationId": "notificationsCreateProducerScene",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotificationProducerSceneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationProducerSceneResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsProducerScenes"
+        ]
+      }
+    },
+    "/api/v1/notifications/producer-scenes/{producerSceneId}": {
+      "put": {
+        "operationId": "notificationsUpdateProducerScene",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "producerSceneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationProducerSceneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationProducerSceneResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsProducerScenes"
+        ]
+      }
+    },
+    "/api/v1/notifications/producer-scenes/{producerSceneId}/enabled": {
+      "post": {
+        "operationId": "notificationsSetProducerSceneEnabled",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "producerSceneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetNotificationProducerSceneEnabledRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationProducerSceneResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsProducerScenes"
         ]
       }
     },
@@ -29528,6 +30584,405 @@
         ],
         "tags": [
           "NotificationsProviderProfiles"
+        ]
+      }
+    },
+    "/api/v1/notifications/quotas": {
+      "get": {
+        "operationId": "notificationsListQuotaPolicies",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfNotificationQuotaPolicyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsQuotas"
+        ]
+      },
+      "post": {
+        "operationId": "notificationsCreateQuotaPolicy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotificationQuotaPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationQuotaPolicyResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsQuotas"
+        ]
+      }
+    },
+    "/api/v1/notifications/quotas/{quotaPolicyId}": {
+      "put": {
+        "operationId": "notificationsUpdateQuotaPolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quotaPolicyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationQuotaPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationQuotaPolicyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsQuotas"
+        ]
+      }
+    },
+    "/api/v1/notifications/quotas/{quotaPolicyId}/enabled": {
+      "post": {
+        "operationId": "notificationsSetQuotaPolicyEnabled",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quotaPolicyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetNotificationQuotaPolicyEnabledRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationQuotaPolicyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsQuotas"
+        ]
+      }
+    },
+    "/api/v1/notifications/quotas/outstanding": {
+      "get": {
+        "operationId": "notificationsGetQuotaOutstanding",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationQuotaOutstandingResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsQuotas"
         ]
       }
     },
@@ -51934,6 +53389,21 @@
         ],
         "type": "object"
       },
+      "ArchiveInboxMessagesRequest": {
+        "properties": {
+          "messageIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "messageIds"
+        ],
+        "type": "object"
+      },
       "AskAiKnowledgeRequest": {
         "properties": {
           "embeddingModelConfigId": {
@@ -55696,6 +57166,36 @@
         ],
         "type": "object"
       },
+      "CreateNotificationProducerSceneRequest": {
+        "properties": {
+          "allowedChannelKeys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "emergencyOverrideAllowed": {
+            "type": "boolean"
+          },
+          "policyCategoryKey": {
+            "type": "string"
+          },
+          "producerKey": {
+            "type": "string"
+          },
+          "sceneKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "producerKey",
+          "sceneKey",
+          "policyCategoryKey",
+          "allowedChannelKeys",
+          "emergencyOverrideAllowed"
+        ],
+        "type": "object"
+      },
       "CreateNotificationProviderProfileRequest": {
         "properties": {
           "nonSecretConfig": {
@@ -55719,6 +57219,39 @@
           "providerTypeKey",
           "nonSecretConfig",
           "secretReference"
+        ],
+        "type": "object"
+      },
+      "CreateNotificationQuotaPolicyRequest": {
+        "properties": {
+          "dimensionKey": {
+            "type": "string"
+          },
+          "dimensionValue": {
+            "type": "string"
+          },
+          "maxCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "windowSeconds": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "dimensionKey",
+          "dimensionValue",
+          "windowSeconds",
+          "maxCount"
         ],
         "type": "object"
       },
@@ -62259,6 +63792,13 @@
       },
       "InboxMessageResponse": {
         "properties": {
+          "archivedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "content": {
             "type": "string"
           },
@@ -62273,12 +63813,47 @@
               "string"
             ]
           },
+          "deepLink": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationDeepLink"
+              }
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
           },
+          "producerKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "readAtUtc": {
             "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revocationReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revokedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sceneKey": {
             "type": [
               "null",
               "string"
@@ -63118,8 +64693,39 @@
         ],
         "type": "object"
       },
+      "NotificationBindingTargetConditionInput": {
+        "properties": {
+          "expectedValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "operatorKey": {
+            "type": "string"
+          },
+          "parameterName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "parameterName",
+          "operatorKey"
+        ],
+        "type": "object"
+      },
       "NotificationBindingTargetInput": {
         "properties": {
+          "condition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationBindingTargetConditionInput"
+              }
+            ]
+          },
           "order": {
             "format": "int32",
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -63135,6 +64741,22 @@
         "required": [
           "profileKey",
           "order"
+        ],
+        "type": "object"
+      },
+      "NotificationDeepLink": {
+        "properties": {
+          "resourceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "resourceTypeKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceTypeKey",
+          "resourceId"
         ],
         "type": "object"
       },
@@ -63282,6 +64904,21 @@
               "string"
             ]
           },
+          "policyDecisionKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferenceVersion": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
           "providerProfileVersionId": {
             "format": "uuid",
             "type": [
@@ -63310,6 +64947,12 @@
           "statusKey": {
             "type": "string"
           },
+          "suppressionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "updatedAtUtc": {
             "format": "date-time",
             "type": [
@@ -63332,6 +64975,151 @@
           "updatedAtUtc",
           "attempts",
           "receipts"
+        ],
+        "type": "object"
+      },
+      "NotificationDeliverySummaryResponse": {
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          },
+          "count": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "oldestCreatedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "providerTypeKey": {
+            "type": "string"
+          },
+          "receiptModeKey": {
+            "type": "string"
+          },
+          "statusKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channelKey",
+          "providerTypeKey",
+          "statusKey",
+          "count",
+          "oldestCreatedAtUtc",
+          "receiptModeKey"
+        ],
+        "type": "object"
+      },
+      "NotificationPreferenceResponse": {
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          },
+          "channelOptedOut": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "marketingConsentGranted": {
+            "type": "boolean"
+          },
+          "quietHoursJson": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "channelKey",
+          "channelOptedOut",
+          "marketingConsentGranted",
+          "quietHoursJson",
+          "updatedAtUtc",
+          "version"
+        ],
+        "type": "object"
+      },
+      "NotificationProducerSceneResponse": {
+        "properties": {
+          "allowedChannelKeys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "emergencyOverrideAllowed": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "policyCategoryKey": {
+            "type": "string"
+          },
+          "producerKey": {
+            "type": "string"
+          },
+          "sceneKey": {
+            "type": "string"
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "producerKey",
+          "sceneKey",
+          "policyCategoryKey",
+          "allowedChannelKeys",
+          "emergencyOverrideAllowed",
+          "isEnabled",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
         ],
         "type": "object"
       },
@@ -63483,6 +65271,125 @@
           "secretFieldKeys",
           "supportsNativeAot",
           "receiptModeKey"
+        ],
+        "type": "object"
+      },
+      "NotificationQuotaOutstandingResponse": {
+        "properties": {
+          "count": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "dimensionKey": {
+            "type": "string"
+          },
+          "stateKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimensionKey",
+          "stateKey",
+          "count"
+        ],
+        "type": "object"
+      },
+      "NotificationQuotaPolicyResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dimensionKey": {
+            "type": "string"
+          },
+          "dimensionValue": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "maxCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "windowSeconds": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "dimensionKey",
+          "dimensionValue",
+          "windowSeconds",
+          "maxCount",
+          "isEnabled",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
+        ],
+        "type": "object"
+      },
+      "NotificationRevocationResponse": {
+        "properties": {
+          "crossedSendBoundary": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "revokedInboxMessages": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "stoppedDeliveries": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "stoppedDeliveries",
+          "crossedSendBoundary",
+          "revokedInboxMessages"
         ],
         "type": "object"
       },
@@ -66548,11 +68455,93 @@
         ],
         "type": "object"
       },
+      "PagedResultOfNotificationProducerSceneResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationProducerSceneResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfNotificationProviderProfileResponse": {
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/NotificationProviderProfileResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfNotificationQuotaPolicyResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationQuotaPolicyResponse"
             },
             "type": "array"
           },
@@ -69263,6 +71252,30 @@
         ],
         "type": "object"
       },
+      "ReconcileNotificationDeliveryRequest": {
+        "properties": {
+          "evidenceReference": {
+            "type": "string"
+          },
+          "outcomeKey": {
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "outcomeKey",
+          "evidenceReference"
+        ],
+        "type": "object"
+      },
       "ReconcileWorkflowRecoveryTaskRequest": {
         "properties": {
           "expectedRevision": {
@@ -70707,6 +72720,26 @@
         ],
         "type": "object"
       },
+      "RevokeNotificationIntentRequest": {
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "reason"
+        ],
+        "type": "object"
+      },
       "RevokeSuperAdministratorRequest": {
         "properties": {
           "currentPassword": {
@@ -71504,6 +73537,26 @@
         ],
         "type": "object"
       },
+      "SetNotificationProducerSceneEnabledRequest": {
+        "properties": {
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "isEnabled",
+          "version"
+        ],
+        "type": "object"
+      },
       "SetNotificationProviderProfileEnabledRequest": {
         "properties": {
           "version": {
@@ -71516,6 +73569,26 @@
           }
         },
         "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "SetNotificationQuotaPolicyEnabledRequest": {
+        "properties": {
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "isEnabled",
           "version"
         ],
         "type": "object"
@@ -73736,6 +75809,32 @@
         ],
         "type": "object"
       },
+      "UpdateMyNotificationPreferenceRequest": {
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          },
+          "channelOptedOut": {
+            "type": "boolean"
+          },
+          "marketingConsentGranted": {
+            "type": "boolean"
+          },
+          "quietHoursJson": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "channelKey",
+          "channelOptedOut",
+          "marketingConsentGranted",
+          "quietHoursJson"
+        ],
+        "type": "object"
+      },
       "UpdateNotificationBindingRequest": {
         "properties": {
           "channelKey": {
@@ -73775,6 +75874,37 @@
         ],
         "type": "object"
       },
+      "UpdateNotificationProducerSceneRequest": {
+        "properties": {
+          "allowedChannelKeys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "emergencyOverrideAllowed": {
+            "type": "boolean"
+          },
+          "policyCategoryKey": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "policyCategoryKey",
+          "allowedChannelKeys",
+          "emergencyOverrideAllowed",
+          "version"
+        ],
+        "type": "object"
+      },
       "UpdateNotificationProviderProfileRequest": {
         "properties": {
           "nonSecretConfig": {
@@ -73798,6 +75928,40 @@
         "required": [
           "nonSecretConfig",
           "secretReference",
+          "version"
+        ],
+        "type": "object"
+      },
+      "UpdateNotificationQuotaPolicyRequest": {
+        "properties": {
+          "maxCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "windowSeconds": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "windowSeconds",
+          "maxCount",
           "version"
         ],
         "type": "object"

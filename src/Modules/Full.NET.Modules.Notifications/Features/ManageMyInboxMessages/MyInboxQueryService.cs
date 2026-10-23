@@ -110,11 +110,15 @@ internal sealed class MyInboxQueryService(
         new(
             record.Id,
             record.Title,
-            record.Content,
+            record.RevokedAtUtc is null ? record.Content : string.Empty,
             record.Status,
             record.ReadAtUtc,
             record.CreatedAtUtc,
-            record.CreatedByUserId);
+            record.CreatedByUserId, record.ArchivedAtUtc, record.RevokedAtUtc, record.RevocationReason,
+            record.RevokedAtUtc is null && record.DeepLinkJson is not null
+                ? System.Text.Json.JsonSerializer.Deserialize(record.DeepLinkJson,
+                    Serialization.NotificationsJsonSerializerContext.Default.NotificationDeepLink) : null,
+            record.ProducerKey, record.SceneKey);
 
     internal static SentInboxMessageResponse MapSent(InboxMessageRecord record) =>
         new(
@@ -160,7 +164,9 @@ internal sealed class MyInboxQueryService(
             ("PageSize", pageSize),
             ("Title", title),
             ("TitlePattern", title is null ? null : $"%{title}%"),
-            ("Status", status));
+            ("Status", status), ("Archived", filter?.Archived == true),
+            ("ProducerKey", string.IsNullOrWhiteSpace(filter?.ProducerKey) ? null : filter.ProducerKey.Trim()),
+            ("SceneKey", string.IsNullOrWhiteSpace(filter?.SceneKey) ? null : filter.SceneKey.Trim()));
     }
 
     private static Dictionary<string, object?> BuildSentFilterParameters(

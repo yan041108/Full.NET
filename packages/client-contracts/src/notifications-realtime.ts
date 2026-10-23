@@ -1,4 +1,3 @@
-import { HubConnectionBuilder } from '@microsoft/signalr';
 import type { IdentitySessionSnapshot } from './identity-session.js';
 
 export const NOTIFICATIONS_REALTIME_CODES = {
@@ -45,7 +44,7 @@ export interface NotificationsRealtimeOptions {
   hubPath?: string;
   connectionFactory?: (
     options: NotificationsHubConnectionOptions
-  ) => NotificationsHubConnection;
+  ) => NotificationsHubConnection | Promise<NotificationsHubConnection>;
 }
 
 export interface NotificationsRealtimeController {
@@ -112,11 +111,22 @@ export function createNotificationsRealtimeController(
       return;
     }
 
-    const connection = connectionFactory({
-      hubPath: options.hubPath ?? '/hubs/notifications',
-      accessTokenFactory: () => options.session.readAccessToken(),
-      reconnectDelays
-    });
+    let connection: NotificationsHubConnection;
+    try {
+      connection = await connectionFactory({
+        hubPath: options.hubPath ?? '/hubs/notifications',
+        accessTokenFactory: () => options.session.readAccessToken(),
+        reconnectDelays
+      });
+    } catch {
+      // 延迟传输包加载失败沿用首次连接退避，不阻断 HTTP 会话，也不遗留未处理拒绝。
+      scheduleInitialRetry(targetKey);
+      return;
+    }
+    // 加载期间可能退出、撤销会话或切换租户，旧上下文不得越过外部连接边界。
+    if (disposed || desiredKey !== targetKey) {
+      return;
+    }
     const handler = (value: unknown) => {
       if (isRealtimeMessage(value)) {
         options.onMessage(value);
@@ -247,16 +257,12 @@ function readConnectionKey(snapshot: IdentitySessionSnapshot): string | undefine
   return `${snapshot.currentUser.sessionId}:${snapshot.currentUser.tenantId ?? 'host'}`;
 }
 
-function createSignalRConnection(
+async function createSignalRConnection(
   options: NotificationsHubConnectionOptions
-): NotificationsHubConnection {
-  const builder = new HubConnectionBuilder()
-    .withUrl(options.hubPath, {
-      accessTokenFactory: async () => options.accessTokenFactory() ?? ''
-    })
-    .withAutomaticReconnect([...options.reconnectDelays]);
-
-  return builder.build();
+): Promise<NotificationsHubConnection> {
+  // 匿名首屏不加载实时传输；仅由已认证会话的连接状态机触发。
+  const { createNotificationsSignalRConnection } = await import('./notifications-signalr.js');
+  return createNotificationsSignalRConnection(options);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

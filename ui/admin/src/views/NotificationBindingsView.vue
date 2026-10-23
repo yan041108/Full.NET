@@ -65,6 +65,7 @@ const canUpdate = computed(() => session.can('notifications.bindings.update'));
 const canPublish = computed(() => session.can('notifications.bindings.publish'));
 const selected = computed(() => items.value.find(item => item.id === selectedId.value));
 const isFanOut = computed(() => editorForm.dispatchModeKey === 'fan_out');
+const isMatch = computed(() => editorForm.dispatchModeKey === 'match');
 const showForm = computed(() => selected.value ? (canUpdate.value || canPublish.value) : canCreate.value);
 const showSplitLayout = computed(() => showForm.value);
 const editorRules = computed<FormRules>(() => {
@@ -89,6 +90,10 @@ const editorRules = computed<FormRules>(() => {
         validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
           if (!Array.isArray(value) || value.length === 0) {
             callback(new Error(t('notificationBindings.validationTargetsRequired')));
+            return;
+          }
+          if (isMatch.value && editorForm.targets.some(item => !validCondition(item))) {
+            callback(new Error(t('notificationBindings.validationCondition')));
             return;
           }
           callback();
@@ -152,6 +157,7 @@ function selectItem(item: NotificationBindingResponse): void {
   editorForm.sceneKey = draft.sceneKey;
   editorForm.channelKey = draft.channelKey;
   editorForm.targets = draft.targets;
+  initializeConditions();
   clearEditorValidation();
 }
 
@@ -170,7 +176,25 @@ function resetCreateForm(): void {
 
 function onDispatchModeChange(): void {
   editorForm.fanOutAck = false;
+  initializeConditions();
   editorFormRef.value?.clearValidate(['fanOutAck']);
+}
+
+/** 条件只引用声明过的模板参数和常量；页面不接受表达式或脚本。 */
+function initializeConditions(): void {
+  if (!isMatch.value) return;
+  editorForm.targets = editorForm.targets.map(item => item.condition ? item
+    : { ...item, condition: { parameterName: '', operatorKey: 'equals', expectedValue: '' } });
+}
+
+function validCondition(item: NotificationBindingTargetInput): boolean {
+  const condition = item.condition;
+  return !!condition && typeof condition.parameterName === 'string' && typeof condition.operatorKey === 'string'
+    && (condition.expectedValue == null || typeof condition.expectedValue === 'string')
+    && /^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(condition.parameterName.trim())
+    && ['equals', 'not_equals', 'exists'].includes(condition.operatorKey)
+    && (condition.operatorKey === 'exists' || !!condition.expectedValue?.trim())
+    && (condition.expectedValue?.trim().length ?? 0) <= 256;
 }
 
 function passesEditorValidation(): boolean {
@@ -186,6 +210,7 @@ function passesEditorValidation(): boolean {
   if (editorForm.targets.length === 0) {
     return false;
   }
+  if (isMatch.value && editorForm.targets.some(item => !validCondition(item))) return false;
   if (editorForm.dispatchModeKey === 'fan_out' && !editorForm.fanOutAck) {
     return false;
   }
@@ -242,6 +267,7 @@ function addTarget(): void {
     return;
   }
   editorForm.targets = [...editorForm.targets, { profileKey, order: editorForm.targets.length + 1 }];
+  initializeConditions();
   targetProfileKey.value = '';
   void editorFormRef.value?.validateField('targets');
 }
@@ -255,12 +281,14 @@ function removeTarget(profileKey: string): void {
 
 function buildBody() {
   return {
-    bindingKey: editorForm.bindingKey.trim(),
     dispatchModeKey: editorForm.dispatchModeKey,
     producerKey: editorForm.producerKey.trim(),
     sceneKey: editorForm.sceneKey.trim(),
     channelKey: editorForm.channelKey.trim(),
-    targets: editorForm.targets
+    targets: editorForm.targets.map(item => ({ ...item, condition: item.condition ? {
+      parameterName: item.condition.parameterName.trim(), operatorKey: item.condition.operatorKey,
+      expectedValue: item.condition.operatorKey === 'exists' ? null : item.condition.expectedValue?.trim()
+    } : undefined }))
   };
 }
 
@@ -268,10 +296,11 @@ async function createItem(): Promise<void> {
   if (changing.value || !(await validateEditorForm())) {
     return;
   }
+  if (changing.value || !canCreate.value) return;
   changing.value = true;
   problem.value = undefined;
   try {
-    const saved = await createNotificationBinding(buildBody());
+    const saved = await createNotificationBinding({ bindingKey: editorForm.bindingKey.trim(), ...buildBody() });
     ElMessage.success(t('notificationBindings.createSuccess'));
     selectItem(saved);
     await load();
@@ -287,6 +316,7 @@ async function saveItem(): Promise<void> {
   if (!current || changing.value || !(await validateEditorForm())) {
     return;
   }
+  if (changing.value || !canUpdate.value || selected.value?.id !== current.id) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -306,7 +336,7 @@ async function saveItem(): Promise<void> {
 
 async function publishItem(): Promise<void> {
   const current = selected.value;
-  if (!current || changing.value) {
+  if (!current || changing.value || !canPublish.value) {
     return;
   }
   changing.value = true;
@@ -556,8 +586,22 @@ function toProblem(
                 <ElButton link data-testid="notification-bindings-target-remove" @click="removeTarget(item.profileKey)">
                   {{ t('notificationBindings.removeTarget') }}
                 </ElButton>
+                <div v-if="isMatch && item.condition" class="notification-bindings-condition">
+                  <ElInput v-model="item.condition.parameterName" :aria-label="t('notificationBindings.conditionParameter')"
+                    :placeholder="t('notificationBindings.conditionParameter')" maxlength="32" data-testid="notification-condition-parameter" />
+                  <ElSelect v-model="item.condition.operatorKey" :aria-label="t('notificationBindings.conditionOperator')"
+                    :teleported="false" data-testid="notification-condition-operator">
+                    <ElOption :label="t('notificationBindings.conditionEquals')" value="equals" />
+                    <ElOption :label="t('notificationBindings.conditionNotEquals')" value="not_equals" />
+                    <ElOption :label="t('notificationBindings.conditionExists')" value="exists" />
+                  </ElSelect>
+                  <ElInput v-if="item.condition.operatorKey !== 'exists'" v-model="item.condition.expectedValue"
+                    :aria-label="t('notificationBindings.conditionValue')" :placeholder="t('notificationBindings.conditionValue')"
+                    maxlength="256" data-testid="notification-condition-value" />
+                </div>
               </li>
             </ul>
+            <p v-if="isMatch" class="art-muted">{{ t('notificationBindings.conditionHint') }}</p>
           </ElFormItem>
 
           <div
@@ -773,6 +817,20 @@ function toProblem(
   gap: 8px;
   padding: 4px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.notification-bindings-condition {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .notification-bindings-layout { flex-direction: column; }
+  .notification-bindings-list { width: 100%; flex-basis: auto; }
+  .notification-bindings-editor__grid { grid-template-columns: 1fr; }
+  .notification-bindings-condition { grid-template-columns: 1fr; }
 }
 
 .notification-bindings-editor__grid .art-form-actions {

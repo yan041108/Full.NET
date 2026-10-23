@@ -121,6 +121,25 @@ internal static class WeChatMiniProgramBindingSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 按用户、App 与模板检查当前是否存在有效订阅授权；发送前必须以此为准，
+    /// 客户端上报的接受记录不能等同厂商保证的剩余次数。
+    /// </summary>
+    public static readonly SqlStatement CountAuthorizedSubscription = new(
+        "notifications.wechat_miniprogram_subscription.count_authorized",
+        """
+        SELECT COUNT(1)
+        FROM fn_notifications_wechat_miniprogram_subscription s
+        INNER JOIN fn_notifications_wechat_miniprogram_binding b ON b.Id = s.BindingId
+        WHERE b.TenantScopeKey = @TenantScopeKey
+          AND b.UserId = @UserId
+          AND b.AppId = @AppId
+          AND b.VerificationStatusKey <> @Revoked
+          AND s.TemplateId = @TemplateId
+          AND s.StatusKey = @Accepted
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement UpsertSubscription = new(
         "notifications.wechat_miniprogram_subscription.upsert",
         """

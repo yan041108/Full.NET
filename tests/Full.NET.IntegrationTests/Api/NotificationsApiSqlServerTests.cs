@@ -32,5 +32,10 @@ public sealed class NotificationsApiSqlServerTests
         await NotificationProfileBindingAssertions.VerifyAsync(factory);
         await NotificationRecipientEndpointAssertions.VerifyAsync(factory);
         await NotificationDeliveryWorkerAssertions.VerifyAsync(factory);
+        await NotificationRoutingFailoverAssertions.VerifyAsync(factory);
+        await NotificationSendGovernanceAssertions.VerifyAsync(factory);
+        await NotificationLifecycleAssertions.VerifySubscriptionAsync(factory, default);
+        await NotificationLifecycleAssertions.VerifySendBoundaryAsync(factory, default);
+        await NotificationLifecycleAssertions.VerifyRecoveryAsync(DatabaseProvider.SqlServer);
     }
 }

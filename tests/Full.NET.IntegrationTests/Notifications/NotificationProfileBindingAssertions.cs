@@ -174,6 +174,14 @@ internal static class NotificationProfileBindingAssertions
         Assert.AreEqual(producer, binding.LatestProducerKey);
         Assert.AreEqual(TestNotificationProvider.ChannelKey, binding.LatestChannelKey);
         StringAssert.Contains(binding.LatestBindingTargetsJson, primary.LatestPublishedVersionId!.Value.ToString());
+        // 分类与合法渠道只能来自受控目录；受理与发送都在缺失声明时失败关闭，因此用例必须先声明。
+        await CreateProducerSceneAsync(
+            hostClient,
+            hostAdminToken,
+            producer,
+            scene,
+            TestNotificationProvider.ChannelKey,
+            cancellationToken);
 
         using var stalePublish = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -328,6 +336,85 @@ internal static class NotificationProfileBindingAssertions
         await OpenApiNotificationsProfilesBindingsContractAssertions.VerifyAsync(
             hostClient,
             cancellationToken);
+    }
+
+    internal static async Task<NotificationProducerSceneResponse> CreateProducerSceneAsync(
+        HttpClient client,
+        string token,
+        string producerKey,
+        string sceneKey,
+        string policyCategoryKey,
+        IReadOnlyList<string> allowedChannelKeys,
+        CancellationToken cancellationToken,
+        bool emergencyOverrideAllowed = false)
+    {
+        using var create = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/producer-scenes",
+            token,
+            new
+            {
+                producerKey,
+                sceneKey,
+                policyCategoryKey,
+                allowedChannelKeys,
+                emergencyOverrideAllowed,
+            });
+        using var createResponse = await client.SendAsync(create, cancellationToken);
+        if (createResponse.StatusCode == HttpStatusCode.Created)
+        {
+            var created = await createResponse.Content
+                .ReadFromJsonAsync<NotificationProducerSceneResponse>(cancellationToken);
+            Assert.IsNotNull(created);
+            return created;
+        }
+
+        // 同一 Producer/Scene 在多次用例间复用：已声明时按可信作用域回查，避免重复声明失败掩盖真实断言。
+        Assert.AreEqual(
+            HttpStatusCode.Conflict,
+            createResponse.StatusCode,
+            await createResponse.Content.ReadAsStringAsync(cancellationToken));
+        return await FindProducerSceneAsync(client, token, producerKey, sceneKey, cancellationToken);
+    }
+
+    /// <summary>声明一条只允许单一渠道的目录项；缺失目录会让意图受理失败关闭。</summary>
+    internal static Task<NotificationProducerSceneResponse> CreateProducerSceneAsync(
+        HttpClient client,
+        string token,
+        string producerKey,
+        string sceneKey,
+        string channelKey,
+        CancellationToken cancellationToken,
+        string policyCategoryKey = "transactional") =>
+        CreateProducerSceneAsync(
+            client,
+            token,
+            producerKey,
+            sceneKey,
+            policyCategoryKey,
+            [channelKey],
+            cancellationToken);
+
+    private static async Task<NotificationProducerSceneResponse> FindProducerSceneAsync(
+        HttpClient client,
+        string token,
+        string producerKey,
+        string sceneKey,
+        CancellationToken cancellationToken)
+    {
+        using var list = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/producer-scenes?page=1&pageSize=100");
+        list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var listResponse = await client.SendAsync(list, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content
+            .ReadFromJsonAsync<PagedResult<NotificationProducerSceneResponse>>(cancellationToken);
+        Assert.IsNotNull(page);
+        var existing = page.Items.FirstOrDefault(
+            item => item.ProducerKey == producerKey && item.SceneKey == sceneKey);
+        Assert.IsNotNull(existing, $"目录项 {producerKey}/{sceneKey} 未找到。");
+        return existing;
     }
 
     internal static async Task<NotificationProviderProfileResponse> CreateProfileAsync(

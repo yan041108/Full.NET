@@ -94,8 +94,10 @@ internal sealed class WeChatMiniProgramBindingService(
                 var normalizedAppId = appId?.Trim() ?? string.Empty;
                 var templateId = request.TemplateId?.Trim() ?? string.Empty;
                 var statusKey = request.StatusKey?.Trim() ?? string.Empty;
-                if (normalizedAppId.Length is < 1 or > 32
+                if (request.AuthorizationId == Guid.Empty
+                    || normalizedAppId.Length is < 1 or > 32
                     || templateId.Length is < 1 or > 128
+                    || templateId.Any(ch => ch > 127 || char.IsControl(ch))
                     || statusKey is not (
                         WeChatMiniProgramSubscriptionStatusKeys.Accepted
                         or WeChatMiniProgramSubscriptionStatusKeys.Rejected))
@@ -103,6 +105,14 @@ internal sealed class WeChatMiniProgramBindingService(
                     return Result<WeChatMiniProgramBindingResponse>.Failure(ValidationFailed());
                 }
 
+                // 同一用户/应用的同意上报与发送预留串行，避免并发重复上报产生多份额度。
+                await queryExecutor.QuerySingleOrDefaultAsync<Guid>(
+                    databaseOptions.Value.Provider == DatabaseProvider.MySql
+                        ? NotificationSubscriptionGrantSql.LockBindingMySql
+                        : NotificationSubscriptionGrantSql.LockBindingSqlServer,
+                    NotificationPlatformSqlParameters.Create(
+                        ("TenantScopeKey", scope.TenantScopeKey), ("UserId", userId), ("AppId", normalizedAppId)), token)
+                    .ConfigureAwait(false);
                 var binding = await queryExecutor.QuerySingleOrDefaultAsync<WeChatMiniProgramBindingRecord>(
                         WeChatMiniProgramBindingSql.FindByUserApp,
                         NotificationPlatformSqlParameters.Create(
@@ -112,15 +122,32 @@ internal sealed class WeChatMiniProgramBindingService(
                         token)
                     .ConfigureAwait(false);
                 if (binding is null
-                    || binding.VerificationStatusKey == WeChatMiniProgramBindingStatusKeys.Revoked)
+                    || binding.VerificationStatusKey != WeChatMiniProgramBindingStatusKeys.Verified)
                 {
                     return Result<WeChatMiniProgramBindingResponse>.Failure(NotFound());
                 }
 
+                var reportParameters = NotificationPlatformSqlParameters.Create(("BindingId", binding.Id),
+                    ("TemplateId", templateId), ("AuthorizationId", request.AuthorizationId));
+                var existingReport = await queryExecutor.QuerySingleOrDefaultAsync<string>(
+                    NotificationSubscriptionGrantSql.FindReport, reportParameters, token).ConfigureAwait(false);
+                if (existingReport is not null)
+                {
+                    // 网络重放只能返回当前事实，不能让旧接受覆盖后来的撤回；同键不同负载失败关闭。
+                    return existingReport == statusKey ? await MapSingleAsync(binding, token).ConfigureAwait(false)
+                        : Result<WeChatMiniProgramBindingResponse>.Failure(ValidationFailed());
+                }
+                var now = clock.UtcNow;
+                reportParameters["Id"] = idGenerator.NewId();
+                reportParameters["Now"] = now;
+                reportParameters["ReportedStatusKey"] = statusKey;
+                reportParameters["StateKey"] = statusKey == WeChatMiniProgramSubscriptionStatusKeys.Accepted ? "available" : "rejected";
+                if (await commandExecutor.ExecuteAsync(NotificationSubscriptionGrantSql.Insert, reportParameters, token).ConfigureAwait(false) == 0)
+                    return Result<WeChatMiniProgramBindingResponse>.Failure(ValidationFailed());
+
                 var upsertStatement = databaseOptions.Value.Provider == DatabaseProvider.MySql
                     ? WeChatMiniProgramBindingSql.UpsertSubscriptionMySql
                     : WeChatMiniProgramBindingSql.UpsertSubscription;
-                var now = clock.UtcNow;
                 await commandExecutor.ExecuteAsync(
                         upsertStatement,
                         NotificationPlatformSqlParameters.Create(
@@ -130,6 +157,12 @@ internal sealed class WeChatMiniProgramBindingService(
                             ("AuthorizedAtUtc", now)),
                         token)
                     .ConfigureAwait(false);
+                if (statusKey == WeChatMiniProgramSubscriptionStatusKeys.Rejected)
+                {
+                    await commandExecutor.ExecuteAsync(NotificationSubscriptionGrantSql.RevokeAvailable,
+                        NotificationPlatformSqlParameters.Create(("BindingId", binding.Id), ("TemplateId", templateId)), token)
+                        .ConfigureAwait(false);
+                }
                 return await MapSingleAsync(binding, token).ConfigureAwait(false);
             },
             cancellationToken);
@@ -239,6 +272,12 @@ internal sealed class WeChatMiniProgramBindingService(
                 var scope = NotificationInboxScope.Resolve(currentTenant);
                 var now = clock.UtcNow;
                 var fingerprint = WeChatMiniProgramOpenIdFingerprint.Compute(session.OpenId);
+                await queryExecutor.QuerySingleOrDefaultAsync<Guid>(
+                    databaseOptions.Value.Provider == DatabaseProvider.MySql
+                        ? NotificationSubscriptionGrantSql.LockBindingMySql
+                        : NotificationSubscriptionGrantSql.LockBindingSqlServer,
+                    NotificationPlatformSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey),
+                        ("UserId", userId), ("AppId", config.AppId)), token).ConfigureAwait(false);
                 var existing = await queryExecutor.QuerySingleOrDefaultAsync<WeChatMiniProgramBindingRecord>(
                         WeChatMiniProgramBindingSql.FindByUserApp,
                         NotificationPlatformSqlParameters.Create(
@@ -290,6 +329,10 @@ internal sealed class WeChatMiniProgramBindingService(
                         : await MapSingleAsync(created, token).ConfigureAwait(false);
                 }
 
+                if (existing.OpenIdSha256Hex != fingerprint
+                    || existing.VerificationStatusKey != WeChatMiniProgramBindingStatusKeys.Verified)
+                    await InvalidateBindingAuthorizationAsync(commandExecutor, existing.Id, token).ConfigureAwait(false);
+
                 await commandExecutor.ExecuteAsync(
                         WeChatMiniProgramBindingSql.Update,
                         NotificationPlatformSqlParameters.Create(
@@ -318,6 +361,15 @@ internal sealed class WeChatMiniProgramBindingService(
                     : await MapSingleAsync(updated, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>绑定身份变化不能继承旧 OpenId 的许可；调用者必须持有绑定行锁及本地事务。</summary>
+    internal static async Task InvalidateBindingAuthorizationAsync(ICommandExecutor commands, Guid bindingId,
+        CancellationToken cancellationToken)
+    {
+        var parameters = NotificationPlatformSqlParameters.Create(("BindingId", bindingId));
+        await commands.ExecuteAsync(NotificationSubscriptionGrantSql.RevokeBinding, parameters, cancellationToken).ConfigureAwait(false);
+        await commands.ExecuteAsync(NotificationSubscriptionGrantSql.ResetBindingSubscriptions, parameters, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<NotificationProviderProfileVersionRecord>> ResolvePublishedProfileAsync(

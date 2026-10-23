@@ -79,6 +79,9 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformPermission(NotificationPlatformPermissions.TemplatesUpdate, "编辑通知模板草稿"),
         PlatformPermission(NotificationPlatformPermissions.TemplatesPublish, "发布通知模板版本"),
         PlatformPermission(NotificationPlatformPermissions.IntentsRead, "查询通知意图"),
+        PlatformPermission(NotificationPlatformPermissions.IntentsRevoke, "撤回业务通知"),
+        PlatformPermission(InboxPermissions.Archive, "归档个人站内信"),
+        PlatformPermission(InboxPermissions.ArchiveBatch, "批量归档个人站内信"),
         PlatformPermission(NotificationPlatformPermissions.IntentsCreate, "创建通知意图"),
         PlatformPermission(NotificationPlatformPermissions.ProviderProfilesRead, "查询渠道配置"),
         PlatformPermission(NotificationPlatformPermissions.ProviderProfilesCreate, "新建渠道配置"),
@@ -93,6 +96,7 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformPermission(NotificationPlatformPermissions.DeliveriesRead, "查询投递与尝试"),
         PlatformPermission(NotificationPlatformPermissions.DeliveriesRetry, "人工重试投递"),
         PlatformPermission(NotificationPlatformPermissions.DeliveriesDeadLetter, "处置投递死信"),
+        PlatformPermission(NotificationPlatformPermissions.DeliveriesReconcile, "对账未知调用"),
         PlatformPermission(NotificationPlatformPermissions.PreferencesRead, "查询本人通知偏好"),
         PlatformPermission(NotificationPlatformPermissions.PreferencesUpdate, "更新本人通知偏好"),
         PlatformPermission(NotificationPlatformPermissions.PreferencesManage, "代管用户通知偏好"),
@@ -102,6 +106,14 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsRead, "查询微信小程序绑定"),
         PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsBind, "交换微信小程序 OpenId"),
         PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsRecordSubscription, "登记订阅消息授权"),
+        PlatformPermission(NotificationPlatformPermissions.ProducerScenesRead, "查询通知场景目录"),
+        PlatformPermission(NotificationPlatformPermissions.ProducerScenesCreate, "创建通知场景目录"),
+        PlatformPermission(NotificationPlatformPermissions.ProducerScenesUpdate, "编辑通知场景目录"),
+        PlatformPermission(NotificationPlatformPermissions.ProducerScenesSetEnabled, "启停通知场景目录"),
+        PlatformPermission(NotificationPlatformPermissions.QuotasRead, "查询发送配额"),
+        PlatformPermission(NotificationPlatformPermissions.QuotasCreate, "创建发送配额"),
+        PlatformPermission(NotificationPlatformPermissions.QuotasUpdate, "编辑发送配额"),
+        PlatformPermission(NotificationPlatformPermissions.QuotasSetEnabled, "启停发送配额"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -144,8 +156,11 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformNavigation("notification-bindings", "/notifications/bindings", "场景绑定", "Bindings", 59, NotificationPlatformPermissions.BindingsRead),
         PlatformNavigation("notification-deliveries", "/notifications/deliveries", "投递运维", "Deliveries", 60, NotificationPlatformPermissions.DeliveriesRead),
         PlatformNavigation("notification-preferences", "/notifications/preferences", "通知偏好", "Preferences", 61, NotificationPlatformPermissions.PreferencesRead),
+        PlatformNavigation("notification-recipient-endpoints", "/notifications/recipient-endpoints", "收件端点", "RecipientEndpoints", 66, NotificationPlatformPermissions.PreferencesRead),
         PlatformNavigation("notification-dingtalk-approval-sync", "/notifications/dingtalk-approval-sync", "钉钉审批同步", "DingTalkApprovalSync", 62, NotificationPlatformPermissions.DingTalkApprovalSyncRead),
         PlatformNavigation("notification-wechat-miniprogram-bindings", "/notifications/wechat-miniprogram-bindings", "微信小程序绑定", "WeChatMiniProgramBindings", 63, NotificationPlatformPermissions.WeChatMiniProgramBindingsRead),
+        PlatformNavigation("notification-producer-scenes", "/notifications/producer-scenes", "通知场景目录", "ProducerScenes", 64, NotificationPlatformPermissions.ProducerScenesRead),
+        PlatformNavigation("notification-quotas", "/notifications/quotas", "发送配额", "Quotas", 65, NotificationPlatformPermissions.QuotasRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -224,6 +239,9 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformAction("notifications.templates.update", "notification-templates", NotificationPlatformPermissions.TemplatesUpdate, "编辑草稿", "update", 20),
         PlatformAction("notifications.templates.publish", "notification-templates", NotificationPlatformPermissions.TemplatesPublish, "发布版本", "publish", 30),
         PlatformAction("notifications.intents.create", "notification-templates", NotificationPlatformPermissions.IntentsCreate, "创建通知意图", "create_intent", 40),
+        PlatformAction("notifications.intents.revoke", "notification-templates", NotificationPlatformPermissions.IntentsRevoke, "撤回业务通知", "revoke_intent", 50),
+        PlatformAction("notifications.inbox.archive", "inbox-messages", InboxPermissions.Archive, "归档", "archive", 40),
+        PlatformAction("notifications.inbox.archive_batch", "inbox-messages", InboxPermissions.ArchiveBatch, "批量归档", "archive_batch", 50),
         PlatformAction("notifications.provider_profiles.create", "notification-provider-profiles", NotificationPlatformPermissions.ProviderProfilesCreate, "新建配置", "create", 10),
         PlatformAction("notifications.provider_profiles.update", "notification-provider-profiles", NotificationPlatformPermissions.ProviderProfilesUpdate, "编辑配置", "update", 20),
         PlatformAction("notifications.provider_profiles.publish", "notification-provider-profiles", NotificationPlatformPermissions.ProviderProfilesPublish, "发布配置", "publish", 30),
@@ -234,10 +252,17 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformAction("notifications.bindings.publish", "notification-bindings", NotificationPlatformPermissions.BindingsPublish, "发布绑定", "publish", 30),
         PlatformAction("notifications.deliveries.retry", "notification-deliveries", NotificationPlatformPermissions.DeliveriesRetry, "人工重试", "retry", 10),
         PlatformAction("notifications.deliveries.dead_letter", "notification-deliveries", NotificationPlatformPermissions.DeliveriesDeadLetter, "死信处置", "dead_letter", 20),
+        PlatformAction("notifications.deliveries.reconcile", "notification-deliveries", NotificationPlatformPermissions.DeliveriesReconcile, "调用对账", "reconcile", 30),
         PlatformAction("notifications.preferences.update", "notification-preferences", NotificationPlatformPermissions.PreferencesUpdate, "更新偏好", "update", 10),
         PlatformAction("notifications.preferences.manage", "notification-preferences", NotificationPlatformPermissions.PreferencesManage, "代管偏好", "manage", 20),
         PlatformAction("notifications.dingtalk_approval_sync.create", "notification-dingtalk-approval-sync", NotificationPlatformPermissions.DingTalkApprovalSyncCreate, "登记同步", "create", 10),
         PlatformAction("notifications.dingtalk_approval_sync.retry", "notification-dingtalk-approval-sync", NotificationPlatformPermissions.DingTalkApprovalSyncRetry, "补偿重试", "retry", 20),
+        PlatformAction("notifications.producer_scenes.create", "notification-producer-scenes", NotificationPlatformPermissions.ProducerScenesCreate, "创建场景目录", "create", 10),
+        PlatformAction("notifications.producer_scenes.update", "notification-producer-scenes", NotificationPlatformPermissions.ProducerScenesUpdate, "编辑场景目录", "update", 20),
+        PlatformAction("notifications.producer_scenes.set_enabled", "notification-producer-scenes", NotificationPlatformPermissions.ProducerScenesSetEnabled, "启停场景目录", "set_enabled", 30),
+        PlatformAction("notifications.quotas.create", "notification-quotas", NotificationPlatformPermissions.QuotasCreate, "创建发送配额", "create", 10),
+        PlatformAction("notifications.quotas.update", "notification-quotas", NotificationPlatformPermissions.QuotasUpdate, "编辑发送配额", "update", 20),
+        PlatformAction("notifications.quotas.set_enabled", "notification-quotas", NotificationPlatformPermissions.QuotasSetEnabled, "启停发送配额", "set_enabled", 30),
     ];
 
     private static PermissionDefinition PlatformPermission(string code, string name) =>

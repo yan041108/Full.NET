@@ -3,12 +3,40 @@ import {
   adminOrigin,
   clickMainNavLink,
   loginAccessToken,
+  loginHostAdminAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
   statusPath
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+
+test('个人归档通过真实 API 移出收件箱并保留未读事实，工作台组合公告与消息入口', async ({ page, request }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const token = await loginHostAdminAccessToken(request, clientKind);
+  const headers = { Authorization: `Bearer ${token}`, Origin: adminOrigin(clientKind) };
+  const me = await request.get(`${apiBaseUrl}/api/v1/me`, { headers });
+  expect(me.ok()).toBeTruthy();
+  const title = `archive-${Date.now()}`;
+  const sent = await request.post(`${apiBaseUrl}/api/v1/notifications/host-inbox-messages`, {
+    headers, data: { recipientUserId: (await me.json()).id, title, content: '归档不意味着已读或业务撤回。' }
+  });
+  expect(sent.status()).toBe(201);
+  const message = await sent.json();
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /消息中心/);
+  await expect(page.getByRole('heading', { name: '统一工作台', exact: true })).toBeVisible();
+  const row = page.locator('.inbox-messages-view .el-table__row').filter({ hasText: title });
+  await expect(row).toBeVisible();
+  const archived = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname.endsWith(`/${message.id}/archive`));
+  await row.getByTestId('inbox-messages-archive').click();
+  expect((await archived).status()).toBe(200);
+  await expect(row).toHaveCount(0);
+  await page.getByRole('button', { name: '已归档', exact: true }).click();
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('未读');
+});
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {

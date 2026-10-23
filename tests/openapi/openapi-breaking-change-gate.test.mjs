@@ -970,6 +970,44 @@ test('标准客户端 OpenAPI 只允许已审查的可选请求与响应字段�
   );
 });
 
+test('Git ref 模式从独立基线读取契约并报告分页破坏变化', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'fullnet-openapi-git-ref-'));
+  try {
+    const git = (args, input) => {
+      const result = spawnSync('git', args, { cwd: directory, input, encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    git(['init', '--quiet']);
+    const baseline = { openapi: '3.1.0', paths: { '/messages': { get: {
+      operationId: 'notificationsListMessages',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } }
+    } } } };
+    // 只创建临时 Git 对象树，不提交或修改用户仓库；基线不再依赖当前 HEAD 的偶然差异。
+    const blob = git(['hash-object', '-w', '--stdin'], JSON.stringify(baseline));
+    const openapi = git(['mktree'], `100644 blob ${blob}\tfullnet-client-v1.openapi.json\n`);
+    const contracts = git(['mktree'], `040000 tree ${openapi}\topenapi\n`);
+    const root = git(['mktree'], `040000 tree ${contracts}\tcontracts\n`);
+    const currentDirectory = path.join(directory, 'contracts', 'openapi');
+    await writeContractSet(currentDirectory, { 'fullnet-client-v1.openapi.json': baseline });
+    const run = () => spawnSync(process.execPath,
+      [scriptPath, '--base-ref', root, '--repository-root', directory],
+      { cwd: directory, encoding: 'utf8' });
+    const unchanged = run();
+    assert.equal(unchanged.status, 0, unchanged.stderr);
+    const current = clone(baseline);
+    current.paths['/messages'].get.parameters[0].schema.type = 'string';
+    await writeContractSet(currentDirectory, { 'fullnet-client-v1.openapi.json': current });
+    const changed = run();
+    assert.equal(changed.status, 1, changed.stderr);
+    assert.match(changed.stderr, /stable setting changed: fullnet-client-v1\.openapi\.json paths/);
+    assert.ok(changed.stderr.length < 20_000);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('Git ref 模式准确报告摘要分页契约直接演进，不依赖工作区是否未提交', async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'fullnet-openapi-git-'));
   const directory = path.join(temporary, 'contracts/openapi');

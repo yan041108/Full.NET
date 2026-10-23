@@ -118,6 +118,7 @@ internal static class NotificationProfileCompiler
         string producerKey,
         string sceneKey,
         string channelKey,
+        string dispatchModeKey,
         IReadOnlyList<NotificationBindingTargetInput> targets)
     {
         if (targets.Count is < 1 or > 16)
@@ -140,7 +141,19 @@ internal static class NotificationProfileCompiler
                 return Result<string>.Failure(BindingValidation("The binding target list is invalid."));
             }
 
-            normalized.Add(new NotificationBindingTargetInput(profileKey.Value!, target.Order));
+            var condition = NormalizeBindingCondition(target.Condition);
+            if (!condition.IsSuccess)
+            {
+                return Result<string>.Failure(condition.Error!);
+            }
+
+            if (string.Equals(dispatchModeKey, "match", StringComparison.Ordinal)
+                && condition.Value is null)
+            {
+                return Result<string>.Failure(BindingValidation("Match targets must declare controlled conditions."));
+            }
+
+            normalized.Add(new NotificationBindingTargetInput(profileKey.Value!, target.Order, condition.Value));
         }
 
         using var stream = new MemoryStream();
@@ -157,6 +170,20 @@ internal static class NotificationProfileCompiler
                 writer.WriteStartObject();
                 writer.WriteString("profileKey", target.ProfileKey);
                 writer.WriteNumber("order", target.Order);
+                if (target.Condition is { } condition)
+                {
+                    writer.WritePropertyName("condition");
+                    writer.WriteStartObject();
+                    writer.WriteString("parameterName", condition.ParameterName);
+                    writer.WriteString("operatorKey", condition.OperatorKey);
+                    if (condition.ExpectedValue is not null)
+                    {
+                        writer.WriteString("expectedValue", condition.ExpectedValue);
+                    }
+
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEndObject();
             }
 
@@ -177,6 +204,44 @@ internal static class NotificationProfileCompiler
 
     public static string SecretStatus(string? secretReference) =>
         string.IsNullOrEmpty(secretReference) ? SecretNotConfigured : SecretConfigured;
+
+    private static Result<NotificationBindingTargetConditionInput?> NormalizeBindingCondition(
+        NotificationBindingTargetConditionInput? condition)
+    {
+        if (condition is null)
+        {
+            return Result<NotificationBindingTargetConditionInput?>.Success(null);
+        }
+
+        var parameter = NotificationTemplateCompiler.NormalizeStableKey(condition.ParameterName, "ParameterName");
+        if (!parameter.IsSuccess)
+        {
+            return Result<NotificationBindingTargetConditionInput?>.Failure(parameter.Error!);
+        }
+
+        var operatorKey = condition.OperatorKey?.Trim() ?? string.Empty;
+        if (operatorKey is not ("equals" or "not_equals" or "exists"))
+        {
+            return Result<NotificationBindingTargetConditionInput?>.Failure(BindingValidation("The binding condition operator is invalid."));
+        }
+
+        var expectedValue = condition.ExpectedValue?.Trim();
+        if (operatorKey is not "exists" && string.IsNullOrEmpty(expectedValue))
+        {
+            return Result<NotificationBindingTargetConditionInput?>.Failure(BindingValidation("The binding condition value is invalid."));
+        }
+
+        if (expectedValue is { Length: > 256 })
+        {
+            return Result<NotificationBindingTargetConditionInput?>.Failure(BindingValidation("The binding condition value is invalid."));
+        }
+
+        return Result<NotificationBindingTargetConditionInput?>.Success(
+            new NotificationBindingTargetConditionInput(
+                parameter.Value!,
+                operatorKey,
+                operatorKey == "exists" ? null : expectedValue));
+    }
 
     private static bool ValueMatches(string typeKey, JsonElement value) =>
         typeKey switch

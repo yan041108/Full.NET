@@ -98,7 +98,6 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantCommercialReactivateGate>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantLifecycleManagementService>();
-        services.TryAddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementManagementService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();
@@ -110,7 +109,6 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
         services.AddScoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementBackfillService>();
-        services.TryAddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
         services.AddScoped<Features.ReconcileQuotaUsageBaseline.TenantQuotaUsageBaselineService>();
@@ -222,11 +220,11 @@ public sealed class TenancyModule : IFullNetModule
         // 文件恢复在 Worker 使用原操作键确认配额，不能回退到 Files 的空端口。
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
-        services.Replace(ServiceDescriptor.Scoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>());
-        // DataApproval 后台恢复经 Workflow 启动实例，也必须使用真实权益校验；不能由 API 专属注册补齐。
+        // 审批恢复可在 Worker 启动工作流；沿用真实权益判定，不能因后台入口缺少注册而失效。
         services.TryAddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
         services.TryAddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
+        services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
+        services.Replace(ServiceDescriptor.Scoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>());
     }
 
     /// <summary>

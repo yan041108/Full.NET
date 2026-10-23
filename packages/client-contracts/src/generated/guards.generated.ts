@@ -69,6 +69,7 @@ import type {
   AiTenantQuotaResponse,
   AppendAiPromptVersionRequest,
   ApproveAiMcpRemoteToolRequest,
+  ArchiveInboxMessagesRequest,
   AskAiKnowledgeRequest,
   AskAiKnowledgeResponse,
   AssignHostTenantPackageRequest,
@@ -182,7 +183,9 @@ import type {
   CreateK3CloudDocumentSyncRequest,
   CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
+  CreateNotificationProducerSceneRequest,
   CreateNotificationProviderProfileRequest,
+  CreateNotificationQuotaPolicyRequest,
   CreateNotificationTemplateRequest,
   CreateOcrIdCardTaskRequest,
   CreateOrganizationPositionLevelRequest,
@@ -352,13 +355,21 @@ import type {
   ModuleSelectionValidateRequest,
   MyReleaseNoteResponse,
   NotificationBindingResponse,
+  NotificationBindingTargetConditionInput,
   NotificationBindingTargetInput,
+  NotificationDeepLink,
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationDeliverySummaryResponse,
+  NotificationPreferenceResponse,
+  NotificationProducerSceneResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,
+  NotificationQuotaOutstandingResponse,
+  NotificationQuotaPolicyResponse,
+  NotificationRevocationResponse,
   NotificationTemplateBody,
   NotificationTemplateParameterDefinition,
   NotificationTemplateParameterSchema,
@@ -424,7 +435,9 @@ import type {
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
+  PagedResultOfNotificationProducerSceneResponse,
   PagedResultOfNotificationProviderProfileResponse,
+  PagedResultOfNotificationQuotaPolicyResponse,
   PagedResultOfNotificationTemplateResponse,
   PagedResultOfOcrIdCardTaskResponse,
   PagedResultOfOperationLogResponse,
@@ -489,6 +502,7 @@ import type {
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
+  ReconcileNotificationDeliveryRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
@@ -526,6 +540,7 @@ import type {
   RevokeAiAgentDelegationRequest,
   RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
+  RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
   SelectAiPromptVersionRequest,
@@ -550,7 +565,9 @@ import type {
   SetAiKnowledgeOrganizationGrantsRequest,
   SetAiKnowledgeRoleGrantsRequest,
   SetHostDocumentPermissionsRequest,
+  SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
+  SetNotificationQuotaPolicyEnabledRequest,
   SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
@@ -612,8 +629,11 @@ import type {
   UpdateHostUserRequest,
   UpdateK3CloudConnectionConfigRequest,
   UpdateLocaleRequest,
+  UpdateMyNotificationPreferenceRequest,
   UpdateNotificationBindingRequest,
+  UpdateNotificationProducerSceneRequest,
   UpdateNotificationProviderProfileRequest,
+  UpdateNotificationQuotaPolicyRequest,
   UpdateNotificationTemplateRequest,
   UpdateOcrProviderConfigRequest,
   UpdateOrganizationPositionLevelRequest,
@@ -1251,6 +1271,14 @@ export function readApproveAiMcpRemoteToolRequest(value: unknown): ApproveAiMcpR
 
 function isApproveAiMcpRemoteToolRequest(value: unknown): value is ApproveAiMcpRemoteToolRequest {
   return isRecord(value) && (typeof value["permissionCode"] === 'string') && (typeof value["remoteToolName"] === 'string') && (typeof value["sideEffectKey"] === 'string');
+}
+
+export function readArchiveInboxMessagesRequest(value: unknown): ArchiveInboxMessagesRequest {
+  return requireValidResponse(value, isArchiveInboxMessagesRequest(value), 'archive_inbox_messages_request') as ArchiveInboxMessagesRequest;
+}
+
+function isArchiveInboxMessagesRequest(value: unknown): value is ArchiveInboxMessagesRequest {
+  return isRecord(value) && (Array.isArray(value["messageIds"]) && value["messageIds"].every(item19 => typeof item19 === 'string' && guidPattern.test(item19)));
 }
 
 export function readAskAiKnowledgeRequest(value: unknown): AskAiKnowledgeRequest {
@@ -2213,12 +2241,29 @@ function isCreateNotificationBindingRequest(value: unknown): value is CreateNoti
   return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16)));
 }
 
+export function readCreateNotificationProducerSceneRequest(value: unknown): CreateNotificationProducerSceneRequest {
+  return requireValidResponse(value, isCreateNotificationProducerSceneRequest(value), 'create_notification_producer_scene_request') as CreateNotificationProducerSceneRequest;
+}
+
+function isCreateNotificationProducerSceneRequest(value: unknown): value is CreateNotificationProducerSceneRequest {
+  return isRecord(value) && (Array.isArray(value["allowedChannelKeys"]) && value["allowedChannelKeys"].every(item27 => typeof item27 === 'string')) && (typeof value["emergencyOverrideAllowed"] === 'boolean') && (typeof value["policyCategoryKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string');
+}
+
 export function readCreateNotificationProviderProfileRequest(value: unknown): CreateNotificationProviderProfileRequest {
   return requireValidResponse(value, isCreateNotificationProviderProfileRequest(value), 'create_notification_provider_profile_request') as CreateNotificationProviderProfileRequest;
 }
 
 function isCreateNotificationProviderProfileRequest(value: unknown): value is CreateNotificationProviderProfileRequest {
   return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && (typeof value["profileKey"] === 'string') && (typeof value["providerTypeKey"] === 'string') && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string'));
+}
+
+export function readCreateNotificationQuotaPolicyRequest(value: unknown): CreateNotificationQuotaPolicyRequest {
+  const normalizedValue = normalizeCreateNotificationQuotaPolicyRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreateNotificationQuotaPolicyRequest(normalizedValue), 'create_notification_quota_policy_request') as CreateNotificationQuotaPolicyRequest;
+}
+
+function isCreateNotificationQuotaPolicyRequest(value: unknown): value is CreateNotificationQuotaPolicyRequest {
+  return isRecord(value) && (typeof value["dimensionKey"] === 'string') && (typeof value["dimensionValue"] === 'string') && (typeof value["maxCount"] === 'number' && Number.isSafeInteger(value["maxCount"])) && (typeof value["windowSeconds"] === 'number' && Number.isSafeInteger(value["windowSeconds"]));
 }
 
 export function readCreateNotificationTemplateRequest(value: unknown): CreateNotificationTemplateRequest {
@@ -3518,7 +3563,7 @@ export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
 }
 
 function isInboxMessageResponse(value: unknown): value is InboxMessageResponse {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["createdByUserId"] === null) || (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string');
+  return isRecord(value) && (value["archivedAtUtc"] === undefined || ((value["archivedAtUtc"] === null) || (typeof value["archivedAtUtc"] === 'string'))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["createdByUserId"] === null) || (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"]))) && (value["deepLink"] === undefined || ((value["deepLink"] === null) || (isNotificationDeepLink(value["deepLink"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["producerKey"] === undefined || ((value["producerKey"] === null) || (typeof value["producerKey"] === 'string'))) && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (value["revocationReason"] === undefined || ((value["revocationReason"] === null) || (typeof value["revocationReason"] === 'string'))) && (value["revokedAtUtc"] === undefined || ((value["revokedAtUtc"] === null) || (typeof value["revokedAtUtc"] === 'string'))) && (value["sceneKey"] === undefined || ((value["sceneKey"] === null) || (typeof value["sceneKey"] === 'string'))) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string');
 }
 
 export function readInboxUnreadCountResponse(value: unknown): InboxUnreadCountResponse {
@@ -3690,13 +3735,29 @@ function isNotificationBindingResponse(value: unknown): value is NotificationBin
   return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftDispatchModeKey"] === 'string') && (typeof value["draftJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestBindingTargetsJson"] === null) || (typeof value["latestBindingTargetsJson"] === 'string')) && ((value["latestChannelKey"] === null) || (typeof value["latestChannelKey"] === 'string')) && ((value["latestDispatchModeKey"] === null) || (typeof value["latestDispatchModeKey"] === 'string')) && ((value["latestProducerKey"] === null) || (typeof value["latestProducerKey"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && ((value["latestSceneKey"] === null) || (typeof value["latestSceneKey"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readNotificationBindingTargetConditionInput(value: unknown): NotificationBindingTargetConditionInput {
+  return requireValidResponse(value, isNotificationBindingTargetConditionInput(value), 'notification_binding_target_condition_input') as NotificationBindingTargetConditionInput;
+}
+
+function isNotificationBindingTargetConditionInput(value: unknown): value is NotificationBindingTargetConditionInput {
+  return isRecord(value) && (value["expectedValue"] === undefined || ((value["expectedValue"] === null) || (typeof value["expectedValue"] === 'string'))) && (typeof value["operatorKey"] === 'string') && (typeof value["parameterName"] === 'string');
+}
+
 export function readNotificationBindingTargetInput(value: unknown): NotificationBindingTargetInput {
   const normalizedValue = normalizeNotificationBindingTargetInputIntegerJson(value);
   return requireValidResponse(normalizedValue, isNotificationBindingTargetInput(normalizedValue), 'notification_binding_target_input') as NotificationBindingTargetInput;
 }
 
 function isNotificationBindingTargetInput(value: unknown): value is NotificationBindingTargetInput {
-  return isRecord(value) && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["profileKey"] === 'string');
+  return isRecord(value) && (value["condition"] === undefined || ((value["condition"] === null) || (isNotificationBindingTargetConditionInput(value["condition"])))) && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["profileKey"] === 'string');
+}
+
+export function readNotificationDeepLink(value: unknown): NotificationDeepLink {
+  return requireValidResponse(value, isNotificationDeepLink(value), 'notification_deep_link') as NotificationDeepLink;
+}
+
+function isNotificationDeepLink(value: unknown): value is NotificationDeepLink {
+  return isRecord(value) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (typeof value["resourceTypeKey"] === 'string');
 }
 
 export function readNotificationDeliveryAttemptResponse(value: unknown): NotificationDeliveryAttemptResponse {
@@ -3722,7 +3783,34 @@ export function readNotificationDeliveryResponse(value: unknown): NotificationDe
 }
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
-  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (value["policyDecisionKey"] === undefined || ((value["policyDecisionKey"] === null) || (typeof value["policyDecisionKey"] === 'string'))) && (value["preferenceVersion"] === undefined || ((value["preferenceVersion"] === null) || (typeof value["preferenceVersion"] === 'number' && Number.isSafeInteger(value["preferenceVersion"])))) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (value["suppressionReasonCode"] === undefined || ((value["suppressionReasonCode"] === null) || (typeof value["suppressionReasonCode"] === 'string'))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+}
+
+export function readNotificationDeliverySummaryResponse(value: unknown): NotificationDeliverySummaryResponse {
+  const normalizedValue = normalizeNotificationDeliverySummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationDeliverySummaryResponse(normalizedValue), 'notification_delivery_summary_response') as NotificationDeliverySummaryResponse;
+}
+
+function isNotificationDeliverySummaryResponse(value: unknown): value is NotificationDeliverySummaryResponse {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && (typeof value["oldestCreatedAtUtc"] === 'string') && (typeof value["providerTypeKey"] === 'string') && (typeof value["receiptModeKey"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readNotificationPreferenceResponse(value: unknown): NotificationPreferenceResponse {
+  const normalizedValue = normalizeNotificationPreferenceResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationPreferenceResponse(normalizedValue), 'notification_preference_response') as NotificationPreferenceResponse;
+}
+
+function isNotificationPreferenceResponse(value: unknown): value is NotificationPreferenceResponse {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["channelOptedOut"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["marketingConsentGranted"] === 'boolean') && ((value["quietHoursJson"] === null) || (typeof value["quietHoursJson"] === 'string')) && (typeof value["updatedAtUtc"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readNotificationProducerSceneResponse(value: unknown): NotificationProducerSceneResponse {
+  const normalizedValue = normalizeNotificationProducerSceneResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationProducerSceneResponse(normalizedValue), 'notification_producer_scene_response') as NotificationProducerSceneResponse;
+}
+
+function isNotificationProducerSceneResponse(value: unknown): value is NotificationProducerSceneResponse {
+  return isRecord(value) && (Array.isArray(value["allowedChannelKeys"]) && value["allowedChannelKeys"].every(item27 => typeof item27 === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["emergencyOverrideAllowed"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["policyCategoryKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
@@ -3748,6 +3836,33 @@ export function readNotificationProviderTypeDescriptor(value: unknown): Notifica
 
 function isNotificationProviderTypeDescriptor(value: unknown): value is NotificationProviderTypeDescriptor {
   return isRecord(value) && (typeof value["adapterVersion"] === 'string') && (Array.isArray(value["nonSecretFields"]) && value["nonSecretFields"].every(item24 => isNotificationProviderConfigField(item24))) && (typeof value["providerTypeKey"] === 'string') && (typeof value["receiptModeKey"] === 'string') && (Array.isArray(value["secretFieldKeys"]) && value["secretFieldKeys"].every(item24 => typeof item24 === 'string')) && (Array.isArray(value["supportedChannelKeys"]) && value["supportedChannelKeys"].every(item29 => typeof item29 === 'string')) && (typeof value["supportsNativeAot"] === 'boolean');
+}
+
+export function readNotificationQuotaOutstandingResponse(value: unknown): NotificationQuotaOutstandingResponse {
+  const normalizedValue = normalizeNotificationQuotaOutstandingResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationQuotaOutstandingResponse(normalizedValue), 'notification_quota_outstanding_response') as NotificationQuotaOutstandingResponse;
+}
+
+function isNotificationQuotaOutstandingResponse(value: unknown): value is NotificationQuotaOutstandingResponse {
+  return isRecord(value) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && (typeof value["dimensionKey"] === 'string') && (typeof value["stateKey"] === 'string');
+}
+
+export function readNotificationQuotaPolicyResponse(value: unknown): NotificationQuotaPolicyResponse {
+  const normalizedValue = normalizeNotificationQuotaPolicyResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationQuotaPolicyResponse(normalizedValue), 'notification_quota_policy_response') as NotificationQuotaPolicyResponse;
+}
+
+function isNotificationQuotaPolicyResponse(value: unknown): value is NotificationQuotaPolicyResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dimensionKey"] === 'string') && (typeof value["dimensionValue"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maxCount"] === 'number' && Number.isSafeInteger(value["maxCount"])) && (typeof value["updatedAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["windowSeconds"] === 'number' && Number.isSafeInteger(value["windowSeconds"]));
+}
+
+export function readNotificationRevocationResponse(value: unknown): NotificationRevocationResponse {
+  const normalizedValue = normalizeNotificationRevocationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isNotificationRevocationResponse(normalizedValue), 'notification_revocation_response') as NotificationRevocationResponse;
+}
+
+function isNotificationRevocationResponse(value: unknown): value is NotificationRevocationResponse {
+  return isRecord(value) && (typeof value["crossedSendBoundary"] === 'number' && Number.isSafeInteger(value["crossedSendBoundary"])) && (typeof value["revokedInboxMessages"] === 'number' && Number.isSafeInteger(value["revokedInboxMessages"])) && (typeof value["stoppedDeliveries"] === 'number' && Number.isSafeInteger(value["stoppedDeliveries"]));
 }
 
 export function readNotificationTemplateBody(value: unknown): NotificationTemplateBody {
@@ -4333,6 +4448,15 @@ function isPagedResultOfNotificationDeliveryResponse(value: unknown): value is P
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationDeliveryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfNotificationProducerSceneResponse(value: unknown): PagedResultOfNotificationProducerSceneResponse {
+  const normalizedValue = normalizePagedResultOfNotificationProducerSceneResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationProducerSceneResponse(normalizedValue), 'paged_result_of_notification_producer_scene_response') as PagedResultOfNotificationProducerSceneResponse;
+}
+
+function isPagedResultOfNotificationProducerSceneResponse(value: unknown): value is PagedResultOfNotificationProducerSceneResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationProducerSceneResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfNotificationProviderProfileResponse(value: unknown): PagedResultOfNotificationProviderProfileResponse {
   const normalizedValue = normalizePagedResultOfNotificationProviderProfileResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfNotificationProviderProfileResponse(normalizedValue), 'paged_result_of_notification_provider_profile_response') as PagedResultOfNotificationProviderProfileResponse;
@@ -4340,6 +4464,15 @@ export function readPagedResultOfNotificationProviderProfileResponse(value: unkn
 
 function isPagedResultOfNotificationProviderProfileResponse(value: unknown): value is PagedResultOfNotificationProviderProfileResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationProviderProfileResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfNotificationQuotaPolicyResponse(value: unknown): PagedResultOfNotificationQuotaPolicyResponse {
+  const normalizedValue = normalizePagedResultOfNotificationQuotaPolicyResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfNotificationQuotaPolicyResponse(normalizedValue), 'paged_result_of_notification_quota_policy_response') as PagedResultOfNotificationQuotaPolicyResponse;
+}
+
+function isPagedResultOfNotificationQuotaPolicyResponse(value: unknown): value is PagedResultOfNotificationQuotaPolicyResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationQuotaPolicyResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfNotificationTemplateResponse(value: unknown): PagedResultOfNotificationTemplateResponse {
@@ -4911,6 +5044,15 @@ function isReconcileAiAgentRunRequest(value: unknown): value is ReconcileAiAgent
   return isRecord(value) && (value["cachedInputTokens"] === undefined || ((value["cachedInputTokens"] === null) || (typeof value["cachedInputTokens"] === 'number' && Number.isSafeInteger(value["cachedInputTokens"])))) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["evidenceDigest"] === 'string') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (value["inputTokens"] === undefined || ((value["inputTokens"] === null) || (typeof value["inputTokens"] === 'number' && Number.isSafeInteger(value["inputTokens"])))) && (value["outputTokens"] === undefined || ((value["outputTokens"] === null) || (typeof value["outputTokens"] === 'number' && Number.isSafeInteger(value["outputTokens"]))));
 }
 
+export function readReconcileNotificationDeliveryRequest(value: unknown): ReconcileNotificationDeliveryRequest {
+  const normalizedValue = normalizeReconcileNotificationDeliveryRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReconcileNotificationDeliveryRequest(normalizedValue), 'reconcile_notification_delivery_request') as ReconcileNotificationDeliveryRequest;
+}
+
+function isReconcileNotificationDeliveryRequest(value: unknown): value is ReconcileNotificationDeliveryRequest {
+  return isRecord(value) && (typeof value["evidenceReference"] === 'string') && (typeof value["outcomeKey"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+}
+
 export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
   const normalizedValue = normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isReconcileWorkflowRecoveryTaskRequest(normalizedValue), 'reconcile_workflow_recovery_task_request') as ReconcileWorkflowRecoveryTaskRequest;
@@ -5237,6 +5379,15 @@ function isRevokeAllHostUserSessionsResponse(value: unknown): value is RevokeAll
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["revokedSessionCount"] === 'number' && Number.isSafeInteger(value["revokedSessionCount"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readRevokeNotificationIntentRequest(value: unknown): RevokeNotificationIntentRequest {
+  const normalizedValue = normalizeRevokeNotificationIntentRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRevokeNotificationIntentRequest(normalizedValue), 'revoke_notification_intent_request') as RevokeNotificationIntentRequest;
+}
+
+function isRevokeNotificationIntentRequest(value: unknown): value is RevokeNotificationIntentRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+}
+
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
   return requireValidResponse(value, isRevokeSuperAdministratorRequest(value), 'revoke_super_administrator_request') as RevokeSuperAdministratorRequest;
 }
@@ -5444,6 +5595,15 @@ function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDo
   return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
 }
 
+export function readSetNotificationProducerSceneEnabledRequest(value: unknown): SetNotificationProducerSceneEnabledRequest {
+  const normalizedValue = normalizeSetNotificationProducerSceneEnabledRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetNotificationProducerSceneEnabledRequest(normalizedValue), 'set_notification_producer_scene_enabled_request') as SetNotificationProducerSceneEnabledRequest;
+}
+
+function isSetNotificationProducerSceneEnabledRequest(value: unknown): value is SetNotificationProducerSceneEnabledRequest {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetNotificationProviderProfileEnabledRequest(value: unknown): SetNotificationProviderProfileEnabledRequest {
   const normalizedValue = normalizeSetNotificationProviderProfileEnabledRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isSetNotificationProviderProfileEnabledRequest(normalizedValue), 'set_notification_provider_profile_enabled_request') as SetNotificationProviderProfileEnabledRequest;
@@ -5451,6 +5611,15 @@ export function readSetNotificationProviderProfileEnabledRequest(value: unknown)
 
 function isSetNotificationProviderProfileEnabledRequest(value: unknown): value is SetNotificationProviderProfileEnabledRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSetNotificationQuotaPolicyEnabledRequest(value: unknown): SetNotificationQuotaPolicyEnabledRequest {
+  const normalizedValue = normalizeSetNotificationQuotaPolicyEnabledRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetNotificationQuotaPolicyEnabledRequest(normalizedValue), 'set_notification_quota_policy_enabled_request') as SetNotificationQuotaPolicyEnabledRequest;
+}
+
+function isSetNotificationQuotaPolicyEnabledRequest(value: unknown): value is SetNotificationQuotaPolicyEnabledRequest {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersonalScheduleStatusRequest {
@@ -5986,6 +6155,14 @@ function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
   return isRecord(value) && (typeof value["locale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"]));
 }
 
+export function readUpdateMyNotificationPreferenceRequest(value: unknown): UpdateMyNotificationPreferenceRequest {
+  return requireValidResponse(value, isUpdateMyNotificationPreferenceRequest(value), 'update_my_notification_preference_request') as UpdateMyNotificationPreferenceRequest;
+}
+
+function isUpdateMyNotificationPreferenceRequest(value: unknown): value is UpdateMyNotificationPreferenceRequest {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["channelOptedOut"] === 'boolean') && (typeof value["marketingConsentGranted"] === 'boolean') && ((value["quietHoursJson"] === null) || (typeof value["quietHoursJson"] === 'string'));
+}
+
 export function readUpdateNotificationBindingRequest(value: unknown): UpdateNotificationBindingRequest {
   const normalizedValue = normalizeUpdateNotificationBindingRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isUpdateNotificationBindingRequest(normalizedValue), 'update_notification_binding_request') as UpdateNotificationBindingRequest;
@@ -5995,6 +6172,15 @@ function isUpdateNotificationBindingRequest(value: unknown): value is UpdateNoti
   return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readUpdateNotificationProducerSceneRequest(value: unknown): UpdateNotificationProducerSceneRequest {
+  const normalizedValue = normalizeUpdateNotificationProducerSceneRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isUpdateNotificationProducerSceneRequest(normalizedValue), 'update_notification_producer_scene_request') as UpdateNotificationProducerSceneRequest;
+}
+
+function isUpdateNotificationProducerSceneRequest(value: unknown): value is UpdateNotificationProducerSceneRequest {
+  return isRecord(value) && (Array.isArray(value["allowedChannelKeys"]) && value["allowedChannelKeys"].every(item27 => typeof item27 === 'string')) && (typeof value["emergencyOverrideAllowed"] === 'boolean') && (typeof value["policyCategoryKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readUpdateNotificationProviderProfileRequest(value: unknown): UpdateNotificationProviderProfileRequest {
   const normalizedValue = normalizeUpdateNotificationProviderProfileRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isUpdateNotificationProviderProfileRequest(normalizedValue), 'update_notification_provider_profile_request') as UpdateNotificationProviderProfileRequest;
@@ -6002,6 +6188,15 @@ export function readUpdateNotificationProviderProfileRequest(value: unknown): Up
 
 function isUpdateNotificationProviderProfileRequest(value: unknown): value is UpdateNotificationProviderProfileRequest {
   return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readUpdateNotificationQuotaPolicyRequest(value: unknown): UpdateNotificationQuotaPolicyRequest {
+  const normalizedValue = normalizeUpdateNotificationQuotaPolicyRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isUpdateNotificationQuotaPolicyRequest(normalizedValue), 'update_notification_quota_policy_request') as UpdateNotificationQuotaPolicyRequest;
+}
+
+function isUpdateNotificationQuotaPolicyRequest(value: unknown): value is UpdateNotificationQuotaPolicyRequest {
+  return isRecord(value) && (typeof value["maxCount"] === 'number' && Number.isSafeInteger(value["maxCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["windowSeconds"] === 'number' && Number.isSafeInteger(value["windowSeconds"]));
 }
 
 export function readUpdateNotificationTemplateRequest(value: unknown): UpdateNotificationTemplateRequest {
@@ -6581,6 +6776,25 @@ export function readK3cloudListConnectionConfigsResponse(value: unknown): Array<
   return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isK3CloudConnectionConfigResponse(item15)), 'k3cloud_list_connection_configs_response') as Array<K3CloudConnectionConfigResponse>;
 }
 
+export function readNotificationsGetDeliverySummaryResponse(value: unknown): Array<NotificationDeliverySummaryResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeNotificationDeliverySummaryResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isNotificationDeliverySummaryResponse(item15)), 'notifications_get_delivery_summary_response') as Array<NotificationDeliverySummaryResponse>;
+}
+
+export function readNotificationsGetQuotaOutstandingResponse(value: unknown): Array<NotificationQuotaOutstandingResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeNotificationQuotaOutstandingResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isNotificationQuotaOutstandingResponse(item15)), 'notifications_get_quota_outstanding_response') as Array<NotificationQuotaOutstandingResponse>;
+}
+
+export function readNotificationsListMyPreferenceChannelsResponse(value: unknown): Array<string> {
+  return requireValidResponse(value, Array.isArray(value) && value.every(item5 => typeof item5 === 'string'), 'notifications_list_my_preference_channels_response') as Array<string>;
+}
+
+export function readNotificationsListMyPreferencesResponse(value: unknown): Array<NotificationPreferenceResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeNotificationPreferenceResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isNotificationPreferenceResponse(item15)), 'notifications_list_my_preferences_response') as Array<NotificationPreferenceResponse>;
+}
+
 export function readNotificationsListMyRecipientEndpointsResponse(value: unknown): Array<RecipientEndpointResponse> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isRecipientEndpointResponse(item5)), 'notifications_list_my_recipient_endpoints_response') as Array<RecipientEndpointResponse>;
 }
@@ -7144,6 +7358,10 @@ function normalizeCreateNotificationBindingRequestIntegerJson(value: unknown): u
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "targets") ? { ["targets"]: (Array.isArray(value["targets"]) ? value["targets"].map((item16: unknown) => normalizeNotificationBindingTargetInputIntegerJson(item16)) : value["targets"]) } : {}) } : value);
 }
 
+function normalizeCreateNotificationQuotaPolicyRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxCount") ? { ["maxCount"]: normalizeWireInteger(value["maxCount"]) } : {}), ...(Object.hasOwn(value, "windowSeconds") ? { ["windowSeconds"]: normalizeWireInteger(value["windowSeconds"]) } : {}) } : value);
+}
+
 function normalizeCreateNotificationTemplateRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "parameterSchema") ? { ["parameterSchema"]: normalizeNotificationTemplateParameterSchemaIntegerJson(value["parameterSchema"]) } : {}) } : value);
 }
@@ -7613,7 +7831,7 @@ function normalizeNotificationBindingResponseIntegerJson(value: unknown): unknow
 }
 
 function normalizeNotificationBindingTargetInputIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "order") ? { ["order"]: normalizeWireInteger(value["order"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "condition") ? { ["condition"]: normalizeIntegerUnion(value["condition"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isNotificationBindingTargetConditionInput(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "order") ? { ["order"]: normalizeWireInteger(value["order"]) } : {}) } : value);
 }
 
 function normalizeNotificationDeliveryAttemptResponseIntegerJson(value: unknown): unknown {
@@ -7621,11 +7839,35 @@ function normalizeNotificationDeliveryAttemptResponseIntegerJson(value: unknown)
 }
 
 function normalizeNotificationDeliveryResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: (Array.isArray(value["attempts"]) ? value["attempts"].map((item17: unknown) => normalizeNotificationDeliveryAttemptResponseIntegerJson(item17)) : value["attempts"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: (Array.isArray(value["attempts"]) ? value["attempts"].map((item17: unknown) => normalizeNotificationDeliveryAttemptResponseIntegerJson(item17)) : value["attempts"]) } : {}), ...(Object.hasOwn(value, "preferenceVersion") ? { ["preferenceVersion"]: normalizeWireInteger(value["preferenceVersion"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeNotificationDeliverySummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "count") ? { ["count"]: normalizeWireInteger(value["count"]) } : {}) } : value);
+}
+
+function normalizeNotificationPreferenceResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeNotificationProducerSceneResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeNotificationProviderProfileResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeNotificationQuotaOutstandingResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "count") ? { ["count"]: normalizeWireInteger(value["count"]) } : {}) } : value);
+}
+
+function normalizeNotificationQuotaPolicyResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxCount") ? { ["maxCount"]: normalizeWireInteger(value["maxCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}), ...(Object.hasOwn(value, "windowSeconds") ? { ["windowSeconds"]: normalizeWireInteger(value["windowSeconds"]) } : {}) } : value);
+}
+
+function normalizeNotificationRevocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "crossedSendBoundary") ? { ["crossedSendBoundary"]: normalizeWireInteger(value["crossedSendBoundary"]) } : {}), ...(Object.hasOwn(value, "revokedInboxMessages") ? { ["revokedInboxMessages"]: normalizeWireInteger(value["revokedInboxMessages"]) } : {}), ...(Object.hasOwn(value, "stoppedDeliveries") ? { ["stoppedDeliveries"]: normalizeWireInteger(value["stoppedDeliveries"]) } : {}) } : value);
 }
 
 function normalizeNotificationTemplateParameterDefinitionIntegerJson(value: unknown): unknown {
@@ -7880,8 +8122,16 @@ function normalizePagedResultOfNotificationDeliveryResponseIntegerJson(value: un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeNotificationDeliveryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfNotificationProducerSceneResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeNotificationProducerSceneResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfNotificationProviderProfileResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeNotificationProviderProfileResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfNotificationQuotaPolicyResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeNotificationQuotaPolicyResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfNotificationTemplateResponseIntegerJson(value: unknown): unknown {
@@ -8112,6 +8362,10 @@ function normalizeReconcileAiAgentRunRequestIntegerJson(value: unknown): unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cachedInputTokens") ? { ["cachedInputTokens"]: normalizeWireInteger(value["cachedInputTokens"]) } : {}), ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}), ...(Object.hasOwn(value, "inputTokens") ? { ["inputTokens"]: normalizeWireInteger(value["inputTokens"]) } : {}), ...(Object.hasOwn(value, "outputTokens") ? { ["outputTokens"]: normalizeWireInteger(value["outputTokens"]) } : {}) } : value);
 }
 
+function normalizeReconcileNotificationDeliveryRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
 function normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
@@ -8232,6 +8486,10 @@ function normalizeRevokeAllHostUserSessionsResponseIntegerJson(value: unknown): 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revokedSessionCount") ? { ["revokedSessionCount"]: normalizeWireInteger(value["revokedSessionCount"]) } : {}) } : value);
 }
 
+function normalizeRevokeNotificationIntentRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
 function normalizeRollbackHostDocumentVersionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8292,7 +8550,15 @@ function normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value: unknown): un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeSetNotificationProducerSceneEnabledRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeSetNotificationProviderProfileEnabledRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetNotificationQuotaPolicyEnabledRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -8480,8 +8746,16 @@ function normalizeUpdateNotificationBindingRequestIntegerJson(value: unknown): u
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "targets") ? { ["targets"]: (Array.isArray(value["targets"]) ? value["targets"].map((item16: unknown) => normalizeNotificationBindingTargetInputIntegerJson(item16)) : value["targets"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeUpdateNotificationProducerSceneRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeUpdateNotificationProviderProfileRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeUpdateNotificationQuotaPolicyRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxCount") ? { ["maxCount"]: normalizeWireInteger(value["maxCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}), ...(Object.hasOwn(value, "windowSeconds") ? { ["windowSeconds"]: normalizeWireInteger(value["windowSeconds"]) } : {}) } : value);
 }
 
 function normalizeUpdateNotificationTemplateRequestIntegerJson(value: unknown): unknown {

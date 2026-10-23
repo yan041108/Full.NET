@@ -11,6 +11,8 @@ using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
@@ -264,6 +266,53 @@ internal sealed class FullNetApiFactory(
             await scope.ServiceProvider
                 .GetRequiredService<HostNavigationCatalogSyncService>()
                 .SyncMissingCatalogEntriesAsync(cancellationToken);
+
+            await SeedNotificationQuotaBaselineAsync(
+                    bootstrap.Value!.UserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    /// <summary>
+    /// 为测试宿主声明覆盖四个维度的基线通配发送配额。
+    /// </summary>
+    /// <param name="actorUserId">写入可见审计的宿主管理员标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <remarks>
+    /// 发送链路在任一配额维度缺失启用声明时失败关闭，因此测试宿主必须先具备基线有界额度；
+    /// 单个用例仍可通过停用某个维度政策或声明更小上限来显式观察失败关闭与配额阻塞。
+    /// 上限保持有限值而不是“无限制”，避免测试掩盖无界并发的缺陷。
+    /// </remarks>
+    private async Task SeedNotificationQuotaBaselineAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var now = DateTimeOffset.UtcNow;
+            foreach (var dimension in NotificationQuotaDimensions.All.OrderBy(item => item, StringComparer.Ordinal))
+            {
+                await command.ExecuteAsync(
+                    NotificationPlatformSql.InsertQuotaPolicyHost,
+                    NotificationPlatformSqlParameters.Create(
+                        ("Id", Guid.CreateVersion7()),
+                        ("DimensionKey", dimension),
+                        ("DimensionValue", NotificationQuotaDimensions.WildcardValue),
+                        ("WindowSeconds", 60),
+                        ("MaxCount", 10000),
+                        ("CreatedById", actorUserId),
+                        ("Now", now)),
+                    cancellationToken);
+            }
         }
         finally
         {

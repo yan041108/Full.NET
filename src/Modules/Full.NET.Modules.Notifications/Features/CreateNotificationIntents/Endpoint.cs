@@ -74,6 +74,15 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(NotificationPlatformPermissions.IntentsRead));
+
+        group.MapPost("/{intentId:guid}/revoke", async (Guid intentId, RevokeNotificationIntentRequest request,
+            NotificationLifecycleService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.RevokeAsync(actor, intentId, request, token).ConfigureAwait(false), context);
+        }).WithName("notificationsRevokeIntent").Produces<NotificationRevocationResponse>()
+        .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+        .RequireAuthorization(FullNetPermissionPolicies.For(NotificationPlatformPermissions.IntentsRevoke));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

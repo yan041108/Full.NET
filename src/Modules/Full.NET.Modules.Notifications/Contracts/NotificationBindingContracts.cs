@@ -1,12 +1,24 @@
 namespace Full.NET.Modules.Notifications.Contracts;
 
+/// <summary>绑定草稿中的受控声明式条件；只允许比较模板参数快照，禁止脚本。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="ParameterName">模板参数名称。</param>
+/// <param name="OperatorKey">受控操作符：<c>equals</c>、<c>not_equals</c> 或 <c>exists</c>。</param>
+/// <param name="ExpectedValue">比较值；<c>exists</c> 可为空。</param>
+public sealed record NotificationBindingTargetConditionInput(
+    string ParameterName,
+    string OperatorKey,
+    string? ExpectedValue = null);
+
 /// <summary>绑定草稿中的显式 Profile 目标；优先级由 Order 决定。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ProfileKey">绑定目标 Profile 的稳定键；发布后不可改名。</param>
 /// <param name="Order">同一绑定内多个 Profile 的派发优先级；数值越小越优先。</param>
+/// <param name="Condition">Match 模式使用的受控声明式条件；其他模式会随快照保留但不执行。</param>
 public sealed record NotificationBindingTargetInput(
     string ProfileKey,
-    int Order);
+    int Order,
+    NotificationBindingTargetConditionInput? Condition = null);
 
 /// <summary>创建场景绑定草稿；Enabled Profile 不会自动进入目标列表。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

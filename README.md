@@ -37,6 +37,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 ## 快速开始
 
+首次使用或工具异常时先运行 `pnpm run doctor --profile full`；仅检查前端可用 `--profile frontend`。pnpm 无法使用时运行 `node scripts/doctor.mjs --profile full`。自检只诊断环境，不启动服务或改动依赖。Microsoft Learn MCP 与故障排查、前端验收的项目路由见 [AI 工作流](docs/development/ai-workflow.md)。
+
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release

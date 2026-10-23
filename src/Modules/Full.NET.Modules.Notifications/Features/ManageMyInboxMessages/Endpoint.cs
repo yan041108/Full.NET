@@ -28,6 +28,9 @@ internal static class Endpoint
             int? pageSize,
             string? title,
             string? status,
+            bool? archived,
+            string? producerKey,
+            string? sceneKey,
             MyInboxQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -42,7 +45,7 @@ internal static class Endpoint
                     userId,
                     page ?? 1,
                     pageSize ?? 20,
-                    new InboxMessageListFilter(title, status),
+                    new InboxMessageListFilter(title, status, archived ?? false, producerKey, sceneKey),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -146,6 +149,24 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.MarkAllRead));
+
+        group.MapPost("/{messageId:guid}/archive", async (Guid messageId,
+            MyInboxManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var userId)) return Results.Unauthorized();
+            return mapper.Map(await service.ArchiveAsync(userId, [messageId], token).ConfigureAwait(false), context);
+        }).WithName("notificationsArchiveMyInboxMessage")
+        .Produces<InboxUnreadCountResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403)
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Archive));
+
+        group.MapPost("/archive-batch", async (ArchiveInboxMessagesRequest request,
+            MyInboxManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var userId)) return Results.Unauthorized();
+            return mapper.Map(await service.ArchiveAsync(userId, request.MessageIds, token).ConfigureAwait(false), context);
+        }).WithName("notificationsArchiveMyInboxMessages")
+        .Produces<InboxUnreadCountResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403)
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.ArchiveBatch));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

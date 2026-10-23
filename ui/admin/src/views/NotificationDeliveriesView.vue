@@ -7,6 +7,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn,
@@ -26,9 +27,13 @@ import { useArtPagedTableInCard } from '../framework/art-design/composables/useA
 import {
   getNotificationDelivery,
   listNotificationDeliveries,
-  retryNotificationDelivery
+  retryNotificationDelivery,
+  getNotificationDeliverySummary,
+  reconcileNotificationDelivery,
+  deadLetterNotificationDelivery
 } from '../api/notification-platform';
-import { getNotificationIntent } from '../api/notification-intents';
+import { getNotificationIntent, revokeNotificationIntent } from '../api/notification-intents';
+import { useSessionStore } from '../auth/session';
 
 const statusKeys = [
   'persisted',
@@ -38,13 +43,21 @@ const statusKeys = [
   'unknown',
   'read',
   'failed',
-  'dead_lettered'
+  'dead_lettered',
+  'suppressed'
 ] as const;
 
 type DeliveryStatusKey = typeof statusKeys[number];
 
-/** Unknown 不是成功；死信没有独立 HTTP Endpoint，失败/死信/未知共用人工重试。 */
+/** Unknown 保留待对账语义；人工重试、转死信与业务撤回使用各自精确权限。 */
 const { t, locale } = useAdminI18n();
+const session = useSessionStore();
+const intentRevision = ref<number>();
+const intentLookupId = ref('');
+const loadedIntentId = ref<string>();
+const revocationResult = ref('');
+const summary = ref<Array<{ channelKey: string; providerTypeKey: string; statusKey: string; count: number; receiptModeKey: string; oldestCreatedAtUtc: string }>>([]);
+const summaryUnavailable = ref(false);
 const items = ref<NotificationDeliveryResponse[]>([]);
 const selectedId = ref<string>();
 const selected = ref<NotificationDeliveryResponse>();
@@ -78,7 +91,13 @@ const retryRules = computed<FormRules>(() => {
   };
 });
 
-onMounted(load);
+onMounted(() => { void load(); void loadSummary(); });
+
+async function loadSummary(): Promise<void> {
+  if (!session.can('notifications.deliveries.read')) return;
+  try { summary.value = [...await getNotificationDeliverySummary()]; summaryUnavailable.value = false; }
+  catch { summaryUnavailable.value = true; }
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -102,12 +121,19 @@ async function selectItem(item: NotificationDeliveryResponse): Promise<void> {
   detailLoading.value = true;
   problem.value = undefined;
   attachmentCount.value = null;
+  intentRevision.value = undefined;
+  loadedIntentId.value = undefined;
+  revocationResult.value = '';
   retryForm.reason = '';
   retryFormRef.value?.clearValidate();
   try {
     selected.value = await getNotificationDelivery(item.id);
-    const intent = await getNotificationIntent(item.intentId);
-    attachmentCount.value = intent.attachments.length;
+    if (session.can('notifications.intents.read')) {
+      const intent = await getNotificationIntent(item.intentId);
+      attachmentCount.value = intent.attachments.length;
+      intentRevision.value = intent.revision;
+      loadedIntentId.value = intent.id;
+    }
   } catch (error: unknown) {
     selected.value = undefined;
     problem.value = toProblem(error);
@@ -116,8 +142,70 @@ async function selectItem(item: NotificationDeliveryResponse): Promise<void> {
   }
 }
 
+async function revokeIntent(): Promise<void> {
+  if (!loadedIntentId.value || intentRevision.value === undefined || changing.value || !session.can('notifications.intents.revoke')) return;
+  const intentId = loadedIntentId.value;
+  const revision = intentRevision.value;
+  const answer = await ElMessageBox.prompt(t('notificationDeliveries.revokePrompt'), t('notificationDeliveries.revoke'), {
+    inputValidator: (value: string) => value.trim().length > 0 && value.trim().length <= 128
+  }).catch(() => undefined);
+  if (!answer || !session.can('notifications.intents.revoke') || loadedIntentId.value !== intentId) return;
+  changing.value = true;
+  try {
+    const result = await revokeNotificationIntent(intentId, revision, answer.value.trim());
+    revocationResult.value = t('notificationDeliveries.revokedResult', { count: result.crossedSendBoundary });
+    intentRevision.value = undefined;
+    await load();
+  } catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
+}
+
+async function loadIntentForRevocation(): Promise<void> {
+  if (changing.value || !session.can('notifications.intents.read') || !session.can('notifications.intents.revoke')) return;
+  const id = intentLookupId.value.trim();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  changing.value = true;
+  intentRevision.value = undefined;
+  loadedIntentId.value = undefined;
+  try {
+    const intent = await getNotificationIntent(id);
+    loadedIntentId.value = intent.id;
+    intentRevision.value = intent.statusKey === 'revoked' ? undefined : intent.revision;
+  } catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
+}
+
 function canRetryStatus(statusKey: string): boolean {
-  return statusKey === 'failed' || statusKey === 'dead_lettered' || statusKey === 'unknown';
+  return statusKey === 'failed' || statusKey === 'dead_lettered';
+}
+
+async function deadLetter(): Promise<void> {
+  const row = selected.value;
+  if (!row || changing.value || !session.can('notifications.deliveries.dead_letter')) return;
+  const answer = await ElMessageBox.prompt(t('notificationDeliveries.deadLetterPrompt'), t('notificationDeliveries.deadLetter'), {
+    inputValidator: (value: string) => value.trim().length > 0 && value.trim().length <= 128
+  }).catch(() => undefined);
+  if (!answer || !session.can('notifications.deliveries.dead_letter') || selected.value?.id !== row.id) return;
+  changing.value = true;
+  try { selected.value = await deadLetterNotificationDelivery(row.id, row.revision, answer.value.trim()); await load(); await loadSummary(); }
+  catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
+}
+
+async function reconcile(outcomeKey: 'confirmed_accepted' | 'confirmed_not_called'): Promise<void> {
+  const row = selected.value;
+  if (!row || changing.value || !session.can('notifications.deliveries.reconcile')) return;
+  const answer = await ElMessageBox.prompt(t('notificationDeliveries.reconcilePrompt'),
+    t(outcomeKey === 'confirmed_accepted' ? 'notificationDeliveries.confirmCalled' : 'notificationDeliveries.confirmNotCalled'), {
+      inputValidator: (value: string) => value.trim().length > 0 && value.trim().length <= 128
+    }).catch(() => undefined);
+  if (!answer || !session.can('notifications.deliveries.reconcile') || selected.value?.id !== row.id) return;
+  changing.value = true;
+  try {
+    selected.value = await reconcileNotificationDelivery(row.id, row.revision, outcomeKey, answer.value.trim());
+    await load(); await loadSummary();
+  } catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
 }
 
 async function validateRetryForm(): Promise<boolean> {
@@ -257,6 +345,28 @@ function toProblem(
   <section class="notification-deliveries-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('notificationDeliveries.title') }}</h1>
     <p class="art-sr-heading">{{ t('notificationDeliveries.description') }}</p>
+    <ElCard>
+      <h2>{{ t('notificationDeliveries.summary') }}</h2>
+      <p v-if="revocationResult" role="status">{{ revocationResult }}</p>
+      <ElButton @click="loadSummary">{{ t('notificationDeliveries.refreshSummary') }}</ElButton>
+      <p v-if="summaryUnavailable" role="status">{{ t('notificationDeliveries.summaryUnavailable') }}</p>
+      <ElTable :data="summary">
+        <ElTableColumn prop="channelKey" :label="t('notificationDeliveries.fieldChannel')" />
+        <ElTableColumn prop="providerTypeKey" :label="t('notificationDeliveries.provider')" />
+        <ElTableColumn :label="t('notificationDeliveries.fieldStatus')"><template #default="{ row }">{{ statusLabel(row.statusKey) }}</template></ElTableColumn>
+        <ElTableColumn prop="count" :label="t('notificationDeliveries.count')" />
+        <ElTableColumn prop="oldestCreatedAtUtc" :label="t('notificationDeliveries.oldest')" />
+        <ElTableColumn prop="receiptModeKey" :label="t('notificationDeliveries.receiptCoverage')" />
+      </ElTable>
+      <p>{{ t('notificationDeliveries.receiptCoverageHint') }}</p>
+      <PermissionGate code="notifications.intents.read">
+        <PermissionGate code="notifications.intents.revoke">
+          <ElInput v-model="intentLookupId" :placeholder="t('notificationDeliveries.intentLookup')" />
+          <ElButton :disabled="changing" @click="loadIntentForRevocation">{{ t('notificationDeliveries.loadIntent') }}</ElButton>
+          <ElButton :disabled="changing || intentRevision === undefined" @click="revokeIntent">{{ t('notificationDeliveries.revoke') }}</ElButton>
+        </PermissionGate>
+      </PermissionGate>
+    </ElCard>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -356,6 +466,18 @@ function toProblem(
         </p>
 
         <div v-else-if="selected" class="notification-deliveries-detail__body">
+          <p v-if="revocationResult" role="status">{{ revocationResult }}</p>
+          <PermissionGate v-if="intentRevision !== undefined" code="notifications.intents.revoke">
+            <ElButton :disabled="changing" @click="revokeIntent">{{ t('notificationDeliveries.revoke') }}</ElButton>
+          </PermissionGate>
+          <PermissionGate v-if="selected.statusKey === 'unknown' || selected.statusKey === 'failed'" code="notifications.deliveries.dead_letter">
+            <ElButton :disabled="changing" @click="deadLetter">{{ t('notificationDeliveries.deadLetter') }}</ElButton>
+          </PermissionGate>
+          <PermissionGate v-if="selected.statusKey === 'unknown' || selected.statusKey === 'dead_lettered'" code="notifications.deliveries.reconcile">
+            <ElButton data-testid="notification-reconcile-accepted" :disabled="changing" @click="reconcile('confirmed_accepted')">{{ t('notificationDeliveries.confirmCalled') }}</ElButton>
+            <ElButton data-testid="notification-reconcile-not-called" :disabled="changing" @click="reconcile('confirmed_not_called')">{{ t('notificationDeliveries.confirmNotCalled') }}</ElButton>
+          </PermissionGate>
+          <p v-if="selected.suppressionReasonCode" translate="no">{{ selected.suppressionReasonCode }}</p>
           <dl class="notification-deliveries-detail__meta">
             <div>
               <dt>{{ t('notificationDeliveries.fieldStatus') }}</dt>

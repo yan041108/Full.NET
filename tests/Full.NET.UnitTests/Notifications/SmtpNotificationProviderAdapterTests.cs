@@ -103,6 +103,7 @@ public sealed class SmtpNotificationProviderAdapterTests
     [DataRow((int)SmtpTransportFailureKind.Permanent, "permanent")]
     [DataRow((int)SmtpTransportFailureKind.Transient, "transient")]
     [DataRow((int)SmtpTransportFailureKind.RateLimited, "rate_limited")]
+    [DataRow((int)SmtpTransportFailureKind.Unknown, "unknown")]
     public async Task Transport_failures_are_classified(
         int failureKind,
         string expectedCategory)
@@ -164,7 +165,7 @@ public sealed class SmtpNotificationProviderAdapterTests
             SmtpTransportFailureKind.Transient,
             MailKitSmtpTransport.ClassifyProtocolFailure(SmtpTransportStage.Connect));
         Assert.AreEqual(
-            SmtpTransportFailureKind.Transient,
+            SmtpTransportFailureKind.Unknown,
             MailKitSmtpTransport.ClassifyProtocolFailure(SmtpTransportStage.Send));
     }
 

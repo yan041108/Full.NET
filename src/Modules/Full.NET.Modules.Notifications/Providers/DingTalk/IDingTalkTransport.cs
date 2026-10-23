@@ -72,9 +72,10 @@ internal sealed record DingTalkProcessInstanceSnapshot(
 /// <summary>钉钉传输失败分类；Adapter 映射为 Worker 重试语义。</summary>
 internal enum DingTalkTransportFailureKind
 {
-    Permanent,
-    Transient,
-    RateLimited,
+    Permanent = 0,
+    Transient = 1,
+    RateLimited = 2,
+    Unknown = 3,
 }
 
 /// <summary>分类后的钉钉传输异常。</summary>

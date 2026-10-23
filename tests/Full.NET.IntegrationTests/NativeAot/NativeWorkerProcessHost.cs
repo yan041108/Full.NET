@@ -27,6 +27,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         "Files cleanup iteration failed",
         "Files upload reconciliation iteration failed",
         "Files reference claim reconciliation iteration failed",
+        "Notification delivery worker iteration failed",
+        "Notification delivery backlog sampling failed",
         "DataApproval request recovery worker iteration failed",
         "DataApproval application recovery worker iteration failed",
     ];

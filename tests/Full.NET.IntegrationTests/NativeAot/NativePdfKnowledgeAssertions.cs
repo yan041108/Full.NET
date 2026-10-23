@@ -244,7 +244,11 @@ internal static class NativePdfKnowledgeAssertions
             {
                 var state = await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = task });
                 if (state == "completed") break;
-                Assert.AreNotEqual("failed", state, await File.ReadAllTextAsync(worker.LogFilePath, cancellation));
+                var failure = state == "failed"
+                    ? await db.QuerySingleAsync<string?>("SELECT FailureCode FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = task })
+                    : null;
+                Assert.AreNotEqual("failed", state, $"任务失败码：{failure}；原生进程日志：{worker.LogFilePath}\n"
+                    + await File.ReadAllTextAsync(worker.LogFilePath, cancellation));
                 deadline.Token.ThrowIfCancellationRequested(); await Task.Delay(250, deadline.Token);
             }
             await ReadReady(b);

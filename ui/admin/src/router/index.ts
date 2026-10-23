@@ -461,8 +461,25 @@ export function createAppRouter(
         component: () => import('../views/NotificationDeliveriesView.vue')
       },
       {
+        name: 'notification-producer-scenes',
+        path: '/notifications/producer-scenes',
+        component: () => import('../views/NotificationGovernanceView.vue'),
+        props: { kind: 'scenes' }
+      },
+      {
+        name: 'notification-quotas',
+        path: '/notifications/quotas',
+        component: () => import('../views/NotificationGovernanceView.vue'),
+        props: { kind: 'quotas' }
+      },
+      {
         name: 'notification-preferences',
         path: '/notifications/preferences',
+        component: () => import('../views/NotificationSendingPreferencesView.vue')
+      },
+      {
+        name: 'notification-recipient-endpoints',
+        path: '/notifications/recipient-endpoints',
         component: () => import('../views/NotificationPreferencesView.vue')
       },
       {

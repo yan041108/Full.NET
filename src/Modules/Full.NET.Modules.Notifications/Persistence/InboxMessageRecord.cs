@@ -28,4 +28,16 @@ internal sealed class InboxMessageRecord
     public string TenantScopeKey { get; set; } = string.Empty;
 
     public Guid? IntentId { get; set; }
+
+    public DateTimeOffset? ArchivedAtUtc { get; set; }
+
+    public DateTimeOffset? RevokedAtUtc { get; set; }
+
+    public string? RevocationReason { get; set; }
+
+    public string? DeepLinkJson { get; set; }
+
+    public string? ProducerKey { get; set; }
+
+    public string? SceneKey { get; set; }
 }

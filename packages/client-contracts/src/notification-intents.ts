@@ -26,6 +26,7 @@ export interface NotificationIntentResponse {
   recipients: NotificationIntentRecipient[];
   attachments: NotificationIntentAttachment[];
   createdAtUtc: string;
+  revision?: number;
 }
 
 export interface CreateNotificationIntentRequest {
@@ -36,6 +37,8 @@ export interface CreateNotificationIntentRequest {
   parameters: Record<string, string | number | boolean>;
   idempotencyKey: string;
   attachmentFileIds?: string[];
+  expiresAtUtc?: string;
+  deepLink?: { resourceTypeKey: 'workflow_todo' | 'workflow_instance'; resourceId: string };
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

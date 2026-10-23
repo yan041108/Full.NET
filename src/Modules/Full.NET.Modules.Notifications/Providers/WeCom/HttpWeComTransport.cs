@@ -93,7 +93,7 @@ internal sealed class HttpWeComTransport(IHttpClientFactory httpClientFactory) :
         catch (HttpRequestException)
         {
             throw new WeComTransportException(
-                WeComTransportFailureKind.Transient,
+                WeComTransportFailureKind.Unknown,
                 "The WeCom message endpoint could not be reached.");
         }
 
@@ -103,7 +103,8 @@ internal sealed class HttpWeComTransport(IHttpClientFactory httpClientFactory) :
             if (!response.IsSuccessStatusCode)
             {
                 throw new WeComTransportException(
-                    ClassifyHttpStatus(response.StatusCode),
+                    response.StatusCode >= System.Net.HttpStatusCode.InternalServerError
+                        ? WeComTransportFailureKind.Unknown : ClassifyHttpStatus(response.StatusCode),
                     "The WeCom message endpoint returned an error response.");
             }
 
@@ -175,12 +176,12 @@ internal sealed class HttpWeComTransport(IHttpClientFactory httpClientFactory) :
                 return msgId;
             }
 
-            return Guid.NewGuid().ToString("N");
+            return string.Empty;
         }
         catch (JsonException)
         {
             throw new WeComTransportException(
-                WeComTransportFailureKind.Transient,
+                WeComTransportFailureKind.Unknown,
                 "The WeCom message response was invalid.");
         }
     }

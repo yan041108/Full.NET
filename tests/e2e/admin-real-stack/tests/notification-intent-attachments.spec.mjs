@@ -36,6 +36,46 @@ async function requireRegisteredEmailChannel(request, token, origin) {
   );
 }
 
+// 受控 Producer/Scene 目录是分类与合法渠道的唯一权威，缺失声明时受理失败关闭；
+// 因此用例必须先按当前环境实际注册的渠道声明目录项，重复运行保持幂等。
+async function ensureAttachmentsProducerScene(request, token, origin) {
+  const headers = authHeaders(token, origin);
+  const listResponse = await request.get(
+    `${apiBaseUrl}/api/v1/notifications/producer-scenes?page=1&pageSize=100`,
+    { headers }
+  );
+  expect(listResponse.ok()).toBeTruthy();
+  const page = await listResponse.json();
+  if (page.items?.some(
+    item => item.producerKey === 'e2e.notifications' && item.sceneKey === 'e2e.attachments'
+  )) {
+    return;
+  }
+
+  const providerTypesResponse = await request.get(`${apiBaseUrl}/api/v1/notifications/provider-types`, {
+    headers
+  });
+  expect(providerTypesResponse.ok()).toBeTruthy();
+  const providerTypes = await providerTypesResponse.json();
+  const allowedChannelKeys = [
+    'inbox',
+    ...(providerTypes.some(provider => provider.supportedChannelKeys?.includes('email'))
+      ? ['email']
+      : [])
+  ];
+  const response = await request.post(`${apiBaseUrl}/api/v1/notifications/producer-scenes`, {
+    headers,
+    data: {
+      producerKey: 'e2e.notifications',
+      sceneKey: 'e2e.attachments',
+      policyCategoryKey: 'transactional',
+      allowedChannelKeys,
+      emergencyOverrideAllowed: false
+    }
+  });
+  expect(response.status()).toBe(201);
+}
+
 async function createTemplate(request, headers, templateKey, channelKey) {
   const response = await request.post(`${apiBaseUrl}/api/v1/notifications/templates`, {
     headers,
@@ -82,6 +122,7 @@ test('Inbox Intent 拒绝附件引用（清单 43）', async ({ request }, testI
   const token = await loginHostAdminAccessToken(request, clientKind);
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
+  await ensureAttachmentsProducerScene(request, token, origin);
   const templateKey = `e2e.inbox.attach.${stamp}`.slice(0, 32);
   const template = await createTemplate(request, headers, templateKey, 'inbox');
   await publishTemplate(request, headers, template);
@@ -108,6 +149,7 @@ test('Email Intent 可绑定 Files 引用附件（清单 43 API）', async ({ re
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
   await requireRegisteredEmailChannel(request, token, origin);
+  await ensureAttachmentsProducerScene(request, token, origin);
   const templateKey = `e2e.email.attach.${stamp}`.slice(0, 32);
   const template = await createTemplate(request, headers, templateKey, 'email');
   await publishTemplate(request, headers, template);
@@ -144,6 +186,7 @@ test('Email Intent 拒绝不允许的附件扩展名（清单 43）', async ({ r
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
   await requireRegisteredEmailChannel(request, token, origin);
+  await ensureAttachmentsProducerScene(request, token, origin);
   const templateKey = `e2e.email.bad.${stamp}`.slice(0, 32);
   const template = await createTemplate(request, headers, templateKey, 'email');
   await publishTemplate(request, headers, template);

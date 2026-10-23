@@ -18,6 +18,9 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
 
     public string? RecipientEndpointKindKey => null;
 
+    // 测试 Adapter 由 Harness 显式声明是否具备幂等重发能力，用于验证两种未知结果处置。
+    public bool AllowsAutomaticRetryAfterUnknownResult => harness.AllowsAutomaticRetryAfterUnknownResult;
+
     public NotificationProviderTypeDescriptor Descriptor { get; } = new(
         ProviderTypeKeyValue,
         AdapterVersionValue,
@@ -37,6 +40,10 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
         cancellationToken.ThrowIfCancellationRequested();
         using var activeSend = harness.EnterSend();
         harness.Record(request);
+        if (harness.OnSendAsync is { } onSendAsync)
+        {
+            await onSendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
         switch (harness.Mode)
         {
             case TestNotificationProviderMode.Slow:
@@ -62,6 +69,12 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
                     NotificationDeliveryRetry.Permanent,
                     null,
                     null);
+            case TestNotificationProviderMode.Unknown:
+                return new NotificationProviderResult(
+                    false,
+                    NotificationDeliveryRetry.Unknown,
+                    $"test-msg-{request.IdempotencyKey}",
+                    null);
             default:
                 return Succeed(request);
         }
@@ -84,6 +97,8 @@ internal sealed class TestEndpointNotificationProvider(TestEndpointNotificationP
     public const string EndpointKindKey = "email";
 
     public string? RecipientEndpointKindKey => EndpointKindKey;
+
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
 
     public NotificationProviderTypeDescriptor Descriptor { get; } = new(
         ProviderTypeKeyValue,
@@ -131,6 +146,7 @@ internal enum TestNotificationProviderMode
     Transient,
     RateLimited,
     Permanent,
+    Unknown,
     Slow,
     Crash,
 }
@@ -139,6 +155,7 @@ internal enum TestNotificationProviderMode
 internal sealed class TestNotificationProviderHarness
 {
     private readonly ConcurrentBag<string> _idempotencyKeys = [];
+    private readonly ConcurrentBag<(Guid DeliveryId, string Key)> _keysByDelivery = [];
     private int _active;
     private int _peak;
 
@@ -160,6 +177,9 @@ internal sealed class TestNotificationProviderHarness
 
     public TestNotificationProviderMode Mode { get; set; } = TestNotificationProviderMode.Succeed;
 
+    /// <summary>测试中显式声明“厂商可按幂等键去重”，用于覆盖结果未知时的自动重试分支。</summary>
+    public bool AllowsAutomaticRetryAfterUnknownResult { get; set; }
+
     public TimeSpan SlowDelay { get; set; } = TimeSpan.FromMilliseconds(800);
 
     public TimeSpan RetryAfter { get; set; } = TimeSpan.FromSeconds(30);
@@ -168,11 +188,19 @@ internal sealed class TestNotificationProviderHarness
 
     public IReadOnlyCollection<string> IdempotencyKeys => _idempotencyKeys.ToArray();
 
+    /// <summary>按投递取已发送的幂等键，用于验证崩溃恢复与人工重试沿用同一键。</summary>
+    public IReadOnlyCollection<string> IdempotencyKeysFor(Guid deliveryId) =>
+        _keysByDelivery.Where(item => item.DeliveryId == deliveryId).Select(item => item.Key).ToArray();
+
     public Action? OnSend { get; set; }
+
+    /// <summary>用受控信号保持厂商调用进行中，验证数据库事务不会随外发持续占用。</summary>
+    public Func<NotificationProviderRequest, CancellationToken, Task>? OnSendAsync { get; set; }
 
     public void Record(NotificationProviderRequest request)
     {
         _idempotencyKeys.Add(request.IdempotencyKey);
+        _keysByDelivery.Add((request.DeliveryId, request.IdempotencyKey));
         OnSend?.Invoke();
     }
 
@@ -182,7 +210,12 @@ internal sealed class TestNotificationProviderHarness
         Volatile.Write(ref _peak, 0);
         Mode = mode;
         OnSend = null;
+        OnSendAsync = null;
         while (_idempotencyKeys.TryTake(out _))
+        {
+        }
+
+        while (_keysByDelivery.TryTake(out _))
         {
         }
     }

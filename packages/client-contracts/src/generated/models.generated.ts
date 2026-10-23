@@ -674,6 +674,10 @@ export interface ApproveAiMcpRemoteToolRequest {
   readonly sideEffectKey: string;
 }
 
+export interface ArchiveInboxMessagesRequest {
+  readonly messageIds: Array<string>;
+}
+
 export interface AskAiKnowledgeRequest {
   readonly embeddingModelConfigId: string;
   readonly knowledgeBaseIds: Array<string>;
@@ -1514,11 +1518,26 @@ export interface CreateNotificationBindingRequest {
   readonly targets: Array<NotificationBindingTargetInput>;
 }
 
+export interface CreateNotificationProducerSceneRequest {
+  readonly allowedChannelKeys: Array<string>;
+  readonly emergencyOverrideAllowed: boolean;
+  readonly policyCategoryKey: string;
+  readonly producerKey: string;
+  readonly sceneKey: string;
+}
+
 export interface CreateNotificationProviderProfileRequest {
   readonly nonSecretConfig: JsonElement;
   readonly profileKey: string;
   readonly providerTypeKey: string;
   readonly secretReference: null | string;
+}
+
+export interface CreateNotificationQuotaPolicyRequest {
+  readonly dimensionKey: string;
+  readonly dimensionValue: string;
+  readonly maxCount: number;
+  readonly windowSeconds: number;
 }
 
 export interface CreateNotificationTemplateRequest {
@@ -2836,11 +2855,17 @@ export interface ImportOrganizationPositionsResponse {
 }
 
 export interface InboxMessageResponse {
+  readonly archivedAtUtc?: null | string;
   readonly content: string;
   readonly createdAtUtc: string;
   readonly createdByUserId: null | string;
+  readonly deepLink?: null | NotificationDeepLink;
   readonly id: string;
+  readonly producerKey?: null | string;
   readonly readAtUtc: null | string;
+  readonly revocationReason?: null | string;
+  readonly revokedAtUtc?: null | string;
+  readonly sceneKey?: null | string;
   readonly status: string;
   readonly title: string;
 }
@@ -3021,9 +3046,21 @@ export interface NotificationBindingResponse {
   readonly version: number;
 }
 
+export interface NotificationBindingTargetConditionInput {
+  readonly expectedValue?: null | string;
+  readonly operatorKey: string;
+  readonly parameterName: string;
+}
+
 export interface NotificationBindingTargetInput {
+  readonly condition?: null | NotificationBindingTargetConditionInput;
   readonly order: number;
   readonly profileKey: string;
+}
+
+export interface NotificationDeepLink {
+  readonly resourceId: string;
+  readonly resourceTypeKey: string;
 }
 
 export interface NotificationDeliveryAttemptResponse {
@@ -3056,12 +3093,48 @@ export interface NotificationDeliveryResponse {
   readonly id: string;
   readonly intentId: string;
   readonly nextAttemptAtUtc: null | string;
+  readonly policyDecisionKey?: null | string;
+  readonly preferenceVersion?: null | number;
   readonly providerProfileVersionId: null | string;
   readonly receipts: Array<NotificationDeliveryReceiptResponse>;
   readonly recipientId: string;
   readonly revision: number;
   readonly statusKey: string;
+  readonly suppressionReasonCode?: null | string;
   readonly updatedAtUtc: null | string;
+}
+
+export interface NotificationDeliverySummaryResponse {
+  readonly channelKey: string;
+  readonly count: number;
+  readonly oldestCreatedAtUtc: string;
+  readonly providerTypeKey: string;
+  readonly receiptModeKey: string;
+  readonly statusKey: string;
+}
+
+export interface NotificationPreferenceResponse {
+  readonly channelKey: string;
+  readonly channelOptedOut: boolean;
+  readonly id: string;
+  readonly marketingConsentGranted: boolean;
+  readonly quietHoursJson: null | string;
+  readonly updatedAtUtc: string;
+  readonly userId: string;
+  readonly version: number;
+}
+
+export interface NotificationProducerSceneResponse {
+  readonly allowedChannelKeys: Array<string>;
+  readonly createdAtUtc: string;
+  readonly emergencyOverrideAllowed: boolean;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly policyCategoryKey: string;
+  readonly producerKey: string;
+  readonly sceneKey: string;
+  readonly updatedAtUtc: string;
+  readonly version: number;
 }
 
 export interface NotificationProviderConfigField {
@@ -3094,6 +3167,30 @@ export interface NotificationProviderTypeDescriptor {
   readonly secretFieldKeys: Array<string>;
   readonly supportedChannelKeys: Array<string>;
   readonly supportsNativeAot: boolean;
+}
+
+export interface NotificationQuotaOutstandingResponse {
+  readonly count: number;
+  readonly dimensionKey: string;
+  readonly stateKey: string;
+}
+
+export interface NotificationQuotaPolicyResponse {
+  readonly createdAtUtc: string;
+  readonly dimensionKey: string;
+  readonly dimensionValue: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly maxCount: number;
+  readonly updatedAtUtc: string;
+  readonly version: number;
+  readonly windowSeconds: number;
+}
+
+export interface NotificationRevocationResponse {
+  readonly crossedSendBoundary: number;
+  readonly revokedInboxMessages: number;
+  readonly stoppedDeliveries: number;
 }
 
 export interface NotificationTemplateBody {
@@ -3643,8 +3740,22 @@ export interface PagedResultOfNotificationDeliveryResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfNotificationProducerSceneResponse {
+  readonly items: Array<NotificationProducerSceneResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfNotificationProviderProfileResponse {
   readonly items: Array<NotificationProviderProfileResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfNotificationQuotaPolicyResponse {
+  readonly items: Array<NotificationQuotaPolicyResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -4175,6 +4286,12 @@ export interface ReconcileAiAgentRunRequest {
   readonly outputTokens?: null | number;
 }
 
+export interface ReconcileNotificationDeliveryRequest {
+  readonly evidenceReference: string;
+  readonly outcomeKey: string;
+  readonly revision: number;
+}
+
 export interface ReconcileWorkflowRecoveryTaskRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -4481,6 +4598,11 @@ export interface RevokeAllHostUserSessionsResponse {
   readonly username: string;
 }
 
+export interface RevokeNotificationIntentRequest {
+  readonly reason: string;
+  readonly revision: number;
+}
+
 export interface RevokeSuperAdministratorRequest {
   readonly currentPassword: string;
   readonly totpCode?: null | string;
@@ -4658,7 +4780,17 @@ export interface SetHostDocumentPermissionsRequest {
   readonly permissions: Array<HostDocumentPermissionEntry>;
 }
 
+export interface SetNotificationProducerSceneEnabledRequest {
+  readonly isEnabled: boolean;
+  readonly version: number;
+}
+
 export interface SetNotificationProviderProfileEnabledRequest {
+  readonly version: number;
+}
+
+export interface SetNotificationQuotaPolicyEnabledRequest {
+  readonly isEnabled: boolean;
   readonly version: number;
 }
 
@@ -5131,6 +5263,13 @@ export interface UpdateLocaleRequest {
   readonly profileVersion: number;
 }
 
+export interface UpdateMyNotificationPreferenceRequest {
+  readonly channelKey: string;
+  readonly channelOptedOut: boolean;
+  readonly marketingConsentGranted: boolean;
+  readonly quietHoursJson: null | string;
+}
+
 export interface UpdateNotificationBindingRequest {
   readonly channelKey: string;
   readonly dispatchModeKey: string;
@@ -5140,10 +5279,23 @@ export interface UpdateNotificationBindingRequest {
   readonly version: number;
 }
 
+export interface UpdateNotificationProducerSceneRequest {
+  readonly allowedChannelKeys: Array<string>;
+  readonly emergencyOverrideAllowed: boolean;
+  readonly policyCategoryKey: string;
+  readonly version: number;
+}
+
 export interface UpdateNotificationProviderProfileRequest {
   readonly nonSecretConfig: JsonElement;
   readonly secretReference: null | string;
   readonly version: number;
+}
+
+export interface UpdateNotificationQuotaPolicyRequest {
+  readonly maxCount: number;
+  readonly version: number;
+  readonly windowSeconds: number;
 }
 
 export interface UpdateNotificationTemplateRequest {

@@ -1,9 +1,11 @@
 using System.Data.Common;
 using Dapper;
+using DbUp;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,6 +33,8 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
         var winner = claims.First(row => row is not null)!;
         Assert.AreEqual(2, winner.LeaseGeneration);
         Assert.AreEqual(2, winner.Revision);
+        Assert.AreEqual(1L, await firstConnection.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
     }
 
     /// <summary>租约到期后另一 Worker 可重领；旧世代的续租和完成必须失败。</summary>
@@ -51,6 +55,9 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
         Assert.IsNotNull(secondClaim);
         Assert.AreEqual("worker-b", secondClaim.LeaseOwnerKey);
         Assert.AreEqual(3, secondClaim.LeaseGeneration);
+        // 未完成的领取保留预算，租约栅栏与预算分别持久化。
+        Assert.AreEqual(2L, await firstConnection.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
         Assert.AreEqual(0, await firstConnection.ExecuteAsync(
             NotificationPlatformSql.RenewDeliveryLease.Text,
             new
@@ -69,6 +76,7 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
                 Id = deliveryId,
                 StatusKey = "sent",
                 NextAttemptAtUtc = (DateTime?)null,
+                SuppressionReasonCode = (string?)null,
                 LeaseGeneration = firstClaim.LeaseGeneration,
                 Revision = firstClaim.Revision,
                 LeaseOwnerKey = firstClaim.LeaseOwnerKey,
@@ -81,6 +89,7 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
                 Id = deliveryId,
                 StatusKey = "sent",
                 NextAttemptAtUtc = (DateTime?)null,
+                SuppressionReasonCode = (string?)null,
                 LeaseGeneration = secondClaim.LeaseGeneration,
                 Revision = secondClaim.Revision,
                 LeaseOwnerKey = secondClaim.LeaseOwnerKey,
@@ -123,6 +132,52 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
                 LeaseExpiresAtUtc = now.AddSeconds(90),
                 Now = now.AddSeconds(1),
             }).ConfigureAwait(false));
+
+        // 多轮治理延迟只退还预算，世代必须持续递增；随后人工重试也不能复用旧配额世代。
+        for (var index = 0; index < 5; index++)
+        {
+            Assert.AreEqual(1, await CompleteAsync("accepted").ConfigureAwait(false));
+            Assert.AreEqual(1, await connection.ExecuteAsync(
+                NotificationPlatformSql.RefundGovernanceAttemptBudget.Text,
+                new { Id = deliveryId, claimed.LeaseGeneration, Revision = claimed.Revision + 1 }).ConfigureAwait(false));
+            Assert.AreEqual(0L, await connection.QuerySingleAsync<long>(
+                NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+            var oldGeneration = claimed.LeaseGeneration;
+            // 下一轮模拟时钟前进，避免同一墙上时刻在两库不同小数精度下误判为尚未到期。
+            now = now.AddSeconds(1);
+            claimed = await ClaimAsync(provider, connection, "worker-a", now).ConfigureAwait(false);
+            Assert.IsNotNull(claimed);
+            Assert.IsGreaterThan(oldGeneration, claimed.LeaseGeneration);
+            Assert.AreEqual(1L, await connection.QuerySingleAsync<long>(
+                NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+        }
+
+        Assert.AreEqual(1, await CompleteAsync("failed").ConfigureAwait(false));
+        Assert.AreEqual(1, await connection.ExecuteAsync(NotificationPlatformSql.RetryDelivery.Text,
+            new { Id = deliveryId, NextAttemptAtUtc = now, Now = now, Revision = claimed.Revision + 1 }).ConfigureAwait(false));
+        Assert.AreEqual(0L, await connection.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+        var previousGeneration = claimed.LeaseGeneration;
+        now = now.AddSeconds(1);
+        claimed = await ClaimAsync(provider, connection, "worker-a", now).ConfigureAwait(false);
+        Assert.IsNotNull(claimed);
+        Assert.IsGreaterThan(previousGeneration, claimed.LeaseGeneration);
+        Assert.AreEqual(1L, await connection.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+
+        Task<int> CompleteAsync(string status) => connection.ExecuteAsync(
+            NotificationPlatformSql.CompleteDelivery.Text,
+            new
+            {
+                Id = deliveryId,
+                StatusKey = status,
+                NextAttemptAtUtc = now,
+                SuppressionReasonCode = (string?)null,
+                claimed.LeaseGeneration,
+                claimed.Revision,
+                claimed.LeaseOwnerKey,
+                Now = now,
+            });
     }
 
     /// <summary>关闭投递表外键后写入一条 accepted 行，只验证租约 SQL 本身。</summary>
@@ -159,8 +214,66 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
                 StatusKey = "accepted",
                 NextAttemptAtUtc = now,
                 CreatedAtUtc = now,
+                ContentSnapshotJson = (string?)null,
+                PreferenceVersion = (long?)null,
+                PolicyDecisionKey = (string?)null,
+                SuppressionReasonCode = (string?)null,
             }).ConfigureAwait(false);
+
+        // 模拟 DDL 已完成、回填尚未完成且 DbUp 未记账；恢复后保守计入历史领取预算。
+        await first.ExecuteAsync(provider == DatabaseProvider.SqlServer
+            ? """
+              ALTER TABLE fn_notifications_delivery DROP CONSTRAINT DF_fn_notifications_delivery_AttemptBudgetUsed;
+              ALTER TABLE fn_notifications_delivery DROP COLUMN AttemptBudgetUsed;
+              ALTER TABLE fn_notifications_delivery ADD AttemptBudgetUsed bigint NULL;
+              """
+            : """
+              ALTER TABLE fn_notifications_delivery DROP COLUMN AttemptBudgetUsed;
+              ALTER TABLE fn_notifications_delivery ADD AttemptBudgetUsed bigint NULL;
+              """).ConfigureAwait(false);
+        await first.ExecuteAsync(
+            "UPDATE fn_notifications_delivery SET LeaseGeneration = 4 WHERE Id = @Id",
+            new { Id = deliveryId }).ConfigureAwait(false);
+        await ForgetBudgetMigrationAsync().ConfigureAwait(false);
+        Assert.AreEqual(1, RecoverBudgetMigration());
+        Assert.AreEqual(3L, await first.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+        Assert.AreEqual(0, RecoverBudgetMigration());
+
+        // 模拟结构收紧已完成但仍未记账；重跑不得覆盖已持久化的真实预算。
+        await first.ExecuteAsync("UPDATE fn_notifications_delivery SET AttemptBudgetUsed = 2 WHERE Id = @Id",
+            new { Id = deliveryId }).ConfigureAwait(false);
+        await ForgetBudgetMigrationAsync().ConfigureAwait(false);
+        Assert.AreEqual(1, RecoverBudgetMigration());
+        Assert.AreEqual(2L, await first.QuerySingleAsync<long>(
+            NotificationPlatformSql.FindAttemptBudget.Text, new { Id = deliveryId }).ConfigureAwait(false));
+        await first.ExecuteAsync(
+            "UPDATE fn_notifications_delivery SET LeaseGeneration = 1, AttemptBudgetUsed = 0 WHERE Id = @Id",
+            new { Id = deliveryId }).ConfigureAwait(false);
         return (first, second, deliveryId);
+
+        // 恢复只选择目标脚本，未来迁移不会跑穿这里模拟的半完成结构。
+        int RecoverBudgetMigration()
+        {
+            var builder = provider == DatabaseProvider.SqlServer
+                ? DeployChanges.To.SqlDatabase(connectionString)
+                : DeployChanges.To.MySqlDatabase(MySqlConnectionStringPolicy.Create(
+                    connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: true));
+            var segment = provider == DatabaseProvider.SqlServer ? ".SqlServer." : ".MySql.";
+            var result = builder.WithScriptsEmbeddedInAssembly(MigrationAssembly.Value,
+                    name => name.Contains(segment, StringComparison.Ordinal)
+                        && name.EndsWith(".283_NotificationsAttemptBudget.sql", StringComparison.Ordinal))
+                .WithExecutionTimeout(TimeSpan.FromSeconds(300))
+                .LogToNowhere()
+                .Build()
+                .PerformUpgrade();
+            Assert.IsTrue(result.Successful, result.Error?.ToString());
+            return result.Scripts.Count();
+        }
+
+        Task<int> ForgetBudgetMigrationAsync() => first.ExecuteAsync(provider == DatabaseProvider.SqlServer
+            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%283_NotificationsAttemptBudget.sql'"
+            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%283_NotificationsAttemptBudget.sql'");
     }
 
     /// <summary>按提供程序执行生产领取语句。</summary>

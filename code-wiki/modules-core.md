@@ -329,15 +329,15 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ## 十一、Notifications 通知中心模块
 
-> 项目：[`src/Modules/Full.NET.Modules.Notifications`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Notifications)
+> 项目：[`src/Modules/Full.NET.Modules.Notifications`](../src/Modules/Full.NET.Modules.Notifications)
 > 稳定模块键：`Notifications`
-> 公开契约：[`src/Modules/Full.NET.Modules.Notifications.Contracts`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Notifications.Contracts)
+> 公开契约：[`src/Modules/Full.NET.Modules.Notifications.Contracts`](../src/Modules/Full.NET.Modules.Notifications.Contracts)
 
 ### 11.1 职责
 
 - Host 公告：发布、受众范围（用户/组织）、已读回执、统计
 - 站内信收件箱：Host 与 Tenant 双作用域共用一张表，按 `TenantScopeKey` 隔离
-- 通知模板：草稿/版本/发布、参数 Schema；Inbox 按收件人语言选择，外部渠道当前仍使用 Intent 默认语言版本
+- 通知模板：草稿/版本/发布、参数 Schema；Inbox 与外部渠道均按收件人/渠道选择语言版本；外部投递冻结 Locale、TemplateVersionId、内容哈希与渲染快照，重试复用
 - 通知 Intent：业务模块生成投递意图；当前按模板的单一 ChannelKey 投影 Inbox 或创建外部 Delivery，尚无一次 Intent 跨渠道编排
 - 渠道适配：SMTP、AliyunSms、DingTalk、WeCom、WeChatMiniProgram
 - 收件端点管理：邮箱/手机号绑定、验证码确认（限流策略独立）
@@ -353,10 +353,13 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `NotificationsModule` | 模块入口；声明 `Dependencies: Identity, Organization, Files`、`OptionalContractDependencies: Workflow` |
 | `NotificationDeliveryHostedProcessor` | Worker 后台领取循环（仅在 `AddBackgroundServices` 注册） |
 | `NotificationDeliveryBatchProcessor` | 领取外部 Delivery 租约，事务外调用 Adapter，条件提交 Attempt 与结果 |
+| `NotificationQuotaGovernor` | 四维跨实例额度预留、核销、确定未调用释放与 Unknown 对账 |
+| `NotificationSubscriptionGovernor` | 小程序一次性本地许可串行预留；重新绑定和撤回不能复活旧许可 |
+| `NotificationLifecycleService` | 审计业务撤回，与 Worker 最终外发边界以意图行锁竞争 |
 | `InboxIntentProjectionService` | Intent → 收件箱行投影 |
 | `WorkflowNotificationProjectionService` | Workflow 提醒事件 → Intent；内建模板当前投影 Inbox |
 | `NotificationRealtimeDelivery` | SignalR 推送器（由 Outbox 事件触发） |
-| `NotificationTemplateSelector` | 按可信作用域、模板键和偏好语言选择已发布版本；外部发送尚未按收件人语言接通 |
+| `NotificationTemplateSelector` | 按可信作用域、模板键和偏好语言选择已发布版本；外部发送固定收件人实际版本与正文 |
 | `NotificationProviderTypeCatalog` | 渠道适配器目录 |
 | `RecipientEndpointVerificationService` | 收件端点验证码生成与校验 |
 | `IIdentityChallengeDeliveryPort` | Identity 调用的账号挑战邮件 Port（`Identity.Contracts`） |
@@ -382,10 +385,11 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `fn_notifications_binding` | Producer/Scene/Channel 的路由绑定草稿及最新发布版本引用 |
 | `fn_notifications_delivery` | 渠道投递：IntentId、RecipientId、ProviderProfileVersionId、StatusKey、租约和 Revision |
 | `fn_notifications_intent` | 通知意图：ProducerKey、SceneKey、幂等键及模板/Binding/路由/参数快照 |
-| `fn_notifications_preference` | 用户渠道关闭、营销同意与静默 JSON；尚未接入生产发送路径 |
+| `fn_notifications_preference` | 用户渠道关闭、营销同意与静默 JSON；已接入物化和最终外发许可；渠道关闭、营销同意、时区静默与抑制原因保留版本快照 |
 | `fn_notifications_intent_attachment` | Intent 附件引用（Files 模块） |
 | `fn_notifications_wechat_miniprogram_binding` | 小程序绑定 |
 | `fn_notifications_wechat_miniprogram_subscription` | 小程序订阅 |
+| `fn_notifications_subscription_grant` | 单次本地许可、原始上报、预留租约与使用/撤回/待对账状态；不是厂商库存 |
 | `fn_notifications_dingtalk_approval_sync` | DingTalk 审批同步记录 |
 
 ### 11.4 发布的集成事件
@@ -413,15 +417,17 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 - `Organization`：公告受众校验、机构作用域
 - `Files`：通知附件（`IHostFileReferenceClaimProbe` 实现）
 
-### 11.7 当前缺口与证据边界（2026-10-19）
+### 11.7 本次整改实现与证据边界（2026-10-23）
 
-基于 `main@49345c3c` 静态复核，整改清单及验收场景见[Notifications 现有计划](../docs/superpowers/plans/2026-08-30-notifications-platform-extension.md#review-2026-10-19)。未运行本轮双库、AOT 或厂商测试，以下不表示修复完成：
+历史 `49345c3c` 的 N01–N08 缺口与逐轮失败记录保留在[同一实施计划](../docs/superpowers/plans/2026-08-30-notifications-platform-extension.md#review-2026-10-19)；不能把历史缺陷表当作当前实现状态。当前基线为 `main@5093b6f4` 加任务工作区差异。
 
-- **P1 投递正确性：** Failover 将完整候选列表物化为可领取 Delivery；Match 条件恒为 true；提前回执和 Revision 冲突可能丢失状态推进；一般异常不计入 Attempt，可能绕过重试预算，Unknown 自动重发也需按渠道幂等/对账能力收敛。
-- **P1 发送治理：** 偏好函数/表未进入发送路径；缺少 Provider/租户/Producer/Scene 跨实例发送配额；小程序订阅记录尚不约束发送。
-- **P2 语言与产品：** 外部渠道未按收件人冻结语言模板；Inbox 缺结构化深链、个人归档和业务撤回，工作台尚未聚合。已读、归档、撤回不应混为单一状态。
-- **当前显示能力：** 邮件/短信详情已提示 Sent 不代表送达；SMTP、企微和小程序 ReceiptMode 为 None。适配器实现、真实厂商验证和容量分别记录，容量保持 `Capacity-not-verified`。
-- **整改顺序：** 投递正确性 → 偏好/配额/订阅/语言快照 → 深链/归档/撤回/工作台及按需扩展渠道。历史规则单测与切片验收不能外推为完整链路已验收。
+- 投递正确性：不可变候选路由与首选激活、唯一 Match 条件物化、提前/重复/乱序回执补偿及 CAS 复判、每轮最多五十条的空闲回执恢复、持久化尝试预算和 Unknown 暂挂；发送网络丢失及模糊响应保持 Unknown，不触发 Failover。
+- 发送治理：Producer/Scene 目录控制分类与渠道，偏好页面与收件端点分离；静默时区、同意撤回、消息过期、四维配额预留/核销/释放/Unknown 台账接入 Worker。负面回执可能是受理后的退信，不作为未发送证明释放额度。
+- 小程序：一次客户端交互标识幂等登记一份本地授权，按用户/应用/模板/配置版本串行预留；成功核销、确定失败释放、撤回不复活旧许可、崩溃与 Unknown 暂挂。它不是厂商可信库存，不制造送达证明。
+- 产品：结构化 Workflow 资源深链由目标 API 重新授权；个人/批量归档不改变已读，业务撤回单独建模并审计，与 Worker 外发边界以意图行锁串行。已跨边界或原本 Unknown 的消息不承诺收回；撤回事务释放当前世代确定未调用的预留，小程序预留使用同一意图锁阻止事后登记。路径缓存下切换深链会重新调用权威 API，旧资源迟到响应不能覆盖新资源；待办、公告与 Inbox 在 Vue 查询层组合，无跨模块 SQL。
+- 控制面：按渠道/厂商/状态显示数量、最早创建时间和回执模式，保留邮件/短信 Sent 提示，提供独立权限的转死信、Intent 撤回及证据引用人工对账。确认受理只记 Sent，确认未调用释放配额但不复活旧订阅许可；积压年龄、Unknown 与死信告警独立。
+- 验收状态：最新双库通知纵向用例 2/2，覆盖并发、提前/重复/乱序及后台回执恢复、预算、治理、撤回预留释放和 283/284 部分失败恢复；真实 OpenAPI 各库 1/1；通知单测 195/195，架构 87 项覆盖通过（86 项及修正后 1 项），Vue 16 文件 99 项覆盖通过；真实双库基础页面各 4/4，Match SQL Server 桌面另 1/1、MySQL 桌面及手机/键盘/登录后控制台另 1/1。窄屏抽屉和单列编辑、路径缓存深链均已整改；最新类型检查、生产构建及 Host.Api AOT 分析通过。此前 OOM/139/134 和两阶段对照保留；最新在用户授权稳定核心约束下，相同输入经 Linux SDK/ILC 10.0.402/10.0.13 完整编译、链接与 publish 成功，新 ELF 的 Notifications 原生双库 2/2、零跳过，4 分 32.140 秒（HTTP/JSON/SignalR、启动停止），没有复用两阶段对象。进程及全部 92 线程已恢复原亲和性，本机后续仍需稳定 CPU 执行条件；首页 JS 已降至 1,467,584/gzip 382,260 字节，SignalR 延迟包、Chart、VForm 独立预算均通过；完整命令和历史失败登记在原计划，本次默认 Linux ILC 发布及运行验收已取得实际证据；前次 ILC 对照未确认编译器缺陷。后续真实运行发现并修复 Worker 权益端口注册缺失；新 Worker 默认 Linux 发布成功，通知治理/预算恢复、Workflow 投影与 PDF 恢复双库 6/6、零跳过、正常停止，保留首轮 Worker 28/29 的失败记录。真实数据库采样经 Collector/Prometheus，三条通知告警保持五分钟窗口，触发与恢复 1/1 通过，未覆盖外部接收端。共享组件修复后的 API 重发曾遇 WSL VM 整体退出中断，默认链路旧输入重跑因同步远端主动结束，未计通过；合并后 API/Worker 完整闭包尚未原生验收，不能用旧二进制证据关闭当前门禁；真实厂商、不可访问的外部原报告和容量验证仍单列。
+- 真实厂商与容量仍单列：SMTP 历史认证失败证据保留，当前无凭据不宣称真实送达；SMTP、企微和小程序没有可信送达回执。容量保持 `Capacity-not-verified`，未新增厂商、移动推送、HTML 邮件、摘要或跨渠道编排。
 
 ---
 

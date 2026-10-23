@@ -19,6 +19,8 @@ public static class NotificationPlatformPermissions
     public const string TemplatesPublish = "notifications.templates.publish";
     /// <summary>读取投递意图列表与详情。</summary>
     public const string IntentsRead = "notifications.intents.read";
+    /// <summary>撤回当前作用域的业务通知意图。</summary>
+    public const string IntentsRevoke = "notifications.intents.revoke";
     /// <summary>创建新的投递意图与默认偏好。</summary>
     public const string IntentsCreate = "notifications.intents.create";
     /// <summary>读取渠道提供方配置文件。</summary>
@@ -47,6 +49,8 @@ public static class NotificationPlatformPermissions
     public const string DeliveriesRetry = "notifications.deliveries.retry";
     /// <summary>将终端失败投递转为死信，等待后续批处理或人工介入。</summary>
     public const string DeliveriesDeadLetter = "notifications.deliveries.dead_letter";
+    /// <summary>依据人工证据对账 Unknown 的调用事实及未决额度。</summary>
+    public const string DeliveriesReconcile = "notifications.deliveries.reconcile";
     /// <summary>读取用户或租户的通知偏好。</summary>
     public const string PreferencesRead = "notifications.preferences.read";
     /// <summary>更新自身用户的通知偏好。</summary>
@@ -65,6 +69,22 @@ public static class NotificationPlatformPermissions
     public const string WeChatMiniProgramBindingsBind = WeChatMiniProgramBindingPermissions.Bind;
     /// <summary>登记订阅消息授权结果。</summary>
     public const string WeChatMiniProgramBindingsRecordSubscription = WeChatMiniProgramBindingPermissions.RecordSubscription;
+    /// <summary>查询 Producer/Scene 受控目录。</summary>
+    public const string ProducerScenesRead = "notifications.producer_scenes.read";
+    /// <summary>创建 Producer/Scene 受控目录声明。</summary>
+    public const string ProducerScenesCreate = "notifications.producer_scenes.create";
+    /// <summary>修改场景分类、合法渠道与紧急规则。</summary>
+    public const string ProducerScenesUpdate = "notifications.producer_scenes.update";
+    /// <summary>改变场景目录启用状态，控制后续外发许可。</summary>
+    public const string ProducerScenesSetEnabled = "notifications.producer_scenes.set_enabled";
+    /// <summary>查询发送配额政策与预留台账。</summary>
+    public const string QuotasRead = "notifications.quotas.read";
+    /// <summary>创建发送配额政策。</summary>
+    public const string QuotasCreate = "notifications.quotas.create";
+    /// <summary>修改配额窗口长度与发送上限。</summary>
+    public const string QuotasUpdate = "notifications.quotas.update";
+    /// <summary>改变配额政策启用状态。</summary>
+    public const string QuotasSetEnabled = "notifications.quotas.set_enabled";
 
     /// <summary>当前版本已注册的全部稳定权限码集合；顺序作为枚举列表的稳定投影。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -74,6 +94,7 @@ public static class NotificationPlatformPermissions
         TemplatesUpdate,
         TemplatesPublish,
         IntentsRead,
+        IntentsRevoke,
         IntentsCreate,
         ProviderProfilesRead,
         ProviderProfilesCreate,
@@ -88,6 +109,7 @@ public static class NotificationPlatformPermissions
         DeliveriesRead,
         DeliveriesRetry,
         DeliveriesDeadLetter,
+        DeliveriesReconcile,
         PreferencesRead,
         PreferencesUpdate,
         PreferencesManage,
@@ -97,5 +119,13 @@ public static class NotificationPlatformPermissions
         WeChatMiniProgramBindingsRead,
         WeChatMiniProgramBindingsBind,
         WeChatMiniProgramBindingsRecordSubscription,
+        ProducerScenesRead,
+        ProducerScenesCreate,
+        ProducerScenesUpdate,
+        ProducerScenesSetEnabled,
+        QuotasRead,
+        QuotasCreate,
+        QuotasUpdate,
+        QuotasSetEnabled,
     ]);
 }

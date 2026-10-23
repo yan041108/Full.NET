@@ -204,15 +204,18 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 624);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 624);
+  assert.ok(manifest.entries.length > 0);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, manifest.entries.length);
   assert.ok(manifest.entries.some(entry => entry.operationId === 'auditingQueryLogTimeline' && entry.status === 'generated'));
   for (const [generatedGroup, operationIds] of [
+    ['notifications-preferences', ['notificationsListMyPreferences', 'notificationsListMyPreferenceChannels', 'notificationsUpdateMyPreference']],
+    ['notifications-producer-scenes', ['notificationsListProducerScenes', 'notificationsCreateProducerScene', 'notificationsUpdateProducerScene', 'notificationsSetProducerSceneEnabled']],
+    ['notifications-quotas', ['notificationsListQuotaPolicies', 'notificationsGetQuotaOutstanding', 'notificationsCreateQuotaPolicy', 'notificationsUpdateQuotaPolicy', 'notificationsSetQuotaPolicyEnabled']],
     ['ai-index-grants', ['aiCreateKnowledgeIndexGrant', 'aiListKnowledgeIndexGrants', 'aiRevokeKnowledgeIndexGrant']],
     ['ai-feedback-evaluation', ['aiAdmitFeedbackEvaluationCandidate', 'aiPrepareFeedbackEvaluationCandidate']]
   ]) {
     assert.deepEqual(manifest.entries.filter(entry => entry.generatedGroup === generatedGroup)
-      .map(entry => entry.operationId).sort(), operationIds);
+      .map(entry => entry.operationId).sort(), [...operationIds].sort());
   }
   assert.ok(manifest.entries.some(entry => entry.operationId === 'aiGetPromptExecutionStrategies' && entry.generatedGroup === 'ai-prompts' && entry.status === 'generated'));
   for (const operationId of ['aiGetAgentReconciliation', 'aiReconcileAgentRun']) {
@@ -302,7 +305,10 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'notifications-host-announcement-receipts',
       'notifications-host-announcements',
       'notifications-inbox-messages',
+      'notifications-preferences',
+      'notifications-producer-scenes',
       'notifications-provider-profiles',
+      'notifications-quotas',
       'notifications-recipient-endpoints',
       'notifications-templates',
       'observability-cache-policies',
@@ -348,9 +354,10 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
     manifest.entries.every(entry => ['generated', 'manual'].includes(entry.status)),
     true
   );
-  assert.equal(
-    Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    624
+  assert.deepEqual(
+    Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem))
+      .map(operation => operation.operationId).sort(),
+    manifest.entries.map(entry => entry.operationId).sort()
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

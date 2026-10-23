@@ -46,7 +46,7 @@ internal sealed class HttpAliyunSmsTransport(IHttpClientFactory httpClientFactor
         catch (HttpRequestException)
         {
             throw new AliyunSmsTransportException(
-                AliyunSmsTransportFailureKind.Transient,
+                AliyunSmsTransportFailureKind.Unknown,
                 "The SMS gateway could not be reached.");
         }
 
@@ -56,7 +56,8 @@ internal sealed class HttpAliyunSmsTransport(IHttpClientFactory httpClientFactor
             if (!response.IsSuccessStatusCode)
             {
                 throw new AliyunSmsTransportException(
-                    ClassifyHttpStatus(response.StatusCode),
+                    response.StatusCode >= System.Net.HttpStatusCode.InternalServerError
+                        ? AliyunSmsTransportFailureKind.Unknown : ClassifyHttpStatus(response.StatusCode),
                     "The SMS gateway returned an error response.");
             }
 
@@ -128,7 +129,7 @@ internal sealed class HttpAliyunSmsTransport(IHttpClientFactory httpClientFactor
                 || bizIdElement.GetString() is not { Length: > 0 } bizId)
             {
                 throw new AliyunSmsTransportException(
-                    AliyunSmsTransportFailureKind.Transient,
+                    AliyunSmsTransportFailureKind.Unknown,
                     "The SMS gateway response did not include a message identifier.");
             }
 
@@ -137,7 +138,7 @@ internal sealed class HttpAliyunSmsTransport(IHttpClientFactory httpClientFactor
         catch (JsonException)
         {
             throw new AliyunSmsTransportException(
-                AliyunSmsTransportFailureKind.Transient,
+                AliyunSmsTransportFailureKind.Unknown,
                 "The SMS gateway response was invalid.");
         }
     }
