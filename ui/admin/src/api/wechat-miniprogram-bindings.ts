@@ -64,7 +64,7 @@ export async function exchangeWeChatMiniProgramBinding(
 /** 登记或更新订阅消息授权结果。 */
 export async function recordWeChatMiniProgramSubscription(
   appId: string,
-  body: { templateId: string; statusKey: string },
+  body: { templateId: string; statusKey: string; authorizationId: string },
   signal?: AbortSignal
 ): Promise<WeChatMiniProgramBindingResponse> {
   const value = await request<unknown>(

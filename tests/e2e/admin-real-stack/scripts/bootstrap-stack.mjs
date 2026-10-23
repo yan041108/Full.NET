@@ -20,6 +20,8 @@ import { waitForApi } from './wait-for-api.mjs';
 import { stopLoggedProcess } from './stop-logged-process.mjs';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
+// 本地模块验收可显式复用系统临时目录，避免编译及日志长期堆积在源码工作区。
+const stackRuntimeRoot = path.resolve(process.env.FULLNET_E2E_RUNTIME_ROOT ?? path.join(repoRoot, '.tmp/e2e-real-stack'));
 const statePath = path.join(repoRoot, 'tests/e2e/admin-real-stack/.stack-state.json');
 const sqlPassword = 'FullNet_Test!123';
 const mysqlPassword = 'FullNet_Test!123';
@@ -312,7 +314,7 @@ export async function bootstrapStack() {
   };
 
   // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
-  const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
+  const stackArtifactsPath = path.join(stackRuntimeRoot, 'build');
   const isolatedBuildArgs = [
     '--configuration', 'Release',
     '-p:UseArtifactsOutput=true',
@@ -346,7 +348,7 @@ export async function bootstrapStack() {
     'bin/Full.NET.Host.Api/release/Full.NET.Host.Api.dll'
   );
 
-  const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
+  const apiLogPath = path.join(stackRuntimeRoot, 'api.log');
   mkdirSync(path.dirname(apiLogPath), { recursive: true });
   writeFileSync(apiLogPath, '');
   const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
@@ -416,7 +418,7 @@ export async function bootstrapStack() {
     stackArtifactsPath,
     'bin/Full.NET.Host.Worker/release/Full.NET.Host.Worker.dll'
   );
-  const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
+  const workerLogPath = path.join(stackRuntimeRoot, 'worker.log');
   mkdirSync(path.dirname(workerLogPath), { recursive: true });
   writeFileSync(workerLogPath, '');
   const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });

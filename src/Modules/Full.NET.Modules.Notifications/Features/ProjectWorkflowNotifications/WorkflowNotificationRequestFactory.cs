@@ -142,6 +142,7 @@ internal static class WorkflowNotificationRequestFactory
             sceneKey,
             [new NotificationRecipientInput("user", recipientUserId.ToString("N"))],
             document.RootElement.Clone(),
-            $"workflow-{messageId:N}");
+            $"workflow-{messageId:N}",
+            DeepLink: new NotificationDeepLink(todoId.HasValue ? "workflow_todo" : "workflow_instance", todoId ?? instanceId));
     }
 }

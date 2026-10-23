@@ -5,9 +5,11 @@ namespace Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
 
 /// <summary>在可信事件作用域内调用既有通知 Intent 管道。</summary>
 /// <param name="templateProvisioner">工作流内建模板幂等补齐服务。</param>
+/// <param name="producerSceneProvisioner">工作流内建 Producer/Scene 目录声明幂等补齐服务。</param>
 /// <param name="intentService">通知意图受理服务。</param>
 internal sealed class WorkflowNotificationProjectionService(
     WorkflowNotificationTemplateProvisioner templateProvisioner,
+    WorkflowNotificationProducerSceneProvisioner producerSceneProvisioner,
     NotificationIntentService intentService)
 {
     /// <summary>投影 Workflow 提醒；业务失败转为消息处理失败以进入 Outbox 重试或死信。</summary>
@@ -22,10 +24,15 @@ internal sealed class WorkflowNotificationProjectionService(
         CancellationToken cancellationToken)
     {
         var scope = NotificationInboxScope.FromTrustedTenantId(tenantId);
-        // 内建模板先在独立本地事务中形成完整发布版本；成功后才允许 Intent 固定该不可变版本。
+        // 内建模板与目录声明先在独立本地事务中形成完整事实；成功后才允许 Intent 固定该不可变版本。
         await templateProvisioner.EnsurePublishedAsync(
             scope,
             request.TemplateKey,
+            cancellationToken).ConfigureAwait(false);
+        // 受理链路对缺失目录失败关闭，内建生产者必须先具备声明，否则全新环境的可靠提醒会整体停摆。
+        await producerSceneProvisioner.EnsureAsync(
+            scope,
+            request.SceneKey,
             cancellationToken).ConfigureAwait(false);
         var result = await intentService.CreateForTrustedEventAsync(
             scope,

@@ -8,6 +8,15 @@ namespace Full.NET.IntegrationTests.NativeAot;
 public sealed class NativeWorkerMySqlE2ETests
 {
     [TestMethod]
+    public async Task MySql_native_worker_enforces_notification_governance_and_recovery()
+    {
+        await NativeWorkerNotificationGovernanceProbe.VerifyAsync(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), TestContext.CancellationToken);
+    }
+
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public async Task MySql_native_worker_runs_version_retirement_scan()
     {
         if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))

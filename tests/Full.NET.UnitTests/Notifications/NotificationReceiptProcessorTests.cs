@@ -4,9 +4,11 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Notifications.Execution;
 using Full.NET.Modules.Notifications.Features.ReceiveProviderReceipts;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
@@ -16,6 +18,30 @@ namespace Full.NET.UnitTests.Notifications;
 public sealed class NotificationReceiptProcessorTests
 {
     private const string ProviderTypeKey = "test.notification";
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Pending_apply_survives_repeated_CAS_conflicts_until_background_recovery(DatabaseProvider provider)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var delivery = new NotificationDeliveryRecord(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+            "test", Guid.CreateVersion7(), null, "sent", 3, null, null, 1, null, now, null, null, null, null, null);
+        var receipt = new NotificationReceiptRecord(Guid.CreateVersion7(), ProviderTypeKey, "recover-msg", "recover-key",
+            delivery.Id, "delivered", "delivered", "digest", now, null, "pending_apply");
+        var fixture = CreateFixture(now, new NotificationProviderTypeCatalog([new SignedTestProviderAdapter()]),
+            new RecoveryQueries(provider, receipt, delivery));
+        fixture.Command.ExecuteAsync(NotificationPlatformSql.ApplyDeliveryStatus, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(0, 0, 1);
+        await fixture.Processor.RecoverPendingAsync(provider, CancellationToken.None);
+        await fixture.Command.Received(1).ExecuteAsync(NotificationPlatformSql.UpdateReceiptProcessing,
+            Arg.Is<object?>(p => ((IReadOnlyDictionary<string, object?>)p!)["ProcessStatusKey"]!.Equals("pending_apply")
+                && ((IReadOnlyDictionary<string, object?>)p!)["ProcessedAtUtc"] == null), Arg.Any<CancellationToken>());
+        await fixture.Processor.RecoverPendingAsync(provider, CancellationToken.None);
+        await fixture.Command.Received(1).ExecuteAsync(NotificationPlatformSql.UpdateReceiptProcessing,
+            Arg.Is<object?>(p => ((IReadOnlyDictionary<string, object?>)p!)["ProcessStatusKey"]!.Equals("completed")),
+            Arg.Any<CancellationToken>());
+    }
 
     [TestMethod]
     public async Task Duplicate_idempotency_key_returns_duplicate_without_status_change()
@@ -39,7 +65,7 @@ public sealed class NotificationReceiptProcessorTests
                 "digest",
                 DateTimeOffset.UtcNow,
                 DateTimeOffset.UtcNow,
-                "processed"));
+                "completed"));
 
         var body = """{"receiptIdempotencyKey":"dup-key","providerMessageId":"msg-1","externalStatusKey":"delivered","mappedStatusKey":"delivered"}"""u8.ToArray();
         var result = await fixture.Processor.ProcessAsync(
@@ -91,9 +117,10 @@ public sealed class NotificationReceiptProcessorTests
 
     private static ProcessorFixture CreateFixture(
         DateTimeOffset now,
-        NotificationProviderTypeCatalog catalog)
+        NotificationProviderTypeCatalog catalog,
+        IQueryExecutor? queryOverride = null)
     {
-        var query = Substitute.For<IQueryExecutor>();
+        var query = queryOverride ?? Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
         var transaction = new RecordingTransaction();
         var clock = Substitute.For<IClock>();
@@ -107,7 +134,9 @@ public sealed class NotificationReceiptProcessorTests
             catalog,
             [new StubReceiptVerifier()],
             clock,
-            idGenerator);
+            idGenerator,
+            new NotificationQuotaGovernor(
+                query, command, transaction, clock, idGenerator, Options.Create(new DatabaseOptions())));
         return new ProcessorFixture(query, command, processor);
     }
 
@@ -116,9 +145,37 @@ public sealed class NotificationReceiptProcessorTests
         ICommandExecutor Command,
         NotificationReceiptProcessor Processor);
 
+    /// <summary>显式查询替身避免动态代理内部持久化投影，并校验双库补偿选择。</summary>
+    private sealed class RecoveryQueries(DatabaseProvider provider, NotificationReceiptRecord receipt,
+        NotificationDeliveryRecord delivery) : IQueryExecutor
+    {
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(NotificationReceiptRecord))
+            {
+                Assert.AreEqual(provider == DatabaseProvider.MySql ? NotificationLifecycleSql.RecoverableReceiptsMySql
+                    : NotificationLifecycleSql.RecoverableReceiptsSqlServer, statement);
+                return Task.FromResult((IReadOnlyList<T>)(object)new[] { receipt });
+            }
+            if (typeof(T) == typeof(NotificationDeliveryRecord))
+                return Task.FromResult((IReadOnlyList<T>)(object)new[] { delivery });
+            if (typeof(T) == typeof(NotificationQuotaReservationRecord))
+                return Task.FromResult((IReadOnlyList<T>)(object)Array.Empty<NotificationQuotaReservationRecord>());
+            throw new InvalidOperationException("补偿查询超出预期边界。");
+        }
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult((T?)(object)(delivery with { Revision = 4 }));
+    }
+
     private sealed class SignedTestProviderAdapter : INotificationProviderAdapter
     {
         public string? RecipientEndpointKindKey => null;
+
+        // 回执处理用例不涉及发送，按失败关闭默认不放开未知结果自动重试。
+        public bool AllowsAutomaticRetryAfterUnknownResult => false;
 
         public NotificationProviderTypeDescriptor Descriptor { get; } = new(
             ProviderTypeKey,
@@ -138,6 +195,9 @@ public sealed class NotificationReceiptProcessorTests
     private sealed class NoReceiptEmailSmtpAdapter : INotificationProviderAdapter
     {
         public string? RecipientEndpointKindKey => "email";
+
+        // 回执处理用例不涉及发送，按失败关闭默认不放开未知结果自动重试。
+        public bool AllowsAutomaticRetryAfterUnknownResult => false;
 
         public NotificationProviderTypeDescriptor Descriptor { get; } = new(
             "email.smtp",

@@ -7,6 +7,11 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "db:diagnose": "node scripts/database/diagnose.mjs",
+    "db:diagnose:build": "node scripts/database/build.mjs",
+    "test:database-diagnostics": "node scripts/database/test.mjs",
+    "test:database-diagnostics:live": "node --test tests/database-diagnostics/live/*.test.mjs",
     "test:governance": "node --test tests/governance/*.test.mjs",
     "generate:module-dependency-graph": "node eng/architecture/generate-module-dependency-graph.mjs",
     "test:skills": "python -X utf8 tests/skills/validate_project_skills.py",

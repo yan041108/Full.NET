@@ -600,6 +600,9 @@ public sealed class NativeAotStaticBindingRulesTests
                      "NotificationIntentRecord",
                      "NotificationRecipientRecord",
                      "NotificationDeliveryRecord",
+                     "NotificationPreferenceRecord",
+                     "NotificationDeliverySummaryRecord",
+                     "NotificationProducerSceneRecord",
                      "NotificationDeliveryAttemptRecord",
                      "NotificationReceiptRecord",
                      "NotificationRecipientEndpointRecord",
@@ -609,6 +612,12 @@ public sealed class NativeAotStaticBindingRulesTests
                      "NotificationProviderProfileVersionRecord",
                      "NotificationBindingRecord",
                      "NotificationBindingVersionRecord",
+                     "NotificationQuotaPolicyRecord",
+                     "NotificationQuotaResolutionRecord",
+                     "NotificationQuotaCounterRecord",
+                     "NotificationQuotaReservationRecord",
+                     "NotificationQuotaAbandonedReservationRecord",
+                     "NotificationQuotaOutstandingRecord",
                  })
         {
             StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
@@ -642,7 +651,8 @@ public sealed class NativeAotStaticBindingRulesTests
 
         const string inboxProjection =
             "Id, TenantId, RecipientUserId, Title, Content, Status, "
-            + "ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId";
+            + "ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId, "
+            + "ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey";
         foreach (var statement in new[]
                  {
                      "ListForRecipientSqlServer",
@@ -710,6 +720,24 @@ public sealed class NativeAotStaticBindingRulesTests
             ExtractSelectProjection(platformSqlSource, "ListTemplateLocalesByKey"),
             "Template locale state 投影必须与物化器一致。");
 
+        const string producerSceneProjection =
+            "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey, "
+            + "AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById, "
+            + "CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "FindProducerScene",
+                     "FindProducerSceneById",
+                     "ListProducerScenesSqlServer",
+                     "ListProducerScenesMySql",
+                 })
+        {
+            Assert.AreEqual(
+                producerSceneProjection,
+                ExtractSelectProjection(platformSqlSource, statement),
+                $"ProducerScene 目录 SQL 投影顺序必须与物化器一致：{statement}");
+        }
+
         Assert.AreEqual(
             "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, IdempotencyKey, "
             + "TemplateVersionId, BindingVersionId, PolicyCategoryKey, DispatchModeKey, "
@@ -730,13 +758,15 @@ public sealed class NativeAotStaticBindingRulesTests
         Assert.AreEqual(
             "Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId, "
             + "StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration, "
-            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc",
+            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson, "
+            + "PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode",
             ExtractSelectProjection(platformSqlSource, "FindDeliveryById"),
             "Delivery SQL 投影顺序必须与物化器一致。");
         Assert.AreEqual(
             "Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId, "
             + "StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration, "
-            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc",
+            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson, "
+            + "PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode",
             ExtractSelectProjection(platformSqlSource, "SelectDeliveriesByLease"),
             "按租约回读 Delivery 投影必须与物化器一致。");
         Assert.AreEqual(
@@ -785,6 +815,50 @@ public sealed class NativeAotStaticBindingRulesTests
             $"TOP (1) {challengeProjection}",
             ExtractSelectProjection(challengeSqlSource, "FindActiveByEndpoint"),
             "Challenge SQL Server 投影顺序必须与物化器一致。");
+
+        // 配额治理：政策、窗口计数器与预留台账的投影顺序必须与各自物化器一致。
+        const string quotaPolicyProjection =
+            "Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue, "
+            + "WindowSeconds, MaxCount, IsEnabled, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "FindQuotaPolicyById",
+                     "ListQuotaPoliciesSqlServer",
+                     "ListQuotaPoliciesMySql",
+                 })
+        {
+            Assert.AreEqual(
+                quotaPolicyProjection,
+                ExtractSelectProjection(platformSqlSource, statement),
+                $"QuotaPolicy SQL 投影顺序必须与物化器一致：{statement}");
+        }
+
+        // ResolveQuotaPolicies 使用 CTE，首个 SELECT 属于维度构造，最终投影需按字面量校验。
+        StringAssert.Contains(
+            Regex.Replace(platformSqlSource, @"\s+", " "),
+            "SELECT DimensionKey, PolicyId, WindowSeconds, MaxCount FROM Ranked",
+            "QuotaPolicy 解析最终投影必须与物化器一致。");
+
+        Assert.AreEqual(
+            "Id, ReservedCount, ConsumedCount, ReleasedCount",
+            ExtractSelectProjection(platformSqlSource, "FindQuotaCounter"),
+            "QuotaCounter SQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, PolicyId, DimensionKey, WindowStartUtc",
+            ExtractSelectProjection(platformSqlSource, "ListReservedQuotaReservations"),
+            "QuotaReservation 预留列表投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "TOP (@MaxRows) Id, PolicyId, DimensionKey, WindowStartUtc, LeaseGeneration",
+            ExtractSelectProjection(platformSqlSource, "ListAbandonedQuotaReservationsSqlServer"),
+            "QuotaReservation 孤儿预留 SQL Server 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, PolicyId, DimensionKey, WindowStartUtc, LeaseGeneration",
+            ExtractSelectProjection(platformSqlSource, "ListAbandonedQuotaReservationsMySql"),
+            "QuotaReservation 孤儿预留 MySQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "DimensionKey, StateKey, COUNT(*) AS ReservationCount",
+            ExtractSelectProjection(platformSqlSource, "CountQuotaOutstandingByScope"),
+            "QuotaOutstanding 聚合投影顺序必须与物化器一致。");
     }
 
     [TestMethod]

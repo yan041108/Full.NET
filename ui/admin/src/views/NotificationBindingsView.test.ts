@@ -110,4 +110,64 @@ describe('Vue 场景绑定页', () => {
     await flushPromises();
     expect(createNotificationBinding).not.toHaveBeenCalled();
   });
+
+  it('Match 编辑受控条件并携带条件和版本保存', async () => {
+    const matched = { ...binding, draftDispatchModeKey: 'match', draftJson: JSON.stringify({
+      producerKey: 'tests.orders', sceneKey: 'order.shipped', channelKey: 'test',
+      targets: [{ profileKey: 'primary', order: 1, condition: { parameterName: 'segment', operatorKey: 'equals', expectedValue: 'standard' } }]
+    }) };
+    listMock.mockResolvedValue({ items: [matched], page: 1, pageSize: 20, total: 1 });
+    vi.mocked(updateNotificationBinding).mockResolvedValue(matched);
+    const wrapper = mountWithPermissions(['notifications.bindings.read', 'notifications.bindings.update']);
+    await flushPromises();
+    await wrapper.get('.notification-bindings-table__key').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-condition-value"]').setValue('priority');
+    await wrapper.get('[data-testid="notification-bindings-save"]').trigger('click');
+    await flushPromises();
+    expect(updateNotificationBinding).toHaveBeenCalledWith(binding.id, expect.objectContaining({
+      version: 1, dispatchModeKey: 'match', targets: [{ profileKey: 'primary', order: 1,
+        condition: { parameterName: 'segment', operatorKey: 'equals', expectedValue: 'priority' } }]
+    }));
+    wrapper.unmount();
+  });
+
+  it('Match 的参数名或条件缺失时阻止保存', async () => {
+    const matched = { ...binding, draftDispatchModeKey: 'match' };
+    listMock.mockResolvedValue({ items: [matched], page: 1, pageSize: 20, total: 1 });
+    const wrapper = mountWithPermissions(['notifications.bindings.read', 'notifications.bindings.update']);
+    await flushPromises();
+    await wrapper.get('.notification-bindings-table__key').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-bindings-save"]').trigger('click');
+    await flushPromises();
+    expect(updateNotificationBinding).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('存在条件不携带比较常量，页面不接受脚本式参数名', async () => {
+    const matched = { ...binding, draftDispatchModeKey: 'match', draftJson: JSON.stringify({
+      producerKey: 'tests.orders', sceneKey: 'order.shipped', channelKey: 'test',
+      targets: [{ profileKey: 'primary', order: 1, condition: { parameterName: 'segment', operatorKey: 'equals', expectedValue: 'standard' } }]
+    }) };
+    listMock.mockResolvedValue({ items: [matched], page: 1, pageSize: 20, total: 1 });
+    vi.mocked(updateNotificationBinding).mockResolvedValue(matched);
+    const wrapper = mountWithPermissions(['notifications.bindings.read', 'notifications.bindings.update']);
+    await flushPromises();
+    await wrapper.get('.notification-bindings-table__key').trigger('click');
+    await flushPromises();
+    await wrapper.findAllComponents({ name: 'ElSelect' }).at(-1)!.setValue('exists');
+    await wrapper.get('[data-testid="notification-condition-parameter"]').setValue('segment.length');
+    await wrapper.get('[data-testid="notification-bindings-save"]').trigger('click');
+    await flushPromises();
+    expect(updateNotificationBinding).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="notification-condition-parameter"]').setValue('segment');
+    expect(wrapper.find('[data-testid="notification-condition-value"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="notification-bindings-save"]').trigger('click');
+    await flushPromises();
+    expect(updateNotificationBinding).toHaveBeenCalledWith(binding.id, expect.objectContaining({ targets: [
+      { profileKey: 'primary', order: 1, condition: { parameterName: 'segment', operatorKey: 'exists', expectedValue: null } }
+    ] }));
+    wrapper.unmount();
+  });
 });

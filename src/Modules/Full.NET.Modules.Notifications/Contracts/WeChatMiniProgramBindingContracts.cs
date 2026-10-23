@@ -43,9 +43,11 @@ public sealed record ExchangeWeChatMiniProgramBindingRequest(
 /// <summary>登记订阅消息授权结果。</summary>
 /// <param name="TemplateId">微信订阅模板标识。</param>
 /// <param name="StatusKey">accepted 或 rejected。</param>
+/// <param name="AuthorizationId">一次订阅交互的幂等标识；网络重放必须复用，不构成厂商库存证明。</param>
 public sealed record RecordWeChatMiniProgramSubscriptionRequest(
     string TemplateId,
-    string StatusKey);
+    string StatusKey,
+    Guid AuthorizationId);
 
 /// <summary>微信小程序 OpenId 绑定响应；OpenId 只以掩码返回。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

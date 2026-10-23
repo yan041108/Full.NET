@@ -81,7 +81,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         catch (HttpRequestException)
         {
             throw new DingTalkTransportException(
-                DingTalkTransportFailureKind.Transient,
+                DingTalkTransportFailureKind.Unknown,
                 "The DingTalk card endpoint could not be reached.");
         }
 
@@ -91,7 +91,8 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
             if (!response.IsSuccessStatusCode)
             {
                 throw new DingTalkTransportException(
-                    ClassifyHttpStatus(response.StatusCode),
+                    response.StatusCode >= System.Net.HttpStatusCode.InternalServerError
+                        ? DingTalkTransportFailureKind.Unknown : ClassifyHttpStatus(response.StatusCode),
                     "The DingTalk card endpoint returned an error response.");
             }
 
@@ -320,12 +321,12 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
                 return outTrackId;
             }
 
-            return fallbackOutTrackId;
+            throw new DingTalkTransportException(DingTalkTransportFailureKind.Unknown, "The card response did not confirm acceptance.");
         }
         catch (JsonException)
         {
             throw new DingTalkTransportException(
-                DingTalkTransportFailureKind.Transient,
+                DingTalkTransportFailureKind.Unknown,
                 "The DingTalk card response was invalid.");
         }
     }

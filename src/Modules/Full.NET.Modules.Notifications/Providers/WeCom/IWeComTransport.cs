@@ -35,9 +35,10 @@ internal sealed record WeComSendTextCommand(
 /// <summary>企业微信传输失败分类；Adapter 映射为 Worker 重试语义。</summary>
 internal enum WeComTransportFailureKind
 {
-    Permanent,
-    Transient,
-    RateLimited,
+    Permanent = 0,
+    Transient = 1,
+    RateLimited = 2,
+    Unknown = 3,
 }
 
 /// <summary>分类后的企业微信传输异常。</summary>

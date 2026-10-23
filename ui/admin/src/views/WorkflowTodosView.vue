@@ -90,6 +90,7 @@ const countersignCandidates = ref<Array<{ id: string; label: string }>>([]);
 const countersignChain = ref<WorkflowTodoCountersignChain>();
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
+let detailEpoch = 0;
 
 const detailReadOnly = computed(() => activeTab.value === 'history');
 
@@ -111,6 +112,7 @@ const returnReady = computed(() =>
   comment.value.trim().length > 0);
 
 async function loadCountersignContext(todoId: string): Promise<void> {
+  const epoch = detailEpoch;
   if (!canCountersign.value) {
     countersignChain.value = undefined;
     countersignCandidates.value = [];
@@ -125,6 +127,7 @@ async function loadCountersignContext(todoId: string): Promise<void> {
       }))),
     getWorkflowTodoCountersignChain(todoId).catch(() => undefined)
   ]);
+  if (epoch !== detailEpoch || selected.value?.id !== todoId) return;
   countersignCandidates.value = candidates;
   countersignChain.value = chain;
   countersignAssigneeIds.value = [];
@@ -184,9 +187,23 @@ async function cancelCountersign(): Promise<void> {
 }
 
 onMounted(() => {
-  void loadList();
+  void loadList().then(() => { if (detailEpoch === 0) openRouteResource(); });
 });
-onBeforeUnmount(() => loadController?.abort());
+onBeforeUnmount(() => { loadController?.abort(); closeDetail(); });
+
+// 页面按路径缓存，切换资源及离开后返回都必须重新读取，不能沿用上一次的授权与状态。
+watch([() => router.currentRoute.value.path, () => router.currentRoute.value.query.resourceId], ([path], [oldPath]) => {
+  if (path === '/workflow/todos' || oldPath === '/workflow/todos') openRouteResource();
+});
+
+function openRouteResource(): void {
+  closeDetail();
+  const route = router.currentRoute.value;
+  const id = route.query.resourceId;
+  if (route.path === '/workflow/todos' && typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) && can('workflow.todos.read')) {
+    void loadTodoDetail(id);
+  }
+}
 
 watch(activeTab, () => {
   listPage.value = 1;
@@ -233,11 +250,18 @@ async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
   if (listLoading.value || loading.value || acting.value) {
     return;
   }
+  await loadTodoDetail(todo.id, todo);
+}
+
+async function loadTodoDetail(id: string, listItem?: WorkflowTodoListItemResponse): Promise<void> {
+  closeDetail();
+  const epoch = detailEpoch;
   loading.value = true;
   problem.value = undefined;
-  selectedListItem.value = todo;
+  selectedListItem.value = listItem;
   try {
-    const detail = await getWorkflowTodo(todo.id);
+    const detail = await getWorkflowTodo(id);
+    if (epoch !== detailEpoch) return;
     // 详情一旦展示即可编辑；先清理上一条待办状态，避免后续辅助请求覆盖新输入。
     fieldPatch.value = {};
     comment.value = '';
@@ -245,10 +269,11 @@ async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
     selected.value = detail;
     if (!detailReadOnly.value) {
       const targets = canReturn.value
-        ? await listWorkflowTodoReturnTargets(todo.id)
+        ? await listWorkflowTodoReturnTargets(id)
         : [];
+      if (epoch !== detailEpoch) return;
       returnTargets.value = targets;
-      await loadCountersignContext(todo.id);
+      await loadCountersignContext(id);
     } else {
       returnTargets.value = [];
       countersignChain.value = undefined;
@@ -256,10 +281,12 @@ async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
       countersignCandidates.value = [];
     }
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowTodos.loadFailed');
-    selectedListItem.value = undefined;
+    if (epoch === detailEpoch) {
+      problem.value = toProblem(error, 'workflowTodos.loadFailed');
+      selectedListItem.value = undefined;
+    }
   } finally {
-    loading.value = false;
+    if (epoch === detailEpoch) loading.value = false;
   }
 }
 
@@ -341,6 +368,8 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
 }
 
 function closeDetail(): void {
+  detailEpoch++;
+  loading.value = false;
   selected.value = undefined;
   selectedListItem.value = undefined;
   fieldPatch.value = {};

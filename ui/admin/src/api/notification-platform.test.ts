@@ -6,6 +6,12 @@ import {
   createNotificationTemplate,
   listNotificationProviderTypes,
   listNotificationTemplates,
+  listNotificationProducerScenes,
+  updateNotificationProducerScene,
+  getNotificationQuotaOutstanding,
+  listMyNotificationPreferences,
+  listMyNotificationPreferenceChannels,
+  updateMyNotificationPreference,
   parseNonSecretConfigJson,
   retryNotificationDelivery,
   sendMyRecipientEndpointVerification,
@@ -58,6 +64,56 @@ const template = {
 
 describe('notification-platform api', () => {
   beforeEach(() => requestMock.mockReset());
+
+  it('uses generated governance operations with CAS body and validates ledger counts', async () => {
+    const scene = {
+      id: template.id, producerKey: 'orders', sceneKey: 'shipped',
+      policyCategoryKey: 'transactional', allowedChannelKeys: ['inbox'],
+      emergencyOverrideAllowed: false, isEnabled: true, version: 7,
+      createdAtUtc: template.createdAtUtc, updatedAtUtc: template.createdAtUtc
+    };
+    requestMock.mockResolvedValueOnce({ items: [scene], page: 2, pageSize: 20, total: 21 })
+      .mockResolvedValueOnce(scene);
+    expect((await listNotificationProducerScenes(2, 20)).items).toEqual([scene]);
+    expect(requestMock).toHaveBeenLastCalledWith('/api/v1/notifications/producer-scenes?page=2&pageSize=20', { method: 'GET' }, undefined);
+    const body = {
+      policyCategoryKey: 'transactional', allowedChannelKeys: ['inbox'],
+      emergencyOverrideAllowed: false, version: 7
+    };
+    await updateNotificationProducerScene(scene.id, body);
+    expect(requestMock).toHaveBeenLastCalledWith(`/api/v1/notifications/producer-scenes/${scene.id}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+    }, undefined);
+    requestMock.mockResolvedValueOnce([{ dimensionKey: 'provider', stateKey: 'reserved', count: '4' }]);
+    expect(await getNotificationQuotaOutstanding()).toEqual([{ dimensionKey: 'provider', stateKey: 'reserved', count: 4 }]);
+    requestMock.mockResolvedValueOnce([{ dimensionKey: 'provider', stateKey: 'reserved', count: 'invalid' }]);
+    await expect(getNotificationQuotaOutstanding()).rejects.toThrow(/client\.invalid_/);
+    requestMock.mockResolvedValueOnce({ items: [{ ...scene, allowedChannelKeys: [1] }], page: 1, pageSize: 20, total: 1 });
+    await expect(listNotificationProducerScenes()).rejects.toThrow(/client\.invalid_/);
+  });
+
+  it('uses generated personal preference operations and validates response shape', async () => {
+    const preference = {
+      id: template.id, userId: template.id, channelKey: 'email', channelOptedOut: true,
+      marketingConsentGranted: false, quietHoursJson: null, updatedAtUtc: template.createdAtUtc, version: 1
+    };
+    requestMock.mockResolvedValueOnce(['inbox', 'email']).mockResolvedValueOnce([preference])
+      .mockResolvedValueOnce(preference);
+    expect(await listMyNotificationPreferenceChannels()).toEqual(['inbox', 'email']);
+    expect(await listMyNotificationPreferences()).toEqual([preference]);
+    const body = { channelKey: 'email', channelOptedOut: true, marketingConsentGranted: false, quietHoursJson: null };
+    await updateMyNotificationPreference('email', body);
+    expect(requestMock).toHaveBeenLastCalledWith('/api/v1/notifications/my-preferences/email', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+    }, undefined);
+    requestMock.mockResolvedValueOnce([{ ...preference, marketingConsentGranted: 'true' }]);
+    await expect(listMyNotificationPreferences()).rejects.toThrow(/client\.invalid_/);
+  });
+
+  it('rejects non-string channels from the personal directory', async () => {
+    requestMock.mockResolvedValueOnce(['inbox', { profile: 'private' }]);
+    await expect(listMyNotificationPreferenceChannels()).rejects.toThrow(/client\.invalid_/);
+  });
 
   it('lists templates and creates an inbox draft', async () => {
     requestMock

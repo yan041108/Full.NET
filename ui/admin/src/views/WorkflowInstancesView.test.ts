@@ -1,3 +1,4 @@
+import { createRouter, createMemoryHistory } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { ElMessageBox } from 'element-plus';
@@ -46,10 +47,32 @@ function mountView(permissions = ['workflow.instances.read']) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(WorkflowInstancesView, { global: { plugins: [pinia] } });
+  const router = createRouter({ history: createMemoryHistory(), routes: ['/', '/workflow/instances'].map(path => ({ path, component: { template: '<div />' } })) });
+  return mount(WorkflowInstancesView, { global: { plugins: [pinia, router] } });
 }
 
 describe('WorkflowInstancesView', () => {
+  it('缓存页面切换深链时重新读取，旧实例请求不能覆盖当前资源', async () => {
+    const base = await getWorkflowInstance(instanceId);
+    const secondId = '01912345-6789-7abc-8def-0123456789b2';
+    let finishOld!: (value: typeof base) => void;
+    const old = new Promise<typeof base>(resolve => { finishOld = resolve; });
+    vi.mocked(getWorkflowInstance).mockReset().mockImplementation(id => id === instanceId ? old
+      : Promise.resolve({ ...base, id: secondId, businessTitle: '第二条深链资源' }));
+    const wrapper = mountView();
+    await flushPromises();
+    await wrapper.vm.$router.push({ path: '/workflow/instances', query: { resourceId: instanceId } });
+    await flushPromises();
+    expect(getWorkflowInstance).toHaveBeenCalledWith(instanceId, expect.any(AbortSignal));
+    await wrapper.vm.$router.push({ path: '/workflow/instances', query: { resourceId: secondId } });
+    await flushPromises();
+    expect(getWorkflowInstance).toHaveBeenCalledWith(secondId, expect.any(AbortSignal));
+    finishOld(base);
+    await flushPromises();
+    expect(wrapper.text()).toContain('第二条深链资源');
+    expect(wrapper.get('[data-testid="workflow-instance-id"]').element).toHaveProperty('value', secondId);
+    wrapper.unmount();
+  });
   beforeEach(() => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
     vi.mocked(listMyWorkflowInstances).mockReset().mockResolvedValue({

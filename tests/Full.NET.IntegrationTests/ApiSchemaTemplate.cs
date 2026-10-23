@@ -1,4 +1,7 @@
 using Dapper;
+using System.Data.Common;
+using System.Security.Cryptography;
+using System.Text;
 using Full.NET.Data.Abstractions;
 using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
@@ -119,6 +122,7 @@ internal static class ApiSchemaTemplate
                             $"CREATE DATABASE {SharedDatabaseFixture.QuoteSqlServerIdent(SqlServerTemplateDatabase)};"))
                     .ConfigureAwait(false);
                 await materializeTemplate(templateCs, cancellationToken).ConfigureAwait(false);
+                await StampSchemaFingerprintAsync(DatabaseProvider.SqlServer, templateCs, cancellationToken).ConfigureAwait(false);
             }
 
             await BackupSqlServerTemplateAsync(admin, cancellationToken).ConfigureAwait(false);
@@ -188,6 +192,7 @@ internal static class ApiSchemaTemplate
                     await GrantMySqlTemplateAsync(admin, MySqlTemplateDatabase, cancellationToken)
                         .ConfigureAwait(false);
                     await materializeTemplate(templateCs, cancellationToken).ConfigureAwait(false);
+                    await StampSchemaFingerprintAsync(DatabaseProvider.MySql, templateCs, cancellationToken).ConfigureAwait(false);
                 }
             }
             finally
@@ -515,6 +520,9 @@ internal static class ApiSchemaTemplate
         string connectionString,
         CancellationToken cancellationToken)
     {
+        // 只比较迁移条数会在直接演进未发布脚本时复用过期结构，产生虚假验收结果。
+        if (!await SchemaFingerprintMatchesAsync(provider, connectionString, cancellationToken).ConfigureAwait(false))
+            return false;
         if (!await JournalMatchesAsync(provider, connectionString, cancellationToken)
             .ConfigureAwait(false))
         {
@@ -523,6 +531,45 @@ internal static class ApiSchemaTemplate
 
         return !await ContainsBootstrapDataAsync(provider, connectionString, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static string SchemaFingerprint(DatabaseProvider provider)
+    {
+        var assembly = typeof(DbUpMigrationRunner).Assembly;
+        var segment = provider == DatabaseProvider.SqlServer ? ".Migrations.SqlServer." : ".Migrations.MySql.";
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var name in assembly.GetManifestResourceNames().Where(name => name.Contains(segment, StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes(name + "\0"));
+            using var stream = assembly.GetManifestResourceStream(name)!;
+            hash.AppendData(SHA256.HashData(stream));
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private static async Task StampSchemaFingerprintAsync(DatabaseProvider provider, string connectionString, CancellationToken token)
+    {
+        await using DbConnection connection = provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(connectionString) : new MySqlConnection(connectionString);
+        await connection.OpenAsync(token).ConfigureAwait(false);
+        var hash = SchemaFingerprint(provider);
+        // 指纹只保存在测试模板的 Journal 元数据，不改变生产迁移或增加业务表。
+        var sql = provider == DatabaseProvider.SqlServer
+            ? "EXEC sys.sp_addextendedproperty @name=N'FullNet.TestMigrationContentHash', @value=@Hash, @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'SchemaVersions';"
+            : $"ALTER TABLE schemaversions COMMENT = '{hash}';";
+        await connection.ExecuteAsync(TimeoutCommand(token, sql, new { Hash = hash })).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> SchemaFingerprintMatchesAsync(DatabaseProvider provider, string connectionString, CancellationToken token)
+    {
+        await using DbConnection connection = provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(connectionString) : new MySqlConnection(connectionString);
+        await connection.OpenAsync(token).ConfigureAwait(false);
+        var sql = provider == DatabaseProvider.SqlServer
+            ? "SELECT CONVERT(nvarchar(64), value) FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.SchemaVersions') AND minor_id = 0 AND name = N'FullNet.TestMigrationContentHash';"
+            : "SELECT TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = 'schemaversions';";
+        var actual = await connection.QuerySingleOrDefaultAsync<string>(TimeoutCommand(token, sql)).ConfigureAwait(false);
+        return string.Equals(actual, SchemaFingerprint(provider), StringComparison.Ordinal);
     }
 
     private static async Task<bool> JournalMatchesAsync(
@@ -601,7 +648,7 @@ internal static class ApiSchemaTemplate
         await mySql.OpenAsync(cancellationToken).ConfigureAwait(false);
         return Convert.ToInt32(
             await mySql.ExecuteScalarAsync<long>(
-                    TimeoutCommand(cancellationToken, "SELECT COUNT(*) FROM SchemaVersions;"))
+                    TimeoutCommand(cancellationToken, "SELECT COUNT(*) FROM schemaversions;"))
                 .ConfigureAwait(false),
             System.Globalization.CultureInfo.InvariantCulture);
     }

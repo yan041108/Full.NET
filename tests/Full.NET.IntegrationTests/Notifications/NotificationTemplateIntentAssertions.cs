@@ -24,6 +24,14 @@ internal static class NotificationTemplateIntentAssertions
         var hostAdminToken = await LoginAsHostAdminAsync(hostClient, cancellationToken);
         var tenantSwitchToken = await LoginAsHostAdminAsync(tenantClient, cancellationToken);
         var hostUser = await GetCurrentUserAsync(hostClient, hostAdminToken, cancellationToken);
+        // 受控目录：分类与合法渠道只能来自声明，缺失声明时受理失败关闭；断言依赖 transactional 分类。
+        await NotificationProfileBindingAssertions.CreateProducerSceneAsync(
+            hostClient,
+            hostAdminToken,
+            "tests.notifications",
+            "order.paid",
+            "inbox",
+            cancellationToken);
 
         using var forbidden = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -337,6 +345,8 @@ internal static class NotificationTemplateIntentAssertions
         using var hostGetTenantResponse = await hostClient.SendAsync(hostGetTenant, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, hostGetTenantResponse.StatusCode);
 
+        await NotificationLifecycleAssertions.VerifyInboxAsync(factory, hostClient, hostAdminToken, hostUser.Id,
+            templateKey, cancellationToken);
         await OpenApiNotificationsTemplatesIntentsContractAssertions.VerifyAsync(
             hostClient,
             cancellationToken);

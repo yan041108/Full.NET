@@ -16,6 +16,32 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/notifications/deliveries")
             .WithTags("NotificationsDeliveries");
 
+        group.MapPost("/{deliveryId:guid}/reconcile", async (Guid deliveryId, ReconcileNotificationDeliveryRequest request,
+            NotificationDeliveryService service, Execution.NotificationQuotaGovernor governor,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.ReconcileAsync(actor, deliveryId, request, governor, token).ConfigureAwait(false), context);
+        }).WithName("notificationsReconcileDelivery").Produces<NotificationDeliveryResponse>()
+        .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+        .RequireAuthorization(FullNetPermissionPolicies.For(NotificationPlatformPermissions.DeliveriesReconcile));
+
+        group.MapGet("/summary", async (NotificationDeliveryService service, Providers.INotificationProviderTypeCatalog catalog,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.SummaryAsync(catalog, token).ConfigureAwait(false), context))
+        .WithName("notificationsGetDeliverySummary").Produces<IReadOnlyList<NotificationDeliverySummaryResponse>>()
+        .ProducesProblem(401).ProducesProblem(403)
+        .RequireAuthorization(FullNetPermissionPolicies.For(NotificationPlatformPermissions.DeliveriesRead));
+
+        group.MapPost("/{deliveryId:guid}/dead-letter", async (Guid deliveryId, RetryNotificationDeliveryRequest request,
+            NotificationDeliveryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.DeadLetterAsync(actor, deliveryId, request, token).ConfigureAwait(false), context);
+        }).WithName("notificationsDeadLetterDelivery").Produces<NotificationDeliveryResponse>()
+        .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+        .RequireAuthorization(FullNetPermissionPolicies.For(NotificationPlatformPermissions.DeliveriesDeadLetter));
+
         group.MapGet("/", async (
             int? page,
             int? pageSize,

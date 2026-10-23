@@ -80,7 +80,8 @@ internal static class InboxMessageSql
             "notifications.list_inbox_messages.sql_server",
             $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE {RecipientWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
@@ -93,7 +94,8 @@ internal static class InboxMessageSql
             "notifications.list_inbox_messages.mysql",
             $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE {RecipientWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
@@ -116,7 +118,8 @@ internal static class InboxMessageSql
             "notifications.list_sent_inbox_messages.sql_server",
             $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE {SenderWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
@@ -129,7 +132,8 @@ internal static class InboxMessageSql
             "notifications.list_sent_inbox_messages.mysql",
             $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE {SenderWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
@@ -156,6 +160,7 @@ internal static class InboxMessageSql
             WHERE RecipientUserId = @RecipientUserId
               AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
+              AND ArchivedAtUtc IS NULL AND RevokedAtUtc IS NULL
             """,
             SqlDataScope.Global);
 
@@ -164,7 +169,8 @@ internal static class InboxMessageSql
             "notifications.find_inbox_message_for_recipient",
             """
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE Id = @Id
               AND RecipientUserId = @RecipientUserId
@@ -177,7 +183,8 @@ internal static class InboxMessageSql
             "notifications.find_inbox_message_by_intent_recipient",
             """
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId,
+                   ArchivedAtUtc, RevokedAtUtc, RevocationReason, DeepLinkJson, ProducerKey, SceneKey
             FROM fn_notifications_inbox_message
             WHERE IntentId = @IntentId
               AND RecipientUserId = @RecipientUserId
@@ -196,6 +203,7 @@ internal static class InboxMessageSql
               AND RecipientUserId = @RecipientUserId
               AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
+              AND ArchivedAtUtc IS NULL AND RevokedAtUtc IS NULL
             """,
             SqlDataScope.Global);
 
@@ -209,6 +217,7 @@ internal static class InboxMessageSql
             WHERE RecipientUserId = @RecipientUserId
               AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
+              AND ArchivedAtUtc IS NULL AND RevokedAtUtc IS NULL
             """,
             SqlDataScope.Global);
 
@@ -218,6 +227,9 @@ internal static class InboxMessageSql
           AND TenantScopeKey = @TenantScopeKey
           AND (@Title IS NULL OR Title LIKE @TitlePattern)
           AND (@Status IS NULL OR Status = @Status)
+          AND ((@Archived = 1 AND ArchivedAtUtc IS NOT NULL) OR (@Archived = 0 AND ArchivedAtUtc IS NULL))
+          AND (@ProducerKey IS NULL OR ProducerKey = @ProducerKey)
+          AND (@SceneKey IS NULL OR SceneKey = @SceneKey)
         """;
 
     private const string SenderWhereClause =

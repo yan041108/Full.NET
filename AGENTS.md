@@ -14,6 +14,7 @@
 
 - 修改前检查分支、`git status`、相关实现与已批准决策，保护既有和无关改动。代码、SQL、配置或脚本任务记录 `git rev-parse HEAD`；工作区已脏或任务跨窗口时使用 `pnpm test:task:start -- <task-id>` 创建快照。
 - 按 [规则索引](rules/README.md) 读取受影响章节。认证、租户、事务、持久化与公共契约变化必须覆盖相应安全、数据或契约规则；影响 Host.Api 可达路径、依赖或 AOT 配置时读取 Native AOT 规则。范围不确定时先沿调用链确认。
+- 环境异常或首次运行时使用 [AI 工作流](docs/development/ai-workflow.md) 的只读自检；故障排查和前端验收沿用该文档的项目路由。查询 .NET、ASP.NET Core、SqlClient 或 SQL Server 文档时优先使用可用的 Microsoft Learn MCP，并匹配项目版本；连接不可用时回退官方文档。
 - 新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时使用 [fullnet-module-delivery](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析与优化时使用 [fullnet-performance-hardening](.agents/skills/fullnet-performance-hardening/SKILL.md)。只读咨询或局部文字调整不因提到模块名称就触发完整交付流程。
 - 行为变化在开发时明确验收场景，可同步编写测试，默认在功能批次完成后集中运行；缺陷定位所需的最小复现按需提前。文字和机械变更用直接相关的结构检查。注释使用中文，解释意图和约束，覆盖范围见 [注释规则](rules/code-comments.md)。
 - 全项目验收以规定范围的本地测试实际通过为准，CI 与专用生产等价环境不再是强制前置；构建、测试、影响集与能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行（R-20260930-local-acceptance）。入口和 Skill 不另设测试流程；未执行、失败或跳过不能报告为通过。

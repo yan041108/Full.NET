@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import NotificationWorkbench from '../components/NotificationWorkbench.vue';
 import { EditPen, Message, Promotion } from '@element-plus/icons-vue';
 import {
   ElBadge,
@@ -36,7 +38,8 @@ import {
   listSentInboxMessages,
   markAllInboxMessagesRead,
   markInboxMessageRead,
-  sendHostInboxMessage
+  sendHostInboxMessage,
+  archiveInboxMessages
 } from '../api/inbox-messages';
 import { listHostUsers } from '../api/users';
 import { useNotificationsRealtime } from '../notifications/realtime';
@@ -55,6 +58,10 @@ interface AppliedFilters {
 }
 
 const session = useSessionStore();
+const router = useRouter();
+const selectedMessages = ref<InboxMessage[]>([]);
+const archived = ref(false);
+const sceneFilter = ref('');
 const { t } = useAdminI18n();
 const pagedItems = ref<InboxMessage[]>([]);
 const sentItems = ref<SentInboxMessage[]>([]);
@@ -183,6 +190,26 @@ function openInboxDetail(row: InboxMessage): void {
   detailOpen.value = true;
 }
 
+async function archiveMessages(ids: string[], batch: boolean): Promise<void> {
+  if (changing.value || !session.can(batch ? 'notifications.inbox.archive_batch' : 'notifications.inbox.archive')) return;
+  changing.value = true;
+  try {
+    unreadCount.value = (await archiveInboxMessages(ids, batch)).unreadCount;
+    selectedMessages.value = [];
+    detailOpen.value = false;
+    await load();
+  } catch (error) { problem.value = toProblem(error, 'inboxMessages.loadFailed'); }
+  finally { changing.value = false; }
+}
+
+function openResource(message: InboxMessage): void {
+  const link = message.deepLink;
+  if (!link || message.revokedAtUtc) return;
+  const todo = link.resourceTypeKey === 'workflow_todo';
+  if (!session.can(todo ? 'workflow.todos.read' : 'workflow.instances.read')) return;
+  void router.push({ name: todo ? 'workflow-todos' : 'workflow-instances', query: { resourceId: link.resourceId } });
+}
+
 function openSentDetail(row: SentInboxMessage): void {
   detailRecord.value = { mode: 'sent', message: row };
   detailOpen.value = true;
@@ -254,7 +281,7 @@ async function drainReloads(): Promise<void> {
         if (pane === 'sent' && !canSend.value) continue;
         const result = pane === 'sent'
           ? { pane: 'sent' as const, page: await listSentInboxMessages({ page: request.page, pageSize: request.pageSize, title: request.title }) }
-          : { pane: 'received' as const, page: await listInboxMessages(request) };
+          : { pane: 'received' as const, page: await listInboxMessages({ ...request, archived: archived.value, sceneKey: sceneFilter.value }) };
         // 旧页面/筛选结果不得覆盖较新的刷新要求。
         if (disposed || version !== loadVersion) continue;
         problem.value = undefined;
@@ -383,6 +410,7 @@ function toProblem(
 
 <template>
   <section class="inbox-messages-view art-page-stack art-full-height" :aria-busy="loading">
+    <NotificationWorkbench />
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('inboxMessages.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -544,6 +572,13 @@ function toProblem(
                       {{ t('inboxMessages.markAllRead') }}
                     </el-button>
                   </PermissionGate>
+                  <PermissionGate code="notifications.inbox.archive_batch">
+                    <el-button data-testid="inbox-messages-archive-batch" :disabled="changing || selectedMessages.length === 0" @click="archiveMessages(selectedMessages.map(m => m.id), true)">
+                      {{ t('inboxMessages.archiveBatch') }}
+                    </el-button>
+                  </PermissionGate>
+                  <el-button @click="archived = !archived; page = 1; load()">{{ t(archived ? 'inboxMessages.navInbox' : 'inboxMessages.archived') }}</el-button>
+                  <el-input v-model="sceneFilter" :placeholder="t('inboxMessages.sceneFilter')" clearable @change="page = 1; load()" />
                 </template>
               </ArtTableHeader>
 
@@ -560,7 +595,9 @@ function toProblem(
                   :class="{ 'art-table--header-bg': tableHeaderBackground }"
                   highlight-current-row
                   @row-click="openInboxDetail"
+                  @selection-change="selectedMessages = $event"
                 >
+                  <el-table-column v-if="session.can('notifications.inbox.archive_batch')" type="selection" width="48" />
                   <el-table-column :label="t('users.columnIndex')" width="72" align="center">
                     <template #default="{ $index }">{{ rowIndex($index) }}</template>
                   </el-table-column>
@@ -590,7 +627,7 @@ function toProblem(
 
                   <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
                     <template #default="{ row }">
-                      <PermissionGate v-if="row.status === 'unread'" code="notifications.inbox.mark_read">
+                      <PermissionGate v-if="row.status === 'unread' && !row.revokedAtUtc" code="notifications.inbox.mark_read">
                         <el-button
                           plain
                           size="small"
@@ -600,6 +637,9 @@ function toProblem(
                         >
                           {{ t('inboxMessages.markRead') }}
                         </el-button>
+                      </PermissionGate>
+                      <PermissionGate v-if="!row.archivedAtUtc" code="notifications.inbox.archive">
+                        <el-button data-testid="inbox-messages-archive" :disabled="changing" @click.stop="archiveMessages([row.id], false)">{{ t('inboxMessages.archive') }}</el-button>
                       </PermissionGate>
                     </template>
                   </el-table-column>
@@ -762,8 +802,11 @@ function toProblem(
           </div>
         </dl>
         <div v-if="detailRecord.mode === 'inbox'" class="inbox-message-detail__actions">
+          <p v-if="detailRecord.message.revokedAtUtc">{{ t('inboxMessages.revoked') }}</p>
+          <el-button v-if="detailRecord.message.deepLink && !detailRecord.message.revokedAtUtc && session.can(detailRecord.message.deepLink.resourceTypeKey === 'workflow_todo' ? 'workflow.todos.read' : 'workflow.instances.read')"
+            @click="openResource(detailRecord.message)">{{ t('inboxMessages.openResource') }}</el-button>
           <PermissionGate
-            v-if="detailRecord.message.status === 'unread'"
+            v-if="detailRecord.message.status === 'unread' && !detailRecord.message.revokedAtUtc"
             code="notifications.inbox.mark_read"
           >
             <el-button

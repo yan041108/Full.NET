@@ -29,6 +29,8 @@ public sealed class NotificationsAuthorizationContributorTests
                 InboxPermissions.MarkRead,
                 InboxPermissions.Read,
                 InboxPermissions.Send,
+                InboxPermissions.Archive,
+                InboxPermissions.ArchiveBatch,
             },
             catalog.Permissions
                 .Select(permission => permission.Code)
@@ -78,6 +80,8 @@ public sealed class NotificationsAuthorizationContributorTests
                 InboxPermissions.Send,
                 InboxPermissions.MarkRead,
                 InboxPermissions.MarkAllRead,
+                InboxPermissions.Archive,
+                InboxPermissions.ArchiveBatch,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "inbox-messages")

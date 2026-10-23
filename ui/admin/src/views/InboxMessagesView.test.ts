@@ -8,7 +8,8 @@ import {
   listInboxMessages,
   markAllInboxMessagesRead,
   markInboxMessageRead,
-  sendHostInboxMessage
+  sendHostInboxMessage,
+  archiveInboxMessages
 } from '../api/inbox-messages';
 
 vi.mock('../api/inbox-messages', () => ({
@@ -16,7 +17,8 @@ vi.mock('../api/inbox-messages', () => ({
   listInboxMessages: vi.fn(),
   markAllInboxMessagesRead: vi.fn(),
   markInboxMessageRead: vi.fn(),
-  sendHostInboxMessage: vi.fn()
+  sendHostInboxMessage: vi.fn(),
+  archiveInboxMessages: vi.fn().mockResolvedValue({ unreadCount: 0 })
 }));
 
 vi.mock('../api/users', () => ({
@@ -137,5 +139,15 @@ describe('Vue Host \u6d88\u606f\u4e2d\u5fc3\u9875', () => {
     expect(wrapper.find('[data-testid="inbox-messages-send"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="inbox-messages-mark-read"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="inbox-messages-mark-all-read"]').exists()).toBe(true);
+  });
+
+  it('个人归档使用独立权限，归档成功刷新列表与未读数', async () => {
+    const wrapper = mountWithPermissions(['notifications.inbox.read', 'notifications.inbox.archive']);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="inbox-messages-archive-batch"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="inbox-messages-archive"]').trigger('click');
+    await flushPromises();
+    expect(archiveInboxMessages).toHaveBeenCalledWith([unreadMessage.id], false);
+    expect(markInboxMessageRead).not.toHaveBeenCalled();
   });
 });

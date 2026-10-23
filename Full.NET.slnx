@@ -59,6 +59,7 @@
     <Project Path="src/Tools/Full.NET.Ai.DocxParser/Full.NET.Ai.DocxParser.csproj" />
     <Project Path="src/Tools/Full.NET.Ai.PdfParser/Full.NET.Ai.PdfParser.csproj" />
     <Project Path="src/Tools/Full.NET.CodeGeneration.Cli/Full.NET.CodeGeneration.Cli.csproj" />
+    <Project Path="src/Tools/Full.NET.DatabaseDiagnostics.Cli/Full.NET.DatabaseDiagnostics.Cli.csproj" />
     <Project Path="src/Tools/Full.NET.Messaging.Cli/Full.NET.Messaging.Cli.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">

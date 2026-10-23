@@ -121,6 +121,10 @@ internal sealed class NotificationIntentService(
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
+        if (!NotificationMessageMetadata.IsValid(request.DeepLink)
+            || request.ExpiresAtUtc is { } expiry && (expiry <= clock.UtcNow || expiry > clock.UtcNow.AddDays(30)))
+            return Result<PreparedIntent>.Failure(new Error(NotificationsErrorCodes.TemplateValidationFailed,
+                "The notification expiry or deep link is invalid.", ErrorType.Validation));
         var producer = NotificationTemplateCompiler.NormalizeStableKey(request.ProducerKey, "ProducerKey");
         var scene = NotificationTemplateCompiler.NormalizeStableKey(request.SceneKey, "SceneKey");
         var templateKey = NotificationTemplateCompiler.NormalizeStableKey(request.TemplateKey, "TemplateKey");
@@ -192,11 +196,41 @@ internal sealed class NotificationIntentService(
 
         var resolved = recipientUsers.Value!;
 
-        var route = await ResolveRouteAsync(scope, producer.Value!, scene.Value!, template.ChannelKey, cancellationToken)
+        var route = await ResolveRouteAsync(
+                scope,
+                producer.Value!,
+                scene.Value!,
+                template.ChannelKey,
+                snapshot.Value!,
+                cancellationToken)
             .ConfigureAwait(false);
         if (!route.IsSuccess)
         {
             return Result<PreparedIntent>.Failure(route.Error!);
+        }
+
+        // 分类、合法渠道与紧急规则只能来自受控目录；缺失或停用时失败关闭，禁止由可编辑模板提升为强制通知。
+        var catalog = await ManageProducerScenes.NotificationProducerSceneCatalog.FindAsync(
+                queryExecutor,
+                scope.TenantScopeKey,
+                producer.Value!,
+                scene.Value!,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (catalog is null || !catalog.IsEnabled)
+        {
+            return Result<PreparedIntent>.Failure(new Error(
+                NotificationsErrorCodes.ProducerSceneMissing,
+                "The producer/scene is not declared or is disabled in the controlled catalog.",
+                ErrorType.BusinessRule));
+        }
+
+        if (!ManageProducerScenes.NotificationProducerSceneCatalog.IsChannelAllowed(catalog, template.ChannelKey))
+        {
+            return Result<PreparedIntent>.Failure(new Error(
+                NotificationsErrorCodes.ProducerSceneChannelNotAllowed,
+                "The channel is not allowed for this producer/scene.",
+                ErrorType.BusinessRule));
         }
 
         var attachments = await attachmentCoordinator
@@ -211,12 +245,15 @@ internal sealed class NotificationIntentService(
             producer.Value!,
             scene.Value!,
             idempotency.Value!,
+            catalog.PolicyCategoryKey,
+            catalog.EmergencyOverrideAllowed,
             template,
             version,
             snapshot.Value!,
             normalizedRecipients,
             resolved,
-            route.Value!,
+            route.Value! with { RouteSnapshotJson = NotificationMessageMetadata.Freeze(
+                route.Value!.RouteSnapshotJson, request.ExpiresAtUtc, request.DeepLink, catalog.Version) },
             attachments.Value!));
     }
 
@@ -260,7 +297,7 @@ internal sealed class NotificationIntentService(
                     ("IdempotencyKey", prepared.IdempotencyKey),
                     ("TemplateVersionId", prepared.Version.Id),
                     ("BindingVersionId", prepared.Route.BindingVersionId),
-                    ("PolicyCategoryKey", prepared.Template.ContentCategoryKey),
+                    ("PolicyCategoryKey", prepared.PolicyCategoryKey),
                     ("DispatchModeKey", prepared.Route.DispatchModeKey),
                     ("RouteSnapshotJson", prepared.Route.RouteSnapshotJson),
                     ("ParameterSnapshotJson", prepared.ParameterSnapshotJson),
@@ -292,17 +329,9 @@ internal sealed class NotificationIntentService(
             prepared.Template.ChannelKey,
             NotificationTemplateCompiler.InboxChannelKey,
             StringComparison.Ordinal);
-        IReadOnlyList<Guid> deliveryProfileVersionIds = [];
-        if (!isInbox)
-        {
-            var parsed = ParseRouteProfileVersionIds(prepared.Route.RouteSnapshotJson);
-            if (!parsed.IsSuccess)
-            {
-                return Result<NotificationIntentCreateResult>.Failure(parsed.Error!);
-            }
-
-            deliveryProfileVersionIds = parsed.Value!;
-        }
+        IReadOnlyList<Guid> deliveryProfileVersionIds = isInbox
+            ? []
+            : prepared.Route.ActiveProfileVersionIds;
 
         foreach (var recipient in prepared.ResolvedRecipients)
         {
@@ -320,6 +349,26 @@ internal sealed class NotificationIntentService(
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            var deliveryPolicy = isInbox
+                ? null
+                : await ResolveDeliveryPolicyAsync(
+                        scope,
+                        recipient.UserId,
+                        prepared.Template.ChannelKey,
+                        prepared.PolicyCategoryKey,
+                        prepared.EmergencyOverrideAllowed,
+                        now,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            var contentSnapshot = isInbox
+                ? null
+                : await RenderDeliveryContentSnapshotAsync(scope, prepared, recipient, cancellationToken)
+                    .ConfigureAwait(false);
+            if (contentSnapshot is { IsSuccess: false })
+            {
+                return Result<NotificationIntentCreateResult>.Failure(contentSnapshot.Error!);
+            }
+
             foreach (var profileVersionId in deliveryProfileVersionIds)
             {
                 await commandExecutor.ExecuteAsync(
@@ -331,9 +380,13 @@ internal sealed class NotificationIntentService(
                             ("ChannelKey", prepared.Template.ChannelKey),
                             ("ProviderProfileVersionId", profileVersionId),
                             ("BindingVersionId", prepared.Route.BindingVersionId),
-                            ("StatusKey", "accepted"),
-                            ("NextAttemptAtUtc", now),
-                            ("CreatedAtUtc", now)),
+                            ("StatusKey", deliveryPolicy?.StatusKey ?? "accepted"),
+                            ("NextAttemptAtUtc", deliveryPolicy?.NextAttemptAtUtc ?? now),
+                            ("CreatedAtUtc", now),
+                            ("ContentSnapshotJson", contentSnapshot?.Value),
+                            ("PreferenceVersion", deliveryPolicy?.PreferenceVersion),
+                            ("PolicyDecisionKey", deliveryPolicy?.DecisionKey),
+                            ("SuppressionReasonCode", deliveryPolicy?.SuppressionReasonCode)),
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -387,6 +440,14 @@ internal sealed class NotificationIntentService(
                     return Result<NotificationIntentCreateResult>.Failure(projected.Error!);
                 }
 
+                await commandExecutor.ExecuteAsync(NotificationLifecycleSql.SetInboxMetadata,
+                    NotificationPlatformSqlParameters.Create(
+                        ("Id", projected.Value!.Id), ("TenantScopeKey", scope.TenantScopeKey),
+                        ("ProducerKey", prepared.ProducerKey), ("SceneKey", prepared.SceneKey),
+                        ("DeepLinkJson", request.DeepLink is null ? null : System.Text.Json.JsonSerializer.Serialize(
+                            request.DeepLink, Serialization.NotificationsJsonSerializerContext.Default.NotificationDeepLink))),
+                    cancellationToken).ConfigureAwait(false);
+
                 var inboxEvent = new InboxMessageReceivedIntegrationEvent(
                     recipient.UserId,
                     projected.Value!.Id,
@@ -420,6 +481,9 @@ internal sealed class NotificationIntentService(
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
+        var metadata = NotificationMessageMetadata.Read(existing.RouteSnapshotJson);
+        if (metadata.ExpiresAtUtc != request.ExpiresAtUtc || metadata.DeepLink != request.DeepLink)
+            return IdempotencyConflict();
         var version = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateVersionRecord>(
             NotificationPlatformSql.FindTemplateVersionById,
             NotificationPlatformSqlParameters.Create(("Id", existing.TemplateVersionId)), cancellationToken)
@@ -539,7 +603,7 @@ internal sealed class NotificationIntentService(
                 .ToArray(),
             attachments.Select(item => new NotificationIntentAttachmentResponse(item.FileId, item.SortOrder))
                 .ToArray(),
-            record.CreatedAtUtc);
+            record.CreatedAtUtc, record.Revision);
     }
 
     private async Task TryPublishInboxAsync(
@@ -561,6 +625,108 @@ internal sealed class NotificationIntentService(
                     inboxEvent.MessageId);
             }
         }
+    }
+
+    private async Task<Result<string>> RenderDeliveryContentSnapshotAsync(
+        NotificationInboxScope scope,
+        PreparedIntent prepared,
+        ResolvedNotificationRecipient recipient,
+        CancellationToken cancellationToken)
+    {
+        var selected = await templateSelector
+            .ResolvePublishedAsync(
+                scope,
+                prepared.Template.TemplateKey,
+                recipient.PreferredLocale,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!selected.IsSuccess)
+        {
+            return Result<string>.Failure(selected.Error!);
+        }
+
+        var rendered = NotificationTemplateCompiler.Render(
+            selected.Value!.Version.Subject,
+            selected.Value.Version.BodyJson,
+            prepared.ParameterSnapshotJson);
+        if (!rendered.IsSuccess)
+        {
+            return Result<string>.Failure(rendered.Error!);
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new System.Text.Json.Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            // 按收件人与渠道冻结实际生效的语言、模板版本与已发布内容哈希；
+            // 重试一律复用该快照，模板后续发布不会改变在途内容。
+            writer.WriteString("localeTag", selected.Value.Version.LocaleTag);
+            writer.WriteString("templateVersionId", selected.Value.Version.Id);
+            writer.WriteString("contentHash", selected.Value.Version.ContentHash);
+            writer.WriteString("subject", rendered.Value!.Title);
+            writer.WriteString("body", rendered.Value.Content);
+            writer.WriteEndObject();
+        }
+
+        return Result<string>.Success(System.Text.Encoding.UTF8.GetString(stream.ToArray()));
+    }
+
+    private async Task<DeliveryPolicyDecision> ResolveDeliveryPolicyAsync(
+        NotificationInboxScope scope,
+        Guid userId,
+        string channelKey,
+        string categoryKey,
+        bool emergencyOverrideAllowed,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var preference = await queryExecutor.QuerySingleOrDefaultAsync<NotificationPreferenceRecord>(
+                NotificationPlatformSql.FindPreferenceByUserChannel,
+                NotificationPlatformSqlParameters.Create(
+                    ("TenantScopeKey", scope.TenantScopeKey),
+                    ("UserId", userId),
+                    ("ChannelKey", channelKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var category = categoryKey switch
+        {
+            "mandatory" => NotificationPolicyCategory.Mandatory,
+            "transactional" => NotificationPolicyCategory.Transactional,
+            "marketing" => NotificationPolicyCategory.Marketing,
+            _ => NotificationPolicyCategory.Informational,
+        };
+        var inQuiet = preference?.QuietHoursJson is { } json
+            && Domain.NotificationQuietHours.IsInQuietHours(json, now);
+        var evaluation = NotificationPolicy.Evaluate(
+            category,
+            new NotificationPreferenceSnapshot(
+                preference?.ChannelOptedOut ?? false,
+                preference?.MarketingConsentGranted ?? false,
+                inQuiet),
+            emergencyOverride: emergencyOverrideAllowed);
+        if (evaluation.IsSuppressed)
+        {
+            return new DeliveryPolicyDecision(
+                "suppressed",
+                null,
+                preference?.Version,
+                "suppressed",
+                evaluation.SuppressionReasonCode);
+        }
+
+        if (evaluation.ShouldDelayForQuietHours && preference?.QuietHoursJson is { } quietHours)
+        {
+            // 静默时段只延迟可延迟的投递：把下一可发送时间（跨午夜、夏令时按声明时区计算）写入
+            // NextAttemptAtUtc，领取查询在到期前不会拉取该投递。
+            return new DeliveryPolicyDecision(
+                "accepted",
+                Domain.NotificationQuietHours.NextAllowedAt(quietHours, now) ?? now,
+                preference.Version,
+                "delayed_quiet_hours",
+                null);
+        }
+
+        return new DeliveryPolicyDecision("accepted", now, preference?.Version, "dispatch", null);
     }
 
     private static Result<IReadOnlyList<NotificationRecipientInput>> NormalizeRecipients(
@@ -598,6 +764,7 @@ internal sealed class NotificationIntentService(
         string producerKey,
         string sceneKey,
         string channelKey,
+        string parameterSnapshotJson,
         CancellationToken cancellationToken)
     {
         if (string.Equals(channelKey, NotificationTemplateCompiler.InboxChannelKey, StringComparison.Ordinal))
@@ -605,7 +772,8 @@ internal sealed class NotificationIntentService(
             return Result<ResolvedRoute>.Success(new ResolvedRoute(
                 null,
                 NotificationTemplateCompiler.DispatchModeSingle,
-                NotificationTemplateCompiler.EmptyRouteSnapshotJson));
+                NotificationTemplateCompiler.EmptyRouteTargetsJson,
+                []));
         }
 
         var published = await queryExecutor.QueryAsync<NotificationBindingVersionRecord>(
@@ -634,16 +802,28 @@ internal sealed class NotificationIntentService(
         }
 
         var binding = published[0];
-        using var document = System.Text.Json.JsonDocument.Parse(binding.BindingTargetsJson);
-        var candidates = new List<NotificationRouteCandidate>();
-        foreach (var target in document.RootElement.EnumerateArray())
+        var mode = binding.DispatchModeKey switch
         {
-            var profileKey = target.GetProperty("profileKey").GetString() ?? string.Empty;
+            "fan_out" => NotificationDispatchMode.FanOut,
+            "failover" => NotificationDispatchMode.Failover,
+            "match" => NotificationDispatchMode.Match,
+            _ => NotificationDispatchMode.Single,
+        };
+        var snapshotTargets = ParseRouteSnapshotTargets(binding.BindingTargetsJson);
+        if (!snapshotTargets.IsSuccess)
+        {
+            return Result<ResolvedRoute>.Failure(snapshotTargets.Error!);
+        }
+
+        using var parameters = System.Text.Json.JsonDocument.Parse(parameterSnapshotJson);
+        var candidates = new List<NotificationRouteCandidate>(snapshotTargets.Value!.Count);
+        foreach (var target in snapshotTargets.Value)
+        {
             var profile = await queryExecutor.QuerySingleOrDefaultAsync<NotificationProviderProfileRecord>(
                     NotificationPlatformSql.FindProfileByKey,
                     NotificationPlatformSqlParameters.Create(
                         ("TenantScopeKey", scope.TenantScopeKey),
-                        ("ProfileKey", profileKey)),
+                        ("ProfileKey", target.ProfileKey)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (profile is null || !profile.IsEnabled)
@@ -654,21 +834,16 @@ internal sealed class NotificationIntentService(
                     ErrorType.BusinessRule));
             }
 
+            var matches = mode != NotificationDispatchMode.Match
+                || EvaluateMatchCondition(target.Condition, parameters.RootElement);
             candidates.Add(new NotificationRouteCandidate(
-                profileKey,
+                target.ProfileKey,
                 channelKey,
-                target.GetProperty("order").GetInt32(),
+                target.Order,
                 profile.IsEnabled,
-                MatchesCondition: true));
+                matches));
         }
 
-        var mode = binding.DispatchModeKey switch
-        {
-            "fan_out" => NotificationDispatchMode.FanOut,
-            "failover" => NotificationDispatchMode.Failover,
-            "match" => NotificationDispatchMode.Match,
-            _ => NotificationDispatchMode.Single,
-        };
         var plan = NotificationRoutePlanner.Plan(mode, candidates);
         if (!plan.IsSuccess)
         {
@@ -678,10 +853,17 @@ internal sealed class NotificationIntentService(
                 ErrorType.BusinessRule));
         }
 
+        var selectedProfileKeys = plan.Targets.Select(item => item.ProfileKey).ToHashSet(StringComparer.Ordinal);
+        var activeProfileVersionIds = snapshotTargets.Value
+            .Where(item => selectedProfileKeys.Contains(item.ProfileKey))
+            .OrderBy(item => item.Order)
+            .Select(item => item.ProfileVersionId)
+            .ToArray();
         return Result<ResolvedRoute>.Success(new ResolvedRoute(
             binding.Id,
             binding.DispatchModeKey,
-            binding.BindingTargetsJson));
+            binding.BindingTargetsJson,
+            activeProfileVersionIds));
     }
 
     private static NotificationTemplateParameterSchema DeserializeSchema(string json)
@@ -706,46 +888,85 @@ internal sealed class NotificationIntentService(
     }
 
     /// <summary>
-    /// 从已发布 Binding 快照取出 ProfileVersion；缺字段失败关闭，避免 Worker 领到无渠道的 Delivery。
+    /// 从不可变 Binding 快照读取候选目标；缺字段失败关闭，避免 Worker 领到未物化的渠道。
     /// </summary>
-    private static Result<IReadOnlyList<Guid>> ParseRouteProfileVersionIds(string routeSnapshotJson)
+    private static Result<IReadOnlyList<RouteSnapshotTarget>> ParseRouteSnapshotTargets(string routeSnapshotJson)
     {
         try
         {
             using var document = System.Text.Json.JsonDocument.Parse(routeSnapshotJson);
-            var ids = new List<Guid>();
+            var targets = new List<RouteSnapshotTarget>();
             foreach (var target in document.RootElement.EnumerateArray())
             {
                 if (!target.TryGetProperty("profileVersionId", out var versionElement)
                     || !Guid.TryParse(versionElement.GetString(), out var profileVersionId))
                 {
-                    return Result<IReadOnlyList<Guid>>.Failure(new Error(
-                        NotificationsErrorCodes.RouteProfileUnavailable,
-                        "Exactly one available provider profile is required.",
-                        ErrorType.BusinessRule));
+                    return RouteUnavailable();
                 }
 
-                ids.Add(profileVersionId);
+                var condition = ParseRouteCondition(target);
+                targets.Add(new RouteSnapshotTarget(
+                    target.GetProperty("profileKey").GetString() ?? string.Empty,
+                    profileVersionId,
+                    target.GetProperty("order").GetInt32(),
+                    condition));
             }
 
-            if (ids.Count == 0)
-            {
-                return Result<IReadOnlyList<Guid>>.Failure(new Error(
-                    NotificationsErrorCodes.RouteProfileUnavailable,
-                    "Exactly one available provider profile is required.",
-                    ErrorType.BusinessRule));
-            }
-
-            return Result<IReadOnlyList<Guid>>.Success(ids);
+            return targets.Count == 0 ? RouteUnavailable() : Result<IReadOnlyList<RouteSnapshotTarget>>.Success(targets);
         }
         catch (System.Text.Json.JsonException)
         {
-            return Result<IReadOnlyList<Guid>>.Failure(new Error(
-                NotificationsErrorCodes.RouteProfileUnavailable,
-                "Exactly one available provider profile is required.",
-                ErrorType.BusinessRule));
+            return RouteUnavailable();
         }
     }
+
+    private static NotificationBindingTargetConditionInput? ParseRouteCondition(System.Text.Json.JsonElement target)
+    {
+        if (!target.TryGetProperty("condition", out var condition) || condition.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return new NotificationBindingTargetConditionInput(
+            condition.GetProperty("parameterName").GetString() ?? string.Empty,
+            condition.GetProperty("operatorKey").GetString() ?? string.Empty,
+            condition.TryGetProperty("expectedValue", out var expected) ? expected.GetString() : null);
+    }
+
+    private static bool EvaluateMatchCondition(
+        NotificationBindingTargetConditionInput? condition,
+        System.Text.Json.JsonElement parameters)
+    {
+        if (condition is null || !parameters.TryGetProperty(condition.ParameterName, out var value))
+        {
+            return false;
+        }
+
+        if (string.Equals(condition.OperatorKey, "exists", StringComparison.Ordinal))
+        {
+            return value.ValueKind is not System.Text.Json.JsonValueKind.Undefined and not System.Text.Json.JsonValueKind.Null;
+        }
+
+        var actual = value.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.String => value.GetString() ?? string.Empty,
+            System.Text.Json.JsonValueKind.Number when value.TryGetInt64(out var number) =>
+                number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            System.Text.Json.JsonValueKind.True => "true",
+            System.Text.Json.JsonValueKind.False => "false",
+            _ => string.Empty,
+        };
+        return string.Equals(condition.OperatorKey, "equals", StringComparison.Ordinal)
+            ? string.Equals(actual, condition.ExpectedValue, StringComparison.Ordinal)
+            : string.Equals(condition.OperatorKey, "not_equals", StringComparison.Ordinal)
+              && !string.Equals(actual, condition.ExpectedValue, StringComparison.Ordinal);
+    }
+
+    private static Result<IReadOnlyList<RouteSnapshotTarget>> RouteUnavailable() =>
+        Result<IReadOnlyList<RouteSnapshotTarget>>.Failure(new Error(
+            NotificationsErrorCodes.RouteProfileUnavailable,
+            "Exactly one available provider profile is required.",
+            ErrorType.BusinessRule));
 
     private static Error RecipientLimit() =>
         new(
@@ -769,6 +990,8 @@ internal sealed class NotificationIntentService(
         string ProducerKey,
         string SceneKey,
         string IdempotencyKey,
+        string PolicyCategoryKey,
+        bool EmergencyOverrideAllowed,
         NotificationTemplateRecord Template,
         NotificationTemplateVersionRecord Version,
         string ParameterSnapshotJson,
@@ -780,7 +1003,21 @@ internal sealed class NotificationIntentService(
     private sealed record ResolvedRoute(
         Guid? BindingVersionId,
         string DispatchModeKey,
-        string RouteSnapshotJson);
+        string RouteSnapshotJson,
+        IReadOnlyList<Guid> ActiveProfileVersionIds);
+
+    private sealed record RouteSnapshotTarget(
+        string ProfileKey,
+        Guid ProfileVersionId,
+        int Order,
+        NotificationBindingTargetConditionInput? Condition);
+
+    private sealed record DeliveryPolicyDecision(
+        string StatusKey,
+        DateTimeOffset? NextAttemptAtUtc,
+        long? PreferenceVersion,
+        string DecisionKey,
+        string? SuppressionReasonCode);
 }
 
 /// <summary>区分首次受理与幂等回放，避免把 201/200 决策泄漏到持久化层。</summary>

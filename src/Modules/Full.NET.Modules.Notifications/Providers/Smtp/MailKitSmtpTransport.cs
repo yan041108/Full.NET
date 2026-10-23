@@ -17,10 +17,11 @@ internal enum SmtpSecureSocketMode
 
 internal enum SmtpTransportFailureKind
 {
-    Authentication,
-    Permanent,
-    Transient,
-    RateLimited,
+    Authentication = 0,
+    Permanent = 1,
+    Transient = 2,
+    RateLimited = 3,
+    Unknown = 4,
 }
 
 internal enum SmtpTransportStage
@@ -177,7 +178,8 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
                 or System.Security.Authentication.AuthenticationException)
         {
             throw new SmtpTransportException(
-                SmtpTransportFailureKind.Transient,
+                stage is SmtpTransportStage.Send or SmtpTransportStage.Disconnect
+                    ? SmtpTransportFailureKind.Unknown : SmtpTransportFailureKind.Transient,
                 stage,
                 exception);
         }
@@ -198,7 +200,7 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
         SmtpTransportStage stage) =>
         stage == SmtpTransportStage.Authenticate
             ? SmtpTransportFailureKind.Authentication
-            : SmtpTransportFailureKind.Transient;
+            : stage == SmtpTransportStage.Send ? SmtpTransportFailureKind.Unknown : SmtpTransportFailureKind.Transient;
 
     internal static bool IsMessageAlreadyAccepted(SmtpTransportStage stage) =>
         stage == SmtpTransportStage.Disconnect;

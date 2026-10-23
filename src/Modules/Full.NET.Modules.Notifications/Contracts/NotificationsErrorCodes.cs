@@ -70,6 +70,9 @@ public static class NotificationsErrorCodes
     public const string RecipientEndpointVerificationSendFailed =
         "notifications.recipient_endpoint_verification_send_failed";
 
+    /// <summary>通知偏好请求校验失败。</summary>
+    public const string PreferenceValidationFailed = "notifications.preference_validation_failed";
+
     /// <summary>政策求值后消息被抑制，不得创建外部 Delivery。</summary>
     public const string PolicySuppressed = "notifications.policy.suppressed";
 
@@ -199,6 +202,45 @@ public static class NotificationsErrorCodes
     /// <summary>未找到微信小程序绑定记录。</summary>
     public const string WeChatMiniProgramBindingNotFound = "notifications.wechat_miniprogram_binding_not_found";
 
+    /// <summary>当前作用域未找到该 Producer/Scene 目录项。</summary>
+    public const string ProducerSceneNotFound = "notifications.producer_scene_not_found";
+
+    /// <summary>同一作用域下 ProducerKey 与 SceneKey 已存在目录项。</summary>
+    public const string ProducerSceneKeyConflict = "notifications.producer_scene_key_conflict";
+
+    /// <summary>Producer/Scene 目录项乐观版本号不符。</summary>
+    public const string ProducerSceneConcurrencyConflict = "notifications.producer_scene_concurrency_conflict";
+
+    /// <summary>目录项政策类别或合法渠道声明校验失败。</summary>
+    public const string ProducerSceneValidationFailed = "notifications.producer_scene_validation_failed";
+
+    /// <summary>受理前未找到启用的受控目录项，必须失败关闭而不是回退到模板声明。</summary>
+    public const string ProducerSceneMissing = "notifications.producer_scene_missing";
+
+    /// <summary>意图渠道不在受控目录声明的合法渠道内。</summary>
+    public const string ProducerSceneChannelNotAllowed = "notifications.producer_scene_channel_not_allowed";
+
+    /// <summary>微信小程序缺少有效订阅授权，不能消耗厂商剩余发送次数。</summary>
+    public const string SubscriptionNotAuthorized = "notifications.subscription_not_authorized";
+
+    /// <summary>未找到该作用域下的发送配额政策。</summary>
+    public const string QuotaPolicyNotFound = "notifications.quota_policy_not_found";
+
+    /// <summary>同一作用域、维度与取值下已存在配额政策。</summary>
+    public const string QuotaPolicyKeyConflict = "notifications.quota_policy_key_conflict";
+
+    /// <summary>发送配额政策乐观版本号不符。</summary>
+    public const string QuotaPolicyConcurrencyConflict = "notifications.quota_policy_concurrency_conflict";
+
+    /// <summary>配额维度、取值、窗口或上限声明校验失败。</summary>
+    public const string QuotaPolicyValidationFailed = "notifications.quota_policy_validation_failed";
+
+    /// <summary>某个配额维度缺少启用声明，发送链路失败关闭而不是按无界处理。</summary>
+    public const string QuotaPolicyMissing = "notifications.quota_policy_missing";
+
+    /// <summary>配额窗口已满，本次发送进入可观察的延迟状态而非静默丢弃。</summary>
+    public const string QuotaExceeded = "notifications.quota_exceeded";
+
     /// <summary>已登记的全部错误码，供治理与多语言资源完整性校验使用。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -220,6 +262,7 @@ public static class NotificationsErrorCodes
         RecipientEndpointVerificationAttemptsExhausted,
         RecipientEndpointVerificationSendCooldown,
         RecipientEndpointVerificationSendFailed,
+        PreferenceValidationFailed,
         PolicySuppressed,
         PolicyMarketingConsentRequired,
         RouteProfileUnavailable,
@@ -263,5 +306,18 @@ public static class NotificationsErrorCodes
         BindingSceneConflict,
         WeChatMiniProgramBindingValidationFailed,
         WeChatMiniProgramBindingNotFound,
+        ProducerSceneNotFound,
+        ProducerSceneKeyConflict,
+        ProducerSceneConcurrencyConflict,
+        ProducerSceneValidationFailed,
+        ProducerSceneMissing,
+        ProducerSceneChannelNotAllowed,
+        SubscriptionNotAuthorized,
+        QuotaPolicyNotFound,
+        QuotaPolicyKeyConflict,
+        QuotaPolicyConcurrencyConflict,
+        QuotaPolicyValidationFailed,
+        QuotaPolicyMissing,
+        QuotaExceeded,
     ]);
 }

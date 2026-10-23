@@ -21,6 +21,78 @@ internal sealed class NotificationDeliveryService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>只有获独立权限的人工证据可以解除 Unknown；同事务收敛额度与本地许可。</summary>
+    public Task<Result<NotificationDeliveryResponse>> ReconcileAsync(Guid actor, Guid deliveryId,
+        ReconcileNotificationDeliveryRequest request, Execution.NotificationQuotaGovernor governor,
+        CancellationToken cancellationToken) => transaction.ExecuteResultAsync(async token =>
+    {
+        var evidence = request.EvidenceReference?.Trim() ?? string.Empty;
+        if (request.OutcomeKey is not ("confirmed_accepted" or "confirmed_not_called")
+            || evidence.Length is < 1 or > 128 || evidence.Any(char.IsControl))
+            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryInvalid,
+                "A controlled outcome and short evidence reference are required.", ErrorType.Validation));
+        if (await FindAsync(deliveryId, token).ConfigureAwait(false) is null) return NotFound();
+        var called = request.OutcomeKey == "confirmed_accepted";
+        if (await commandExecutor.ExecuteAsync(NotificationLifecycleSql.Reconcile,
+            NotificationPlatformSqlParameters.Create(("Id", deliveryId), ("Revision", request.Revision),
+                ("StatusKey", called ? "sent" : "failed"), ("Now", clock.UtcNow)), token).ConfigureAwait(false) == 0)
+            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryConflict,
+                "The delivery changed or has an active lease.", ErrorType.Conflict));
+        var parameters = NotificationPlatformSqlParameters.Create(("DeliveryId", deliveryId),
+            // 确认未调用也不能复活可能已撤销的旧许可；需要用户再次明确同意。
+            ("StateKey", called ? "consumed" : "revoked"));
+        var quotas = await queryExecutor.QueryAsync<NotificationQuotaReservationRecord>(
+            NotificationLifecycleSql.PendingQuotas, parameters, token).ConfigureAwait(false);
+        await governor.ResolveRowsAsync(quotas, called ? NotificationQuotaReservationStates.Consumed
+            : NotificationQuotaReservationStates.Released, token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(NotificationLifecycleSql.ReconcileSubscription, parameters, token).ConfigureAwait(false);
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        await commandExecutor.ExecuteAsync(scope.IsHost ? NotificationPlatformSql.InsertDomainAuditHost : NotificationPlatformSql.InsertDomainAuditTenant,
+            NotificationPlatformSqlParameters.Create(("Id", idGenerator.NewId()), ("OperationKey", "delivery.reconcile"),
+                ("ActorUserId", actor), ("ResourceTypeKey", "delivery"), ("ResourceId", deliveryId), ("OutcomeKey", request.OutcomeKey),
+                ("DetailJson", new System.Text.Json.Nodes.JsonObject { ["evidenceReference"] = evidence }.ToJsonString()),
+                ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
+                ("CreatedAtUtc", clock.UtcNow)), token).ConfigureAwait(false);
+        return await GetByIdAsync(deliveryId, token).ConfigureAwait(false);
+    }, cancellationToken);
+
+    public async Task<Result<IReadOnlyList<NotificationDeliverySummaryResponse>>> SummaryAsync(
+        Providers.INotificationProviderTypeCatalog catalog, CancellationToken cancellationToken)
+    {
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        var rows = await queryExecutor.QueryAsync<NotificationDeliverySummaryRecord>(
+            databaseOptions.Value.Provider == DatabaseProvider.SqlServer ? NotificationLifecycleSql.SummarySqlServer : NotificationLifecycleSql.Summary,
+            NotificationPlatformSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        return Result<IReadOnlyList<NotificationDeliverySummaryResponse>>.Success(rows.Select(row =>
+            new NotificationDeliverySummaryResponse(row.ChannelKey, row.ProviderTypeKey, row.StatusKey, row.Count,
+                row.OldestCreatedAtUtc, catalog.TryGet(row.ProviderTypeKey, out var provider) ? provider.ReceiptModeKey : "none")).ToArray());
+    }
+
+    /// <summary>人工终止 Unknown 不等于证明未发送，保留未决配额及订阅许可供独立对账。</summary>
+    public Task<Result<NotificationDeliveryResponse>> DeadLetterAsync(Guid actor, Guid deliveryId,
+        RetryNotificationDeliveryRequest request, CancellationToken cancellationToken) => transaction.ExecuteResultAsync(async token =>
+    {
+        var row = await FindAsync(deliveryId, token).ConfigureAwait(false);
+        if (row is null) return NotFound();
+        var reason = request.Reason?.Trim() ?? string.Empty;
+        if (reason.Length is < 1 or > 128 || reason.Any(char.IsControl))
+            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryInvalid,
+                "A short disposition reason is required.", ErrorType.Validation));
+        if (await commandExecutor.ExecuteAsync(NotificationLifecycleSql.DeadLetter,
+            NotificationPlatformSqlParameters.Create(("Id", deliveryId), ("Revision", request.Revision), ("Now", clock.UtcNow)), token)
+            .ConfigureAwait(false) == 0)
+            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryConflict,
+                "The delivery changed or has an active lease.", ErrorType.Conflict));
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        await commandExecutor.ExecuteAsync(scope.IsHost ? NotificationPlatformSql.InsertDomainAuditHost : NotificationPlatformSql.InsertDomainAuditTenant,
+            NotificationPlatformSqlParameters.Create(("Id", idGenerator.NewId()), ("OperationKey", "delivery.dead_letter"),
+                ("ActorUserId", actor), ("ResourceTypeKey", "delivery"), ("ResourceId", deliveryId), ("OutcomeKey", "stopped"),
+                ("DetailJson", new System.Text.Json.Nodes.JsonObject { ["reason"] = reason }.ToJsonString()),
+                ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
+                ("CreatedAtUtc", clock.UtcNow)), token).ConfigureAwait(false);
+        return await GetByIdAsync(deliveryId, token).ConfigureAwait(false);
+    }, cancellationToken);
+
     public async Task<Result<PagedResult<NotificationDeliveryResponse>>> ListAsync(
         int page,
         int pageSize,
@@ -88,6 +160,16 @@ internal sealed class NotificationDeliveryService(
             return NotFound();
         }
 
+        // 人工重试不能替代结果对账，也不能重置仍然暂挂的额度或一次性许可。
+        var anchor = NotificationPlatformSqlParameters.Create(("DeliveryId", deliveryId));
+        if (existing.StatusKey == "unknown"
+            || (await queryExecutor.QueryAsync<NotificationQuotaReservationRecord>(NotificationLifecycleSql.PendingQuotas, anchor, cancellationToken)
+                .ConfigureAwait(false)).Count > 0
+            || await queryExecutor.QuerySingleOrDefaultAsync<long>(NotificationSubscriptionGrantSql.CountUnresolved, anchor, cancellationToken)
+                .ConfigureAwait(false) > 0)
+            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryConflict,
+                "Reconcile the unknown result before retrying.", ErrorType.Conflict));
+
         var reason = request.Reason?.Trim() ?? string.Empty;
         if (reason.Length is < 1 or > 128
             || reason.Contains("://", StringComparison.Ordinal)
@@ -130,7 +212,7 @@ internal sealed class NotificationDeliveryService(
                     ("ResourceTypeKey", "delivery"),
                     ("ResourceId", deliveryId),
                     ("OutcomeKey", "succeeded"),
-                    ("DetailJson", "{}"),
+                    ("DetailJson", new System.Text.Json.Nodes.JsonObject { ["reason"] = reason }.ToJsonString()),
                     ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -203,7 +285,7 @@ internal sealed class NotificationDeliveryService(
                     item.StartedAtUtc,
                     item.FinishedAtUtc))
                 .ToArray(),
-            receipts);
+            receipts, record.PreferenceVersion, record.PolicyDecisionKey, record.SuppressionReasonCode);
     }
 
     private static Result<NotificationDeliveryResponse> NotFound() =>

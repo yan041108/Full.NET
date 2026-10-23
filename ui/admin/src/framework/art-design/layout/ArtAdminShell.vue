@@ -530,6 +530,9 @@ watch(navigationGroups, () => {
 @media (max-width: 820px) {
   .art-admin-shell__sidebar {
     position: fixed;
+    /* 百分比位移以容器自身宽度计算，不能沿用主题的零宽占位而留下可见子菜单。 */
+    width: var(--art-menu-open-width);
+    max-width: 100vw;
     top: 0;
     left: 0;
     z-index: 50;

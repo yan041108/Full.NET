@@ -340,7 +340,8 @@ internal static class NotificationPlatformSql
         """
         SELECT Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId,
                StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration,
-               NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc
+               NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson,
+               PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode
         FROM fn_notifications_delivery
         WHERE Id = @Id
         """,
@@ -377,10 +378,11 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
-    public static readonly SqlStatement CountAttemptsByDelivery = new(
-        "notifications.platform.delivery_attempt.count_by_delivery",
+    /// <summary>历史尝试可能因中断预算留下序号空档；后续序号必须接续最大值而不是记录行数。</summary>
+    public static readonly SqlStatement FindLastAttemptNumber = new(
+        "notifications.platform.delivery_attempt.find_last_number",
         """
-        SELECT COUNT(*)
+        SELECT COALESCE(MAX(AttemptNumber), 0)
         FROM fn_notifications_delivery_attempt
         WHERE DeliveryId = @DeliveryId
         """,
@@ -430,10 +432,35 @@ internal static class NotificationPlatformSql
         INSERT INTO fn_notifications_delivery
             (Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId,
              StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration,
-             NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc)
+             NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson,
+             PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode)
         VALUES
             (@Id, @IntentId, @RecipientId, @ChannelKey, @ProviderProfileVersionId, @BindingVersionId,
-             @StatusKey, 1, NULL, NULL, 1, @NextAttemptAtUtc, @CreatedAtUtc, NULL)
+             @StatusKey, 1, NULL, NULL, 1, @NextAttemptAtUtc, @CreatedAtUtc, NULL,
+             @ContentSnapshotJson, @PreferenceVersion, @PolicyDecisionKey, @SuppressionReasonCode)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>Failover 原子推进备用投递；同一收件人、渠道和 Profile 已存在时不重复创建。</summary>
+    public static readonly SqlStatement InsertDeliveryIfAbsent = new(
+        "notifications.platform.delivery.insert_if_absent",
+        """
+        INSERT INTO fn_notifications_delivery
+            (Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId,
+             StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration,
+             NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson,
+             PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode)
+        SELECT @Id, @IntentId, @RecipientId, @ChannelKey, @ProviderProfileVersionId, @BindingVersionId,
+               @StatusKey, 1, NULL, NULL, 1, @NextAttemptAtUtc, @CreatedAtUtc, NULL,
+               @ContentSnapshotJson, @PreferenceVersion, @PolicyDecisionKey, @SuppressionReasonCode
+        FROM fn_notifications_recipient
+        WHERE Id = @RecipientId
+          AND NOT EXISTS (
+              SELECT 1
+              FROM fn_notifications_delivery
+              WHERE RecipientId = @RecipientId
+                AND ChannelKey = @ChannelKey
+                AND ProviderProfileVersionId = @ProviderProfileVersionId)
         """,
         SqlDataScope.Global);
 
@@ -442,7 +469,8 @@ internal static class NotificationPlatformSql
         """
         SELECT d.Id, d.IntentId, d.RecipientId, d.ChannelKey, d.ProviderProfileVersionId, d.BindingVersionId,
                d.StatusKey, d.Revision, d.LeaseOwnerKey, d.LeaseExpiresAtUtc, d.LeaseGeneration,
-               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc
+               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc, d.ContentSnapshotJson,
+               d.PreferenceVersion, d.PolicyDecisionKey, d.SuppressionReasonCode
         FROM fn_notifications_delivery d
         INNER JOIN fn_notifications_intent i ON i.Id = d.IntentId
         WHERE d.Id = @Id
@@ -455,7 +483,8 @@ internal static class NotificationPlatformSql
         """
         SELECT d.Id, d.IntentId, d.RecipientId, d.ChannelKey, d.ProviderProfileVersionId, d.BindingVersionId,
                d.StatusKey, d.Revision, d.LeaseOwnerKey, d.LeaseExpiresAtUtc, d.LeaseGeneration,
-               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc
+               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc, d.ContentSnapshotJson,
+               d.PreferenceVersion, d.PolicyDecisionKey, d.SuppressionReasonCode
         FROM fn_notifications_delivery d
         INNER JOIN fn_notifications_intent i ON i.Id = d.IntentId
         WHERE i.TenantScopeKey = @TenantScopeKey
@@ -469,7 +498,8 @@ internal static class NotificationPlatformSql
         """
         SELECT d.Id, d.IntentId, d.RecipientId, d.ChannelKey, d.ProviderProfileVersionId, d.BindingVersionId,
                d.StatusKey, d.Revision, d.LeaseOwnerKey, d.LeaseExpiresAtUtc, d.LeaseGeneration,
-               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc
+               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc, d.ContentSnapshotJson,
+               d.PreferenceVersion, d.PolicyDecisionKey, d.SuppressionReasonCode
         FROM fn_notifications_delivery d
         INNER JOIN fn_notifications_intent i ON i.Id = d.IntentId
         WHERE i.TenantScopeKey = @TenantScopeKey
@@ -488,6 +518,9 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 领取可自动执行的投递；暂挂的 unknown（无计划重试时间）只能由可信回执或人工处置推进，不参与自动领取。
+    /// </summary>
     public static readonly SqlStatement ClaimDeliveriesSqlServer = new(
         "notifications.platform.delivery.claim.sql_server",
         """
@@ -495,8 +528,10 @@ internal static class NotificationPlatformSql
         (
             SELECT TOP (@BatchSize) *
             FROM fn_notifications_delivery WITH (UPDLOCK, READPAST, ROWLOCK)
-            WHERE StatusKey IN ('accepted', 'unknown')
-              AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
+            WHERE (
+                    (StatusKey = 'accepted' AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now))
+                    OR (StatusKey = 'unknown' AND NextAttemptAtUtc IS NOT NULL AND NextAttemptAtUtc <= @Now)
+                  )
               AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
             ORDER BY NextAttemptAtUtc, CreatedAtUtc, Id
         )
@@ -504,13 +539,15 @@ internal static class NotificationPlatformSql
         SET LeaseOwnerKey = @LeaseOwnerKey,
             LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             LeaseGeneration = LeaseGeneration + 1,
+            AttemptBudgetUsed = AttemptBudgetUsed + 1,
             Revision = Revision + 1,
             UpdatedAtUtc = @Now
         OUTPUT inserted.Id, inserted.IntentId, inserted.RecipientId, inserted.ChannelKey,
                inserted.ProviderProfileVersionId, inserted.BindingVersionId, inserted.StatusKey,
                inserted.Revision, inserted.LeaseOwnerKey, inserted.LeaseExpiresAtUtc,
                inserted.LeaseGeneration, inserted.NextAttemptAtUtc, inserted.CreatedAtUtc,
-               inserted.UpdatedAtUtc;
+               inserted.UpdatedAtUtc, inserted.ContentSnapshotJson, inserted.PreferenceVersion,
+               inserted.PolicyDecisionKey, inserted.SuppressionReasonCode;
         """,
         SqlDataScope.Global);
 
@@ -519,8 +556,10 @@ internal static class NotificationPlatformSql
         """
         SELECT Id
         FROM fn_notifications_delivery
-        WHERE StatusKey IN ('accepted', 'unknown')
-          AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
+        WHERE (
+                (StatusKey = 'accepted' AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now))
+                OR (StatusKey = 'unknown' AND NextAttemptAtUtc IS NOT NULL AND NextAttemptAtUtc <= @Now)
+              )
           AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         ORDER BY NextAttemptAtUtc, CreatedAtUtc, Id
         LIMIT @BatchSize
@@ -535,6 +574,7 @@ internal static class NotificationPlatformSql
         SET LeaseOwnerKey = @LeaseOwnerKey,
             LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             LeaseGeneration = LeaseGeneration + 1,
+            AttemptBudgetUsed = AttemptBudgetUsed + 1,
             Revision = Revision + 1,
             UpdatedAtUtc = @Now
         WHERE Id IN @Ids
@@ -546,7 +586,8 @@ internal static class NotificationPlatformSql
         """
         SELECT Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId,
                StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration,
-               NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc
+               NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc, ContentSnapshotJson,
+               PreferenceVersion, PolicyDecisionKey, SuppressionReasonCode
         FROM fn_notifications_delivery
         WHERE LeaseOwnerKey = @LeaseOwnerKey
         ORDER BY CreatedAtUtc, Id
@@ -586,6 +627,7 @@ internal static class NotificationPlatformSql
         """
         UPDATE fn_notifications_delivery
         SET StatusKey = @StatusKey,
+            SuppressionReasonCode = COALESCE(@SuppressionReasonCode, SuppressionReasonCode),
             LeaseOwnerKey = NULL,
             LeaseExpiresAtUtc = NULL,
             NextAttemptAtUtc = @NextAttemptAtUtc,
@@ -599,6 +641,49 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>读取本次领取计入的独立重试预算；租约世代只承担栅栏职责。</summary>
+    public static readonly SqlStatement FindAttemptBudget = new(
+        "notifications.platform.delivery.find_attempt_budget",
+        """
+        SELECT AttemptBudgetUsed FROM fn_notifications_delivery WHERE Id = @Id
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>配额事务先锁定有效投递世代，阻止旧 Worker 在接管后继续占额或进入厂商。</summary>
+    public static readonly SqlStatement LockDeliveryForQuotaSqlServer = new(
+        "notifications.platform.delivery.lock_for_quota.sql_server",
+        """
+        SELECT Id FROM fn_notifications_delivery WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @Id AND LeaseGeneration = @LeaseGeneration
+          AND LeaseExpiresAtUtc > @Now AND StatusKey IN ('accepted', 'unknown')
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement LockDeliveryForQuotaMySql = new(
+        "notifications.platform.delivery.lock_for_quota.mysql",
+        """
+        SELECT Id FROM fn_notifications_delivery
+        WHERE Id = @Id AND LeaseGeneration = @LeaseGeneration
+          AND LeaseExpiresAtUtc > @Now AND StatusKey IN ('accepted', 'unknown')
+        FOR UPDATE
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>仅在本轮完成成功的同一事务内退还治理延迟预算，不改变租约栅栏。</summary>
+    public static readonly SqlStatement RefundGovernanceAttemptBudget = new(
+        "notifications.platform.delivery.refund_governance_budget",
+        """
+        UPDATE fn_notifications_delivery
+        SET AttemptBudgetUsed = AttemptBudgetUsed - 1
+        WHERE Id = @Id
+          AND LeaseGeneration = @LeaseGeneration
+          AND Revision = @Revision
+          AND LeaseOwnerKey IS NULL
+          AND AttemptBudgetUsed > 0
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>受审计人工重试重置自动预算并推进栅栏，旧配额预留世代不会被重复使用。</summary>
     public static readonly SqlStatement RetryDelivery = new(
         "notifications.platform.delivery.retry",
         """
@@ -606,12 +691,15 @@ internal static class NotificationPlatformSql
         SET StatusKey = 'accepted',
             LeaseOwnerKey = NULL,
             LeaseExpiresAtUtc = NULL,
+            LeaseGeneration = LeaseGeneration + 1,
+            AttemptBudgetUsed = 0,
             NextAttemptAtUtc = @NextAttemptAtUtc,
             Revision = Revision + 1,
             UpdatedAtUtc = @Now
         WHERE Id = @Id
           AND Revision = @Revision
-          AND StatusKey IN ('failed', 'dead_lettered', 'unknown')
+          AND StatusKey IN ('failed', 'dead_lettered')
+          AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         """,
         SqlDataScope.Global);
 
@@ -646,7 +734,8 @@ internal static class NotificationPlatformSql
         """
         SELECT d.Id, d.IntentId, d.RecipientId, d.ChannelKey, d.ProviderProfileVersionId, d.BindingVersionId,
                d.StatusKey, d.Revision, d.LeaseOwnerKey, d.LeaseExpiresAtUtc, d.LeaseGeneration,
-               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc
+               d.NextAttemptAtUtc, d.CreatedAtUtc, d.UpdatedAtUtc, d.ContentSnapshotJson,
+               d.PreferenceVersion, d.PolicyDecisionKey, d.SuppressionReasonCode
         FROM fn_notifications_delivery d
         INNER JOIN fn_notifications_delivery_attempt a ON a.DeliveryId = d.Id
         INNER JOIN fn_notifications_provider_profile_version pv ON pv.Id = d.ProviderProfileVersionId
@@ -686,13 +775,55 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 按提供程序消息号列出尚未关联的提前回执，供 Attempt 入库后做有界补偿重关联。
+    /// </summary>
+    public static readonly SqlStatement ListPendingReceiptsByProviderMessageId = new(
+        "notifications.platform.receipt.list_pending_by_provider_message_id",
+        """
+        SELECT Id, ProviderTypeKey, ProviderMessageId, ReceiptIdempotencyKey, DeliveryId,
+               ExternalStatusKey, MappedStatusKey, PayloadDigest, ReceivedAtUtc,
+               ProcessedAtUtc, ProcessStatusKey
+        FROM fn_notifications_receipt
+        WHERE ProviderTypeKey = @ProviderTypeKey
+          AND ProviderMessageId = @ProviderMessageId
+          AND ProcessStatusKey IN ('pending_association', 'pending_apply')
+        ORDER BY ReceivedAtUtc, Id
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>提前回执在 Attempt 入库后重新关联；只有未完成回执可被补偿推进。</summary>
+    public static readonly SqlStatement UpdateReceiptProcessing = new(
+        "notifications.platform.receipt.update_processing",
+        """
+        UPDATE fn_notifications_receipt
+        SET DeliveryId = @DeliveryId,
+            ProcessStatusKey = @ProcessStatusKey,
+            ProcessedAtUtc = @ProcessedAtUtc
+        WHERE Id = @Id
+          AND ProcessStatusKey <> 'completed'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>Worker 仍欠的自动执行积压；暂挂 unknown 不计入，避免长期告警噪音。</summary>
     public static readonly SqlStatement CountDeliveryBacklog = new(
         "notifications.platform.delivery.count_backlog",
         """
         SELECT COUNT(*)
         FROM fn_notifications_delivery
-        WHERE StatusKey IN ('accepted', 'unknown')
+        WHERE StatusKey = 'accepted'
           AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
+          AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>等待可信回执对账或人工处置的暂挂 unknown 数量，供运维告警与看板区分展示。</summary>
+    public static readonly SqlStatement CountDeliveryAwaitingReconciliation = new(
+        "notifications.platform.delivery.count_awaiting_reconciliation",
+        """
+        SELECT COUNT(*)
+        FROM fn_notifications_delivery
+        WHERE StatusKey = 'unknown'
         """,
         SqlDataScope.Global);
 
@@ -701,8 +832,66 @@ internal static class NotificationPlatformSql
         """
         SELECT MIN(CreatedAtUtc)
         FROM fn_notifications_delivery
-        WHERE StatusKey IN ('accepted', 'unknown')
+        WHERE StatusKey = 'accepted'
           AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
+          AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindPreferenceByUserChannel = new(
+        "notifications.platform.preference.find_by_user_channel",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, UserId, ChannelKey,
+               ChannelOptedOut, MarketingConsentGranted, QuietHoursJson, UpdatedAtUtc, Version
+        FROM fn_notifications_preference
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND ChannelKey = @ChannelKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListPreferencesByUser = new(
+        "notifications.platform.preference.list_by_user",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, UserId, ChannelKey,
+               ChannelOptedOut, MarketingConsentGranted, QuietHoursJson, UpdatedAtUtc, Version
+        FROM fn_notifications_preference
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+        ORDER BY ChannelKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdatePreference = new(
+        "notifications.platform.preference.update",
+        """
+        UPDATE fn_notifications_preference
+        SET ChannelOptedOut = @ChannelOptedOut,
+            MarketingConsentGranted = @MarketingConsentGranted,
+            QuietHoursJson = @QuietHoursJson,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND Version = @Version
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertPreference = new(
+        "notifications.platform.preference.insert",
+        """
+        INSERT INTO fn_notifications_preference
+            (Id, TenantId, ScopeKey, TenantScopeKey, UserId, ChannelKey,
+             ChannelOptedOut, MarketingConsentGranted, QuietHoursJson, UpdatedAtUtc, Version)
+        SELECT @Id, @TenantId, @ScopeKey, @TenantScopeKey, @UserId, @ChannelKey,
+               @ChannelOptedOut, @MarketingConsentGranted, @QuietHoursJson, @UpdatedAtUtc, 1
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_preference
+            WHERE TenantScopeKey = @TenantScopeKey
+              AND UserId = @UserId
+              AND ChannelKey = @ChannelKey)
         """,
         SqlDataScope.Global);
 
@@ -1073,6 +1262,134 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement FindProducerScene = new(
+        "notifications.platform.producer_scene.find_by_key",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+               AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_producer_scene
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND ProducerKey = @ProducerKey
+          AND SceneKey = @SceneKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindProducerSceneById = new(
+        "notifications.platform.producer_scene.find_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+               AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_producer_scene
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountProducerScenesForScope = new(
+        "notifications.platform.producer_scene.count_for_scope",
+        """
+        SELECT COUNT(*)
+        FROM fn_notifications_producer_scene
+        WHERE TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListProducerScenesSqlServer = new(
+        "notifications.platform.producer_scene.list_for_scope.sql_server",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+               AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_producer_scene
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY ProducerKey, SceneKey, Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListProducerScenesMySql = new(
+        "notifications.platform.producer_scene.list_for_scope.mysql",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+               AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_producer_scene
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY ProducerKey, SceneKey, Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertProducerSceneHost = new(
+        "notifications.platform.producer_scene.insert_host",
+        """
+        INSERT INTO fn_notifications_producer_scene
+            (Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+             AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        SELECT @Id, NULL, 'host', 'host', @ProducerKey, @SceneKey, @PolicyCategoryKey,
+               @AllowedChannelKeysJson, @EmergencyOverrideAllowed, 1, @CreatedById,
+               @CreatedAtUtc, @CreatedAtUtc, 1
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_producer_scene
+            WHERE TenantScopeKey = 'host'
+              AND ProducerKey = @ProducerKey
+              AND SceneKey = @SceneKey)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertProducerSceneTenant = new(
+        "notifications.platform.producer_scene.insert_tenant",
+        """
+        INSERT INTO fn_notifications_producer_scene
+            (Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, PolicyCategoryKey,
+             AllowedChannelKeysJson, EmergencyOverrideAllowed, IsEnabled, CreatedById,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        SELECT @Id, @TenantId, 'tenant', @TenantScopeKey, @ProducerKey, @SceneKey, @PolicyCategoryKey,
+               @AllowedChannelKeysJson, @EmergencyOverrideAllowed, 1, @CreatedById,
+               @CreatedAtUtc, @CreatedAtUtc, 1
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_producer_scene
+            WHERE TenantScopeKey = @TenantScopeKey
+              AND TenantId = @TenantId
+              AND ProducerKey = @ProducerKey
+              AND SceneKey = @SceneKey)
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement UpdateProducerScene = new(
+        "notifications.platform.producer_scene.update",
+        """
+        UPDATE fn_notifications_producer_scene
+        SET PolicyCategoryKey = @PolicyCategoryKey,
+            AllowedChannelKeysJson = @AllowedChannelKeysJson,
+            EmergencyOverrideAllowed = @EmergencyOverrideAllowed,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @Version
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement SetProducerSceneEnabled = new(
+        "notifications.platform.producer_scene.set_enabled",
+        """
+        UPDATE fn_notifications_producer_scene
+        SET IsEnabled = @IsEnabled,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @Version
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertDomainAuditHost = new(
         "notifications.platform.domain_audit.insert_host",
         """
@@ -1097,4 +1414,365 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
+
+    // ===== 发送配额治理：政策声明、窗口计数器与预留台账 =====
+
+    public static readonly SqlStatement FindQuotaPolicyById = new(
+        "notifications.platform.quota_policy.find_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue,
+               WindowSeconds, MaxCount, IsEnabled, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_quota_policy
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountQuotaPoliciesForScope = new(
+        "notifications.platform.quota_policy.count_for_scope",
+        """
+        SELECT COUNT(*)
+        FROM fn_notifications_quota_policy
+        WHERE TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListQuotaPoliciesSqlServer = new(
+        "notifications.platform.quota_policy.list_for_scope.sql_server",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue,
+               WindowSeconds, MaxCount, IsEnabled, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_quota_policy
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY DimensionKey, DimensionValue, Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListQuotaPoliciesMySql = new(
+        "notifications.platform.quota_policy.list_for_scope.mysql",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue,
+               WindowSeconds, MaxCount, IsEnabled, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_quota_policy
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY DimensionKey, DimensionValue, Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertQuotaPolicyHost = new(
+        "notifications.platform.quota_policy.insert_host",
+        """
+        INSERT INTO fn_notifications_quota_policy
+            (Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue,
+             WindowSeconds, MaxCount, IsEnabled, Version, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+        SELECT @Id, NULL, 'host', 'host', @DimensionKey, @DimensionValue,
+               @WindowSeconds, @MaxCount, 1, 1, @CreatedById, @Now, @Now
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_quota_policy
+            WHERE TenantScopeKey = 'host'
+              AND DimensionKey = @DimensionKey
+              AND DimensionValue = @DimensionValue)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertQuotaPolicyTenant = new(
+        "notifications.platform.quota_policy.insert_tenant",
+        """
+        INSERT INTO fn_notifications_quota_policy
+            (Id, TenantId, ScopeKey, TenantScopeKey, DimensionKey, DimensionValue,
+             WindowSeconds, MaxCount, IsEnabled, Version, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+        SELECT @Id, @TenantId, 'tenant', @TenantScopeKey, @DimensionKey, @DimensionValue,
+               @WindowSeconds, @MaxCount, 1, 1, @CreatedById, @Now, @Now
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_quota_policy
+            WHERE TenantScopeKey = @TenantScopeKey
+              AND TenantId = @TenantId
+              AND DimensionKey = @DimensionKey
+              AND DimensionValue = @DimensionValue)
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement UpdateQuotaPolicy = new(
+        "notifications.platform.quota_policy.update",
+        """
+        UPDATE fn_notifications_quota_policy
+        SET WindowSeconds = @WindowSeconds,
+            MaxCount = @MaxCount,
+            UpdatedAtUtc = @Now,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @Version
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement SetQuotaPolicyEnabled = new(
+        "notifications.platform.quota_policy.set_enabled",
+        """
+        UPDATE fn_notifications_quota_policy
+        SET IsEnabled = @IsEnabled,
+            UpdatedAtUtc = @Now,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @Version
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 按四个维度解析当前生效的有界政策；租户精确声明优先于租户通配，再退到 host 精确与 host 通配。
+    /// 某个维度没有命中行即表示该维度缺失配置，发送链路必须失败关闭而不是按无界处理。
+    /// </summary>
+    public static readonly SqlStatement ResolveQuotaPolicies = new(
+        "notifications.platform.quota_policy.resolve",
+        """
+        WITH Dimensions AS
+        (
+            SELECT 'provider' AS DimensionKey, @ProviderValue AS DimensionValue
+            UNION ALL SELECT 'tenant', @TenantValue
+            UNION ALL SELECT 'producer', @ProducerValue
+            UNION ALL SELECT 'scene', @SceneValue
+        ),
+        Candidates AS
+        (
+            SELECT d.DimensionKey,
+                   p.Id AS PolicyId,
+                   p.WindowSeconds,
+                   p.MaxCount,
+                   CASE
+                       WHEN p.TenantScopeKey = @TenantScopeKey AND p.DimensionValue = d.DimensionValue THEN 1
+                       WHEN p.TenantScopeKey = @TenantScopeKey AND p.DimensionValue = '*' THEN 2
+                       WHEN p.TenantScopeKey = 'host' AND p.DimensionValue = d.DimensionValue THEN 3
+                       ELSE 4
+                   END AS MatchRank
+            FROM Dimensions d
+            INNER JOIN fn_notifications_quota_policy p
+                ON p.DimensionKey = d.DimensionKey
+               AND p.IsEnabled = 1
+               AND (p.TenantScopeKey = @TenantScopeKey OR p.TenantScopeKey = 'host')
+               AND (p.DimensionValue = d.DimensionValue OR p.DimensionValue = '*')
+        ),
+        Ranked AS
+        (
+            SELECT DimensionKey, PolicyId, WindowSeconds, MaxCount,
+                   ROW_NUMBER() OVER (PARTITION BY DimensionKey ORDER BY MatchRank, PolicyId) AS MatchOrder
+            FROM Candidates
+        )
+        SELECT DimensionKey, PolicyId, WindowSeconds, MaxCount
+        FROM Ranked
+        WHERE MatchOrder = 1
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>锁定政策行以串行化同一政策下的窗口预留，阻止并发超卖。</summary>
+    public static readonly SqlStatement LockQuotaPolicySqlServer = new(
+        "notifications.platform.quota_policy.lock.sql_server",
+        """
+        SELECT Id
+        FROM fn_notifications_quota_policy WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @Id
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>MySQL 使用排他行锁取得与 SQL Server 等价的串行化窗口预留。</summary>
+    public static readonly SqlStatement LockQuotaPolicyMySql = new(
+        "notifications.platform.quota_policy.lock.mysql",
+        """
+        SELECT Id
+        FROM fn_notifications_quota_policy
+        WHERE Id = @Id
+        FOR UPDATE
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindQuotaCounter = new(
+        "notifications.platform.quota_counter.find",
+        """
+        SELECT Id, ReservedCount, ConsumedCount, ReleasedCount
+        FROM fn_notifications_quota_counter
+        WHERE PolicyId = @PolicyId
+          AND WindowStartUtc = @WindowStartUtc
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertQuotaCounter = new(
+        "notifications.platform.quota_counter.insert",
+        """
+        INSERT INTO fn_notifications_quota_counter
+            (Id, PolicyId, WindowStartUtc, WindowSeconds, ReservedCount, ConsumedCount, ReleasedCount, UpdatedAtUtc)
+        SELECT @Id, @PolicyId, @WindowStartUtc, @WindowSeconds, 0, 0, 0, @Now
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_quota_counter
+            WHERE PolicyId = @PolicyId
+              AND WindowStartUtc = @WindowStartUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 原子预留一次发送额度；条件 <c>ReservedCount - ReleasedCount &lt; MaxCount</c> 保证窗口内
+    /// “在飞 + 已核销 + 暂挂”不超过上限，返回 0 表示窗口已满。
+    /// </summary>
+    public static readonly SqlStatement IncrementQuotaCounterReserved = new(
+        "notifications.platform.quota_counter.increment_reserved",
+        """
+        UPDATE fn_notifications_quota_counter
+        SET ReservedCount = ReservedCount + 1,
+            UpdatedAtUtc = @Now
+        WHERE PolicyId = @PolicyId
+          AND WindowStartUtc = @WindowStartUtc
+          AND ReservedCount - ReleasedCount < @MaxCount
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ConsumeQuotaCounter = new(
+        "notifications.platform.quota_counter.consume",
+        """
+        UPDATE fn_notifications_quota_counter
+        SET ConsumedCount = ConsumedCount + 1,
+            UpdatedAtUtc = @Now
+        WHERE PolicyId = @PolicyId
+          AND WindowStartUtc = @WindowStartUtc
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>确定未发送时释放额度；释放后该窗口重新接受新的预留。</summary>
+    public static readonly SqlStatement ReleaseQuotaCounter = new(
+        "notifications.platform.quota_counter.release",
+        """
+        UPDATE fn_notifications_quota_counter
+        SET ReleasedCount = ReleasedCount + 1,
+            UpdatedAtUtc = @Now
+        WHERE PolicyId = @PolicyId
+          AND WindowStartUtc = @WindowStartUtc
+          AND ReservedCount - ReleasedCount > 0
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertQuotaReservation = new(
+        "notifications.platform.quota_reservation.insert",
+        """
+        INSERT INTO fn_notifications_quota_reservation
+            (Id, DeliveryId, PolicyId, DimensionKey, TenantScopeKey, WindowStartUtc, LeaseGeneration,
+             StateKey, CreatedAtUtc, UpdatedAtUtc)
+        SELECT @Id, @DeliveryId, @PolicyId, @DimensionKey, @TenantScopeKey, @WindowStartUtc,
+               @LeaseGeneration, @StateKey, @Now, @Now
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM fn_notifications_quota_reservation
+            WHERE DeliveryId = @DeliveryId
+              AND PolicyId = @PolicyId
+              AND LeaseGeneration = @LeaseGeneration)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ResolveQuotaReservations = new(
+        "notifications.platform.quota_reservation.resolve",
+        """
+        UPDATE fn_notifications_quota_reservation
+        SET StateKey = @StateKey,
+            UpdatedAtUtc = @Now
+        WHERE DeliveryId = @DeliveryId
+          AND LeaseGeneration = @LeaseGeneration
+          AND StateKey = 'reserved'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出本轮仍为 reserved 的预留，用于把结果映射到正确的窗口计数器。</summary>
+    public static readonly SqlStatement ListReservedQuotaReservations = new(
+        "notifications.platform.quota_reservation.list_reserved",
+        """
+        SELECT Id, PolicyId, DimensionKey, WindowStartUtc
+        FROM fn_notifications_quota_reservation
+        WHERE DeliveryId = @DeliveryId
+          AND LeaseGeneration = @LeaseGeneration
+          AND StateKey = 'reserved'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 列出被更新世代抛弃的预留；不能证明未发送，必须保持占额并转待对账。
+    /// </summary>
+    public static readonly SqlStatement ListAbandonedQuotaReservationsSqlServer = new(
+        "notifications.platform.quota_reservation.list_abandoned.sql_server",
+        """
+        SELECT TOP (@MaxRows) Id, PolicyId, DimensionKey, WindowStartUtc, LeaseGeneration
+        FROM fn_notifications_quota_reservation
+        WHERE DeliveryId = @DeliveryId
+          AND LeaseGeneration < @LeaseGeneration
+          AND StateKey IN ('reserved', 'pending_reconciliation')
+        ORDER BY LeaseGeneration, Id
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListAbandonedQuotaReservationsMySql = new(
+        "notifications.platform.quota_reservation.list_abandoned.mysql",
+        """
+        SELECT Id, PolicyId, DimensionKey, WindowStartUtc, LeaseGeneration
+        FROM fn_notifications_quota_reservation
+        WHERE DeliveryId = @DeliveryId
+          AND LeaseGeneration < @LeaseGeneration
+          AND StateKey IN ('reserved', 'pending_reconciliation')
+        ORDER BY LeaseGeneration, Id
+        LIMIT @MaxRows
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ResolveQuotaReservationById = new(
+        "notifications.platform.quota_reservation.resolve_by_id",
+        """
+        UPDATE fn_notifications_quota_reservation
+        SET StateKey = @StateKey,
+            UpdatedAtUtc = @Now
+        WHERE Id = @Id
+          AND StateKey IN ('reserved', 'pending_reconciliation')
+          AND StateKey <> @StateKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>可信消息回执只收敛产生该消息号的尝试世代，不影响人工重试后的其他预留。</summary>
+    public static readonly SqlStatement ListQuotaReservationsForMessage = new(
+        "notifications.platform.quota_reservation.list_for_message",
+        """
+        SELECT q.Id, q.PolicyId, q.DimensionKey, q.WindowStartUtc
+        FROM fn_notifications_quota_reservation q
+        WHERE q.DeliveryId = @DeliveryId
+          AND q.StateKey IN ('reserved', 'pending_reconciliation')
+          AND EXISTS (
+              SELECT 1 FROM fn_notifications_delivery_attempt a
+              WHERE a.DeliveryId = q.DeliveryId
+                AND a.LeaseGeneration = q.LeaseGeneration
+                AND a.ProviderMessageId = @ProviderMessageId)
+        ORDER BY q.PolicyId, q.Id
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按作用域聚合预留台账，供控制面定位受配额阻塞与等待对账的受影响范围。</summary>
+    public static readonly SqlStatement CountQuotaOutstandingByScope = new(
+        "notifications.platform.quota_reservation.count_outstanding",
+        """
+        SELECT DimensionKey, StateKey, COUNT(*) AS ReservationCount
+        FROM fn_notifications_quota_reservation
+        WHERE TenantScopeKey = @TenantScopeKey
+        GROUP BY DimensionKey, StateKey
+        ORDER BY DimensionKey, StateKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>SQL Server 聚合显式返回 bigint，匹配不可变记录的 long 构造参数。</summary>
+    public static readonly SqlStatement CountQuotaOutstandingByScopeSqlServer = new(
+        "notifications.platform.quota_reservation.count_outstanding.sql_server",
+        """
+        SELECT DimensionKey, StateKey, COUNT_BIG(*) AS ReservationCount
+        FROM fn_notifications_quota_reservation
+        WHERE TenantScopeKey = @TenantScopeKey
+        GROUP BY DimensionKey, StateKey
+        ORDER BY DimensionKey, StateKey
+        """,
+        SqlDataScope.Global);
 }

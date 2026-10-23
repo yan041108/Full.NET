@@ -16,6 +16,12 @@ public static class InboxPermissions
 
     /// <summary>允许一键将全部未读站内信批量标记为已读。</summary>
     public const string MarkAllRead = "notifications.inbox.mark_all_read";
+
+    /// <summary>允许归档自己的站内信；归档不改变已读状态。</summary>
+    public const string Archive = "notifications.inbox.archive";
+
+    /// <summary>允许批量归档本人站内信。</summary>
+    public const string ArchiveBatch = "notifications.inbox.archive_batch";
 }
 
 /// <summary>
@@ -48,7 +54,16 @@ public sealed record InboxMessageResponse(
     string Status,
     DateTimeOffset? ReadAtUtc,
     DateTimeOffset CreatedAtUtc,
-    Guid? CreatedByUserId);
+    Guid? CreatedByUserId,
+    DateTimeOffset? ArchivedAtUtc = null,
+    DateTimeOffset? RevokedAtUtc = null,
+    string? RevocationReason = null,
+    NotificationDeepLink? DeepLink = null,
+    string? ProducerKey = null,
+    string? SceneKey = null);
+
+/// <summary>有界个人批量归档；不改变阅读状态，也不撤回业务消息。</summary>
+public sealed record ArchiveInboxMessagesRequest(IReadOnlyList<Guid> MessageIds);
 
 /// <summary>当前用户未读站内信数量，用作实时徽标的权威值。</summary>
 /// <param name="UnreadCount">当前状态为 Unread 的站内信条数，最小值为 0。</param>
@@ -59,7 +74,10 @@ public sealed record InboxUnreadCountResponse(int UnreadCount);
 /// <param name="Status">读取状态稳定机器码，取值自 InboxMessageStatuses。</param>
 public sealed record InboxMessageListFilter(
     string? Title = null,
-    string? Status = null);
+    string? Status = null,
+    bool Archived = false,
+    string? ProducerKey = null,
+    string? SceneKey = null);
 
 /// <summary>当前用户发件箱列表项；包含收件人标识供管理端展示。</summary>
 /// <param name="Id">站内信消息标识。</param>

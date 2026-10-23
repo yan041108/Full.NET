@@ -66,6 +66,7 @@ import type {
   AiTenantQuotaResponse,
   AppendAiPromptVersionRequest,
   ApproveAiMcpRemoteToolRequest,
+  ArchiveInboxMessagesRequest,
   AskAiKnowledgeRequest,
   AskAiKnowledgeResponse,
   AssignHostTenantPackageRequest,
@@ -179,7 +180,9 @@ import type {
   CreateK3CloudDocumentSyncRequest,
   CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
+  CreateNotificationProducerSceneRequest,
   CreateNotificationProviderProfileRequest,
+  CreateNotificationQuotaPolicyRequest,
   CreateNotificationTemplateRequest,
   CreateOcrIdCardTaskRequest,
   CreateOrganizationPositionLevelRequest,
@@ -349,13 +352,21 @@ import type {
   ModuleSelectionValidateRequest,
   MyReleaseNoteResponse,
   NotificationBindingResponse,
+  NotificationBindingTargetConditionInput,
   NotificationBindingTargetInput,
+  NotificationDeepLink,
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationDeliverySummaryResponse,
+  NotificationPreferenceResponse,
+  NotificationProducerSceneResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,
+  NotificationQuotaOutstandingResponse,
+  NotificationQuotaPolicyResponse,
+  NotificationRevocationResponse,
   NotificationTemplateBody,
   NotificationTemplateParameterDefinition,
   NotificationTemplateParameterSchema,
@@ -421,7 +432,9 @@ import type {
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
+  PagedResultOfNotificationProducerSceneResponse,
   PagedResultOfNotificationProviderProfileResponse,
+  PagedResultOfNotificationQuotaPolicyResponse,
   PagedResultOfNotificationTemplateResponse,
   PagedResultOfOcrIdCardTaskResponse,
   PagedResultOfOperationLogResponse,
@@ -486,6 +499,7 @@ import type {
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
+  ReconcileNotificationDeliveryRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
@@ -523,6 +537,7 @@ import type {
   RevokeAiAgentDelegationRequest,
   RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
+  RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
   SelectAiPromptVersionRequest,
@@ -547,7 +562,9 @@ import type {
   SetAiKnowledgeOrganizationGrantsRequest,
   SetAiKnowledgeRoleGrantsRequest,
   SetHostDocumentPermissionsRequest,
+  SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
+  SetNotificationQuotaPolicyEnabledRequest,
   SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
@@ -609,8 +626,11 @@ import type {
   UpdateHostUserRequest,
   UpdateK3CloudConnectionConfigRequest,
   UpdateLocaleRequest,
+  UpdateMyNotificationPreferenceRequest,
   UpdateNotificationBindingRequest,
+  UpdateNotificationProducerSceneRequest,
   UpdateNotificationProviderProfileRequest,
+  UpdateNotificationQuotaPolicyRequest,
   UpdateNotificationTemplateRequest,
   UpdateOcrProviderConfigRequest,
   UpdateOrganizationPositionLevelRequest,
@@ -824,7 +844,15 @@ import {
   readMyReleaseNoteResponse,
   readNotificationBindingResponse,
   readNotificationDeliveryResponse,
+  readNotificationPreferenceResponse,
+  readNotificationProducerSceneResponse,
   readNotificationProviderProfileResponse,
+  readNotificationQuotaPolicyResponse,
+  readNotificationRevocationResponse,
+  readNotificationsGetDeliverySummaryResponse,
+  readNotificationsGetQuotaOutstandingResponse,
+  readNotificationsListMyPreferenceChannelsResponse,
+  readNotificationsListMyPreferencesResponse,
   readNotificationsListMyRecipientEndpointsResponse,
   readNotificationsListProviderTypesResponse,
   readNotificationTemplateResponse,
@@ -885,7 +913,9 @@ import {
   readPagedResultOfMyReleaseNoteResponse,
   readPagedResultOfNotificationBindingResponse,
   readPagedResultOfNotificationDeliveryResponse,
+  readPagedResultOfNotificationProducerSceneResponse,
   readPagedResultOfNotificationProviderProfileResponse,
+  readPagedResultOfNotificationQuotaPolicyResponse,
   readPagedResultOfNotificationTemplateResponse,
   readPagedResultOfOcrIdCardTaskResponse,
   readPagedResultOfOperationLogResponse,
@@ -8571,6 +8601,46 @@ export async function k3cloudUpdateConnectionConfig(
   return readK3CloudConnectionConfigResponse(value);
 }
 
+export interface NotificationsArchiveMyInboxMessageParameters {
+  readonly messageId: string;
+}
+
+export async function notificationsArchiveMyInboxMessage(
+  http: HttpClient,
+  parameters: NotificationsArchiveMyInboxMessageParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<InboxUnreadCountResponse> {
+  const path = `/api/v1/notifications/my-inbox-messages/${encodeURIComponent(String(parameters.messageId))}/archive`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readInboxUnreadCountResponse(value);
+}
+
+export interface NotificationsArchiveMyInboxMessagesParameters {
+  readonly body: ArchiveInboxMessagesRequest;
+}
+
+export async function notificationsArchiveMyInboxMessages(
+  http: HttpClient,
+  parameters: NotificationsArchiveMyInboxMessagesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<InboxUnreadCountResponse> {
+  const path = `/api/v1/notifications/my-inbox-messages/archive-batch`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readInboxUnreadCountResponse(value);
+}
+
 export interface NotificationsCreateBindingParameters {
   readonly body: CreateNotificationBindingRequest;
 }
@@ -8637,6 +8707,28 @@ export async function notificationsCreateMyRecipientEndpoint(
   return readRecipientEndpointResponse(value);
 }
 
+export interface NotificationsCreateProducerSceneParameters {
+  readonly body: CreateNotificationProducerSceneRequest;
+}
+
+export async function notificationsCreateProducerScene(
+  http: HttpClient,
+  parameters: NotificationsCreateProducerSceneParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProducerSceneResponse> {
+  const path = `/api/v1/notifications/producer-scenes`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProducerSceneResponse(value);
+}
+
 export interface NotificationsCreateProviderProfileParameters {
   readonly body: CreateNotificationProviderProfileRequest;
 }
@@ -8659,6 +8751,28 @@ export async function notificationsCreateProviderProfile(
   return readNotificationProviderProfileResponse(value);
 }
 
+export interface NotificationsCreateQuotaPolicyParameters {
+  readonly body: CreateNotificationQuotaPolicyRequest;
+}
+
+export async function notificationsCreateQuotaPolicy(
+  http: HttpClient,
+  parameters: NotificationsCreateQuotaPolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationQuotaPolicyResponse> {
+  const path = `/api/v1/notifications/quotas`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationQuotaPolicyResponse(value);
+}
+
 export interface NotificationsCreateTemplateParameters {
   readonly body: CreateNotificationTemplateRequest;
 }
@@ -8679,6 +8793,29 @@ export async function notificationsCreateTemplate(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsDeadLetterDeliveryParameters {
+  readonly deliveryId: string;
+  readonly body: RetryNotificationDeliveryRequest;
+}
+
+export async function notificationsDeadLetterDelivery(
+  http: HttpClient,
+  parameters: NotificationsDeadLetterDeliveryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationDeliveryResponse> {
+  const path = `/api/v1/notifications/deliveries/${encodeURIComponent(String(parameters.deliveryId))}/dead-letter`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationDeliveryResponse(value);
 }
 
 export interface NotificationsDeleteMyRecipientEndpointParameters {
@@ -8782,6 +8919,24 @@ export async function notificationsGetDelivery(
   return readNotificationDeliveryResponse(value);
 }
 
+export interface NotificationsGetDeliverySummaryParameters {
+
+}
+
+export async function notificationsGetDeliverySummary(
+  http: HttpClient,
+  parameters: NotificationsGetDeliverySummaryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<NotificationDeliverySummaryResponse>> {
+  const path = `/api/v1/notifications/deliveries/summary`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsGetDeliverySummaryResponse(value);
+}
+
 export interface NotificationsGetHostAnnouncementReadStatsParameters {
   readonly announcementId: string;
 }
@@ -8870,6 +9025,24 @@ export async function notificationsGetProviderProfile(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsGetQuotaOutstandingParameters {
+
+}
+
+export async function notificationsGetQuotaOutstanding(
+  http: HttpClient,
+  parameters: NotificationsGetQuotaOutstandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<NotificationQuotaOutstandingResponse>> {
+  const path = `/api/v1/notifications/quotas/outstanding`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsGetQuotaOutstandingResponse(value);
 }
 
 export interface NotificationsGetTemplateParameters {
@@ -9050,6 +9223,9 @@ export interface NotificationsListMyInboxMessagesParameters {
   readonly pageSize?: number;
   readonly title?: string;
   readonly status?: string;
+  readonly archived?: boolean;
+  readonly producerKey?: string;
+  readonly sceneKey?: string;
 }
 
 export async function notificationsListMyInboxMessages(
@@ -9071,12 +9247,57 @@ export async function notificationsListMyInboxMessages(
   if (parameters.status !== undefined) {
     query.set('status', String(parameters.status));
   }
+  if (parameters.archived !== undefined) {
+    query.set('archived', String(parameters.archived));
+  }
+  if (parameters.producerKey !== undefined) {
+    query.set('producerKey', String(parameters.producerKey));
+  }
+  if (parameters.sceneKey !== undefined) {
+    query.set('sceneKey', String(parameters.sceneKey));
+  }
   const path = query.size === 0 ? `/api/v1/notifications/my-inbox-messages` : `/api/v1/notifications/my-inbox-messages?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfInboxMessageResponse(value);
+}
+
+export interface NotificationsListMyPreferenceChannelsParameters {
+
+}
+
+export async function notificationsListMyPreferenceChannels(
+  http: HttpClient,
+  parameters: NotificationsListMyPreferenceChannelsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<string>> {
+  const path = `/api/v1/notifications/my-preferences/channels`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsListMyPreferenceChannelsResponse(value);
+}
+
+export interface NotificationsListMyPreferencesParameters {
+
+}
+
+export async function notificationsListMyPreferences(
+  http: HttpClient,
+  parameters: NotificationsListMyPreferencesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<NotificationPreferenceResponse>> {
+  const path = `/api/v1/notifications/my-preferences`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsListMyPreferencesResponse(value);
 }
 
 export interface NotificationsListMyRecipientEndpointsParameters {
@@ -9095,6 +9316,32 @@ export async function notificationsListMyRecipientEndpoints(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationsListMyRecipientEndpointsResponse(value);
+}
+
+export interface NotificationsListProducerScenesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListProducerScenes(
+  http: HttpClient,
+  parameters: NotificationsListProducerScenesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationProducerSceneResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/producer-scenes` : `/api/v1/notifications/producer-scenes?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationProducerSceneResponse(value);
 }
 
 export interface NotificationsListProviderProfilesParameters {
@@ -9139,6 +9386,32 @@ export async function notificationsListProviderTypes(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationsListProviderTypesResponse(value);
+}
+
+export interface NotificationsListQuotaPoliciesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListQuotaPolicies(
+  http: HttpClient,
+  parameters: NotificationsListQuotaPoliciesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationQuotaPolicyResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/quotas` : `/api/v1/notifications/quotas?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationQuotaPolicyResponse(value);
 }
 
 export interface NotificationsListTemplatesParameters {
@@ -9331,6 +9604,29 @@ export async function notificationsPublishTemplate(
   return readNotificationTemplateResponse(value);
 }
 
+export interface NotificationsReconcileDeliveryParameters {
+  readonly deliveryId: string;
+  readonly body: ReconcileNotificationDeliveryRequest;
+}
+
+export async function notificationsReconcileDelivery(
+  http: HttpClient,
+  parameters: NotificationsReconcileDeliveryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationDeliveryResponse> {
+  const path = `/api/v1/notifications/deliveries/${encodeURIComponent(String(parameters.deliveryId))}/reconcile`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationDeliveryResponse(value);
+}
+
 export interface NotificationsRetryDeliveryParameters {
   readonly deliveryId: string;
   readonly body: RetryNotificationDeliveryRequest;
@@ -9352,6 +9648,29 @@ export async function notificationsRetryDelivery(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationDeliveryResponse(value);
+}
+
+export interface NotificationsRevokeIntentParameters {
+  readonly intentId: string;
+  readonly body: RevokeNotificationIntentRequest;
+}
+
+export async function notificationsRevokeIntent(
+  http: HttpClient,
+  parameters: NotificationsRevokeIntentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationRevocationResponse> {
+  const path = `/api/v1/notifications/intents/${encodeURIComponent(String(parameters.intentId))}/revoke`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationRevocationResponse(value);
 }
 
 export interface NotificationsSendHostInboxMessageParameters {
@@ -9392,6 +9711,52 @@ export async function notificationsSendMyRecipientEndpointVerification(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readSendRecipientEndpointVerificationResponse(value);
+}
+
+export interface NotificationsSetProducerSceneEnabledParameters {
+  readonly producerSceneId: string;
+  readonly body: SetNotificationProducerSceneEnabledRequest;
+}
+
+export async function notificationsSetProducerSceneEnabled(
+  http: HttpClient,
+  parameters: NotificationsSetProducerSceneEnabledParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProducerSceneResponse> {
+  const path = `/api/v1/notifications/producer-scenes/${encodeURIComponent(String(parameters.producerSceneId))}/enabled`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProducerSceneResponse(value);
+}
+
+export interface NotificationsSetQuotaPolicyEnabledParameters {
+  readonly quotaPolicyId: string;
+  readonly body: SetNotificationQuotaPolicyEnabledRequest;
+}
+
+export async function notificationsSetQuotaPolicyEnabled(
+  http: HttpClient,
+  parameters: NotificationsSetQuotaPolicyEnabledParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationQuotaPolicyResponse> {
+  const path = `/api/v1/notifications/quotas/${encodeURIComponent(String(parameters.quotaPolicyId))}/enabled`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationQuotaPolicyResponse(value);
 }
 
 export interface NotificationsUpdateBindingParameters {
@@ -9440,6 +9805,52 @@ export async function notificationsUpdateHostAnnouncement(
   return readHostAnnouncementResponse(value);
 }
 
+export interface NotificationsUpdateMyPreferenceParameters {
+  readonly channelKey: string;
+  readonly body: UpdateMyNotificationPreferenceRequest;
+}
+
+export async function notificationsUpdateMyPreference(
+  http: HttpClient,
+  parameters: NotificationsUpdateMyPreferenceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationPreferenceResponse> {
+  const path = `/api/v1/notifications/my-preferences/${encodeURIComponent(String(parameters.channelKey))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationPreferenceResponse(value);
+}
+
+export interface NotificationsUpdateProducerSceneParameters {
+  readonly producerSceneId: string;
+  readonly body: UpdateNotificationProducerSceneRequest;
+}
+
+export async function notificationsUpdateProducerScene(
+  http: HttpClient,
+  parameters: NotificationsUpdateProducerSceneParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProducerSceneResponse> {
+  const path = `/api/v1/notifications/producer-scenes/${encodeURIComponent(String(parameters.producerSceneId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProducerSceneResponse(value);
+}
+
 export interface NotificationsUpdateProviderProfileParameters {
   readonly profileId: string;
   readonly body: UpdateNotificationProviderProfileRequest;
@@ -9461,6 +9872,29 @@ export async function notificationsUpdateProviderProfile(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsUpdateQuotaPolicyParameters {
+  readonly quotaPolicyId: string;
+  readonly body: UpdateNotificationQuotaPolicyRequest;
+}
+
+export async function notificationsUpdateQuotaPolicy(
+  http: HttpClient,
+  parameters: NotificationsUpdateQuotaPolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationQuotaPolicyResponse> {
+  const path = `/api/v1/notifications/quotas/${encodeURIComponent(String(parameters.quotaPolicyId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationQuotaPolicyResponse(value);
 }
 
 export interface NotificationsUpdateTemplateParameters {

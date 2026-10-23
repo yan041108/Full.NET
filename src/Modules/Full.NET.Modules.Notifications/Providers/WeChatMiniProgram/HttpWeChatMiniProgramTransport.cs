@@ -81,7 +81,7 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
         catch (HttpRequestException)
         {
             throw new WeChatMiniProgramTransportException(
-                WeChatMiniProgramTransportFailureKind.Transient,
+                WeChatMiniProgramTransportFailureKind.Unknown,
                 "The WeChat subscribe endpoint could not be reached.");
         }
 
@@ -91,7 +91,8 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
             if (!response.IsSuccessStatusCode)
             {
                 throw new WeChatMiniProgramTransportException(
-                    ClassifyHttpStatus(response.StatusCode),
+                    response.StatusCode >= System.Net.HttpStatusCode.InternalServerError
+                        ? WeChatMiniProgramTransportFailureKind.Unknown : ClassifyHttpStatus(response.StatusCode),
                     "The WeChat subscribe endpoint returned an error response.");
             }
 
@@ -240,12 +241,12 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
                 return msgId;
             }
 
-            return Guid.NewGuid().ToString("N");
+            return string.Empty;
         }
         catch (JsonException)
         {
             throw new WeChatMiniProgramTransportException(
-                WeChatMiniProgramTransportFailureKind.Transient,
+                WeChatMiniProgramTransportFailureKind.Unknown,
                 "The WeChat subscribe response was invalid.");
         }
     }

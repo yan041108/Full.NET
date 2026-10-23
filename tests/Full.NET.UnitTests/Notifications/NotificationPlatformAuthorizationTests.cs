@@ -41,6 +41,18 @@ public sealed class NotificationPlatformAuthorizationTests
         CollectionAssert.Contains(
             catalog.Actions.Select(action => action.PermissionCode).ToArray(),
             "notifications.provider_profiles.publish");
+        foreach (var resource in new[] { "producer_scenes", "quotas" })
+        {
+            var navigationId = resource == "producer_scenes"
+                ? "notification-producer-scenes" : "notification-quotas";
+            Assert.AreEqual($"notifications.{resource}.read",
+                catalog.Navigation.Single(item => item.Id == navigationId).RequiredPermission);
+            CollectionAssert.AreEquivalent(
+                new[] { "create", "update", "set_enabled" }
+                    .Select(action => $"notifications.{resource}.{action}").ToArray(),
+                catalog.Actions.Where(action => action.NavigationId == navigationId)
+                    .Select(action => action.PermissionCode).ToArray());
+        }
     }
 
     [TestMethod]
@@ -49,6 +61,8 @@ public sealed class NotificationPlatformAuthorizationTests
         var known = new HashSet<string>(NotificationPlatformPermissions.All, StringComparer.Ordinal);
         Assert.IsFalse(known.Contains("notifications.templates.read/update"));
         Assert.IsFalse(known.Contains("notifications.deliveries.write"));
+        Assert.IsFalse(known.Contains("notifications.producer_scenes.manage"));
+        Assert.IsFalse(known.Contains("notifications.quotas.manage"));
         Assert.ThrowsExactly<InvalidOperationException>(
             () => AuthorizationCatalog.Create(
             [

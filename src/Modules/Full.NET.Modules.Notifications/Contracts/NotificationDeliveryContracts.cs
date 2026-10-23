@@ -28,7 +28,14 @@ public sealed record NotificationDeliveryResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     IReadOnlyList<NotificationDeliveryAttemptResponse> Attempts,
-    IReadOnlyList<NotificationDeliveryReceiptResponse> Receipts);
+    IReadOnlyList<NotificationDeliveryReceiptResponse> Receipts,
+    long? PreferenceVersion = null,
+    string? PolicyDecisionKey = null,
+    string? SuppressionReasonCode = null);
+
+/// <summary>按当前可信作用域、渠道、厂商和状态聚合；Sent 只表示调用受理，回执覆盖另列。</summary>
+public sealed record NotificationDeliverySummaryResponse(string ChannelKey, string ProviderTypeKey,
+    string StatusKey, long Count, DateTimeOffset OldestCreatedAtUtc, string ReceiptModeKey);
 
 /// <summary>外部渠道回执只读视图；退信原因使用稳定外部状态键，不含原始载荷。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。ExternalStatusKey、MappedStatusKey、ProcessStatusKey 等状态键发布后不得改名。</remarks>
@@ -77,6 +84,9 @@ public sealed record NotificationDeliveryAttemptResponse(
 public sealed record RetryNotificationDeliveryRequest(
     long Revision,
     string Reason);
+
+/// <summary>人工对账仅确认调用事实；证据引用进入同事务审计，不作为可信送达回执。</summary>
+public sealed record ReconcileNotificationDeliveryRequest(long Revision, string OutcomeKey, string EvidenceReference);
 
 /// <summary>回执受理结果；重复与乱序不回退终态。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。ProcessStatusKey、MappedStatusKey 等状态键发布后不得改名。</remarks>

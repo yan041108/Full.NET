@@ -1,4 +1,30 @@
 groups:
+  - name: fullnet-notifications
+    rules:
+      - alert: FullNetNotificationBacklogAging
+        expr: fullnet_notifications_delivery_oldest_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 通知待发送积压超过五分钟，请检查静默、配额与厂商配置
+
+      - alert: FullNetNotificationDeadLetters
+        expr: fullnet_notifications_delivery_dead_lettered > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 通知存在死信，请在投递控制面审计处置
+
+      - alert: FullNetNotificationUnknownPending
+        expr: fullnet_notifications_delivery_awaiting_reconciliation > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 通知调用结果未知，禁止以人工重试理由代替发送对账
+
   - name: fullnet-high-concurrency
     rules:
       - alert: FullNetErrorCriticalStorm

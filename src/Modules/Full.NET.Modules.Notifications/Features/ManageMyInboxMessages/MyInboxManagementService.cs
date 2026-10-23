@@ -21,6 +21,31 @@ internal sealed class MyInboxManagementService(
     IClock clock,
     ILogger<MyInboxManagementService> logger)
 {
+    /// <summary>幂等归档有界的本人消息集合，未命中的他人或跨租户标识不影响任何行。</summary>
+    public async Task<Result<InboxUnreadCountResponse>> ArchiveAsync(Guid userId, IReadOnlyList<Guid>? messageIds,
+        CancellationToken cancellationToken)
+    {
+        if (messageIds is null || messageIds.Count is < 1 or > 100 || messageIds.Any(id => id == Guid.Empty))
+            return Result<InboxUnreadCountResponse>.Failure(new Error(NotificationsErrorCodes.TemplateValidationFailed,
+                "The archive batch must contain 1 to 100 message identifiers.", ErrorType.Validation));
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        var result = await transaction.ExecuteAsync(async token =>
+        {
+            var changed = await commandExecutor.ExecuteAsync(NotificationLifecycleSql.Archive,
+                NotificationPlatformSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey),
+                    ("UserId", userId), ("Ids", messageIds.Distinct().ToArray()), ("Now", clock.UtcNow)), token)
+                .ConfigureAwait(false);
+            if (changed > 0) await AddReadStateChangedAsync(userId, scope.TenantScopeKey, token).ConfigureAwait(false);
+            var unread = await queryExecutor.QuerySingleOrDefaultAsync<int>(InboxMessageSql.CountUnreadForRecipient,
+                NotificationPlatformSqlParameters.Create(("RecipientUserId", userId),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("UnreadStatus", InboxMessageStatuses.Unread)), token)
+                .ConfigureAwait(false);
+            return Result<InboxUnreadCountResponse>.Success(new InboxUnreadCountResponse(unread));
+        }, cancellationToken).ConfigureAwait(false);
+        await TryPublishUnreadCountAsync(userId, scope.TenantScopeKey, CancellationToken.None).ConfigureAwait(false);
+        return result;
+    }
+
     /// <summary>
     /// 将当前用户的一条未读站内信标记为已读，并在事务内追加已读状态变更 Outbox 事件。
     /// </summary>

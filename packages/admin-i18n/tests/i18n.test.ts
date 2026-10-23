@@ -30,6 +30,15 @@ describe('管理端国际化契约', () => {
       .toBe('3 active scopes');
   });
 
+  it('渠道发送偏好与撤回营销同意具有双语文案', () => {
+    expect(translate('zh-CN', 'notificationSendingPreferences.marketingConsent'))
+      .toContain('可随时撤回');
+    expect(translate('en-US', 'notificationSendingPreferences.marketingConsent'))
+      .toContain('withdraw at any time');
+    expect(translate('zh-CN', 'notificationSendingPreferences.invalidStored'))
+      .toContain('无法读取');
+  });
+
   it('缺少命名参数时保留占位符以暴露字典错误', () => {
     expect(translate('zh-CN', 'tenant.activeCount'))
       .toBe('{count} 个活动范围');

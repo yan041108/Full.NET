@@ -34,6 +34,9 @@ internal sealed partial class WeComNotificationProviderAdapter(
 
     public string? RecipientEndpointKindKey => "wecom";
 
+    // 企微应用消息没有幂等键去重语义，结果未知时只能暂挂等待对账。
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
     public async ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken)
@@ -82,6 +85,7 @@ internal sealed partial class WeComNotificationProviderAdapter(
         {
             var category = exception.FailureKind switch
             {
+                WeComTransportFailureKind.Unknown => NotificationDeliveryRetry.Unknown,
                 WeComTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 WeComTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,
                 _ => NotificationDeliveryRetry.Permanent,

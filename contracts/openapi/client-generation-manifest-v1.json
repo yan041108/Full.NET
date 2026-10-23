@@ -1841,6 +1841,78 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsListProducerScenes",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-producer-scenes",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateProducerScene",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-producer-scenes",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateProducerScene",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-producer-scenes",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsSetProducerSceneEnabled",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-producer-scenes",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListQuotaPolicies",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-quotas",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetQuotaOutstanding",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-quotas",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateQuotaPolicy",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-quotas",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateQuotaPolicy",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-quotas",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsSetQuotaPolicyEnabled",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-quotas",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListMyPreferences",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-preferences",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListMyPreferenceChannels",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-preferences",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateMyPreference",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-preferences",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsListMyRecipientEndpoints",
       "apiModule": "ui/admin/src/api/notification-platform.ts",
       "generatedGroup": "notifications-recipient-endpoints",
@@ -3758,6 +3830,42 @@
       "operationId": "auditingQueryLogTimeline",
       "apiModule": "ui/admin/src/api/log-timeline.ts",
       "generatedGroup": "auditing",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsArchiveMyInboxMessage",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsArchiveMyInboxMessages",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsRevokeIntent",
+      "apiModule": "ui/admin/src/api/notification-intents.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetDeliverySummary",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsDeadLetterDelivery",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsReconcileDelivery",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
       "status": "generated"
     }
   ]

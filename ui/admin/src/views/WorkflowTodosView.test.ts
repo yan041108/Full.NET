@@ -1,3 +1,4 @@
+import { createRouter, createMemoryHistory } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -106,10 +107,30 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(WorkflowTodosView, { global: { plugins: [pinia] } });
+  const router = createRouter({ history: createMemoryHistory(), routes: ['/', '/workflow/todos'].map(path => ({ path, component: { template: '<div />' } })) });
+  return mount(WorkflowTodosView, { global: { plugins: [pinia, router] } });
 }
 
 describe('WorkflowTodosView', () => {
+  it('缓存页面切换深链时重新授权读取，并拒绝旧资源的迟到响应', async () => {
+    const secondId = '01912345-6789-7abc-8def-0123456789b2';
+    let finishOld!: (value: WorkflowTodoDetail) => void;
+    const old = new Promise<WorkflowTodoDetail>(resolve => { finishOld = resolve; });
+    vi.mocked(getWorkflowTodo).mockImplementation(id => id === todo.id ? old
+      : Promise.resolve({ ...detail, id: secondId, submission: { summary: '第二条深链资源' } }));
+    const wrapper = mountWithPermissions(['workflow.todos.read']);
+    await flushPromises();
+    await wrapper.vm.$router.push({ path: '/workflow/todos', query: { resourceId: todo.id } });
+    await flushPromises();
+    expect(getWorkflowTodo).toHaveBeenCalledWith(todo.id);
+    await wrapper.vm.$router.push({ path: '/workflow/todos', query: { resourceId: secondId } });
+    await flushPromises();
+    expect(getWorkflowTodo).toHaveBeenCalledWith(secondId);
+    finishOld(detail);
+    await flushPromises();
+    expect(wrapper.findComponent({ name: 'WorkflowFormRenderer' }).props('submission')).toEqual({ summary: '第二条深链资源' });
+    wrapper.unmount();
+  });
   beforeEach(() => {
     vi.mocked(listMyWorkflowTodos).mockReset().mockResolvedValue(paged([todo]));
     vi.mocked(listMyWorkflowTodoHistory).mockReset().mockResolvedValue(paged([historyTodo]));

@@ -1,7 +1,8 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <UserSecretsId>a2666b10-edbb-4e76-ae2c-fdf45eec0e70</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.MySql" />

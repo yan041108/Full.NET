@@ -129,6 +129,7 @@ function subscriptionTagType(statusKey: string): 'success' | 'info' | 'warning' 
           </dl>
           <section>
             <h3>{{ t('wechatMiniProgramBindings.subscriptionsTitle') }}</h3>
+            <p>{{ t('wechatMiniProgramBindings.subscriptionHint') }}</p>
             <p v-if="selected.subscriptions.length === 0" class="art-muted">
               {{ t('wechatMiniProgramBindings.subscriptionsEmpty') }}
             </p>

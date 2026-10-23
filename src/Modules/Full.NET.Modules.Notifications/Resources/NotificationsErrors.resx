@@ -61,4 +61,17 @@
   <data name="notifications.wechat_miniprogram_binding_not_found" xml:space="preserve"><value>未找到微信小程序绑定记录。</value></data>
   <data name="notifications.binding_not_published" xml:space="preserve"><value>该场景尚未发布绑定。</value></data>
   <data name="notifications.binding_scene_conflict" xml:space="preserve"><value>同一作用域下该场景渠道已有已发布绑定。</value></data>
+  <data name="notifications.producer_scene_not_found" xml:space="preserve"><value>未找到该 Producer/Scene 目录项。</value></data>
+  <data name="notifications.producer_scene_key_conflict" xml:space="preserve"><value>同一作用域下该 Producer/Scene 目录项已存在。</value></data>
+  <data name="notifications.producer_scene_concurrency_conflict" xml:space="preserve"><value>Producer/Scene 目录项已被其他操作更新，请刷新后重试。</value></data>
+  <data name="notifications.producer_scene_validation_failed" xml:space="preserve"><value>Producer/Scene 目录项的政策类别或合法渠道无效。</value></data>
+  <data name="notifications.producer_scene_missing" xml:space="preserve"><value>当前 Producer/Scene 未配置启用的受控目录，禁止发送。</value></data>
+  <data name="notifications.producer_scene_channel_not_allowed" xml:space="preserve"><value>该渠道不在 Producer/Scene 目录声明的合法渠道内。</value></data>
+  <data name="notifications.subscription_not_authorized" xml:space="preserve"><value>缺少有效的小程序订阅授权，不能发送订阅消息。</value></data>
+  <data name="notifications.quota_policy_not_found" xml:space="preserve"><value>未找到该作用域下的发送配额政策。</value></data>
+  <data name="notifications.quota_policy_key_conflict" xml:space="preserve"><value>同一维度与取值下已存在发送配额政策。</value></data>
+  <data name="notifications.quota_policy_concurrency_conflict" xml:space="preserve"><value>发送配额政策已被并发修改，请重试。</value></data>
+  <data name="notifications.quota_policy_validation_failed" xml:space="preserve"><value>配额维度、取值、窗口长度或发送上限声明无效。</value></data>
+  <data name="notifications.quota_policy_missing" xml:space="preserve"><value>该配额维度缺少有界声明，发送失败关闭。</value></data>
+  <data name="notifications.quota_exceeded" xml:space="preserve"><value>发送配额窗口已满，本次发送已进入延迟排队。</value></data>
 </root>

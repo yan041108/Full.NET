@@ -8,6 +8,15 @@ namespace Full.NET.IntegrationTests.NativeAot;
 public sealed class NativeWorkerSqlServerE2ETests
 {
     [TestMethod]
+    public async Task SqlServer_native_worker_enforces_notification_governance_and_recovery()
+    {
+        await NativeWorkerNotificationGovernanceProbe.VerifyAsync(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(), TestContext.CancellationToken);
+    }
+
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public async Task SqlServer_native_worker_runs_version_retirement_scan()
     {
         if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))

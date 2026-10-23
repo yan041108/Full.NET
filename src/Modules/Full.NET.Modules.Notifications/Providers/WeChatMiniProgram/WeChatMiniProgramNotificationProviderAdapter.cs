@@ -34,6 +34,9 @@ internal sealed partial class WeChatMiniProgramNotificationProviderAdapter(
 
     public string? RecipientEndpointKindKey => "wechat_miniprogram";
 
+    // 小程序订阅消息按次消耗且无幂等键去重，结果未知时只能暂挂等待对账。
+    public bool AllowsAutomaticRetryAfterUnknownResult => false;
+
     public async ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken)
@@ -89,6 +92,7 @@ internal sealed partial class WeChatMiniProgramNotificationProviderAdapter(
         {
             var category = exception.FailureKind switch
             {
+                WeChatMiniProgramTransportFailureKind.Unknown => NotificationDeliveryRetry.Unknown,
                 WeChatMiniProgramTransportFailureKind.Transient => NotificationDeliveryRetry.Transient,
                 WeChatMiniProgramTransportFailureKind.RateLimited => NotificationDeliveryRetry.RateLimited,
                 _ => NotificationDeliveryRetry.Permanent,

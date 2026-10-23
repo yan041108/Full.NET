@@ -34,6 +34,10 @@ internal static class NativeApiNotificationsE2EAssertions
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["ConnectionStrings:redis"] = redisConnectionString,
             ["Testing:OutboxCommandPath"] = "TypedPlan",
+            ["Notifications:Providers:Smtp:Enabled"] = "true",
+            ["Notifications:SecretReferences:email.smtp:0"] = "env://FULLNET_NATIVE_NOTIFICATIONS_UNCONFIGURED_SECRET",
+            ["Notifications:Providers:WeChatMiniProgram:Enabled"] = "true",
+            ["Notifications:SecretReferences:im.wechat_miniprogram:0"] = "env://FULLNET_NATIVE_MINI_UNCONFIGURED_SECRET",
         };
 
         await NativeApiDatabaseBootstrap.BootstrapAsync(
@@ -88,6 +92,7 @@ internal static class NativeApiNotificationsE2EAssertions
                 cancellationToken)
             .ConfigureAwait(false);
 
+        await NativeNotificationGovernanceProbe.VerifyApiAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }

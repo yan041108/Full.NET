@@ -18,7 +18,20 @@ public sealed record CreateNotificationIntentRequest(
     IReadOnlyList<NotificationRecipientInput> Recipients,
     JsonElement Parameters,
     string IdempotencyKey,
-    IReadOnlyList<Guid>? AttachmentFileIds = null);
+    IReadOnlyList<Guid>? AttachmentFileIds = null,
+    DateTimeOffset? ExpiresAtUtc = null,
+    NotificationDeepLink? DeepLink = null);
+
+/// <summary>登录后资源深链；目标服务始终重新验证会话、租户、权限、归属与业务状态。</summary>
+/// <param name="ResourceTypeKey">闭合类型：workflow_todo 或 workflow_instance。</param>
+/// <param name="ResourceId">资源标识；此引用不授予访问权。</param>
+public sealed record NotificationDeepLink(string ResourceTypeKey, Guid ResourceId);
+
+/// <summary>业务撤回请求；原因进入领域审计，不能承诺收回已越过外发边界的消息。</summary>
+public sealed record RevokeNotificationIntentRequest(long Revision, string Reason);
+
+/// <summary>撤回结果；已越过外发边界的数量仅表示无法保证收回。</summary>
+public sealed record NotificationRevocationResponse(int StoppedDeliveries, int CrossedSendBoundary, int RevokedInboxMessages);
 
 /// <summary>收件人输入；本切片仅支持 <c>user</c>，RecipientKey 为用户 Id 的 32 位十六进制。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。RecipientTypeKey 闭合类别发布后不得改名或删除。</remarks>
@@ -58,7 +71,8 @@ public sealed record NotificationIntentResponse(
     string ParameterSnapshotJson,
     IReadOnlyList<NotificationRecipientResponse> Recipients,
     IReadOnlyList<NotificationIntentAttachmentResponse> Attachments,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    long Revision = 1);
 
 /// <summary>Intent 已绑定的邮件附件元数据；不包含文件内容。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

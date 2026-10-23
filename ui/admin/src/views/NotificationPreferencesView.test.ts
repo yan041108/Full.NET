@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import NotificationPreferencesView from './NotificationPreferencesView.vue';
 import { useSessionStore } from '../auth/session';
+import { showProblem } from '../feedback/fullNetMessage';
 import {
   createMyRecipientEndpoint,
   deleteMyRecipientEndpoint,
@@ -19,6 +20,10 @@ vi.mock('../api/notification-platform', () => ({
   listNotificationProviderProfiles: vi.fn(),
   sendMyRecipientEndpointVerification: vi.fn(),
   verifyMyRecipientEndpoint: vi.fn()
+}));
+vi.mock('../feedback/fullNetMessage', () => ({
+  showSuccess: vi.fn(),
+  showProblem: vi.fn()
 }));
 
 const profile = {
@@ -101,6 +106,7 @@ describe('Vue 通知偏好页', () => {
   it('登记请求只发送 Profile 版本、端点类型和原值', async () => {
     const wrapper = mountView([
       'notifications.preferences.read',
+      'notifications.provider_profiles.read',
       'notifications.preferences.update'
     ]);
     await flushPromises();
@@ -128,12 +134,30 @@ describe('Vue 通知偏好页', () => {
     });
     const wrapper = mountView([
       'notifications.preferences.read',
+      'notifications.provider_profiles.read',
       'notifications.preferences.update'
     ]);
     await flushPromises();
 
     expect(wrapper.find('[data-testid="notification-preferences-no-profile"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-preferences-save"]').exists()).toBe(false);
+  });
+
+  it('保存失败通过统一反馈展示服务端拒绝，不清空用户输入', async () => {
+    const problem = { status: 409, code: 'notifications.endpoint_conflict', title: '收件端点冲突' };
+    vi.mocked(createMyRecipientEndpoint).mockRejectedValueOnce(problem);
+    const wrapper = mountView([
+      'notifications.preferences.read',
+      'notifications.provider_profiles.read',
+      'notifications.preferences.update'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-preferences-email"]').setValue('recipient@example.test');
+    await wrapper.get('[data-testid="notification-preferences-save"]').trigger('click');
+    await flushPromises();
+    expect(showProblem).toHaveBeenCalledWith(problem, '收件端点操作未完成。');
+    expect(wrapper.get<HTMLInputElement>('[data-testid="notification-preferences-email"]').element.value)
+      .toBe('recipient@example.test');
   });
 
   it('待验证端点可发送并校验验证码', async () => {
