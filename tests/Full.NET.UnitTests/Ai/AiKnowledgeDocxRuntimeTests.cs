@@ -20,12 +20,12 @@ public sealed class AiKnowledgeDocxRuntimeTests
         if (worker) new AiModule().AddBackgroundServices(services, config); else new AiModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         Assert.IsTrue(provider.GetRequiredService<IOptions<AiKnowledgeDocxRuntimeOptions>>().Value.Enabled);
-        Assert.IsTrue(services.Any(d => d.ServiceType == typeof(AiKnowledgeIndexDocxActivationStore) && d.Lifetime == ServiceLifetime.Scoped));
-        if (!worker) Assert.IsFalse(services.Any(d => d.ServiceType == typeof(AiKnowledgeIndexDocxPlanningService)));
+        Assert.IsTrue(services.Any(d => d.ServiceType == typeof(AiKnowledgeIndexDocumentActivationStore) && d.Lifetime == ServiceLifetime.Scoped));
+        if (!worker) Assert.IsFalse(services.Any(d => d.ServiceType == typeof(AiKnowledgeDocumentPlanningService)));
         else
         {
-            foreach (var type in new[] {typeof(AiKnowledgeIndexDocxPlanningService), typeof(AiKnowledgeIndexDocxEmbeddingService),
-                typeof(AiKnowledgeIndexDocxManifestStore), typeof(AiKnowledgeIndexDocxVectorStore), typeof(AiKnowledgeIndexDocxPersistenceService)})
+            foreach (var type in new[] {typeof(AiKnowledgeDocumentPlanningService), typeof(AiKnowledgeIndexDocumentEmbeddingService),
+                typeof(AiKnowledgeIndexDocumentManifestStore), typeof(AiKnowledgeIndexDocumentVectorStore), typeof(AiKnowledgeIndexDocumentPersistenceService)})
                 Assert.IsTrue(services.Any(d => d.ServiceType == type && d.Lifetime == ServiceLifetime.Scoped), type.Name);
             var sandbox = provider.GetRequiredService<AiKnowledgeDocxSandboxOptions>();
             Assert.AreEqual(path, sandbox.NodeExecutablePath); Assert.AreEqual(path, sandbox.CliScriptPath);

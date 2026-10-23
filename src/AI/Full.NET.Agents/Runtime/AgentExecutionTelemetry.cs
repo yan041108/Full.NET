@@ -25,9 +25,9 @@ public static class AgentExecutionTelemetry
         new(runId, stage is "run" or "workflow" or "tool_loop" or "node" or "model" or "tool"
             or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
             or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context"
-            or "knowledge_index_text" or "knowledge_index_pdf" or "knowledge_index_docx"
-            or "chat" or "embedding_test" or "knowledge_chunk_text" or "knowledge_chunk_pdf" or "knowledge_chunk_docx"
-            or "knowledge_parse_text" or "knowledge_parse_pdf" or "knowledge_parse_docx" ? stage : "other",
+            or "knowledge_index_text" or "knowledge_index_pdf" or "knowledge_index_docx" or "knowledge_index_document"
+            or "chat" or "embedding_test" or "knowledge_chunk_text" or "knowledge_chunk_pdf" or "knowledge_chunk_docx" or "knowledge_chunk_document"
+            or "knowledge_parse_text" or "knowledge_parse_pdf" or "knowledge_parse_docx" or "knowledge_parse_document" ? stage : "other",
             operationId, stepIndex, cancellationToken);
 
     /// <summary>观测原知识索引批次；任务标识只进入 Trace，不替代 Agent 运行身份。</summary>
@@ -37,7 +37,7 @@ public static class AgentExecutionTelemetry
     /// <returns>必须释放的范围；完成只表示批次方法返回，不证明整代次 ready。</returns>
     public static Observation StartIndex(Guid taskId, string format, CancellationToken cancellationToken = default) =>
         new(Guid.Empty, format switch { "text" => "knowledge_index_text", "pdf" => "knowledge_index_pdf",
-            "docx" => "knowledge_index_docx", _ => "other" }, null, null, cancellationToken, knowledgeTaskId: taskId);
+            "docx" => "knowledge_index_docx", "document" => "knowledge_index_document", _ => "other" }, null, null, cancellationToken, knowledgeTaskId: taskId);
 
     /// <summary>观测现有步骤的本地写入尝试；不生成业务身份，也不证明外层事务提交或模型派发。</summary>
     /// <param name="runId">本次租约所属运行标识；空值不输出。</param>

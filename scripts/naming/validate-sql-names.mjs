@@ -124,7 +124,7 @@ function inspectSql(sql, file, profile, debt, violations) {
     const containsUnsupportedDdl = /\bCREATE\s+(?:OR\s+ALTER\s+)?(?:VIEW|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bDROP\s+(?:TABLE|VIEW|COLUMN|INDEX|CONSTRAINT|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN)\b|\bALTER\s+TABLE\b.*\bRENAME\b/i
       .test(text);
     const supportedDropConstraint = /^\s*ALTER\s+TABLE\s+(?:[A-Za-z][A-Za-z0-9_]*\.)?[A-Za-z][A-Za-z0-9_]*\s+DROP\s+CONSTRAINT\s+[A-Za-z][A-Za-z0-9_]*\s*;?\s*$/i.test(text);
-    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint && !recoveryProcedureLines.has(index)) {
+    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint && !staticTableRename(text) && !recoveryProcedureLines.has(index)) {
       violations.push(violation(
         'FNSQL003',
         'unsupported_sql',
@@ -165,6 +165,8 @@ function collectTableReferences(lines, cteNames) {
   const updatePattern = /(?:^|;)\s*UPDATE\s+(?:([A-Za-z][A-Za-z0-9_]*)\.)?([A-Za-z][A-Za-z0-9_]*)/gi;
   lines.forEach((line, index) => {
     const text = stripComment(line);
+    const renamed = staticTableRename(text);
+    if (renamed) for (const name of renamed.slice(1)) references.push({ name, line: index + 1 });
     for (const match of text.matchAll(pattern)) {
       if (isSystemSchema(match[1]) || cteNames.has(match[2].toLowerCase())) continue;
       if (ignoredTableValuedFunctions.has(match[2].toLowerCase())) continue;
@@ -181,6 +183,11 @@ function collectTableReferences(lines, cteNames) {
     }
   });
   return references;
+}
+
+/** 仅支持两个字面表名的一对一重命名；两侧仍接受完整所有权与命名校验。 */
+function staticTableRename(text) {
+  return /^\s*RENAME\s+TABLE\s+([A-Za-z][A-Za-z0-9_]*)\s+TO\s+([A-Za-z][A-Za-z0-9_]*)\s*;\s*$/iu.exec(text);
 }
 
 function collectCteNames(lines) {

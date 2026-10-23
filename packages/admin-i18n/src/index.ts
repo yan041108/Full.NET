@@ -18,3 +18,5 @@ export { translateKnowledgeIndexChanges } from './knowledge-index-changes.js';
 export { translateKnowledgeProcessing, translateKnowledgeRecovery } from './knowledge-processing.js';
 
 export { translateAiReconciliation } from './ai-reconciliation.js';
+
+export { translateKnowledgeFormats } from './knowledge-formats.js';

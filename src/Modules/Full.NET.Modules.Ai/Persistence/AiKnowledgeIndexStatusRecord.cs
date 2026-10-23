@@ -29,6 +29,7 @@ internal sealed record AiKnowledgeIndexStatusRecord
     public Guid FileId { get; init; }
     public string ContentHash { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;
+    public string ParsingPolicyKey { get; init; } = "default";
     public long SizeBytes { get; init; }
     public Guid? ModelConfigId { get; init; }
     public int? ModelConfigVersion { get; init; }

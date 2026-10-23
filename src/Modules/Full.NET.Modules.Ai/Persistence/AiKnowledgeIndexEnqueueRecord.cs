@@ -12,4 +12,5 @@ internal sealed record AiKnowledgeIndexEnqueueRecord
     public Guid ModelConfigId { get; init; }
     public int ModelConfigVersion { get; init; }
     public string ContentType { get; init; } = string.Empty;
+    public string ParsingPolicyKey { get; init; } = "default";
 }

@@ -1,0 +1,47 @@
+/** 选择文件时生成精确 MIME；实际字节验收由服务端隔离解析器完成。 */
+const fileContentTypes = {
+  "txt": "text/plain",
+  "md": "text/markdown",
+  "pdf": "application/pdf",
+  "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "doc": "application/msword",
+  "csv": "text/csv",
+  "html": "text/html",
+  "htm": "text/html",
+  "xls": "application/vnd.ms-excel",
+  "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "ppt": "application/vnd.ms-powerpoint",
+  "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "jpg": "image/jpeg",
+  "jpeg": "image/jpeg",
+  "jfif": "image/jpeg",
+  "png": "image/png",
+  "apng": "image/apng",
+  "webp": "image/webp",
+  "bmp": "image/bmp",
+  "tif": "image/tiff",
+  "tiff": "image/tiff",
+  "gif": "image/gif",
+  "heic": "image/heic",
+  "heif": "image/heif",
+  "avif": "image/avif",
+  "jp2": "image/jp2",
+  "j2k": "image/jp2",
+  "jxl": "image/jxl",
+  "ico": "image/vnd.microsoft.icon",
+  "tga": "image/x-tga",
+  "pcx": "image/vnd.zbrush.pcx",
+  "pnm": "image/x-portable-anymap",
+  "pbm": "image/x-portable-bitmap",
+  "pgm": "image/x-portable-graymap",
+  "ppm": "image/x-portable-pixmap",
+  "svg": "image/svg+xml",
+  "svgz": "image/svg+xml",
+  "wmf": "image/wmf",
+  "emf": "image/emf",
+  "psd": "image/vnd.adobe.photoshop"
+} as const;
+type KnowledgeFileContentType = typeof fileContentTypes[keyof typeof fileContentTypes];
+export const knowledgeFileContentTypes: Readonly<Record<string, KnowledgeFileContentType>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<string, KnowledgeFileContentType>, fileContentTypes));
+export const knowledgeFileAccept = Object.keys(knowledgeFileContentTypes).map(key => `.${key}`).join(',');

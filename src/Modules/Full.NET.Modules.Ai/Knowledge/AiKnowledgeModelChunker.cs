@@ -37,20 +37,8 @@ internal static class AiKnowledgeModelChunker
         token.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(knowledge);
         ArgumentNullException.ThrowIfNull(model);
-        // 精确批准绑定配置版本，不能由默认模型、显示名称或相同 Provider 替代。
-        if (knowledge.Id == Guid.Empty || knowledge.Version <= 0 || !model.IsEnabled
-            || !AiKnowledgePolicy.IsKnownClassification(knowledge.DataClassification)
-            || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId,
-                knowledge.EmbeddingModelVersion, model.Id, model.Version))
-            return new(null, AiKnowledgeModelChunkFailure.ModelNotApproved);
-        if (knowledge.TenantId == Guid.Empty || model.TenantId == Guid.Empty
-            || (model.TenantId.HasValue && model.TenantId != knowledge.TenantId))
-            return new(null, AiKnowledgeModelChunkFailure.ModelScopeMismatch);
-        // 兼容协议不证明实际模型身份；首批只核准官方目的地和精确模型名，其他绑定必须另有真实词表证据。
-        if (model.ProviderKey != AiProviderKeys.OpenAiCompatible
-            || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large")
-            || !OfficialDestination(model.EndpointBaseUrl))
-            return new(null, AiKnowledgeModelChunkFailure.UnsupportedModel);
+        var approval = ValidateApproval(knowledge, model);
+        if (approval != AiKnowledgeModelChunkFailure.None) return new(null, approval);
         // PDF 页由外层完整快照保留页坐标；普通文本使用同一来源边界，原结构分块继续决定格式失败分类。
         ArgumentNullException.ThrowIfNull(document);
         if (document.Source != AiKnowledgeTextSource.PdfPage && format is AiKnowledgeTextFormat.PlainText or AiKnowledgeTextFormat.Markdown)
@@ -65,6 +53,26 @@ internal static class AiKnowledgeModelChunker
         token.ThrowIfCancellationRequested();
         return new(new(knowledge.Id, knowledge.Version, knowledge.TenantId, model.Id, model.Version,
             model.ProviderKey, model.ModelId, result.Output!), AiKnowledgeModelChunkFailure.None);
+    }
+
+    /// <summary>所有来源格式共享精确模型批准和可信作用域检查，不授予文件读取或模型外发资格。</summary>
+    internal static AiKnowledgeModelChunkFailure ValidateApproval(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model)
+    {
+        // 精确批准绑定配置版本，不能由默认模型、显示名称或相同 Provider 替代。
+        if (knowledge.Id == Guid.Empty || knowledge.Version <= 0 || !model.IsEnabled
+            || !AiKnowledgePolicy.IsKnownClassification(knowledge.DataClassification)
+            || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId,
+                knowledge.EmbeddingModelVersion, model.Id, model.Version))
+            return AiKnowledgeModelChunkFailure.ModelNotApproved;
+        if (knowledge.TenantId == Guid.Empty || model.TenantId == Guid.Empty
+            || (model.TenantId.HasValue && model.TenantId != knowledge.TenantId))
+            return AiKnowledgeModelChunkFailure.ModelScopeMismatch;
+        // 兼容协议不证明实际模型身份；首批只核准官方目的地和精确模型名，其他绑定必须另有真实词表证据。
+        if (model.ProviderKey != AiProviderKeys.OpenAiCompatible
+            || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large")
+            || !OfficialDestination(model.EndpointBaseUrl))
+            return AiKnowledgeModelChunkFailure.UnsupportedModel;
+        return AiKnowledgeModelChunkFailure.None;
     }
 
     /// <summary>只识别固定词表已核准的官方目的地形式，不证明网络许可或模型可用。</summary>

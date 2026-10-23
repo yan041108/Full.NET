@@ -1721,3 +1721,7 @@ export { isPrintingTemplateSummary } from './printing-templates.js';
 export type { PrintingTemplateSummary, PrintingTemplateVersionSummary } from './printing-templates.js';
 export { isReportingDefinitionSummary, isReportingDefinitionVersionSummary } from './reporting-definitions.js';
 export type { ReportingDefinitionSummary, ReportingDefinitionVersionSummary } from './reporting-definitions.js';
+
+export { knowledgeFileContentTypes, knowledgeFileAccept } from './ai-knowledge-formats.js';
+
+export type { AiKnowledgeSourceLocation } from './ai-knowledge-location.js';

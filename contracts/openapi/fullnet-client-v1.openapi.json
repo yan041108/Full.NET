@@ -5425,16 +5425,173 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "parsingPolicy",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "content": {
+            "application/msword": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
             "application/pdf": {
               "schema": {
                 "$ref": "#/components/schemas/Stream"
               }
             },
+            "application/vnd.ms-excel": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "application/vnd.ms-powerpoint": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/apng": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/avif": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/bmp": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/emf": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/gif": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/heic": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/heif": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/jp2": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/jxl": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/svg+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/tiff": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/vnd.adobe.photoshop": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/vnd.microsoft.icon": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/vnd.zbrush.pcx": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/wmf": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/x-portable-anymap": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/x-portable-bitmap": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/x-portable-graymap": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/x-portable-pixmap": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "image/x-tga": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
+            "text/html": {
               "schema": {
                 "$ref": "#/components/schemas/Stream"
               }
@@ -49880,6 +50037,16 @@
               "string"
             ]
           },
+          "sourceLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeSourceLocationResponse"
+              }
+            ]
+          },
           "versionId": {
             "format": "uuid",
             "type": "string"
@@ -50031,6 +50198,164 @@
           "tableNumber",
           "rowNumber",
           "cellNumber"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeGridLocationResponse": {
+        "properties": {
+          "column": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "row": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "sheetName": {
+            "type": "string"
+          },
+          "sheetNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "sheetNumber",
+          "sheetName",
+          "row",
+          "column"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeImageLocationResponse": {
+        "properties": {
+          "columnNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "confidence": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "frameNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "height": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "imageHeight": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "imageWidth": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeSourceLocationResponse"
+              }
+            ]
+          },
+          "rowNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "tableNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "width": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "x": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "y": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "frameNumber",
+          "imageWidth",
+          "imageHeight",
+          "x",
+          "y",
+          "width",
+          "height",
+          "confidence",
+          "tableNumber",
+          "rowNumber",
+          "columnNumber",
+          "parent"
         ],
         "type": "object"
       },
@@ -50530,6 +50855,179 @@
         ],
         "type": "object"
       },
+      "AiKnowledgeSlideLocationResponse": {
+        "properties": {
+          "columnNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "columnSpan": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rowNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "rowSpan": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "shapeNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "slideNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "slideNumber",
+          "shapeNumber",
+          "rowNumber",
+          "columnNumber",
+          "rowSpan",
+          "columnSpan"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeSourceLocationResponse": {
+        "properties": {
+          "blockSequence": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "cellNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "grid": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeGridLocationResponse"
+              }
+            ]
+          },
+          "htmlPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "image": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeImageLocationResponse"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "pageNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "paragraphNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "rowNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "slide": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeSlideLocationResponse"
+              }
+            ]
+          },
+          "tableNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "blockSequence",
+          "kind",
+          "pageNumber",
+          "paragraphNumber",
+          "tableNumber",
+          "rowNumber",
+          "cellNumber",
+          "grid",
+          "slide",
+          "htmlPath",
+          "image"
+        ],
+        "type": "object"
+      },
       "AiKnowledgeVersionResponse": {
         "properties": {
           "contentHash": {
@@ -50551,6 +51049,9 @@
             "type": "string"
           },
           "originalFileName": {
+            "type": "string"
+          },
+          "parsingPolicyKey": {
             "type": "string"
           },
           "processingStatus": {

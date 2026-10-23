@@ -8,6 +8,9 @@ internal sealed record AiKnowledgeRetrievalChunk(AiKnowledgeIndexStatusRecord So
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
+    /// <summary>服务器核对的统一来源位置；旧答案未保存此字段时省略。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Full.NET.Modules.Ai.Contracts.AiKnowledgeSourceLocationResponse? SourceLocation { get; init; }
 }
 /// <summary>固定模型空间下的余弦分数，平分按规范来源标识与块序号排序。</summary>
 internal sealed record AiKnowledgeRankedChunk(AiKnowledgeRetrievalChunk Chunk, double Score);

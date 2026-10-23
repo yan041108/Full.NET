@@ -36,6 +36,8 @@ import type {
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
+  AiKnowledgeGridLocationResponse,
+  AiKnowledgeImageLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIncrementalRecoveryRequest,
   AiKnowledgeIncrementalRecoveryResponse,
@@ -51,6 +53,8 @@ import type {
   AiKnowledgeOrganizationGrantsResponse,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
+  AiKnowledgeSlideLocationResponse,
+  AiKnowledgeSourceLocationResponse,
   AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
@@ -3109,8 +3113,9 @@ export interface AiUploadKnowledgeVersionParameters {
   readonly version: number;
   readonly requestKey: string;
   readonly fileName: string;
+  readonly parsingPolicy?: string;
   readonly body: Blob;
-  readonly contentType: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "text/markdown" | "text/plain";
+  readonly contentType: "application/msword" | "application/pdf" | "application/vnd.ms-excel" | "application/vnd.ms-powerpoint" | "application/vnd.openxmlformats-officedocument.presentationml.presentation" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "image/apng" | "image/avif" | "image/bmp" | "image/emf" | "image/gif" | "image/heic" | "image/heif" | "image/jp2" | "image/jpeg" | "image/jxl" | "image/png" | "image/svg+xml" | "image/tiff" | "image/vnd.adobe.photoshop" | "image/vnd.microsoft.icon" | "image/vnd.zbrush.pcx" | "image/webp" | "image/wmf" | "image/x-portable-anymap" | "image/x-portable-bitmap" | "image/x-portable-graymap" | "image/x-portable-pixmap" | "image/x-tga" | "text/csv" | "text/html" | "text/markdown" | "text/plain";
 }
 
 export async function aiUploadKnowledgeVersion(
@@ -3123,6 +3128,9 @@ export async function aiUploadKnowledgeVersion(
   query.set('version', String(parameters.version));
   query.set('requestKey', String(parameters.requestKey));
   query.set('fileName', String(parameters.fileName));
+  if (parameters.parsingPolicy !== undefined) {
+    query.set('parsingPolicy', String(parameters.parsingPolicy));
+  }
   const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions?${query.toString()}`;
   const init: RequestInit = {
     method: 'POST',

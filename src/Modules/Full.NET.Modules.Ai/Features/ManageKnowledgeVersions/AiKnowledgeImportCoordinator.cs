@@ -13,16 +13,18 @@ internal sealed class AiKnowledgeImportCoordinator(AiKnowledgeImportStore store,
     Knowledge.AiKnowledgeIndexCleanupStore indexes)
 {
     internal async Task<Result<AiKnowledgeImportResponse>> UploadAsync(Guid knowledgeBaseId, Guid documentId, Guid actor,
-        int version, Guid requestKey, string name, string type, Stream content, long? declaredBytes, CancellationToken token)
+        int version, Guid requestKey, string name, string type, Stream content, long? declaredBytes, CancellationToken token, string parsingPolicyKey = "default")
     {
         if (await store.OwnedDocumentAsync(knowledgeBaseId, documentId, actor, false, token).ConfigureAwait(false) is null)
             return NotFound<AiKnowledgeImportResponse>();
         if (AiKnowledgeFilePolicy.Validate(name, type, version, requestKey, declaredBytes) is { } invalid)
             return Failure<AiKnowledgeImportResponse>("ai.knowledge.upload_invalid", invalid, ErrorType.Validation);
+        if (Knowledge.AiKnowledgeDocumentFormats.Policy(type, parsingPolicyKey) is null)
+            return Failure<AiKnowledgeImportResponse>("ai.knowledge.upload_invalid", "The parsing policy is not valid for this content type.", ErrorType.Validation);
         var buffered = await AiKnowledgeUploadBuffer.ReadAsync(content, type, token).ConfigureAwait(false);
         if (!buffered.IsSuccess) return Result<AiKnowledgeImportResponse>.Failure(buffered.Error!);
         using var payload = buffered.Value!;
-        var started = await store.StartAsync(knowledgeBaseId, documentId, actor, version, requestKey, name, type, payload, token).ConfigureAwait(false);
+        var started = await store.StartAsync(knowledgeBaseId, documentId, actor, version, requestKey, name, type, payload, token, parsingPolicyKey).ConfigureAwait(false);
         if (!started.IsSuccess) return Result<AiKnowledgeImportResponse>.Failure(started.Error!);
         var parameters = store.Parameters(knowledgeBaseId, documentId, actor);
         parameters.Add("OperationId", started.Value!.Id);

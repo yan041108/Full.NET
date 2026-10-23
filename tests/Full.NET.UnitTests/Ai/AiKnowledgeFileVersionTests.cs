@@ -48,7 +48,7 @@ public sealed class AiKnowledgeFileVersionTests
     [DataRow("source.pdf", "text/plain", false)]
     [DataRow("../source.txt", "text/plain", false)]
     [DataRow("C:source.txt", "text/plain", false)]
-    [DataRow("source.html", "text/html", false)]
+    [DataRow("source.html", "text/html", true)]
     [DataRow("source\n.txt", "text/plain", false)]
     public void File_policy_requires_safe_matching_name_and_type(string name, string type, bool valid) =>
         Assert.AreEqual(valid, AiKnowledgeFilePolicy.Validate(name, type, 1, Guid.NewGuid(), 1) is null);
@@ -74,7 +74,7 @@ public sealed class AiKnowledgeFileVersionTests
         using var table = new DataTable();
         foreach (var column in new[] { "Id", "DocumentId", "VersionId", "RequestKey", "ActorUserId", "FileId", "LeaseToken" }) table.Columns.Add(column, typeof(Guid));
         table.Columns.Add("ExpectedDocumentVersion", typeof(int));
-        foreach (var column in new[] { "OriginalFileName", "ContentType", "ContentHash", "StateKey", "FailureCode" }) table.Columns.Add(column, typeof(string));
+        foreach (var column in new[] { "OriginalFileName", "ContentType", "ParsingPolicyKey", "ContentHash", "StateKey", "FailureCode" }) table.Columns.Add(column, typeof(string));
         table.Columns.Add("SizeBytes", typeof(long));
         foreach (var column in new[] { "CreatedAtUtc", "UpdatedAtUtc", "LeaseExpiresAtUtc" }) table.Columns.Add(column, mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         var row = table.NewRow();
@@ -85,6 +85,7 @@ public sealed class AiKnowledgeFileVersionTests
         row["ExpectedDocumentVersion"] = 7;
         row["OriginalFileName"] = "source.txt";
         row["ContentType"] = "text/plain";
+        row["ParsingPolicyKey"] = "default";
         row["ContentHash"] = new string('A', 64);
         row["SizeBytes"] = 4L;
         row["StateKey"] = "pending_confirmation";
@@ -98,6 +99,7 @@ public sealed class AiKnowledgeFileVersionTests
         Assert.IsTrue(reader.Read());
         var record = AiBudgetRowReaders.ReadKnowledgeImport(reader);
         Assert.AreEqual(7, record.ExpectedDocumentVersion);
+        Assert.AreEqual("default", record.ParsingPolicyKey);
         Assert.AreEqual(mysql ? fileId : null, record.FileId);
         Assert.AreEqual(mysql ? now : null, record.LeaseExpiresAtUtc);
         Assert.AreEqual(now, record.CreatedAtUtc);

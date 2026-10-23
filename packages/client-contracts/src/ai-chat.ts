@@ -1,3 +1,5 @@
+import { isAiKnowledgeSourceLocation, type AiKnowledgeSourceLocation } from './ai-knowledge-location.js';
+
 export interface AiChatSessionListItem {
   id: string;
   tenantId: string | null;
@@ -43,6 +45,7 @@ export interface AiKnowledgeCitation {
   sequence: number;
   pageNumber: number | null;
   docxLocation?: AiKnowledgeDocxLocation | null;
+  sourceLocation?: AiKnowledgeSourceLocation | null;
   offset: number;
   length: number;
 }
@@ -187,6 +190,7 @@ function isAiKnowledgeCitation(value: unknown): value is AiKnowledgeCitation {
     && isNonNegativeInteger(value.sequence) && isNonNegativeInteger(value.offset)
     && isNonNegativeInteger(value.length) && value.length > 0
     && (value.pageNumber === null || (isNonNegativeInteger(value.pageNumber) && value.pageNumber > 0))
+    && (value.sourceLocation == null || isAiKnowledgeSourceLocation(value.sourceLocation) && value.docxLocation == null && value.pageNumber === value.sourceLocation.pageNumber)
     && (value.docxLocation == null || (value.pageNumber === null && isAiKnowledgeDocxLocation(value.docxLocation)));
 }
 

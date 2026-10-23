@@ -112,6 +112,24 @@ test('仓库 SQL 与登记的 C# 静态 SQL 不存在未登记命名债务', asy
   assert.deepEqual(violations, []);
 });
 
+test('单表静态重命名检查源与目标命名，复合或动态语句仍拒绝', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'fullnet-naming-rename-'));
+  const file = path.join(directory, 'rename.sql');
+  const options = { repositoryRoot, debt: { schemaVersion: 1, items: [] } };
+  try {
+    await writeFile(file, 'RENAME TABLE fn_ai_old_manifest TO fn_ai_document_manifest;');
+    assert.deepEqual(await validateSqlNaming([file], options), []);
+    for (const sql of ['RENAME TABLE BadSource TO fn_ai_document_manifest;', 'RENAME TABLE fn_ai_old_manifest TO BadTarget;']) {
+      await writeFile(file, sql);
+      assert.ok((await validateSqlNaming([file], options)).some(item => item.ruleId === 'FNDB001'));
+    }
+    for (const sql of ['RENAME TABLE fn_ai_old_manifest TO fn_ai_document_manifest, fn_ai_other TO fn_ai_third;', "PREPARE p FROM 'RENAME TABLE fn_ai_old_manifest TO fn_ai_document_manifest';"]) {
+      await writeFile(file, sql);
+      assert.ok((await validateSqlNaming([file], options)).some(item => ['FNSQL002', 'FNSQL003'].includes(item.ruleId)));
+    }
+  } finally { await rm(directory, { recursive: true }); }
+});
+
 
 test('静态恢复过程可识别，过程体的危险查询和不完整清理仍失败', async () => {
   const fixture = path.join(fixtureRoot, 'static-recovery-procedure.sql');

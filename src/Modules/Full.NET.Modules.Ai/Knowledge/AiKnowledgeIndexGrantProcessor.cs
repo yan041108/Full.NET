@@ -79,6 +79,7 @@ internal sealed class AiKnowledgeIndexGrantProcessor(IServiceScopeFactory scopes
                             ? grants.IsTenant ? AiKnowledgeIndexGrantSql.CandidatesSqlServerTenant : AiKnowledgeIndexGrantSql.CandidatesSqlServerHost
                             : grants.IsTenant ? AiKnowledgeIndexGrantSql.CandidatesMySqlTenant : AiKnowledgeIndexGrantSql.CandidatesMySqlHost;
                         var parameters = grants.Parameters(row);
+                        parameters["AllowDocuments"] = child.GetRequiredService<IOptions<AiKnowledgeDocumentRuntimeOptions>>().Value.Enabled ? 1 : 0;
                         parameters["AllowPdf"] = child.GetRequiredService<IOptions<AiKnowledgePdfRuntimeOptions>>().Value.Enabled ? 1 : 0;
                         parameters["AllowDocx"] = child.GetRequiredService<IOptions<AiKnowledgeDocxRuntimeOptions>>().Value.Enabled ? 1 : 0;
                         var source = await child.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<AiKnowledgeIndexEnqueueRecord>(candidates, parameters, deadline.Token).ConfigureAwait(false);

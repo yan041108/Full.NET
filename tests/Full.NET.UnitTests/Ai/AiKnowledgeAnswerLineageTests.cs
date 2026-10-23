@@ -36,6 +36,39 @@ public sealed class AiKnowledgeAnswerLineageTests
         foreach (var forbidden in new[] { "apiKey", "endpoint", "vector", "text", "leaseToken" })
             Assert.IsFalse(encoded.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
     }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void New_answers_use_version_three_for_legacy_and_unified_dependencies(bool unified)
+    {
+        var row = Source(); row = row with { ActiveTaskId = row.TaskId, ActivePlanHash = unified ? new string('d', 64) : row.ActivePlanHash };
+        var chunk = AiKnowledgeRetrievalRuleTests.Chunk("application/pdf", 0, AiKnowledgeRetrievalRuleTests.Vector(1, 0)) with
+        { Source = row, SourceLocation = unified ? new(0, "pdf_page", 1, null, null, null, null, null, null, null, null) : null };
+        var snapshot = new AiKnowledgeRetrievalSnapshot(Guid.CreateVersion7(), null, false, null!, [row.KnowledgeBaseId], [row], [new(chunk, 1)]);
+        var answer = new AiKnowledgeExecutedAnswer(new(snapshot, null!), new("拒答", [], true), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var lineage = AiKnowledgeAnswerLineageCodec.Create(answer, Guid.CreateVersion7(), Guid.CreateVersion7());
+        var read = AiKnowledgeAnswerLineageCodec.Decode(AiKnowledgeAnswerLineageCodec.Encode(lineage), lineage.MessageId, lineage.SessionId, lineage.ActorUserId, null);
+        Assert.AreEqual(3, read.Version); Assert.IsEmpty(read.References); Assert.HasCount(1, read.Dependencies);
+        Assert.AreEqual(row.ActivePlanHash, read.Dependencies[0].PlanHash);
+    }
+    [TestMethod] [DataRow("text/csv")] [DataRow("application/pdf")] [DataRow("image/png")]
+    public void Unquoted_unified_source_without_selected_chunks_still_keeps_version_three_dependencies(string mime)
+    {
+        var row = Source(); row = row with { ContentType = mime, ActiveTaskId = row.TaskId, ActivePlanHash = new string('d', 64) };
+        var text = Source(); text = text with { ContentType = "text/plain", ActiveTaskId = text.TaskId };
+        var selected = AiKnowledgeRetrievalRuleTests.Chunk("text/plain", 0, AiKnowledgeRetrievalRuleTests.Vector(1, 0)) with { Source = text, PageNumber = null };
+        var snapshot = new AiKnowledgeRetrievalSnapshot(Guid.CreateVersion7(), null, false, null!, [row.KnowledgeBaseId, text.KnowledgeBaseId], [row, text], [new(selected, 1)]);
+        var answer = new AiKnowledgeExecutedAnswer(new(snapshot, null!), new("仅引用 TXT", [new(Guid.CreateVersion7(), selected)], false), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var lineage = AiKnowledgeAnswerLineageCodec.Create(answer, Guid.CreateVersion7(), Guid.CreateVersion7());
+        Assert.AreEqual(3, lineage.Version); Assert.HasCount(1, lineage.References); Assert.HasCount(2, lineage.Dependencies);
+        Assert.AreEqual(text.DocumentId, lineage.References[0].DocumentId);
+        var read = AiKnowledgeAnswerLineageCodec.Decode(AiKnowledgeAnswerLineageCodec.Encode(lineage), lineage.MessageId, lineage.SessionId, lineage.ActorUserId, null);
+        Assert.AreEqual(row.ActivePlanHash, read.Dependencies.Single(source => source.DocumentId == row.DocumentId).PlanHash);
+    }
+    [TestMethod]
+    public void Version_three_rejects_legacy_location_on_encode_as_well_as_decode()
+    {
+        var original = Lineage(); var reference = original.References[0] with { PageNumber = null, DocxLocation = new(0, 1, null, null, null) };
+        Assert.ThrowsExactly<InvalidDataException>(() => AiKnowledgeAnswerLineageCodec.Encode(original with { Version = 3, References = [reference] }));
+    }
     [TestMethod] [DataRow("message")] [DataRow("session")] [DataRow("actor")] [DataRow("tenant")]
     public void Lineage_cannot_be_copied_to_another_answer_or_scope(string fault)
     {
@@ -54,7 +87,7 @@ public sealed class AiKnowledgeAnswerLineageTests
         var data = Lineage(); var json = JsonNode.Parse(AiKnowledgeAnswerLineageCodec.Encode(data))!.AsObject();
         switch (fault)
         {
-            case "version": json["version"] = 3; break;
+            case "version": json["version"] = 4; break;
             case "unknown": json["vector"] = "secret"; break;
             case "empty": json["dependencies"] = new JsonArray(); break;
             case "duplicate": json["dependencies"]!.AsArray().Add(json["dependencies"]![0]!.DeepClone()); break;

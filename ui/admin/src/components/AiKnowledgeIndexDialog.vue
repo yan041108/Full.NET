@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateKnowledgeFormats } from '@fullnet/admin-i18n';
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { ElAlert, ElButton, ElCheckbox } from 'element-plus';
 import type { AiKnowledgeIndexStatusResponse, AiKnowledgeIndexEnqueueResponse, AiKnowledgeIndexReconciliationResponse, AiKnowledgeIndexRebuildRequest } from '@fullnet/client-contracts';
@@ -9,7 +10,7 @@ import { showProblem, showSuccess } from '../feedback/fullNetMessage';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 const props = defineProps<{ open: boolean; knowledgeBaseId: string; documentId: string; versionId: string }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
-const session = useSessionStore(); const { t } = useAdminI18n();
+const session = useSessionStore(); const { t, locale } = useAdminI18n();
 const status = ref<AiKnowledgeIndexStatusResponse>(); const accepted = ref<AiKnowledgeIndexEnqueueResponse>();
 const reconciliation = ref<AiKnowledgeIndexReconciliationResponse>(); const reconciliationMode = ref(false);
 // 只允许当前已交付的原因/动作组合；未知建议不能退回旧状态而误触发收费请求。
@@ -93,7 +94,7 @@ onUnmounted(reset);
     <template v-else>
       <p>{{ t('knowledge.indexHint') }}</p><p>{{ t('knowledge.version') }}: {{ versionId }}</p>
       <p>{{ t('knowledge.indexReconcileHint') }}</p>
-      <div v-if="status" data-testid="knowledge-index-state"><p>{{ t('knowledge.state') }}: {{ status.state }}</p><p v-if="status.taskId">{{ t('knowledge.indexTask') }}: {{ status.taskId }}</p><p v-if="status.failureCode">{{ t('knowledge.failure') }}: {{ status.failureCode }}</p></div>
+      <div v-if="status" data-testid="knowledge-index-state"><p>{{ t('knowledge.state') }}: {{ status.state }}</p><p v-if="status.taskId">{{ t('knowledge.indexTask') }}: {{ status.taskId }}</p><p v-if="status.failureCode">{{ t('knowledge.failure') }}: {{ status.failureCode === 'ai.knowledge.no_extracted_text' ? translateKnowledgeFormats(locale, 'noText') : status.failureCode === 'ai.knowledge.ocr_low_confidence' ? translateKnowledgeFormats(locale, 'lowConfidence') : status.failureCode }}</p></div>
       <div v-if="reconciliation && recoveryReason && recoveryAction" data-testid="knowledge-index-reconciliation" aria-live="polite">
         <p>{{ t(`knowledge.indexReason.${recoveryReason}`) }}</p><p>{{ t(`knowledge.indexRecovery.${recoveryAction}`) }}</p>
         <p v-if="reconciliation.taskId">{{ t('knowledge.indexTask') }}: {{ reconciliation.taskId }}</p>

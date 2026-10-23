@@ -13,7 +13,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 internal sealed class AiKnowledgeIndexEnqueueService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization,
     Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null,
-    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null)
+    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null,
+    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocumentRuntimeOptions>? documents = null)
 {
     internal static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
@@ -73,7 +74,7 @@ internal sealed class AiKnowledgeIndexEnqueueService(IQueryExecutor query, IData
         && session.SessionKind is SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication
         && Text(session.SecurityStamp, 128) && Text(session.ActorScope, 64) && Text(session.EffectiveScope, 64);
     private static bool Text(string value, int max) => !string.IsNullOrWhiteSpace(value) && value.Length <= max;
-    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType)
+    private bool Supports(string contentType) => documents?.Value.Supports(contentType) == true || (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType)
         || (docx?.Value.Enabled == true && contentType == Domain.AiKnowledgeFilePolicy.DocxContentType);
     private static bool ValidSource(AiKnowledgeIndexEnqueueRecord? row, Guid knowledge, Guid document, Guid version, SessionBindingSnapshot original) => row is not null
         && row.KnowledgeBaseId == knowledge && row.DocumentId == document && row.VersionId == version && row.OwnerUserId == original.UserId

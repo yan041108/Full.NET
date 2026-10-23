@@ -113,14 +113,14 @@ public sealed class AiKnowledgeIndexDispatchTests
         using var table = new DataTable();
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) table.Columns.Add(column, typeof(Guid));
         foreach (var column in new[] { "DocumentVersion", "KnowledgeBaseVersion", "ModelConfigVersion" }) table.Columns.Add(column, typeof(int));
-        table.Columns.Add("ContentHash", typeof(string)); table.Columns.Add("ContentType", typeof(string));
+        table.Columns.Add("ContentHash", typeof(string)); table.Columns.Add("ContentType", typeof(string)); table.Columns.Add("ParsingPolicyKey", typeof(string));
         foreach (var column in new[] { "DataClassification", "ModelProviderKey", "ModelId", "ModelEndpointBaseUrl", "ModelOrganizationId" }) table.Columns.Add(column, typeof(string));
         table.Columns.Add("SizeBytes", typeof(long)); table.Columns.Add("LeaseExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         table.Columns.Add("GrantExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         var data = table.NewRow();
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) data[column] = Guid.CreateVersion7();
         data["DocumentVersion"] = 9; data["KnowledgeBaseVersion"] = 6; data["ModelConfigVersion"] = 3;
-        data["ContentHash"] = "trusted-hash"; data["ContentType"] = "text/plain"; data["SizeBytes"] = 123L;
+        data["ContentHash"] = "trusted-hash"; data["ContentType"] = "text/plain"; data["ParsingPolicyKey"] = "default"; data["SizeBytes"] = 123L;
         data["DataClassification"] = "internal"; data["ModelProviderKey"] = "openai_compatible"; data["ModelId"] = "text-embedding-3-small";
         data["ModelEndpointBaseUrl"] = "https://api.openai.com/v1"; data["ModelOrganizationId"] = mysql ? DBNull.Value : "organization";
         data["LeaseExpiresAtUtc"] = mysql ? Now.UtcDateTime : (object)Now; data["GrantExpiresAtUtc"] = DBNull.Value; table.Rows.Add(data);
@@ -162,7 +162,7 @@ public sealed class AiKnowledgeIndexDispatchTests
             ["TaskId"] = Guid.CreateVersion7(), ["DocumentId"] = Guid.CreateVersion7(), ["VersionId"] = Guid.CreateVersion7(),
             ["ModelConfigId"] = Guid.CreateVersion7(), ["LeaseToken"] = Guid.CreateVersion7(), ["FileId"] = Guid.CreateVersion7(),
             ["DocumentVersion"] = 1, ["KnowledgeBaseVersion"] = 1, ["ModelConfigVersion"] = 1,
-            ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
+            ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["ParsingPolicyKey"] = "default", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
             ["DataClassification"] = "internal", ["ModelProviderKey"] = "openai_compatible", ["ModelId"] = "text-embedding-3-small",
             ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value, ["GrantExpiresAtUtc"] = DBNull.Value
         };

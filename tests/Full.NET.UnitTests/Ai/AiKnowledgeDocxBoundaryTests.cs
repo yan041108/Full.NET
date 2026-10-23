@@ -107,13 +107,14 @@ public sealed class AiKnowledgeDocxBoundaryTests
     public void Plan_recounts_tokens_freezes_collections_and_binds_document_coordinates()
     {
         var doc = AiKnowledgeDocxPlanningTests.Document("hello world");
-        var chunks = new[] { new AiKnowledgeDocxChunk(0, 0, 0, 11, "hello world", AiKnowledgeCl100kTokenizer.Get(default).CountTokens("hello world")) };
-        var source = new AiKnowledgeDocxModelChunks(AiKnowledgeDocxPlanningTests.KnowledgeId, 2, null, AiKnowledgeDocxPlanningTests.ModelId, 3, "openai_compatible", "text-embedding-3-small", doc, AiKnowledgeCl100kTokenizer.Version, new(), chunks);
-        var plan = AiKnowledgeIndexDocxPlan.Create(source, default); Assert.IsNotNull(plan);
-        Assert.IsNull(AiKnowledgeIndexDocxPlan.Create(source with { Chunks = [chunks[0] with { TokenCount = chunks[0].TokenCount + 1 }] }, default));
-        Assert.IsNull(AiKnowledgeIndexDocxPlan.Create(source with { Chunks = [chunks[0] with { Offset = 1 }] }, default));
-        Assert.IsNull(AiKnowledgeIndexDocxPlan.Create(source with { Chunks = [chunks[0] with { Text = "other world" }] }, default));
-        var changed = AiKnowledgeIndexDocxPlan.Create(source with { ModelConfigVersion = 4 }, default); Assert.IsNotNull(changed); Assert.AreNotEqual(plan.Summary.PlanHash, changed.Summary.PlanHash);
+        var approved = Chunk(doc).Output!;
+        var chunks = approved.Chunks.ToArray();
+        var source = approved with { Chunks = chunks, ParserRuntimeId = AiKnowledgeIndexDocumentCodecTests.RuntimeId };
+        var plan = AiKnowledgeDocumentPlan.Create(source, default); Assert.IsNotNull(plan);
+        Assert.IsNull(AiKnowledgeDocumentPlan.Create(source with { Chunks = [chunks[0] with { TokenCount = chunks[0].TokenCount + 1 }] }, default));
+        Assert.IsNull(AiKnowledgeDocumentPlan.Create(source with { Chunks = [chunks[0] with { Position = chunks[0].Position with { Offset = 1 } }] }, default));
+        Assert.IsNull(AiKnowledgeDocumentPlan.Create(source with { Chunks = [chunks[0] with { Text = "other world" }] }, default));
+        var changed = AiKnowledgeDocumentPlan.Create(source with { ModelConfigVersion = 4 }, default); Assert.IsNotNull(changed); Assert.AreNotEqual(plan.Summary.PlanHash, changed.Summary.PlanHash);
         chunks[0] = chunks[0] with { Text = "mutated" }; Assert.AreEqual("hello world", plan.Batches[0].Chunks[0].Text);
     }
 
@@ -129,9 +130,11 @@ public sealed class AiKnowledgeDocxBoundaryTests
     public void Plan_rejects_surrogate_halves_before_token_count_or_hash_encoding()
     {
         var doc = AiKnowledgeDocxPlanningTests.Document("😀");
-        var chunks = new[] { new AiKnowledgeDocxChunk(0, 0, 0, 1, "\ud83d", 3), new AiKnowledgeDocxChunk(1, 0, 1, 1, "\ude00", 3) };
-        var source = new AiKnowledgeDocxModelChunks(AiKnowledgeDocxPlanningTests.KnowledgeId, 2, null, AiKnowledgeDocxPlanningTests.ModelId, 3, "openai_compatible", "text-embedding-3-small", doc, AiKnowledgeCl100kTokenizer.Version, new(), chunks);
-        Assert.IsNull(AiKnowledgeIndexDocxPlan.Create(source, default));
+        var approved = Chunk(doc).Output!; var original = approved.Chunks[0];
+        var chunks = new[] { original with { Text = "\ud83d", TokenCount = 3, Position = original.Position with { Length = 1 } },
+            original with { Sequence = 1, Text = "\ude00", TokenCount = 3, Position = original.Position with { Offset = 1, Length = 1 } } };
+        var source = approved with { Chunks = chunks, ParserRuntimeId = AiKnowledgeIndexDocumentCodecTests.RuntimeId };
+        Assert.IsNull(AiKnowledgeDocumentPlan.Create(source, default));
     }
     [TestMethod]
     public void Claimed_cell_paragraphs_require_at_least_their_structural_newlines()

@@ -35,6 +35,8 @@ import type {
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
+  AiKnowledgeGridLocationResponse,
+  AiKnowledgeImageLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIncrementalRecoveryRequest,
   AiKnowledgeIncrementalRecoveryResponse,
@@ -50,6 +52,8 @@ import type {
   AiKnowledgeOrganizationGrantsResponse,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
+  AiKnowledgeSlideLocationResponse,
+  AiKnowledgeSourceLocationResponse,
   AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
@@ -920,7 +924,7 @@ export function readAiKnowledgeCitationResponse(value: unknown): AiKnowledgeCita
 }
 
 function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCitationResponse {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["docxLocation"] === undefined || ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["docxLocation"] === undefined || ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (value["sourceLocation"] === undefined || ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"])))) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
@@ -948,6 +952,24 @@ export function readAiKnowledgeDocxLocationResponse(value: unknown): AiKnowledge
 
 function isAiKnowledgeDocxLocationResponse(value: unknown): value is AiKnowledgeDocxLocationResponse {
   return isRecord(value) && (typeof value["blockSequence"] === 'number' && Number.isSafeInteger(value["blockSequence"])) && ((value["cellNumber"] === null) || (typeof value["cellNumber"] === 'number' && Number.isSafeInteger(value["cellNumber"]))) && (typeof value["paragraphNumber"] === 'number' && Number.isSafeInteger(value["paragraphNumber"])) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && ((value["tableNumber"] === null) || (typeof value["tableNumber"] === 'number' && Number.isSafeInteger(value["tableNumber"])));
+}
+
+export function readAiKnowledgeGridLocationResponse(value: unknown): AiKnowledgeGridLocationResponse {
+  const normalizedValue = normalizeAiKnowledgeGridLocationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeGridLocationResponse(normalizedValue), 'ai_knowledge_grid_location_response') as AiKnowledgeGridLocationResponse;
+}
+
+function isAiKnowledgeGridLocationResponse(value: unknown): value is AiKnowledgeGridLocationResponse {
+  return isRecord(value) && (typeof value["column"] === 'number' && Number.isSafeInteger(value["column"])) && (typeof value["row"] === 'number' && Number.isSafeInteger(value["row"])) && (typeof value["sheetName"] === 'string') && (typeof value["sheetNumber"] === 'number' && Number.isSafeInteger(value["sheetNumber"]));
+}
+
+export function readAiKnowledgeImageLocationResponse(value: unknown): AiKnowledgeImageLocationResponse {
+  const normalizedValue = normalizeAiKnowledgeImageLocationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeImageLocationResponse(normalizedValue), 'ai_knowledge_image_location_response') as AiKnowledgeImageLocationResponse;
+}
+
+function isAiKnowledgeImageLocationResponse(value: unknown): value is AiKnowledgeImageLocationResponse {
+  return isRecord(value) && ((value["columnNumber"] === null) || (typeof value["columnNumber"] === 'number' && Number.isSafeInteger(value["columnNumber"]))) && ((typeof value["confidence"] === 'number' && Number.isFinite(value["confidence"])) || (typeof value["confidence"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["confidence"]) && Number.isFinite(Number(value["confidence"])))) && (typeof value["frameNumber"] === 'number' && Number.isSafeInteger(value["frameNumber"])) && (typeof value["height"] === 'number' && Number.isSafeInteger(value["height"])) && (typeof value["imageHeight"] === 'number' && Number.isSafeInteger(value["imageHeight"])) && (typeof value["imageWidth"] === 'number' && Number.isSafeInteger(value["imageWidth"])) && ((value["parent"] === null) || (isAiKnowledgeSourceLocationResponse(value["parent"]))) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && ((value["tableNumber"] === null) || (typeof value["tableNumber"] === 'number' && Number.isSafeInteger(value["tableNumber"]))) && (typeof value["width"] === 'number' && Number.isSafeInteger(value["width"])) && (typeof value["x"] === 'number' && Number.isSafeInteger(value["x"])) && (typeof value["y"] === 'number' && Number.isSafeInteger(value["y"]));
 }
 
 export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImportResponse {
@@ -1080,13 +1102,31 @@ function isAiKnowledgeRoleGrantsResponse(value: unknown): value is AiKnowledgeRo
   return isRecord(value) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiKnowledgeSlideLocationResponse(value: unknown): AiKnowledgeSlideLocationResponse {
+  const normalizedValue = normalizeAiKnowledgeSlideLocationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSlideLocationResponse(normalizedValue), 'ai_knowledge_slide_location_response') as AiKnowledgeSlideLocationResponse;
+}
+
+function isAiKnowledgeSlideLocationResponse(value: unknown): value is AiKnowledgeSlideLocationResponse {
+  return isRecord(value) && ((value["columnNumber"] === null) || (typeof value["columnNumber"] === 'number' && Number.isSafeInteger(value["columnNumber"]))) && (typeof value["columnSpan"] === 'number' && Number.isSafeInteger(value["columnSpan"])) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && (typeof value["rowSpan"] === 'number' && Number.isSafeInteger(value["rowSpan"])) && (typeof value["shapeNumber"] === 'number' && Number.isSafeInteger(value["shapeNumber"])) && (typeof value["slideNumber"] === 'number' && Number.isSafeInteger(value["slideNumber"]));
+}
+
+export function readAiKnowledgeSourceLocationResponse(value: unknown): AiKnowledgeSourceLocationResponse {
+  const normalizedValue = normalizeAiKnowledgeSourceLocationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSourceLocationResponse(normalizedValue), 'ai_knowledge_source_location_response') as AiKnowledgeSourceLocationResponse;
+}
+
+function isAiKnowledgeSourceLocationResponse(value: unknown): value is AiKnowledgeSourceLocationResponse {
+  return isRecord(value) && (typeof value["blockSequence"] === 'number' && Number.isSafeInteger(value["blockSequence"])) && ((value["cellNumber"] === null) || (typeof value["cellNumber"] === 'number' && Number.isSafeInteger(value["cellNumber"]))) && ((value["grid"] === null) || (isAiKnowledgeGridLocationResponse(value["grid"]))) && ((value["htmlPath"] === null) || (typeof value["htmlPath"] === 'string')) && ((value["image"] === null) || (isAiKnowledgeImageLocationResponse(value["image"]))) && (typeof value["kind"] === 'string') && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && ((value["paragraphNumber"] === null) || (typeof value["paragraphNumber"] === 'number' && Number.isSafeInteger(value["paragraphNumber"]))) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && ((value["slide"] === null) || (isAiKnowledgeSlideLocationResponse(value["slide"]))) && ((value["tableNumber"] === null) || (typeof value["tableNumber"] === 'number' && Number.isSafeInteger(value["tableNumber"])));
+}
+
 export function readAiKnowledgeVersionResponse(value: unknown): AiKnowledgeVersionResponse {
   const normalizedValue = normalizeAiKnowledgeVersionResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isAiKnowledgeVersionResponse(normalizedValue), 'ai_knowledge_version_response') as AiKnowledgeVersionResponse;
 }
 
 function isAiKnowledgeVersionResponse(value: unknown): value is AiKnowledgeVersionResponse {
-  return isRecord(value) && (typeof value["contentHash"] === 'string') && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["processingStatus"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (typeof value["contentHash"] === 'string') && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (value["parsingPolicyKey"] === undefined || (typeof value["parsingPolicyKey"] === 'string')) && (typeof value["processingStatus"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readAiMcpRemoteConnectionListItem(value: unknown): AiMcpRemoteConnectionListItem {
@@ -6757,7 +6797,7 @@ function normalizeAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiKnowledgeCitationResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown): unknown {
@@ -6770,6 +6810,14 @@ function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknow
 
 function normalizeAiKnowledgeDocxLocationResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "blockSequence") ? { ["blockSequence"]: normalizeWireInteger(value["blockSequence"]) } : {}), ...(Object.hasOwn(value, "cellNumber") ? { ["cellNumber"]: normalizeWireInteger(value["cellNumber"]) } : {}), ...(Object.hasOwn(value, "paragraphNumber") ? { ["paragraphNumber"]: normalizeWireInteger(value["paragraphNumber"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeGridLocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "column") ? { ["column"]: normalizeWireInteger(value["column"]) } : {}), ...(Object.hasOwn(value, "row") ? { ["row"]: normalizeWireInteger(value["row"]) } : {}), ...(Object.hasOwn(value, "sheetNumber") ? { ["sheetNumber"]: normalizeWireInteger(value["sheetNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeImageLocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columnNumber") ? { ["columnNumber"]: normalizeWireInteger(value["columnNumber"]) } : {}), ...(Object.hasOwn(value, "frameNumber") ? { ["frameNumber"]: normalizeWireInteger(value["frameNumber"]) } : {}), ...(Object.hasOwn(value, "height") ? { ["height"]: normalizeWireInteger(value["height"]) } : {}), ...(Object.hasOwn(value, "imageHeight") ? { ["imageHeight"]: normalizeWireInteger(value["imageHeight"]) } : {}), ...(Object.hasOwn(value, "imageWidth") ? { ["imageWidth"]: normalizeWireInteger(value["imageWidth"]) } : {}), ...(Object.hasOwn(value, "parent") ? { ["parent"]: normalizeIntegerUnion(value["parent"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}), ...(Object.hasOwn(value, "width") ? { ["width"]: normalizeWireInteger(value["width"]) } : {}), ...(Object.hasOwn(value, "x") ? { ["x"]: normalizeWireInteger(value["x"]) } : {}), ...(Object.hasOwn(value, "y") ? { ["y"]: normalizeWireInteger(value["y"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeIncrementalRecoveryRequestIntegerJson(value: unknown): unknown {
@@ -6810,6 +6858,14 @@ function normalizeAiKnowledgeOrganizationGrantsResponseIntegerJson(value: unknow
 
 function normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSlideLocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columnNumber") ? { ["columnNumber"]: normalizeWireInteger(value["columnNumber"]) } : {}), ...(Object.hasOwn(value, "columnSpan") ? { ["columnSpan"]: normalizeWireInteger(value["columnSpan"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "rowSpan") ? { ["rowSpan"]: normalizeWireInteger(value["rowSpan"]) } : {}), ...(Object.hasOwn(value, "shapeNumber") ? { ["shapeNumber"]: normalizeWireInteger(value["shapeNumber"]) } : {}), ...(Object.hasOwn(value, "slideNumber") ? { ["slideNumber"]: normalizeWireInteger(value["slideNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSourceLocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "blockSequence") ? { ["blockSequence"]: normalizeWireInteger(value["blockSequence"]) } : {}), ...(Object.hasOwn(value, "cellNumber") ? { ["cellNumber"]: normalizeWireInteger(value["cellNumber"]) } : {}), ...(Object.hasOwn(value, "grid") ? { ["grid"]: normalizeIntegerUnion(value["grid"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeGridLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeGridLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "image") ? { ["image"]: normalizeIntegerUnion(value["image"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeImageLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeImageLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "paragraphNumber") ? { ["paragraphNumber"]: normalizeWireInteger(value["paragraphNumber"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "slide") ? { ["slide"]: normalizeIntegerUnion(value["slide"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSlideLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSlideLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeVersionResponseIntegerJson(value: unknown): unknown {

@@ -518,6 +518,12 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation, pathKey
     }))) {
     ignoredFields.add('requestBody');
   }
+  // 已授权的知识库格式扩容仍须保留原始二进制、原媒体和必填性；认证及响应继续完整比较。
+  if (pathKey === '/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions'
+    && method === 'post' && baselineOperation.operationId === 'aiUploadKnowledgeVersion'
+    && isApprovedKnowledgeBinaryExpansion(baselineOperation.requestBody, currentOperation.requestBody)) {
+    ignoredFields.add('requestBody');
+  }
   const baselineFields = Object.keys(baselineOperation).filter(field => !ignoredFields.has(field));
   const currentFields = Object.keys(currentOperation).filter(field => !ignoredFields.has(field));
   if (!isDeepStrictEqual(baselineFields, currentFields)
@@ -552,6 +558,36 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation, pathKey
       return isDeepStrictEqual(response, currentResponse)
         || isApprovedProblemDetailsResponseExpansion(response, currentResponse);
     });
+}
+
+const approvedKnowledgeBinaryMediaTypes = new Set([
+  'application/msword', 'application/pdf', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/apng', 'image/avif', 'image/bmp', 'image/emf', 'image/gif', 'image/heic', 'image/heif',
+  'image/jp2', 'image/jpeg', 'image/jxl', 'image/png', 'image/svg+xml', 'image/tiff',
+  'image/vnd.adobe.photoshop', 'image/vnd.microsoft.icon', 'image/vnd.zbrush.pcx', 'image/webp',
+  'image/wmf', 'image/x-portable-anymap', 'image/x-portable-bitmap', 'image/x-portable-graymap',
+  'image/x-portable-pixmap', 'image/x-tga', 'text/csv', 'text/html', 'text/markdown', 'text/plain'
+]);
+
+function isApprovedKnowledgeBinaryExpansion(baseline, current) {
+  if (!isPlainObject(baseline) || !isPlainObject(current)
+    || baseline.required !== true || current.required !== true
+    || !isPlainObject(baseline.content) || !isPlainObject(current.content)
+    || Object.keys(baseline.content).length === 0) return false;
+  const baselineRest = { ...baseline }; delete baselineRest.content;
+  const currentRest = { ...current }; delete currentRest.content;
+  const binaryMetadata = Object.values(baseline.content)[0];
+  if (!isDeepStrictEqual(binaryMetadata, sortKeysDeep({ schema: { type: 'string', format: 'binary' } }))
+    && !isDeepStrictEqual(binaryMetadata, { schema: { $ref: '#/components/schemas/Stream' } })) return false;
+  return isDeepStrictEqual(baselineRest, currentRest)
+    && Object.entries(baseline.content).every(([mime, metadata]) =>
+      Object.hasOwn(current.content, mime) && isDeepStrictEqual(metadata, current.content[mime]))
+    && Object.entries(current.content).every(([mime, metadata]) =>
+      approvedKnowledgeBinaryMediaTypes.has(mime)
+      && isDeepStrictEqual(metadata, binaryMetadata));
 }
 
 const approvedOptionalQueryExpansionOperationIds = new Set([

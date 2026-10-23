@@ -180,7 +180,7 @@ internal static class AiBudgetRowReaders
         ActiveReceiptHash = Null(reader, "ActiveReceiptHash") ? null : Text(reader, "ActiveReceiptHash"),
         ActiveManifestHash = Null(reader, "ActiveManifestHash") ? null : Text(reader, "ActiveManifestHash"),
         ActivePlanHash = Null(reader, "ActivePlanHash") ? null : Text(reader, "ActivePlanHash"),
-        FileId = reader.GetGuid(reader.GetOrdinal("FileId")), ContentHash = Text(reader, "ContentHash"), ContentType = Text(reader, "ContentType"), SizeBytes = Integer(reader, "SizeBytes"),
+        FileId = reader.GetGuid(reader.GetOrdinal("FileId")), ContentHash = Text(reader, "ContentHash"), ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"), SizeBytes = Integer(reader, "SizeBytes"),
         ModelConfigId = Null(reader, "ModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
         ModelConfigVersion = Null(reader, "ModelConfigVersion") ? null : checked((int)Integer(reader, "ModelConfigVersion")),
         ProviderKey = Null(reader, "ProviderKey") ? null : Text(reader, "ProviderKey"), ModelId = Null(reader, "ModelId") ? null : Text(reader, "ModelId"),
@@ -193,7 +193,7 @@ internal static class AiBudgetRowReaders
         VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
         DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
         ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")), ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
-        ContentType = Text(reader, "ContentType"),
+        ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
     };
 
     // 清理不依赖会话；时间及 Kind 显式兼容两库的物理返回类型。
@@ -208,7 +208,7 @@ internal static class AiBudgetRowReaders
     // 后台入口只恢复作用域和来源标识，不读取会话密钥、正文或模型凭据。
     internal static AiKnowledgeIndexWorkerRecord ReadKnowledgeWorker(DbDataReader reader) => new()
     {
-        ContentType = Text(reader, "ContentType"),
+        ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
         TaskId = reader.GetGuid(reader.GetOrdinal("TaskId")), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
         KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
         VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
@@ -290,7 +290,7 @@ internal static class AiBudgetRowReaders
         GrantExpiresAtUtc = Null(reader, "GrantExpiresAtUtc") ? null : Timestamp(reader, "GrantExpiresAtUtc"),
         FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
         ContentHash = Text(reader, "ContentHash"),
-        ContentType = Text(reader, "ContentType"),
+        ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
         SizeBytes = Integer(reader, "SizeBytes"),
         DataClassification = Text(reader, "DataClassification"),
         ModelProviderKey = Text(reader, "ModelProviderKey"), ModelId = Text(reader, "ModelId"),
@@ -375,7 +375,7 @@ internal static class AiBudgetRowReaders
         FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
         VersionNumber = checked((int)Integer(reader, "VersionNumber")),
         OriginalFileName = Text(reader, "OriginalFileName"),
-        ContentType = Text(reader, "ContentType"),
+        ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
         ContentHash = Text(reader, "ContentHash"),
         SizeBytes = Integer(reader, "SizeBytes"),
         UploadedByUserId = reader.GetGuid(reader.GetOrdinal("UploadedByUserId")),
@@ -391,7 +391,7 @@ internal static class AiBudgetRowReaders
         RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")),
         ExpectedDocumentVersion = checked((int)Integer(reader, "ExpectedDocumentVersion")),
         OriginalFileName = Text(reader, "OriginalFileName"),
-        ContentType = Text(reader, "ContentType"),
+        ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
         ContentHash = Text(reader, "ContentHash"),
         SizeBytes = Integer(reader, "SizeBytes"),
         ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),

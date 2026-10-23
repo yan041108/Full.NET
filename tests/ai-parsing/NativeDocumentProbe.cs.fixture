@@ -1,0 +1,64 @@
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text.Json;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Ai.Knowledge;
+using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Ai.Serialization;
+
+// 实际 Native 消费生产模块；原始文件来自自行生成的隔离验收样本，不调用付费模型。
+if (RuntimeFeature.IsDynamicCodeSupported) throw new InvalidOperationException("Native code is required.");
+var manifestPath = args[0];
+using var manifest = JsonDocument.Parse(await File.ReadAllBytesAsync(manifestPath));
+var image = manifest.RootElement.GetProperty("imageId").GetString()!;
+var root = manifest.RootElement.GetProperty("fixtureRoot").GetString()!;
+if (manifest.RootElement.GetProperty("failures").GetArrayLength() != 0) throw new InvalidOperationException("Incomplete fixture acceptance.");
+var knowledgeId = Guid.CreateVersion7(); var modelId = Guid.CreateVersion7();
+var knowledge = new AiKnowledgeBaseRecord { Id = knowledgeId, Version = 2, IsEnabled = true, DataClassification = "internal", EmbeddingModelConfigId = modelId, EmbeddingModelVersion = 3 };
+var model = new AiModelConfigRecord { Id = modelId, Version = 3, IsEnabled = true, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1" };
+var parser = new AiKnowledgeDocumentSandboxParser(new State(), new("/usr/local/bin/node", "/src/scripts/ai/document-sandbox-cli.mjs", image));
+var count = 0;
+foreach (var item in manifest.RootElement.GetProperty("accepted").EnumerateArray())
+{
+    var name = item.GetProperty("name").GetString()!;
+    var input = await File.ReadAllBytesAsync(Path.Combine(root, item.GetProperty("source").GetString()!));
+    var hash = Convert.ToHexString(SHA256.HashData(input));
+    var mime = Full.NET.Modules.Ai.Domain.AiKnowledgeFilePolicy.ContentTypeFor(item.GetProperty("kind").GetString()!)!;
+    var policy = item.GetProperty("policyKey").GetString()!;
+    var parsed = await parser.ParseAsync(input, hash, input.Length, mime, policy, default) ?? throw new InvalidOperationException(name + ": parse");
+    var chunks = AiKnowledgeDocumentModelChunker.Chunk(knowledge, model, parsed, new(), default).Output ?? throw new InvalidOperationException(name + ": chunks");
+    var plan = AiKnowledgeDocumentPlan.Create(chunks with { ParserRuntimeId = image }, default) ?? throw new InvalidOperationException(name + ": plan");
+    var frozen = AiKnowledgeIndexDocumentManifestCodec.Encode(plan, default);
+    var restored = AiKnowledgeIndexDocumentManifestCodec.Decode(frozen, default);
+    if (restored.PlanHash != plan.PlanHash || restored.Source.ParserRuntimeId != image) throw new InvalidOperationException(name + ": identity");
+    foreach (var batch in plan.Batches)
+    {
+        var vectors = batch.Chunks.Select(_ => { var values = new float[1536]; values[0] = 1; return new ReadOnlyMemory<float>(values); }).ToArray();
+        var encoded = AiKnowledgeIndexDocumentVectorCodec.Encode(plan, batch.Ordinal, vectors, default);
+        var snapshot = AiKnowledgeIndexDocumentVectorCodec.ReadBatch(frozen, batch.Ordinal, encoded, default);
+        foreach (var chunk in snapshot.Chunks)
+        {
+            var location = AiKnowledgeSourceLocations.Create(chunk.Block.Sequence, chunk.Source.Position, restored.Source.Document);
+            if (!AiKnowledgeSourceLocations.Valid(location)) throw new InvalidOperationException(name + ": coordinates");
+            var messageId = Guid.CreateVersion7(); var sessionId = Guid.CreateVersion7(); var actor = Guid.CreateVersion7();
+            var doc = Guid.CreateVersion7(); var version = Guid.CreateVersion7();
+            var reference = new AiKnowledgeAnswerReference(Guid.CreateVersion7(), doc, version, chunk.Source.Sequence, location.PageNumber, chunk.Source.Offset, chunk.Source.Length) { SourceLocation = location };
+            var dependency = new AiKnowledgeAnswerDependency(knowledgeId, doc, version, 1, 2, Guid.CreateVersion7(), hash, Guid.CreateVersion7(), hash, Convert.ToHexString(SHA256.HashData(frozen)), plan.PlanHash);
+            var lineage = new AiKnowledgeAnswerLineage(3, messageId, sessionId, actor, null, [dependency], [reference]);
+            var saved = AiKnowledgeAnswerLineageCodec.Decode(AiKnowledgeAnswerLineageCodec.Encode(lineage), messageId, sessionId, actor, null);
+            if (saved.References[0].SourceLocation != location) throw new InvalidOperationException(name + ": lineage");
+            var response = new AiKnowledgeCitationResponse(reference.Id, doc, version, reference.Sequence, reference.PageNumber, reference.Offset, reference.Length) { SourceLocation = location };
+            var json = JsonSerializer.Serialize(response, new AiJsonSerializerContext(new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }).AiKnowledgeCitationResponse);
+            if (!json.Contains("sourceLocation", StringComparison.Ordinal)) throw new InvalidOperationException(name + ": public contract");
+        }
+    }
+    Console.WriteLine($"native-managed {name}: accepted ({plan.Source.Chunks.Count} chunks)");
+    count++;
+}
+if (count < 48) throw new InvalidOperationException("Missing formats.");
+try { await parser.ParseAsync(new byte[] { 1 }, new string('a', 64), 1, "text/csv", "default", new CancellationToken(true)); throw new InvalidOperationException("Cancellation ignored."); }
+catch (OperationCanceledException) { }
+Console.WriteLine($"Native production parser/chunker/manifest/vector/location/lineage/contract: {count} accepted");
+/// <summary>测试消费者不允许持有本地数据库事务。</summary>
+internal sealed class State : IDataTransactionState { public bool HasTransaction => false; }

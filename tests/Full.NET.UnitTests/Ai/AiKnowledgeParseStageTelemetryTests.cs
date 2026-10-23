@@ -70,6 +70,16 @@ public sealed class AiKnowledgeParseStageTelemetryTests
     }
 
     [TestMethod]
+    public async Task Unified_document_sandbox_precancel_does_not_start_observation_or_process()
+    {
+        using var capture = new AgentTelemetryCapture();
+        var parser = new AiKnowledgeDocumentSandboxParser(new TransactionState(), new("missing-node", "missing-cli", "invalid-image"));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => parser.ParseAsync(new byte[] { 1 }, new string('a', 64), 1,
+            "text/csv", "default", new CancellationToken(true)));
+        Assert.IsEmpty(capture.Spans); Assert.IsEmpty(capture.Measurements);
+    }
+
+    [TestMethod]
     [DataRow("pdf", "sample")][DataRow("pdf", "started")][DataRow("pdf", "stopped")]
     [DataRow("pdf", "attempts")][DataRow("pdf", "duration")][DataRow("pdf", "none")]
     [DataRow("docx", "sample")][DataRow("docx", "started")][DataRow("docx", "stopped")]

@@ -6,13 +6,13 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>校验提取正文的完整逻辑坐标；不能替代隔离工具对 OOXML 的验证。</summary>
 internal static class AiKnowledgeDocxStructure
 {
-    internal static AiKnowledgeDocxReadFailure Validate(AiKnowledgeParsedDocx document, CancellationToken token)
+    internal static AiKnowledgeDocxReadFailure Validate(AiKnowledgeParsedDocx document, CancellationToken token, bool allowEmpty = false)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(document);
         if (!AiKnowledgeDocxOutputReader.ValidSource(document.ContentHash, document.SizeBytes)) return AiKnowledgeDocxReadFailure.InvalidSource;
         if (document.Text is null || document.Text.Length > AiKnowledgeTextParser.MaxOutputCharacters) return AiKnowledgeDocxReadFailure.OutputTooLarge;
         var count = document.Blocks?.Count ?? 0;
-        if (string.IsNullOrWhiteSpace(document.Text) || document.Text.Contains('\0') || count is < 1 or > 8192) return Invalid();
+        if (!allowEmpty && string.IsNullOrWhiteSpace(document.Text) || document.Text.Contains('\0') || count is < 1 or > 8192) return Invalid();
         var checkAt = 0;
         for (var position = 0; position < document.Text.Length;)
         {

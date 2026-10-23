@@ -24,7 +24,7 @@ internal sealed record AiKnowledgeRetrievalSnapshot(Guid Actor, Guid? TenantId, 
 /// <summary>读取当前授权且完整的活动代次；禁止加入外部事务或触发收费模型调用。</summary>
 internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexActivationStore activation,
-    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database, AiKnowledgeIndexDocxActivationStore? docxActivation = null, AiDataProcessingPolicy? dataPolicy = null)
+    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database, AiKnowledgeIndexDocumentActivationStore? docxActivation = null, AiDataProcessingPolicy? dataPolicy = null)
 {
     private static readonly string[] RequiredPermissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
@@ -143,7 +143,7 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                 || row.TaskId is not { } task || task == Guid.Empty || row.ActiveTaskId != task || row.ActiveLeaseToken is not { } lease || lease == Guid.Empty
                 || row.ModelConfigId != snapshot.Model.Id || row.ModelConfigVersion != snapshot.Model.Version
                 || row.ProviderKey != snapshot.Model.ProviderKey || row.ModelId != snapshot.Model.ModelId
-                || row.ContentType is not ("text/plain" or "text/markdown" or "application/pdf" or Domain.AiKnowledgeFilePolicy.DocxContentType)) throw Invalid();
+                || !Domain.AiKnowledgeFilePolicy.ContentTypes.Contains(row.ContentType, StringComparer.Ordinal)) throw Invalid();
         }
         return (Array.AsReadOnly(rows.OrderBy(r => r.DocumentId.ToString("N"), StringComparer.Ordinal).ToArray()), p);
     }
@@ -154,10 +154,11 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
             Check(token);
             var p = new Dictionary<string, object?>(parameters) { ["KnowledgeBaseId"] = row.KnowledgeBaseId,
                 ["DocumentId"] = row.DocumentId, ["VersionId"] = row.VersionId };
-            var ready = row.ContentType == "application/pdf" ? await pdfActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
+            var ready = AiKnowledgeDocumentFormats.IsDocument(row.ContentType) && docxActivation is not null && await docxActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
+                || (row.ContentType == "application/pdf" ? await pdfActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
                 : row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType
                     ? docxActivation is not null && await docxActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
-                    : await activation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false);
+                    : await activation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false));
             Check(token); if (!ready) throw Invalid();
         }
     }
@@ -169,23 +170,25 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
         {
             var rows = vectors.Where(r => r.IndexTaskId == source.TaskId).OrderBy(r => r.BatchOrdinal).ToArray();
             if (rows.Length == 0) throw Invalid();
-            AiKnowledgeIndexDocxVerifiedManifest? manifest = null;
-            if (source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)
+            AiKnowledgeIndexDocumentVerifiedManifest? manifest = null;
+            if (rows.All(row => row.FormatKey == AiKnowledgeIndexDocumentVectorCodec.FormatKey))
             {
                 var p = new Dictionary<string, object?>(parameters) { ["DocumentId"] = source.DocumentId, ["VersionId"] = source.VersionId, ["TaskId"] = source.TaskId };
                 var captured = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(
-                    AiKnowledgeRetrievalSql.DocxManifestFor(database.Value.Provider, snapshot.IsTenant), p, token).ConfigureAwait(false);
+                    AiKnowledgeRetrievalSql.DocumentManifestFor(database.Value.Provider, snapshot.IsTenant), p, token).ConfigureAwait(false);
                 CheckScope(snapshot, token);
-                if (captured is null || captured.Id != source.TaskId || captured.FormatKey != AiKnowledgeIndexDocxManifestCodec.FormatKey
+                if (captured is null || captured.Id != source.TaskId || captured.FormatKey != AiKnowledgeIndexDocumentManifestCodec.FormatKey
                     || captured.PayloadHash != source.ActiveManifestHash || captured.Payload is null
-                    || captured.Payload.Length is < 8 or > AiKnowledgeIndexDocxManifestCodec.MaxPayloadBytes) throw Invalid();
-                manifestBytes += captured.Payload.Length; if (manifestBytes > AiKnowledgeIndexDocxManifestCodec.MaxPayloadBytes) throw Invalid();
-                manifest = AiKnowledgeIndexDocxVerifiedManifest.Capture(captured.Payload, token); var identity = manifest.VectorIdentity;
+                    || captured.Payload.Length is < 8 or > AiKnowledgeIndexDocumentManifestCodec.MaxPayloadBytes) throw Invalid();
+                manifestBytes += captured.Payload.Length; if (manifestBytes > AiKnowledgeIndexDocumentManifestCodec.MaxPayloadBytes) throw Invalid();
+                manifest = AiKnowledgeIndexDocumentVerifiedManifest.Capture(captured.Payload, token); var identity = manifest.VectorIdentity;
                 if (manifest.PayloadHash != source.ActiveManifestHash || manifest.Plan.Summary.PlanHash != source.ActivePlanHash
                     || manifest.Plan.Batches.Count != rows.Length || identity.KnowledgeBaseId != source.KnowledgeBaseId
                     || identity.KnowledgeBaseVersion != source.KnowledgeBaseVersion || identity.TenantId != snapshot.TenantId
                     || identity.ModelConfigId != model.Id || identity.ModelConfigVersion != model.Version
                     || identity.ProviderKey != model.ProviderKey || identity.ModelId != model.ModelId
+                    || !AiKnowledgeDocumentFormats.Matches(manifest.Plan.Source.Document, source.ContentType, source.ParsingPolicyKey)
+                    || manifest.Plan.Source.DataClassification != source.DataClassification || manifest.Plan.Source.DestinationHash != AiKnowledgeDocumentModelChunker.Destination(model)
                     || !string.Equals(identity.ContentHash, source.ContentHash, StringComparison.OrdinalIgnoreCase) || identity.SizeBytes != source.SizeBytes) throw Invalid();
             }
             for (var ordinal = 0; ordinal < rows.Length; ordinal++)
@@ -196,7 +199,7 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                     || row.Dimensions != dimensions || row.DistanceKey != "cosine"
                     || row.PayloadHash != Convert.ToHexString(SHA256.HashData(row.Payload))) throw Invalid();
                 var start = chunks.Count;
-                if (source.ContentType == "application/pdf")
+                if (source.ContentType == "application/pdf" && manifest is null)
                 {
                     if (row.FormatKey != AiKnowledgeIndexPdfVectorCodec.FormatKey) throw Invalid();
                     var pdf = AiKnowledgeIndexPdfVectorCodec.Decode(row.Payload, token);
@@ -208,13 +211,13 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                 }
                 else if (manifest is not null)
                 {
-                    if (row.FormatKey != AiKnowledgeIndexDocxVectorCodec.FormatKey) throw Invalid();
-                    var docx = AiKnowledgeIndexDocxVectorCodec.ReadBatch(manifest, ordinal, row.Payload, token).Payload;
+                    if (row.FormatKey != AiKnowledgeIndexDocumentVectorCodec.FormatKey) throw Invalid();
+                    var docx = AiKnowledgeIndexDocumentVectorCodec.ReadBatch(manifest, ordinal, row.Payload, token);
                     foreach (var item in docx.Chunks)
                     {
                         var c = item.Source; var b = item.Block;
-                        Add(new(source, c.Sequence, null, c.Offset, c.Length, c.TokenCount, c.Text, item.Vector)
-                        { DocxLocation = new(b.Sequence, b.ParagraphNumber, b.TableNumber, b.RowNumber, b.CellNumber) });
+                        Add(new(source, c.Sequence, c.Position.PageNumber, c.Offset, c.Length, c.TokenCount, c.Text, item.Vector)
+                        { SourceLocation = AiKnowledgeSourceLocations.Create(b.Sequence, c.Position, manifest.Plan.Source.Document) });
                     }
                 }
                 else

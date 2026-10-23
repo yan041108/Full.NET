@@ -12,7 +12,11 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <param name="CreatedAtUtc">创建时间。</param>
 public sealed record AiKnowledgeVersionResponse(Guid Id, Guid DocumentId, int VersionNumber,
     string OriginalFileName, string ContentType, string ContentHash, long SizeBytes,
-    string ProcessingStatus, DateTimeOffset CreatedAtUtc);
+    string ProcessingStatus, DateTimeOffset CreatedAtUtc)
+{
+    /// <summary>导入时冻结的解析策略；后续重试复用原策略。</summary>
+    public string ParsingPolicyKey { get; init; } = "default";
+}
 
 /// <summary>所有者的持久化导入结果；完成仅表示文件生命周期完成。</summary>
 /// <param name="Id">导入操作标识。</param>

@@ -113,6 +113,24 @@ the complete license texts.
   https://github.com/cure53/DOMPurify
 - pnpm — MIT
   https://github.com/pnpm/pnpm
+- Optional offline document parser (src/Tools/Full.NET.Ai.DocumentParser; separately built sandbox image):
+  Apache POI 5.5.1, XMLBeans, Apache Commons and Log4j — Apache-2.0;
+  Jackson 2.22.3 — Apache-2.0; SparseBitSet 1.3 — Apache-2.0; curvesapi — BSD-3-Clause.
+  Exact Maven coordinates and hashes: java-assets.lock.json. Upstream LICENSE/NOTICE files remain inside the JARs;
+  SparseBitSet and curvesapi license texts omitted by their JARs are retained in licenses/ and /app/licenses/.
+  https://poi.apache.org/ https://github.com/FasterXML/jackson https://github.com/brettwooldridge/SparseBitSet
+  PaddleOCR 3.7.0, PaddlePaddle 3.3.1, PaddleX 3.7.2 and PP-OCRv5 mobile model weights — Apache-2.0.
+  Model revisions and file hashes: model-assets.lock.json; model license retained in /opt/models/LICENSE-APACHE-2.0.
+  https://github.com/PaddlePaddle/PaddleOCR https://github.com/PaddlePaddle/Paddle
+  Pillow — HPND; pillow-heif/libheif — BSD-3-Clause/LGPL-3.0-or-later;
+  pypdfium2/PDFium — Apache-2.0 OR BSD-3-Clause / BSD-3-Clause with bundled third-party notices;
+  OpenCV — Apache-2.0; NumPy — BSD-3-Clause; remaining Python wheels and their bundled codec notices remain in *.dist-info.
+  Exact 72-wheel versions and SHA-256 hashes: requirements.lock; the runtime excludes pip after asset acquisition.
+  https://github.com/python-pillow/Pillow https://github.com/bigcat88/pillow_heif https://github.com/pypdfium2-team/pypdfium2
+  Ubuntu image packages include OpenJDK (GPL-2.0 with Classpath Exception), LibreOffice Draw (MPL-2.0/LGPL-3.0-or-later),
+  librsvg (LGPL-2.1-or-later), libjxl (BSD-3-Clause), Noto CJK fonts (SIL Open Font License 1.1) and their dependencies.
+  Distribution copyright/license files remain in /usr/share/doc; exact installed package versions are captured in /app/assets/debian-packages.txt.
+  https://openjdk.org/legal/ https://www.libreoffice.org/about-us/licenses/ https://github.com/libjxl/libjxl https://github.com/notofonts/noto-cjk
 - TypeScript — Apache-2.0
   https://github.com/microsoft/TypeScript
 - Playwright — Apache-2.0

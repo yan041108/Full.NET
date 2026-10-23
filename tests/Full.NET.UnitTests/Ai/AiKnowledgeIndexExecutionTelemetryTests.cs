@@ -120,7 +120,7 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
 }
 
 /// <summary>DOCX真实批次观测复用已有授权、解析和收费夹具，不替换业务执行。</summary>
-public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
+public sealed partial class AiKnowledgeDocumentPlanningServiceTests
 {
     [TestMethod, DoNotParallelize]
     [DataRow(false, "success")]
@@ -171,7 +171,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
             throwTrace: fault == "duration" ? null : fault);
         Assert.IsNotNull(await execute()); Assert.AreEqual(1, f.Generator.Calls);
         await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
-        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_docx", "completed", includesChunk: true);
+        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_document", "completed", includesChunk: true, sourceKind: "docx");
         IndexTelemetryTestChecks.VerifyPrivacy(capture); Assert.AreSame(capture.Root, Activity.Current);
     }
 }
@@ -179,7 +179,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
 [TestClass]
 public sealed class AiKnowledgeIndexExecutionTelemetryTests
 {
-    [TestMethod, DoNotParallelize] [DataRow("text")] [DataRow("pdf")] [DataRow("docx")]
+    [TestMethod, DoNotParallelize] [DataRow("text")] [DataRow("pdf")] [DataRow("docx")] [DataRow("document")]
     public void Index_telemetry_fixed_stages_are_accepted_without_payload(string format)
     {
         using var capture = new AgentTelemetryCapture(); var stage = "knowledge_index_" + format;
@@ -212,7 +212,8 @@ internal static class IndexTelemetryTestChecks
         Assert.AreEqual(fault is "denied" or "duplicate" or "budget" ? 0 : 1, calls());
         var outcome = fault is "denied" or "duplicate" ? "not_processed" : fault == "budget" ? "budget_rejected"
             : fault is "provider" or "settle" ? "failed" : fault == "cancel" ? "cancelled" : "completed";
-        var span = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_index_" + kind));
+        var stage = "knowledge_index_" + (kind == "docx" ? "document" : kind);
+        var span = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), stage));
         Assert.HasCount(fault == "denied" ? 1 : 3, capture.Spans);
         if (fault != "denied")
         {
@@ -232,13 +233,13 @@ internal static class IndexTelemetryTestChecks
             await budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         else await budget.Received(1).SettleAsync(operation, fault is "provider" or "cancel" ? new(null, null) : new(7, 0),
             fault == "provider" ? "failed" : fault == "cancel" ? "cancelled" : "succeeded", CancellationToken.None);
-        VerifyMeasurements(capture, "knowledge_index_" + kind, outcome, includesChunk: fault != "denied"); VerifyPrivacy(capture);
+        VerifyMeasurements(capture, stage, outcome, includesChunk: fault != "denied", sourceKind: kind); VerifyPrivacy(capture);
         Assert.AreSame(capture.Root, Activity.Current);
     }
-    internal static void VerifyMeasurements(AgentTelemetryCapture capture, string stage, string outcome, bool includesChunk = false)
+    internal static void VerifyMeasurements(AgentTelemetryCapture capture, string stage, string outcome, bool includesChunk = false, string? sourceKind = null)
     {
-        var chunkStage = stage.Replace("knowledge_index_", "knowledge_chunk_", StringComparison.Ordinal);
-        var parseStage = stage.Replace("knowledge_index_", "knowledge_parse_", StringComparison.Ordinal);
+        var chunkStage = sourceKind is null ? stage.Replace("knowledge_index_", "knowledge_chunk_", StringComparison.Ordinal) : "knowledge_chunk_" + sourceKind;
+        var parseStage = sourceKind is null ? stage.Replace("knowledge_index_", "knowledge_parse_", StringComparison.Ordinal) : "knowledge_parse_" + sourceKind;
         Assert.HasCount(includesChunk ? 6 : 2, capture.Measurements);
         foreach (var item in capture.Measurements)
         {

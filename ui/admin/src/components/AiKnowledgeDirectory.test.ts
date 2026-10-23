@@ -82,6 +82,18 @@ describe('知识目录与文件交付', () => {
     await selectUpload(wrapper, new File([new Uint8Array(5 * 1024 * 1024)], 'source.docx', { type: '' }));
     expect(api.uploadKnowledgeVersion).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
   });
+  it('CSV 显式编码、分隔符和表头参与稳定上传身份', async () => {
+    vi.mocked(api.uploadKnowledgeVersion).mockRejectedValue(new Error('network'));
+    const wrapper = await render(true);
+    await selectUpload(wrapper, new File(['名称;内容'], 'source.csv'));
+    const original = vi.mocked(api.uploadKnowledgeVersion).mock.calls[0]![0].requestKey;
+    await wrapper.get('[data-testid="knowledge-encoding"]').setValue('gb18030');
+    await wrapper.get('[data-testid="knowledge-delimiter"]').setValue('semicolon');
+    await wrapper.get('[data-testid="knowledge-csv-header"]').setValue(true);
+    await wrapper.get('[data-testid="knowledge-upload"]').trigger('click'); await flushPromises();
+    const changed = vi.mocked(api.uploadKnowledgeVersion).mock.calls.at(-1)![0];
+    expect(changed.contentType).toBe('text/csv'); expect(changed.parsingPolicy).toBe('csv_gb18030_semicolon_header'); expect(changed.requestKey).not.toBe(original);
+  });
   it('DOCX 超过 5 MiB 时拒绝上传并显示准确限制', async () => {
     const wrapper = await render(true);
     await selectUpload(wrapper, new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'source.docx', { type: '' }));

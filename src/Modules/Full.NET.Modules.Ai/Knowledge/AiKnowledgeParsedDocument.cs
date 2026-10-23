@@ -4,16 +4,30 @@ using System.Text;
 namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>已接线的解析格式；新增格式必须提供完整解析、来源映射和验收，不能仅扩展枚举。</summary>
-internal enum AiKnowledgeParsedFormat { PlainText, Markdown, Pdf, Docx }
+internal enum AiKnowledgeParsedFormat { PlainText = 0, Markdown = 1, Pdf = 2, Docx = 3, Csv = 4, Html = 5, Excel = 6, Word = 7, Presentation = 8, Image = 9 }
 
-/// <summary>提取正文的坐标类型；PDF 使用页内位置，DOCX 使用全文位置且不冒充渲染页码。</summary>
-internal enum AiKnowledgeSourcePositionKind { Document, PdfPage, DocxParagraph, DocxTableCell }
+/// <summary>提取正文的原生坐标类型；段落、单元格和图片位置不冒充渲染页码。</summary>
+internal enum AiKnowledgeSourcePositionKind { Document = 0, PdfPage = 1, DocxParagraph = 2, DocxTableCell = 3, CsvCell = 4, WorksheetCell = 5, WordParagraph = 6, WordTableCell = 7, SlideText = 8, SlideNotes = 9, HtmlNode = 10, ImageRegion = 11 }
+
+/// <summary>实际记录或工作表单元格；公式只记录源码及缓存状态，绝不求值。</summary>
+internal sealed record AiKnowledgeGridPosition(int SheetNumber, string SheetName, int Row, int Column,
+    string CellType, string? Formula = null, string? CacheState = null, string? MergedRange = null,
+    string? RawValue = null, string? NumberFormat = null, string? CachedValueType = null);
+/// <summary>幻灯片的原生形状顺序；备注与可见内容使用不同位置类型。</summary>
+internal sealed record AiKnowledgeSlidePosition(int SlideNumber, int ShapeNumber, int? RowNumber = null, int? ColumnNumber = null,
+    int RowSpan = 1, int ColumnSpan = 1);
+/// <summary>规范化图像中的像素框，必须同时记录原始帧及规范化尺寸；置信度是 [0,1]。</summary>
+internal sealed record AiKnowledgeImagePosition(int FrameNumber, int ImageWidth, int ImageHeight,
+    int X, int Y, int Width, int Height, double Confidence, string RecognitionVersion,
+    int OriginalWidth, int OriginalHeight, int Orientation, string NormalizationHash, string NormalizationVersion,
+    int? TableNumber = null, int? RowNumber = null, int? ColumnNumber = null, AiKnowledgeSourcePosition? Parent = null);
 
 /// <summary>不可变来源区间，Offset 和 Length 均以原提取文本的 UTF-16 单元计数。</summary>
 internal sealed record AiKnowledgeSourcePosition(AiKnowledgeSourcePositionKind Kind, int Offset, int Length,
     int? PageNumber = null, int? BlockSequence = null, int? ParagraphNumber = null,
     int? TableNumber = null, int? RowNumber = null, int? CellNumber = null,
-    int CellParagraphCount = 0, bool IsHeader = false);
+    int CellParagraphCount = 0, bool IsHeader = false, AiKnowledgeGridPosition? Grid = null,
+    AiKnowledgeSlidePosition? Slide = null, string? HtmlPath = null, AiKnowledgeImagePosition? Image = null);
 
 /// <summary>完整解析中的单个逻辑块；结构分隔符独立保存，空单元格仍保留真实坐标。</summary>
 internal sealed record AiKnowledgeParsedBlock(int Sequence, string Text, string Separator, AiKnowledgeSourcePosition Position)
@@ -30,15 +44,15 @@ internal sealed record AiKnowledgeParsedBlock(int Sequence, string Text, string 
         => offset == 0 || offset == text.Length || !(char.IsHighSurrogate(text[offset - 1]) && char.IsLowSurrogate(text[offset]));
 }
 
-/// <summary>四种现有格式的统一完整快照；工厂先冻结及验收，再交给分块入口使用。</summary>
+/// <summary>文本、结构文档及 OCR 的统一完整快照；工厂先冻结及验收，再交给分块入口使用。</summary>
 /// <remarks>本地解析证明不授予文件访问、模型外发或发布资格；不含凭据、会话和租户授权结果。</remarks>
 internal sealed class AiKnowledgeParsedDocument
 {
     private AiKnowledgeParsedDocument(AiKnowledgeParsedFormat format, string parserVersion, string hash, int size,
-        AiKnowledgeParsedBlock[] blocks, AiKnowledgeParsedDocx? docx = null)
+        AiKnowledgeParsedBlock[] blocks, AiKnowledgeParsedDocx? docx = null, AiKnowledgeParsePolicy? policy = null)
     {
         Format = format; ParserVersion = parserVersion; ContentHash = hash.ToLowerInvariant(); SizeBytes = size;
-        Blocks = Array.AsReadOnly(blocks); Docx = docx;
+        Blocks = Array.AsReadOnly(blocks); Docx = docx; Policy = policy ?? AiKnowledgeParsePolicy.Default(format);
     }
 
     internal AiKnowledgeParsedFormat Format { get; }
@@ -46,8 +60,32 @@ internal sealed class AiKnowledgeParsedDocument
     internal string ContentHash { get; }
     internal int SizeBytes { get; }
     internal IReadOnlyList<AiKnowledgeParsedBlock> Blocks { get; }
-    // DOCX 的完整清单继续携带既有全文和结构，统一分块映射与清单消费同一冻结对象。
+    internal AiKnowledgeParsePolicy Policy { get; }
+    // 仅保留轻量 DOCX 协议的真实全文结构；统一 OCR 输出不能冒充旧版工具结果。
     internal AiKnowledgeParsedDocx? Docx { get; }
+
+    /// <summary>隔离进程的统一输出只在完整结构验收后进入快照；不返回部分文档。</summary>
+    internal static AiKnowledgeParsedDocument? FromBlocks(AiKnowledgeParsedFormat format, string parserVersion,
+        string hash, int size, IReadOnlyList<AiKnowledgeParsedBlock> source, CancellationToken token, AiKnowledgeParsePolicy? policy = null)
+    {
+        token.ThrowIfCancellationRequested();
+        if (!ValidIdentity(hash, size, Domain.AiKnowledgeFilePolicy.MaxBytes)
+            || !AiKnowledgeParsedStructure.KnownParser(format, parserVersion)) return null;
+        policy ??= AiKnowledgeParsePolicy.Default(format);
+        if (!policy.ValidFor(format)) return null;
+        if (format is AiKnowledgeParsedFormat.Pdf or AiKnowledgeParsedFormat.Docx && parserVersion != AiKnowledgeParsedStructure.MultiFormatParserVersion
+            && size > 5 * 1024 * 1024) return null;
+        var count = source?.Count ?? 0;
+        if (count is < 1 or > 8192) return null;
+        var blocks = new AiKnowledgeParsedBlock[count];
+        for (var index = 0; index < count; index++) { token.ThrowIfCancellationRequested(); blocks[index] = source![index]; }
+        if (!AiKnowledgeParsedStructure.Validate(format, blocks, token, parserVersion == AiKnowledgeParsedStructure.MultiFormatParserVersion)) return null;
+        if (format == AiKnowledgeParsedFormat.Csv && blocks.Any(b => b.Position.IsHeader != (policy.CsvHeader && b.Position.Grid!.Row == 1))) return null;
+        var docx = format == AiKnowledgeParsedFormat.Docx && parserVersion == AiKnowledgeParsedDocx.ParserVersion
+            ? AiKnowledgeParsedStructure.Docx(hash, size, blocks) : null;
+        token.ThrowIfCancellationRequested();
+        return new(format, parserVersion, hash, size, blocks, docx, policy);
+    }
 
     /// <summary>普通文本和 Markdown 不归一化正文；格式由可信版本元数据提供，不从内容猜测。</summary>
     internal static AiKnowledgeParsedDocument? FromText(AiKnowledgeParsedText document, AiKnowledgeTextFormat format, CancellationToken token)

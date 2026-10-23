@@ -139,7 +139,7 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
     }
 }
 
-public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
+public sealed partial class AiKnowledgeDocumentPlanningServiceTests
 {
     [TestMethod] [DataRow(false, 0)] [DataRow(false, 1)] [DataRow(false, 2)] [DataRow(false, 3)] [DataRow(false, 4)] [DataRow(false, 5)] [DataRow(false, 6)] [DataRow(false, 7)] [DataRow(false, 8)] [DataRow(false, 9)] [DataRow(false, 10)] [DataRow(false, 11)] [DataRow(true, 0)] [DataRow(true, 1)] [DataRow(true, 2)] [DataRow(true, 3)] [DataRow(true, 4)] [DataRow(true, 5)] [DataRow(true, 6)] [DataRow(true, 7)] [DataRow(true, 8)] [DataRow(true, 9)] [DataRow(true, 10)] [DataRow(true, 11)]
     public async Task Paid_receipt_docx_index_rejects_invalid_metadata(bool scoped, int fault)

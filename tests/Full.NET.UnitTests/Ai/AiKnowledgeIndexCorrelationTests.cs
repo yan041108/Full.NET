@@ -53,7 +53,7 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
     }
 }
 
-public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
+public sealed partial class AiKnowledgeDocumentPlanningServiceTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Verified_docx_index_session_reaches_model_and_restores_ambient(bool tenant)

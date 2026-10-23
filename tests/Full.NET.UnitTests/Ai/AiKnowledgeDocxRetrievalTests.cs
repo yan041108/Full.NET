@@ -10,8 +10,8 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
-/// <summary>单元测试分片：AiKnowledgeIndexDocxActivation。</summary>
-public sealed partial class AiKnowledgeIndexDocxActivationTests
+/// <summary>单元测试分片：AiKnowledgeIndexDocumentActivation。</summary>
+public sealed partial class AiKnowledgeIndexDocumentActivationTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Docx_retrieval_binds_full_manifest_and_returns_logical_citations(bool tenant)
@@ -22,8 +22,8 @@ public sealed partial class AiKnowledgeIndexDocxActivationTests
         Assert.HasCount(17, result.Chunks); Assert.HasCount(1, result.Sources);
         foreach (var chunk in result.Chunks.Select(c => c.Chunk))
         {
-            Assert.IsNull(chunk.PageNumber); Assert.IsNotNull(chunk.DocxLocation);
-            Assert.AreEqual(chunk.Sequence + 1, chunk.DocxLocation.ParagraphNumber);
+            Assert.IsNull(chunk.PageNumber); Assert.IsNotNull(chunk.SourceLocation);
+            Assert.AreEqual(chunk.Sequence + 1, chunk.SourceLocation.ParagraphNumber);
         }
         Assert.AreEqual(1, query.ManifestReads); Assert.AreEqual(2, f.Writes);
     }

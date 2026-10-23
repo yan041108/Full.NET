@@ -10,6 +10,7 @@ internal sealed class AiKnowledgeImportRecord
     public int ExpectedDocumentVersion { get; init; }
     public string OriginalFileName { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;
+    public string ParsingPolicyKey { get; init; } = "default";
     public string ContentHash { get; init; } = string.Empty;
     public long SizeBytes { get; init; }
     public Guid ActorUserId { get; init; }

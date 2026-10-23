@@ -226,7 +226,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         expected.TaskId == current.TaskId && expected.VersionId == current.VersionId && expected.DocumentId == current.DocumentId
         && expected.DocumentVersion == current.DocumentVersion && expected.KnowledgeBaseVersion == current.KnowledgeBaseVersion
         && expected.LeaseToken == current.LeaseToken && expected.FileId == current.FileId && expected.ContentHash == current.ContentHash
-        && expected.SizeBytes == current.SizeBytes && expected.ContentType == current.ContentType
+        && expected.SizeBytes == current.SizeBytes && expected.ContentType == current.ContentType && expected.ParsingPolicyKey == current.ParsingPolicyKey
         && expected.ModelConfigId == current.ModelConfigId && expected.ModelConfigVersion == current.ModelConfigVersion
         // 分类与目的地同样冻结；租约有效期可由原持有者续期，不作为内容或策略身份。
         && expected.DataClassification == current.DataClassification && expected.ModelProviderKey == current.ModelProviderKey

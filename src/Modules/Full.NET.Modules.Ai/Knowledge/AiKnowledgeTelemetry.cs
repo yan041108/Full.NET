@@ -60,10 +60,11 @@ internal static class AiKnowledgeTelemetry
         AiKnowledgeAnswer { Refused: true } => "refused",
         AiKnowledgeExecutedAnswer { Answer.Refused: true } => "refused",
         AiKnowledgeTextParseResult { IsSuccess: false } => "denied",
-        null when typeof(T) == typeof(AiKnowledgeParsedPdf) || typeof(T) == typeof(AiKnowledgeParsedDocx) => "denied",
+        null when typeof(T) == typeof(AiKnowledgeParsedPdf) || typeof(T) == typeof(AiKnowledgeParsedDocx) || typeof(T) == typeof(AiKnowledgeParsedDocument) => "denied",
         AiKnowledgeModelChunkResult { IsSuccess: false } => "denied",
         AiKnowledgePdfModelChunkResult { IsSuccess: false } => "denied",
         AiKnowledgeDocxModelChunkResult { IsSuccess: false } => "denied",
+        AiKnowledgeDocumentModelChunkResult { IsSuccess: false } => "denied",
         _ => "completed"
     };
 }

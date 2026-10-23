@@ -17,7 +17,7 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 internal sealed class AiKnowledgeIndexRebuildService(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IIdGenerator ids, IBackgroundSessionAuthorization authorization,
     IOptions<AiKnowledgeIndexRebuildOptions> options, IOptions<DatabaseOptions> database,
-    IOptions<AiKnowledgePdfRuntimeOptions> pdf, IOptions<AiKnowledgeDocxRuntimeOptions> docx)
+    IOptions<AiKnowledgePdfRuntimeOptions> pdf, IOptions<AiKnowledgeDocxRuntimeOptions> docx, IOptions<AiKnowledgeDocumentRuntimeOptions>? documents = null)
 {
     internal static readonly string[] Permissions = [.. AiKnowledgeIndexEnqueueService.Permissions,
         AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRebuild];
@@ -123,7 +123,7 @@ internal sealed class AiKnowledgeIndexRebuildService(IQueryExecutor query, IComm
         && session.SessionKind is SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication
         && Text(session.SecurityStamp, 128) && Text(session.ActorScope, 64) && Text(session.EffectiveScope, 64);
     private static bool Text(string value, int limit) => !string.IsNullOrWhiteSpace(value) && value.Length <= limit;
-    private bool Supports(string contentType) => pdf.Value.Supports(contentType) || docx.Value.Enabled && contentType == Domain.AiKnowledgeFilePolicy.DocxContentType;
+    private bool Supports(string contentType) => documents?.Value.Supports(contentType) == true || pdf.Value.Supports(contentType) || docx.Value.Enabled && contentType == Domain.AiKnowledgeFilePolicy.DocxContentType;
     private void Check(CancellationToken token)
     { token.ThrowIfCancellationRequested(); if (transactions.HasTransaction) throw new InvalidOperationException("Knowledge index rebuild cannot join an ambient transaction."); }
     private static Result<AiKnowledgeIndexEnqueueResponse> Conflict() => Failure(AiKnowledgeErrorCodes.IndexConflict, "The rebuild request, source, task or original session is no longer available.", ErrorType.Conflict);

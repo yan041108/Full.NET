@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { translateKnowledgeIndexChanges, translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
+import { translateKnowledgeFormats, translateKnowledgeIndexChanges, translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElMessageBox, ElPagination, ElSwitch, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { knowledgeFileAccept, knowledgeFileContentTypes } from '@fullnet/client-contracts';
 import type { AiKnowledgeBaseResponse, AiKnowledgeDocumentResponse, AiKnowledgeImportResponse, AiKnowledgeVersionResponse } from '@fullnet/client-contracts';
 import * as api from '../api/ai-knowledge';
 import { useSessionStore } from '../auth/session';
@@ -28,7 +29,13 @@ const baseId = ref(typeof route.query.knowledgeBaseId === 'string' ? route.query
 const editorOpen = ref(false); const editing = ref<Row>(); const form = reactive({ name: '', description: '', isEnabled: true });
 const versionOpen = ref(false); const documentRow = ref<AiKnowledgeDocumentResponse>(); const versions = ref<AiKnowledgeVersionResponse[]>([]);
 const versionPage = ref(1); const versionTotal = ref(0); const versionsLoading = ref(false);
-const file = ref<File>(); let uploadKey = ''; let uploadVersion = 0; const importOperation = ref<AiKnowledgeImportResponse>(); const operationId = ref('');
+const file = ref<File>();
+const parseOptions = reactive({ encoding: 'utf8', delimiter: 'comma', header: false, hidden: false });
+const fileExtension = computed(() => file.value?.name.split('.').at(-1)?.toLowerCase());
+const parsingPolicy = computed(() => fileExtension.value === 'csv' ? `csv_${parseOptions.encoding}_${parseOptions.delimiter}_${parseOptions.header ? 'header' : 'plain'}`
+  : ['html', 'htm'].includes(fileExtension.value ?? '') && parseOptions.encoding === 'gb18030' ? 'html_gb18030'
+  : ['xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension.value ?? '') && parseOptions.hidden ? 'include_hidden' : 'default');
+watch(parseOptions, () => { uploadKey = ''; uploadVersion = 0; }); let uploadKey = ''; let uploadVersion = 0; const importOperation = ref<AiKnowledgeImportResponse>(); const operationId = ref('');
 const sourceOpen = ref(false); const sourceVersion = ref<AiKnowledgeVersionResponse>();
 const policyOpen = ref(false); const grantsOpen = ref(false); const accessRow = ref<Row>();
 const indexOpen = ref(false); const indexVersion = ref<AiKnowledgeVersionResponse>();
@@ -128,13 +135,13 @@ function chooseFile(event: Event) {
 async function upload() {
   if (busy.value || !documentRow.value || !file.value || !canRead.value || !session.can('ai.knowledge_documents.upload')) return;
   const selected = file.value; const extension = selected.name.split('.').at(-1)?.toLowerCase();
-  const contentType = extension === 'txt' ? 'text/plain' : extension === 'md' ? 'text/markdown' : extension === 'pdf' ? 'application/pdf' : extension === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : undefined;
+  const contentType = knowledgeFileContentTypes[extension ?? ''];
   if (!contentType || selected.size <= 0 || selected.size > (extension === 'docx' ? 5 : 8) * 1024 * 1024) { showWarning(extension === 'docx' ? translateKnowledgeDocx(locale.value, 'fileInvalid') : t('knowledge.fileInvalid')); return; }
   // 网络结果不明时保留原请求键和原版本；只允许用户显式重试原上传。
   if (!uploadKey) { uploadKey = crypto.randomUUID(); uploadVersion = documentRow.value.version; }
   const scope = epoch; busy.value = true;
   try {
-    const result = await api.uploadKnowledgeVersion({ knowledgeBaseId: baseId.value, documentId: documentRow.value.id, version: uploadVersion, requestKey: uploadKey, fileName: selected.name, contentType, body: selected });
+    const result = await api.uploadKnowledgeVersion({ knowledgeBaseId: baseId.value, documentId: documentRow.value.id, version: uploadVersion, requestKey: uploadKey, fileName: selected.name, contentType, parsingPolicy: parsingPolicy.value, body: selected });
     if (scope !== epoch || !versionOpen.value) return;
     importOperation.value = result; operationId.value = result.id; file.value = undefined; uploadKey = '';
     const refreshedDocument = await api.getKnowledgeDocument({ knowledgeBaseId: baseId.value, documentId: documentRow.value.id });
@@ -244,11 +251,24 @@ onMounted(() => void load(1)); onUnmounted(reset);
     </ArtFormDialog>
     <ArtFormDialog :open="versionOpen" :title="t('knowledge.versions')" width="860px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="value => { if (!busy) { versionOpen = value; if (!value) { ++versionEpoch; versionController?.abort(); versions = []; sourceOpen = false; indexOpen = false; } } }">
       <template v-if="documentRow">
-        <p>{{ documentRow.title }}</p><p>{{ t('knowledge.fileHint') }}</p>
+        <p>{{ documentRow.title }}</p><p>{{ translateKnowledgeFormats(locale, 'fileHint') }}</p>
         <div v-if="session.can('ai.knowledge_documents.upload')" class="knowledge-toolbar">
-          <label>{{ t('knowledge.file') }} <input type="file" accept=".txt,.md,.pdf,.docx" :disabled="busy" data-testid="knowledge-file" @change="chooseFile" /></label>
+          <label>{{ t('knowledge.file') }} <input type="file" :accept="knowledgeFileAccept" :disabled="busy" data-testid="knowledge-file" @change="chooseFile" /></label>
           <el-button :disabled="!file || busy" :loading="busy" data-testid="knowledge-upload" @click="upload">{{ t('knowledge.upload') }}</el-button>
         </div>
+        <fieldset v-if="file" :disabled="busy" class="knowledge-parser-options">
+          <legend>{{ translateKnowledgeFormats(locale, 'policyHint') }}</legend>
+          <label v-if="['csv', 'html', 'htm'].includes(fileExtension ?? '')">{{ translateKnowledgeFormats(locale, 'encoding') }}
+            <select v-model="parseOptions.encoding" data-testid="knowledge-encoding"><option value="utf8">UTF-8</option><option value="gb18030">GB 18030</option></select>
+          </label>
+          <template v-if="fileExtension === 'csv'">
+            <label>{{ translateKnowledgeFormats(locale, 'delimiter') }} <select v-model="parseOptions.delimiter" data-testid="knowledge-delimiter">
+              <option v-for="value in ['comma', 'tab', 'semicolon'] as const" :key="value" :value="value">{{ translateKnowledgeFormats(locale, value) }}</option>
+            </select></label>
+            <label><input v-model="parseOptions.header" type="checkbox" data-testid="knowledge-csv-header" /> {{ translateKnowledgeFormats(locale, 'header') }}</label>
+          </template>
+          <label v-if="['xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension ?? '')"><input v-model="parseOptions.hidden" type="checkbox" data-testid="knowledge-hidden" /> {{ translateKnowledgeFormats(locale, 'hidden') }}</label>
+        </fieldset>
         <el-table :data="versions" max-height="320" :empty-text="t('knowledge.empty')" row-key="id">
           <el-table-column prop="versionNumber" :label="t('knowledge.version')" width="90" />
           <el-table-column prop="originalFileName" :label="t('knowledge.file')" min-width="230" />
