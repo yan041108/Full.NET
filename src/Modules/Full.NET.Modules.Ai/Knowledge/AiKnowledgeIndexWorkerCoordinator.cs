@@ -13,7 +13,7 @@ namespace Full.NET.Modules.Ai.Knowledge;
 internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, IDataTransactionState transactions,
     IServiceScopeFactory scopes, IClock clock, IOptions<DatabaseOptions> database, IOptions<AiKnowledgeIndexWorkerOptions> options,
     ILogger<AiKnowledgeIndexWorkerCoordinator> logger, IOptions<AiKnowledgePdfRuntimeOptions>? pdfOptions = null,
-    IOptions<AiKnowledgeDocxRuntimeOptions>? docxOptions = null)
+    IOptions<AiKnowledgeDocxRuntimeOptions>? docxOptions = null, IOptions<AiKnowledgeDocumentRuntimeOptions>? documentOptions = null)
 {
     internal async Task<int> ProcessPendingAsync(CancellationToken token)
     {
@@ -24,6 +24,7 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
         if (!configuration.Enabled) return 0;
         var pdf = pdfOptions?.Value ?? new AiKnowledgePdfRuntimeOptions();
         var docx = docxOptions?.Value ?? new AiKnowledgeDocxRuntimeOptions();
+        var documents = documentOptions?.Value ?? new AiKnowledgeDocumentRuntimeOptions();
         var statement = database.Value.Provider switch
         {
             DatabaseProvider.SqlServer => AiKnowledgeIndexWorkerSql.ScanSqlServer,
@@ -31,7 +32,7 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             _ => throw new InvalidOperationException("Unsupported knowledge worker provider."),
         };
         var rows = await query.QueryAsync<AiKnowledgeIndexWorkerRecord>(statement,
-            new Dictionary<string, object?> { ["BatchSize"] = configuration.BatchSize, ["Now"] = clock.UtcNow, ["PdfEnabled"] = pdf.Enabled ? 1 : 0, ["DocxEnabled"] = docx.Enabled ? 1 : 0 }, token).ConfigureAwait(false);
+            new Dictionary<string, object?> { ["BatchSize"] = configuration.BatchSize, ["Now"] = clock.UtcNow, ["PdfEnabled"] = pdf.Enabled ? 1 : 0, ["DocxEnabled"] = docx.Enabled ? 1 : 0, ["DocumentsEnabled"] = documents.Enabled ? 1 : 0 }, token).ConfigureAwait(false);
         Guard(token);
         if (rows.Count > configuration.BatchSize) throw new InvalidOperationException("Knowledge scan exceeded its bound.");
         var acquired = 0;
@@ -40,7 +41,7 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             Guard(token);
             if (row.TaskId == Guid.Empty || row.KnowledgeBaseId == Guid.Empty || row.DocumentId == Guid.Empty || row.VersionId == Guid.Empty
                 || row.OwnerUserId == Guid.Empty || row.TenantId == Guid.Empty || row.DocumentVersion <= 0 || row.KnowledgeBaseVersion <= 0
-                || !(pdf.Supports(row.ContentType) || docx.Enabled && row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)) continue;
+                || !(documents.Supports(row.ContentType) || pdf.Supports(row.ContentType) || docx.Enabled && row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)) continue;
             // 候选来自固定服务端扫描；每个任务重新创建上下文，不能污染父级或复用另一租户的 DbSession。
             await using var scope = scopes.CreateAsyncScope();
             var provider = scope.ServiceProvider;
@@ -51,7 +52,7 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             Guard(token, childTransactions);
             var tasks = provider.GetRequiredService<AiKnowledgeIndexTaskStore>();
             var binding = new AiKnowledgeIndexTaskBinding(row.KnowledgeBaseId, row.DocumentId, row.VersionId, row.DocumentVersion, row.KnowledgeBaseVersion, row.OwnerUserId);
-            var held = await tasks.AcquireAsync(binding, row.TaskId, token).ConfigureAwait(false);
+            var held = await tasks.AcquireAsync(binding, row.TaskId, token, documents.Supports(row.ContentType) ? 180 : 30).ConfigureAwait(false);
             Guard(token, childTransactions);
             if (held?.LeaseToken is not { } leaseToken) continue;
             acquired++;
@@ -60,10 +61,12 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             try
             {
                 // 格式只决定消费者；消费者仍从当前权威来源复核，扫描行不授予模型派发资格。
-                var completed = row.ContentType == "application/pdf"
+                var completed = documents.Supports(row.ContentType)
+                    ? await provider.GetRequiredService<AiKnowledgeIndexDocumentPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
+                    : row.ContentType == "application/pdf"
                     ? await provider.GetRequiredService<AiKnowledgeIndexPdfPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
                     : row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType
-                    ? await provider.GetRequiredService<AiKnowledgeIndexDocxPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
+                    ? await provider.GetRequiredService<AiKnowledgeIndexDocumentPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
                     : await provider.GetRequiredService<AiKnowledgeIndexPersistenceService>().ExecuteTextGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
                 Guard(token, childTransactions);
                 if (!completed) await FailAsync(tasks, binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
@@ -72,6 +75,11 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             {
                 // 关闭时保留持租约状态；已派发费用由原消费者独立结算，不免费重发缺失向量。
                 throw;
+            }
+            catch (AiKnowledgeDocumentParsingException exception)
+            {
+                Guard(token, childTransactions);
+                await tasks.FailAsync(binding, row.TaskId, leaseToken, exception.Failure, token).ConfigureAwait(false);
             }
             catch (Exception exception)
             {

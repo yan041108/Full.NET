@@ -312,6 +312,7 @@ export interface AiKnowledgeCitationResponse {
   readonly offset: number;
   readonly pageNumber: null | number;
   readonly sequence: number;
+  readonly sourceLocation?: null | AiKnowledgeSourceLocationResponse;
   readonly versionId: string;
 }
 
@@ -338,6 +339,28 @@ export interface AiKnowledgeDocxLocationResponse {
   readonly paragraphNumber: number;
   readonly rowNumber: null | number;
   readonly tableNumber: null | number;
+}
+
+export interface AiKnowledgeGridLocationResponse {
+  readonly column: number;
+  readonly row: number;
+  readonly sheetName: string;
+  readonly sheetNumber: number;
+}
+
+export interface AiKnowledgeImageLocationResponse {
+  readonly columnNumber: null | number;
+  readonly confidence: number | string;
+  readonly frameNumber: number;
+  readonly height: number;
+  readonly imageHeight: number;
+  readonly imageWidth: number;
+  readonly parent: null | AiKnowledgeSourceLocationResponse;
+  readonly rowNumber: null | number;
+  readonly tableNumber: null | number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface AiKnowledgeImportResponse {
@@ -447,6 +470,29 @@ export interface AiKnowledgeRoleGrantsResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgeSlideLocationResponse {
+  readonly columnNumber: null | number;
+  readonly columnSpan: number;
+  readonly rowNumber: null | number;
+  readonly rowSpan: number;
+  readonly shapeNumber: number;
+  readonly slideNumber: number;
+}
+
+export interface AiKnowledgeSourceLocationResponse {
+  readonly blockSequence: number;
+  readonly cellNumber: null | number;
+  readonly grid: null | AiKnowledgeGridLocationResponse;
+  readonly htmlPath: null | string;
+  readonly image: null | AiKnowledgeImageLocationResponse;
+  readonly kind: string;
+  readonly pageNumber: null | number;
+  readonly paragraphNumber: null | number;
+  readonly rowNumber: null | number;
+  readonly slide: null | AiKnowledgeSlideLocationResponse;
+  readonly tableNumber: null | number;
+}
+
 export interface AiKnowledgeVersionResponse {
   readonly contentHash: string;
   readonly contentType: string;
@@ -454,6 +500,7 @@ export interface AiKnowledgeVersionResponse {
   readonly documentId: string;
   readonly id: string;
   readonly originalFileName: string;
+  readonly parsingPolicyKey?: string;
   readonly processingStatus: string;
   readonly sizeBytes: number;
   readonly versionNumber: number;

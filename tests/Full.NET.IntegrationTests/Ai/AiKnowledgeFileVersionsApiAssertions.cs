@@ -30,6 +30,7 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         var catalog = (await createBase.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
         var basePath = $"/api/v1/ai/knowledge-bases/{catalog.Id}/documents";
         await VerifyDocxUploadAsync(client, basePath);
+        await VerifyMultiFormatUploadsAsync(client, basePath);
         using var create = await client.PostAsJsonAsync(basePath, new CreateAiKnowledgeDocumentRequest("受控上传", null));
         Assert.AreEqual(HttpStatusCode.Created, create.StatusCode);
         var document = (await create.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
@@ -114,6 +115,7 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         var tenantBase = (await tenantBaseCreated.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
         var tenantDocuments = $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/documents";
         await VerifyDocxUploadAsync(tenantClient, tenantDocuments);
+        await VerifyMultiFormatUploadsAsync(tenantClient, tenantDocuments);
         using var tenantCreated = await tenantClient.PostAsJsonAsync(tenantDocuments, new CreateAiKnowledgeDocumentRequest("租户文件", null));
         var tenantDoc = (await tenantCreated.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
         var tenantPath = tenantDocuments + $"/{tenantDoc.Id}";
@@ -137,6 +139,41 @@ internal static class AiKnowledgeFileVersionsApiAssertions
     }
 
     /// <summary>真实 HTTP 在 Host 和 Tenant 上传 OOXML，拒绝超限或格式错误并保持幂等原文件。</summary>
+    private static async Task VerifyMultiFormatUploadsAsync(HttpClient client, string documents)
+    {
+        // 外部隔离样本专项显式配置此输入；基础文件生命周期测试仍可独立执行。
+        var manifestPath = Environment.GetEnvironmentVariable("FULLNET_DOCUMENT_ACCEPTANCE_MANIFEST");
+        if (string.IsNullOrEmpty(manifestPath)) return;
+        using var manifest = JsonDocument.Parse(await File.ReadAllBytesAsync(manifestPath));
+        Assert.AreEqual(0, manifest.RootElement.GetProperty("failures").GetArrayLength());
+        var cases = manifest.RootElement.GetProperty("accepted"); Assert.IsTrue(cases.GetArrayLength() is >= 40 and <= 64);
+        var root = manifest.RootElement.GetProperty("fixtureRoot").GetString()!;
+        foreach (var item in cases.EnumerateArray())
+        {
+            using var create = await client.PostAsJsonAsync(documents, new CreateAiKnowledgeDocumentRequest("格式来源 " + item.GetProperty("name").GetString(), null));
+            Assert.AreEqual(HttpStatusCode.Created, create.StatusCode);
+            var document = (await create.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
+            var filename = item.GetProperty("source").GetString()!; Assert.AreEqual(Path.GetFileName(filename), filename);
+            var content = await File.ReadAllBytesAsync(Path.Combine(root, filename));
+            var mime = Full.NET.Modules.Ai.Domain.AiKnowledgeFilePolicy.ContentTypeFor(item.GetProperty("kind").GetString()!)!;
+            var policy = item.GetProperty("policyKey").GetString()!;
+            var target = $"{documents}/{document.Id}/versions?version=1&requestKey={Guid.CreateVersion7()}&fileName={Uri.EscapeDataString(filename)}&parsingPolicy={Uri.EscapeDataString(policy)}";
+            using var body = new ByteArrayContent(content); body.Headers.ContentType = new(mime);
+            using var upload = await client.PostAsync(target, body);
+            Assert.AreEqual(HttpStatusCode.Accepted, upload.StatusCode, await upload.Content.ReadAsStringAsync());
+            var operation = await upload.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>(); Assert.IsNotNull(operation); Assert.AreEqual("completed", operation.State);
+            var versions = await client.GetFromJsonAsync<PagedResult<AiKnowledgeVersionResponse>>($"{documents}/{document.Id}/versions"); Assert.IsNotNull(versions); Assert.HasCount(1, versions.Items);
+            Assert.AreEqual(policy, versions.Items[0].ParsingPolicyKey); Assert.AreEqual(mime, versions.Items[0].ContentType);
+            Assert.AreEqual(content.LongLength, versions.Items[0].SizeBytes);
+            if (item.GetProperty("name").GetString() == "csv")
+            {
+                using var replay = new ByteArrayContent(content); replay.Headers.ContentType = new(mime);
+                using var conflict = await client.PostAsync(target.Replace("parsingPolicy=default", "parsingPolicy=csv_utf8_comma_header", StringComparison.Ordinal), replay);
+                Assert.AreEqual(HttpStatusCode.Conflict, conflict.StatusCode);
+            }
+        }
+    }
+
     private static async Task VerifyDocxUploadAsync(HttpClient client, string documents)
     {
         const string mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

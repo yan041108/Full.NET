@@ -14,20 +14,20 @@ internal static class Endpoint
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/ai/knowledge-bases/{knowledgeBaseId:guid}/documents/{documentId:guid}").WithTags("AiKnowledgeVersions");
-        Common(group.MapPost("/versions", async (Guid knowledgeBaseId, Guid documentId, int version, Guid requestKey, string fileName,
+        Common(group.MapPost("/versions", async (Guid knowledgeBaseId, Guid documentId, int version, Guid requestKey, string fileName, string? parsingPolicy,
             AiKnowledgeImportCoordinator service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {
             if (!TryActor(context, out var actor)) return Results.Unauthorized();
-            if (context.Request.Query.Keys.Any(key => key is not ("version" or "requestKey" or "fileName")))
+            if (context.Request.Query.Keys.Any(key => key is not ("version" or "requestKey" or "fileName" or "parsingPolicy")))
                 return mapper.Map(AiKnowledgeImportStore.Failure<bool>("ai.knowledge.upload_invalid", "Unknown upload fields are forbidden.", ErrorType.Validation), context);
             var type = context.Request.ContentType?.Split(';')[0].Trim().ToLowerInvariant() ?? string.Empty;
             var result = await service.UploadAsync(knowledgeBaseId, documentId, actor, version, requestKey, fileName,
-                type, context.Request.Body, context.Request.ContentLength, token).ConfigureAwait(false);
+                type, context.Request.Body, context.Request.ContentLength, token, parsingPolicy ?? "default").ConfigureAwait(false);
             return result.IsSuccess ? Results.Accepted($"/api/v1/ai/knowledge-bases/{knowledgeBaseId:D}/documents/{documentId:D}/imports/{result.Value!.Id:D}", result.Value)
                 : mapper.Map(result, context);
         }), "aiUploadKnowledgeVersion", AiKnowledgeDocumentPermissions.Upload)
             // 正文由协调器有界读取；OpenAPI 必须声明原始流，不能让客户端误用 JSON 或 multipart。
-            .Accepts<Stream>(Domain.AiKnowledgeFilePolicy.DocxContentType, "application/pdf", "text/markdown", "text/plain")
+            .Accepts<Stream>(Domain.AiKnowledgeFilePolicy.ContentTypes[0], Domain.AiKnowledgeFilePolicy.ContentTypes.Skip(1).ToArray())
             .Produces<AiKnowledgeImportResponse>(StatusCodes.Status202Accepted);
         Read(Common(group.MapGet("/versions", async (Guid knowledgeBaseId, Guid documentId, int? page, int? pageSize,
             AiKnowledgeVersionReader reader, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)

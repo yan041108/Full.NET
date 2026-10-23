@@ -47,7 +47,9 @@ internal static class AiKnowledgeRetrievalAssertions
         Assert.IsTrue(result.Chunks.Count > 1); Assert.AreEqual(binding.VersionId, result.Sources[0].VersionId);
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.Source.ModelConfigId == model.Id));
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.PageNumber.HasValue == (c.Chunk.Source.ContentType == "application/pdf")));
-        Assert.IsTrue(result.Chunks.All(c => (c.Chunk.DocxLocation is not null) == (c.Chunk.Source.ContentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")));
+        Assert.IsTrue(result.Chunks.All(c => AiKnowledgeSourceLocations.Valid(c.Chunk.SourceLocation)
+            && (c.Chunk.Source.ContentType != "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                || c.Chunk.SourceLocation?.Kind is "docx_paragraph" or "docx_table_cell" or "image_region")));
         var pipeline = new AiKnowledgeAnswerPipeline(service, ids);
         // TXT 和 PDF 均直接使用生产完整准备流程；上下文选择完整块前缀，完整来源依赖不随容量裁剪。
         var prepared = await pipeline.PrepareAsync([binding.KnowledgeBaseId], reader.Actor, model, vector, "来源说明", default);

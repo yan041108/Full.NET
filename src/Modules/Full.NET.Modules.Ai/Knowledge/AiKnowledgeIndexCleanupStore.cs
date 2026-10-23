@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>墓碑和已退休代次分别重验；每个任务独立提交，异常保留载荷供后续恢复。</summary>
 internal sealed class AiKnowledgeIndexCleanupStore(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IOptions<DatabaseOptions> database,
-    AiKnowledgeIndexActivationStore activation, AiKnowledgeIndexPdfActivationStore pdfActivation, AiKnowledgeIndexDocxActivationStore? docxActivation = null)
+    AiKnowledgeIndexActivationStore activation, AiKnowledgeIndexPdfActivationStore pdfActivation, AiKnowledgeIndexDocumentActivationStore? docxActivation = null)
 {
     internal async Task CleanupDocumentAsync(Guid knowledgeBaseId, Guid documentId, Guid actor, CancellationToken token)
     {
@@ -64,7 +64,9 @@ internal sealed class AiKnowledgeIndexCleanupStore(IQueryExecutor query, IComman
                 readParameters, token).ConfigureAwait(false);
             Check(); if (current is null || current.OwnerUserId != actor) return;
             // 证明锁定当前来源、模型、会话、清单、批次与收费，旧载荷删除在它的同一事务内提交。
-            if (current.ContentType == "application/pdf")
+            if (AiKnowledgeDocumentFormats.IsDocument(current.ContentType) && docxActivation is not null
+                && await docxActivation.WithReadyGenerationAsync(current, readParameters, CleanupLocked, token).ConfigureAwait(false)) { }
+            else if (current.ContentType == "application/pdf")
                 _ = await pdfActivation.WithReadyGenerationAsync(current, readParameters, CleanupLocked, token).ConfigureAwait(false);
             else if (current.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType && docxActivation is not null)
                 _ = await docxActivation.WithReadyGenerationAsync(current, readParameters, CleanupLocked, token).ConfigureAwait(false);

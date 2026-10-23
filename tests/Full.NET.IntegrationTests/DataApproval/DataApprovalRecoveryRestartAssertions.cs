@@ -13,6 +13,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Migrations;
+using Full.NET.IntegrationTests.NativeAot;
 using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.DataApproval.Domain;
 using Full.NET.Modules.Identity.Contracts;
@@ -35,7 +36,8 @@ internal static class DataApprovalRecoveryRestartAssertions
     public static async Task VerifyAsync(
         DatabaseProvider provider,
         string connectionString,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool nativeWorker = false)
     {
         var permissions = new[]
         {
@@ -97,6 +99,21 @@ internal static class DataApprovalRecoveryRestartAssertions
         var restartedToken = await restartedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
             .ConfigureAwait(false);
 
+        if (nativeWorker)
+        {
+            Assert.IsTrue(NativeWorkerArtifactLocator.TryResolve(out var artifact, out var reason), reason);
+            Assert.IsNotNull(artifact);
+            // 仅准备失败请求使用托管夹具；工作流关联必须由正式原生 Worker 的真实后台消费者完成。
+            await using var worker = await NativeWorkerProcessHost.StartAsync(artifact, provider, connectionString,
+                NativeAotTestTimeouts.ProcessStartup, cancellationToken,
+                additionalSettings: CreateWorkerSettings(pollMilliseconds: 500, retryDelaySeconds: 5));
+            await AssertRecoveredAsync();
+            await worker.StopGracefullyAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            worker.AssertNoFatalMarkersInLogs();
+            Assert.AreEqual(0, worker.ExitCode);
+            return;
+        }
+
         using var workerHost = await IntegrationWorkerHostFactory.BuildAsync(
                 provider,
                 connectionString,
@@ -106,6 +123,15 @@ internal static class DataApprovalRecoveryRestartAssertions
             .ConfigureAwait(false);
         await workerHost.StartAsync(cancellationToken).ConfigureAwait(false);
         try
+        {
+            await AssertRecoveredAsync();
+        }
+        finally
+        {
+            await workerHost.StopAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        async Task AssertRecoveredAsync()
         {
             var recovered = await WaitForWorkflowLinkAsync(
                     restartedClient,
@@ -117,10 +143,6 @@ internal static class DataApprovalRecoveryRestartAssertions
             Assert.AreEqual(DataApprovalRecoveryStatusKeys.None, recovered.RecoveryStatusKey);
             Assert.IsNotNull(recovered.WorkflowInstanceId);
             Assert.IsNull(recovered.LastFailureCode);
-        }
-        finally
-        {
-            await workerHost.StopAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

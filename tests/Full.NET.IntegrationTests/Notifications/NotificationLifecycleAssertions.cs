@@ -29,7 +29,7 @@ namespace Full.NET.IntegrationTests.Notifications;
 /// <summary>复用双库通知宿主，验证个人归档、业务撤回、精确权限和本地一次性授权竞争。</summary>
 internal static class NotificationLifecycleAssertions
 {
-    /// <summary>在独立临时库模拟部分 DDL 已提交、脚本未记账；恢复只选固定 283/284，保留已写数据。</summary>
+    /// <summary>在独立临时库模拟部分 DDL 已提交、脚本未记账；恢复只选固定 284/285，保留已写数据。</summary>
     internal static async Task VerifyRecoveryAsync(DatabaseProvider provider)
     {
         var connectionString = provider == DatabaseProvider.SqlServer
@@ -74,13 +74,13 @@ internal static class NotificationLifecycleAssertions
         if (provider == DatabaseProvider.SqlServer)
             await connection.ExecuteAsync("DROP INDEX IX_fn_notifications_subscription_grant_CreatedAtUtc ON fn_notifications_subscription_grant");
         await connection.ExecuteAsync(provider == DatabaseProvider.SqlServer
-            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%283_NotificationsSubscriptionGrant.sql' OR ScriptName LIKE '%284_NotificationsMessageLifecycle.sql'"
-            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%283_NotificationsSubscriptionGrant.sql' OR ScriptName LIKE '%284_NotificationsMessageLifecycle.sql'");
+            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%284_NotificationsSubscriptionGrant.sql' OR ScriptName LIKE '%285_NotificationsMessageLifecycle.sql'"
+            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%284_NotificationsSubscriptionGrant.sql' OR ScriptName LIKE '%285_NotificationsMessageLifecycle.sql'");
         Assert.AreEqual(2, Recover());
         Assert.AreEqual(0, Recover());
         await connection.ExecuteAsync(provider == DatabaseProvider.SqlServer
-            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%284_NotificationsMessageLifecycle.sql'"
-            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%284_NotificationsMessageLifecycle.sql'");
+            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%285_NotificationsMessageLifecycle.sql'"
+            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%285_NotificationsMessageLifecycle.sql'");
         Assert.AreEqual(1, Recover());
         using (var route = JsonDocument.Parse(await connection.QuerySingleAsync<string>(
             "SELECT RouteSnapshotJson FROM fn_notifications_intent WHERE Id = @Id", new { Id = intentId })))
@@ -99,8 +99,8 @@ internal static class NotificationLifecycleAssertions
                 : DeployChanges.To.MySqlDatabase(MySqlConnectionStringPolicy.Create(connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: true));
             var segment = provider == DatabaseProvider.SqlServer ? ".SqlServer." : ".MySql.";
             var result = builder.WithScriptsEmbeddedInAssembly(MigrationAssembly.Value, name => name.Contains(segment, StringComparison.Ordinal)
-                    && (name.EndsWith(".283_NotificationsSubscriptionGrant.sql", StringComparison.Ordinal)
-                        || name.EndsWith(".284_NotificationsMessageLifecycle.sql", StringComparison.Ordinal)))
+                    && (name.EndsWith(".284_NotificationsSubscriptionGrant.sql", StringComparison.Ordinal)
+                        || name.EndsWith(".285_NotificationsMessageLifecycle.sql", StringComparison.Ordinal)))
                 .WithExecutionTimeout(TimeSpan.FromSeconds(300)).LogToNowhere().Build().PerformUpgrade();
             Assert.IsTrue(result.Successful, result.Error?.ToString());
             return result.Scripts.Count();

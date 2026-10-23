@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 8622,
+      "minimum": 9110,
       "timeout": "10m",
       "selections": {
         "project-review-remediation": {
@@ -35,9 +35,13 @@
           "filter": "FullyQualifiedName~WeComAccessTokenCacheTests|FullyQualifiedName~DingTalkAccessTokenCacheTests|FullyQualifiedName~MqttPublishRateLimiterTests|FullyQualifiedName~WeChatPayPlatformCertificateResolverTests|FullyQualifiedName~McpClientConnectionManagerTests",
           "minimum": 19
         },
+        "ai-parsed-document": {
+          "filter": "FullyQualifiedName~AiKnowledgeParsedDocumentTests",
+          "minimum": 24
+        },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 5105
+          "minimum": 5216
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison|FullyQualifiedName~RagFeedbackAdmission|FullyQualifiedName~RagRetrievalExecution",
@@ -175,8 +179,20 @@
       "NativeApiCacheColdStartE2ETests",
       "NativeApiKnowledgeIncrementalIndexE2ETests"
     ],
-    "minimum": 44,
+    "minimum": 46,
     "timeout": "90m"
+  },
+  "nativeKnowledgeGenerationIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeWorkerKnowledgeGenerationE2ETests|FullyQualifiedName~NativeWorkerPdfE2ETests|FullyQualifiedName~NativeApiAiE2ETests|FullyQualifiedName~NativeWorkerDataApprovalRecoveryE2ETests",
+    "requiredTestTypes": [
+      "NativeWorkerKnowledgeGenerationE2ETests",
+      "NativeWorkerPdfE2ETests",
+      "NativeApiAiE2ETests",
+      "NativeWorkerDataApprovalRecoveryE2ETests"
+    ],
+    "minimum": 10,
+    "timeout": "45m"
   },
   "nativeAotNotificationsIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
@@ -518,6 +534,9 @@
       "272": {
         "filter": "FullyQualifiedName~Migration272AiKnowledgeIndexGrantsRecoveryTests.MySql_|FullyQualifiedName~Migration272AiKnowledgeIndexGrantsRecoveryTests.SqlServer_"
       },
+      "277": {
+        "filter": "FullyQualifiedName~Migration277AiKnowledgeDocumentParsingRecoveryTests.MySql_|FullyQualifiedName~Migration277AiKnowledgeDocumentParsingRecoveryTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -759,17 +778,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 204,
+        "minimum": 205,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 204,
+        "minimum": 205,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 562,
+        "minimum": 564,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -802,7 +821,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1345,
+        "minimum": 1349,
         "timeout": "90m"
       },
       "logging-metrics": {

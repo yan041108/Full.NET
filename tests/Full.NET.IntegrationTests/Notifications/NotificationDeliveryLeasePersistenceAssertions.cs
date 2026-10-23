@@ -262,7 +262,7 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
             var segment = provider == DatabaseProvider.SqlServer ? ".SqlServer." : ".MySql.";
             var result = builder.WithScriptsEmbeddedInAssembly(MigrationAssembly.Value,
                     name => name.Contains(segment, StringComparison.Ordinal)
-                        && name.EndsWith(".282_NotificationsAttemptBudget.sql", StringComparison.Ordinal))
+                        && name.EndsWith(".283_NotificationsAttemptBudget.sql", StringComparison.Ordinal))
                 .WithExecutionTimeout(TimeSpan.FromSeconds(300))
                 .LogToNowhere()
                 .Build()
@@ -272,8 +272,8 @@ internal static class NotificationDeliveryLeasePersistenceAssertions
         }
 
         Task<int> ForgetBudgetMigrationAsync() => first.ExecuteAsync(provider == DatabaseProvider.SqlServer
-            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%282_NotificationsAttemptBudget.sql'"
-            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%282_NotificationsAttemptBudget.sql'");
+            ? "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%283_NotificationsAttemptBudget.sql'"
+            : "DELETE FROM schemaversions WHERE ScriptName LIKE '%283_NotificationsAttemptBudget.sql'");
     }
 
     /// <summary>按提供程序执行生产领取语句。</summary>

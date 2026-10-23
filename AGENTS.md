@@ -17,7 +17,7 @@
 - 环境异常或首次运行时使用 [AI 工作流](docs/development/ai-workflow.md) 的只读自检；故障排查和前端验收沿用该文档的项目路由。查询 .NET、ASP.NET Core、SqlClient 或 SQL Server 文档时优先使用可用的 Microsoft Learn MCP，并匹配项目版本；连接不可用时回退官方文档。
 - 新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时使用 [fullnet-module-delivery](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析与优化时使用 [fullnet-performance-hardening](.agents/skills/fullnet-performance-hardening/SKILL.md)。只读咨询或局部文字调整不因提到模块名称就触发完整交付流程。
 - 行为变化在开发时明确验收场景，可同步编写测试，默认在功能批次完成后集中运行；缺陷定位所需的最小复现按需提前。文字和机械变更用直接相关的结构检查。注释使用中文，解释意图和约束，覆盖范围见 [注释规则](rules/code-comments.md)。
-- 全项目验收以规定范围的本地测试实际通过为准，CI 与专用生产等价环境不再是强制前置；构建、测试、影响集与能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行（R-20260930-local-acceptance）。入口和 Skill 不另设测试流程；未执行、失败或跳过不能报告为通过。
+- 最新测试规则（R-20261023-focused-change-verification）：修改或新增哪块代码，默认只测试该代码及直接受影响的必要边界；禁止自动执行全量测试，只有用户明确要求“全量测试”时才执行。共享代码、双库、合并或历史矩阵均不构成自动扩围授权；具体范围、构建复用和能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行。规定范围本地实际通过即可验收，未执行、失败或跳过不能报告为通过。
 - 按完整功能划分任务，同一模块或约定多模块范围先集中完成关联实现，再集中测试；接口、DTO、页面和测试用例作为内部检查项，不各自触发验收或等待用户回复“继续”。跨对话统一遵守 [集中验收与构建复用](rules/development-quality.md#r-20261008-concentrated-acceptance模块批次集中验收与测试资源复用)，区分功能已实现与验收通过；已发现的安全、隔离与数据缺陷及时处理。
 - 多会话只同步关键事件，冻结实际验收输入，独立开发连续推进；互不冲突的构建按资源预算允许 2～3 个并行，共享输出和未隔离的重型验收继续互斥，执行细则与入口统一见 [集中验收与构建复用](rules/development-quality.md#r-20261008-concentrated-acceptance模块批次集中验收与测试资源复用)。
 - 修改任务交付前检查本任务 `git diff --check`、`git status` 和分支，报告实际变更、验证与未验证项。只同步真实受影响文档；无演进证据时无需输出规则或 Skill 状态。

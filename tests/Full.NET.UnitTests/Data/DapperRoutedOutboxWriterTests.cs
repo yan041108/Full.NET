@@ -24,6 +24,25 @@ public sealed class DapperRoutedOutboxWriterTests
     private const string UnknownStream = "unknown.stream.happened";
 
     [TestMethod]
+    public async Task Locked_owner_is_forwarded_without_a_second_authority_read()
+    {
+        var counters = new OutboxCallCounters();
+        var c = CreateRoutedCollaborators(counters);
+        c.Gate.AcquireProducerAsync(UnknownStream, 1, Arg.Any<CancellationToken>()).Returns(EventDeliveryOwner.CdcKafka);
+        c.Resolver.ResolveDeliveryOwner(UnknownStream, 1, EventDeliveryOwner.CdcKafka).Returns(EventDeliveryOwner.CdcKafka);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+
+        await routed.AddAsync(UnknownStream, 1, new SamplePayload(1, "locked"),
+            IntegrationEventMetadata.Create("partition", "producer"));
+
+        Assert.AreEqual(1, counters.AppendMetadataCalls);
+        Assert.AreEqual(0, counters.LegacyPlainCalls);
+        await c.Resolver.DidNotReceiveWithAnyArgs().GetDeliveryOwnerAsync(default!, default, default);
+        c.Resolver.Received(1).ResolveDeliveryOwner(UnknownStream, 1, EventDeliveryOwner.CdcKafka);
+    }
+
+
+    [TestMethod]
     public async Task AddAsync_without_metadata_routes_to_legacy_writer_for_legacy_owner()
     {
         var counters = new OutboxCallCounters();
@@ -187,27 +206,27 @@ public sealed class DapperRoutedOutboxWriterTests
                 Arg.Any<string>(),
                 Arg.Any<int>(),
                 Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns((EventDeliveryOwner?)null);
         foreach (var stream in legacyOwners ?? Array.Empty<string>())
         {
             resolver
-                .GetDeliveryOwnerAsync(stream, Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(EventDeliveryOwner.LegacyPolling));
+                .ResolveDeliveryOwner(stream, Arg.Any<int>(), Arg.Any<EventDeliveryOwner?>())
+                .Returns(EventDeliveryOwner.LegacyPolling);
         }
         foreach (var stream in cdcOwners ?? Array.Empty<string>())
         {
             resolver
-                .GetDeliveryOwnerAsync(stream, Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(EventDeliveryOwner.CdcKafka));
+                .ResolveDeliveryOwner(stream, Arg.Any<int>(), Arg.Any<EventDeliveryOwner?>())
+                .Returns(EventDeliveryOwner.CdcKafka);
         }
         resolver
-            .GetDeliveryOwnerAsync(
+            .ResolveDeliveryOwner(
                 Arg.Is<string>(s =>
                     (legacyOwners == null || !legacyOwners.Contains(s))
                     && (cdcOwners == null || !cdcOwners.Contains(s))),
                 Arg.Any<int>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(EventDeliveryOwner.LegacyPolling));
+                Arg.Any<EventDeliveryOwner?>())
+            .Returns(EventDeliveryOwner.LegacyPolling);
 
         var idGen = Substitute.For<IIdGenerator>();
         idGen.NewId().Returns(Guid.NewGuid());

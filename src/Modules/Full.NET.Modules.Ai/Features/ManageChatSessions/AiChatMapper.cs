@@ -47,7 +47,7 @@ internal static class AiChatMapper
             IsKnowledgeAnswer = derived,
             KnowledgeUnavailableCode = derived && !available ? AiErrorCodes.KnowledgeAnswerUnavailable : null,
             Citations = available ? verified!.References.Select(reference => new AiKnowledgeCitationResponse(reference.Id,
-                reference.DocumentId, reference.VersionId, reference.Sequence, reference.PageNumber, reference.Offset, reference.Length) { DocxLocation = reference.DocxLocation }).ToArray() : [],
+                reference.DocumentId, reference.VersionId, reference.Sequence, reference.PageNumber, reference.Offset, reference.Length) { DocxLocation = reference.DocxLocation, SourceLocation = reference.SourceLocation }).ToArray() : [],
         };
     }
 

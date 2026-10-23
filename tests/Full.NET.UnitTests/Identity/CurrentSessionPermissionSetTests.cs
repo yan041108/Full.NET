@@ -24,8 +24,8 @@ public sealed class CurrentSessionPermissionSetTests
     {
         var f = new Fixture();
         Assert.IsNotNull(await f.Authorization.AuthorizeAllAsync(["a", "b", "c", "d"]));
-        await f.Queries.Received(1).QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-            IdentitySql.FindRefreshSessionById, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await f.Queries.Received(1).QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(
+            IdentitySql.FindAccessSessionValidationById, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await f.Permissions.Received(1).ReadAsync(f.User, "host", null, Arg.Any<CancellationToken>());
         f.Permissions.ReadAsync(f.User, "host", null, Arg.Any<CancellationToken>()).Returns(new PermissionSnapshot(["a", "b", "c"], false));
         Assert.IsNull(await f.Authorization.AuthorizeAllAsync(["a", "b", "c", "d"]));
@@ -49,8 +49,8 @@ public sealed class CurrentSessionPermissionSetTests
     public async Task Caller_cannot_remove_required_permission_while_authority_read_waits()
     {
         var f = new Fixture();
-        var gate = new TaskCompletionSource<RefreshSessionRecord?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        f.Queries.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
+        var gate = new TaskCompletionSource<AccessSessionValidationRecord?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(gate.Task);
         List<string> required = ["a", "missing"];
         var pending = f.Authorization.AuthorizeAllAsync(required);
@@ -87,15 +87,15 @@ public sealed class CurrentSessionPermissionSetTests
     public async Task Authority_capacity_rejection_and_cancellation_propagate()
     {
         var f = new Fixture();
-        f.Queries.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
+        f.Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns<RefreshSessionRecord?>(_ => throw new ServiceCapacityExceededException(ServiceCapacityFailureKind.Rejected, TimeSpan.FromSeconds(1)));
+            .Returns<AccessSessionValidationRecord?>(_ => throw new ServiceCapacityExceededException(ServiceCapacityFailureKind.Rejected, TimeSpan.FromSeconds(1)));
         await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => f.Authorization.AuthorizeAllAsync(["a", "b"]));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        f.Queries.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
+        f.Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns<RefreshSessionRecord?>(_ => throw new OperationCanceledException(cancellation.Token));
+            .Returns<AccessSessionValidationRecord?>(_ => throw new OperationCanceledException(cancellation.Token));
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Authorization.AuthorizeAllAsync(["a", "b"], cancellation.Token));
         Assert.AreEqual(0, f.Permissions.ReceivedCalls().Count());
     }
@@ -105,7 +105,7 @@ public sealed class CurrentSessionPermissionSetTests
         internal Guid User = Guid.CreateVersion7();
         internal IQueryExecutor Queries = Substitute.For<IQueryExecutor>();
         internal IPermissionSnapshotReader Permissions = Substitute.For<IPermissionSnapshotReader>();
-        internal RefreshSessionRecord Session;
+        internal AccessSessionValidationRecord Session;
         internal CurrentSessionAuthorization Authorization;
         internal CurrentTenantAccessor Tenant = new();
 
@@ -114,9 +114,9 @@ public sealed class CurrentSessionPermissionSetTests
             var now = DateTimeOffset.UtcNow;
             var sessionId = Guid.CreateVersion7();
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
-            Session = new RefreshSessionRecord { UserId = User, SessionId = sessionId, SecurityStamp = "stamp",
+            Session = new AccessSessionValidationRecord { UserId = User, SecurityStamp = "stamp",
                 ScopeKey = "host", IsActive = true, ExpiresAtUtc = now.AddHours(1) };
-            Queries.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
+            Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
                 Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Session);
             Permissions.ReadAsync(User, "host", null, Arg.Any<CancellationToken>()).Returns(new PermissionSnapshot(["a", "b", "c", "d"], false));
             var http = new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(

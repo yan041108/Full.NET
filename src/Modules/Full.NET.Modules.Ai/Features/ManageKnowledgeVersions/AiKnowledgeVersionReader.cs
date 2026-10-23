@@ -78,7 +78,7 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
     }
 
     private static AiKnowledgeVersionResponse Map(AiKnowledgeVersionRecord row, bool canReadIndex) => new(row.Id, row.DocumentId,
-        row.VersionNumber, row.OriginalFileName, row.ContentType, row.ContentHash, row.SizeBytes, canReadIndex ? row.ProcessingStatus : "pending_processing", row.CreatedAtUtc);
+        row.VersionNumber, row.OriginalFileName, row.ContentType, row.ContentHash, row.SizeBytes, canReadIndex ? row.ProcessingStatus : "pending_processing", row.CreatedAtUtc) { ParsingPolicyKey = row.ParsingPolicyKey };
     private async Task<Dictionary<string, object?>> ReadParametersAsync(Guid knowledgeBaseId, Guid documentId, Guid actor, CancellationToken token)
     {
         var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);

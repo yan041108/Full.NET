@@ -15,6 +15,8 @@ internal sealed class AiKnowledgeUploadBuffer(MemoryStream content, string hash)
 
     internal static async Task<Result<AiKnowledgeUploadBuffer>> ReadAsync(Stream source, string type, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        if (!AiKnowledgeFilePolicy.ContentTypes.Contains(type, StringComparer.Ordinal)) return Invalid();
         var output = new MemoryStream();
         try
         {
@@ -36,12 +38,16 @@ internal sealed class AiKnowledgeUploadBuffer(MemoryStream content, string hash)
             {
                 if (length < 5 || !data.AsSpan(0, 5).SequenceEqual("%PDF-"u8)) { output.Dispose(); return Invalid(); }
             }
-            else if (type == AiKnowledgeFilePolicy.DocxContentType)
+            else if (type is AiKnowledgeFilePolicy.DocxContentType or AiKnowledgeFilePolicy.XlsxContentType or AiKnowledgeFilePolicy.PptxContentType)
             {
                 // 这里只检查 ZIP 外壳；完整结构、压缩比和外部关系由独立隔离解析器检查。
                 if (length < 4 || !data.AsSpan(0, 4).SequenceEqual("PK\u0003\u0004"u8)) { output.Dispose(); return Invalid(); }
             }
-            else
+            else if (type is "application/msword" or "application/vnd.ms-excel" or "application/vnd.ms-powerpoint")
+            {
+                if (length < 8 || !data.AsSpan(0, 8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 })) { output.Dispose(); return Invalid(); }
+            }
+            else if (type is "text/plain" or "text/markdown")
             {
                 try { _ = new UTF8Encoding(false, true).GetCharCount(data, 0, length); }
                 catch (DecoderFallbackException) { output.Dispose(); return Invalid(); }

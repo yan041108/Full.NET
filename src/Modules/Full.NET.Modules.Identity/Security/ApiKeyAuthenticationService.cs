@@ -33,19 +33,16 @@ internal sealed class ApiKeyAuthenticationService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(secret);
         var keyHash = TokenHash.Compute(secret);
-        var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyAuthenticationRow>(
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyAuthenticationWithQuotaRow>(
                 ApiKeySql.FindForAuthentication,
                 IdentitySqlParameters.Create(("KeyHash", keyHash)),
                 cancellationToken)
             .ConfigureAwait(false);
         var now = clock.UtcNow;
-        var openAccessQuota = row is null
+        // LEFT JOIN 保留普通 API Key；绑定与配额来自同一权威查询，不缓存认证状态。
+        var openAccessQuota = row?.OpenAccessClientId is not Guid clientId
             ? null
-            : await queryExecutor.QuerySingleOrDefaultAsync<OpenAccessClientQuotaRow>(
-                    OpenAccessClientObservabilitySql.FindQuotaByApiKeyId,
-                    IdentitySqlParameters.Create(("ApiKeyId", row.ApiKeyId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            : new OpenAccessClientQuotaRow { ClientId = clientId, DailyRequestQuota = row.DailyRequestQuota };
 
         if (!IsActive(row, now))
         {
@@ -85,7 +82,7 @@ internal sealed class ApiKeyAuthenticationService(
         if (openAccessQuota is not null)
         {
             var quotaError = await openAccessAccessSupport.TryGetQuotaExceededErrorAsync(
-                    row.ApiKeyId,
+                    openAccessQuota,
                     row.KeyPrefix,
                     cancellationToken)
                 .ConfigureAwait(false);

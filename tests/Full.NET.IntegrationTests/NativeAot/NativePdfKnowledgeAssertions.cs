@@ -46,7 +46,7 @@ internal static class NativePdfKnowledgeAssertions
             Guid.Parse(Claim(FullNetIdentityClaimTypes.SessionId)), Claim(FullNetIdentityClaimTypes.SecurityStamp),
             Claim(FullNetIdentityClaimTypes.ActorScope), Claim(FullNetIdentityClaimTypes.Scope));
         var clock = new AiOperationBudgetAssertions.TestClock(); var controls = new AiKnowledgeIndexPdfVectorAssertions.WorkerControls();
-        var docxControls = new AiKnowledgeIndexDocxPersistenceAssertions.WorkerControls();
+        var docxControls = new AiKnowledgeIndexDocumentPersistenceAssertions.WorkerControls();
         using var factory = new FullNetApiFactory(provider, connectionString, configureTestServices: services =>
         { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); if (docx) docxControls.Register(services); else controls.Register(services); });
         await using var db = AiOperationBudgetAssertions.Connection(factory);
@@ -226,6 +226,14 @@ internal static class NativePdfKnowledgeAssertions
             }
             Assert.IsTrue(NativeWorkerArtifactLocator.TryResolve(out var artifact, out var reason), reason);
             Assert.IsNotNull(artifact); var settings = Settings(artifact.ExecutablePath);
+            if (docx)
+            {
+                // 统一档消费已结算完整计划；若回退为重读或派发，假程序路径必须使验收失败。
+                settings["FullNet:Ai:KnowledgeDocuments:Enabled"] = "true";
+                settings["FullNet:Ai:KnowledgeDocuments:NodeExecutablePath"] = artifact.ExecutablePath;
+                settings["FullNet:Ai:KnowledgeDocuments:CliScriptPath"] = artifact.ExecutablePath;
+                settings["FullNet:Ai:KnowledgeDocuments:ImageId"] = "sha256:" + new string('a', 64);
+            }
             settings["FullNet__Ai__KnowledgeIndexWorker__Enabled"] = "true";
             settings["FullNet__Ai__KnowledgeIndexWorker__BatchSize"] = "1";
             settings["FullNet__Ai__KnowledgeIndexWorker__PollMilliseconds"] = "250";
@@ -245,7 +253,7 @@ internal static class NativePdfKnowledgeAssertions
             }
             await ReadReady(b);
         }
-        if (docx) await AiKnowledgeIndexDocxPersistenceAssertions.VerifyAsync(factory, clock, docxControls, new(session, Enqueue, ReadReady, Recover));
+        if (docx) await AiKnowledgeIndexDocumentPersistenceAssertions.VerifyAsync(factory, clock, docxControls, new(session, Enqueue, ReadReady, Recover));
         else await AiKnowledgeIndexPdfVectorAssertions.VerifyAsync(factory, clock, controls, new(session, Enqueue, ReadReady, Recover));
     }
 }

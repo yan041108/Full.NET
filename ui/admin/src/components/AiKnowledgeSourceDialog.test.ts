@@ -53,7 +53,7 @@ it('PDF 下载按精确版本元数据命名并释放临时 URL', async () => {
   const blob = new Blob(['pdf'], { type: 'application/octet-stream' }); vi.mocked(downloadKnowledgeSource).mockResolvedValue(blob);
   const create = vi.fn().mockReturnValue('blob:temporary'); const revoke = vi.fn();
   vi.stubGlobal('URL', class extends URL { static createObjectURL = create; static revokeObjectURL = revoke; });
-  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function(this: HTMLAnchorElement) { expect(this.download).toBe('version.pdf'); });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function(this: HTMLAnchorElement) { expect(this.download).toBe('file.pdf'); });
   const wrapper = render();
   try {
     await wrapper.setProps({ version: { id: 'version', documentId: 'doc', contentHash: 'hash', contentType: 'application/pdf', originalFileName: 'file.pdf', sizeBytes: 3, versionNumber: 1, processingStatus: 'ready', createdAtUtc: 'now' } });

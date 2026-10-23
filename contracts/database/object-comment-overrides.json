@@ -414,7 +414,8 @@
         "ContentHash": "实际内容 SHA-256",
         "SizeBytes": "实际内容字节数",
         "UploadedByUserId": "上传主体标识",
-        "CreatedAtUtc": "创建时间（UTC）"
+        "CreatedAtUtc": "创建时间（UTC）",
+        "ParsingPolicyKey": "导入时冻结的解析策略键，参与重试身份与索引计划摘要"
       }
     },
     "fn_ai_knowledge_import": {
@@ -436,7 +437,8 @@
         "LeaseToken": "有界执行租约令牌",
         "LeaseExpiresAtUtc": "租约过期时间（UTC）",
         "CreatedAtUtc": "创建时间（UTC）",
-        "UpdatedAtUtc": "更新时间（UTC）"
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "ParsingPolicyKey": "导入时冻结的解析策略键，参与重试身份与索引计划摘要"
       }
     },
     "fn_ai_knowledge_index_batch": {
@@ -533,6 +535,24 @@
         "SourceUpdatedAtUtc": "源更新时间 UTC"
       }
     },
+    "fn_webhooks_fanout_budget": {
+      "comment": "Webhook 事件流扇出容量",
+      "columns": {
+        "TenantId": "租户标识",
+        "EventType": "事件类型",
+        "UsedCount": "已保留订阅数量"
+      }
+    },
+    "fn_ai_knowledge_document_manifest": {
+      "comment": "知识库索引任务不可替换的完整多格式解析计划",
+      "columns": {
+        "Id": "逻辑主键及所属索引任务标识",
+        "FormatKey": "固定清单格式版本",
+        "PayloadHash": "完整清单载荷 SHA256 摘要",
+        "Payload": "包含完整解析策略、正文及原生来源坐标的有界计划",
+        "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
     "fn_notifications_delivery": {
       "columns": {
         "AttemptBudgetUsed": "已消耗的自动尝试预算",
@@ -579,14 +599,6 @@
         "WindowStartUtc": "预留所属窗口起点(UTC)",
         "LeaseGeneration": "预留所属领取世代；同一次领取只占额一次",
         "StateKey": "预留状态：reserved/consumed/released/pending_reconciliation"
-      }
-    },
-    "fn_webhooks_fanout_budget": {
-      "comment": "Webhook 事件流扇出容量",
-      "columns": {
-        "TenantId": "租户标识",
-        "EventType": "事件类型",
-        "UsedCount": "已保留订阅数量"
       }
     },
     "fn_notifications_subscription_grant": {

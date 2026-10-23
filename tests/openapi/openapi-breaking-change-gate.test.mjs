@@ -6,6 +6,54 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+test('知识库原始二进制只扩展已批准媒体类型，既有 schema、认证和必填性不能改写', async () => {
+  const route = '/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions';
+  const binary = { type: 'string', format: 'binary' };
+  const baseline = { openapi: '3.1.0', paths: { [route]: { post: {
+    operationId: 'aiUploadKnowledgeVersion', security: [{ Bearer: [] }],
+    requestBody: { required: true, content: { 'text/plain': { schema: binary } } },
+    responses: { '202': { description: 'Accepted' } }
+  } } } };
+  const expanded = clone(baseline);
+  const operation = expanded.paths[route].post;
+  for (const mime of ['text/csv', 'image/heic', 'application/msword'])
+    operation.requestBody.content[mime] = { schema: binary };
+  operation.parameters = [{ in: 'query', name: 'parsingPolicy', schema: { type: 'string' } }];
+  const compare = current => compareDirectories({ 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': current });
+  const result = await compare(expanded);
+  assert.equal(result.status, 0, result.stderr);
+  const referenceBaseline = clone(baseline);
+  const referenceExpanded = clone(expanded);
+  for (const document of [referenceBaseline, referenceExpanded]) {
+    document.components = { schemas: { Stream: binary } };
+    for (const media of Object.values(document.paths[route].post.requestBody.content))
+      media.schema = { $ref: '#/components/schemas/Stream' };
+  }
+  const referenceCompare = current => compareDirectories({ 'fullnet-client-v1.openapi.json': referenceBaseline },
+    { 'fullnet-client-v1.openapi.json': current });
+  assert.equal((await referenceCompare(referenceExpanded)).status, 0);
+  const corruptedStream = clone(referenceExpanded);
+  corruptedStream.components.schemas.Stream = { type: 'object' };
+  assert.equal((await referenceCompare(corruptedStream)).status, 1);
+  for (const mutate of [
+    value => { value.security = []; },
+    value => { value.requestBody.required = false; },
+    value => { delete value.requestBody.content['text/plain']; },
+    value => { value.requestBody.content['text/plain'].schema = { type: 'object' }; },
+    value => { value.requestBody.content['image/heic'].schema = { type: 'object' }; },
+    value => { value.requestBody.content['application/x-executable'] = { schema: binary }; },
+    value => { value.parameters[0].required = true; },
+    value => { value.responses['202'].description = 'changed'; }
+  ]) {
+    const changed = clone(expanded); mutate(changed.paths[route].post);
+    assert.equal((await compare(changed)).status, 1);
+  }
+  const wrongRoute = clone(expanded);
+  wrongRoute.paths['/other'] = wrongRoute.paths[route]; delete wrongRoute.paths[route];
+  assert.equal((await compare(wrongRoute)).status, 1);
+});
+
 test('批量上传只允许纠正文件集合元数据，仍拒绝删除认证或改写响应', async () => {
   const route = '/api/v1/files/host-files/batch-upload';
   const baseline = {
@@ -958,6 +1006,31 @@ test('Git ref 模式从独立基线读取契约并报告分页破坏变化', asy
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('Git ref 模式准确报告摘要分页契约直接演进，不依赖工作区是否未提交', async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'fullnet-openapi-git-'));
+  const directory = path.join(temporary, 'contracts/openapi');
+  const name = 'fullnet-client-v1.openapi.json';
+  const baseline = { openapi: '3.1.0', paths: { '/items': { get: { operationId: 'listItems',
+    responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'array', items: { type: 'string' } } } } } } } } } };
+  const git = args => {
+    const result = spawnSync('git', args, { cwd: temporary, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+  };
+  try {
+    await writeContractSet(directory, { [name]: baseline });
+    git(['init', '--quiet']); git(['add', 'contracts']);
+    git(['-c', 'user.name=Contract Test', '-c', 'user.email=contract-test@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'baseline']);
+    const run = () => spawnSync(process.execPath, [scriptPath, '--base-ref', 'HEAD', '--repository-root', temporary], { cwd: temporary, encoding: 'utf8' });
+    assert.equal(run().status, 0);
+    const current = clone(baseline);
+    current.paths['/items'].get.responses['200'].content['application/json'].schema = { type: 'object', properties: { items: baseline.paths['/items'].get.responses['200'].content['application/json'].schema } };
+    await writeContractSet(directory, { [name]: current });
+    const result = run(); assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /stable setting changed: fullnet-client-v1\.openapi\.json paths/);
+    assert.ok(result.stderr.length < 20_000);
+  } finally { await rm(temporary, { recursive: true }); }
 });
 
 test('目录直接子节点演进仅允许 children 精确替换为 hasChildren', async () => {

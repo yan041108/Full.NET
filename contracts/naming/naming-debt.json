@@ -2742,21 +2742,21 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
-      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/277_NotificationsDeliveryGovernanceSnapshot.sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/278_NotificationsDeliveryGovernanceSnapshot.sql",
       "reason": "277 仅按 INFORMATION_SCHEMA 列存在性选择固定建列语句或 SELECT 1；通知投递表和四个治理快照列均为常量，不接受外部输入。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
-      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/282_NotificationsAttemptBudget.sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/283_NotificationsAttemptBudget.sql",
       "reason": "282 仅按 INFORMATION_SCHEMA 列存在性选择固定预算建列语句或 SELECT 1；标识符均为常量，双库恢复断言覆盖未记账回填和已收紧结构重跑。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
-      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/284_NotificationsMessageLifecycle.sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/285_NotificationsMessageLifecycle.sql",
       "reason": "284 仅根据 INFORMATION_SCHEMA 列存在性选择固定生命周期列定义，标识符均为常量，不接受业务输入；恢复集固定 283/284 上界。",
       "removalMilestone": "M1.0"
     }

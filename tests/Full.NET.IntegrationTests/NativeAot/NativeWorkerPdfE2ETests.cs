@@ -13,7 +13,11 @@ public sealed class NativeWorkerPdfE2ETests
     public Task SqlServer_native_worker_recovers_settled_pdf_generation() => Verify(DatabaseProvider.SqlServer);
     [TestMethod]
     public Task MySql_native_worker_recovers_settled_pdf_generation() => Verify(DatabaseProvider.MySql);
-    private static async Task Verify(DatabaseProvider provider)
+    [TestMethod]
+    public Task SqlServer_native_worker_recovers_unified_document_generation() => Verify(DatabaseProvider.SqlServer, document: true);
+    [TestMethod]
+    public Task MySql_native_worker_recovers_unified_document_generation() => Verify(DatabaseProvider.MySql, document: true);
+    private static async Task Verify(DatabaseProvider provider, bool document = false)
     {
         if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var reason)) Assert.Inconclusive(reason ?? "Native Worker artifact unavailable.");
         var connection = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
@@ -23,6 +27,6 @@ public sealed class NativeWorkerPdfE2ETests
         using var client = factory.CreateClientForHost("localhost");
         var token = await IntegrationTestAuthHelper.LoginAsHostUserAsync(client, "admin");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        await NativePdfKnowledgeAssertions.VerifyAsync(client, token, provider, connection, default, nativeWorker: true);
+        await NativePdfKnowledgeAssertions.VerifyAsync(client, token, provider, connection, default, nativeWorker: true, docx: document);
     }
 }

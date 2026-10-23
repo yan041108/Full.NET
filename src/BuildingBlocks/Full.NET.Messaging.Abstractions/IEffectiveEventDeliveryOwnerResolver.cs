@@ -5,6 +5,13 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public interface IEffectiveEventDeliveryOwnerResolver
 {
+    /// <summary>使用当前事务锁内已读取的所有者解析有效链路，不再读取数据库。</summary>
+    /// <param name="eventType">事件类型稳定名。</param>
+    /// <param name="schemaVersion">事件 Schema 版本号。</param>
+    /// <param name="persistedOwner">锁内所有者；空值表示流未登记，回退目录默认值。</param>
+    /// <returns>经过目录约束校验的有效所有者。</returns>
+    EventDeliveryOwner ResolveDeliveryOwner(string eventType, int schemaVersion, EventDeliveryOwner? persistedOwner);
+
     /// <summary>
     /// 解析指定事件类型与 SchemaVersion 的有效交付所有权。
     /// </summary>

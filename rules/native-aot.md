@@ -54,12 +54,10 @@
 
 ## 8. 验证梯度与门禁
 
-1. 执行时机统一遵守 [集中验收与构建复用](development-quality.md#r-20261008-concentrated-acceptance模块批次集中验收与测试资源复用)：功能批次完成后先运行受影响 Unit、Architecture 和 governance，再执行下列适用门禁；开发中仅按需运行消除实现不确定性的最小检查。新增可自动化门禁须有能识别违规的防漂移验证，纯文字规则不为匹配措辞新增测试。
-2. 修改 Host.Api 可达代码、AOT 编译条件、JSON/配置源生成、Dapper AOT 或第三方闭包时，至少运行：
-   - `pnpm test:aot:analyzers`
-   - `pnpm test:dotnet:architecture --selection api-native-aot`
-3. 修改发布闭包、第三方依赖、RID/native 文件或 linker 配置时，还必须运行 `pnpm test:aot:publish:linux`。
-4. 修改运行时路径时必须执行对应原生外部进程门禁：核心路径使用 `pnpm test:aot:native:e2e`；S3 使用 `pnpm test:aot:native:s3:e2e`；Kafka Replay 使用 `pnpm test:aot:native:kafka-replay:e2e`；组合 Provider 可使用 `pnpm test:aot:native:providers:e2e`。
+1. 执行范围统一遵守 [测试与验证](development-quality.md#11-测试与验证)的 R-20261023-focused-change-verification：功能批次完成后只运行本次变更直接相关检查，不自动执行完整 AOT 专项、Architecture 或 governance。新增可自动化门禁须能识别违规，纯文字规则不为匹配措辞新增测试。
+2. 修改 Host.Api 可达代码、AOT 编译条件、JSON/配置源生成、Dapper AOT 或第三方闭包时，按变化选择 `pnpm test:aot:analyzers` 和对应 Architecture 用例；使用精确过滤器，不默认运行整个 `api-native-aot` 测试集合。闭包分析所需的构建不等于授权完整运行时测试。
+3. 修改发布闭包、第三方依赖、RID/native 文件或 linker 配置时，验证对应发布目标；`pnpm test:aot:publish:linux` 是发布入口，不自动附带完整原生回归。
+4. 修改原生运行时行为时只执行对应外部进程用例：从核心、S3 或 Kafka Replay 原生测试中精确选择改变的路径，不因 Host.Api 可达就启动全部 Provider 或核心 E2E。完整原生矩阵只在用户明确要求全量时执行；未运行部分保持未验证，不阻止已通过范围的聚焦交付。
 5. 非 Linux discovery skip 只证明测试可发现，不能证明原生运行通过。`Aot-published` 或 Provider 状态升级可引用本地 Linux/WSL/Linux 容器中的真实发布与原生运行结果，记录提交 SHA、命令、环境、步骤结论和未验证边界；CI 不是必要前置，执行位置按开发质量 §11。
 
 ## 9. 失败诊断顺序

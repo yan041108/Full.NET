@@ -30,7 +30,7 @@ internal sealed class EffectiveEventDeliveryOwnerResolver(
         var persisted = await ownershipStore
             .FindAsync(eventType, schemaVersion, cancellationToken)
             .ConfigureAwait(false);
-        return ResolveOwner(eventType, schemaVersion, persisted?.CurrentOwner);
+        return ResolveDeliveryOwner(eventType, schemaVersion, persisted?.CurrentOwner);
     }
 
     public async Task<IReadOnlyDictionary<(string EventType, int SchemaVersion), EventDeliveryOwner>> GetDeliveryOwnersAsync(
@@ -39,11 +39,12 @@ internal sealed class EffectiveEventDeliveryOwnerResolver(
         var persisted = await ownershipStore.ListAsync(cancellationToken).ConfigureAwait(false);
         var byStream = persisted.ToDictionary(row => (row.MessageType, row.SchemaVersion));
         return topics.ToDictionary(topic => (topic.EventType, topic.SchemaVersion), topic =>
-            ResolveOwner(topic.EventType, topic.SchemaVersion,
+            ResolveDeliveryOwner(topic.EventType, topic.SchemaVersion,
                 byStream.TryGetValue((topic.EventType, topic.SchemaVersion), out var owner) ? owner.CurrentOwner : null));
     }
 
-    private EventDeliveryOwner ResolveOwner(string eventType, int schemaVersion, EventDeliveryOwner? persistedOwner)
+    /// <inheritdoc />
+    public EventDeliveryOwner ResolveDeliveryOwner(string eventType, int schemaVersion, EventDeliveryOwner? persistedOwner)
     {
         var catalog = catalogAccessor();
         if (persistedOwner is { } owner)

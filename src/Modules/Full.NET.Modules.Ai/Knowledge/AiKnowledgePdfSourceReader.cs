@@ -36,7 +36,7 @@ internal sealed class AiKnowledgePdfSourceBuffer : IDisposable
 }
 
 /// <summary>取得并释放 Files 交付的独占流；不读取存储路径，也不授予解析或外发权限。</summary>
-internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transactions, int timeoutMs = 25000)
+internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transactions, int timeoutMs = 25000, int maxSourceBytes = AiKnowledgePdfOutputReader.MaxSourceBytes)
 {
     private const int ScratchSize = 32768;
     private static readonly TimeSpan CleanupLimit = TimeSpan.FromSeconds(5);
@@ -58,8 +58,9 @@ internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transacti
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
             if (timeoutMs is < 1 or > 25000) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+            if (maxSourceBytes is not (5242880 or 8388608)) throw new ArgumentOutOfRangeException(nameof(maxSourceBytes));
             deadline.CancelAfter(timeoutMs);
-            if (trustedSize is < 1 or > AiKnowledgePdfOutputReader.MaxSourceBytes || trustedHash is not { Length: 64 }
+            if (trustedSize < 1 || trustedSize > maxSourceBytes || trustedHash is not { Length: 64 }
                 || !trustedHash.All(char.IsAsciiHexDigit)) return null;
             output = new((int)trustedSize);
             // 隔离同步阻塞的 ReadAsync 实现，外层 WaitAsync 仍能响应取消；不使用共享或池化字节数组。

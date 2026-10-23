@@ -102,8 +102,8 @@ internal static class NotificationGovernanceAuthorizationAssertions
                 ? ".Migrations.SqlServer." : ".Migrations.MySql.";
             var result = builder.WithScriptsEmbeddedInAssembly(typeof(DbUpMigrationRunner).Assembly,
                     name => name.Contains(segment, StringComparison.Ordinal)
-                        && (name.EndsWith(".279_NotificationsProducerSceneCatalogPermissions.sql", StringComparison.Ordinal)
-                            || name.EndsWith(".281_NotificationsQuotaPermissions.sql", StringComparison.Ordinal)))
+                        && (name.EndsWith(".280_NotificationsProducerSceneCatalogPermissions.sql", StringComparison.Ordinal)
+                            || name.EndsWith(".282_NotificationsQuotaPermissions.sql", StringComparison.Ordinal)))
                 .JournalTo(new NullJournal())
                 .WithExecutionTimeout(TimeSpan.FromSeconds(60))
                 .Build().PerformUpgrade();

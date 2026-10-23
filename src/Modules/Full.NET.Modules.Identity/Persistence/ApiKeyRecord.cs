@@ -55,7 +55,7 @@ internal sealed class ApiKeyListRow
 }
 
 /// <summary>API Key 认证时联表加载的用户与密钥状态。</summary>
-internal sealed class ApiKeyAuthenticationRow
+internal class ApiKeyAuthenticationRow
 {
     public Guid ApiKeyId { get; set; }
 
@@ -86,4 +86,11 @@ internal sealed class ApiKeyAuthenticationRow
     public bool UserIsActive { get; set; }
 
     public DateTimeOffset? UserLockoutEndUtc { get; set; }
+}
+
+/// <summary>首次 API Key 认证同时读取开放接入绑定及配额，其他复核入口保持原投影。</summary>
+internal sealed class ApiKeyAuthenticationWithQuotaRow : ApiKeyAuthenticationRow
+{
+    public Guid? OpenAccessClientId { get; set; }
+    public int? DailyRequestQuota { get; set; }
 }

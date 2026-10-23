@@ -124,11 +124,11 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
 
     private sealed class PermissiveOwnershipGate : IEventStreamOwnershipGate
     {
-        public Task<bool> AcquireProducerAsync(
+        public Task<EventDeliveryOwner?> AcquireProducerAsync(
             string eventType,
             int schemaVersion,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+            Task.FromResult<EventDeliveryOwner?>(EventDeliveryOwner.CdcKafka);
 
         public Task<bool> AcquireConsumerAsync(
             string eventType,
@@ -145,6 +145,9 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
 
     private sealed class CdcOwnerResolver : IEffectiveEventDeliveryOwnerResolver
     {
+        public EventDeliveryOwner ResolveDeliveryOwner(string eventType, int schemaVersion, EventDeliveryOwner? persistedOwner) =>
+            EventDeliveryOwner.CdcKafka;
+
         public Task<EventDeliveryOwner> GetDeliveryOwnerAsync(
             string eventType,
             int schemaVersion,

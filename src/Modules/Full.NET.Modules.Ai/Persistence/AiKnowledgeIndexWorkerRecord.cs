@@ -12,4 +12,5 @@ internal sealed class AiKnowledgeIndexWorkerRecord
     public int KnowledgeBaseVersion { get; init; }
     public Guid OwnerUserId { get; init; }
     public string ContentType { get; init; } = string.Empty;
+    public string ParsingPolicyKey { get; init; } = "default";
 }

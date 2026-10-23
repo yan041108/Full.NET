@@ -44,9 +44,9 @@ internal sealed class DapperEventStreamOwnershipGate(
     /// <param name="eventType">事件类型全限定名。</param>
     /// <param name="schemaVersion">Schema 版本号。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>true 表示所有权行存在且已取得共享锁；false 表示行不存在（未注册事件流）。</returns>
+    /// <returns>锁内读取的所有者；未注册流返回空值，禁止跨事务复用。</returns>
     /// <exception cref="EventDeliveryProducerFencedException">当 RollbackState=1 时抛出，拒绝写入。</exception>
-    public Task<bool> AcquireProducerAsync(
+    public Task<EventDeliveryOwner?> AcquireProducerAsync(
         string eventType,
         int schemaVersion,
         CancellationToken cancellationToken = default) =>
@@ -128,18 +128,18 @@ internal sealed class DapperEventStreamOwnershipGate(
     /// <param name="schemaVersion">Schema 版本号。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>true 表示行存在且已取得排他更新锁；false 表示行不存在。</returns>
-    public Task<bool> AcquireOwnershipChangeAsync(
+    public async Task<bool> AcquireOwnershipChangeAsync(
         string eventType,
         int schemaVersion,
         CancellationToken cancellationToken = default) =>
-        AcquireAsync(
+        (await AcquireAsync(
             eventType,
             schemaVersion,
             exclusive: true,
             rejectRollbackPreparing: false,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false)).HasValue;
 
-    private async Task<bool> AcquireAsync(
+    private async Task<EventDeliveryOwner?> AcquireAsync(
         string eventType,
         int schemaVersion,
         bool exclusive,
@@ -166,7 +166,13 @@ internal sealed class DapperEventStreamOwnershipGate(
             throw new EventDeliveryProducerFencedException(eventType, schemaVersion);
         }
 
-        return owner.HasValue;
+        if (owner.HasValue && !Enum.IsDefined((EventDeliveryOwner)owner.Value))
+        {
+            throw new InvalidOperationException(
+                $"Event stream ownership row contains unsupported owner '{owner.Value}'.");
+        }
+
+        return owner.HasValue ? (EventDeliveryOwner)owner.Value : null;
     }
 
     private static IReadOnlyDictionary<string, object?> CreateParameters(

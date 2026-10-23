@@ -9,6 +9,7 @@ internal sealed class AiKnowledgeVersionRecord
     public int VersionNumber { get; init; }
     public string OriginalFileName { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;
+    public string ParsingPolicyKey { get; init; } = "default";
     public string ContentHash { get; init; } = string.Empty;
     public long SizeBytes { get; init; }
     public Guid UploadedByUserId { get; init; }

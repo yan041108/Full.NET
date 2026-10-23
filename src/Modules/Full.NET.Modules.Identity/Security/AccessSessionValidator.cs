@@ -51,11 +51,11 @@ internal sealed class AccessSessionValidator(
             {
                 ["SessionId"] = sessionId,
             };
-        RefreshSessionRecord? record;
+        AccessSessionValidationRecord? record;
         try
         {
-            record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-                    IdentitySql.FindRefreshSessionById,
+            record = await queryExecutor.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(
+                    IdentitySql.FindAccessSessionValidationById,
                     parameters,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -97,7 +97,7 @@ internal sealed class AccessSessionValidator(
     }
 
     private bool IsActive(
-        RefreshSessionRecord? record,
+        AccessSessionValidationRecord? record,
         Guid userId,
         string securityStamp) =>
         record is not null

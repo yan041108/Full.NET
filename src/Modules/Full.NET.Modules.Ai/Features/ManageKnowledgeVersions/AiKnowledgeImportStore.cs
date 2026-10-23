@@ -33,12 +33,15 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
         query.QuerySingleOrDefaultAsync<AiKnowledgeImportRecord>(IsTenant ? AiKnowledgeImportSql.FindTenant : AiKnowledgeImportSql.FindHost, parameters, token);
 
     internal async Task<Result<AiKnowledgeImportRecord>> StartAsync(Guid knowledgeBaseId, Guid documentId, Guid actor,
-        int version, Guid requestKey, string name, string type, AiKnowledgeUploadBuffer payload, CancellationToken token)
+        int version, Guid requestKey, string name, string type, AiKnowledgeUploadBuffer payload, CancellationToken token, string parsingPolicyKey = "default")
     {
+        var parsingPolicy = Knowledge.AiKnowledgeDocumentFormats.Policy(type, parsingPolicyKey);
+        if (parsingPolicy is null) return Failure<AiKnowledgeImportRecord>("ai.knowledge.upload_invalid", "The parsing policy is not valid for this content type.", ErrorType.Validation);
+        if (parsingPolicy == Knowledge.AiKnowledgeDocumentFormats.Policy(type, "default")) parsingPolicyKey = "default";
         var parameters = Parameters(knowledgeBaseId, documentId, actor);
         parameters.Add("RequestKey", requestKey);
         var existing = await FindKeyAsync(parameters, token).ConfigureAwait(false);
-        if (existing is not null) return Match(existing, version, name, type, payload);
+        if (existing is not null) return Match(existing, version, name, type, payload, parsingPolicyKey);
         var document = await OwnedDocumentAsync(knowledgeBaseId, documentId, actor, false, token).ConfigureAwait(false);
         if (document is null) return NotFound<AiKnowledgeImportRecord>();
         if (document.Version != version) return Conflict<AiKnowledgeImportRecord>();
@@ -47,6 +50,7 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
         parameters.Add("Version", version);
         parameters.Add("OriginalFileName", name);
         parameters.Add("ContentType", type);
+        parameters.Add("ParsingPolicyKey", parsingPolicyKey);
         parameters.Add("ContentHash", payload.Hash);
         parameters.Add("SizeBytes", payload.Size);
         parameters.Add("Now", clock.UtcNow);
@@ -60,16 +64,16 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
             // 唯一键竞争只复用已经持久化且完全匹配的请求；其他数据库失败仍向上抛出。
             existing = await FindKeyAsync(parameters, token).ConfigureAwait(false);
             if (existing is null) throw;
-            return Match(existing, version, name, type, payload);
+            return Match(existing, version, name, type, payload, parsingPolicyKey);
         }
         return Result<AiKnowledgeImportRecord>.Success((await FindKeyAsync(parameters, token).ConfigureAwait(false))!);
     }
 
     private Task<AiKnowledgeImportRecord?> FindKeyAsync(Dictionary<string, object?> parameters, CancellationToken token) =>
         query.QuerySingleOrDefaultAsync<AiKnowledgeImportRecord>(IsTenant ? AiKnowledgeImportSql.FindKeyTenant : AiKnowledgeImportSql.FindKeyHost, parameters, token);
-    private static Result<AiKnowledgeImportRecord> Match(AiKnowledgeImportRecord row, int version, string name, string type, AiKnowledgeUploadBuffer payload) =>
+    private static Result<AiKnowledgeImportRecord> Match(AiKnowledgeImportRecord row, int version, string name, string type, AiKnowledgeUploadBuffer payload, string parsingPolicyKey) =>
         row.ExpectedDocumentVersion == version && row.OriginalFileName == name && row.ContentType == type
-            && row.ContentHash == payload.Hash && row.SizeBytes == payload.Size
+            && row.ContentHash == payload.Hash && row.SizeBytes == payload.Size && row.ParsingPolicyKey == parsingPolicyKey
             ? Result<AiKnowledgeImportRecord>.Success(row)
             : Failure<AiKnowledgeImportRecord>("ai.knowledge.import_conflict", "The retry key belongs to a different request.", ErrorType.Conflict);
 

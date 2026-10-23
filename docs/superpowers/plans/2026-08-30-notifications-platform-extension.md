@@ -9,7 +9,7 @@
 - [x] 当前 Worker 经默认 Linux SDK/ILC 发布，双库原生进程验证通知消费、治理执行及正常停止；最终通知治理、Workflow 投影及 PDF 恢复六项 6/6、零跳过，不能外推完整 Worker 全绿。
 - [ ] 新增治理 API 在当前 Host.Api Linux 原生产物上执行双库 HTTP/JSON、权限、偏好/额度与归档撤回行为验收。
 - [x] 使用真实通知指标和当前 Prometheus 规则验证积压、死信、Unknown 告警触发与恢复，保留失败证据。
-- [ ] 对齐本计划旧活动清单和能力边界；真实厂商与无法访问的外部原报告单列，容量保持 Capacity-not-verified。
+- [x] 对齐本计划旧活动清单和能力边界；真实厂商与无法访问的外部原报告单列，容量保持 Capacity-not-verified。
 
 - 当前用户明确授权连续完成三个整改批次，历史“仅更新文档”是历史任务范围，不限制本次实施。
 - 实际工作目录经用户确认改为 `E:/wwwroot/github/Full.NET`；分支 `main`，基线 `5093b6f4e6fc65071fedbeae0e23ba80a8ba28d6`，保留现有未提交实现。任务快照 `notifications-20261023` 由 `node scripts/testing/create-task-snapshot.mjs` 创建（pnpm 包装入口因本机版本自动安装失败，未变更依赖）。
@@ -546,8 +546,17 @@ dotnet publish src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj --no-restore
 - 依赖修复后的 Worker 默认 Linux 发布已成功（退出 0），没有使用两阶段对象：新 ELF **90,536,568 字节**，SHA-256 `2546357779c45291f22dfb6f1b10f2d8d11d3d548f2c624becd848f9e155813c`；新 `.o` **589,230,545 字节**，482 个输入有完整散列。与首轮相比变更为 Tenancy、Composition 与 Worker 入口三个程序集，文件大小相同但 ELF 散列已改变；7 条既有第三方告警全部准入。`worker-after-di-publish-result.json`、`worker-after-di-input-delta.json` 和原始发布日志保留。Worker、API 发布期间分别独立读回 VM 进程及 92 线程，均为 CPU 31 掩码；发布与最终运行终态继续登记，不由编译成功关闭行为门禁。
 - API 重发发生新的环境中断：**17:37:12** Docker 返回 `error waiting for container: unexpected EOF`，原 VM PID 12784 退出，Docker 后端记录 WSL bootstrap 退出、引擎停止与自动恢复；新 VM PID 27216 于 17:37:21 启动。没有得到本次 ILC 自身的访问冲突或成功发布终态，不能把这次失败归类为已确认编译器缺陷，也不能计为发布成功。原始 `api-after-di-publish.log`、Docker 后端退出节选、`fullnet-test-run-y5dmix` 和中断时主输入散列保留。finally 恢复旧 PID 亲和性因其已退出而失败，未越过世代检查修改其他进程；控制脚本已启动原双库，新 VM 初始掩码读回为原始 4294967295，原世代记录另存 `vm-affinity-generation1-original.json`。Redis 也因 VM 重启退出，已恢复原实例。后续使用新世代记录与获批限制继续独立 Worker 验收；API 采用新的原生中间目录重新走默认链路，不复用中断对象，不重新检测 CPU。
 
-- 最终新 Worker 行为补验 `governance-worker-final-1792748546679`：**6/6、0 失败、0 跳过，16 分 58.732 秒**，包含 SQL Server/MySQL 各一项通知发送治理/预算恢复、Workflow 通知投影及 PDF 已结算恢复。所有原生进程正常停止，故障标记没有再次报告权益依赖解析错误。首轮完整 29 项中的 MySQL PDF 失败及其余历史结果仍保留；本次六项通过不改写首轮为全绿，也不宣称首次 PDF 故障根因已确认。API 使用 `api-after-vm-restart-native` 的默认 Linux 发布仍在执行，不能据旧 API 二进制关闭当前共享组件修复后的门禁。
+- 最终新 Worker 行为补验 `governance-worker-final-1792748546679`：**6/6、0 失败、0 跳过，16 分 58.732 秒**，包含 SQL Server/MySQL 各一项通知发送治理/预算恢复、Workflow 通知投影及 PDF 已结算恢复。所有原生进程正常停止，故障标记没有再次报告权益依赖解析错误。首轮完整 29 项中的 MySQL PDF 失败及其余历史结果仍保留；本次六项通过不改写首轮为全绿，也不宣称首次 PDF 故障根因已确认。API 使用 `api-after-vm-restart-native` 的默认 Linux 发布已进入 ILC；为按最新指令合并远端而终止旧输入运行，未完成、未计为通过，不能据旧 API 二进制关闭共享组件修复及合并后的门禁。
 
+### 2026-10-23 全部代码提交与远端同步
+
+- 最新用户指令明确授权“提交所有代码，并同步”；全部既有工作区实现已保存为 `288f613f`。同步前 `origin/main` 前进至 `e50f7c82`，含四个 AI/性能提交，使用普通合并保留两边历史，不强制推送。
+- 合并处理五处内容冲突：双库注释覆盖合并、测试最低发现数按两边新增量相加、保留两种 Git-ref 契约回归、保留通知与审批 Worker 故障标记；同一权益端口修复统一为共用入口的一份 Scoped 注册。重新生成客户端契约和数据库对象注释。
+- 远端已使用迁移 277，Notifications 原 277–284 成对顺延为 278–285，并同步所有恢复测试的精确资源名。双 Provider 各编号唯一，16 份通知 SQL 正文逐字比较（仅换行归一化）均与提交 `288f613f` 相同；历史 283/284 失败恢复证据保留原编号，不能冒充新编号部署结果。
+- 同步检查：治理、OpenAPI、矩阵、原生结果解析及数据库诊断脚本的直接相关 Node 检查初跑 364/366，两项过期规则断言失败；对齐远端新规则后 **366/366、0 跳过**。完整原始输出 `sync-node-checks.log`、`sync-node-retry.log` 留在同一系统临时根。没有运行全量测试。
+- 合并后直接契约消费者检查：资源池准入后执行 `node ui/admin/node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p ui/admin/tsconfig.json`（实际从 ui/admin 目录运行对应相对路径），类型检查通过；client-contracts 的 `notifications-realtime.test.ts` **12/12** 通过。数据库编号/正文比较与这两项原始输出为 `sync-focused-checks.log`；这不替代新编号的真实数据库部署或合并后原生运行。
+- 前述 Worker 6/6、告警 1/1 和 JS 四项预算对应合并前已冻结输入；远端还改变了 AI、Identity 与消息路径，不能把旧二进制/前端产物视为合并后完整闭包证据。API 默认发布补跑进入 ILC 后因本次同步主动结束（保留 `api-after-vm-restart-publish.log` 与控制日志），不是新的编译器访问冲突或通过结果；合并后的 API/Worker 原生发布与相应运行仍须按实际变更范围另验。
+- 终止后控制脚本 finally 已恢复 SQL Server/MySQL 原容器，Redis 仍在运行；新世代 VM PID 27216 的进程及全部 92 线程均读回原始掩码 4294967295，证据 `test-cache-restored.json`、`vm-final-restored.json`。未重新检测 CPU，未删除失败记录或共享数据库。
 #### 独立保留的验收边界与资料缺口
 
 - **真实厂商：** SMTP、阿里云短信、钉钉、企微、小程序的真实账户认证、发送及厂商实际支持的回执/对账尚未验证。需要相应授权配置、审核通过的模板/签名（适用时）、专用测试收件人/应用身份及回调接入资料；Secret 使用配置引用，不写入仓库、文档或日志。SMTP/企微/小程序没有可信送达回执的边界继续保留，调用成功不升级为可信送达。

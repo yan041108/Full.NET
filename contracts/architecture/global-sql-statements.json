@@ -1629,6 +1629,18 @@
       ]
     },
     {
+      "statementName": "identity.find_access_session_validation_by_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindAccessSessionValidationById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "访问令牌在租户上下文建立前按已签名会话标识读取权威撤销与用户状态，逐次核对用户、安全戳及作用域。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_refresh_session AS session",
+        "INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId",
+        "session.Id = @SessionId"
+      ]
+    },
+    {
       "statementName": "identity.find_api_key_for_authentication",
       "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.FindForAuthentication",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",

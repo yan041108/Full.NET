@@ -1039,6 +1039,26 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    // 签名校验后仍逐次读取权威状态；专用投影避免在每次请求中加载密码哈希与个人资料。
+    public static readonly SqlStatement FindAccessSessionValidationById = new(
+        "identity.find_access_session_validation_by_id",
+        """
+        SELECT session.UserId,
+               session.ExpiresAtUtc,
+               session.ConsumedAtUtc,
+               session.RevokedAtUtc,
+               session.ActiveTenantId,
+               identityUser.TenantId,
+               identityUser.ScopeKey,
+               identityUser.IsActive,
+               identityUser.LockoutEndUtc,
+               identityUser.SecurityStamp
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.Id = @SessionId
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindRefreshSessionById = new(
         "identity.find_refresh_session_by_explicit_session_id",
         """

@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 固定离线提取器不输出第三方正文日志；错误只由入口映射到稳定机器码。 -->
+<Configuration status="OFF"><Loggers><Root level="OFF" /></Loggers></Configuration>

@@ -14,3 +14,15 @@ describe('DOCX 引用位置', () => {
     } finally { wrapper.unmount(); i18n.setLocale(previous); }
   });
 });
+
+
+describe('统一来源位置', () => {
+  const source = { blockSequence: 0, kind: 'worksheet_cell', pageNumber: null, paragraphNumber: null, tableNumber: null, rowNumber: null, cellNumber: null,
+    grid: { sheetNumber: 1, sheetName: '中文表', row: 8, column: 3 }, slide: null, htmlPath: null, image: null };
+  it.each(['zh-CN', 'en-US'] as const)('使用 %s 显示单元格原生位置', locale => {
+    const i18n = useAdminI18n(); const before = i18n.locale.value; i18n.setLocale(locale);
+    const wrapper = mount(AiKnowledgeCitationPosition, { props: { citation: { ...citation, docxLocation: null, sourceLocation: source } } });
+    try { expect(wrapper.text()).toContain('中文表'); expect(wrapper.text()).toContain(locale === 'zh-CN' ? '行 8' : 'Row 8'); expect(wrapper.text()).not.toMatch(/页|Page/); }
+    finally { wrapper.unmount(); i18n.setLocale(before); }
+  });
+});

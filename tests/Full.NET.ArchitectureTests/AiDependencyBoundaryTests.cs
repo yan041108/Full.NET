@@ -13,7 +13,7 @@ public sealed class AiDependencyBoundaryTests
             .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin")))
         {
             var text = File.ReadAllText(source);
-            if (!text.Contains("AiKnowledgeDocx", StringComparison.Ordinal) && !text.Contains("AiKnowledgeIndexDocx", StringComparison.Ordinal)) continue;
+            if (!text.Contains("AiKnowledgeDocx", StringComparison.Ordinal) && !text.Contains("AiKnowledgeIndexDocument", StringComparison.Ordinal)) continue;
             Assert.IsTrue(source.Contains(Path.Combine("Modules", "Full.NET.Modules.Ai") + Path.DirectorySeparatorChar, StringComparison.Ordinal)
                 || source.Contains(Path.Combine("Modules", "Full.NET.Modules.Ai.Contracts") + Path.DirectorySeparatorChar, StringComparison.Ordinal), source);
             Assert.DoesNotContain("ISqlExecutor", text, StringComparison.Ordinal, source);

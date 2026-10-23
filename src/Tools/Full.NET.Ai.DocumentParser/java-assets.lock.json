@@ -1,0 +1,234 @@
+[
+  {
+    "file": "SparseBitSet-1.3.jar",
+    "sha256": "f76b85adb0c00721ae267b7cfde4da7f71d3121cc2160c9fc00c0c89f8c53c8a",
+    "metadata": {
+      "artifactId": "SparseBitSet",
+      "groupId": "com.zaxxer",
+      "version": "1.3"
+    },
+    "licenses": []
+  },
+  {
+    "file": "commons-codec-1.20.0.jar",
+    "sha256": "6af66595f9f6a7bb58ce66518d6888d40b547c366d2262f06676eee19528ff66",
+    "metadata": {
+      "artifactId": "commons-codec",
+      "groupId": "commons-codec",
+      "version": "1.20.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "commons-collections4-4.5.0.jar",
+    "sha256": "00f93263c267be201b8ae521b44a7137271b16688435340bf629db1bac0a5845",
+    "metadata": {
+      "artifactId": "commons-collections4",
+      "groupId": "org.apache.commons",
+      "version": "4.5.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "commons-compress-1.28.0.jar",
+    "sha256": "e1522945218456f3649a39bc4afd70ce4bd466221519dba7d378f2141a4642ca",
+    "metadata": {
+      "artifactId": "commons-compress",
+      "groupId": "org.apache.commons",
+      "version": "1.28.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "commons-io-2.21.0.jar",
+    "sha256": "7d643a2afea8b058b762aa6fb90e5b256f6c729739f8b3784c3370ddc609e88d",
+    "metadata": {
+      "artifactId": "commons-io",
+      "groupId": "commons-io",
+      "version": "2.21.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "commons-lang3-3.18.0.jar",
+    "sha256": "4eeeae8d20c078abb64b015ec158add383ac581571cddc45c68f0c9ae0230720",
+    "metadata": {
+      "artifactId": "commons-lang3",
+      "groupId": "org.apache.commons",
+      "version": "3.18.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "commons-math3-3.6.1.jar",
+    "sha256": "1e56d7b058d28b65abd256b8458e3885b674c1d588fa43cd7d1cbb9c7ef2b308",
+    "metadata": {
+      "version": "3.6.1",
+      "groupId": "org.apache.commons",
+      "artifactId": "commons-math3"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  },
+  {
+    "file": "curvesapi-1.08.jar",
+    "sha256": "ad95b08b8bbf9d7d17e5e00814898fa23324f32bc5b62f1a37801e6a56ce0079",
+    "metadata": {
+      "groupId": "com.github.virtuald",
+      "artifactId": "curvesapi",
+      "version": "1.08"
+    },
+    "licenses": []
+  },
+  {
+    "file": "jackson-annotations-2.22.jar",
+    "sha256": "21ddb598807d3a51a876704eb979d9296e1c6a6f47ab1826ff88c6d6a127a2d0",
+    "metadata": {
+      "artifactId": "jackson-annotations",
+      "groupId": "com.fasterxml.jackson.core",
+      "version": "2.22"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "jackson-core-2.22.3.jar",
+    "sha256": "8a501126a385b25841915d839508f8a66e2a0dbc8a6709d055ef3b3e852b094c",
+    "metadata": {
+      "artifactId": "jackson-core",
+      "groupId": "com.fasterxml.jackson.core",
+      "version": "2.22.3"
+    },
+    "licenses": [
+      "META-INF/FastDoubleParser-LICENSE",
+      "META-INF/FastDoubleParser-ThirdParty-LICENSE",
+      "META-INF/LICENSE",
+      "META-INF/Schubfach-LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "jackson-databind-2.22.3.jar",
+    "sha256": "556db5439e206114346043f68d200497dc96a0bca62a360a81784092ebd0e0a9",
+    "metadata": {
+      "artifactId": "jackson-databind",
+      "groupId": "com.fasterxml.jackson.core",
+      "version": "2.22.3"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "log4j-api-2.26.1.jar",
+    "sha256": "f1810a4704ccce019d02bba029dc02a4f2ac0c997f647b465e7d409c1927f822",
+    "metadata": {
+      "artifactId": "log4j-api",
+      "groupId": "org.apache.logging.log4j",
+      "version": "2.26.1"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "log4j-core-2.26.1.jar",
+    "sha256": "2ec8c3bf5a6d7c89be8620116a2fc973f7dda1ad0261ad393c4d4726edfd3dcb",
+    "metadata": {
+      "artifactId": "log4j-core",
+      "groupId": "org.apache.logging.log4j",
+      "version": "2.26.1"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "poi-5.5.1.jar",
+    "sha256": "6c52e876ca75775a11b56e4b36a7541f682827f56406725fcd87560b792ee3d8",
+    "metadata": {
+      "groupId": "org.apache.poi",
+      "artifactId": "poi",
+      "version": "5.5.1"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "poi-ooxml-5.5.1.jar",
+    "sha256": "bd7be2fdfe3fd2c1684fa813351c2798fd636b44f6236e0674500d4f8ff1c2f9",
+    "metadata": {
+      "groupId": "org.apache.poi",
+      "artifactId": "poi-ooxml",
+      "version": "5.5.1"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "poi-ooxml-lite-5.5.1.jar",
+    "sha256": "e6e37adeb6d6ee8b40ec491ad955d934d8f99827ab050f105b18286e59b1d9e7",
+    "metadata": {
+      "groupId": "org.apache.poi",
+      "artifactId": "poi-ooxml-lite",
+      "version": "5.5.1"
+    },
+    "licenses": [
+      "org/apache/poi/schemas/ooxml/element/http_3A_2F_2Furi_2Eetsi_2Eorg_2F01903_2Fv1_2E3_2E2_23/SPUserNotice.xsb",
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "poi-scratchpad-5.5.1.jar",
+    "sha256": "24c3f407eff517432d5cfd5628b6b8a091f94c1dbb7481384599b5a0fbeedeb9",
+    "metadata": {
+      "groupId": "org.apache.poi",
+      "artifactId": "poi-scratchpad",
+      "version": "5.5.1"
+    },
+    "licenses": [
+      "META-INF/LICENSE",
+      "META-INF/NOTICE"
+    ]
+  },
+  {
+    "file": "xmlbeans-5.3.0.jar",
+    "sha256": "6cc69da3b4d35b83c5e477cd4daba204e44109833e34af2b9a8a2c8788289917",
+    "metadata": {
+      "groupId": "org.apache.xmlbeans",
+      "artifactId": "xmlbeans",
+      "version": "5.3.0"
+    },
+    "licenses": [
+      "META-INF/LICENSE.txt",
+      "META-INF/NOTICE.txt"
+    ]
+  }
+]

@@ -277,7 +277,10 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
 
     private static string Sql(string operation, bool tenant) => ((SqlStatement)typeof(AiModule).Assembly
         .GetType("Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexTaskSql", true)!
-        .GetField(operation + (tenant ? "Tenant" : "Host"), BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).Text;
+        .GetField(operation + (tenant ? "Tenant" : "Host"), BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).Text
+        // 246 的历史结构没有解析策略列；冻结其默认语义，277 的策略资格由独立迁移回归覆盖。
+        .Replace(" AND policy_import.ParsingPolicyKey=version.ParsingPolicyKey AND RIGHT(policy_import.ParsingPolicyKey,1)<>' ' AND RIGHT(version.ParsingPolicyKey,1)<>' '", "", StringComparison.Ordinal)
+        .Replace("version.ParsingPolicyKey,", "'default' AS ParsingPolicyKey,", StringComparison.Ordinal);
     internal static Task<string> DatabaseAsync(bool sqlServer) => sqlServer ? SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : SharedDatabaseFixture.CreateMySqlDatabaseAsync();
     internal static DbConnection Connection(bool sqlServer, string connectionString) => sqlServer ? new SqlConnection(connectionString) : ReviewFixMigrationRecoverySupport.MySqlConnection(connectionString);
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AiKnowledgeImagePreview from './AiKnowledgeImagePreview.vue';
+import { knowledgeFileContentTypes } from '@fullnet/client-contracts';
 import AiKnowledgeCitationPosition from './AiKnowledgeCitationPosition.vue';
 import { computed, defineAsyncComponent, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton } from 'element-plus';
@@ -13,10 +15,11 @@ const props = defineProps<{ open: boolean; knowledgeBaseId?: string; candidateBa
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const selectedBase = ref(''); const text = ref(''); const binary = ref(false); const failed = ref(false); const loading = ref(false);
-const pdfData = ref<Uint8Array>();
+const pdfData = ref<Uint8Array>(); const imageData = ref<Blob>();
+const citationPage = computed(() => props.citation?.pageNumber ?? props.citation?.sourceLocation?.pageNumber ?? props.citation?.sourceLocation?.image?.parent?.pageNumber ?? undefined);
 const canRead = computed(() => !session.switching && ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read'].every(code => session.can(code)));
 let epoch = 0; let controller: AbortController | undefined;
-function clear() { ++epoch; controller?.abort(); pdfData.value = undefined; text.value = ''; binary.value = false; failed.value = false; loading.value = false; }
+function clear() { ++epoch; controller?.abort(); pdfData.value = undefined; imageData.value = undefined; text.value = ''; binary.value = false; failed.value = false; loading.value = false; }
 watch(() => [props.open, props.knowledgeBaseId, props.candidateBaseIds, props.documentId, props.versionId, props.version], () => { clear(); selectedBase.value = props.knowledgeBaseId ?? ''; }, { immediate: true, deep: true });
 watch(selectedBase, clear);
 watch(() => [session.currentUser, session.switching], () => { clear(); selectedBase.value = ''; emit('update:open', false); }, { deep: true });
@@ -48,7 +51,7 @@ async function read(download = false) {
     const mime = (version?.contentType ?? blob.type).split(';')[0]?.trim().toLowerCase();
     if (download) {
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
-      anchor.href = url; anchor.download = `${props.versionId}.${mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? 'docx' : mime === 'application/pdf' ? 'pdf' : mime === 'text/markdown' ? 'md' : mime === 'text/plain' ? 'txt' : 'bin'}`;
+      anchor.href = url; anchor.download = version?.originalFileName ?? `${props.versionId}.${Object.keys(knowledgeFileContentTypes).find(key => knowledgeFileContentTypes[key] === mime) ?? 'bin'}`;
       document.body.append(anchor);
       try { anchor.click(); } finally { anchor.remove(); URL.revokeObjectURL(url); }
     } else if (mime === 'text/plain' || mime === 'text/markdown') {
@@ -59,6 +62,9 @@ async function read(download = false) {
       const buffer = await blob.arrayBuffer();
       if (current !== epoch || !props.open || !canRead.value) return;
       pdfData.value = new Uint8Array(buffer);
+    } else if (mime && ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/gif', 'image/apng', 'image/avif'].includes(mime)
+      && props.citation?.sourceLocation?.image?.frameNumber === 1 && !props.citation.sourceLocation.image.parent) {
+      imageData.value = new Blob([blob], { type: mime });
     } else { binary.value = true; }
   } catch { if (current === epoch) { text.value = ''; binary.value = false; failed.value = true; } }
   finally { if (current === epoch) loading.value = false; }
@@ -68,7 +74,8 @@ async function read(download = false) {
   <ArtFormDialog :open="open" :title="t('knowledge.source')" width="760px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="emit('update:open', $event)">
     <p>{{ t('knowledge.sourceHint') }}</p>
     <p v-if="citation"><AiKnowledgeCitationPosition :citation="citation" /></p>
-    <AiKnowledgeBaseSelect v-if="!knowledgeBaseId" v-model="selectedBase" :disabled="loading" :candidate-ids="candidateBaseIds" />
+    <!-- 弹层必须留在原生 dialog 的 top layer 内，挂到 body 会失去交互能力。 -->
+    <AiKnowledgeBaseSelect v-if="!knowledgeBaseId" v-model="selectedBase" :teleported="false" :disabled="loading" :candidate-ids="candidateBaseIds" />
     <p v-if="!knowledgeBaseId && candidateBaseIds">{{ t('knowledge.sourceBaseChoice') }}</p>
     <el-alert v-if="!canRead" :title="t('knowledge.noPermission')" type="warning" :closable="false" />
     <el-alert v-if="failed" :title="t('knowledge.sourceUnavailable')" type="warning" :closable="false" data-testid="knowledge-source-error" />
@@ -77,7 +84,8 @@ async function read(download = false) {
       <el-button :disabled="!selectedBase || loading" data-testid="knowledge-source-download" @click="read(true)">{{ t('knowledge.download') }}</el-button>
     </div>
     <pre v-if="text" data-testid="knowledge-source-text">{{ text }}</pre>
-    <AiKnowledgePdfPreview v-if="pdfData && open && canRead" :data="pdfData" :initial-page="citation?.pageNumber ?? undefined" />
+    <AiKnowledgePdfPreview v-if="pdfData && open && canRead" :data="pdfData" :initial-page="citationPage" />
+    <AiKnowledgeImagePreview v-if="imageData && citation?.sourceLocation && open && canRead" :source="imageData" :location="citation.sourceLocation" />
     <p v-if="binary">{{ t('knowledge.sourceBinary') }}</p>
   </ArtFormDialog>
 </template>

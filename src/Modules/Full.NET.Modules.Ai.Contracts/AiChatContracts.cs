@@ -97,6 +97,9 @@ public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid 
     /// <summary>DOCX 的逻辑段落/表格位置；旧 TXT/PDF 响应省略此字段。</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
+    /// <summary>服务器核对的统一来源位置；旧答案未保存此字段时省略。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Full.NET.Modules.Ai.Contracts.AiKnowledgeSourceLocationResponse? SourceLocation { get; init; }
 }
 
 /// <summary>DOCX 原始正文逻辑位置；不声明版式页码。</summary>

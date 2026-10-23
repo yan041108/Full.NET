@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Ai.Knowledge;
 internal sealed record AiKnowledgeIndexTaskBinding(Guid KnowledgeBaseId, Guid DocumentId, Guid VersionId,
     int DocumentVersion, int KnowledgeBaseVersion, Guid OwnerUserId);
 
-internal enum AiKnowledgeIndexFailure { ParsingFailed, ModelUnavailable, IndexUnavailable, UsageUnknown }
+internal enum AiKnowledgeIndexFailure { ParsingFailed, ModelUnavailable, IndexUnavailable, UsageUnknown, NoExtractedText, OcrLowConfidence }
 
 /// <summary>仅负责 AI 本地持久化；领取成功不是外部派发授权或索引 ready 证明。</summary>
 internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandExecutor command,
@@ -58,12 +58,13 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
         query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTaskRecord>(IsTenant ? AiKnowledgeIndexTaskSql.FindTenant : AiKnowledgeIndexTaskSql.FindHost,
             TaskParameters(binding, taskId, token), token);
 
-    internal async Task<AiKnowledgeIndexTaskRecord?> AcquireAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, CancellationToken token)
+    internal async Task<AiKnowledgeIndexTaskRecord?> AcquireAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, CancellationToken token, int leaseSeconds = 30)
     {
+        if (leaseSeconds is not (30 or 180)) throw new ArgumentOutOfRangeException(nameof(leaseSeconds));
         var parameters = TaskParameters(binding, taskId, token);
         var leaseToken = ids.NewId();
         parameters["LeaseToken"] = leaseToken;
-        parameters["LeaseExpiresAtUtc"] = ((DateTimeOffset)parameters["Now"]!).AddSeconds(30);
+        parameters["LeaseExpiresAtUtc"] = ((DateTimeOffset)parameters["Now"]!).AddSeconds(leaseSeconds);
         if (await command.ExecuteAsync(IsTenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost, parameters, token).ConfigureAwait(false) != 1)
             return null;
         var row = await FindAsync(binding, taskId, token).ConfigureAwait(false);
@@ -71,10 +72,11 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
         return row is { StateKey: "running" } && row.LeaseToken == leaseToken && row.LeaseExpiresAtUtc > clock.UtcNow ? row : null;
     }
 
-    internal Task<bool> RenewAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    internal Task<bool> RenewAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token, int leaseSeconds = 30)
     {
+        if (leaseSeconds is not (30 or 180)) throw new ArgumentOutOfRangeException(nameof(leaseSeconds));
         var parameters = HeldParameters(binding, taskId, leaseToken, token);
-        parameters["LeaseExpiresAtUtc"] = ((DateTimeOffset)parameters["Now"]!).AddSeconds(30);
+        parameters["LeaseExpiresAtUtc"] = ((DateTimeOffset)parameters["Now"]!).AddSeconds(leaseSeconds);
         return WriteAsync(IsTenant ? AiKnowledgeIndexTaskSql.RenewTenant : AiKnowledgeIndexTaskSql.RenewHost, parameters, token);
     }
 
@@ -87,6 +89,8 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
             AiKnowledgeIndexFailure.ModelUnavailable => "ai.knowledge.model_unavailable",
             AiKnowledgeIndexFailure.IndexUnavailable => "ai.knowledge.index_unavailable",
             AiKnowledgeIndexFailure.UsageUnknown => "ai.knowledge.usage_unknown",
+            AiKnowledgeIndexFailure.NoExtractedText => Full.NET.Modules.Ai.Contracts.AiKnowledgeErrorCodes.NoExtractedText,
+            AiKnowledgeIndexFailure.OcrLowConfidence => Full.NET.Modules.Ai.Contracts.AiKnowledgeErrorCodes.OcrLowConfidence,
             _ => throw new ArgumentOutOfRangeException(nameof(failure)),
         };
         return WriteAsync(IsTenant ? AiKnowledgeIndexTaskSql.FailTenant : AiKnowledgeIndexTaskSql.FailHost, parameters, token);

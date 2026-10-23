@@ -30,4 +30,6 @@
   <data name="ai.knowledge.feedback_not_found" xml:space="preserve"><value>The answer feedback is unavailable in the current scope.</value></data>
   <data name="ai.knowledge.feedback_conflict" xml:space="preserve"><value>The answer feedback was changed by another request. Refresh before retrying.</value></data>
   <data name="ai.knowledge.index_rebuild_disabled" xml:space="preserve"><value>Independent index rebuilding is not enabled.</value></data>
+  <data name="ai.knowledge.no_extracted_text" xml:space="preserve"><value>No indexable text was extracted. Check the source file.</value></data>
+  <data name="ai.knowledge.ocr_low_confidence" xml:space="preserve"><value>OCR confidence is insufficient. The whole file was excluded from the index.</value></data>
 </root>

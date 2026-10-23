@@ -43,13 +43,28 @@ test('知识库 39 个受保护 Operation 从标准快照进入共享生成客�
   assert.equal(rebuild.responses['202'].content['application/json'].schema.$ref, '#/components/schemas/AiKnowledgeIndexEnqueueResponse');
   const upload = operations.get('aiUploadKnowledgeVersion');
   assert.equal(upload.requestBody.required, true);
-  assert.deepEqual(Object.keys(upload.requestBody.content).sort(), ['application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown', 'text/plain']);
+  assert.deepEqual(Object.keys(upload.requestBody.content).sort(), [
+    'application/msword', 'application/pdf', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/apng', 'image/avif', 'image/bmp', 'image/emf', 'image/gif', 'image/heic', 'image/heif',
+    'image/jp2', 'image/jpeg', 'image/jxl', 'image/png', 'image/svg+xml', 'image/tiff',
+    'image/vnd.adobe.photoshop', 'image/vnd.microsoft.icon', 'image/vnd.zbrush.pcx', 'image/webp',
+    'image/wmf', 'image/x-portable-anymap', 'image/x-portable-bitmap', 'image/x-portable-graymap',
+    'image/x-portable-pixmap', 'image/x-tga', 'text/csv', 'text/html', 'text/markdown', 'text/plain'
+  ]);
   const citation = snapshot.components.schemas.AiKnowledgeCitationResponse;
   assert.ok(!citation.required.includes('docxLocation'));
   assert.deepEqual(citation.properties.docxLocation.oneOf, [{ type: 'null' },
     { $ref: '#/components/schemas/AiKnowledgeDocxLocationResponse' }]);
-  assert.deepEqual(upload.parameters.map(item => item.name).sort(), ['documentId', 'fileName', 'knowledgeBaseId', 'requestKey', 'version']);
+  assert.ok(!citation.required.includes('sourceLocation'));
+  assert.deepEqual(citation.properties.sourceLocation.oneOf, [{ type: 'null' },
+    { $ref: '#/components/schemas/AiKnowledgeSourceLocationResponse' }]);
+  assert.deepEqual(upload.parameters.filter(item => item.required).map(item => item.name).sort(), ['documentId', 'fileName', 'knowledgeBaseId', 'requestKey', 'version']);
+  const policy = upload.parameters.find(item => item.name === 'parsingPolicy');
+  assert.ok(policy && !policy.required && policy.in === 'query');
+  assert.equal(policy.schema.type, 'string');
   assert.ok(upload.responses['202'].content['application/json']);
   assert.ok(operations.get('aiDownloadKnowledgeSource').responses['200'].content['application/octet-stream']);
   assert.equal(operations.get('aiDeleteKnowledgeDocument').responses['204'].content, undefined);

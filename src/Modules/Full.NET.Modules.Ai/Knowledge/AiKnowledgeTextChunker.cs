@@ -19,7 +19,7 @@ internal sealed record AiKnowledgeTextChunks(string ContentHash, string ParserVe
 }
 
 /// <summary>内部失败分类；失败不得留下可被误用的部分分块。</summary>
-internal enum AiKnowledgeChunkFailure { None, InvalidOptions, InvalidDocument, InvalidTokenProfile, TokenBudgetTooSmall, TooManyChunks, TotalTokenBudgetExceeded, OutputTooLarge, BoundarySearchLimitExceeded, UnsupportedFormat, StructureLimitExceeded, ContextTooLarge }
+internal enum AiKnowledgeChunkFailure { None, InvalidOptions, InvalidDocument, InvalidTokenProfile, TokenBudgetTooSmall, TooManyChunks, TotalTokenBudgetExceeded, OutputTooLarge, BoundarySearchLimitExceeded, UnsupportedFormat, StructureLimitExceeded, ContextTooLarge, UncertainSource }
 
 /// <summary>只有完整成功的分块集合才可供后续索引使用。</summary>
 internal sealed record AiKnowledgeChunkResult(AiKnowledgeTextChunks? Output, AiKnowledgeChunkFailure Failure)

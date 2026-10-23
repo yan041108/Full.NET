@@ -30,4 +30,6 @@
   <data name="ai.knowledge.feedback_not_found" xml:space="preserve"><value>答案反馈在当前范围不可用。</value></data>
   <data name="ai.knowledge.feedback_conflict" xml:space="preserve"><value>答案反馈已被其他请求修改，请刷新后重试。</value></data>
   <data name="ai.knowledge.index_rebuild_disabled" xml:space="preserve"><value>独立索引重建尚未启用。</value></data>
+  <data name="ai.knowledge.no_extracted_text" xml:space="preserve"><value>未提取到可索引文字，请检查原文件。</value></data>
+  <data name="ai.knowledge.ocr_low_confidence" xml:space="preserve"><value>识别文字置信度不足，整份文件未进入索引。</value></data>
 </root>

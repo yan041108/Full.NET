@@ -10,11 +10,17 @@ internal interface IAiKnowledgeAnswerSourceProof
 }
 
 /// <summary>复用检索已有的 TXT/PDF 完成证明，不依赖原索引写入人的在线会话。</summary>
-internal sealed class AiKnowledgeAnswerSourceProof(AiKnowledgeIndexActivationStore text, AiKnowledgeIndexPdfActivationStore pdf, AiKnowledgeIndexDocxActivationStore? docx = null) : IAiKnowledgeAnswerSourceProof
+internal sealed class AiKnowledgeAnswerSourceProof(AiKnowledgeIndexActivationStore text, AiKnowledgeIndexPdfActivationStore pdf, AiKnowledgeIndexDocumentActivationStore? docx = null) : IAiKnowledgeAnswerSourceProof
 {
     /// <inheritdoc/>
     public Task<bool> VerifyAsync(AiKnowledgeIndexStatusRecord source, Dictionary<string, object?> parameters, CancellationToken token)
-        => source.ContentType == "application/pdf" ? pdf.IsReadyForReadAsync(source, parameters, token)
+        => ProveAsync(source, parameters, token);
+
+    private async Task<bool> ProveAsync(AiKnowledgeIndexStatusRecord source, Dictionary<string, object?> parameters, CancellationToken token)
+    {
+        if (AiKnowledgeDocumentFormats.IsDocument(source.ContentType) && docx is not null && await docx.IsReadyForReadAsync(source, parameters, token).ConfigureAwait(false)) return true;
+        return await (source.ContentType == "application/pdf" ? pdf.IsReadyForReadAsync(source, parameters, token)
             : source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType && docx is not null ? docx.IsReadyForReadAsync(source, parameters, token)
-            : source.ContentType is "text/plain" or "text/markdown" ? text.IsReadyForReadAsync(source, parameters, token) : Task.FromResult(false);
+            : source.ContentType is "text/plain" or "text/markdown" ? text.IsReadyForReadAsync(source, parameters, token) : Task.FromResult(false)).ConfigureAwait(false);
+    }
 }

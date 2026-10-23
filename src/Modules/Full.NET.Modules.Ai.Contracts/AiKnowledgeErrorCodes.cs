@@ -37,6 +37,10 @@ public static class AiKnowledgeErrorCodes
     public const string MembersInvalid = "ai.knowledge.members_invalid";
     /// <summary>目标用户不存在、已停用或不属于当前租户。</summary>
     public const string MemberUnavailable = "ai.knowledge.member_unavailable";
+    /// <summary>完整本地解析没有得到可索引文字；不得派发模型。</summary>
+    public const string NoExtractedText = Prefix + "no_extracted_text";
+    /// <summary>OCR 来源存在低置信度文字；拒绝整份索引而非跳过片段。</summary>
+    public const string OcrLowConfidence = Prefix + "ocr_low_confidence";
     /// <summary>错误资源匹配前缀。</summary>
     public const string Prefix = "ai.knowledge.";
     /// <summary>角色授予集合或并发版本不合法。</summary>

@@ -14,7 +14,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, ICommandExecutor command, IDataTransactionState transactions,
     ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks, IBackgroundSessionAuthorization authorization,
     Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null,
-    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null)
+    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null,
+    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocumentRuntimeOptions>? documents = null)
 {
     internal static readonly string[] Permissions = [.. AiKnowledgeIndexEnqueueService.Permissions, AiKnowledgeDocumentPermissions.IndexRetry];
 
@@ -48,6 +49,7 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
         if (!Supports(source.ContentType)) return Conflict();
         writeParameters["Now"] = clock.UtcNow; writeParameters["SessionRecordId"] = frozen.Id;
         writeParameters["ModelConfigId"] = source.ModelConfigId; writeParameters["ModelConfigVersion"] = source.ModelConfigVersion;
+        writeParameters["DocumentsEnabled"] = documents?.Value.Enabled == true ? 1 : 0;
         writeParameters["PdfEnabled"] = pdf?.Value.Enabled == true ? 1 : 0;
         writeParameters["DocxEnabled"] = docx?.Value.Enabled == true ? 1 : 0;
         var affected = await command.ExecuteAsync(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeIndexRetrySql.Tenant : AiKnowledgeIndexRetrySql.Host,
@@ -60,7 +62,7 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
         return Result<AiKnowledgeIndexEnqueueResponse>.Success(new(taskId, versionId));
     }
 
-    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType)
+    private bool Supports(string contentType) => documents?.Value.Supports(contentType) == true || (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType)
         || (docx?.Value.Enabled == true && contentType == Domain.AiKnowledgeFilePolicy.DocxContentType);
 
     private async Task<AiKnowledgeIndexEnqueueRecord?> ReadSourceAsync(Dictionary<string, object?> parameters, SessionBindingSnapshot original, CancellationToken token)

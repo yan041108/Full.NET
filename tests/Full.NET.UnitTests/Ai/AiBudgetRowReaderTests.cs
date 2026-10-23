@@ -75,13 +75,13 @@ public sealed class AiBudgetRowReaderTests
         using var table = new DataTable(); var id = Guid.CreateVersion7();
         foreach (var name in new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FileId", "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId", "GenerationModelConfigId" }) table.Columns.Add(name, typeof(Guid));
         foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "IsDeleted", "CleanupPending", "HasDerivedData", "IsCurrent", "SizeBytes", "ModelConfigVersion", "GenerationModelVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(int));
-        foreach (var name in new[] { "DataClassification", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ContentHash", "ContentType", "ProviderKey", "ModelId" }) table.Columns.Add(name, typeof(string));
+        foreach (var name in new[] { "DataClassification", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ContentHash", "ContentType", "ParsingPolicyKey", "ProviderKey", "ModelId" }) table.Columns.Add(name, typeof(string));
         var row = table.NewRow();
         foreach (DataColumn column in table.Columns) row[column] = column.DataType == typeof(Guid) ? id : column.DataType == typeof(string) ? "test" : 1;
         if (absent) foreach (var name in new[] { "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId", "GenerationModelConfigId", "ModelConfigVersion", "GenerationModelVersion", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ProviderKey", "ModelId" }) row[name] = DBNull.Value;
         table.Rows.Add(row); using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var result = AiBudgetRowReaders.ReadKnowledgeIndexStatus(reader);
-        Assert.AreEqual("test", result.DataClassification);
+        Assert.AreEqual("test", result.DataClassification); Assert.AreEqual("test", result.ParsingPolicyKey);
         Assert.AreEqual(absent ? null : (Guid?)id, result.GenerationModelConfigId);
         Assert.AreEqual(absent ? null : (int?)1, result.GenerationModelVersion);
         Assert.AreEqual(id, result.VersionId); Assert.AreEqual(1, result.DocumentVersion); Assert.AreEqual(1, result.IsCurrent);
@@ -96,12 +96,12 @@ public sealed class AiBudgetRowReaderTests
         var names = new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "ModelConfigId" };
         foreach (var name in names) table.Columns.Add(name, typeof(Guid));
         foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "ModelConfigVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(decimal));
-        table.Columns.Add("ContentType", typeof(string)); var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
-        table.Rows.Add(ids[0], ids[1], ids[2], ids[3], ids[4], 3, 4, 5, "text/markdown");
+        table.Columns.Add("ContentType", typeof(string)); table.Columns.Add("ParsingPolicyKey", typeof(string)); var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
+        table.Rows.Add(ids[0], ids[1], ids[2], ids[3], ids[4], 3, 4, 5, "text/markdown", "default");
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeIndexEnqueue(reader);
         Assert.AreEqual(ids[0], row.KnowledgeBaseId); Assert.AreEqual(ids[1], row.DocumentId); Assert.AreEqual(ids[2], row.VersionId);
         Assert.AreEqual(ids[3], row.OwnerUserId); Assert.AreEqual(ids[4], row.ModelConfigId); Assert.AreEqual(3, row.DocumentVersion);
-        Assert.AreEqual(4, row.KnowledgeBaseVersion); Assert.AreEqual(5, row.ModelConfigVersion); Assert.AreEqual("text/markdown", row.ContentType);
+        Assert.AreEqual(4, row.KnowledgeBaseVersion); Assert.AreEqual(5, row.ModelConfigVersion); Assert.AreEqual("text/markdown", row.ContentType); Assert.AreEqual("default", row.ParsingPolicyKey);
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]
@@ -111,15 +111,15 @@ public sealed class AiBudgetRowReaderTests
         var names = new[] { "TaskId", "TenantId", "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId" };
         foreach (var name in names) table.Columns.Add(name, typeof(Guid));
         table.Columns.Add("DocumentVersion", typeof(long)); table.Columns.Add("KnowledgeBaseVersion", typeof(decimal));
-        table.Columns.Add("ContentType", typeof(string));
+        table.Columns.Add("ContentType", typeof(string)); table.Columns.Add("ParsingPolicyKey", typeof(string));
         var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
-        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m, "application/pdf");
+        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m, "application/pdf", "default");
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeWorker(reader);
         Assert.AreEqual(ids[0], row.TaskId); Assert.AreEqual(tenant ? ids[1] : (Guid?)null, row.TenantId);
         Assert.AreEqual(ids[2], row.KnowledgeBaseId); Assert.AreEqual(ids[3], row.DocumentId); Assert.AreEqual(ids[4], row.VersionId);
         Assert.AreEqual(ids[5], row.OwnerUserId); Assert.AreEqual(2, row.DocumentVersion); Assert.AreEqual(3, row.KnowledgeBaseVersion);
-        Assert.AreEqual("application/pdf", row.ContentType);
+        Assert.AreEqual("application/pdf", row.ContentType); Assert.AreEqual("default", row.ParsingPolicyKey);
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]

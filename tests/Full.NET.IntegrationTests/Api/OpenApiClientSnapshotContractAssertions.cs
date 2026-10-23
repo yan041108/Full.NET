@@ -93,8 +93,13 @@ internal static class OpenApiClientSnapshotContractAssertions
         var body = upload.GetProperty("requestBody");
         Assert.IsTrue(body.GetProperty("required").GetBoolean());
         var content = body.GetProperty("content");
-        CollectionAssert.AreEquivalent(new[] { "application/pdf", "text/markdown", "text/plain",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+        CollectionAssert.AreEquivalent(new[] { "application/pdf", "text/markdown", "text/plain", "text/csv", "text/html", "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation", "image/jpeg", "image/png", "image/apng",
+            "image/webp", "image/bmp", "image/tiff", "image/gif", "image/heic", "image/heif", "image/avif", "image/jp2", "image/jxl",
+            "image/vnd.microsoft.icon", "image/x-tga", "image/vnd.zbrush.pcx", "image/x-portable-anymap", "image/x-portable-bitmap",
+            "image/x-portable-graymap", "image/x-portable-pixmap", "image/svg+xml", "image/wmf", "image/emf", "image/vnd.adobe.photoshop" },
             content.EnumerateObject().Select(item => item.Name).ToArray());
         foreach (var item in content.EnumerateObject())
         {
@@ -105,9 +110,17 @@ internal static class OpenApiClientSnapshotContractAssertions
             Assert.AreEqual("binary", schema.GetProperty("format").GetString());
         }
         Assert.IsTrue(upload.GetProperty("security").GetArrayLength() > 0);
-        CollectionAssert.AreEquivalent(new[] { "knowledgeBaseId", "documentId", "version", "requestKey", "fileName" },
+        CollectionAssert.AreEquivalent(new[] { "knowledgeBaseId", "documentId", "version", "requestKey", "fileName", "parsingPolicy" },
             upload.GetProperty("parameters").EnumerateArray().Select(item => item.GetProperty("name").GetString()).ToArray());
-        Assert.IsTrue(upload.GetProperty("parameters").EnumerateArray().All(item => item.GetProperty("required").GetBoolean()));
+        Assert.IsTrue(upload.GetProperty("parameters").EnumerateArray().Where(item => item.GetProperty("name").GetString() != "parsingPolicy").All(item => item.GetProperty("required").GetBoolean()));
+        var policy = upload.GetProperty("parameters").EnumerateArray().Single(item => item.GetProperty("name").GetString() == "parsingPolicy");
+        Assert.AreEqual("query", policy.GetProperty("in").GetString());
+        Assert.IsFalse(policy.TryGetProperty("required", out var policyRequired) && policyRequired.GetBoolean());
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        CollectionAssert.AreEquivalent(new[] { "blockSequence", "kind", "pageNumber", "paragraphNumber", "tableNumber", "rowNumber", "cellNumber", "grid", "slide", "htmlPath", "image" },
+            schemas.GetProperty("AiKnowledgeSourceLocationResponse").GetProperty("properties").EnumerateObject().Select(item => item.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "frameNumber", "imageWidth", "imageHeight", "x", "y", "width", "height", "confidence", "tableNumber", "rowNumber", "columnNumber", "parent" },
+            schemas.GetProperty("AiKnowledgeImageLocationResponse").GetProperty("properties").EnumerateObject().Select(item => item.Name).ToArray());
         Assert.IsTrue(upload.GetProperty("responses").GetProperty("202").GetProperty("content").TryGetProperty("application/json", out _));
         var source = paths.GetProperty(route + "/versions/{versionId}/source").GetProperty("get");
         Assert.IsTrue(source.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("application/octet-stream", out _));
@@ -141,6 +154,9 @@ internal static class OpenApiClientSnapshotContractAssertions
         // TXT/PDF 及旧历史可以省略 DOCX 坐标，客户端不能要求新增兼容字段。
         Assert.IsFalse(citation.TryGetProperty("required", out var citationRequired)
             && citationRequired.EnumerateArray().Any(property => property.GetString() == "docxLocation"));
+        Assert.IsTrue(citation.GetProperty("properties").TryGetProperty("sourceLocation", out _));
+        Assert.IsFalse(citation.TryGetProperty("required", out citationRequired)
+            && citationRequired.EnumerateArray().Any(property => property.GetString() == "sourceLocation"));
     }
 
     private static async Task NormalizeAsync(

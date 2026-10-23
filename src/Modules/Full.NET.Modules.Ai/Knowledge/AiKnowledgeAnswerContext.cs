@@ -42,7 +42,8 @@ internal sealed class AiKnowledgeAnswerContext
             token.ThrowIfCancellationRequested(); var chunk = ranked.Chunk;
             if (!double.IsFinite(ranked.Score) || string.IsNullOrWhiteSpace(chunk.Text) || chunk.Text.Length > 8000
                 || !AiKnowledgeAnswerLineageCodec.ValidLocation(chunk.DocxLocation, chunk.PageNumber)
-                || (chunk.Source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType) != (chunk.DocxLocation is not null)
+                || !AiKnowledgeSourceLocations.Valid(chunk.SourceLocation)
+                || chunk.Source.ContentType != "application/pdf" && AiKnowledgeDocumentFormats.IsDocument(chunk.Source.ContentType) && chunk.DocxLocation is null && chunk.SourceLocation is null
                 || chunk.Offset < 0 || chunk.Length != chunk.Text.Length || chunk.Sequence < 0 || chunk.PageNumber is < 1) throw Invalid();
             var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7 || !seen.Add(id)) throw Invalid();
             citations.Add(new(id, chunk with { Vector = chunk.Vector.ToArray() }));
@@ -74,6 +75,11 @@ internal sealed class AiKnowledgeAnswerContext
                     if (location.RowNumber is { } row) writer.WriteNumber("rowNumber", row); else writer.WriteNull("rowNumber");
                     if (location.CellNumber is { } cell) writer.WriteNumber("cellNumber", cell); else writer.WriteNull("cellNumber");
                     writer.WriteEndObject();
+                }
+                if (chunk.SourceLocation is { } sourceLocation)
+                {
+                    writer.WritePropertyName("sourceLocation");
+                    JsonSerializer.Serialize(writer, sourceLocation, AiKnowledgeAnswerLineageJsonContext.Default.AiKnowledgeSourceLocationResponse);
                 }
                 writer.WriteNumber("offset", chunk.Offset); writer.WriteNumber("length", chunk.Length); writer.WriteString("text", chunk.Text); writer.WriteEndObject();
             }

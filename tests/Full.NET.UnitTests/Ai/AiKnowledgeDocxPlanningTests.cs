@@ -33,11 +33,11 @@ public sealed class AiKnowledgeDocxPlanningTests
         Assert.AreEqual(6, chunks.Output!.Chunks.Count);
         foreach (var chunk in chunks.Output.Chunks)
         { Assert.AreEqual(chunk.Text, read.Document.Text.Substring(chunk.Offset, chunk.Length)); Assert.AreEqual(chunk.TokenCount, AiKnowledgeCl100kTokenizer.Get(default).CountTokens(chunk.Text)); }
-        var plan = AiKnowledgeIndexDocxPlan.Create(chunks.Output, default);
+        var plan = AiKnowledgeDocumentPlan.Create(chunks.Output! with { ParserRuntimeId = AiKnowledgeIndexDocumentCodecTests.RuntimeId }, default);
         Assert.IsNotNull(plan); Assert.AreEqual(6, plan.Summary.ChunkCount); Assert.AreEqual(1, plan.Batches.Count);
-        Assert.AreEqual(AiKnowledgeIndexDocxPlan.FormatKey, plan.Summary.FormatKey);
-        Assert.AreEqual(2, plan.Source.Document.Blocks[2].CellNumber); Assert.IsTrue(plan.Source.Document.Blocks[2].IsHeader);
-        Assert.AreEqual(plan.Summary.PlanHash, AiKnowledgeIndexDocxPlan.Create(chunks.Output, default)!.Summary.PlanHash);
+        Assert.AreEqual(AiKnowledgeDocumentPlan.FormatKey, plan.Summary.FormatKey);
+        Assert.AreEqual(2, plan.Source.Document.Blocks[2].Position.CellNumber); Assert.IsTrue(plan.Source.Document.Blocks[2].Position.IsHeader);
+        Assert.AreEqual(plan.Summary.PlanHash, AiKnowledgeDocumentPlan.Create(chunks.Output! with { ParserRuntimeId = AiKnowledgeIndexDocumentCodecTests.RuntimeId }, default)!.Summary.PlanHash);
     }
 
     [TestMethod]
