@@ -2,3 +2,6 @@
 src/Tools/Full.NET.Ai.PdfParser/licenses/PdfPig.LICENSE.txt -text whitespace=-blank-at-eol
 # 原始验收 TRX 包含框架输出的行尾空格；保留证据原始字节与 SHA256。
 docs/verification/2026-10-19-cache-capacity/lifecycle.trx -text whitespace=-blank-at-eol
+# 固定来源和官方示例按摘要逐字节核验，禁止 autocrlf 改写第三方原始资源。
+packages/admin-form-designer/vendor/vform3/upstream/** -text whitespace=-blank-at-eol
+packages/admin-form-designer/runtime-public/templates/** -text whitespace=-blank-at-eol

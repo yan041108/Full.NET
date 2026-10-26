@@ -1,3 +1,4 @@
+using System.Text.Json;
 // 工作流表单管理 API 契约；Schema 版本与组件引用约束。
 using Full.NET.Modules.Workflow.Domain;
 
@@ -10,13 +11,14 @@ internal sealed record SetWorkflowFormStatusRequest(
 
 internal sealed record CreateWorkflowFormRequest(
     string FormKey,
-    WorkflowFormSchema Draft);
+    WorkflowFormSchema Draft,
+    JsonElement? DesignerJson = null);
 
 internal sealed record UpdateWorkflowFormDraftRequest(
     long ExpectedRevision,
     WorkflowFormSchema Draft);
 
-internal sealed record PublishWorkflowFormRequest(long ExpectedRevision);
+internal sealed record PublishWorkflowFormRequest(long ExpectedRevision, string[]? Targets = null, long? ExpectedBindingRevision = null, string? RendererHash = null);
 
 internal sealed record WorkflowFormComponentCatalogResponse(
     int CatalogVersion,

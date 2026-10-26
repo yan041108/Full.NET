@@ -5,11 +5,15 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <summary>Workflow 向通知平台发布的稳定提醒消息类型目录。</summary>
 public static class WorkflowNotificationIntegrationEventTypes
 {
+    /// <summary>真实活动收敛后执行发布版本固定的通知监听器。</summary>
+    public const string ActivityListenerRequested = "fullnet.workflow.activity.listener_requested";
     /// <summary>待办已到达受信办理人。</summary>
     public const string TodoAssigned = "fullnet.workflow.todo.assigned";
 
     /// <summary>逾期待办需要向当前办理人发送催办。</summary>
     public const string TodoReminderRequested = "fullnet.workflow.todo.reminded";
+    /// <summary>发起人请求人工催办，不表示逾期，也不消费自动SLA序号。</summary>
+    public const string TodoManualReminderRequested = "fullnet.workflow.todo.manual_reminded";
 
     /// <summary>逾期待办需要向发布版本中固定接收人发送升级通知。</summary>
     public const string TodoEscalationRequested = "fullnet.workflow.todo.escalated";
@@ -56,6 +60,19 @@ public partial record WorkflowTodoReminderRequestedIntegrationEvent(
     string BusinessType,
     string BusinessId,
     int ReminderSequence,
+    DateTimeOffset OccurredAtUtc);
+
+/// <summary>已持久受理的人工催办，真实请求与办理人来源由Workflow实例锁事务固定。</summary>
+[MemoryPackable]
+public partial record WorkflowTodoManualReminderRequestedIntegrationEvent(
+    Guid RequestId,
+    Guid InstanceId,
+    Guid TodoId,
+    Guid RequestedByUserId,
+    Guid RecipientUserId,
+    string BusinessType,
+    string BusinessId,
+    int ManualSequence,
     DateTimeOffset OccurredAtUtc);
 
 /// <summary>表示某个逾期待办的升级信号已与状态原子提交。</summary>

@@ -21,6 +21,7 @@ public sealed class DataCommandExceptionMapperTests
     [TestMethod]
     [DataRow(1048)]
     [DataRow(1406)]
+    [DataRow(1451)]
     [DataRow(1452)]
     [DataRow(3819)]
     public void MySql_invalid_row_values_can_be_isolated(int number) =>
@@ -76,5 +77,12 @@ public sealed class DataCommandExceptionMapperTests
     {
         Assert.IsNull(DataCommandExceptionMapper.ClassifySqlServer(0));
         Assert.IsNull(DataCommandExceptionMapper.ClassifyMySql(MySqlErrorCode.None));
+    }
+
+    [TestMethod]
+    public void Query_mapping_does_not_swallow_cancellation_or_unknown_failures()
+    {
+        Assert.IsFalse(DataCommandExceptionMapper.TryMapQueryConcurrency(new OperationCanceledException(), out _));
+        Assert.IsFalse(DataCommandExceptionMapper.TryMapQueryConcurrency(new InvalidOperationException("unknown"), out _));
     }
 }

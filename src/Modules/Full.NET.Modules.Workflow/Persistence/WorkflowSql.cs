@@ -116,23 +116,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>统计仍引用指定定义版本的运行或暂停实例数量。</summary>
-    public static readonly SqlStatement CountRunningInstancesByDefinitionVersion = new(
-        "workflow.instance.count_running_by_definition_version",
-        """
-        SELECT COUNT(1)
-        FROM fn_workflow_instance AS instance
-        INNER JOIN fn_workflow_definition_version AS version
-            ON version.Id = instance.DefinitionVersionId
-        INNER JOIN fn_workflow_definition AS definition
-            ON definition.Id = version.DefinitionId
-        WHERE instance.DefinitionVersionId = @DefinitionVersionId
-          AND definition.TenantScopeKey = @TenantScopeKey
-          AND instance.StatusKey IN ('active', 'suspended')
-        """,
-        SqlDataScope.Global);
-
-    /// <summary>删除未被运行实例引用的定义版本。</summary>
+    /// <summary>仅由已锁定定义且完成全部版本引用检查的删除事务调用，外键继续裁决并发引用。</summary>
     public static readonly SqlStatement DeleteDefinitionVersion = new(
         "workflow.definition_version.delete",
         """
@@ -257,6 +241,7 @@ internal static class WorkflowSql
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
           AND DraftRevision = @ExpectedRevision
+          AND StatusKey <> 'archived'
         """,
         SqlDataScope.Global);
 
@@ -372,6 +357,7 @@ internal static class WorkflowSql
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
           AND DraftRevision = @ExpectedRevision
+          AND StatusKey = 'active'
         """,
         SqlDataScope.Global);
 
@@ -526,12 +512,12 @@ internal static class WorkflowSql
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
-             StartedAtUtc, CompletedAtUtc)
+             StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
              NULL, 0, 1, @ExecutionSequence,
              @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
-             @StartedAtUtc, NULL)
+             @StartedAtUtc, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """,
         SqlDataScope.Global);
 
@@ -541,10 +527,11 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
-        VALUES
-            (@Id, @InstanceId, @NodeKey, 'notify.cc', 'completed', NULL,
-             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
+        SELECT @Id, instance.Id, @NodeKey, 'notify.cc', 'completed', NULL,
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc, @AssigneeSnapshotJson, @AssigneeSnapshotHash
+        FROM fn_workflow_instance AS instance
+        WHERE instance.Id=@InstanceId AND instance.TenantScopeKey=@TenantScopeKey
         """,
         SqlDataScope.Global);
 
@@ -560,6 +547,15 @@ internal static class WorkflowSql
              NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
         """,
         SqlDataScope.Global);
+
+    /// <summary>空活动保留独立激活步骤，不产生表单或外部副作用。</summary>
+    public static readonly SqlStatement InsertCompletedEmptyStep = new("workflow.step.insert_completed_empty", """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
+        VALUES (@Id, @InstanceId, @NodeKey, 'control.empty', 'completed', NULL,
+            NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
+        """, SqlDataScope.Global);
 
     /// <summary>读取同一实例已经产生的抄送人，用于满足既有实例级唯一约束。</summary>
     public static readonly SqlStatement ListCcRecipientIdsByInstance = new(
@@ -763,7 +759,7 @@ internal static class WorkflowSql
         SELECT action.ActionKey, action.ActorUserId, action.InstanceRevision,
                action.IdempotencyKey, log.Summary AS RequestHash,
                COALESCE(action.ResultTodoId, result_todo.Id) AS ResultTodoId,
-               action.ResultStatusKey
+               action.ResultStatusKey, action.TodoId
         FROM fn_workflow_action_record AS action
         LEFT JOIN fn_workflow_execution_log AS log
          ON log.InstanceId = action.InstanceId
@@ -851,7 +847,7 @@ internal static class WorkflowSql
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
                todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision,
                step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount,
-               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey AS ParallelJoinNodeKey
+               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey AS ParallelJoinNodeKey, step.NodeTypeKey
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
@@ -951,13 +947,21 @@ internal static class WorkflowSql
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.InstanceId = @InstanceId
-          AND step.NodeTypeKey = 'human.approval'
+          AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.AssignedUserId IS NOT NULL
+          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
+              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
+                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
+              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
+              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
+                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         ORDER BY step.ExecutionSequence DESC, step.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -973,13 +977,21 @@ internal static class WorkflowSql
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.InstanceId = @InstanceId
-          AND step.NodeTypeKey = 'human.approval'
+          AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.AssignedUserId IS NOT NULL
+          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
+              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
+                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
+              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
+              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
+                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         ORDER BY step.ExecutionSequence DESC, step.Id DESC
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -996,13 +1008,21 @@ internal static class WorkflowSql
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.Id = @TargetStepId
           AND step.InstanceId = @InstanceId
-          AND step.NodeTypeKey = 'human.approval'
+          AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.AssignedUserId IS NOT NULL
+          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
+              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
+                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
+              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
+          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
+              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
+                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         """,
         SqlDataScope.Global);
 
@@ -1037,7 +1057,18 @@ internal static class WorkflowSql
                COALESCE(SUM(CASE WHEN slot.DecisionKey IS NULL THEN 1 ELSE 0 END), 0) AS PendingCount
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
-        LEFT JOIN fn_workflow_approval_slot AS slot ON slot.StepId = step.Id
+        LEFT JOIN (
+            SELECT member.StepId, member.DecisionKey
+            FROM fn_workflow_approval_slot AS member
+            INNER JOIN fn_workflow_step AS owner ON owner.Id = member.StepId
+            WHERE owner.InstanceId = @InstanceId AND owner.ApprovalModeKey <> 'group'
+            UNION ALL
+            SELECT approvalGroup.StepId,
+                   CASE approvalGroup.StatusKey WHEN 'approved' THEN 'approve' WHEN 'rejected' THEN 'reject'
+                        WHEN 'cancelled' THEN 'cancelled' ELSE NULL END AS DecisionKey
+            FROM fn_workflow_approval_group AS approvalGroup
+            WHERE approvalGroup.InstanceId = @InstanceId
+        ) AS slot ON slot.StepId = step.Id
         WHERE step.InstanceId = @InstanceId
           AND step.StatusKey = 'active'
           AND step.ApprovalModeKey IS NOT NULL
@@ -1183,7 +1214,7 @@ internal static class WorkflowSql
             ResultActionKey = 'cancel',
             Revision = Revision + 1
         WHERE StepId = @StepId
-          AND StatusKey = 'active'
+          AND StatusKey IN ('active', 'before_countersign')
         """,
         SqlDataScope.Global);
 
@@ -1239,6 +1270,8 @@ internal static class WorkflowSql
           AND TenantScopeKey = @TenantScopeKey
           AND StatusKey = 'active'
           AND Revision = @Revision
+          AND (@StatusKey <> 'completed' OR NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
+              WHERE work.InstanceId = @Id AND work.StatusKey IN ('pending', 'leased')))
         """,
         SqlDataScope.Global);
 
@@ -1255,24 +1288,15 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>在租户作用域和待办修订号保护下改派活动待办。</summary>
-    public static readonly SqlStatement ReassignTodoWithRevision = new(
-        "workflow.todo.reassign_with_revision",
+
+
+    /// <summary>办理事务读取 Todo 联表前先锁实例，防止 Todo 共享锁与实例写锁形成反向等待；终态也允许回执重放。</summary>
+    public static readonly SqlStatement LockInstanceForTodoAction = new(
+        "workflow.instance.lock_for_todo_action",
         """
-        UPDATE fn_workflow_todo
-        SET AssigneeUserId = @AssigneeUserId,
-            Revision = Revision + 1
-        WHERE Id = @Id
-          AND InstanceId = @InstanceId
-          AND AssigneeUserId = @ExpectedAssigneeUserId
-          AND StatusKey = 'active'
-          AND Revision = @Revision
-          AND EXISTS (
-              SELECT 1
-              FROM fn_workflow_instance AS instance
-              WHERE instance.Id = fn_workflow_todo.InstanceId
-                AND instance.StatusKey = 'active'
-                AND instance.TenantScopeKey = @TenantScopeKey)
+        UPDATE fn_workflow_instance
+        SET Revision = Revision
+        WHERE Id = @Id AND TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
 
@@ -1289,20 +1313,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>同步改派尚未投票的审批席位，保持 Todo 办理人与一人一票身份一致。</summary>
-    public static readonly SqlStatement ReassignApprovalSlotWithRevision = new(
-        "workflow.approval_slot.reassign_with_revision",
-        """
-        UPDATE fn_workflow_approval_slot
-        SET AssigneeUserId = @AssigneeUserId,
-            Revision = Revision + 1
-        WHERE Id = @Id
-          AND TodoId = @TodoId
-          AND AssigneeUserId = @ExpectedAssigneeUserId
-          AND DecisionKey IS NULL
-          AND Revision = @Revision
-        """,
-        SqlDataScope.Global);
+
 
     public static readonly SqlStatement CancelTodoWithRevision = new(
         "workflow.todo.cancel_with_revision",
@@ -1461,7 +1472,7 @@ internal static class WorkflowSql
         "workflow.todo.suspend_for_before_countersign",
         """
         UPDATE fn_workflow_todo
-        SET StatusKey = 'awaiting_before_countersign',
+        SET StatusKey = 'before_countersign',
             Revision = Revision + 1
         WHERE Id = @Id
           AND AssigneeUserId = @AssigneeUserId
@@ -1476,21 +1487,50 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>前加签完成后恢复原始办理人待办。</summary>
-    public static readonly SqlStatement ReactivateOriginTodoAfterBeforeCountersign = new(
-        "workflow.todo.reactivate_after_before_countersign",
+    /// <summary>前加签恢复使用新激活，关闭旧待办并保留其原始输入。</summary>
+    public static readonly SqlStatement CloseOriginTodoAfterBeforeCountersign = new(
+        "workflow.todo.close_after_before_countersign",
         """
         UPDATE fn_workflow_todo
-        SET StatusKey = 'active',
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = 'cancel',
             Revision = Revision + 1
         WHERE Id = @Id
-          AND StatusKey = 'awaiting_before_countersign'
+          AND InstanceId = @InstanceId
+          AND Revision = @Revision
+          AND StatusKey = 'before_countersign'
           AND EXISTS (
               SELECT 1
               FROM fn_workflow_instance AS instance
               WHERE instance.Id = fn_workflow_todo.InstanceId
                 AND instance.TenantScopeKey = @TenantScopeKey
                 AND instance.StatusKey = 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>同一原席位绑定新激活的待办，不重建或丢失一人一票身份。</summary>
+    public static readonly SqlStatement RebindApprovalSlotForCountersignResume = new(
+        "workflow.approval_slot.rebind_countersign_resume",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET TodoId = @NewTodoId,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND TodoId = @TodoId
+          AND DecisionKey IS NULL
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS todo
+              INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+              WHERE todo.Id = @NewTodoId
+                AND todo.InstanceId = fn_workflow_approval_slot.InstanceId
+                AND todo.StepId = fn_workflow_approval_slot.StepId
+                AND todo.AssigneeUserId = fn_workflow_approval_slot.AssigneeUserId
+                AND todo.StatusKey = 'active'
+                AND instance.StatusKey = 'active'
+                AND instance.TenantScopeKey = @TenantScopeKey)
         """,
         SqlDataScope.Global);
 
@@ -1609,14 +1649,14 @@ internal static class WorkflowSql
         "workflow.parallel_join.increment_arrival",
         """
         UPDATE fn_workflow_parallel_join
-        SET ArrivedBranchCount = ArrivedBranchCount + 1,
-            Revision = Revision + 1,
-            StatusKey = CASE
+        SET StatusKey = CASE
                 WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN 'completed'
                 ELSE StatusKey END,
             CompletedAtUtc = CASE
                 WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN @CompletedAtUtc
-                ELSE CompletedAtUtc END
+                ELSE CompletedAtUtc END,
+            ArrivedBranchCount = ArrivedBranchCount + 1,
+            Revision = Revision + 1
         WHERE Id = @Id
           AND InstanceId = @InstanceId
           AND StatusKey = 'waiting'
@@ -1674,7 +1714,7 @@ internal static class WorkflowSql
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
         VALUES
-            (@Id, @InstanceId, @NodeKey, 'gateway.parallel', 'completed', NULL,
+            (@Id, @InstanceId, @NodeKey, @NodeTypeKey, 'completed', NULL,
              NULL, 0, 1, @ExecutionSequence,
              @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, @CompletedAtUtc)
         """,
@@ -1688,12 +1728,12 @@ internal static class WorkflowSql
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
-             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
+             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
              NULL, 0, 1, @ExecutionSequence,
              @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
-             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL)
+             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """,
         SqlDataScope.Global);
 
@@ -1709,7 +1749,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>关闭实例上全部活动待办，供并行分支驳回或取消时收敛兄弟分支。</summary>
+    /// <summary>终态同时关闭可办理和前加签暂停待办，避免遗留可恢复的旧激活。</summary>
     public static readonly SqlStatement CancelAllActiveTodosByInstance = new(
         "workflow.todo.cancel_all_active_by_instance",
         """
@@ -1719,9 +1759,33 @@ internal static class WorkflowSql
             ResultActionKey = @ResultActionKey,
             Revision = Revision + 1
         WHERE InstanceId = @InstanceId
-          AND StatusKey = 'active'
+          AND StatusKey IN ('active', 'before_countersign')
         """,
         SqlDataScope.Global);
+
+    /// <summary>实例终态关闭全部未决加签项，不保留可被重新激活的候选。</summary>
+    public static readonly SqlStatement CancelCountersignItemsByInstance = new(
+        "workflow.countersign_item.cancel_by_instance",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = 'cancelled'
+        WHERE StatusKey IN ('pending', 'active')
+          AND ChainId IN (
+              SELECT chain.Id FROM fn_workflow_countersign_chain AS chain
+              INNER JOIN fn_workflow_instance AS instance ON instance.Id = chain.InstanceId
+              WHERE instance.Id = @InstanceId AND instance.TenantScopeKey = @TenantScopeKey)
+        """, SqlDataScope.Global);
+
+    /// <summary>关闭作用域内实例的活动链，已完成或已取消事实保持原状。</summary>
+    public static readonly SqlStatement CancelCountersignChainsByInstance = new(
+        "workflow.countersign_chain.cancel_by_instance",
+        """
+        UPDATE fn_workflow_countersign_chain
+        SET StatusKey = 'cancelled'
+        WHERE InstanceId = @InstanceId AND StatusKey = 'active'
+          AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_countersign_chain.InstanceId AND instance.TenantScopeKey = @TenantScopeKey)
+        """, SqlDataScope.Global);
 
     /// <summary>关闭实例上全部活动步骤，供并行分支驳回或取消时收敛兄弟分支。</summary>
     public static readonly SqlStatement CancelAllActiveStepsByInstance = new(
@@ -1842,7 +1906,7 @@ internal static class WorkflowSql
         $"""
         SELECT COUNT(1)
         {TodoListJoinClause}
-        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+        WHERE todo.StatusKey IN ('active', 'before_countersign')
           AND instance.StatusKey = 'active'
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
@@ -1856,7 +1920,7 @@ internal static class WorkflowSql
         $"""
         SELECT {TodoListSelectColumns}
         {TodoListJoinClause}
-        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+        WHERE todo.StatusKey IN ('active', 'before_countersign')
           AND instance.StatusKey = 'active'
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
@@ -1872,7 +1936,7 @@ internal static class WorkflowSql
         $"""
         SELECT {TodoListSelectColumns}
         {TodoListJoinClause}
-        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+        WHERE todo.StatusKey IN ('active', 'before_countersign')
           AND instance.StatusKey = 'active'
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)

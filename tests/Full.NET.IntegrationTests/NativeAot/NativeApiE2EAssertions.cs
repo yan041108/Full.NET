@@ -1736,7 +1736,7 @@ internal static class NativeApiE2EAssertions
             HttpMethod.Post,
             "/api/v1/messaging/dead-letters/replay",
             accessToken,
-            new ReplayDeadLetterRequest(consumerName, messageId));
+            new ReplayDeadLetterRequest(consumerName, messageId, "native replay verification"));
         using var replayResponse = await client.SendAsync(replayRequest, cancellationToken)
             .ConfigureAwait(false);
         await AssertStatusAsync(

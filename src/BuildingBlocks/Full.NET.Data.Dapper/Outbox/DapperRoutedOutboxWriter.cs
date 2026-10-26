@@ -24,7 +24,8 @@ internal sealed class DapperRoutedOutboxWriter(
     DapperOutboxWriter legacyWriter,
     DapperAppendOnlyOutboxWriter appendOnlyWriter,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
-    IEventStreamOwnershipGate ownershipGate) : IOutboxWriter
+    IEventStreamOwnershipGate ownershipGate,
+    DapperShadowCaptureWriter shadowCapture) : IOutboxWriter
 {
     /// <summary>
     /// 无 metadata overload：LegacyPolling/ShadowCdc 直接写 legacy 表；
@@ -52,11 +53,11 @@ internal sealed class DapperRoutedOutboxWriter(
         {
             case EventDeliveryOwner.LegacyPolling:
             case EventDeliveryOwner.ShadowCdc:
-                // Shadow 阶段实际仍由 Legacy poller 产出；Shadow 的 append-only
-                // 对比工作由独立 shadow writer 单独执行，不在业务事务路径内。
+                // 缺少真实 metadata 时不能构造影子信封；记录缺口阻断本代证明，Legacy 仍照常写入。
                 await legacyWriter
                     .AddAsync(eventType, schemaVersion, payload, cancellationToken)
                     .ConfigureAwait(false);
+                await shadowCapture.RecordMissingMetadataAsync(eventType, schemaVersion, cancellationToken).ConfigureAwait(false);
                 return;
             case EventDeliveryOwner.CdcKafka:
                 throw new InvalidOperationException(
@@ -74,7 +75,7 @@ internal sealed class DapperRoutedOutboxWriter(
     }
 
     /// <summary>
-    /// 带 metadata overload：LegacyPolling/ShadowCdc 丢弃 metadata 写 legacy 表；
+    /// 带 metadata overload：LegacyPolling/ShadowCdc 写 Legacy，受控采集启用时复用真实信封写独立影子源；
     /// CdcKafka 写 append-only 表。业务模块始终只需调用本重载即可同时满足
     /// 切流前后两种模式，无需分支判断。
     /// </summary>
@@ -101,11 +102,14 @@ internal sealed class DapperRoutedOutboxWriter(
         {
             case EventDeliveryOwner.LegacyPolling:
             case EventDeliveryOwner.ShadowCdc:
-                // 切流前业务模块已经开始传 metadata 时不要报 NotSupportedException，
-                // 直接忽略 metadata 并写 legacy 表。切流日仅靠 owner 切换生效。
-                await legacyWriter
-                    .AddAsync(eventType, schemaVersion, payload, cancellationToken)
-                    .ConfigureAwait(false);
+                if (!shadowCapture.Matches(eventType, schemaVersion))
+                {
+                    await legacyWriter.AddAsync(eventType, schemaVersion, payload, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+                var message = legacyWriter.CreateSnapshot(eventType, schemaVersion, payload);
+                await legacyWriter.InsertSnapshotAsync(message, cancellationToken).ConfigureAwait(false);
+                await shadowCapture.CaptureAsync(message, metadata, cancellationToken).ConfigureAwait(false);
                 return;
             case EventDeliveryOwner.CdcKafka:
                 await appendOnlyWriter

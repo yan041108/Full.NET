@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
@@ -7,234 +8,191 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Workflow.Features.FormAttachments;
 
-/// <summary>在表单提交变更时同步附件 claim 与本地投影，保证 Files 删除保护与运行时授权一致。</summary>
+/// <summary>事务外准备 Files 所有权，事务内只追加实际历史引用，结束后探测本次身份确认或释放。</summary>
 internal sealed class WorkflowFormAttachmentCoordinator(
-    IHostFileReferenceClaimService hostFileReferenceClaimService,
-    IHostFileDescriptorReader hostFileDescriptorReader,
-    IQueryExecutor queryExecutor,
-    ICommandExecutor commandExecutor,
-    IClock clock,
-    IIdGenerator idGenerator)
+    IHostFileReferenceClaimService claims, IHostFileDescriptorReader descriptors,
+    IQueryExecutor query, ICommandExecutor command, IClock clock, IIdGenerator ids,
+    ILogger<WorkflowFormAttachmentCoordinator> logger, ICurrentTenant tenant,
+    ITenantResourceFileDescriptorReader tenantDescriptors)
 {
-    /// <summary>
-    /// 在持久化新的提交 JSON 前校验并同步附件 claim；失败时回滚本次新增的 Pending claim。
-    /// </summary>
-    /// <param name="actorUserId">当前操作人标识。</param>
-    /// <param name="submissionId">表单提交标识。</param>
-    /// <param name="instanceId">流程实例标识。</param>
-    /// <param name="tenantScopeKey">租户作用域键。</param>
-    /// <param name="schema">已发布表单结构。</param>
-    /// <param name="previousValues">变更前的字段值。</param>
-    /// <param name="nextValues">变更后的字段值。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>同步成功或稳定业务错误。</returns>
-    public async Task<Result<bool>> SynchronizeAsync(
-        Guid actorUserId,
-        Guid submissionId,
-        Guid instanceId,
-        string tenantScopeKey,
-        WorkflowFormSchema schema,
-        IReadOnlyDictionary<string, JsonElement> previousValues,
-        IReadOnlyDictionary<string, JsonElement> nextValues,
-        CancellationToken cancellationToken = default)
+    public Task<Result<WorkflowAttachmentPlan>> PrepareInitialAsync(Guid actorId, Guid submissionId,
+        Guid instanceId, string tenantScopeKey, WorkflowFormSchema schema,
+        IReadOnlyDictionary<string, JsonElement> values, CancellationToken token,
+        IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null) =>
+        PrepareAsync(actorId, submissionId, instanceId, tenantScopeKey, schema,
+            new Dictionary<string, JsonElement>(), values, new HashSet<Guid>(), 0, Serialize(values), token, reuseSources);
+
+    /// <summary>重新加入历史文件也须验证当前可见复用范围；旧引用存在本身不构成授权。</summary>
+    public async Task<Result<WorkflowAttachmentPlan>> PrepareAsync(Guid actorId, Guid submissionId, Guid instanceId,
+        string tenantScopeKey, WorkflowFormSchema schema, IReadOnlyDictionary<string, JsonElement> previous,
+        IReadOnlyDictionary<string, JsonElement> next, IReadOnlySet<Guid> visibleFiles, long revision,
+        string nextJson, CancellationToken token, IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null)
     {
-        var previousAttachments = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, previousValues);
-        var nextAttachments = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, nextValues);
-        var added = new List<(string FieldKey, Guid FileId)>();
-        var removed = new List<(string FieldKey, Guid FileId)>();
-
-        foreach (var (fieldKey, fileIds) in nextAttachments)
-        {
-            previousAttachments.TryGetValue(fieldKey, out var previousIds);
-            foreach (var fileId in fileIds.Where(fileId => previousIds?.Contains(fileId) != true))
-            {
-                added.Add((fieldKey, fileId));
-            }
-        }
-
-        foreach (var (fieldKey, fileIds) in previousAttachments)
-        {
-            nextAttachments.TryGetValue(fieldKey, out var nextIds);
-            foreach (var fileId in fileIds.Where(fileId => nextIds?.Contains(fileId) != true))
-            {
-                removed.Add((fieldKey, fileId));
-            }
-        }
-
-        if (added.Count == 0 && removed.Count == 0)
-        {
-            return Result<bool>.Success(true);
-        }
-
-        var fieldMap = schema.Sections.SelectMany(section => section.Fields)
-            .Where(field => field.FieldTypeKey == "attachment")
+        if (WorkflowManagementScope.Resolve(tenant).TenantScopeKey != tenantScopeKey) return InvalidPlan();
+        var oldFiles = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, previous);
+        var nextFiles = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, next);
+        var fields = schema.Sections.SelectMany(section => section.Fields).Where(field => field.FieldTypeKey == "attachment")
             .ToDictionary(field => field.FieldKey, StringComparer.Ordinal);
-
-        var claimedKeys = new List<string>();
-        foreach (var (fieldKey, fileId) in added)
-        {
-            if (!fieldMap.TryGetValue(fieldKey, out var field))
-            {
-                return AttachmentInvalid();
-            }
-
-            var validation = await ValidateNewAttachmentAsync(
-                    actorUserId,
-                    submissionId,
-                    field,
-                    fileId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!validation.IsSuccess)
-            {
-                await ReleaseClaimedAsync(claimedKeys, cancellationToken).ConfigureAwait(false);
-                return validation;
-            }
-
-            var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(
-                submissionId,
-                fileId);
-            var claimResult = await hostFileReferenceClaimService
-                .ClaimAsync(
-                    new HostFileReferenceClaimRequest(
-                        idempotencyKey,
-                        HostFileReferenceClaimConsumerModules.Workflow,
-                        submissionId,
-                        fileId),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!claimResult.IsSuccess)
-            {
-                await ReleaseClaimedAsync(claimedKeys, cancellationToken).ConfigureAwait(false);
-                return AttachmentInvalid();
-            }
-
-            claimedKeys.Add(idempotencyKey);
-        }
-
+        var prepared = new List<WorkflowPreparedAttachment>();
+        var plan = new WorkflowAttachmentPlan(submissionId, instanceId, tenantScopeKey, actorId, revision,
+            WorkflowSignatureCoordinator.HashSubmission(nextJson), prepared);
         try
         {
-            var now = clock.UtcNow;
-            foreach (var (fieldKey, fileId) in removed)
+            foreach (var (fieldKey, fileIds) in nextFiles)
             {
-                await commandExecutor.ExecuteAsync(
-                        WorkflowFormSubmissionAttachmentSql.DeleteBySubmissionFieldFile,
-                        WorkflowSqlParameters.Create(
-                            ("SubmissionId", submissionId),
-                            ("FieldKey", fieldKey),
-                            ("FileId", fileId)),
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                var added = fileIds.Where(file => !oldFiles.TryGetValue(fieldKey, out var old) || !old.Contains(file)).ToArray();
+                if (added.Length == 0) continue;
+                // 唯一键限定每个字段每个文件一行，读取规模受该字段最多十个候选文件约束。
+                var existing = await query.QueryAsync<WorkflowAttachmentReferenceRecord>(WorkflowFormSubmissionAttachmentSql.ListForFieldFiles,
+                    WorkflowSqlParameters.Create(("SubmissionId", submissionId), ("InstanceId", instanceId),
+                        ("TenantScopeKey", tenantScopeKey), ("FieldKey", fieldKey), ("FileIds", added)), token).ConfigureAwait(false);
+                foreach (var fileId in added)
+                {
+                    var descriptor = await ReadAuthorizedDescriptorAsync(actorId, instanceId, tenantScopeKey,
+                        fileId, visibleFiles.Contains(fileId), token, reuseSources?.GetValueOrDefault(fileId)).ConfigureAwait(false);
+                    if (descriptor is null || !WorkflowFormAttachmentConstraints.TryRead(fields[fieldKey], out _, out var maximum, out var extensions) ||
+                        descriptor.SizeBytes <= 0 || descriptor.SizeBytes > maximum ||
+                        !WorkflowFormAttachmentValueRules.MatchesAllowedExtension(descriptor.Name, extensions))
+                    {
+                        await FinishAsync(plan, token).ConfigureAwait(false);
+                        return InvalidPlan();
+                    }
+                    if (existing.Any(row => row.FileId == fileId)) continue;
+                    var reference = new WorkflowPreparedAttachment(ids.NewId(), fieldKey, fileId, descriptor.OwnerResourceId);
+                    if (tenantScopeKey == "host")
+                    {
+                        var result = await claims.ClaimAsync(new(
+                            HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(reference.Id, fileId),
+                            HostFileReferenceClaimConsumerModules.Workflow, reference.Id, fileId), token).ConfigureAwait(false);
+                        if (!result.IsSuccess)
+                        {
+                            await FinishAsync(plan, token).ConfigureAwait(false);
+                            return InvalidPlan();
+                        }
+                    }
+                    prepared.Add(reference);
+                }
             }
-
-            foreach (var (fieldKey, fileId) in added)
-            {
-                await commandExecutor.ExecuteAsync(
-                        WorkflowFormSubmissionAttachmentSql.Insert,
-                        WorkflowSqlParameters.Create(
-                            ("Id", idGenerator.NewId()),
-                            ("SubmissionId", submissionId),
-                            ("InstanceId", instanceId),
-                            ("FieldKey", fieldKey),
-                            ("FileId", fileId),
-                            ("TenantScopeKey", tenantScopeKey),
-                            ("CreatedAtUtc", now)),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            return Result<WorkflowAttachmentPlan>.Success(plan);
         }
         catch
         {
-            await ReleaseClaimedAsync(claimedKeys, cancellationToken).ConfigureAwait(false);
+            await FinishAsync(plan, token).ConfigureAwait(false);
             throw;
         }
+    }
 
-        foreach (var idempotencyKey in claimedKeys)
-        {
-            var confirmResult = await hostFileReferenceClaimService
-                .ConfirmAsync(idempotencyKey, cancellationToken)
-                .ConfigureAwait(false);
-            if (!confirmResult.IsSuccess)
-            {
-                return AttachmentInvalid();
-            }
-        }
+    public Task WriteInitialAsync(WorkflowAttachmentPlan plan, CancellationToken token) => AppendAsync(plan, token);
 
-        foreach (var (fieldKey, fileId) in removed)
-        {
-            var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(
-                submissionId,
-                fileId);
-            _ = await hostFileReferenceClaimService
-                .ReleaseAsync(idempotencyKey, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
+    /// <summary>最终表单和准备身份不匹配时拒绝写入；此方法不调用任何 Files Contract。</summary>
+    public async Task<Result<bool>> WritePreparedAsync(WorkflowAttachmentPlan? plan, Guid actorId,
+        WorkflowFormSubmissionRecord submission, Guid instanceId, string tenantScopeKey, WorkflowFormSchema schema,
+        IReadOnlyDictionary<string, JsonElement> previous, IReadOnlyDictionary<string, JsonElement> next,
+        string nextJson, CancellationToken token)
+    {
+        var oldFiles = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, previous);
+        var hasNewFile = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, next)
+            .Any(field => field.Value.Any(file => !oldFiles.TryGetValue(field.Key, out var old) || !old.Contains(file)));
+        if (!hasNewFile) return Result<bool>.Success(true);
+        if (plan is null || plan.ActorId != actorId || plan.SubmissionId != submission.Id || plan.InstanceId != instanceId ||
+            plan.TenantScopeKey != tenantScopeKey || plan.ExpectedRevision != submission.Revision ||
+            plan.SubmissionHash != WorkflowSignatureCoordinator.HashSubmission(nextJson))
+            return Result<bool>.Failure(InvalidError());
+        await AppendAsync(plan, token).ConfigureAwait(false);
         return Result<bool>.Success(true);
     }
 
-    private async Task<Result<bool>> ValidateNewAttachmentAsync(
-        Guid actorUserId,
-        Guid submissionId,
-        WorkflowFormField field,
-        Guid fileId,
-        CancellationToken cancellationToken)
+    private async Task AppendAsync(WorkflowAttachmentPlan plan, CancellationToken token)
     {
-        if (!WorkflowFormAttachmentConstraints.TryRead(
-                field,
-                out _,
-                out var maxSizeBytes,
-                out var allowedExtensions))
+        foreach (var reference in plan.Attachments)
         {
-            return AttachmentInvalid();
+            var parameters = WorkflowSqlParameters.Create(("Id", reference.Id), ("SubmissionId", plan.SubmissionId),
+                ("InstanceId", plan.InstanceId), ("FieldKey", reference.FieldKey), ("FileId", reference.FileId),
+                ("TenantScopeKey", plan.TenantScopeKey), ("CreatedAtUtc", clock.UtcNow),
+                ("ClaimReferenceId", reference.Id), ("OwnerResourceId", reference.OwnerResourceId));
+            // 两个分支可以准备相同字段/文件，后取得实例锁的一方不插入重复事实，也不消费自己的临时 claim。
+            if (await query.QuerySingleOrDefaultAsync<int>(WorkflowFormSubmissionAttachmentSql.ExistsForFieldFile, parameters, token).ConfigureAwait(false) == 1) continue;
+            await command.ExecuteAsync(WorkflowFormSubmissionAttachmentSql.Insert, parameters, token).ConfigureAwait(false);
         }
+    }
 
-        var descriptor = await hostFileDescriptorReader
-            .GetReadyDescriptorAsync(fileId, cancellationToken)
-            .ConfigureAwait(false);
-        if (descriptor is null ||
-            descriptor.SizeBytes > maxSizeBytes ||
-            !WorkflowFormAttachmentValueRules.MatchesAllowedExtension(
-                descriptor.OriginalFileName,
-                allowedExtensions))
+    public async Task FinishAsync(WorkflowAttachmentPlan? plan, CancellationToken token)
+    {
+        if (plan is null || plan.TenantScopeKey != "host") return;
+        foreach (var reference in plan.Attachments)
         {
-            return AttachmentInvalid();
-        }
-
-        if (descriptor.CreatedByUserId != actorUserId)
-        {
-            var reused = await queryExecutor.QuerySingleOrDefaultAsync<int>(
-                    WorkflowFormSubmissionAttachmentSql.ExistsForSubmissionFile,
-                    WorkflowSqlParameters.Create(("SubmissionId", submissionId), ("FileId", fileId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (reused != 1)
+            var key = HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(reference.Id, reference.FileId);
+            try
             {
-                return AttachmentInvalid();
+                var exists = await query.QuerySingleOrDefaultAsync<int>(WorkflowFormSubmissionAttachmentSql.ExistsForProbe,
+                    WorkflowSqlParameters.Create(("ReferenceId", reference.Id), ("FileId", reference.FileId)), token).ConfigureAwait(false) == 1;
+                var succeeded = exists ? (await claims.ConfirmAsync(key, token).ConfigureAwait(false)).IsSuccess
+                    : (await claims.ReleaseAsync(key, token).ConfigureAwait(false)).IsSuccess;
+                if (!succeeded) logger.LogWarning("Workflow attachment claim awaits reconciliation for {ReferenceId}.", reference.Id);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Workflow attachment claim awaits reconciliation for {ReferenceId}.", reference.Id);
             }
         }
-
-        return Result<bool>.Success(true);
     }
 
-    private async Task ReleaseClaimedAsync(
-        IReadOnlyList<string> idempotencyKeys,
-        CancellationToken cancellationToken)
+    private async Task<AttachmentDescriptor?> ReadAuthorizedDescriptorAsync(Guid actorId, Guid instanceId, string scope,
+        Guid fileId, bool canReuse, CancellationToken token, WorkflowAttachmentReuseSource? source = null)
     {
-        foreach (var idempotencyKey in idempotencyKeys)
+        WorkflowAttachmentFileOwnerRecord? projectedOwner = null;
+        if (source is not null)
         {
-            _ = await hostFileReferenceClaimService
-                .ReleaseAsync(idempotencyKey, cancellationToken)
-                .ConfigureAwait(false);
+            if (source.InstanceId == Guid.Empty || !WorkflowSubprocessPolicy.Key(source.FieldKey)) return null;
+            var mapped = await query.QuerySingleOrDefaultAsync<WorkflowMappedAttachmentFileOwnerRecord>(WorkflowFormSubmissionAttachmentSql.FindMappedFileOwner,
+                WorkflowSqlParameters.Create(("InstanceId", source.InstanceId), ("TenantScopeKey", scope), ("FieldKey", source.FieldKey), ("FileId", fileId)), token).ConfigureAwait(false);
+            // 旧附件表可能使用不区分大小写的排序规则；字段授权仍使用与Schema一致的Ordinal身份。
+            if (mapped?.FieldKey != source.FieldKey) return null;
+            projectedOwner = new(mapped.OwnerResourceId);
         }
+        if (scope == "host")
+        {
+            var descriptor = await descriptors.GetReadyDescriptorAsync(fileId, token).ConfigureAwait(false);
+            if (descriptor is null) return null;
+            if (descriptor.CreatedByUserId != actorId && projectedOwner is null && (!canReuse || await FindOwnerAsync(instanceId, fileId, scope, token).ConfigureAwait(false) is null))
+                return null;
+            return new(descriptor.OriginalFileName, descriptor.SizeBytes, null);
+        }
+        var owner = actorId;
+        var row = await tenantDescriptors.GetReadyDescriptorAsync(WorkflowSignatureCoordinator.SignatureOwnerModuleKey, owner, fileId, token).ConfigureAwait(false);
+        if (row is null && (canReuse || projectedOwner is not null))
+        {
+            var previousOwner = projectedOwner ?? await FindOwnerAsync(instanceId, fileId, scope, token).ConfigureAwait(false);
+            if (previousOwner?.OwnerResourceId is not { } resourceId) return null;
+            owner = resourceId;
+            row = await tenantDescriptors.GetReadyDescriptorAsync(WorkflowSignatureCoordinator.SignatureOwnerModuleKey, owner, fileId, token).ConfigureAwait(false);
+        }
+        return row is null || row.CreatedByUserId != owner ? null : new(row.OriginalFileName, row.SizeBytes, owner);
     }
 
-    private static Result<bool> AttachmentInvalid() =>
-        Result<bool>.Failure(new Error(
-            WorkflowErrorCodes.FormAttachmentInvalid,
-            "The workflow form attachment is invalid or unauthorized.",
-            ErrorType.Validation));
+    private Task<WorkflowAttachmentFileOwnerRecord?> FindOwnerAsync(Guid instanceId, Guid fileId, string scope, CancellationToken token) =>
+        query.QuerySingleOrDefaultAsync<WorkflowAttachmentFileOwnerRecord>(WorkflowFormSubmissionAttachmentSql.FindFileOwner,
+            WorkflowSqlParameters.Create(("InstanceId", instanceId), ("FileId", fileId), ("TenantScopeKey", scope)), token);
+
+    private static string Serialize(IReadOnlyDictionary<string, JsonElement> values) => JsonSerializer.Serialize(
+        values.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
+        Serialization.WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+    private static Error InvalidError() => new(WorkflowErrorCodes.FormAttachmentInvalid, "The workflow attachment is invalid or unauthorized.", ErrorType.Validation);
+    private static Result<WorkflowAttachmentPlan> InvalidPlan() => Result<WorkflowAttachmentPlan>.Failure(InvalidError());
+    private sealed record AttachmentDescriptor(string Name, long SizeBytes, Guid? OwnerResourceId);
 }
+
+/// <summary>事务外准备的单次文件持有身份，不能由客户端提供或跨办理复用。</summary>
+internal sealed record WorkflowPreparedAttachment(Guid Id, string FieldKey, Guid FileId, Guid? OwnerResourceId);
+
+/// <summary>仅由内核从真实父子关联及明确字段映射派生；不属于HTTP输入，仍逐项核对同作用域历史引用。</summary>
+internal sealed record WorkflowAttachmentReuseSource(Guid InstanceId, string FieldKey);
+
+
+/// <summary>准备绑定可信作用域、提交身份、期望修订和最终内容摘要。</summary>
+internal sealed record WorkflowAttachmentPlan(Guid SubmissionId, Guid InstanceId, string TenantScopeKey,
+    Guid ActorId, long ExpectedRevision, string SubmissionHash, IReadOnlyList<WorkflowPreparedAttachment> Attachments);

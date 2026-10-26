@@ -19,4 +19,12 @@
   <data name="organization.positions.not_found" xml:space="preserve"><value>未找到指定的职位。</value></data>
   <data name="organization.position_levels.code_exists" xml:space="preserve"><value>该租户职级编码已存在。</value></data>
   <data name="organization.position_levels.not_found" xml:space="preserve"><value>未找到指定的职级。</value></data>
+  <data name="organization.unit_leadership.invalid_request" xml:space="preserve"><value>机构负责人配置请求或版本无效。</value></data>
+  <data name="organization.unit_leadership.revision_conflict" xml:space="preserve"><value>机构状态、数据范围或负责人配置已变化，请刷新后重试。</value></data>
+  <data name="organization.unit_leadership.leader_invalid" xml:space="preserve"><value>负责人必须是当前租户的活动成员。</value></data>
+  <data name="organization.reporting_lines.invalid_request" xml:space="preserve"><value>直属汇报关系或所选活动租户成员无效。</value></data>
+  <data name="organization.reporting_lines.employee_not_found" xml:space="preserve"><value>未找到当前租户的活动成员。</value></data>
+  <data name="organization.reporting_lines.revision_conflict" xml:space="preserve"><value>直属汇报关系已变化，请刷新后重试。</value></data>
+  <data name="organization.reporting_lines.cycle_or_depth" xml:space="preserve"><value>汇报关系形成环或超过64级上限。</value></data>
+  <data name="organization.reporting_lines.scope_denied" xml:space="preserve"><value>配置直属汇报关系需要完整组织数据范围。</value></data>
 </root>

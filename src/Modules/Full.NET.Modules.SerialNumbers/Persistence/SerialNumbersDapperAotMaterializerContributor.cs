@@ -15,6 +15,10 @@ internal sealed class SerialNumbersDapperAotMaterializerContributor
         registrar.Register<SerialNumberRuleRecord>(ReadSerialNumberRuleRecord);
         registrar.Register<AllocatedCounterValue>(ReadAllocatedCounterValue);
         registrar.Register<SerialNumberAllocationRecord>(ReadSerialNumberAllocationRecord);
+        registrar.Register<SerialRuleCommandRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3),
+            reader.GetString(4), reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetInt64(8), reader.IsDBNull(9) ? null : reader.GetInt64(9), reader.GetInt64(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11), AotDataReaderExtensions.ReadDateTimeOffset(reader, 12)));
     }
 
     private static SerialNumberRuleRecord ReadSerialNumberRuleRecord(

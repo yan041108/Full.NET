@@ -5,6 +5,22 @@ namespace Full.NET.Modules.Organization.Contracts;
 /// </summary>
 public static class OrganizationErrorCodes
 {
+    /// <summary>直属关系或所选活动成员无效。</summary>
+    public const string ReportingLineInvalid = "organization.reporting_lines.invalid_request";
+    /// <summary>目标不是当前租户的活动成员。</summary>
+    public const string ReportingEmployeeNotFound = "organization.reporting_lines.employee_not_found";
+    /// <summary>直属关系修订已改变。</summary>
+    public const string ReportingLineConflict = "organization.reporting_lines.revision_conflict";
+    /// <summary>汇报关系形成环或超过明确深度上限。</summary>
+    public const string ReportingLineCycle = "organization.reporting_lines.cycle_or_depth";
+    /// <summary>局部数据范围不能配置全租户的汇报关系。</summary>
+    public const string ReportingLineScopeDenied = "organization.reporting_lines.scope_denied";
+    /// <summary>领导权写入请求或版本格式无效。</summary>
+    public const string UnitLeadershipInvalid = "organization.unit_leadership.invalid_request";
+    /// <summary>机构版本、活动状态或领导权修订已经变化。</summary>
+    public const string UnitLeadershipConflict = "organization.unit_leadership.revision_conflict";
+    /// <summary>负责人不是当前租户的活动成员。</summary>
+    public const string UnitLeaderInvalid = "organization.unit_leadership.leader_invalid";
     /// <summary>机构编码在租户内已存在。</summary>
     public const string UnitCodeExists = "organization.units.code_exists";
 

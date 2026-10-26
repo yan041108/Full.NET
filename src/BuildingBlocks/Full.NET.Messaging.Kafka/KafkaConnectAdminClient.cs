@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -6,33 +5,6 @@ using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka.Serialization;
 
 namespace Full.NET.Messaging.Kafka;
-
-/// <summary>
-/// 记录同一回退 generation 的控制面 fence，供 <see cref="KafkaConnectEventDeliveryRollbackReadinessReader.AbortAsync"/> 幂等恢复。
-/// </summary>
-internal sealed class RollbackControlPlaneFenceRegistry
-{
-    private readonly ConcurrentDictionary<RollbackFenceKey, RollbackFenceState> _fences = new();
-
-    public bool TryRegister(RollbackFenceKey key, RollbackFenceState state) =>
-        _fences.TryAdd(key, state);
-
-    public bool TryGet(RollbackFenceKey key, out RollbackFenceState state) =>
-        _fences.TryGetValue(key, out state!);
-
-    public bool TryRemove(RollbackFenceKey key) =>
-        _fences.TryRemove(key, out _);
-}
-
-internal readonly record struct RollbackFenceKey(
-    string EventType,
-    int SchemaVersion,
-    Guid RollbackGeneration);
-
-internal sealed record RollbackFenceState(
-    string ConnectorName,
-    string ControlPlaneFenceToken,
-    bool ConnectorPaused);
 
 /// <summary>
 /// Debezium Kafka Connect REST 客户端；生产回退、集成测试与容量 Runner 共用实现。
@@ -261,7 +233,7 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
                 KafkaMessagingJsonSerializerContext.Default.ConnectorOffsetsResponse,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (payload?.Offsets is not { Count: > 0 })
+        if (payload?.Offsets is not { Count: 1 })
         {
             return null;
         }
@@ -322,6 +294,24 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         {
             _httpClient.Dispose();
         }
+    }
+
+    /// <summary>读取 Connect 实际绑定的 Kafka 集群，避免暂停一套链路却排空另一套 Broker。</summary>
+    public async Task<string?> TryReadKafkaClusterIdAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/", cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode) return null;
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        return document.RootElement.TryGetProperty("kafka_cluster_id", out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() : null;
+    }
+
+    /// <summary>读取目标 Connector 的实际配置，仅用于计算资源摘要，禁止日志或响应回显。</summary>
+    public async Task<IReadOnlyDictionary<string, string>?> TryReadConnectorConfigurationAsync(string connectorName, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/connectors/{Uri.EscapeDataString(connectorName)}/config", cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync(KafkaMessagingJsonSerializerContext.Default.DictionaryStringString, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<ConnectorHealth> TryGetConnectorHealthAsync(

@@ -10,6 +10,8 @@ using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Persistence;
+using Full.NET.Abstractions.Tenancy;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 
@@ -20,7 +22,7 @@ namespace Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 /// 回退属高风险运维操作，分准备与完成两阶段：准备阶段获取 producer fence 并持久化回退代次，
 /// 完成阶段要求控制面提供新鲜（1 分钟内）就绪证明——Connector 已停止、Broker 消息已排空或隔离、
 /// 且 CDC 源位点覆盖 producer fence。所有权 Upsert 以 CAS 守卫避免并发双发布；
-/// 任意阶段失败均按 generation 解除准备，且必须先确认控制面恢复再解除数据库 producer fence，
+/// 失败后按 generation 重读权威状态，只有确认原控制面恢复才解除数据库 producer fence，
 /// 防止新 Outbox 行进入已停止的 CDC 链路。回退与领域审计同事务原子写入。
 /// </remarks>
 internal sealed class DeliveryRollbackService(
@@ -32,10 +34,12 @@ internal sealed class DeliveryRollbackService(
     IIdGenerator idGenerator,
     IClock clock,
     ICommandTransaction transaction,
-    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter)
+    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter,
+    DeliveryRollbackJournal rollbackJournal,
+    IDatabaseSessionLock sessionLock,
+    IServiceScopeFactory scopeFactory,
+    Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// 执行交付所有权回退：准备阶段获取 producer fence，完成阶段校验控制面就绪证明后 CAS 写回 Legacy 所有者。
     /// </summary>
@@ -43,13 +47,15 @@ internal sealed class DeliveryRollbackService(
     /// <param name="cancellationToken">用于取消数据库与控制面操作的令牌。</param>
     /// <returns>回退结果；前置条件不满足或就绪证明失效时返回错误，成功时返回回退边界事件。</returns>
     /// <remarks>
-    /// 准备或完成阶段失败均按回退代次解除 producer fence；解除前必须先确认控制面 Connector/Consumer 已恢复。
+    /// 准备或完成阶段失败后尝试恢复；结果未知或恢复失败保留 fence，Completed 代次禁止恢复旧发布者。
     /// </remarks>
     public async Task<Result<DeliveryRollbackResponse>> RollbackAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (MessagingOperationActor.Validate(MessagingOperationActor.Resolve(httpContextAccessor), request.Reason) is { } actorError)
+            return Result<DeliveryRollbackResponse>.Failure(actorError);
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return Result<DeliveryRollbackResponse>.Failure(new Error(
@@ -66,6 +72,8 @@ internal sealed class DeliveryRollbackService(
                 ErrorType.BusinessRule));
         }
 
+        await using var control = await sessionLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock, cancellationToken).ConfigureAwait(false);
+        if (control is null) return RollbackFailure("Another delivery control operation is running.");
         var beginResult = await transaction.ExecuteResultAsync(
                 token => BeginRollbackAsync(request, token),
                 cancellationToken)
@@ -163,6 +171,10 @@ internal sealed class DeliveryRollbackService(
                 "Another rollback preparation already owns the producer fence.");
         }
 
+        if (await rollbackJournal.CreateAsync(rollbackGeneration, request.EventType, request.SchemaVersion,
+                MessagingOperationActor.Resolve(httpContextAccessor)!.UserId, request.Reason, cancellationToken).ConfigureAwait(false) != 1)
+            throw new InvalidOperationException("回退日志未能与生产者保护一同建立。");
+
         return Result<RollbackPreparation>.Success(
             new RollbackPreparation(rollbackGeneration, preparedAtUtc));
     }
@@ -218,6 +230,9 @@ internal sealed class DeliveryRollbackService(
         }
 
         var rollbackOccurredAtUtc = clock.UtcNow;
+        var operation = await rollbackJournal.FindAsync(preparation.RollbackGeneration, cancellationToken).ConfigureAwait(false);
+        if (operation is null || (operation.Phase != EventDeliveryRollbackPhase.Paused || !operation.HasPauseIntent || operation.ResourcesJson is null))
+            return RollbackFailure("The rollback operation is no longer eligible for completion.");
         var readinessAge = rollbackOccurredAtUtc - readiness.ObservedAtUtc;
         if (readiness.RollbackGeneration != preparation.RollbackGeneration
             || !readiness.ConnectorStopped
@@ -241,12 +256,16 @@ internal sealed class DeliveryRollbackService(
             CurrentOwner = EventDeliveryOwner.LegacyPolling,
             PreviousOwner = EventDeliveryOwner.CdcKafka,
             CdcSourcePositionJson = readiness.CdcSourcePositionJson,
+            OperatorUserId = MessagingOperationActor.Resolve(httpContextAccessor)!.UserId,
             Reason = request.Reason,
             RollbackBoundaryEventId = rollbackBoundaryEventId,
             RollbackOccurredAtUtc = rollbackOccurredAtUtc,
             UpdatedAtUtc = rollbackOccurredAtUtc,
         };
         await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);
+        if (!await rollbackJournal.TransitionAsync(preparation.RollbackGeneration, operation.Phase,
+                EventDeliveryRollbackPhase.Completed, cancellationToken).ConfigureAwait(false))
+            return RollbackFailure("The rollback operation changed concurrently.");
 
         await domainAuditWriter.WriteAsync(
                 new MessagingDomainAuditWrite(
@@ -256,8 +275,8 @@ internal sealed class DeliveryRollbackService(
                         : idGenerator.NewId(),
                     TenantId: null,
                     MessagingDomainAuditOutcomes.Success,
-                    ActorUserId: null,
-                    ActorDisplayName: null,
+                    ActorUserId: MessagingOperationActor.Resolve(httpContextAccessor)!.UserId,
+                    ActorDisplayName: MessagingOperationActor.Resolve(httpContextAccessor)!.DisplayName,
                     DiffSummaryJson: JsonSerializer.Serialize(
                         new DeliveryRollbackAuditDiff(
                             request.EventType,
@@ -289,35 +308,13 @@ internal sealed class DeliveryRollbackService(
         ChangeDeliveryOwnerRequest request,
         Guid rollbackGeneration)
     {
-        // 必须先确认同一 generation 的 Connector/Consumer 已恢复，再解除数据库
-        // producer fence；否则控制面恢复失败会让新 Outbox 行进入已停止的 CDC 链路。
-        await rollbackReadinessReader.AbortAsync(
-                request.EventType,
-                request.SchemaVersion,
-                rollbackGeneration,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        await transaction.ExecuteAsync(
-                async token =>
-                {
-                    if (await ownershipGate.AcquireOwnershipChangeAsync(
-                            request.EventType,
-                            request.SchemaVersion,
-                            token).ConfigureAwait(false))
-                    {
-                        await ownershipStore.TryAbortRollbackPreparationAsync(
-                                request.EventType,
-                                request.SchemaVersion,
-                                rollbackGeneration,
-                                clock.UtcNow,
-                                token)
-                            .ConfigureAwait(false);
-                    }
-
-                    return 0;
-                },
-                CancellationToken.None)
-            .ConfigureAwait(false);
+        // 原事务的提交结果可能未知，必须使用新会话读取权威结果；不能复用失败的事务或内存所有者。
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        await using var scope = scopeFactory.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+        var recovery = scope.ServiceProvider.GetRequiredService<DeliveryRollbackRecoveryService>();
+        var result = await recovery.RecoverUnderLockAsync(rollbackGeneration, request.Reason, timeout.Token).ConfigureAwait(false);
+        if (!result.IsSuccess) throw new InvalidOperationException(result.Error!.Message);
     }
 
     private static Result<RollbackPreparation> RollbackPreparationFailure(string message) =>

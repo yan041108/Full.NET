@@ -26,253 +26,72 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInstanceRecoveryServiceTests
 {
     [TestMethod]
-    public async Task Reassign_validates_target_before_transaction_and_atomically_writes_notification()
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public async Task Reassign_validates_target_before_transaction_and_atomically_writes_notification(bool tenantScope, bool task)
     {
-        var instanceId = Guid.CreateVersion7();
-        var todoId = Guid.CreateVersion7();
-        var stepId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
-        var assigneeId = Guid.CreateVersion7();
-        var now = DateTimeOffset.UtcNow;
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var clock = Substitute.For<IClock>();
-        var ids = Substitute.For<IIdGenerator>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        var outbox = Substitute.For<IOutboxWriter>();
-        var transaction = new TrackingTransaction();
-        tenant.IsHost.Returns(true);
-        clock.UtcNow.Returns(now);
-        ids.NewId().Returns(_ => Guid.CreateVersion7());
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                Assert.IsFalse(transaction.HasStarted, "Identity 目标用户校验必须发生在 Workflow 本地事务之外。");
-                return new Dictionary<Guid, HostUserDirectoryEntry>
-                {
-                    [assigneeId] = new(assigneeId, "next", "下一办理人"),
-                };
-            });
-        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
-                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowInstanceRecord(
-                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", null, "active", 3, actorId, now, null, null, null, null, null, null));
-        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns((WorkflowActionReceiptRecord?)null);
-        query.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-                WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowTodoRecord(
-                todoId, instanceId, stepId, Guid.CreateVersion7(), "active", now, null, null, 2));
-        query.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
-                WorkflowSql.FindApprovalSlotForReassignment, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowApprovalSlotRecord(Guid.CreateVersion7(), 1));
-        command.ExecuteAsync(
-                Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(1);
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers,
-            new WorkflowNotificationOutboxPublisher(outbox));
-
-        var result = await service.ReassignAsync(
-            instanceId, actorId, new ReassignWorkflowInstanceRequest(assigneeId, 3, "交接", "reassign-001"));
-
-        Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(4, result.Value!.Revision);
-        Assert.AreEqual(todoId, result.Value.ActiveTodoId);
-        Assert.IsTrue(transaction.HasStarted);
-        await hostUsers.Received(1).FindActiveHostUsersAsync(
-            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.SequenceEqual(new[] { assigneeId })),
-            Arg.Any<CancellationToken>());
-        await tenantUsers.DidNotReceiveWithAnyArgs().FindActiveTenantUsersAsync(default!, default);
-        Assert.AreEqual(7, command.ReceivedCalls().Count());
-        await query.Received(1).QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
-            WorkflowSql.FindApprovalSlotByStepAssignee,
-            Arg.Is<object?>(value => HasValue(value, "StepId", stepId) &&
-                HasValue(value, "AssigneeUserId", assigneeId)),
-            Arg.Any<CancellationToken>());
-        await command.Received(1).ExecuteAsync(
-            WorkflowSql.ReassignApprovalSlotWithRevision,
-            Arg.Is<object?>(value => HasValue(value, "TodoId", todoId) &&
-                HasValue(value, "AssigneeUserId", assigneeId)),
-            Arg.Any<CancellationToken>());
-        await outbox.Received(1).AddAsync(
-            WorkflowNotificationIntegrationEventTypes.TodoAssigned,
-            1,
-            Arg.Is<WorkflowTodoAssignedIntegrationEvent>(message => message != null &&
-                message.InstanceId == instanceId &&
-                message.TodoId == todoId &&
-                message.RecipientUserId == assigneeId),
-            Arg.Any<IntegrationEventMetadata>(),
-            Arg.Any<CancellationToken>());
+        var f = ReassignFixture.Create(tenantScope, task);
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request);
+        Assert.IsTrue(result.IsSuccess); Assert.AreEqual(4, result.Value!.Revision);
+        Assert.IsNotNull(result.Value.ActiveTodoId); Assert.AreNotEqual(f.Todo.Id, result.Value.ActiveTodoId);
+        Assert.IsTrue(f.Transaction.HasStarted); Assert.IsTrue(f.DirectoryInside.All(value => !value));
+        await f.Command.Received(1).ExecuteAsync(WorkflowSql.CompleteTodoWithRevision,
+            Arg.Is<object?>(value => HasValue(value, "Id", f.Todo.Id) && HasValue(value, "ResultActionKey", "reassign")), Arg.Any<CancellationToken>());
+        await f.Command.Received(1).ExecuteAsync(WorkflowTodoTransferSql.Insert,
+            Arg.Is<object?>(value => HasValue(value, "FromAssigneeUserId", f.Todo.AssigneeUserId) && HasValue(value, "ActorUserId", f.Actor) &&
+                HasValue(value, "AuthorizationKey", WorkflowPermissions.InstancesRecover)), Arg.Any<CancellationToken>());
+        await f.Command.Received(1).ExecuteAsync(task ? WorkflowTaskSql.TransferMember : WorkflowTodoTransferSql.RebindSlot, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await f.Outbox.Received(1).AddAsync(WorkflowNotificationIntegrationEventTypes.TodoAssigned, 1,
+            Arg.Is<WorkflowTodoAssignedIntegrationEvent>(message => message != null && message.TodoId == result.Value.ActiveTodoId && message.RecipientUserId == f.Request.AssigneeUserId),
+            Arg.Any<IntegrationEventMetadata>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     public async Task Reassign_same_idempotency_semantics_returns_the_original_active_todo()
     {
-        var instanceId = Guid.CreateVersion7();
-        var todoId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
-        var assigneeId = Guid.CreateVersion7();
-        var now = DateTimeOffset.UtcNow;
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        var request = new ReassignWorkflowInstanceRequest(assigneeId, 3, "交接", "reassign-001");
-        tenant.IsHost.Returns(true);
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
-            {
-                [assigneeId] = new(assigneeId, "next", "下一办理人"),
-            });
-        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
-                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowInstanceRecord(
-                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", null, "active", 4, actorId, now, null, null, null, null, null, null));
-        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowActionReceiptRecord(
-                "reassign", actorId, 4, request.IdempotencyKey, HashRequest(request), null));
-        query.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-                WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowTodoRecord(
-                todoId, instanceId, Guid.CreateVersion7(), assigneeId, "active", now, null, null, 3));
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, new TrackingTransaction(), tenant,
-            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers, tenantUsers,
-            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
-
-        var result = await service.ReassignAsync(instanceId, actorId, request);
-
-        Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(todoId, result.Value!.ActiveTodoId);
-        Assert.AreEqual(0, command.ReceivedCalls().Count());
+        var f = ReassignFixture.Create(); var next = Guid.CreateVersion7();
+        f.Query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowActionReceiptRecord("reassign", f.Actor, 4, f.Request.IdempotencyKey, HashRequest(f.Request),
+                ResultTodoId: next, ResultStatusKey: "active", TodoId: f.Todo.Id));
+        f.Query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(f.Instance with { StatusKey = "completed", Revision = 9 });
+        f.Host.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, HostUserDirectoryEntry>());
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request);
+        Assert.IsTrue(result.IsSuccess); Assert.AreEqual(next, result.Value!.ActiveTodoId); Assert.AreEqual(4, result.Value.Revision);
+        Assert.AreEqual("active", result.Value.StatusKey); Assert.IsFalse(f.Transaction.HasStarted);
+        Assert.AreEqual(0, f.Command.ReceivedCalls().Count()); Assert.AreEqual(0, f.Host.ReceivedCalls().Count());
     }
 
     [TestMethod]
     public async Task Reassign_rejects_inactive_target_before_starting_transaction()
     {
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var transaction = new TrackingTransaction();
-        tenant.IsHost.Returns(true);
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>());
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, transaction, tenant,
-            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
-            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
-
-        var result = await service.ReassignAsync(
-            Guid.CreateVersion7(), Guid.CreateVersion7(),
-            new ReassignWorkflowInstanceRequest(Guid.CreateVersion7(), 1, null, "inactive-target"));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeNotFound, result.Error!.Code);
-        Assert.IsFalse(transaction.HasStarted);
-        Assert.AreEqual(0, query.ReceivedCalls().Count());
-        Assert.AreEqual(0, command.ReceivedCalls().Count());
+        var f = ReassignFixture.Create();
+        f.Host.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, HostUserDirectoryEntry>());
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request);
+        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeNotFound, result.Error?.Code);
+        Assert.IsFalse(f.Transaction.HasStarted); Assert.AreEqual(0, f.Command.ReceivedCalls().Count());
     }
 
     [TestMethod]
     public async Task Reassign_rejects_current_assignee_without_persistent_writes()
     {
-        var instanceId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
-        var assigneeId = Guid.CreateVersion7();
-        var now = DateTimeOffset.UtcNow;
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        tenant.IsHost.Returns(true);
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
-            {
-                [assigneeId] = new(assigneeId, "same", "当前办理人"),
-            });
-        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
-                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowInstanceRecord(
-                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-002", null, "active", 2, actorId, now, null, null, null, null, null, null));
-        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns((WorkflowActionReceiptRecord?)null);
-        query.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-                WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowTodoRecord(
-                Guid.CreateVersion7(), instanceId, Guid.CreateVersion7(), assigneeId,
-                "active", now, null, null, 1));
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, new TrackingTransaction(), tenant,
-            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
-            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
-
-        var result = await service.ReassignAsync(
-            instanceId, actorId,
-            new ReassignWorkflowInstanceRequest(assigneeId, 2, null, "same-assignee"));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeUnchanged, result.Error!.Code);
-        Assert.AreEqual(0, command.ReceivedCalls().Count());
+        var f = ReassignFixture.Create();
+        f.Host.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(
+            new Dictionary<Guid, HostUserDirectoryEntry> { [f.Todo.AssigneeUserId] = new(f.Todo.AssigneeUserId, "source", "Source") });
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request with { AssigneeUserId = f.Todo.AssigneeUserId });
+        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeUnchanged, result.Error?.Code);
+        Assert.AreEqual(0, WorkflowTodoManagementTestDependencies.CountBusinessCommands(f.Command));
     }
 
     [TestMethod]
     public async Task Reassign_rejects_stale_instance_revision_without_loading_or_updating_todo()
     {
-        var instanceId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
-        var assigneeId = Guid.CreateVersion7();
-        var now = DateTimeOffset.UtcNow;
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        tenant.IsHost.Returns(true);
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
-            {
-                [assigneeId] = new(assigneeId, "next", "下一办理人"),
-            });
-        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
-                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowInstanceRecord(
-                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-003", null, "active", 4, actorId, now, null, null, null, null, null, null));
-        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns((WorkflowActionReceiptRecord?)null);
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, new TrackingTransaction(), tenant,
-            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
-            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
-
-        var result = await service.ReassignAsync(
-            instanceId, actorId,
-            new ReassignWorkflowInstanceRequest(assigneeId, 3, null, "stale-revision"));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, result.Error!.Code);
-        await query.DidNotReceive().QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-            WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>());
-        Assert.AreEqual(0, command.ReceivedCalls().Count());
+        var f = ReassignFixture.Create();
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request with { ExpectedRevision = 2 });
+        Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, result.Error?.Code);
+        await f.Query.DidNotReceive().QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, WorkflowTodoManagementTestDependencies.CountBusinessCommands(f.Command));
     }
 
     /// <summary>
@@ -309,10 +128,10 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(1);
         var outbox = Substitute.For<IOutboxWriter>();
-        var service = new WorkflowInstanceRecoveryService(
+        var service = CreateService(
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox));
 
         var missingReason = await service.RecoverAsync(
@@ -363,41 +182,11 @@ public sealed class WorkflowInstanceRecoveryServiceTests
     [TestMethod]
     public async Task Reassign_suspended_instance_returns_invalid_transition()
     {
-        var instanceId = Guid.CreateVersion7();
-        var actorId = Guid.CreateVersion7();
-        var assigneeId = Guid.CreateVersion7();
-        var now = DateTimeOffset.UtcNow;
-        var query = Substitute.For<IQueryExecutor>();
-        var command = Substitute.For<ICommandExecutor>();
-        var tenant = Substitute.For<ICurrentTenant>();
-        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        tenant.IsHost.Returns(true);
-        hostUsers.FindActiveHostUsersAsync(
-                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
-            {
-                [assigneeId] = new(assigneeId, "next", "下一办理人"),
-            });
-        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
-                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkflowInstanceRecord(
-                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", null, "suspended", 3, actorId, now, null, null, null, null, null, null));
-        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns((WorkflowActionReceiptRecord?)null);
-        var service = new WorkflowInstanceRecoveryService(
-            query, command, new TrackingTransaction(), tenant, Substitute.For<IClock>(),
-            Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
-            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
-
-        var result = await service.ReassignAsync(
-            instanceId, actorId, new ReassignWorkflowInstanceRequest(assigneeId, 3, null, "reassign-001"));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, result.Error!.Code);
-        Assert.AreEqual(0, command.ReceivedCalls().Count());
+        var f = ReassignFixture.Create();
+        f.Query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(f.Instance with { StatusKey = "suspended" });
+        var result = await f.Service.ReassignAsync(f.Instance.Id, f.Actor, f.Request);
+        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, result.Error?.Code);
+        Assert.AreEqual(0, WorkflowTodoManagementTestDependencies.CountBusinessCommands(f.Command));
     }
 
     [TestMethod]
@@ -423,9 +212,48 @@ public sealed class WorkflowInstanceRecoveryServiceTests
             authorization[0].Policy);
     }
 
+    private static WorkflowInstanceRecoveryService CreateService(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
+        ICurrentTenant tenant, IClock clock, IIdGenerator ids, IHostUserBatchSelectionDirectory host, ITenantMemberSelectionDirectory members,
+        WorkflowNotificationOutboxPublisher notifications) => new(query, command, transaction, tenant, clock, ids, host, members,
+            new WorkflowTodoHandoffWriter(query, command, ids, new(command, ids, notifications), notifications), new(query, command));
+
+    private sealed record ReassignFixture(WorkflowInstanceRecoveryService Service, IQueryExecutor Query, ICommandExecutor Command,
+        IOutboxWriter Outbox, IHostUserBatchSelectionDirectory Host, TrackingTransaction Transaction, WorkflowInstanceRecord Instance,
+        WorkflowTodoRuntimeRecord Todo, Guid Actor, ReassignWorkflowInstanceRequest Request, List<bool> DirectoryInside)
+    {
+        public static ReassignFixture Create(bool tenantScope = false, bool task = false)
+        {
+            var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
+            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+            var transaction = new TrackingTransaction(); var tenant = new CurrentTenantAccessor();
+            if (tenantScope) tenant.SetTenant(new TenantContext(Guid.CreateVersion7(), "handoff", "Handoff")); else tenant.SetHost();
+            var actor = Guid.CreateVersion7(); var target = Guid.CreateVersion7(); var source = Guid.CreateVersion7(); var now = DateTimeOffset.UtcNow;
+            var scopeKey = tenantScope ? $"tenant:{tenant.Id:N}" : "host";
+            var instance = new WorkflowInstanceRecord(Guid.CreateVersion7(), tenant.Id, tenantScope ? "tenant" : "host", scopeKey,
+                Guid.CreateVersion7(), Guid.CreateVersion7(), "test", "reassign", null, "active", 3, source, now, null, null, null, null, null, null);
+            var todo = new WorkflowTodoRuntimeRecord(Guid.CreateVersion7(), instance.Id, Guid.CreateVersion7(), source, "active", now, null, null, 2,
+                "review", 1, task ? null : "all", task ? null : 2, task ? null : 2, null, null, null, task ? "human.task" : "human.approval");
+            query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(instance);
+            query.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(todo);
+            query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(WorkflowSql.FindFormSubmissionByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new WorkflowFormSubmissionRecord(Guid.CreateVersion7(), instance.Id, instance.FormVersionId!.Value, "{}", "none", 4, source, now));
+            query.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(WorkflowSql.FindApprovalSlotForReassignment, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowApprovalSlotRecord(Guid.CreateVersion7(), 1));
+            query.QuerySingleOrDefaultAsync<WorkflowTaskContextRecord>(WorkflowTaskSql.FindForTodo, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new WorkflowTaskContextRecord(Guid.CreateVersion7(), todo.StepId, 1, 1, "all", 2, 2, 1));
+            var host = Substitute.For<IHostUserBatchSelectionDirectory>(); var members = Substitute.For<ITenantMemberSelectionDirectory>(); var calls = new List<bool>();
+            host.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                { calls.Add(transaction.Inside); return new Dictionary<Guid, HostUserDirectoryEntry> { [target] = new(target, "target", "Target") }; });
+            members.FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                { calls.Add(transaction.Inside); return new Dictionary<Guid, TenantUserDirectoryEntry> { [target] = new(target, "target", "Target") }; });
+            var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now); var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
+            var outbox = Substitute.For<IOutboxWriter>(); var service = CreateService(query, command, transaction, tenant, clock, ids, host, members, new(outbox));
+            return new(service, query, command, outbox, host, transaction, instance, todo, actor, new(target, 3, "交接", "reassign-001", todo.Id, 2), calls);
+        }
+    }
+
     private static string HashRequest(ReassignWorkflowInstanceRequest request)
     {
-        var value = $"{request.AssigneeUserId:D}\n{request.ExpectedRevision}\n{request.Reason?.Trim()}";
+        var value = $"{request.TodoId:D}\n{request.AssigneeUserId:D}\n{request.ExpectedRevision}\n{request.ExpectedTodoRevision}\n{request.Reason?.Trim()}";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
 
@@ -441,13 +269,14 @@ public sealed class WorkflowInstanceRecoveryServiceTests
     private sealed class TrackingTransaction : ICommandTransaction
     {
         public bool HasStarted { get; private set; }
+        public bool Inside { get; private set; }
 
-        public Task<T> ExecuteAsync<T>(
+        public async Task<T> ExecuteAsync<T>(
             Func<CancellationToken, Task<T>> action,
             CancellationToken cancellationToken)
         {
-            HasStarted = true;
-            return action(cancellationToken);
+            HasStarted = true; Inside = true;
+            try { return await action(cancellationToken); } finally { Inside = false; }
         }
     }
 }

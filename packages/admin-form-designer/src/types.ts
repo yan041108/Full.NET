@@ -1,4 +1,6 @@
 export interface VForm3DesignerHostInstance {
-  getFormJson: () => unknown;
-  setFormJson: (value: unknown) => void;
+  getFormJson: () => Promise<unknown>;
+  setFormJson: (value: unknown) => Promise<void>;
+  render: (value: { json: unknown; data: unknown }) => Promise<Record<string, unknown>>;
+  getFormData: () => Promise<unknown>;
 }

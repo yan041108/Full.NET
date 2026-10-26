@@ -7,6 +7,70 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowExclusiveGatewayConfigurationTests
 {
+    [TestMethod]
+    public void Nested_conditions_use_strict_types_and_declared_collections()
+    {
+        var schema = Schema(Field("amount", "integer", false, "{}"), Field("urgent", "switch", false, "{}"),
+            Field("choices", "checkbox", false, "{\"options\":[\"a\",\"b\",\"c\"]}"));
+        var config = GatewayConfig("""
+            {"operator":"and","conditions":[
+              {"fieldKey":"amount","operator":"in","value":[1,2]},
+              {"operator":"or","conditions":[
+                {"fieldKey":"urgent","operator":"equals","value":true},
+                {"fieldKey":"choices","operator":"containsAll","value":["a","b"]}]}]}
+            """);
+        Assert.IsTrue(WorkflowExclusiveGatewayConfiguration.TryRead(config, schema, out var gateway));
+        Assert.IsTrue(gateway!.TrySelectBranch(Values("{\"amount\":2,\"choices\":[\"a\",\"b\"]}"), out var selected));
+        Assert.AreEqual("yes", selected.BranchKey);
+        Assert.IsTrue(gateway.TrySelectBranch(Values("{\"amount\":3,\"urgent\":true}"), out selected));
+        Assert.AreEqual("default", selected.BranchKey);
+        Assert.IsFalse(WorkflowExclusiveGatewayConfiguration.TryRead(GatewayConfig(
+            "{\"fieldKey\":\"amount\",\"operator\":\"in\",\"value\":[\"1\"]}"), schema, out _));
+    }
+
+    [TestMethod]
+    [DataRow("{\"operator\":\"and\",\"conditions\":[]}")]
+    [DataRow("{\"operator\":\"or\",\"conditions\":[{\"fieldKey\":\"x\",\"operator\":\"isEmpty\"}]}")]
+    [DataRow("{\"fieldKey\":\"x\",\"operator\":\"in\",\"value\":[1,1]}")]
+    [DataRow("{\"fieldKey\":\"x\",\"operator\":\"containsAny\",\"value\":[]}")]
+    [DataRow("{\"fieldKey\":\"x\",\"operator\":\"isEmpty\",\"operator\":\"isNotEmpty\"}")]
+    public void Invalid_condition_shapes_fail_closed(string json) =>
+        Assert.IsFalse(WorkflowExclusiveGatewayConfiguration.TryRead(GatewayConfig(json), null, out _));
+
+    [TestMethod]
+    public void Condition_depth_node_and_collection_budgets_are_bounded()
+    {
+        const string leaf = "{\"fieldKey\":\"x\",\"operator\":\"isEmpty\"}";
+        var nested = leaf;
+        for (var level = 0; level < 8; level++) nested = "{\"operator\":\"and\",\"conditions\":[" + leaf + "," + nested + "]}";
+        Assert.IsFalse(WorkflowExclusiveGatewayConfiguration.TryRead(GatewayConfig(nested), null, out _));
+        var group = "{\"operator\":\"or\",\"conditions\":[" + string.Join(',', Enumerable.Repeat(leaf, 16)) + "]}";
+        var wide = "{\"operator\":\"and\",\"conditions\":[" + string.Join(',', Enumerable.Repeat(group, 4)) + "]}";
+        Assert.IsFalse(WorkflowExclusiveGatewayConfiguration.TryRead(GatewayConfig(wide), null, out _));
+        var set = "{\"fieldKey\":\"x\",\"operator\":\"in\",\"value\":[" + string.Join(',', Enumerable.Range(0, 33)) + "]}";
+        Assert.IsFalse(WorkflowExclusiveGatewayConfiguration.TryRead(GatewayConfig(set), null, out _));
+    }
+
+    [TestMethod]
+    [DataRow(15, true)]
+    [DataRow(16, false)]
+    public void Conditional_branch_limit_excludes_default_branch(int count, bool accepted)
+    {
+        var targets = Enumerable.Range(0, count).Select(index => $"approve-{index}").ToArray();
+        var config = JsonSerializer.SerializeToElement(new
+        {
+            nextNodeKeys = targets.Append("fallback").ToArray(),
+            defaultNextNodeKey = "fallback",
+            branches = targets.Select((target, index) => new
+            {
+                branchKey = $"branch-{index}", nextNodeKey = target,
+                condition = new { fieldKey = "amount", @operator = "equals", value = index },
+            }).ToArray(),
+        });
+
+        Assert.AreEqual(accepted, WorkflowExclusiveGatewayConfiguration.TryRead(config, null, out _));
+    }
+
     /// <summary>验证多个条件同时成立时选择第一个分支，其余情况按条件或默认分支收敛。</summary>
     [TestMethod]
     public void Selects_first_matching_branch_and_falls_back_to_default()

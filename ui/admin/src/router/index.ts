@@ -638,6 +638,11 @@ export function createAppRouter(
         component: () => import('../views/WorkflowTodosView.vue')
       },
       {
+        name: 'workflow-claim-pools',
+        path: '/workflow/claim-pools',
+        component: () => import('../views/WorkflowClaimPoolsView.vue')
+      },
+      {
         name: 'workflow-cc',
         path: '/workflow/cc',
         component: () => import('../views/WorkflowCcView.vue')
@@ -651,6 +656,11 @@ export function createAppRouter(
         name: 'workflow-forms',
         path: '/workflow/forms',
         component: () => import('../views/WorkflowFormsView.vue')
+      },
+      {
+        name: 'workflow-calendars',
+        path: '/workflow/calendars',
+        component: () => import('../views/WorkflowCalendarsView.vue')
       },
       {
         name: 'workflow-instances',

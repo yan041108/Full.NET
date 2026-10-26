@@ -4,6 +4,7 @@ import { createMpWeixinIdentitySession } from './mp-weixin-identity-session';
 
 export const mpWeixinHttpClient = createHttpClient({
   request: uni.request,
+  uploadFile: uni.uploadFile,
   getLocale: () => localeController.initialize().preferredLocale,
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? ''
 });

@@ -7,6 +7,7 @@ using Full.NET.Modules.DataApproval.Contracts;
 namespace Full.NET.Modules.DataApproval.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(Full.NET.Modules.Workflow.Contracts.WorkflowBusinessCommandResultIntegrationEvent))]
 [JsonSerializable(typeof(RetryDataApprovalRequestBody))]
 [JsonSerializable(typeof(CancelDataApprovalRequestBody))]
 [JsonSerializable(typeof(CreateDataApprovalRequestBody))]

@@ -35,6 +35,10 @@ vi.mock('../api/workflow-definitions', () => ({
   updateWorkflowDefinitionDraft: vi.fn()
 }));
 vi.mock('../api/workflow-forms', () => ({ listWorkflowForms: vi.fn() }));
+vi.mock('../api/workflow-starter-selections', () => ({
+  getWorkflowStarterSelections: vi.fn(async (id: string) => ({ definitionVersionId: id, items: [] })),
+  listWorkflowStarterSelectionCandidates: vi.fn()
+}));
 
 const definition = {
   businessTitleTemplate: null,
@@ -219,7 +223,9 @@ describe('WorkflowDefinitionsView', () => {
       'purchase',
       'PO-001',
       { summary: '采购审批' },
-      expect.any(String)
+      expect.any(String),
+      undefined,
+      {}
     );
   });
 
@@ -242,6 +248,39 @@ describe('WorkflowDefinitionsView', () => {
     await wrapper.get('[data-testid="workflow-definition-publish"]').trigger('click');
     await flushPromises();
     expect(publishWorkflowDefinition).toHaveBeenCalledWith(definition.id, 3, version.formVersionId);
+  });
+
+  it('未知提交结果保留同一启动键，修改输入后使用新键', async () => {
+    vi.mocked(startWorkflowInstance).mockRejectedValue(new TypeError('network unavailable'));
+    const wrapper = mountWithPermissions(['workflow.definitions.read', 'workflow.instances.start']);
+    try {
+      await flushPromises(); await wrapper.get('[data-testid="workflow-definition-versions"]').trigger('click'); await flushPromises();
+      await wrapper.get('[data-testid="workflow-definition-start"]').trigger('click'); await flushPromises();
+      await wrapper.get('[data-testid="workflow-business-type"]').setValue('purchase');
+      await wrapper.get('[data-testid="workflow-business-id"]').setValue('PO-retry');
+      await wrapper.get('[data-field-key="summary"] input').setValue('采购审批');
+      await wrapper.get('[data-testid="workflow-start-submit"]').trigger('click'); await flushPromises();
+      await wrapper.get('[data-testid="workflow-start-submit"]').trigger('click'); await flushPromises();
+      expect(vi.mocked(startWorkflowInstance).mock.calls[0]?.[4]).toBe(vi.mocked(startWorkflowInstance).mock.calls[1]?.[4]);
+      await wrapper.get('[data-field-key="summary"] input').setValue('新的申请');
+      await wrapper.get('[data-testid="workflow-start-submit"]').trigger('click'); await flushPromises();
+      expect(vi.mocked(startWorkflowInstance).mock.calls[2]?.[4]).not.toBe(vi.mocked(startWorkflowInstance).mock.calls[1]?.[4]);
+    } finally { wrapper.unmount(); }
+  });
+
+  it('切换身份后迟到的启动表单不能重新打开旧租户抽屉', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof getWorkflowStartForm>>) => void;
+    const form = await getWorkflowStartForm(version.formVersionId);
+    vi.mocked(getWorkflowStartForm).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    const wrapper = mountWithPermissions(['workflow.definitions.read', 'workflow.instances.start']);
+    try {
+      await flushPromises(); await wrapper.get('[data-testid="workflow-definition-versions"]').trigger('click'); await flushPromises();
+      await wrapper.get('[data-testid="workflow-definition-start"]').trigger('click'); await flushPromises();
+      const session = useSessionStore(); session.currentUser = { ...session.currentUser!, permissions: [] };
+      resolve(form); await flushPromises();
+      expect(wrapper.find('[data-testid="workflow-start-submit"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="workflow-business-id"]').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
   });
 
   it('设计器实例尚未就绪时失败关闭且不覆盖权威 Draft', async () => {

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
@@ -31,6 +32,7 @@ internal interface IKafkaReplayConsumerFactory
 
 internal interface IKafkaReplayConsumer : IAsyncDisposable
 {
+    Task<(string ClusterId, string TopicId)> ReadResourceIdentityAsync(string topic, CancellationToken cancellationToken);
     IReadOnlyList<TopicPartition> GetPartitions(string topic, TimeSpan timeout);
 
     WatermarkOffsets QueryWatermarkOffsets(TopicPartition partition, TimeSpan timeout);
@@ -54,15 +56,24 @@ internal sealed class KafkaReplayService(
     IIntegrationEventSubscriptionCatalog catalog,
     IKafkaReplayConsumerFactory consumerFactory,
     IKafkaReplayMessageProcessor processor,
-    IOptions<KafkaMessagingOptions> options) : IKafkaReplayService
+    IOptions<KafkaMessagingOptions> options) : IKafkaReplayService, ITrackedKafkaReplayService
 {
     private static readonly TimeSpan MetadataTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan PollTimeout = TimeSpan.FromMilliseconds(200);
     private const int MaximumIdlePolls = 150;
     private readonly KafkaMessagingOptions _options = options.Value;
 
-    public async Task<KafkaReplayResult> ReplayAsync(
+    public Task<KafkaReplayResult> ReplayAsync(KafkaReplayRequest request, CancellationToken cancellationToken) =>
+        ReplayCoreAsync(request, null, null, cancellationToken);
+
+    public Task<KafkaReplayResult> ReplayTrackedAsync(KafkaReplayRequest request, KafkaReplaySnapshot? snapshot,
+        IKafkaReplayProgressSink progress, CancellationToken cancellationToken) =>
+        ReplayCoreAsync(request, snapshot, progress ?? throw new ArgumentNullException(nameof(progress)), cancellationToken);
+
+    private async Task<KafkaReplayResult> ReplayCoreAsync(
         KafkaReplayRequest request,
+        KafkaReplaySnapshot? snapshot,
+        IKafkaReplayProgressSink? progress,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -88,7 +99,43 @@ internal sealed class KafkaReplayService(
                 nameof(request));
         }
 
-        var ranges = ResolveRanges(request, consumer, selected, cancellationToken);
+        IReadOnlyDictionary<TopicPartition, ReplayRange> ranges;
+        if (progress is null) ranges = ResolveRanges(request, consumer, selected, cancellationToken);
+        else
+        {
+            var identity = await consumer.ReadResourceIdentityAsync(request.TopicCode, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(identity.ClusterId) || string.IsNullOrWhiteSpace(identity.TopicId))
+                throw new KafkaReplayWindowUnavailableException();
+            if (snapshot is null)
+            {
+                ranges = ResolveRanges(request, consumer, selected, cancellationToken);
+                // 精确 Offset 请求不能把已经丢失或尚不存在的区间静默裁剪为成功。
+                if (request.UsesOffsetRange && ranges.Values.Any(range => range.Start != request.FromOffset || range.EndExclusive != request.ToOffset + 1))
+                    throw new KafkaReplayWindowUnavailableException();
+                snapshot = new(identity.ClusterId, identity.TopicId, ranges.Select(item =>
+                    new KafkaReplayPartitionRange(item.Key.Partition.Value, item.Value.Start, item.Value.EndExclusive, item.Value.Start)).ToArray());
+            }
+            else
+            {
+                if (snapshot.ClusterId != identity.ClusterId || snapshot.TopicId != identity.TopicId
+                    || snapshot.Ranges.Count != selected.Count
+                    || !selected.Select(item => item.Partition.Value).ToHashSet().SetEquals(snapshot.Ranges.Select(item => item.Partition)))
+                    throw new KafkaReplayWindowUnavailableException();
+                var resumed = new Dictionary<TopicPartition, ReplayRange>();
+                foreach (var range in snapshot.Ranges)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var partition = new TopicPartition(request.TopicCode, range.Partition);
+                    var watermark = consumer.QueryWatermarkOffsets(partition, MetadataTimeout);
+                    if (range.StartOffset < 0 || range.NextOffset < range.StartOffset || range.NextOffset > range.EndOffsetExclusive
+                        || range.NextOffset < watermark.Low.Value || range.EndOffsetExclusive > watermark.High.Value
+                        || !resumed.TryAdd(partition, new(range.NextOffset, range.EndOffsetExclusive)))
+                        throw new KafkaReplayWindowUnavailableException();
+                }
+                ranges = resumed;
+            }
+            await progress.BindSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        }
         var starts = ranges
             .Where(range => range.Value.Start < range.Value.EndExclusive)
             .Select(range => new TopicPartitionOffset(range.Key, range.Value.Start))
@@ -131,6 +178,8 @@ internal sealed class KafkaReplayService(
             var endExclusive = ranges[result.TopicPartition].EndExclusive;
             if (result.IsPartitionEOF || result.Offset.Value >= endExclusive)
             {
+                if (progress is not null)
+                    await progress.CompletePartitionAsync(result.Partition.Value, endExclusive, cancellationToken).ConfigureAwait(false);
                 remaining.Remove(result.TopicPartition);
                 consumer.Pause([result.TopicPartition]);
                 idlePolls = 0;
@@ -138,12 +187,23 @@ internal sealed class KafkaReplayService(
                 continue;
             }
 
+            if (progress is not null)
+            {
+                if (result.Offset.Value < ranges[result.TopicPartition].Start) throw new KafkaReplayWindowUnavailableException();
+                await progress.BeforeMessageAsync(result.Partition.Value, result.Offset.Value, cancellationToken).ConfigureAwait(false);
+            }
             scanned++;
-            switch (await processor.ProcessAsync(
+            var outcome = await processor.ProcessAsync(
                         request.ReplayConsumerName,
                         result,
                         cancellationToken)
-                    .ConfigureAwait(false))
+                    .ConfigureAwait(false);
+            if (outcome is not (KafkaReplayMessageOutcome.Processed or KafkaReplayMessageOutcome.AlreadyProcessed or KafkaReplayMessageOutcome.Rejected))
+                throw new InvalidOperationException("Unsupported Kafka replay message outcome.");
+            if (progress is not null)
+                await progress.AfterMessageAsync(result.Partition.Value, result.Offset.Value, (KafkaReplayConfirmedOutcome)outcome,
+                    cancellationToken).ConfigureAwait(false);
+            switch (outcome)
             {
                 case KafkaReplayMessageOutcome.Processed:
                     processed++;
@@ -157,6 +217,10 @@ internal sealed class KafkaReplayService(
                 default:
                     throw new InvalidOperationException("Unsupported Kafka replay message outcome.");
             }
+
+            // 运维恢复必须停在拒绝位置；不能越过缺口再声称该分区已经确认完成。
+            if (progress is not null && outcome == KafkaReplayMessageOutcome.Rejected)
+                return new(scanned, processed, alreadyProcessed, rejected, LimitReached: false);
 
             idlePolls = 0;
             lastProgress = Stopwatch.GetTimestamp();
@@ -260,18 +324,30 @@ internal sealed class KafkaReplayService(
     private readonly record struct ReplayRange(long Start, long EndExclusive);
 }
 
-internal sealed class KafkaReplayConsumerFactory : IKafkaReplayConsumerFactory
+internal sealed class KafkaReplayConsumerFactory(IOptions<KafkaMessagingOptions> options) : IKafkaReplayConsumerFactory
 {
     public IKafkaReplayConsumer Create(ConsumerConfig config) =>
         new KafkaReplayConsumer(
             new ConsumerBuilder<string, byte[]>(config).Build(),
-            new AdminClientBuilder(config).Build());
+            new AdminClientBuilder(options.Value.BuildClientConfig()).Build());
 }
 
 internal sealed class KafkaReplayConsumer(
     IConsumer<string, byte[]> consumer,
     IAdminClient adminClient) : IKafkaReplayConsumer
 {
+    public async Task<(string ClusterId, string TopicId)> ReadResourceIdentityAsync(string topic, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cluster = await adminClient.DescribeClusterAsync(new DescribeClusterOptions { RequestTimeout = TimeSpan.FromSeconds(10) }).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var topics = await adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames([topic]),
+            new DescribeTopicsOptions { RequestTimeout = TimeSpan.FromSeconds(10) }).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var description = topics.TopicDescriptions.SingleOrDefault(item => item.Name == topic && !item.Error.IsError);
+        return (cluster.ClusterId ?? string.Empty, description?.TopicId.ToString() ?? string.Empty);
+    }
+
     public IReadOnlyList<TopicPartition> GetPartitions(string topic, TimeSpan timeout)
     {
         var metadata = adminClient.GetMetadata(topic, timeout);

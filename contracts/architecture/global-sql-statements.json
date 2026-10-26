@@ -2,6 +2,1830 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "workflow.connector.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_attempt.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FindAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.lock_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.LockInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.dispatch_due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListDispatchSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=activation.TenantScopeKey",
+        "@Take",
+        "ORDER BY activation.DueAtUtc,activation.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.dispatch_due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListDispatchMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=activation.TenantScopeKey",
+        "@Take",
+        "ORDER BY activation.DueAtUtc,activation.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.apply_due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListApplySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=activation.TenantScopeKey",
+        "@Take",
+        "ORDER BY activation.DueAtUtc,activation.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.apply_due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListApplyMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=activation.TenantScopeKey",
+        "@Take",
+        "ORDER BY activation.DueAtUtc,activation.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.claim_dispatch",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ClaimDispatch",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_attempt.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.InsertAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_attempt.receive",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ReceiveAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.capture_result",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CaptureResult",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.claim_apply",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ClaimApply",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.finish_apply",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FinishApply",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.recover_expired",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.RecoverExpired",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.fail_pending",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FailPending",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.fail_apply",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FailApply",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.cancel_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CancelInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.count_recoverable",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CountRecoverable",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.count_blocked",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CountBlocked",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.count_unsettled",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CountUnsettled",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "连接器固定请求与每次尝试属于Workflow；全局扫描仅消费持久可信实例作用域，所有写入在原实例锁及活动租约世代内接纳，迟到响应只补原尝试。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.field_activity.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFieldActivitySql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFieldActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "自动字段活动只在锁定可信实例和原输入修订的持租事务内写入，与本模块表单、分支和结果原子接纳。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "workflow.field_activity.insert_result",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFieldActivitySql.InsertResult",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFieldActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "自动字段活动只在锁定可信实例和原输入修订的持租事务内写入，与本模块表单、分支和结果原子接纳。",
+      "requiredSqlFragments": [
+        "fn_workflow_activity_result",
+        "@InstanceId",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.synchronize_step_due",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.SynchronizeStepDue",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.cancel",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.Cancel",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.resume_relative.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.ResumeRelativeMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.resume_relative.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.ResumeRelativeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.pause_relative.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.PauseRelativeMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.pause_relative.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.PauseRelativeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.count_waiting",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.CountWaiting",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.fire",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.Fire",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "StatusKey='waiting'"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.ListDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "LIMIT @Take",
+        "instance.TenantScopeKey=delay.TenantScopeKey",
+        "instance.StatusKey='active'",
+        "delay.PausedAtUtc IS NULL",
+        "ORDER BY delay.DueAtUtc, delay.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.ListDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "TOP (@Take)",
+        "instance.TenantScopeKey=delay.TenantScopeKey",
+        "instance.StatusKey='active'",
+        "delay.PausedAtUtc IS NULL",
+        "ORDER BY delay.DueAtUtc, delay.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "fn_workflow_delay",
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@InputHash",
+        "@InputFormRevision"
+      ]
+    },
+    {
+      "statementName": "workflow.delay.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDelaySql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "延时事实仅由已验证发布计划的本模块事务生成；后台有界扫描后锁定持久实例及可信作用域，暂停恢复与唤醒按修订裁决，普通请求不能指定活动或后继。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_delegation.find_for_origin",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoDelegationSql.FindForOrigin",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只按可信当前作用域读取本人待办的不可变代理交接事实，不授予跨待办或跨租户能力。",
+      "requiredSqlFragments": [
+        "handoff.FromTodoId=@TodoId",
+        "handoff.AuthorizationKey='workflow.todos.delegate'",
+        "handoff.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_delegation.find_for_proxy",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoDelegationSql.FindForProxy",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只按可信当前作用域读取本人待办的不可变代理交接事实，不授予跨待办或跨租户能力。",
+      "requiredSqlFragments": [
+        "handoff.ToTodoId=@TodoId",
+        "handoff.AuthorizationKey='workflow.todos.delegate'",
+        "handoff.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.find_history_for_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.FindHistoryForTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "补充签署的组展示只按受信链原待办及当前实例/步骤/作用域读取，不创建席位或授予原组管理权。",
+      "requiredSqlFragments": [
+        "slot.TodoId=@TodoId",
+        "slot.StepId=@StepId",
+        "slot.InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.countersign_todo.cancel_by_chain",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCountersignClosureSql.CancelChainTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCountersignClosureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附属拒绝时关闭同一可信实例、步骤和链的其余实际待办，不能留下脱离席位的活动项。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "StepId=@StepId",
+        "chain.Id=@ChainId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.countersign_item.cancel_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCountersignClosureSql.CancelItems",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCountersignClosureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定组或步骤收敛时在可信实例锁内关闭附属项；组从原席绑定读取，不接受客户端授权或扩张分母。",
+      "requiredSqlFragments": [
+        "chain.InstanceId=@InstanceId",
+        "chain.StepId=@StepId",
+        "slot.GroupId=@GroupId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.countersign_chain.cancel_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCountersignClosureSql.CancelChains",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCountersignClosureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只关闭当前可信实例中已收敛前沿的链，保留已结束事实，阻止暂停原席之后恢复。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "StepId=@StepId",
+        "slot.GroupId=@GroupId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.assignee_handling.insert_approved_group",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAssigneeHandlingSql.InsertApprovedGroup",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAssigneeHandlingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "系统组在可信实例锁内绑定真实步骤及作用域，以零个人席位保存系统裁定，不能伪造同意票。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_group",
+        "step.InstanceId=@InstanceId",
+        "step.Id=@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "'system'"
+      ]
+    },
+    {
+      "statementName": "workflow.assignee_handling.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAssigneeHandlingSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAssigneeHandlingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "系统选人处置在实例锁内按可信作用域写入真实节点与不可变来源快照，不创建人工意见或席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "instance.Id=@InstanceId",
+        "@AssigneeSnapshotJson",
+        "@AssigneeSnapshotHash"
+      ]
+    },
+    {
+      "statementName": "workflow.assignee_handling.cancel_other_work",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAssigneeHandlingSql.CancelOtherWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAssigneeHandlingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "自动拒绝只取消本作用域本实例的耐久工作；当前持租工作必须保留到首次拒绝回执完成。",
+      "requiredSqlFragments": [
+        "fn_workflow_activity_work",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "@CurrentWorkId"
+      ]
+    },
+    {
+      "statementName": "workflow.task.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "'human.task'",
+        "@AssigneeSnapshotJson",
+        "@AssigneeSnapshotHash"
+      ]
+    },
+    {
+      "statementName": "workflow.task.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.InsertTask",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "fn_workflow_task",
+        "@InstanceId",
+        "@CompletionModeKey",
+        "@MemberCount",
+        "@RequiredCompletionCount"
+      ]
+    },
+    {
+      "statementName": "workflow.task.insert_member",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.InsertMember",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "fn_workflow_task_member",
+        "@InstanceId",
+        "@TaskId",
+        "@TodoId",
+        "@AssigneeUserId",
+        "@SequenceNo"
+      ]
+    },
+    {
+      "statementName": "workflow.task.find_for_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.FindForTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "member.TaskId=@TaskId",
+        "member.InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TodoId",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.task.find_history_for_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.FindHistoryForTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "本人历史Todo先经过原始身份授权，SQL再次证明原Todo归属并以稳定TaskMemberId交接事实定位原成员；仅展示固定活动计数，不授予新Todo或其他实例读取权。",
+      "requiredSqlFragments": [
+        "member.TaskId=@TaskId",
+        "member.InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TodoId",
+        "@ActorUserId",
+        "original.AssigneeUserId=@ActorUserId",
+        "transfer.TaskMemberId=member.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.task.count_other_member",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CountOtherMember",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId"
+      ]
+    },
+    {
+      "statementName": "workflow.task.transfer_member",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.TransferMember",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId",
+        "Revision=@Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.task.tally.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.TallySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task_member"
+      ]
+    },
+    {
+      "statementName": "workflow.task.tally.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.TallyMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task_member"
+      ]
+    },
+    {
+      "statementName": "workflow.task.complete_member",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CompleteMember",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId",
+        "Revision=@Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.task.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CompleteTask",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId",
+        "Revision=@Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.task.cancel_member_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CancelMemberTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task_member"
+      ]
+    },
+    {
+      "statementName": "workflow.task.cancel_members",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CancelMembers",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task_member"
+      ]
+    },
+    {
+      "statementName": "workflow.task.cancel_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CancelByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task"
+      ]
+    },
+    {
+      "statementName": "workflow.task.cancel_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CancelByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.task.cancel_members_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CancelMembersByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.task.find_next.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.FindNextSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId"
+      ]
+    },
+    {
+      "statementName": "workflow.task.find_next.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.FindNextMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId"
+      ]
+    },
+    {
+      "statementName": "workflow.task.count_active_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.CountActiveTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@TaskId",
+        "@InstanceId",
+        "fn_workflow_task_member"
+      ]
+    },
+    {
+      "statementName": "workflow.task.bind_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTaskSql.BindTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTaskSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理活动及成员均归Workflow；节点激活只消费事务外可信选人快照，提交、交接及关闭均在已验证本人或显式管理员资源的同一实例锁事务内执行，不构造审批票。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@TaskId",
+        "Revision=@Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "'human.group_approval'",
+        "@ApprovalGroupCount",
+        "@AssigneeSnapshotHash"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.InsertGroup",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_group",
+        "@InstanceId",
+        "@StepId",
+        "@GroupKey",
+        "@RequiredApprovalCount"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.insert_slot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.InsertSlot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "@InstanceId",
+        "@StepId",
+        "@GroupId",
+        "@AssigneeUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.find_for_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.FindForTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.tally_slots.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.TallySlotsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "GroupId=@GroupId",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.tally_slots.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.TallySlotsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "GroupId=@GroupId",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.tally_groups.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.TallyGroupsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_group",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.tally_groups.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.TallyGroupsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_group",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CompleteGroup",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.cancel_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CancelGroupTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "InstanceId=@InstanceId",
+        "StepId=@StepId",
+        "GroupId=@GroupId",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.cancel_slots",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CancelGroupSlots",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "GroupId=@GroupId",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId",
+        "DecisionKey IS NULL"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.cancel_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CancelActiveByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_group",
+        "StepId=@StepId",
+        "InstanceId=@InstanceId",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.cancel_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CancelActiveByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.find_next.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.FindNextSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.find_next.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.FindNextMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.count_active_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.CountActiveTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "slot.GroupId=@GroupId",
+        "slot.StepId=@StepId",
+        "slot.InstanceId=@InstanceId",
+        "todo.StatusKey='active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.list_progress.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.ListProgressSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "从已校验归属的个人Todo读取同一实例步骤的有界分组事实；显式匹配可信作用域，原转办人识别原组不赋予新Todo或其他实例读取权。",
+      "requiredSqlFragments": [
+        "groupState.StepId=@StepId",
+        "groupState.InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "transfer.FromTodoId=@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.list_progress.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.ListProgressMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "从已校验归属的个人Todo读取同一实例步骤的有界分组事实；显式匹配可信作用域，原转办人识别原组不赋予新Todo或其他实例读取权。",
+      "requiredSqlFragments": [
+        "groupState.StepId=@StepId",
+        "groupState.InstanceId=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "transfer.FromTodoId=@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_group.bind_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowGroupApprovalSql.BindTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowGroupApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分组审批的组、步骤和席位均归Workflow；调用方先以可信作用域验证本人待办及实例，所有写入与组内统计在同一实例锁事务内完成，不接受客户端指定组或改变固定分母。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@StepId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "StatusKey='active'",
+        "Revision=@Revision",
+        "TodoId IS NULL",
+        "@GroupId"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "本人转办或显式管理员改派各自通过精确权限与资源校验，统一实例锁内记录原办理人、实际执行人、固定输入修订和授权码；审批Slot与办理Member只能绑定一种，不增加成员分母，回执/审计/提醒同事务提交。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo_transfer",
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@OriginTodoId",
+        "@FromTodoId",
+        "@ToTodoId",
+        "@AuthorizationKey",
+        "@FormRevision",
+        "@TaskMemberId",
+        "@SlotId",
+        "@VoteBallotId",
+        "@ClaimAttemptId"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.advance_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.AdvanceStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "本人转办已验证节点开关、目标与活动资源，SQL在同一实例锁事务对活动步骤修订CAS并匹配可信租户实例，只更新单人持有者，不改审批分母。",
+      "requiredSqlFragments": [
+        "Id=@StepId",
+        "InstanceId=@InstanceId",
+        "Revision=@Revision",
+        "StatusKey='active'",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.rebind_slot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.RebindSlot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例锁内以原Todo、办理人、未决席位和修订CAS交接同一票，再验证新Todo同实例步骤及可信作用域；不得增加席位或清除票。",
+      "requiredSqlFragments": [
+        "TodoId=@TodoId",
+        "AssigneeUserId=@ActorUserId",
+        "DecisionKey IS NULL",
+        "Revision=@Revision",
+        "todo.Id=@NewTodoId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.insert_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.InsertTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "旧Todo本人修订CAS成功后，在同一实例锁事务从已关闭原Todo复制绝对SLA与催办进度，SQL重新限制可信作用域和实例，只有新Todo得到实际激活输入。",
+      "requiredSqlFragments": [
+        "previous.StatusKey='completed'",
+        "previous.ResultActionKey=@FromActionKey",
+        "previous.AssigneeUserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "previous.ReminderCount",
+        "previous.DueAtUtc"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.count_previous_actor",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.CountPreviousActor",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例锁内按服务端持久化起始Todo核对有界链中目标是否曾持有待办，防止循环转办。",
+      "requiredSqlFragments": [
+        "OriginTodoId=@OriginTodoId",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "FromAssigneeUserId=@AssigneeUserId",
+        "ToAssigneeUserId=@AssigneeUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_transfer.find_lineage",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTransferSql.FindLineage",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTransferSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只按本人已验证Todo及可信实例作用域读取持久化入边，原始办理人和深度不能由请求伪造。",
+      "requiredSqlFragments": [
+        "ToTodoId=@TodoId",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.can_read_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.CanReadTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "证据入口先在当前租户实例内核对具体待办本人或真实证据执行人，不把文件标识或前端按钮当作资源授权。",
+      "requiredSqlFragments": [
+        "todo.Id=@TodoId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId",
+        "evidence.ActorUserId=@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.exists",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.Exists",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host文件预留提交后按本次证据UUID和可信作用域探测权威事实，只确认或释放本次准备的claim，不把幂等成功响应当成新证据存在。",
+      "requiredSqlFragments": [
+        "fn_workflow_action_evidence",
+        "Id=@Id",
+        "TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.exists_for_tenant_owner",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.ExistsForTenantOwner",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Files租户资源探测只承认同租户实例内已提交签名执行人或附件OwnerResourceId，并精确匹配文件，不接受调用方任意资源身份。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=evidence.TenantScopeKey",
+        "evidence.TenantScopeKey=@TenantScopeKey",
+        "evidence.ActorUserId=@ActorUserId",
+        "attachment.OwnerResourceId=@ActorUserId",
+        "attachment.FileId=@FileId",
+        "fn_workflow_vote_attachment"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.find_owned",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.FindOwned",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "签名读取限定可信TenantScopeKey及具体Todo，并要求当前用户为该待办本人或证据实际执行人；原办理人和文件绑定来自已提交动作事实。",
+      "requiredSqlFragments": [
+        "evidence.TodoId=@TodoId",
+        "evidence.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId OR evidence.ActorUserId=@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "签名内容与Files归属在事务外验证/预留；事务内重新匹配可信实例、待办本人、实际执行人、动作、版本、修订及提交摘要后仅保存Workflow证据。",
+      "requiredSqlFragments": [
+        "fn_workflow_action_evidence",
+        "@TenantScopeKey",
+        "@TodoId",
+        "@ActorUserId",
+        "@OriginalAssigneeUserId",
+        "@FormVersionId",
+        "@SubmissionHash",
+        "@FileHash"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.ListMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "签名读取限定可信TenantScopeKey及具体Todo，并要求当前用户为该待办本人或证据实际执行人；原办理人和文件绑定来自已提交动作事实。",
+      "requiredSqlFragments": [
+        "evidence.TodoId=@TodoId",
+        "evidence.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId OR evidence.ActorUserId=@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.action_evidence.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSignatureSql.ListSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSignatureSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "签名读取限定可信TenantScopeKey及具体Todo，并要求当前用户为该待办本人或证据实际执行人；原办理人和文件绑定来自已提交动作事实。",
+      "requiredSqlFragments": [
+        "evidence.TodoId=@TodoId",
+        "evidence.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId OR evidence.ActorUserId=@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.activity.count_activations",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.CountActivations",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "调用统一推进器前已以可信TenantScopeKey读取并锁定实例；只统计该UUID实例的自有步骤以执行总激活预算，实例标识不取自未经核验的请求。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "InstanceId = @InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.cancel",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.CancelWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例生命周期和恢复控制面先验证精确权限并锁定当前作用域实例；SQL再次以实例及可信作用域限制工作项，取消/重排推进租约代次使旧结果失效。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.claim",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.ClaimWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅后台调度器消费上述有界扫描的持久工作UUID和代次，通过到期及代次CAS领取；实例执行另核对保存作用域和活动状态，不能凭领取成功直接推进。",
+      "requiredSqlFragments": [
+        "Id = @Id",
+        "LeaseGeneration = @LeaseGeneration",
+        "LeaseGeneration = LeaseGeneration + 1",
+        "DueAtUtc <= @Now",
+        "LeaseExpiresAtUtc <= @Now"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.count_open",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.CountOpenWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例生命周期和恢复控制面先验证精确权限并锁定当前作用域实例；SQL再次以实例及可信作用域限制工作项，取消/重排推进租约代次使旧结果失效。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.count_recoverable",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.CountRecoverableWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例生命周期和恢复控制面先验证精确权限并锁定当前作用域实例；SQL再次以实例及可信作用域限制工作项，取消/重排推进租约代次使旧结果失效。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.ListDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅后台调度器跨作用域有界扫描本模块活动实例的到期元数据；返回持久化TenantScopeKey，执行前核对实例租户关系并恢复独立可信上下文，不提供用户查询入口。",
+      "requiredSqlFragments": [
+        "LIMIT @Take",
+        "instance.TenantScopeKey = work.TenantScopeKey",
+        "instance.StatusKey = 'active'",
+        "work.LeaseExpiresAtUtc <= @Now",
+        "ORDER BY work.DueAtUtc, work.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.ListDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅后台调度器跨作用域有界扫描本模块活动实例的到期元数据；返回持久化TenantScopeKey，执行前核对实例租户关系并恢复独立可信上下文，不提供用户查询入口。",
+      "requiredSqlFragments": [
+        "TOP (@Take)",
+        "instance.TenantScopeKey = work.TenantScopeKey",
+        "instance.StatusKey = 'active'",
+        "work.LeaseExpiresAtUtc <= @Now",
+        "ORDER BY work.DueAtUtc, work.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.finish",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.FinishWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "后台在已核对可信租户并锁定实例的本地事务中完成当前领取；工作UUID、随机租约所有者、代次和未过期时间同时命中，旧代次不得提交业务结果。",
+      "requiredSqlFragments": [
+        "Id = @Id",
+        "StatusKey = 'leased'",
+        "LeaseOwnerKey = @LeaseOwnerKey",
+        "LeaseGeneration = @LeaseGeneration",
+        "LeaseExpiresAtUtc > @Now"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.InsertWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定输入由已验证版本及受信实例在统一推进器本地事务生成；持久工作项同时保存可信租户、输入修订/摘要和分支身份，客户端不能指定续办工作。",
+      "requiredSqlFragments": [
+        "fn_workflow_activity_work",
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@InputHash",
+        "@InputFormRevision",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.activity_work.requeue_faulted",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.RequeueFaultedWork",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例生命周期和恢复控制面先验证精确权限并锁定当前作用域实例；SQL再次以实例及可信作用域限制工作项，取消/重排推进租约代次使旧结果失效。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.cancel_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.CancelApprovalSlots",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅在已验证并锁定当前租户实例的终态事务内关闭本实例未决席位；含未激活顺序席位，不接收外部StepId。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "DecisionKey = 'cancelled'",
+        "DecisionKey IS NULL",
+        "InstanceId = @InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.rebind_countersign_resume",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.RebindApprovalSlotForCountersignResume",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "当前租户实例锁内，原未决席位以修订及原Todo CAS绑定同实例/步骤/办理人的真实活动新Todo，不新增票或覆写历史待办。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "TodoId = @TodoId",
+        "DecisionKey IS NULL",
+        "Revision = @Revision",
+        "todo.Id = @NewTodoId",
+        "instance.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_arrival.count",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.CountArrival",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "汇合协调器先按已验证并锁定的实例读取该次分叉身份；只核对该ParallelJoinId的实际选定分支/唯一到达，不能以节点键或别次分叉满足汇合。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_branch_arrival",
+        "ParallelJoinId = @ParallelJoinId",
+        "BranchKey = @BranchKey"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_merge.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.InsertMerge",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "同一受信实例事务核对全部选定分支、共同输入修订及无字段写冲突，主/父分支CAS成功后写入唯一分叉合并回执，历史合并不能重复提交。",
+      "requiredSqlFragments": [
+        "fn_workflow_branch_merge",
+        "@ParallelJoinId",
+        "@FormRevision",
+        "@OutputJson"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_state.count_selected",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.CountSelectedBranch",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "汇合协调器先按已验证并锁定的实例读取该次分叉身份；只核对该ParallelJoinId的实际选定分支/唯一到达，不能以节点键或别次分叉满足汇合。",
+      "requiredSqlFragments": [
+        "fn_workflow_branch_state",
+        "ParallelJoinId = @ParallelJoinId",
+        "BranchKey = @BranchKey"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_state.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分支或父上下文读取通过分叉所属实例JOIN并再次匹配可信作用域及实例，防止借用兄弟分支或其他租户的历史输入。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "instance.Id = @InstanceId",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_state.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "统一执行器在已验证租户实例和固定选中分支集合内冻结共同输入；分叉/分支标识由本地运行事实生成，不消费客户端外来分支身份。",
+      "requiredSqlFragments": [
+        "fn_workflow_branch_state",
+        "@ParallelJoinId",
+        "@BranchKey",
+        "@InputJson",
+        "@InputFormRevision"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_state.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.List",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分支或父上下文读取通过分叉所属实例JOIN并再次匹配可信作用域及实例，防止借用兄弟分支或其他租户的历史输入。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "instance.Id = @InstanceId",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.branch_state.update",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.Update",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "先经同一租户实例JOIN读取该次分支，再在实例锁事务以分叉/分支和独立修订CAS累计输出；不能用主表单或其他分支修订替代。",
+      "requiredSqlFragments": [
+        "fn_workflow_branch_state",
+        "ParallelJoinId = @ParallelJoinId",
+        "BranchKey = @BranchKey",
+        "Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.countersign_chain.cancel_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelCountersignChainsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例终态在同一本模块锁事务关闭当前可信作用域实例的活动链及未决项，SQL以链所属实例和TenantScopeKey再次限制，不影响其他实例历史。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "'cancelled'"
+      ]
+    },
+    {
+      "statementName": "workflow.countersign_item.cancel_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelCountersignItemsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例终态在同一本模块锁事务关闭当前可信作用域实例的活动链及未决项，SQL以链所属实例和TenantScopeKey再次限制，不影响其他实例历史。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "'cancelled'"
+      ]
+    },
+    {
+      "statementName": "workflow.designer_asset.bindings",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDesignerAssetSql.FindBindings",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDesignerAssetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定表单版本绑定只从当前可信作用域的表单定义读取，优先已发布不可变绑定快照，不能读取其他租户版本。",
+      "requiredSqlFragments": [
+        "version.Id = @FormVersionId",
+        "definition.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.designer_asset.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDesignerAssetSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDesignerAssetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "设计资产和所属定义同时匹配当前可信作用域及FormId，返回完整资产与实际草稿修订供并发保护。",
+      "requiredSqlFragments": [
+        "asset.FormId = @FormId",
+        "asset.TenantScopeKey = @TenantScopeKey",
+        "definition.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.designer_asset.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDesignerAssetSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDesignerAssetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "表单管理入口先验证精确权限和可信作用域定义，在定义修订CAS的同一本地事务保存完整设计资产；不把客户端作用域作为授权来源。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_design_asset",
+        "@FormId",
+        "@TenantScopeKey",
+        "ContentHash"
+      ]
+    },
+    {
+      "statementName": "workflow.designer_asset.snapshot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDesignerAssetSql.Snapshot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDesignerAssetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "发布事务已以可信作用域核对表单定义和草稿修订，版本UUID由服务端创建；设计与业务绑定一起成为该版本的不可变快照，不接受外来版本UUID。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_design_snapshot",
+        "@FormVersionId",
+        "@DesignHash",
+        "@BindingJson"
+      ]
+    },
+    {
+      "statementName": "workflow.designer_asset.update",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDesignerAssetSql.Update",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDesignerAssetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "表单管理入口先验证精确权限和可信作用域定义，在定义修订CAS的同一本地事务保存完整设计资产；不把客户端作用域作为授权来源。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_design_asset",
+        "@FormId",
+        "@TenantScopeKey",
+        "ContentHash"
+      ]
+    },
+    {
+      "statementName": "workflow.fork_context.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.FindContext",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分支或父上下文读取通过分叉所属实例JOIN并再次匹配可信作用域及实例，防止借用兄弟分支或其他租户的历史输入。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "instance.Id = @InstanceId",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "@ParallelJoinId"
+      ]
+    },
+    {
+      "statementName": "workflow.fork_context.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBranchSql.InsertContext",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBranchSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "分叉身份与父分支来自当前已验证实例运行事实，并在同一实例锁事务创建；不能由普通启动请求伪造父上下文。",
+      "requiredSqlFragments": [
+        "fn_workflow_fork_context",
+        "@ParallelJoinId",
+        "@ParentParallelJoinId",
+        "@ParentBranchKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.exists_for_field_file",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ExistsForFieldFile",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件协调只查询受信实例当前提交的精确字段/文件集合，SQL再次限制实例及可信作用域，不扫描或复用其他人的历史附件。",
+      "requiredSqlFragments": [
+        "SubmissionId=@SubmissionId",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "FieldKey=@FieldKey",
+        "FileId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.find_file_owner",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.FindFileOwner",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "文件内容访问前只读取本实例与可信作用域内该文件已持久化的资源所有者，不能由请求伪造Files资源身份。",
+      "requiredSqlFragments": [
+        "InstanceId=@InstanceId",
+        "FileId=@FileId",
+        "TenantScopeKey=@TenantScopeKey",
+        "OwnerResourceId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.list_for_field_files",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ListForFieldFiles",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件协调只查询受信实例当前提交的精确字段/文件集合，SQL再次限制实例及可信作用域，不扫描或复用其他人的历史附件。",
+      "requiredSqlFragments": [
+        "SubmissionId=@SubmissionId",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "FieldKey=@FieldKey",
+        "FileId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.read_views.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ReadViewsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按当前租户实例有界读取本人待办输入/输出：活动步骤使用实际主/分支视图，历史步骤只用自己的不可变记录；缺失分支失败关闭，不借未来主表单授权文件。",
+      "requiredSqlFragments": [
+        "LIMIT 128",
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId",
+        "viewRecord.TenantScopeKey=instance.TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.read_views.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ReadViewsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按当前租户实例有界读取本人待办输入/输出：活动步骤使用实际主/分支视图，历史步骤只用自己的不可变记录；缺失分支失败关闭，不借未来主表单授权文件。",
+      "requiredSqlFragments": [
+        "TOP (128)",
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "todo.AssigneeUserId=@ActorUserId",
+        "viewRecord.TenantScopeKey=instance.TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.lock_for_todo_action",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.LockInstanceForTodoAction",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "本人资源定位后在联表读取和写入前先锁可信租户实例；保持统一锁顺序且允许终态回执重放，不通过该语句放宽资源动作授权。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "Id = @Id AND TenantScopeKey = @TenantScopeKey",
+        "SET Revision = Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.start_receipt.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.FindStartReceipt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "启动入口从认证人与可信上下文构造作用域；不可变启动回执按作用域、实际操作人和幂等键绑定，不能借后续状态或跨作用域请求重放。",
+      "requiredSqlFragments": [
+        "fn_workflow_start_receipt",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@IdempotencyKey",
+        "RequestHash"
+      ]
+    },
+    {
+      "statementName": "workflow.start_receipt.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowActivitySql.InsertStartReceipt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowActivitySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "启动入口从认证人与可信上下文构造作用域；不可变启动回执按作用域、实际操作人和幂等键绑定，不能借后续状态或跨作用域请求重放。",
+      "requiredSqlFragments": [
+        "fn_workflow_start_receipt",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@IdempotencyKey",
+        "RequestHash"
+      ]
+    },
+    {
+      "statementName": "workflow.step.insert_completed_empty",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedEmptyStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "统一执行器已经验证并锁定可信实例和发布拓扑；空节点写入独立真实激活和执行序号，不产生人工票或外部副作用。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "'control.empty'",
+        "@ExecutionSequence"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.close_after_before_countersign",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CloseOriginTodoAfterBeforeCountersign",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "新待办激活前以实例/作用域/修订CAS关闭前加签暂停的旧待办，保留其不可变输入，不能复用旧Todo假造新激活。",
+      "requiredSqlFragments": [
+        "InstanceId = @InstanceId",
+        "Revision = @Revision",
+        "StatusKey = 'before_countersign'",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "instance.StatusKey = 'active'"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_view.capture",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoViewSql.Capture",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoViewSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实待办激活与不可变输入同事务，SQL以Todo/实例/可信作用域核对归属，分支输入采用该次分叉自身修订，不借用主表单修订。",
+      "requiredSqlFragments": [
+        "todo.Id=@Id",
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "branch.Revision",
+        "step.ParallelJoinId IS NULL OR branch.BranchKey IS NOT NULL"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_view.capture_current_main",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoViewSql.CaptureCurrentMain",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoViewSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "退回/加签新激活的输入只从所属可信租户实例主表单捕获；明确排除分支步骤，旧待办视图保持不变。",
+      "requiredSqlFragments": [
+        "todo.Id=@Id",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "step.ParallelJoinId IS NULL",
+        "submission.SubmissionJson"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_view.find_owned",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoViewSql.FindOwned",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoViewSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "历史输入输出仅向可信租户内该Todo本人开放，三表归属同时匹配；不因当前实例有新表单而补造历史。",
+      "requiredSqlFragments": [
+        "todo.Id=@TodoId",
+        "todo.AssigneeUserId=@ActorUserId",
+        "viewRecord.TenantScopeKey=@TenantScopeKey",
+        "instance.TenantScopeKey=viewRecord.TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_view.set_output",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoViewSql.SetOutput",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoViewSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "本人办理核心已重新授权并锁实例；以当前Todo/实例/可信作用域及输出未写入条件一次冻结本人输出，输出修订必须高于其输入。",
+      "requiredSqlFragments": [
+        "Id=@TodoId",
+        "InstanceId=@InstanceId",
+        "TenantScopeKey=@TenantScopeKey",
+        "OutputRevision IS NULL",
+        "InputRevision<@OutputRevision"
+      ]
+    },
+    {
+      "statementName": "workflow.sequential.insert_slot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSequentialApprovalSql.InsertSlot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSequentialApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "在已按可信 TenantScopeKey 锁定的实例及固定步骤内一次固化顺序席位；不从客户端接收步骤或办理人，未激活席位不持有待办。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "@InstanceId",
+        "@StepId",
+        "@SequenceNo"
+      ]
+    },
+    {
+      "statementName": "workflow.sequential.find_next.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSequentialApprovalSql.FindNextSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSequentialApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只在同一本地实例锁事务中查询当前租户活动步骤的下一个未激活席位，按固定顺序限一行。",
+      "requiredSqlFragments": [
+        "TOP (1)",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "slot.InstanceId=@InstanceId",
+        "slot.StepId=@StepId",
+        "slot.TodoId IS NULL",
+        "ORDER BY slot.SequenceNo"
+      ]
+    },
+    {
+      "statementName": "workflow.sequential.find_next.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSequentialApprovalSql.FindNextMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSequentialApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只在同一本地实例锁事务中查询当前租户活动步骤的下一个未激活席位，按固定顺序限一行。",
+      "requiredSqlFragments": [
+        "LIMIT 1",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "slot.InstanceId=@InstanceId",
+        "slot.StepId=@StepId",
+        "slot.TodoId IS NULL",
+        "ORDER BY slot.SequenceNo"
+      ]
+    },
+    {
+      "statementName": "workflow.sequential.bind_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSequentialApprovalSql.BindTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSequentialApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例锁内以固定席位、顺序、办理人和修订 CAS 绑定唯一真实待办；同事务再次限制当前租户活动实例及依次审批步骤。",
+      "requiredSqlFragments": [
+        "Revision=@Revision",
+        "TodoId IS NULL",
+        "@SequenceNo",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "step.ApprovalModeKey='sequential'"
+      ]
+    },
+    {
       "statementName": "ai.knowledge_incremental_recovery.scan.sql_server",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIncrementalRecoveryWorkerSql.ScanSqlServer",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIncrementalRecoveryWorkerSql.cs",
@@ -54,7 +1878,7 @@
         "task.Id<>active.IndexTaskId",
         "successor.StateKey='completed'",
         "active.ActivatedAtUtc<=@RetiredBefore",
-        "fn_ai_knowledge_docx_manifest"
+        "fn_ai_knowledge_document_manifest"
       ]
     },
     {
@@ -76,7 +1900,7 @@
         "task.Id<>active.IndexTaskId",
         "successor.StateKey='completed'",
         "active.ActivatedAtUtc<=@RetiredBefore",
-        "fn_ai_knowledge_docx_manifest"
+        "fn_ai_knowledge_document_manifest"
       ]
     },
     {
@@ -2493,7 +4317,7 @@
       "category": "reliable_event_sink",
       "reason": "Shadow 比对只读取权威 Outbox 行构造指纹，不触发业务 Handler 或 Inbox 副作用。",
       "requiredSqlFragments": [
-        "FROM fn_messaging_outbox_event",
+        "FROM fn_messaging_shadow_event",
         "WHERE Id = @Id"
       ]
     },
@@ -4745,18 +6569,6 @@
       ]
     },
     {
-      "statementName": "workflow.approval_slot.reassign_with_revision",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReassignApprovalSlotWithRevision",
-      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
-      "category": "explicit_tenant_anchor",
-      "reason": "多人审批改派在实例行锁与可信租户校验后，以原办理人和修订号同步更新审批席位。",
-      "requiredSqlFragments": [
-        "fn_workflow_approval_slot",
-        "ExpectedAssigneeUserId",
-        "Revision = @Revision"
-      ]
-    },
-    {
       "statementName": "workflow.approval_step.advance_with_revision",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.AdvanceApprovalStepWithRevision",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
@@ -4789,7 +6601,7 @@
       "requiredSqlFragments": [
         "fn_workflow_todo",
         "StepId = @StepId",
-        "StatusKey = 'active'"
+        "StatusKey IN ('active', 'before_countersign')"
       ]
     },
     {
@@ -5327,10 +7139,13 @@
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ExistsForProbe",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Files claim 对账探测必须按提交与文件精确匹配投影行。",
+      "reason": "Files的Host claim对账只按本次持久化引用或签名证据UUID与文件精确匹配，显式限制Host，不把SubmissionId当独立claim身份。",
       "requiredSqlFragments": [
-        "fn_workflow_form_submission_attachment",
-        "SubmissionId"
+        "ClaimReferenceId = @ReferenceId",
+        "TenantScopeKey = 'host'",
+        "FileId = @FileId",
+        "fn_workflow_action_evidence",
+        "fn_workflow_vote_attachment"
       ]
     },
     {
@@ -5482,17 +7297,6 @@
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
-      "requiredSqlFragments": [
-        "fn_workflow_instance",
-        "TenantScopeKey = @TenantScopeKey"
-      ]
-    },
-    {
-      "statementName": "workflow.instance.count_running_by_definition_version",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountRunningInstancesByDefinitionVersion",
-      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
-      "category": "explicit_tenant_anchor",
-      "reason": "删除定义版本前必须按可信 TenantScopeKey 统计仍占用该版本的运行或暂停实例。",
       "requiredSqlFragments": [
         "fn_workflow_instance",
         "TenantScopeKey = @TenantScopeKey"
@@ -6059,10 +7863,12 @@
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedCcStep",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "reason": "抄送激活在实例锁内显式锚定父实例可信作用域，并持久保存实际收件人来源；身份目录准备不进入本地事务。",
       "requiredSqlFragments": [
         "fn_workflow_step",
-        "@InstanceId"
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "@AssigneeSnapshotJson"
       ]
     },
     {
@@ -6113,10 +7919,14 @@
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindTodoReturnTarget",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "退回提交必须按可信 TenantScopeKey 与当前实例标识重新复核目标，不能信任客户端候选。",
+      "reason": "可信实例内的历史完整人工目标；拒绝并行前沿、在途工作及尚无补偿协议的活动边界，提交时重新复核。",
       "requiredSqlFragments": [
         "fn_workflow_step",
-        "TenantScopeKey = @TenantScopeKey"
+        "TenantScopeKey = @TenantScopeKey",
+        "frontier.Id <> @CurrentStepId",
+        "step.ParallelJoinId IS NULL",
+        "fn_workflow_activity_work",
+        "boundary.NodeTypeKey NOT IN"
       ]
     },
     {
@@ -6124,10 +7934,14 @@
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListTodoReturnTargetsMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；合法退回目标必须通过实例的可信 TenantScopeKey 限制当前作用域。",
+      "reason": "可信实例内的历史完整人工目标；拒绝并行前沿、在途工作及尚无补偿协议的活动边界，提交时重新复核。",
       "requiredSqlFragments": [
         "fn_workflow_step",
-        "TenantScopeKey = @TenantScopeKey"
+        "TenantScopeKey = @TenantScopeKey",
+        "frontier.Id <> @CurrentStepId",
+        "step.ParallelJoinId IS NULL",
+        "fn_workflow_activity_work",
+        "boundary.NodeTypeKey NOT IN"
       ]
     },
     {
@@ -6135,10 +7949,14 @@
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListTodoReturnTargetsSqlServer",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；合法退回目标必须通过实例的可信 TenantScopeKey 限制当前作用域。",
+      "reason": "可信实例内的历史完整人工目标；拒绝并行前沿、在途工作及尚无补偿协议的活动边界，提交时重新复核。",
       "requiredSqlFragments": [
         "fn_workflow_step",
-        "TenantScopeKey = @TenantScopeKey"
+        "TenantScopeKey = @TenantScopeKey",
+        "frontier.Id <> @CurrentStepId",
+        "step.ParallelJoinId IS NULL",
+        "fn_workflow_activity_work",
+        "boundary.NodeTypeKey NOT IN"
       ]
     },
     {
@@ -6345,28 +8163,6 @@
     {
       "statementName": "workflow.todo.page_pending_filtered.sqlserver",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PagePendingTodosFilteredSqlServer",
-      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
-      "category": "explicit_tenant_anchor",
-      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
-      "requiredSqlFragments": [
-        "fn_workflow_todo",
-        "TenantScopeKey = @TenantScopeKey"
-      ]
-    },
-    {
-      "statementName": "workflow.todo.reactivate_after_before_countersign",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReactivateOriginTodoAfterBeforeCountersign",
-      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
-      "category": "explicit_tenant_anchor",
-      "reason": "前加签完成后恢复原待办必须校验当前作用域和修订号。",
-      "requiredSqlFragments": [
-        "fn_workflow_todo",
-        "TenantScopeKey"
-      ]
-    },
-    {
-      "statementName": "workflow.todo.reassign_with_revision",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReassignTodoWithRevision",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
@@ -7575,6 +9371,2335 @@
       "requiredSqlFragments": [
         "d.IntentId = @IntentId",
         "d.DispatchLeaseGeneration IS NULL OR d.DispatchLeaseGeneration <> d.LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.find",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确运维权限下记录回退代次、资源和控制动作；与所有权事务一致，保护多实例恢复。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_rollback_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.insert",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确运维权限下记录回退代次、资源和控制动作；与所有权事务一致，保护多实例恢复。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_rollback_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.bind_resources",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.BindResources",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确运维权限下记录回退代次、资源和控制动作；与所有权事务一致，保护多实例恢复。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_rollback_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.transition",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.Transition",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确运维权限下记录回退代次、资源和控制动作；与所有权事务一致，保护多实例恢复。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_rollback_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.cutover_evidence.samples.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner.CutoverEvidenceSql.SamplesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/ChangeDeliveryOwner/DeliveryCutoverEvidenceService.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限下读取当前已关闭、无缺口的真实业务采集代次，计数和字节必须与控制行一致；不接受客户端载荷或正式追加表造样本。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_shadow_event",
+        "fn_messaging_shadow_capture",
+        "capture.State = 'closed'",
+        "CaptureGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.cutover_evidence.samples.my_sql",
+      "declaration": "Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner.CutoverEvidenceSql.SamplesMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/ChangeDeliveryOwner/DeliveryCutoverEvidenceService.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限下读取当前已关闭、无缺口的真实业务采集代次，计数和字节必须与控制行一致；不接受客户端载荷或正式追加表造样本。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_shadow_event",
+        "fn_messaging_shadow_capture",
+        "capture.State = 'closed'",
+        "CaptureGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.cutover_evidence.find.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner.CutoverEvidenceSql.FindSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/ChangeDeliveryOwner/DeliveryCutoverEvidenceService.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确切流权限下读取权威样本并保存真实影子与目标链路短期证明，禁止从请求接受就绪标志。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_cutover_evidence"
+      ]
+    },
+    {
+      "statementName": "messaging.cutover_evidence.find.my_sql",
+      "declaration": "Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner.CutoverEvidenceSql.FindMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/ChangeDeliveryOwner/DeliveryCutoverEvidenceService.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确切流权限下读取权威样本并保存真实影子与目标链路短期证明，禁止从请求接受就绪标志。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_cutover_evidence"
+      ]
+    },
+    {
+      "statementName": "messaging.cutover_evidence.insert",
+      "declaration": "Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner.CutoverEvidenceSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/ChangeDeliveryOwner/DeliveryCutoverEvidenceService.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确切流权限下读取权威样本并保存真实影子与目标链路短期证明，禁止从请求接受就绪标志。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_cutover_evidence"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.find_latest.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.FindLatestSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确读权限根据事件流定位最近一次持久回退，恢复准备提交响应丢失的代次。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_rollback_operation",
+        "WHERE EventType = @EventType AND SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.rollback_operation.find_latest.my_sql",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.DeliveryRollbackSql.FindLatestMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/DeliveryRollbackJournal.cs",
+      "category": "host_catalog",
+      "reason": "Host 精确读权限根据事件流定位最近一次持久回退，恢复准备提交响应丢失的代次。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_rollback_operation",
+        "WHERE EventType = @EventType AND SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.captured_stream_lsn.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.SqlServerCapturedStreamLsn",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "基础设施在已冻结的流上核对 CDC 插入完整性，不能以全库旧高水位代替流捕获证明。",
+      "requiredSqlFragments": [
+        "FROM cdc.fullnet_fn_messaging_outbox_event_CT changes",
+        "INNER JOIN fn_messaging_outbox_event source ON source.Id = changes.Id",
+        "changes.__$operation = 2",
+        "HAVING COUNT(DISTINCT changes.Id)"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.find",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.find_request",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.FindRequest",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.count",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Count",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.list.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.ListSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.list.my_sql",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.ListMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.insert",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.begin",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Begin",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.progress",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Progress",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation",
+        "LeaseToken = @LeaseToken"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.finish",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Finish",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation",
+        "LeaseToken = @LeaseToken"
+      ]
+    },
+    {
+      "statementName": "messaging.replay_operation.cancel",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.KafkaReplayOperationSql.Cancel",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/KafkaReplayOperationStore.cs",
+      "category": "host_catalog",
+      "reason": "仅供精确 Host 权限保护的 Messaging 自有重放日志；请求和进度不接收租户或业务载荷，执行代次与租约守卫防止过期写入。",
+      "requiredSqlFragments": [
+        "fn_messaging_replay_operation"
+      ]
+    },
+    {
+      "statementName": "messaging.delivery_observation.read.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Features.GetDeliveryStatus.DeliveryStreamObservationSql.ReadSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/GetDeliveryStatus/DeliveryStreamObservationSql.cs",
+      "category": "host_catalog",
+      "reason": "Host 总览只聚合 Messaging 自有保留源、DLQ 投影与回退状态；不读取其他业务模块或原始载荷，不把源行数或投影零值当作 Broker 已排空。",
+      "requiredSqlFragments": [
+        "fn_messaging_outbox_event",
+        "fn_messaging_dead_letter",
+        "fn_messaging_stream_ownership",
+        "ORDER BY MessageType, SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.delivery_observation.read.my_sql",
+      "declaration": "Full.NET.Modules.Messaging.Features.GetDeliveryStatus.DeliveryStreamObservationSql.ReadMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Features/GetDeliveryStatus/DeliveryStreamObservationSql.cs",
+      "category": "host_catalog",
+      "reason": "Host 总览只聚合 Messaging 自有保留源、DLQ 投影与回退状态；不读取其他业务模块或原始载荷，不把源行数或投影零值当作 Broker 已排空。",
+      "requiredSqlFragments": [
+        "fn_messaging_outbox_event",
+        "fn_messaging_dead_letter",
+        "fn_messaging_stream_ownership",
+        "ORDER BY MessageType, SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.reserve_and_insert",
+      "declaration": "Full.NET.Data.Dapper.Outbox.ShadowCaptureWriteSql.ReserveAndInsert",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperShadowCaptureWriter.cs",
+      "category": "reliable_event_sink",
+      "reason": "真实 Legacy 事务内的受控影子采集汇点；复用可信租户与同一信封，预留、源事件及 Legacy 同事务，正式发布源不受影响。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture",
+        "INSERT INTO fn_messaging_shadow_event",
+        "@TenantId",
+        "LastReservedEventId"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.metadata_gap",
+      "declaration": "Full.NET.Data.Dapper.Outbox.ShadowCaptureWriteSql.MetadataGap",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperShadowCaptureWriter.cs",
+      "category": "reliable_event_sink",
+      "reason": "真实 Legacy 事务内的受控影子采集汇点；复用可信租户与同一信封，预留、源事件及 Legacy 同事务，正式发布源不受影响。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture",
+        "MissingMetadataCount"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.find",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.find_generation",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.FindGeneration",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture",
+        "@Generation"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.insert",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_shadow_capture"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.replace",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.Replace",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture",
+        "@ExpectedGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.prune_previous",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.PrunePrevious",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "DELETE FROM fn_messaging_shadow_event",
+        "@Generation"
+      ]
+    },
+    {
+      "statementName": "messaging.shadow_capture.close",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.ShadowCaptureSql.Close",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/ShadowCaptureStore.cs",
+      "category": "host_catalog",
+      "reason": "精确 Host 权限保护的影子窗口控制；按流所有权锁与 generation 共同串行化，只有显式开始新代次时清理旧影子诊断副本。",
+      "requiredSqlFragments": [
+        "fn_messaging_shadow_capture",
+        "State = 'active'"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.count_unresolved",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CountUnresolved",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "vote.StatusKey='suspended'",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_deadline_member.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindDeadlineMemberSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "TOP (1)",
+        "@VoteId",
+        "@InstanceId",
+        "@TenantScopeKey",
+        "ORDER BY ballot.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_deadline_member.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindDeadlineMemberMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "LIMIT 1",
+        "@VoteId",
+        "@InstanceId",
+        "@TenantScopeKey",
+        "ORDER BY ballot.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_form_candidates",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindFormCandidates",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "@FormVersionIds",
+        "definition.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.insert_form_binding",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.InsertFormBinding",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_form",
+        "formDefinition.TenantScopeKey=@TenantScopeKey",
+        "formDefinition.StatusKey='active'",
+        "@DefinitionVersionId"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_form_binding",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindFormBinding",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "binding.DefinitionVersionId=@DefinitionVersionId",
+        "binding.NodeKey=@NodeKey",
+        "formDefinition.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.count_form_version_references",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CountFormVersionReferences",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "binding.BallotFormVersionId=@FormVersionId",
+        "definition.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "'human.vote'",
+        "@InstanceId",
+        "@AssigneeSnapshotHash"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.insert_round",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.InsertRound",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote",
+        "step.NodeTypeKey='human.vote'",
+        "binding.Id=@FormBindingId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.insert_ballot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.InsertBallot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_ballot",
+        "todo.Id=@TodoId",
+        "todo.AssigneeUserId=@AssigneeUserId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_round",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindRound",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "binding.DefinitionVersionId=instance.DefinitionVersionId",
+        "binding.NodeKey=step.NodeKey",
+        "vote.Id=@VoteId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_ballot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindBallot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "ballot.TodoId=@TodoId",
+        "ballot.AssigneeUserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_view",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindView",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "viewRecord.InputJson",
+        "viewRecord.OutputJson",
+        "todo.AssigneeUserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.capture_view",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CaptureView",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_view",
+        "ballot.SubmissionJson",
+        "ballot.Revision",
+        "ballot.StatusKey='pending'",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.set_view_output",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.SetViewOutput",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "BallotId=@BallotId",
+        "OutputJson IS NULL",
+        "InputRevision<@OutputRevision",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.submit_ballot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.SubmitBallot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "StatusKey='pending'",
+        "Revision=@Revision",
+        "vote.ClosesAtUtc>@Now",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.count_other_member",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CountOtherMember",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "ballot.Id<>@ExcludedBallotId",
+        "ballot.AssigneeUserId=@AssigneeUserId",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.transfer_ballot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.TransferBallot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "TodoId=@NewTodoId",
+        "Revision=@Revision",
+        "StatusKey='pending'",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.tally.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.TallySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "AS bigint",
+        "fn_workflow_vote_ballot",
+        "VoteId=@VoteId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.tally.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.TallyMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "AS SIGNED",
+        "fn_workflow_vote_ballot",
+        "VoteId=@VoteId",
+        "InstanceId=@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.close_round",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CloseRound",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "FinalYesCount=@YesCount",
+        "FinalUnsubmittedCount=@UnsubmittedCount",
+        "StatusKey='active'",
+        "Revision=@Revision",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.cancel_pending_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CancelPendingTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "StatusKey='active'",
+        "@VoteId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.cancel_pending_ballots",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CancelPendingBallots",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_ballot",
+        "StatusKey='pending'",
+        "@VoteId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.cancel_rounds_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CancelRoundsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote",
+        "FinalYesCount",
+        "FinalUnsubmittedCount",
+        "StatusKey='active'",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.cancel_ballots_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.CancelBallotsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "独立投票属于Workflow。发布固定同作用域表单；本人读写沿Todo、实例及固定候选授权，汇总/交接/取消仅消费同一实例锁内验证的根事实，不增加分母或写审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_ballot",
+        "StatusKey='pending'",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "tenant_resolution",
+      "reason": "后台仅有界读取Workflow持久截止事实；处理前按实例验证规范作用域、活动租户与状态，事务内实例锁重读及CAS，系统结算不生成个人票据或签名。",
+      "requiredSqlFragments": [
+        "TOP (@BatchSize)",
+        "instance.StatusKey='active'",
+        "vote.ClosesAtUtc<=@Now",
+        "ORDER BY vote.ClosesAtUtc, vote.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.vote.find_due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteSql.FindDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteSql.cs",
+      "category": "tenant_resolution",
+      "reason": "后台仅有界读取Workflow持久截止事实；处理前按实例验证规范作用域、活动租户与状态，事务内实例锁重读及CAS，系统结算不生成个人票据或签名。",
+      "requiredSqlFragments": [
+        "LIMIT @BatchSize",
+        "instance.StatusKey='active'",
+        "vote.ClosesAtUtc<=@Now",
+        "ORDER BY vote.ClosesAtUtc, vote.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "私有选票附件只接受本人上传；实际选票、修订及内容绑定在实例锁内复核。读取按本人历史Todo私有输出及同作用域固定表单验证，不能借用当前成员或主表单答案。",
+      "requiredSqlFragments": [
+        "fn_workflow_vote_attachment",
+        "ballot.TodoId=@TodoId",
+        "ballot.AssigneeUserId=@ActorUserId",
+        "ballot.StatusKey='submitted'",
+        "instance.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.exists_for_probe",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.ExistsForProbe",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "verified_identity",
+      "reason": "Files仅按Workflow消费模块及该次认领的唯一引用ID和FileId探测Host持有事实，不接受请求声明的租户或资源授权。",
+      "requiredSqlFragments": [
+        "Id=@ReferenceId",
+        "FileId=@FileId",
+        "TenantScopeKey='host'"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.read_owned.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.ReadOwnedSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "私有选票附件只接受本人上传；实际选票、修订及内容绑定在实例锁内复核。读取按本人历史Todo私有输出及同作用域固定表单验证，不能借用当前成员或主表单答案。",
+      "requiredSqlFragments": [
+        "TOP (128)",
+        "privateView.OutputJson",
+        "todo.AssigneeUserId=@ActorUserId",
+        "formDefinition.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.read_owned.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.ReadOwnedMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "私有选票附件只接受本人上传；实际选票、修订及内容绑定在实例锁内复核。读取按本人历史Todo私有输出及同作用域固定表单验证，不能借用当前成员或主表单答案。",
+      "requiredSqlFragments": [
+        "LIMIT 128",
+        "privateView.OutputJson",
+        "todo.AssigneeUserId=@ActorUserId",
+        "formDefinition.TenantScopeKey=@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "'human.claim'",
+        "@InstanceId",
+        "@AssigneeSnapshotJson",
+        "@AssigneeSnapshotHash"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.insert_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.InsertPool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.insert_candidate",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.InsertCandidate",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.find_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.FindPool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "pool.Id=@PoolId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "step.InstanceId=pool.InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.list_candidates",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ListCandidates",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.count_mine",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CountMine",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "candidate.UserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "pool.StatusKey='available'"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.list_mine.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ListMineSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "candidate.UserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "pool.StatusKey='available'"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.list_mine.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ListMineMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "candidate.UserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "pool.StatusKey='available'"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.insert_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.InsertTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.claim_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ClaimPool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "Revision=@Revision",
+        "@AssigneeUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.insert_attempt",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.InsertAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.assign_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.AssignStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.find_attempt_for_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.FindAttemptForTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.complete_attempt",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CompleteAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.complete_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CompletePool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "Revision=@Revision",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.release_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ReleasePool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "Revision=@Revision",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.read_todo_schedule",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.ReadTodoSchedule",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.rebind_attempt",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.RebindAttempt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.rebind_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.RebindPool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "Revision=@Revision",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.cancel_pools",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CancelPools",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.cancel_attempts",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CancelAttempts",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.count_receipt_for_pool",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.CountReceiptForPool",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@TenantScopeKey",
+        "@ActorUserId",
+        "@IdempotencyKey"
+      ]
+    },
+    {
+      "statementName": "workflow.claim.find_history_cycle",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowClaimSql.FindHistoryCycle",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowClaimSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取池及候选、领取尝试均属于Workflow。到达只消费事务外可信快照；领取先校验当前来源与固定候选，随后在可信作用域实例锁内重读并CAS。释放、办理、交接只按真实本人待办或独立管理员权限写同一实例事实，首次回执绑定实际步骤与操作者。",
+      "requiredSqlFragments": [
+        "attempt.PoolId=@PoolId",
+        "attempt.InstanceId=@InstanceId",
+        "todo.Id=@TodoId",
+        "todo.AssigneeUserId=@ActorUserId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "handoff.ClaimAttemptId=attempt.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.withdrawal.list_reached",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWithdrawalSql.ListReached",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWithdrawalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns these instance facts. Read projections verify trusted tenant and actual initiator; withdrawal writes reread the same facts under the owning instance lock.",
+      "requiredSqlFragments": [
+        "SELECT DISTINCT step.NodeKey",
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "instance.StartedById=@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.withdrawal.count_human_actions",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWithdrawalSql.CountHumanActions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWithdrawalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns these instance facts. Read projections verify trusted tenant and actual initiator; withdrawal writes reread the same facts under the owning instance lock.",
+      "requiredSqlFragments": [
+        "step.Id=action.StepId",
+        "instance.Id=@InstanceId",
+        "instance.TenantScopeKey=@TenantScopeKey",
+        "instance.StartedById=@ActorUserId",
+        "'human.claim'",
+        "action.ActionKey NOT IN"
+      ]
+    },
+    {
+      "statementName": "workflow.manual_reminder.list_targets",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowManualReminderSql.ListTargets",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowManualReminderSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow manual reminders use trusted tenant and actual initiator resource checks; writes run under the owning instance lock after rereading actual todo tuples.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TenantScopeKey",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.manual_reminder.find_receipt",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowManualReminderSql.FindReceipt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowManualReminderSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow manual reminders use trusted tenant and actual initiator resource checks; writes run under the owning instance lock after rereading actual todo tuples.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TenantScopeKey",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.manual_reminder.read_budget",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowManualReminderSql.ReadBudget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowManualReminderSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow manual reminders use trusted tenant and actual initiator resource checks; writes run under the owning instance lock after rereading actual todo tuples.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TenantScopeKey",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.manual_reminder.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowManualReminderSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowManualReminderSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow manual reminders use trusted tenant and actual initiator resource checks; writes run under the owning instance lock after rereading actual todo tuples.",
+      "requiredSqlFragments": [
+        "fn_workflow_manual_reminder",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.dynamic_assignee.find_claim_snapshot",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDynamicAssigneeSql.FindClaimSnapshot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDynamicAssigneeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns these immutable instance activity facts; trusted tenant and instance scope anchor historical participant reads and claim qualification preparation outside the local write transaction.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.dynamic_assignee.list_previous_actors",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowDynamicAssigneeSql.ListPreviousActors",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowDynamicAssigneeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns these immutable instance activity facts; trusted tenant and instance scope anchor historical participant reads and claim qualification preparation outside the local write transaction.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.starter_selection.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowStarterSelectionSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowStarterSelectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns immutable startup choices. Writes occur atomically with the authorized instance startup; later preparations read only the trusted instance and tenant without changing these facts.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.starter_selection.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowStarterSelectionSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowStarterSelectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow owns immutable startup choices. Writes occur atomically with the authorized instance startup; later preparations read only the trusted instance and tenant without changing these facts.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@InstanceId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.read_todo_view.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ReadTodoViewSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Personal attachments require one actual todo, its actor and trusted tenant; only that todo's visible branch input and historical output grant file access.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TodoId",
+        "@ActorUserId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.read_todo_view.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ReadTodoViewMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Personal attachments require one actual todo, its actor and trusted tenant; only that todo's visible branch input and historical output grant file access.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TodoId",
+        "@ActorUserId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.read_owned_for_todo.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.ReadOwnedForTodoSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Private ballot files require the exact actor-owned todo output; instance and administrator permissions cannot replace this evidence.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TodoId",
+        "@ActorUserId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.vote_attachment.read_owned_for_todo.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVoteAttachmentSql.ReadOwnedForTodoMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVoteAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Private ballot files require the exact actor-owned todo output; instance and administrator permissions cannot replace this evidence.",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TodoId",
+        "@ActorUserId",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.list_instance.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListForInstanceSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.list_instance.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListForInstanceMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.count_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.CountForInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_attempt.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListAttempts",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_attempt.list_summaries",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.ListAttemptSummaries",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_resolution.latest",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.LatestResolutions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_resolution.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FindResolution",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector_resolution.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.InsertResolution",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.resolve",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.Resolve",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.advance_resolution",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.AdvanceForResolution",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运维控制面按可信作用域锚定父实例、活动及真实操作人；列表批量读取尝试摘要，对账写入与原实例修订在同一事务接纳。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.ListDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=barrier.TenantScopeKey",
+        "@Take",
+        "ORDER BY barrier.DueAtUtc,barrier.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.ListDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "instance.TenantScopeKey=barrier.TenantScopeKey",
+        "@Take",
+        "ORDER BY barrier.DueAtUtc,barrier.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.find_resume",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.FindResume",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@WorkId",
+        "@InputHash",
+        "@InputFormRevision"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "@ParallelJoinId",
+        "internal.await"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.claim",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.Claim",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.yield",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.Yield",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.release",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.Release",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.cancel_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.CancelInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.count_recoverable",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.CountRecoverable",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.async_barrier.count_blocked",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowAsyncBarrierSql.CountBlocked",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowAsyncBarrierSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.find_frame",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FindInFrame",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.find_ids",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.FindByIds",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.connector.yield_apply",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowConnectorSql.YieldApply",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowConnectorSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "异步屏障与续办仅锚定可信原实例和分支；依赖绑定原CallId，工作项通过屏障/工作身份、输入摘要和修订证明接纳，任何旧租约不能推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.ListSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.ListMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar_version.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.FindVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar_version.find_ids",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.FindVersionsByIds",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar_version.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.ListVersionsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar_version.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.ListVersionsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.update_draft",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.UpdateDraft",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.publish",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.Publish",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar_version.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.InsertVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历属于Workflow；版本通过自有父日历继承可信作用域，读写显式锚定TenantScopeKey，发布头和不可变版本同事务推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.calendar.lock",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowCalendarSql.Lock",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCalendarSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作日历先锁定可信作用域与期望修订的发布头，再插入自有不可变版本；不在事务内调用其他模块。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.working_delay.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWorkingDelaySql.ListSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWorkingDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作时长等待只读取原实例和可信作用域的固定日历快照；暂停恢复由调用方实例锁及本地结果事务保护。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.working_delay.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWorkingDelaySql.ListMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWorkingDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作时长等待只读取原实例和可信作用域的固定日历快照；暂停恢复由调用方实例锁及本地结果事务保护。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.working_delay.pause",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWorkingDelaySql.Pause",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWorkingDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作时长等待只读取原实例和可信作用域的固定日历快照；暂停恢复由调用方实例锁及本地结果事务保护。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.working_delay.resume",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowWorkingDelaySql.Resume",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowWorkingDelaySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作时长等待只读取原实例和可信作用域的固定日历快照；暂停恢复由调用方实例锁及本地结果事务保护。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.list_due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.ListDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "fn_workflow_sla",
+        "fn_workflow_step",
+        "fn_workflow_instance",
+        "@Take",
+        "@Now",
+        "instance.TenantScopeKey=sla.TenantScopeKey",
+        "@HasAfter",
+        "@AfterDueAtUtc",
+        "@AfterId",
+        "ORDER BY sla.DueAtUtc,sla.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.list_due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.ListDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "fn_workflow_sla",
+        "fn_workflow_step",
+        "fn_workflow_instance",
+        "@Take",
+        "@Now",
+        "instance.TenantScopeKey=sla.TenantScopeKey",
+        "@HasAfter",
+        "@AfterDueAtUtc",
+        "@AfterId",
+        "ORDER BY sla.DueAtUtc,sla.Id"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.list_active.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.ListActiveSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.list_active.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.ListActiveMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.finish",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.Finish",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.pause",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.Pause",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.resume",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.Resume",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.cancel_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.CancelInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.cancel_step_todos",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.CancelStepTodos",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.sla.cancel_step_slots",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSlaSql.CancelStepSlots",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSlaSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "活动截止只以本模块持久实例及步骤为可信锚点；候选有界，处置必须在实例锁内重读发布策略、修订和当前前沿，不生成个人票或签名。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.find_at_node",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.FindAtNode",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.approved_predecessors",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.ApprovedPredecessors",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.active_step_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.ActiveStepRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.accept_result",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.AcceptResult",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.begin_compensation",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.BeginCompensation",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.Complete",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.fault",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.Fault",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.count_unsettled",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.CountUnsettled",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.ready_sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.ReadySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.ready_mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.ReadyMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.compensations_sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.CompensationsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.compensations_mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.CompensationsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter"
+      ]
+    },
+    {
+      "statementName": "data_approval.command.find",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalCommandSql.Find",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "data_approval.command.insert",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalCommandSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "data_approval.command.count_applied",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalCommandSql.CountApplied",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "真实节点效果及回执属于当前模块；扫描只定位耐久输入，每行按可信实例作用域和根锁重新裁决，跨模块端口在事务外调用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.count_recoverable",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.CountRecoverable",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "生命周期在实例锁内按可信作用域识别真实业务等待；未解决所有者结果不得恢复推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.business_command.count_blocked",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowBusinessCommandSql.CountBlocked",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowBusinessCommandSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "生命周期在实例锁内按可信作用域识别真实业务等待；未解决所有者结果不得恢复推进。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.find_assets",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.FindAssets",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.find_at_node",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.FindAtNode",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_item.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.FindItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_item.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.Items",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_budget.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.FindBudget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_budget.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.InsertBudget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_budget.reserve",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.ReserveBudget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.find_depth",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.FindDepth",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.active_step_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.ActiveStepRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.insert_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@InstanceId",
+        "fn_workflow_step"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_item.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.InsertItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_item.link_child",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.LinkChild",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.mark_running",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.MarkRunning",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.step_status",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.StepStatus",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.count_child_uncertain_effects",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.CountChildUncertainEffects",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_item.record_result",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.RecordItemResult",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.set_status",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.SetStatus",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.count_recoverable",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.CountRecoverable",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.count_blocked",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.CountBlocked",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.count_unsettled",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.CountUnsettled",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.pending_sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.PendingSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter",
+        "parent.TenantScopeKey=callState.TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess.pending_mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSubprocessSql.PendingMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSubprocessSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子创建与关联只访问Workflow表，同作用域父锁裁决启动和取消；子额度由父根一次预留，真实外部端口在事务外准备。",
+      "requiredSqlFragments": [
+        "@Take",
+        "@HasAfter",
+        "parent.TenantScopeKey=callState.TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.lock_definition",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVersionReferenceSql.LockDefinition",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVersionReferenceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定父子版本依赖仅访问Workflow表；可信作用域、定义行锁和同模块外键共同保护发布/删除竞态及历史引用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.has_references",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVersionReferenceSql.HasReferences",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVersionReferenceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定父子版本依赖仅访问Workflow表；可信作用域、定义行锁和同模块外键共同保护发布/删除竞态及历史引用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.insert_reference",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVersionReferenceSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVersionReferenceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定父子版本依赖仅访问Workflow表；可信作用域、定义行锁和同模块外键共同保护发布/删除竞态及历史引用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.delete_owned_references",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowVersionReferenceSql.DeleteOwned",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowVersionReferenceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "固定父子版本依赖仅访问Workflow表；可信作用域、定义行锁和同模块外键共同保护发布/删除竞态及历史引用。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_set.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowMultiInstanceSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowMultiInstanceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多实例集合与成功项选择仅访问Workflow自有表；每条读写均校验真实父调用及可信作用域，写入统一持有父根锁。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_set.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowMultiInstanceSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowMultiInstanceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多实例集合与成功项选择仅访问Workflow自有表；每条读写均校验真实父调用及可信作用域，写入统一持有父根锁。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_set.update",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowMultiInstanceSql.Update",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowMultiInstanceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多实例集合与成功项选择仅访问Workflow自有表；每条读写均校验真实父调用及可信作用域，写入统一持有父根锁。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_choice.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowMultiInstanceSql.Choices",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowMultiInstanceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多实例集合与成功项选择仅访问Workflow自有表；每条读写均校验真实父调用及可信作用域，写入统一持有父根锁。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.subprocess_choice.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowMultiInstanceSql.InsertChoice",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowMultiInstanceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多实例集合与成功项选择仅访问Workflow自有表；每条读写均校验真实父调用及可信作用域，写入统一持有父根锁。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_attachment.find_mapped_file_owner",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.FindMappedFileOwner",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "父子文件投影只读取Workflow自有的原字段历史引用；实际源实例、映射字段及可信作用域同时匹配，Files授权仍在本地事务外执行。",
+      "requiredSqlFragments": [
+        "@TenantScopeKey",
+        "@FieldKey",
+        "@InstanceId"
       ]
     }
   ]

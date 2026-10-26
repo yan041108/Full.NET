@@ -33,7 +33,13 @@ internal sealed record WorkflowNodeTypeResponse(
     bool Designable,
     bool Publishable,
     bool Executable,
-    bool SupportsFieldPolicies);
+    bool SupportsFieldPolicies)
+{
+    public IReadOnlyList<string> ConfigurationProperties { get; init; } = [];
+    public int? MinimumBranches { get; init; }
+    public int? MaximumBranches { get; init; }
+    public bool? HasDefaultBranch { get; init; }
+}
 
 /// <summary>供工作流设计器选择抄送人的最小用户投影。</summary>
 /// <param name="Id">稳定用户标识。</param>
@@ -95,12 +101,21 @@ internal sealed record WorkflowOrganizationUnitCandidatePageResponse(
     int PageSize,
     long Total);
 
+/// <summary>设计器可选择的当前租户活动岗位。</summary>
+internal sealed record WorkflowPositionCandidateResponse(Guid Id, string Code, string Name);
+
+/// <summary>活动岗位候选的受控分页结果。</summary>
+internal sealed record WorkflowPositionCandidatePageResponse(
+    IReadOnlyList<WorkflowPositionCandidateResponse> Items, int Page, int PageSize, long Total);
+
 /// <summary>预览办理人解析结果的请求体。</summary>
 /// <param name="AssigneePolicy">闭合的办理人策略对象。</param>
 /// <param name="InitiatorUserId">可选预览发起人；缺省时使用当前操作人。</param>
+/// <param name="AdditionalUserIds">多人策略附加的指定成员，来源解析去重后按此顺序追加。</param>
 internal sealed record PreviewWorkflowAssigneeRequest(
     JsonElement AssigneePolicy,
-    Guid? InitiatorUserId);
+    Guid? InitiatorUserId,
+    IReadOnlyList<Guid>? AdditionalUserIds = null);
 
 /// <summary>办理人解析预览结果。</summary>
 /// <param name="Users">按解析顺序返回的活动用户投影。</param>

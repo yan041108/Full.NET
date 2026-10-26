@@ -10,6 +10,26 @@ declare module '*workflow-vue3/src/stores/index.js' {
   export function useStore(): {
     approverDrawer: boolean;
     approverConfig1: unknown;
+    delayDrawer: boolean;
+    delayConfig1: unknown;
+    triggerDrawer: boolean;
+    triggerConfig1: unknown;
+    subProcessDrawer: boolean;
+    subProcessConfig1: unknown;
+    setSubProcess: (visible: boolean) => void;
+    setSubProcessConfig: (value: unknown) => void;
+    setTrigger: (visible: boolean) => void;
+    setTriggerConfig: (value: unknown) => void;
+    modifyDataDrawer: boolean;
+    modifyDataConfig1: unknown;
+    deleteDataDrawer: boolean;
+    deleteDataConfig1: unknown;
+    setModifyData: (visible: boolean) => void;
+    setModifyDataConfig: (value: unknown) => void;
+    setDeleteData: (visible: boolean) => void;
+    setDeleteDataConfig: (value: unknown) => void;
+    setDelay: (visible: boolean) => void;
+    setDelayConfig: (value: unknown) => void;
     copyerDrawer: boolean;
     copyerConfig1: unknown;
     conditionDrawer: boolean;

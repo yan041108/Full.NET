@@ -11,6 +11,9 @@ internal sealed class DataApprovalDapperAotMaterializerContributor : IDapperAotM
     {
         registrar.Register<DataApprovalRequestRecord>(ReadRequest);
         registrar.Register<DataApprovalScenarioRecord>(ReadScenario);
+        registrar.Register<DataApprovalCommandReceiptRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3),
+            reader.GetGuid(4), reader.GetString(5), AotDataReaderExtensions.ReadInt32(reader, 6), reader.GetString(7), reader.GetString(8), reader.GetString(9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10)));
     }
 
     private static DataApprovalRequestRecord ReadRequest(DbDataReader reader) =>

@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Execution;
@@ -41,6 +42,24 @@ public sealed class WorkflowRecoveryScanBudgetTests
         services.AddSingleton(Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         services.AddSingleton<Microsoft.Extensions.Logging.ILogger<WorkflowRecoveryBatchProcessor>>(NullLogger<WorkflowRecoveryBatchProcessor>.Instance);
         services.AddScoped<WorkflowRecoveryScanner>(); services.AddScoped<WorkflowRecoveryBatchProcessor>();
+        // 使用真实活动处理器接线；空队列使本用例只观测扫描节流，不漏掉Worker新增阶段。
+        queries.QueryAsync<WorkflowActivityWorkRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<WorkflowActivityWorkRecord>>([]));
+        queries.QueryAsync<WorkflowDelayRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<WorkflowDelayRecord>>([]));
+        services.AddScoped<WorkflowActivityScheduler>(); services.AddScoped<WorkflowDelayProcessor>();
+        services.AddScoped(provider => new WorkflowActivityWorkProcessor(queries,
+            provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<ICommandTransaction>(), clock,
+            provider.GetRequiredService<IIdGenerator>(), provider.GetRequiredService<IOptions<DatabaseOptions>>(), options,
+            WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(queries, provider.GetRequiredService<ICommandExecutor>(),
+                provider.GetRequiredService<IIdGenerator>(), Substitute.For<IOutboxWriter>()),
+            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()), Substitute.For<ICurrentTenantContextWriter>(),
+            new WorkflowHumanActivityPreparation(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), queries,
+                WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()),
+            new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
+            new WorkflowAutomaticOutputCoordinator(queries, provider.GetRequiredService<ICommandExecutor>(), clock,
+                new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
+                WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator())));
         await using var provider = services.BuildServiceProvider();
         var hosted = new WorkflowRecoveryHostedProcessor(provider.GetRequiredService<IServiceScopeFactory>(), clock, options,
             NullLogger<WorkflowRecoveryHostedProcessor>.Instance);

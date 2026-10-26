@@ -38,14 +38,28 @@ internal sealed class WorkflowAutomaticTransitionWriter(
         foreach (var node in automaticNodes)
         {
             var executionSequence = nextExecutionSequence++;
+            if (node.NodeTypeKey == "control.empty")
+            {
+                var emptyId = idGenerator.NewId();
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertCompletedEmptyStep,
+                    WorkflowSqlParameters.Create(("Id", emptyId), ("InstanceId", instanceId), ("NodeKey", node.NodeKey),
+                        ("ExecutionSequence", executionSequence), ("StartedAtUtc", occurredAtUtc), ("CompletedAtUtc", occurredAtUtc)), cancellationToken).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
+                    WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instanceId), ("StepId", emptyId),
+                        ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
+                        ("TransitionKey", "node.control.empty"), ("FromStatusKey", null), ("ToStatusKey", "completed"),
+                        ("IdempotencyKey", null), ("Summary", null), ("CreatedAtUtc", occurredAtUtc)), cancellationToken).ConfigureAwait(false);
+                continue;
+            }
             if (node.NodeTypeKey == "notify.cc")
             {
                 await ccTransitionWriter.WriteNodeAsync(
                     instanceId,
-                    new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds),
+                    new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds, node.ResolutionJson, node.ResolutionHash),
                     knownRecipients,
                     executionSequence,
                     occurredAtUtc,
+                    tenantScopeKey,
                     cancellationToken).ConfigureAwait(false);
                 continue;
             }
@@ -61,6 +75,7 @@ internal sealed class WorkflowAutomaticTransitionWriter(
                             ("Id", parallelStepId),
                             ("InstanceId", instanceId),
                             ("NodeKey", node.NodeKey),
+                            ("NodeTypeKey", node.NodeTypeKey),
                             ("ExecutionSequence", executionSequence),
                             ("ParallelJoinId", null),
                             ("ParallelBranchKey", node.OutcomeKey),

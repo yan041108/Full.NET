@@ -37,6 +37,18 @@ internal static class DataCommandExceptionMapper
         return false;
     }
 
+    /// <summary>查询同样可能成为数据库死锁牺牲者；只统一此并发类别，不改变其他查询异常语义。</summary>
+    public static bool TryMapQueryConcurrency(Exception exception, out DataCommandException mapped)
+    {
+        if (TryMap(exception, out var failure) && failure.Kind == DataCommandFailureKind.Deadlock)
+        {
+            mapped = failure;
+            return true;
+        }
+        mapped = null!;
+        return false;
+    }
+
     /// <summary>
     /// 按 SQL Server 错误编号识别稳定的数据命令失败类别。
     /// </summary>
@@ -62,8 +74,8 @@ internal static class DataCommandExceptionMapper
             MySqlErrorCode.DuplicateKeyEntry => DataCommandFailureKind.UniqueConstraint,
             MySqlErrorCode.LockDeadlock or MySqlErrorCode.UserLockDeadlock =>
                 DataCommandFailureKind.Deadlock,
-            // 固定服务端错误号：NOT NULL、字段过长、缺少被引用行、CHECK 失败。
-            (MySqlErrorCode)1048 or (MySqlErrorCode)1406 or (MySqlErrorCode)1452 or (MySqlErrorCode)3819 =>
+            // 固定服务端错误号：NOT NULL、字段过长、被引用行仍在使用/缺失、CHECK 失败。
+            (MySqlErrorCode)1048 or (MySqlErrorCode)1406 or (MySqlErrorCode)1451 or (MySqlErrorCode)1452 or (MySqlErrorCode)3819 =>
                 DataCommandFailureKind.InvalidValue,
             _ => null,
         };

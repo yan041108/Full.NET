@@ -22,14 +22,15 @@ public sealed class WorkflowNodeTypeCatalogTests
     {
         var catalog = WorkflowNodeTypeCatalog.Current;
 
-        Assert.AreEqual(1, catalog.CatalogVersion);
+        Assert.AreEqual(26, catalog.CatalogVersion);
         Assert.AreEqual(1, catalog.DefinitionSchemaVersion);
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
+            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
             catalog.NodeTypes.Select(item => item.NodeTypeKey).ToArray());
-        Assert.IsTrue(catalog.NodeTypes.All(item => item.Designable && item.NodeSchemaVersion == 1));
+        Assert.IsTrue(catalog.NodeTypes.All(item => item.NodeSchemaVersion == 1));
+        Assert.IsTrue(catalog.NodeTypes.All(item => item.Designable));
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
+            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
             catalog.NodeTypes.Where(item => item.Publishable && item.Executable)
                 .Select(item => item.NodeTypeKey).ToArray());
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "notify.cc")
@@ -42,7 +43,7 @@ public sealed class WorkflowNodeTypeCatalogTests
             is { Publishable: true, Executable: true });
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "human.approval")
             .SupportsFieldPolicies);
-        Assert.IsTrue(catalog.NodeTypes.Where(item => item.NodeTypeKey != "human.approval")
+        Assert.IsTrue(catalog.NodeTypes.Where(item => !WorkflowHumanActivityKinds.IsFormActivity(item.NodeTypeKey) && item.NodeTypeKey is not ("data.modify" or "data.clear" or "integration.trigger" or "integration.async_trigger" or "process.subprocess"))
             .All(item => !item.SupportsFieldPolicies));
     }
 
@@ -88,6 +89,34 @@ public sealed class WorkflowNodeTypeCatalogTests
         Assert.AreEqual(
             FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead),
             authorization[0].Policy);
+    }
+
+    [TestMethod]
+    [DataRow("/api/v1/workflow/definition-versions/{versionId:guid}/starter-selections")]
+    [DataRow("/api/v1/workflow/definition-versions/{versionId:guid}/starter-selections/{selectionKey}/candidates")]
+    public async Task Starter_selection_endpoints_require_precise_start_permission(string route)
+    {
+        var builder = WebApplication.CreateBuilder(); var module = new WorkflowModule();
+        module.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
+        await using var app = builder.Build(); module.MapEndpoints(app);
+        var endpoint = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>().Single(candidate => candidate.RoutePattern.RawText == route);
+        var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+        Assert.HasCount(1, authorization);
+        Assert.AreEqual(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesStart), authorization[0].Policy);
+    }
+
+    [TestMethod]
+    public async Task Todo_attachment_endpoint_requires_todo_read_permission()
+    {
+        var builder = WebApplication.CreateBuilder(); var module = new WorkflowModule();
+        module.AddServices(builder.Services, builder.Configuration); builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
+        await using var app = builder.Build(); module.MapEndpoints(app);
+        var endpoint = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).OfType<RouteEndpoint>()
+            .Single(candidate => candidate.RoutePattern.RawText == "/api/v1/workflow/todos/{todoId:guid}/form-attachments/{fileId:guid}/content");
+        var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(); Assert.HasCount(1, authorization);
+        Assert.AreEqual(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead), authorization[0].Policy);
     }
 
     [TestMethod]

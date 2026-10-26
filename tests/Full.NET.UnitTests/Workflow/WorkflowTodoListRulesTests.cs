@@ -12,6 +12,9 @@ public sealed class WorkflowTodoListRulesTests
         Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey(null));
         Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey("approve"));
         Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey("reject"));
+        Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey("transfer"));
+        Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey("vote"));
+        Assert.IsTrue(WorkflowTodoListRules.IsValidResultActionKey("release"));
         Assert.IsFalse(WorkflowTodoListRules.IsValidResultActionKey("unknown"));
     }
 

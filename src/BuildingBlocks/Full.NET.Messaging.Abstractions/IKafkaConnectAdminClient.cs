@@ -5,6 +5,12 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public interface IKafkaConnectAdminClient : IDisposable
 {
+    /// <summary>读取 Connect 实际连接的 Kafka 集群标识；缺失不能用于切流或恢复。</summary>
+    Task<string?> TryReadKafkaClusterIdAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>读取实际 Connector 配置供资源身份核对，禁止日志或 HTTP 回显配置内容。</summary>
+    Task<IReadOnlyDictionary<string, string>?> TryReadConnectorConfigurationAsync(string connectorName, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 等待 Connect REST 端点进入可服务状态；失败或超时返回 false。
     /// </summary>

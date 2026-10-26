@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Full.NET.Modules.EnterpriseRequest.Generated;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest;
 
@@ -24,6 +25,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(new WorkflowBusinessTypeOwnership(EnterpriseRequestWorkflowConstants.BusinessType, "enterprise_request"));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             EnterpriseRequestAuthorizationContributor>());

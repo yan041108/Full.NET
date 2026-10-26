@@ -15,6 +15,12 @@ using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Execution;
+using Full.NET.Modules.Workflow.Execution.Connectors;
+using Full.NET.Modules.Workflow.Execution.BusinessCommands;
+using ConnectorEndpoint = Full.NET.Modules.Workflow.Features.ManageConnectorCalls.Endpoint;
+using Full.NET.Modules.Workflow.Features.ManageConnectorCalls;
+using Full.NET.Modules.Workflow.Features.ManageWorkCalendars;
+using CalendarEndpoint = Full.NET.Modules.Workflow.Features.ManageWorkCalendars.Endpoint;
 using CcEndpoint = Full.NET.Modules.Workflow.Features.ManageMyCc.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
 using RecoveryEndpoint = Full.NET.Modules.Workflow.Features.ManageRecoveryTasks.Endpoint;
@@ -49,6 +55,8 @@ public sealed class WorkflowModule : IFullNetModule
     /// <param name="configuration">应用只读配置根。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton(WorkflowConnectorCatalog.FromConfiguration(configuration));
+        RegisterConnectorTransport(services);
         Persistence.WorkflowLogTimelineSources.Register(services);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
@@ -65,6 +73,7 @@ public sealed class WorkflowModule : IFullNetModule
             IHostFileReferenceClaimProbe,
             WorkflowFormSubmissionAttachmentProbe>());
         services.AddScoped<WorkflowCcManagementService>();
+        services.AddScoped<WorkflowStarterSelectionQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardWorkflowEntryReader,
             HostDashboard.HostDashboardWorkflowEntryReader>());
@@ -78,29 +87,76 @@ public sealed class WorkflowModule : IFullNetModule
     /// <summary>Worker 恢复、超时与 DataApproval 跨模块启动共享的运行时闭包。</summary>
     private static void RegisterWorkerRuntimeClosure(IServiceCollection services)
     {
+        services.AddSingleton(new WorkflowBusinessTypeOwnership(WorkflowChildStartContext.BusinessType, "workflow"));
+        services.TryAddSingleton<WorkflowBusinessActionCatalog>();
+        services.AddScoped<WorkflowBusinessCommandPublisher>();
+        services.AddScoped<WorkflowBusinessCommandActivationWriter>();
+        services.AddScoped<WorkflowSubprocessActivationWriter>();
+        services.AddScoped<WorkflowMultiInstanceSourcePreparation>();
+        services.AddScoped<WorkflowSubprocessProcessor>();
+        services.TryAddSingleton<WorkflowSubprocessScanCursor>();
+        services.AddScoped<IWorkflowBusinessCommandProofReader, WorkflowBusinessCommandProofReader>();
+        services.AddScoped<WorkflowBusinessCommandResultService>();
+        services.AddScoped<WorkflowBusinessCommandProcessor>();
+        services.TryAddSingleton<WorkflowBusinessCommandScanCursor>();
         services.AddScoped<WorkflowFormManagementService>();
+        services.AddScoped<WorkflowWorkCalendarService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
+        services.AddScoped<WorkflowConnectorManagementService>();
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
+        services.AddScoped<WorkflowTodoAssigneeCandidateQueryService>();
         services.AddScoped<WorkflowRoleCandidateQueryService>();
         services.AddScoped<WorkflowOrganizationUnitCandidateQueryService>();
+        services.AddScoped<WorkflowPositionCandidateQueryService>();
         services.AddScoped<WorkflowAssigneePreviewService>();
         services.AddScoped<WorkflowFormAttachmentCoordinator>();
+        services.AddScoped<WorkflowAutomaticOutputCoordinator>();
+        services.AddScoped<WorkflowResultCallbackWriter>();
+        services.AddScoped<WorkflowHumanActivityCompletionCoordinator>();
         services.AddScoped<WorkflowFormAttachmentAccessService>();
         services.AddScoped<WorkflowAssigneeResolver>();
         services.AddScoped<WorkflowAssigneePublishValidator>();
-        services.AddScoped<WorkflowApprovalAssigneeCoordinator>();
+        services.AddScoped<WorkflowHumanActivityAssigneeCoordinator>();
+        services.AddScoped<WorkflowClaimCandidateAuthorizer>();
+        services.AddScoped<WorkflowHumanActivityPreparation>();
+        services.AddScoped<WorkflowStarterSelectionPreparation>();
+        services.AddScoped<WorkflowSignatureCoordinator>();
+        services.AddScoped<WorkflowSignatureReadService>();
+        services.AddScoped<WorkflowSignatureUploadService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, WorkflowTenantFileOwner>());
         services.AddScoped<WorkflowInstanceManagementService>();
+        services.AddScoped<WorkflowManualReminderService>();
         services.AddScoped<WorkflowInstanceQueryService>();
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();
         services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowTodoQueryService>();
         services.AddScoped<WorkflowTodoCountersignService>();
+        services.AddScoped<WorkflowApprovalStepResolutionCoordinator>();
+        services.AddScoped<WorkflowTodoTransferService>();
+        services.AddScoped<WorkflowTodoDelegationService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowParallelJoinCoordinator>();
-        services.AddScoped<WorkflowApprovalTransitionExecutor>();
+        services.AddScoped<WorkflowRuntimeTransitionExecutor>();
+        services.AddScoped<WorkflowActivityScheduler>();
+        services.AddScoped<WorkflowDelayProcessor>();
+        services.AddScoped<WorkflowSlaProcessor>();
+        services.AddSingleton<WorkflowSlaScanCursor>();
+        services.AddScoped<WorkflowConnectorProcessor>();
+        services.AddScoped<WorkflowAsyncBarrierProcessor>();
+        services.AddScoped<WorkflowBranchStateCoordinator>();
+        services.AddScoped<WorkflowActivityWorkProcessor>();
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
-        services.AddScoped<WorkflowApprovalActivationWriter>();
+        services.AddScoped<WorkflowHumanActivityActivationWriter>();
+        services.AddScoped<WorkflowGroupApprovalDecisionCoordinator>();
+        services.AddScoped<WorkflowTaskDecisionCoordinator>();
+        services.AddScoped<WorkflowVoteDecisionCoordinator>();
+        services.AddScoped<WorkflowVoteAttachmentCoordinator>();
+        services.AddScoped<WorkflowVoteTodoService>();
+        services.AddScoped<WorkflowClaimPoolService>();
+        services.AddScoped<WorkflowClaimReleaseService>();
+        services.AddScoped<WorkflowVoteResultWriter>();
+        services.AddScoped<WorkflowTodoHandoffWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddScoped<IWorkflowPublishedDefinitionDirectory, WorkflowPublishedDefinitionDirectoryAdapter>();
         services.AddScoped<IWorkflowInstanceStarter, WorkflowInstanceStarterAdapter>();
@@ -119,8 +175,11 @@ public sealed class WorkflowModule : IFullNetModule
         DefinitionEndpoint.MapVersionMutations(endpoints);
         InstanceEndpoint.Map(endpoints);
         TodoEndpoint.Map(endpoints);
+        WorkflowClaimEndpoint.Map(endpoints);
         CcEndpoint.Map(endpoints);
         RecoveryEndpoint.Map(endpoints);
+        ConnectorEndpoint.Map(endpoints);
+        CalendarEndpoint.Map(endpoints);
     }
 
     /// <summary>只在 Worker 注册恢复扫描与领取循环，避免 API 进程启动全局扫描。</summary>
@@ -129,6 +188,8 @@ public sealed class WorkflowModule : IFullNetModule
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        services.TryAddSingleton(WorkflowConnectorCatalog.FromConfiguration(configuration));
+        RegisterConnectorTransport(services);
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -148,10 +209,20 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowRecoveryScanner>();
         services.AddScoped<WorkflowRecoveryBatchProcessor>();
         services.AddHostedService<WorkflowRecoveryHostedProcessor>();
+        services.AddHostedService<WorkflowConnectorHostedProcessor>();
+        services.AddHostedService<WorkflowAsyncBarrierHostedProcessor>();
+        services.AddHostedService<WorkflowSlaHostedProcessor>();
+        services.AddHostedService<WorkflowBusinessCommandHostedProcessor>();
+        services.AddHostedService<WorkflowSubprocessHostedProcessor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowBusinessCommandRequestedHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowBusinessCommandResultHandler>());
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddSingleton<WorkflowTodoTimeoutScanCursor>();
         services.AddScoped<WorkflowTodoTimeoutProcessor>();
         services.AddHostedService<WorkflowTodoTimeoutHostedProcessor>();
+        services.AddScoped<WorkflowVoteDeadlineProcessor>();
+        services.AddHostedService<WorkflowVoteDeadlineHostedProcessor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, WorkflowTenantFileOwner>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             WorkflowFormSubmissionAttachmentProbe>());
@@ -164,5 +235,15 @@ public sealed class WorkflowModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             WorkflowInstanceCancelledIntegrationEventHandler>());
+    }
+
+    /// <summary>传输层只允许受保护命名客户端；凭据从部署环境引用解析，绝不来自流程JSON。</summary>
+    private static void RegisterConnectorTransport(IServiceCollection services)
+    {
+        services.AddHttpClient("fullnet.workflow.connector", client => client.Timeout = Timeout.InfiniteTimeSpan)
+            .ConfigurePrimaryHttpMessageHandler(WorkflowConnectorHttpClient.CreateProtectedHandler);
+        services.TryAddSingleton(provider => new WorkflowConnectorHttpClient(
+            _ => provider.GetRequiredService<IHttpClientFactory>().CreateClient("fullnet.workflow.connector"),
+            reference => reference.StartsWith("env:", StringComparison.Ordinal) ? Environment.GetEnvironmentVariable(reference[4..]) : null));
     }
 }

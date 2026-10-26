@@ -12,6 +12,7 @@ import {
   type WorkflowSubmission
 } from '@fullnet/client-contracts';
 import { http } from './http';
+import { readWorkflowAssigneeSelections, type WorkflowAssigneeSelections } from './workflow-starter-selections';
 
 /** 查询工作流定义列表，供发起流程时选择定义。 */
 export async function listWorkflowDefinitions(
@@ -47,17 +48,18 @@ export async function startWorkflowInstance(
   businessId: string,
   initialValues: WorkflowSubmission,
   idempotencyKey: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  assigneeSelections?: WorkflowAssigneeSelections
 ): Promise<WorkflowInstanceResponse> {
-  return workflowStartInstance(http, {
-    body: {
+  const body = {
       definitionVersionId,
       businessType,
       businessId,
       initialValues,
-      idempotencyKey
-    }
-  }, signal);
+      idempotencyKey,
+      ...(assigneeSelections !== undefined ? { assigneeSelections: readWorkflowAssigneeSelections(assigneeSelections) } : {})
+  };
+  return workflowStartInstance(http, { body }, signal);
 }
 
 /** 导出发起流程所需的定义、表单、实例与提交模型，供发起页和运行时表单共用同一契约。 */

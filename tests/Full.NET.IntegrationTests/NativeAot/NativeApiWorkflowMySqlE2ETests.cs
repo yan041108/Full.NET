@@ -8,6 +8,14 @@ namespace Full.NET.IntegrationTests.NativeAot;
 public sealed class NativeApiWorkflowMySqlE2ETests
 {
     [TestMethod]
+    public async Task MySql_native_artifact_preserves_full_vform_design_and_submission()
+    {
+        _ = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiVFormE2EAssertions.VerifyAsync(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task MySql_native_artifact_supports_workflow_approval_flow()
     {
         _ = NativeApiArtifactLocator.RequireArtifact();

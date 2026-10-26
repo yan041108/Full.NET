@@ -5,8 +5,6 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>解析包容网关分叉与汇合节点的闭合配置。</summary>
 internal static class WorkflowInclusiveGatewayConfiguration
 {
-    private const int MinimumBranchCount = 1;
-    private const int MaximumBranchCount = 8;
     private const int MaximumKeyLength = 128;
 
     /// <summary>读取包容网关节点配置。</summary>
@@ -57,7 +55,8 @@ internal static class WorkflowInclusiveGatewayConfiguration
         }
 
         var branchElements = branchesElement.EnumerateArray().ToArray();
-        if (branchElements.Length is < MinimumBranchCount or > MaximumBranchCount)
+        if (branchElements.Length < WorkflowGatewayLimits.MinimumBranches("gateway.inclusive") ||
+            branchElements.Length > WorkflowGatewayLimits.MaximumBranches("gateway.inclusive"))
         {
             return false;
         }

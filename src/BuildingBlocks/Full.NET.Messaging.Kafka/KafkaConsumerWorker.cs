@@ -40,7 +40,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             return;
         }
 
-        var consumerGroups = BuildConsumerGroups();
+        var consumerGroups = await BuildConsumerGroupsAsync().ConfigureAwait(false);
         if (consumerGroups.Count > 64)
             throw new InvalidOperationException("Kafka consumer groups exceed the 64-thread budget.");
         if (consumerGroups.Count == 0)
@@ -100,9 +100,10 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         return completion.Task;
     }
 
-    private IReadOnlyList<ConsumerGroupPlan> BuildConsumerGroups()
+    private async Task<IReadOnlyList<ConsumerGroupPlan>> BuildConsumerGroupsAsync()
     {
-        using var scope = _scopeFactory.CreateScope();
+        // 订阅目录可构造异步数据库会话，启动阶段也必须等待作用域异步释放。
+        await using var scope = _scopeFactory.CreateAsyncScope();
         // 修复意图：KafkaConsumerWorker 是 Singleton HostedService，不得在字段或构造函数中直接持有
         // Scoped catalog/dispatcher/订阅；必须每次通过 IServiceScopeFactory 创建独立作用域解析。
         // 这里同时使用接口 IIntegrationEventSubscriptionCatalog，以便空目录默认值实现能参与解析。

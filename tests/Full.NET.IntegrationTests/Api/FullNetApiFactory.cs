@@ -662,17 +662,23 @@ internal sealed class FullNetApiFactory(
         base.Dispose(disposing);
     }
 
-    private static string FindRepositoryRoot()
+    internal static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
+        // MTP 可把当前目录切到隔离输出目录；显式测试根仍须通过解决方案标记验证。
+        foreach (var origin in new[] { Environment.GetEnvironmentVariable("FULLNET_TEST_REPOSITORY_ROOT"),
+            AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            if (string.IsNullOrWhiteSpace(origin)) continue;
+            var directory = new DirectoryInfo(origin);
+            while (directory is not null)
             {
-                return directory.FullName;
-            }
+                if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+                {
+                    return directory.FullName;
+                }
 
-            directory = directory.Parent;
+                directory = directory.Parent;
+            }
         }
 
         throw new DirectoryNotFoundException(

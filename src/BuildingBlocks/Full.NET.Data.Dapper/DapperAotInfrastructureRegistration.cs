@@ -28,6 +28,11 @@ internal static class DapperAotInfrastructureRegistration
                 new InboxClaimRow(
                     reader.GetString(0),
                     reader.GetFieldValue<byte[]>(1)));
+            DapperAotMaterializerRegistry.Register<OutboxDeadLetter>(reader => new(
+                reader.GetGuid(0), reader.GetString(1), AotDataReaderExtensions.ReadInt32(reader, 2),
+                AotDataReaderExtensions.ReadNullableGuid(reader, 3), AotDataReaderExtensions.ReadInt32(reader, 4),
+                AotDataReaderExtensions.ReadNullableString(reader, 5),
+                AotDataReaderExtensions.ReadDateTimeOffset(reader, 6), AotDataReaderExtensions.ReadDateTimeOffset(reader, 7)));
             DapperAotMaterializerRegistry.Register<InboxBatchPrecheckRow>(reader =>
                 new InboxBatchPrecheckRow(
                     reader.GetInt32(0),
@@ -36,6 +41,14 @@ internal static class DapperAotInfrastructureRegistration
             DapperAotMaterializerRegistry.Register<OutboxStreamCutoffSnapshot>(
                 ReadOutboxStreamCutoffSnapshot);
             DapperAotMaterializerRegistry.Register<DapperOutboxStore.OutboxRow>(ReadOutboxRow);
+            DapperAotMaterializerRegistry.Register<DapperOutboxStore.SqlServerStreamBacklogRow>(reader => new(
+                reader.GetString(0), AotDataReaderExtensions.ReadInt32(reader, 1), AotDataReaderExtensions.ReadInt64(reader, 2),
+                AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 3), AotDataReaderExtensions.ReadInt64(reader, 4),
+                AotDataReaderExtensions.ReadInt64(reader, 5), AotDataReaderExtensions.ReadInt64(reader, 6), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7)));
+            DapperAotMaterializerRegistry.Register<DapperOutboxStore.MySqlStreamBacklogRow>(reader => new(
+                reader.GetString(0), AotDataReaderExtensions.ReadInt32(reader, 1), AotDataReaderExtensions.ReadInt64(reader, 2),
+                reader.IsDBNull(3) ? null : reader.GetDateTime(3), AotDataReaderExtensions.ReadInt64(reader, 4),
+                AotDataReaderExtensions.ReadInt64(reader, 5), AotDataReaderExtensions.ReadInt64(reader, 6), reader.IsDBNull(7) ? null : reader.GetDateTime(7)));
             DapperAotMaterializerRegistry.Register<DapperOutboxStore.SqlServerBacklogRow>(
                 ReadSqlServerBacklogRow);
             DapperAotMaterializerRegistry.Register<DapperOutboxStore.MySqlBacklogRow>(

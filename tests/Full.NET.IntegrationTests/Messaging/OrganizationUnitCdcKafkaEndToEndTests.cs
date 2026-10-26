@@ -73,11 +73,11 @@ public sealed class OrganizationUnitCdcKafkaEndToEndTests
             ? await DebeziumConnectorTemplateFactory.CreateMySqlShadowConfigAsync(
                 connectionString,
                 pipeline.HostGateway,
-                pipeline.InternalKafkaBootstrapServers)
+                pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true)
             : await DebeziumConnectorTemplateFactory.CreateSqlServerShadowConfigAsync(
                 connectionString,
                 pipeline.HostGateway,
-                pipeline.InternalKafkaBootstrapServers);
+                pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true);
 
         await using var factory = new FullNetApiFactory(provider, connectionString);
         try

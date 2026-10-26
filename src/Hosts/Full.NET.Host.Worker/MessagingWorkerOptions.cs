@@ -26,14 +26,7 @@ internal sealed class MessagingWorkerOptionsValidator(IConfiguration configurati
         var kafkaEnabled = configuration.GetValue<bool>(KafkaMessagingSection.EnabledPath);
         var shadowEnabled = configuration.GetValue<bool>(ShadowComparisonSection.EnabledPath);
 
-        // 将过时的 CdcKafka 别名规范化为 HybridKafka，后续 switch 按 HybridKafka 语义处理。
-#pragma warning disable CS0618 // CdcKafka 作为过时别名保留一版，此处显式比较以支持旧配置。
-        var effectiveMode = options.Mode == MessagingWorkerMode.CdcKafka
-            ? MessagingWorkerMode.HybridKafka
-            : options.Mode;
-#pragma warning restore CS0618
-
-        switch (effectiveMode)
+        switch (options.Mode)
         {
             case MessagingWorkerMode.LegacyPolling:
                 if (kafkaEnabled)

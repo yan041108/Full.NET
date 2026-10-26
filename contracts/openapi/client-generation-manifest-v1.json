@@ -17,6 +17,174 @@
   ],
   "entries": [
     {
+      "operationId": "workflowGetBusinessActionCatalog",
+      "apiModule": "ui/admin/src/api/workflow-business-actions.ts",
+      "generatedGroup": "workflow-business-actions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetTodoDelegation",
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "generatedGroup": "workflow-delegations",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListTodoDelegationCandidates",
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "generatedGroup": "workflow-delegations",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowDelegateTodo",
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "generatedGroup": "workflow-delegations",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRecallTodoDelegation",
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "generatedGroup": "workflow-delegations",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetReportingLine",
+      "apiModule": "ui/admin/src/api/org-reporting-lines.ts",
+      "generatedGroup": "organization-reporting-lines",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationSetReportingLine",
+      "apiModule": "ui/admin/src/api/org-reporting-lines.ts",
+      "generatedGroup": "organization-reporting-lines",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListReportingCandidates",
+      "apiModule": "ui/admin/src/api/org-reporting-lines.ts",
+      "generatedGroup": "organization-reporting-lines",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetTenantUnitLeadership",
+      "apiModule": "ui/admin/src/api/org-unit-leadership.ts",
+      "generatedGroup": "organization-unit-leadership",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationSetTenantUnitLeadership",
+      "apiModule": "ui/admin/src/api/org-unit-leadership.ts",
+      "generatedGroup": "organization-unit-leadership",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantUnitLeaderCandidates",
+      "apiModule": "ui/admin/src/api/org-unit-leadership.ts",
+      "generatedGroup": "organization-unit-leadership",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowDownloadTodoFormAttachment",
+      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRequestManualReminder",
+      "apiModule": "ui/admin/src/api/workflow-reminders.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListManualReminderTargets",
+      "apiModule": "ui/admin/src/api/workflow-reminders.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowWithdrawInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListClaimPools",
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowClaimPool",
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowAssignClaimPool",
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReleaseTodo",
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowVoteTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListTodoTransferCandidates",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowTransferTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingLegacyListDeadLetters",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingLegacyGetDeadLetter",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingLegacyRecoverDeadLetter",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingKafkaListDeadLetters",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingKafkaGetDeadLetter",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingKafkaRecoverDeadLetter",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "generatedGroup": "messaging-dead-letters",
+      "status": "manual"
+    },
+    {
       "operationId": "enterpriseRequestListEnterpriseRequests",
       "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
       "generatedGroup": "enterprise-requests",
@@ -107,6 +275,36 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowListPositionCandidates",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListTodoCountersignCandidates",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetTodoCountersignChain",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowCountersignTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowCancelTodoCountersign",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowCreateDefinition",
       "apiModule": "ui/admin/src/api/workflow-definitions.ts",
       "generatedGroup": "workflow-definitions",
@@ -131,6 +329,12 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowGetDefinitionVersion",
+      "apiModule": "ui/admin/src/api/workflow-subprocesses.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowGetFormVersion",
       "apiModule": "ui/admin/src/api/workflow-runtime.ts",
       "generatedGroup": "workflow-forms",
@@ -139,6 +343,18 @@
     {
       "operationId": "workflowStartInstance",
       "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetStarterSelections",
+      "apiModule": "ui/admin/src/api/workflow-starter-selections.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListStarterSelectionCandidates",
+      "apiModule": "ui/admin/src/api/workflow-starter-selections.ts",
       "generatedGroup": "workflow-instances",
       "status": "generated"
     },
@@ -241,6 +457,18 @@
     {
       "operationId": "workflowGetTodoRuntime",
       "apiModule": "packages/client-contracts/src/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUploadTodoSignature",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "manual"
+    },
+    {
+      "operationId": "workflowCompleteTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
     },
@@ -3866,6 +4094,180 @@
       "operationId": "notificationsReconcileDelivery",
       "apiModule": "ui/admin/src/api/notification-platform.ts",
       "generatedGroup": "notifications-deliveries",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetDesignerAsset",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowSaveDesignerAsset",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingVerifyCutoverEvidence",
+      "apiModule": "packages/client-contracts/src/generated/operations.generated.ts",
+      "generatedGroup": "messaging-delivery-control",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingGetLatestRollbackOperation",
+      "apiModule": "packages/client-contracts/src/generated/operations.generated.ts",
+      "generatedGroup": "messaging-delivery-control",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingGetRollbackOperation",
+      "apiModule": "packages/client-contracts/src/generated/operations.generated.ts",
+      "generatedGroup": "messaging-delivery-control",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingRecoverRollbackOperation",
+      "apiModule": "packages/client-contracts/src/generated/operations.generated.ts",
+      "generatedGroup": "messaging-delivery-control",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingCreateReplayOperation",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingListReplayOperations",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingGetReplayOperation",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingExecuteReplayOperation",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingCancelReplayOperation",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingGetDeliveryOverview",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingCutoverDeliveryOwner",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingRollbackDeliveryOwner",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingReplayKafkaRange",
+      "apiModule": "packages/client-contracts/src/generated/operations.generated.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "generated"
+    },
+    {
+      "operationId": "messagingGetCurrentShadowCapture",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingStartShadowCapture",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "messagingCloseShadowCapture",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "generatedGroup": "messaging-delivery-operations",
+      "status": "manual"
+    },
+    {
+      "operationId": "workflowListConnectorCatalog",
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "generatedGroup": "workflow-connectors",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListConnectorCalls",
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "generatedGroup": "workflow-connectors",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetConnectorCall",
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "generatedGroup": "workflow-connectors",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReconcileConnectorCall",
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "generatedGroup": "workflow-connectors",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListWorkCalendars",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetWorkCalendar",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListWorkCalendarVersions",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetWorkCalendarVersion",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowCreateWorkCalendar",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUpdateWorkCalendarDraft",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowPublishWorkCalendar",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "generatedGroup": "workflow-calendars",
       "status": "generated"
     }
   ]

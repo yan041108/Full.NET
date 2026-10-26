@@ -28,9 +28,11 @@ export interface AccessLogResponse {
 
 export interface ActWorkflowTodoRequest {
   readonly comment: null | string;
+  readonly expectedFormRevision: number;
   readonly expectedRevision: number;
   readonly fieldPatch: JsonElement;
   readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
 }
 
 export interface AddHostDocumentVersionRequest {
@@ -704,6 +706,12 @@ export interface AssignOrganizationPositionUnitRequest {
   readonly version: number;
 }
 
+export interface AssignWorkflowPoolRequest {
+  readonly assigneeUserId: string;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+}
+
 export interface AuthenticationEventCursorPage {
   readonly items: Array<AuthenticationEventResponse>;
   readonly nextCursor: null | string;
@@ -905,8 +913,25 @@ export interface CancelWorkflowInstanceRequest {
   readonly reason: null | string;
 }
 
+export interface CancelWorkflowTodoCountersignRequest {
+  readonly comment: null | string;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+}
+
+export interface ChangeDeliveryOwnerRequest {
+  readonly eventType: string;
+  readonly reason: string;
+  readonly schemaVersion: number;
+  readonly targetOwner: EventDeliveryOwner;
+}
+
 export interface ChangeHostJobScheduleStateRequest {
   readonly version: number;
+}
+
+export interface ChangeKafkaReplayOperationRequest {
+  readonly reason: string;
 }
 
 export interface ChangePasswordRequest {
@@ -920,6 +945,15 @@ export interface ChangePersonalScheduleRequest {
 
 export interface ChangeSerialNumberRuleStatusRequest {
   readonly version: number;
+}
+
+export interface ClaimWorkflowPoolRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+}
+
+export interface CloseShadowCaptureRequest {
+  readonly reason: string;
 }
 
 export interface CodeGenerationCatalogColumnListResponse {
@@ -1190,6 +1224,14 @@ export interface ConfirmTotpEnrollmentRequest {
 export interface CopyHostRoleRequest {
   readonly code: string;
   readonly name: string;
+}
+
+export interface CountersignWorkflowTodoRequest {
+  readonly assigneeUserIds: Array<string>;
+  readonly comment: null | string;
+  readonly directionKey: string;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
 }
 
 export interface CreateAdministrativeRegionRequest {
@@ -1503,6 +1545,19 @@ export interface CreateK3CloudDocumentSyncRequest {
   readonly payloadJson: string;
 }
 
+export interface CreateKafkaReplayOperationRequest {
+  readonly fromOffset: null | string;
+  readonly fromTimestampUtc: null | string;
+  readonly maxMessages: number;
+  readonly partitions: Array<number>;
+  readonly reason: string;
+  readonly replayConsumerName: string;
+  readonly requestId: string;
+  readonly toOffset: null | string;
+  readonly topicCode: string;
+  readonly toTimestampUtc: null | string;
+}
+
 export interface CreateMyRecipientEndpointRequest {
   readonly endpointKindKey: string;
   readonly providerProfileVersionId: string;
@@ -1689,8 +1744,15 @@ export interface CreateWorkflowDefinitionRequest {
 }
 
 export interface CreateWorkflowFormRequest {
+  readonly designerJson?: unknown;
   readonly draft: WorkflowFormSchema;
   readonly formKey: string;
+}
+
+export interface CreateWorkflowWorkCalendarRequest {
+  readonly calendarKey: string;
+  readonly displayName: string;
+  readonly draft: WorkflowWorkCalendarDraft;
 }
 
 export interface CurrentUserResponse {
@@ -1706,6 +1768,15 @@ export interface CurrentUserResponse {
   readonly sessionId: string;
   readonly tenantId: null | string;
   readonly username: string;
+}
+
+export interface CutoverEvidenceResponse {
+  readonly eventType: string;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly sampleCount: number;
+  readonly schemaVersion: number;
+  readonly verifiedAtUtc: string;
 }
 
 export interface DataApprovalRequestResponse {
@@ -1751,6 +1822,15 @@ export interface DeactivateAiPromptRequest {
 export interface DecideAiAgentApprovalRequest {
   readonly approve: boolean;
   readonly expectedVersion: number;
+}
+
+export interface DelegateWorkflowTodoRequest {
+  readonly assigneeUserId: string;
+  readonly comment: null | string;
+  readonly expectedFormRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
 }
 
 export interface DeleteAdministrativeRegionRequest {
@@ -1807,6 +1887,41 @@ export interface DeleteHostJobDefinitionRequest {
 
 export interface DeleteHostReleaseNoteRequest {
   readonly version: number;
+}
+
+export interface DeliveryCutoverResponse {
+  readonly currentOwner: EventDeliveryOwner;
+  readonly cutoffEventId: string;
+  readonly cutoffOccurredAtUtc: string;
+  readonly eventType: string;
+  readonly ownershipPersisted: boolean;
+  readonly schemaVersion: number;
+  readonly targetOwner: EventDeliveryOwner;
+}
+
+export interface DeliveryRollbackResponse {
+  readonly currentOwner: EventDeliveryOwner;
+  readonly eventType: string;
+  readonly ownershipPersisted: boolean;
+  readonly rollbackBoundaryEventId: string;
+  readonly rollbackOccurredAtUtc: string;
+  readonly schemaVersion: number;
+  readonly targetOwner: EventDeliveryOwner;
+}
+
+export interface DeliveryStatusResponse {
+  readonly backlog: null | OutboxBacklogSummaryResponse;
+  readonly controlAdapterConfigured: boolean;
+  readonly cutoverEnabled: boolean;
+  readonly hasMoreStreams: boolean;
+  readonly observationState: string;
+  readonly replayEnabled: boolean;
+  readonly replayExecutionTimeoutSeconds: number;
+  readonly replayMaximumSynchronousMessages: number;
+  readonly shadowCapturePolicy: ShadowCapturePolicyResponse;
+  readonly streams: Array<EventStreamStatusResponse>;
+  readonly targetRuntimeState: string;
+  readonly unattributedKafkaDeadLetters: null | number;
 }
 
 export interface DiagnosticPolicyResponse {
@@ -1940,6 +2055,27 @@ export interface EnumCatalogSummary {
   readonly displayName: string;
   readonly key: string;
   readonly memberCount: number;
+}
+
+export type EventDeliveryOwner = number;
+
+export type EventDeliveryRollbackPhase = number;
+
+export interface EventStreamStatusResponse {
+  readonly blockingReasons: Array<string>;
+  readonly consumerNames: Array<string>;
+  readonly cutoverReadiness: string;
+  readonly deliveryOwner: null | EventDeliveryOwner;
+  readonly eventType: string;
+  readonly isRegistered: boolean;
+  readonly kafkaProjectedDeadLetterCount: null | number;
+  readonly legacyBacklog: null | OutboxBacklogSummaryResponse;
+  readonly observationState: string;
+  readonly oldestKafkaDeadLetterAtUtc: null | string;
+  readonly retainedEventCount: null | number;
+  readonly rollbackGeneration: null | string;
+  readonly schemaVersion: number;
+  readonly topicCode: null | string;
 }
 
 export interface ExceptionLogResponse {
@@ -2912,6 +3048,55 @@ export interface K3CloudDocumentSyncResponse {
   readonly version: number;
 }
 
+export interface KafkaRangeReplayRequest {
+  readonly fromOffset: null | number;
+  readonly fromTimestampUtc: null | string;
+  readonly maxMessages: number;
+  readonly partitions: Array<number>;
+  readonly reason: string;
+  readonly replayConsumerName: string;
+  readonly toOffset: null | number;
+  readonly topicCode: string;
+  readonly toTimestampUtc: null | string;
+}
+
+export interface KafkaRangeReplayResponse {
+  readonly alreadyProcessedMessages: number;
+  readonly limitReached: boolean;
+  readonly operationId: string;
+  readonly processedMessages: number;
+  readonly rejectedMessages: number;
+  readonly scannedMessages: number;
+  readonly state: string;
+}
+
+export interface KafkaReplayOperationResponse {
+  readonly alreadyProcessedMessages: number;
+  readonly attemptCount: number;
+  readonly confirmedMessages: number;
+  readonly createdAtUtc: string;
+  readonly eventType: string;
+  readonly hasUnconfirmedMessage: boolean;
+  readonly lastReasonCode: null | string;
+  readonly maxMessages: number;
+  readonly operationId: string;
+  readonly partitions: Array<KafkaReplayPartitionResponse>;
+  readonly processedMessages: number;
+  readonly rejectedAttempts: number;
+  readonly replayConsumerName: string;
+  readonly schemaVersion: number;
+  readonly state: string;
+  readonly topicCode: string;
+  readonly updatedAtUtc: string;
+}
+
+export interface KafkaReplayPartitionResponse {
+  readonly endOffsetExclusive: string;
+  readonly nextOffset: string;
+  readonly partition: number;
+  readonly startOffset: string;
+}
+
 export interface LocalePreferenceResponse {
   readonly preferredLocale: string;
   readonly profileVersion: number;
@@ -3272,6 +3457,28 @@ export interface OcrProviderConfigResponse {
   readonly version: number;
 }
 
+export interface OperationalDeadLetterResponse {
+  readonly attempts: number;
+  readonly canReplay: boolean;
+  readonly consumerName: null | string;
+  readonly dlqOffset: null | string;
+  readonly dlqPartition: null | number;
+  readonly dlqTopic: null | string;
+  readonly errorCode: null | string;
+  readonly firstFailedAtUtc: string;
+  readonly id: string;
+  readonly lastFailedAtUtc: string;
+  readonly messageId: null | string;
+  readonly messageType: null | string;
+  readonly replayedAtUtc: null | string;
+  readonly schemaVersion: null | number;
+  readonly source: string;
+  readonly sourceOffset: null | string;
+  readonly sourcePartition: null | number;
+  readonly sourceTopic: null | string;
+  readonly tenantId: null | string;
+}
+
 export interface OperationLogDetailsContextV1 {
   readonly clientIp: null | string;
   readonly clientPort: null | number;
@@ -3353,6 +3560,38 @@ export interface OrganizationPositionResponse {
   readonly version: number;
 }
 
+export interface OrganizationReportingCandidate {
+  readonly displayName: string;
+  readonly id: string;
+  readonly username: string;
+}
+
+export interface OrganizationReportingLineResponse {
+  readonly employeeUserId: string;
+  readonly managerDisplayName: null | string;
+  readonly managerUserId: null | string;
+  readonly revision: number;
+  readonly updatedAtUtc: null | string;
+  readonly updatedById: null | string;
+}
+
+export interface OrganizationUnitLeaderCandidateResponse {
+  readonly displayName: string;
+  readonly id: string;
+  readonly username: string;
+}
+
+export interface OrganizationUnitLeadershipResponse {
+  readonly isUnitActive: boolean;
+  readonly leaderDisplayName?: null | string;
+  readonly leaderUserId: null | string;
+  readonly revision: number;
+  readonly unitId: string;
+  readonly unitVersion: number;
+  readonly updatedAtUtc: null | string;
+  readonly updatedById: null | string;
+}
+
 export interface OrganizationUnitResponse {
   readonly code: string;
   readonly createdAtUtc: string;
@@ -3409,6 +3648,15 @@ export interface OutboundCallLogResponse {
   readonly tenantId: null | string;
   readonly traceId: null | string;
   readonly userId: null | string;
+}
+
+export interface OutboxBacklogSummaryResponse {
+  readonly activeLeaseCount: number;
+  readonly deadLetterCount: number;
+  readonly dueRetryCount: number;
+  readonly oldestDeadLetteredAtUtc: null | string;
+  readonly oldestOccurredAtUtc: null | string;
+  readonly pendingCount: number;
 }
 
 export interface PagedResultOfAccessLogResponse {
@@ -3719,6 +3967,13 @@ export interface PagedResultOfK3CloudDocumentSyncResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfKafkaReplayOperationResponse {
+  readonly items: Array<KafkaReplayOperationResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfMyReleaseNoteResponse {
   readonly items: Array<MyReleaseNoteResponse>;
   readonly page: number;
@@ -3775,6 +4030,13 @@ export interface PagedResultOfOcrIdCardTaskResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfOperationalDeadLetterResponse {
+  readonly items: Array<OperationalDeadLetterResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfOperationLogResponse {
   readonly items: Array<OperationLogResponse>;
   readonly page: number;
@@ -3798,6 +4060,20 @@ export interface PagedResultOfOrganizationPositionLevelResponse {
 
 export interface PagedResultOfOrganizationPositionResponse {
   readonly items: Array<OrganizationPositionResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfOrganizationReportingCandidate {
+  readonly items: Array<OrganizationReportingCandidate>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfOrganizationUnitLeaderCandidateResponse {
+  readonly items: Array<OrganizationUnitLeaderCandidateResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -4107,6 +4383,7 @@ export interface PreviewSerialNumberRequest {
 }
 
 export interface PreviewWorkflowAssigneeRequest {
+  readonly additionalUserIds?: null | Array<string>;
   readonly assigneePolicy: JsonElement;
   readonly initiatorUserId: null | string;
 }
@@ -4235,14 +4512,30 @@ export interface PublishWorkflowDefinitionRequest {
 }
 
 export interface PublishWorkflowFormRequest {
+  readonly expectedBindingRevision?: null | number;
+  readonly expectedRevision: number;
+  readonly rendererHash?: null | string;
+  readonly targets?: null | Array<string>;
+}
+
+export interface PublishWorkflowWorkCalendarRequest {
   readonly expectedRevision: number;
 }
 
 export interface ReassignWorkflowInstanceRequest {
   readonly assigneeUserId: string;
   readonly expectedRevision: number;
+  readonly expectedTodoRevision: number;
   readonly idempotencyKey: string;
   readonly reason: null | string;
+  readonly todoId: string;
+}
+
+export interface RecallWorkflowTodoDelegationRequest {
+  readonly comment: null | string;
+  readonly expectedFormRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
 }
 
 export interface ReceivedHostAnnouncementDetailResponse {
@@ -4292,16 +4585,48 @@ export interface ReconcileNotificationDeliveryRequest {
   readonly revision: number;
 }
 
+export interface ReconcileWorkflowConnectorRequest {
+  readonly actionKey: string;
+  readonly attemptId: null | string;
+  readonly evidenceReference: null | string;
+  readonly expectedInstanceRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+}
+
 export interface ReconcileWorkflowRecoveryTaskRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: null | string;
 }
 
+export interface RecoverDeadLetterRequest {
+  readonly reason: string;
+}
+
+export interface RecoverDeadLetterResponse {
+  readonly id: string;
+  readonly outcome: string;
+}
+
+export interface RecoverRollbackRequest {
+  readonly reason: string;
+}
+
 export interface RecoverWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: string;
+}
+
+export interface ReleaseWorkflowTodoRequest {
+  readonly comment?: null | string;
+  readonly expectedFormRevision: number;
+  readonly expectedPoolRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {
@@ -4524,6 +4849,13 @@ export interface ReportingQueryPortParameterDefinition {
   readonly parameterKey: string;
 }
 
+export interface RequestWorkflowManualReminder {
+  readonly expectedInstanceRevision: number;
+  readonly expectedStepRevision: number;
+  readonly idempotencyKey: string;
+  readonly stepId: string;
+}
+
 export interface ResetHostUserPasswordRequest {
   readonly password: string;
 }
@@ -4563,9 +4895,11 @@ export interface RetryWorkflowRecoveryTaskRequest {
 
 export interface ReturnWorkflowTodoRequest {
   readonly comment: string;
+  readonly expectedFormRevision: number;
   readonly expectedRevision: number;
   readonly fieldPatch: JsonElement;
   readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
   readonly targetStepId: string;
 }
 
@@ -4610,6 +4944,22 @@ export interface RevokeSuperAdministratorRequest {
 
 export interface RollbackHostDocumentVersionRequest {
   readonly version: number;
+}
+
+export interface RollbackOperationResponse {
+  readonly createdAtUtc: string;
+  readonly eventType: string;
+  readonly generation: string;
+  readonly phase: EventDeliveryRollbackPhase;
+  readonly schemaVersion: number;
+  readonly updatedAtUtc: string;
+}
+
+export interface SaveWorkflowDesignerAssetRequest {
+  readonly designerJson: JsonElement;
+  readonly expectedRevision: number;
+  readonly formatVersion: number;
+  readonly sourceCommit: string;
 }
 
 export interface SelectAiPromptVersionRequest {
@@ -4794,6 +5144,17 @@ export interface SetNotificationQuotaPolicyEnabledRequest {
   readonly version: number;
 }
 
+export interface SetOrganizationReportingLineRequest {
+  readonly expectedRevision: number;
+  readonly managerUserId: null | string;
+}
+
+export interface SetOrganizationUnitLeadershipRequest {
+  readonly expectedRevision: number;
+  readonly expectedUnitVersion: number;
+  readonly leaderUserId: null | string;
+}
+
 export interface SetPersonalScheduleStatusRequest {
   readonly status: string;
   readonly version: number;
@@ -4809,7 +5170,43 @@ export interface SetWorkflowFormStatusRequest {
   readonly statusKey: string;
 }
 
+export interface ShadowCapturePolicyResponse {
+  readonly enabled: boolean;
+  readonly eventType: null | string;
+  readonly maximumEvents: null | number;
+  readonly maximumPayloadBytes: null | number;
+  readonly maximumWindowSeconds: null | number;
+  readonly schemaVersion: null | number;
+}
+
+export interface ShadowCaptureResponse {
+  readonly capturedBytes: number;
+  readonly capturedCount: number;
+  readonly closedAtUtc: null | string;
+  readonly endReason: null | string;
+  readonly eventType: string;
+  readonly expiresAtUtc: string;
+  readonly generation: string;
+  readonly maxEvents: number;
+  readonly maxPayloadBytes: number;
+  readonly missingMetadataCount: number;
+  readonly schemaVersion: number;
+  readonly startedAtUtc: string;
+  readonly state: string;
+}
+
+export interface StartShadowCaptureRequest {
+  readonly eventType: string;
+  readonly expectedGeneration: null | string;
+  readonly maxEvents: number;
+  readonly reason: string;
+  readonly requestId: string;
+  readonly schemaVersion: number;
+  readonly windowSeconds: number;
+}
+
 export interface StartWorkflowInstanceRequest {
+  readonly assigneeSelections?: null | Readonly<Record<string, unknown>>;
   readonly businessId: string;
   readonly businessTitle?: null | string;
   readonly businessType: string;
@@ -4966,6 +5363,15 @@ export interface TokenResponse {
 export interface TotpEnrollmentStatusResponse {
   readonly isEnabled: boolean;
   readonly isEnrolled: boolean;
+}
+
+export interface TransferWorkflowTodoRequest {
+  readonly assigneeUserId: string;
+  readonly comment: null | string;
+  readonly expectedFormRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
 }
 
 export interface UpdateAdministrativeRegionRequest {
@@ -5445,12 +5851,69 @@ export interface UpdateWorkflowFormDraftRequest {
   readonly expectedRevision: number;
 }
 
+export interface UpdateWorkflowWorkCalendarRequest {
+  readonly displayName: string;
+  readonly draft: WorkflowWorkCalendarDraft;
+  readonly expectedRevision: number;
+}
+
+export interface VerifyCutoverRequest {
+  readonly eventType: string;
+  readonly reason: string;
+  readonly schemaVersion: number;
+}
+
 export interface VerifyRecipientEndpointCodeRequest {
   readonly code: string;
 }
 
+export interface VoteWorkflowTodoRequest {
+  readonly choiceKey: string;
+  readonly comment: null | string;
+  readonly expectedBallotRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly signatureFileId?: null | string;
+  readonly values: JsonElement;
+}
+
+export interface WithdrawWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason?: null | string;
+}
+
+export interface WorkflowApprovalGroupProgressResponse {
+  readonly approvalModeKey: string;
+  readonly approvedCount: number;
+  readonly cancelledCount: number;
+  readonly groupKey: string;
+  readonly groupName: null | string;
+  readonly id: string;
+  readonly isCurrentGroup: boolean;
+  readonly memberCount: number;
+  readonly pendingCount: number;
+  readonly rejectedCount: number;
+  readonly requiredApprovalCount: number;
+  readonly sequenceNo: number;
+  readonly statusKey: string;
+}
+
 export interface WorkflowAssigneePreviewResponse {
   readonly users: Array<WorkflowRecipientCandidateResponse>;
+}
+
+export interface WorkflowBusinessActionCatalogItemResponse {
+  readonly actionHash: string;
+  readonly actionKey: string;
+  readonly actionVersion: number;
+  readonly businessType: string;
+  readonly ownerKey: string;
+  readonly placementKey: string;
+}
+
+export interface WorkflowBusinessActionCatalogResponse {
+  readonly items: Array<WorkflowBusinessActionCatalogItemResponse>;
 }
 
 export interface WorkflowCcReadResponse {
@@ -5470,9 +5933,109 @@ export interface WorkflowCcResponse {
   readonly stepId: null | string;
 }
 
+export interface WorkflowClaimPoolPageResponse {
+  readonly items: Array<WorkflowClaimPoolResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
+}
+
+export interface WorkflowClaimPoolResponse {
+  readonly businessId: string;
+  readonly businessTitle: null | string;
+  readonly businessType: string;
+  readonly claimCycle: number;
+  readonly createdAtUtc: string;
+  readonly definitionKey: string;
+  readonly dueAtUtc: null | string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly nodeKey: string;
+  readonly revision: number;
+}
+
+export interface WorkflowClaimProgressResponse {
+  readonly allowRelease: boolean;
+  readonly claimCycle: number;
+  readonly poolRevision: number;
+  readonly poolStatusKey: string;
+}
+
+export interface WorkflowConnectorAttemptResponse {
+  readonly completedAtUtc: null | string;
+  readonly errorKey: null | string;
+  readonly httpStatusCode: null | number;
+  readonly id: string;
+  readonly leaseGeneration: number;
+  readonly outcomeKey: null | string;
+  readonly responseHash: null | string;
+  readonly startedAtUtc: string;
+  readonly statusKey: string;
+}
+
+export interface WorkflowConnectorCallPageResponse {
+  readonly items: Array<WorkflowConnectorCallResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowConnectorCallResponse {
+  readonly appliedFormRevision: null | number;
+  readonly applyAttemptCount: number;
+  readonly attemptCount: number;
+  readonly attempts: Array<WorkflowConnectorAttemptResponse>;
+  readonly cancellationRequested: boolean;
+  readonly completedAtUtc: null | string;
+  readonly connectorKey: string;
+  readonly connectorVersion: number;
+  readonly createdAtUtc: string;
+  readonly errorKey: null | string;
+  readonly id: string;
+  readonly inputFormRevision: number;
+  readonly instanceId: string;
+  readonly modeKey: string;
+  readonly nodeKey: string;
+  readonly requiresReconciliation: boolean;
+  readonly revision: number;
+  readonly statusKey: string;
+}
+
+export interface WorkflowConnectorCatalogItemResponse {
+  readonly connectorKey: string;
+  readonly connectorVersion: number;
+  readonly inputParameters: Array<WorkflowConnectorParameterResponse>;
+  readonly outputParameters: Array<WorkflowConnectorParameterResponse>;
+  readonly supportsIdempotency: boolean;
+}
+
+export interface WorkflowConnectorCatalogResponse {
+  readonly items: Array<WorkflowConnectorCatalogItemResponse>;
+}
+
+export interface WorkflowConnectorParameterResponse {
+  readonly constraints: Readonly<Record<string, unknown>>;
+  readonly fieldTypeKey: string;
+  readonly parameterKey: string;
+  readonly required: boolean;
+}
+
+export interface WorkflowConnectorResolutionResponse {
+  readonly actionKey: string;
+  readonly callId: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly instanceRevision: number;
+  readonly instanceStatusKey: string;
+  readonly revision: number;
+  readonly statusKey: string;
+}
+
 export interface WorkflowDefinitionDraft {
   readonly nodes: Array<WorkflowNodeDraft>;
   readonly schemaVersion: number;
+  readonly workflowKindKey?: string;
 }
 
 export interface WorkflowDefinitionResponse {
@@ -5499,6 +6062,15 @@ export interface WorkflowDefinitionVersionResponse {
   readonly publishedById: string;
   readonly schemaVersion: number;
   readonly versionNumber: number;
+}
+
+export interface WorkflowDesignerAssetResponse {
+  readonly contentHash: string;
+  readonly designerJson: JsonElement;
+  readonly draftRevision: number;
+  readonly formatVersion: number;
+  readonly formId: string;
+  readonly sourceCommit: string;
 }
 
 export interface WorkflowExecutionLogResponse {
@@ -5621,9 +6193,37 @@ export interface WorkflowInstanceResponse {
   readonly startedAtUtc: string;
   readonly statusKey: string;
   readonly timeoutStatusKey?: string;
+  readonly withdrawal?: null | WorkflowWithdrawalAvailabilityResponse;
+}
+
+export interface WorkflowManualReminderResponse {
+  readonly acceptedAtUtc: string;
+  readonly instanceRevision: number;
+  readonly manualSequence: number;
+  readonly recipientCount: number;
+  readonly requestId: string;
+  readonly stepId: string;
+  readonly stepRevision: number;
+}
+
+export interface WorkflowManualReminderTargetResponse {
+  readonly activeTodoCount: number;
+  readonly canRemind: boolean;
+  readonly lastRequestedAtUtc: null | string;
+  readonly manualCount: number;
+  readonly nodeKey: string;
+  readonly nodeTypeKey: string;
+  readonly stepId: string;
+  readonly stepRevision: number;
+}
+
+export interface WorkflowManualReminderTargetsResponse {
+  readonly instanceRevision: number;
+  readonly items: Array<WorkflowManualReminderTargetResponse>;
 }
 
 export interface WorkflowNodeDraft {
+  readonly awaitActivityNodeKeys?: null | Array<string>;
   readonly config: JsonElement;
   readonly nodeKey: string;
   readonly nodeSchemaVersion: number;
@@ -5637,12 +6237,29 @@ export interface WorkflowNodeTypeCatalogResponse {
 }
 
 export interface WorkflowNodeTypeResponse {
+  readonly configurationProperties?: Array<string>;
   readonly designable: boolean;
   readonly executable: boolean;
+  readonly hasDefaultBranch?: null | boolean;
+  readonly maximumBranches?: null | number;
+  readonly minimumBranches?: null | number;
   readonly nodeSchemaVersion: number;
   readonly nodeTypeKey: string;
   readonly publishable: boolean;
   readonly supportsFieldPolicies: boolean;
+}
+
+export interface WorkflowPositionCandidatePageResponse {
+  readonly items: Array<WorkflowPositionCandidateResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowPositionCandidateResponse {
+  readonly code: string;
+  readonly id: string;
+  readonly name: string;
 }
 
 export interface WorkflowRecipientCandidatePageResponse {
@@ -5675,10 +6292,75 @@ export interface WorkflowRecoveryTaskResponse {
   readonly updatedAtUtc: string;
 }
 
+export interface WorkflowSignatureUploadResponse {
+  readonly contentHash: null | string;
+  readonly fileId: string;
+  readonly sizeBytes: number;
+}
+
+export interface WorkflowStarterSelectionDescriptorResponse {
+  readonly maximumUsers: number;
+  readonly modeKey: string;
+  readonly nodeKey: string;
+  readonly nodeName: string;
+  readonly rangeKey: string;
+  readonly selectionKey: string;
+}
+
+export interface WorkflowStarterSelectionsResponse {
+  readonly definitionVersionId: string;
+  readonly items: Array<WorkflowStarterSelectionDescriptorResponse>;
+}
+
+export interface WorkflowTaskProgressResponse {
+  readonly cancelledCount: number;
+  readonly completedCount: number;
+  readonly completionModeKey: string;
+  readonly memberCount: number;
+  readonly pendingCount: number;
+  readonly requiredCompletionCount: number;
+}
+
+export interface WorkflowTodoCountersignChainResponse {
+  readonly chainId: string;
+  readonly directionKey: string;
+  readonly items: Array<WorkflowTodoCountersignItemResponse>;
+  readonly statusKey: string;
+}
+
+export interface WorkflowTodoCountersignItemResponse {
+  readonly assigneeUserId: string;
+  readonly itemId: string;
+  readonly sequenceNo: number;
+  readonly statusKey: string;
+  readonly todoId: null | string;
+}
+
+export interface WorkflowTodoDelegationResponse {
+  readonly canRecall: boolean;
+  readonly createdAtUtc: string;
+  readonly formRevision: number;
+  readonly originalAssigneeUserId: string;
+  readonly originTodoId: string;
+  readonly proxyRevision: number;
+  readonly proxyTodoId: string;
+  readonly proxyUserId: string;
+  readonly statusKey: string;
+}
+
+export interface WorkflowTodoDelegationStateResponse {
+  readonly delegation: null | WorkflowTodoDelegationResponse;
+}
+
 export interface WorkflowTodoDetailResponse {
+  readonly activityKindKey?: string;
+  readonly allowedActions?: Array<string>;
+  readonly approvalGroups?: Array<WorkflowApprovalGroupProgressResponse>;
   readonly approvalModeKey: string;
   readonly approvedCount: number;
   readonly assigneeUserId: string;
+  readonly claimProgress?: null | WorkflowClaimProgressResponse;
+  readonly commentRequired?: boolean;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
   readonly formVersionId: string;
@@ -5688,10 +6370,14 @@ export interface WorkflowTodoDetailResponse {
   readonly rejectedCount: number;
   readonly requiredApprovalCount: number;
   readonly revision: number;
+  readonly signRequired?: boolean;
   readonly statusKey: string;
   readonly stepId: string;
   readonly submission: JsonElement;
   readonly submissionRevision: number;
+  readonly taskProgress?: null | WorkflowTaskProgressResponse;
+  readonly voteForm?: null | WorkflowVoteFormResponse;
+  readonly voteProgress?: null | WorkflowVoteProgressResponse;
 }
 
 export interface WorkflowTodoListItemResponse {
@@ -5712,16 +6398,21 @@ export interface WorkflowTodoListItemResponse {
 }
 
 export interface WorkflowTodoReturnTargetResponse {
-  readonly assigneeUserId: string;
+  readonly assigneeUserId: null | string;
   readonly completedAtUtc: string;
   readonly nodeKey: string;
   readonly stepId: string;
 }
 
 export interface WorkflowTodoRuntimeResponse {
+  readonly activityKindKey?: string;
+  readonly allowedActions?: Array<string>;
+  readonly approvalGroups?: Array<WorkflowApprovalGroupProgressResponse>;
   readonly approvalModeKey: string;
   readonly approvedCount: number;
   readonly assigneeUserId: string;
+  readonly claimProgress?: null | WorkflowClaimProgressResponse;
+  readonly commentRequired?: boolean;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
   readonly formSchemaHash: string;
@@ -5732,8 +6423,120 @@ export interface WorkflowTodoRuntimeResponse {
   readonly rejectedCount: number;
   readonly requiredApprovalCount: number;
   readonly revision: number;
+  readonly signRequired?: boolean;
   readonly statusKey: string;
   readonly stepId: string;
   readonly submission: JsonElement;
   readonly submissionRevision: number;
+  readonly taskProgress?: null | WorkflowTaskProgressResponse;
+  readonly voteForm?: null | WorkflowVoteFormResponse;
+  readonly voteProgress?: null | WorkflowVoteProgressResponse;
+  readonly webRenderJson?: null | JsonElement;
+}
+
+export interface WorkflowVoteFormResponse {
+  readonly allowAbstain: boolean;
+  readonly choiceKey: null | string;
+  readonly fieldPolicies: Readonly<Record<string, unknown>>;
+  readonly formSchema: JsonElement;
+  readonly formSchemaHash: string;
+  readonly formVersionId: string;
+  readonly readOnly: boolean;
+  readonly revision: number;
+  readonly values: JsonElement;
+  readonly webRenderJson: null | JsonElement;
+}
+
+export interface WorkflowVoteProgressResponse {
+  readonly abstainCount: null | number;
+  readonly cancelledCount: number;
+  readonly closesAtUtc: null | string;
+  readonly memberCount: number;
+  readonly noCount: null | number;
+  readonly pendingCount: number;
+  readonly requiredParticipationCount: number;
+  readonly statusKey: string;
+  readonly submittedCount: number;
+  readonly unsubmittedCount: null | number;
+  readonly yesCount: null | number;
+}
+
+export interface WorkflowWithdrawalAvailabilityResponse {
+  readonly canWithdraw: boolean;
+  readonly modeKey: string;
+}
+
+export interface WorkflowWorkCalendarDraft {
+  readonly exceptions?: null | Array<WorkflowWorkCalendarException>;
+  readonly schemaVersion: number;
+  readonly timeZoneKey: string;
+  readonly weekdays: Array<WorkflowWorkCalendarWeekday>;
+}
+
+export interface WorkflowWorkCalendarException {
+  readonly date: string;
+  readonly ranges: Array<WorkflowWorkCalendarRange>;
+}
+
+export interface WorkflowWorkCalendarPageResponse {
+  readonly items: Array<WorkflowWorkCalendarSummary>;
+  readonly nextAfterId: null | string;
+}
+
+export interface WorkflowWorkCalendarRange {
+  readonly end: string;
+  readonly start: string;
+}
+
+export interface WorkflowWorkCalendarResponse {
+  readonly calendarKey: string;
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly draft: WorkflowWorkCalendarDraft;
+  readonly id: string;
+  readonly latestVersionId: null | string;
+  readonly latestVersionNumber: null | number;
+  readonly revision: number;
+  readonly updatedAtUtc: string;
+}
+
+export interface WorkflowWorkCalendarSummary {
+  readonly calendarKey: string;
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly id: string;
+  readonly latestVersionId: null | string;
+  readonly latestVersionNumber: null | number;
+  readonly revision: number;
+  readonly timeZoneKey: null | string;
+  readonly updatedAtUtc: string;
+}
+
+export interface WorkflowWorkCalendarVersionPageResponse {
+  readonly items: Array<WorkflowWorkCalendarVersionSummary>;
+  readonly nextBeforeVersionNumber: null | number;
+}
+
+export interface WorkflowWorkCalendarVersionResponse {
+  readonly calendar: WorkflowWorkCalendarDraft;
+  readonly calendarId: string;
+  readonly contentHash: string;
+  readonly id: string;
+  readonly publishedAtUtc: string;
+  readonly timeZoneKey: string;
+  readonly versionNumber: number;
+}
+
+export interface WorkflowWorkCalendarVersionSummary {
+  readonly calendarId: string;
+  readonly contentHash: string;
+  readonly id: string;
+  readonly publishedAtUtc: string;
+  readonly timeZoneKey: string;
+  readonly versionNumber: number;
+}
+
+export interface WorkflowWorkCalendarWeekday {
+  readonly dayOfWeek: number;
+  readonly ranges: Array<WorkflowWorkCalendarRange>;
 }

@@ -2,5 +2,22 @@
   "version": 1,
   "registry": "https://registry.npmjs.org",
   "minimumSeverity": "low",
-  "exceptions": []
+  "exceptions": [
+    {
+      "advisory": "GHSA-v3m3-f69x-jf25",
+      "package": "quill",
+      "allowedPaths": [
+        "packages__admin-form-designer>quill"
+      ],
+      "rationale": "Quill 2.0.3 的 HTML 导出 Low 公告尚无上游修复；仅完整 VForm 隔离运行域使用。HTML 进入/离开编辑器及 semantic HTML 导出均经过 DOMPurify，原版配置资产不因运行清理而裁剪。",
+      "mitigations": [
+        "runtime/quill.js 清理导入、变更回传及 getSemanticHTML 导出，覆盖恶意事件属性回归。",
+        "iframe 不授予同源/凭据权限，宿主 frame-src 限同源，隔离帧出站限 /vform3/ 静态及演示路径。",
+        "不在宿主 DOM 或服务端执行原始富文本 HTML；业务发布暂不支持富文本输入绑定。"
+      ],
+      "owner": "Full.NET frontend maintainers",
+      "reviewBy": "2026-11-07",
+      "expiresOn": "2026-11-23"
+    }
+  ]
 }

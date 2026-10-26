@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+﻿import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
@@ -33,7 +33,7 @@ async function expectShellHostContextVisible(page, testInfo) {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+    if (window === window.top) localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });
 });
 
@@ -3670,34 +3670,10 @@ test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ pag
     updatedAtUtc: null
   };
   let savedDraftRequest;
-  await page.route('**/api/v1/workflow/forms/component-catalog', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      catalogVersion: 1,
-      schemaVersion: 1,
-      adapterVersion: 1,
-      components: [{
-        fieldTypeKey: 'money',
-        designable: true,
-        publishable: true,
-        executable: true,
-        constraintKeys: ['minimum', 'maximum', 'scale']
-      }]
-    })
-  }));
-  await page.route('**/api/v1/workflow/forms/019bc2b1-2a40-7cc3-8992-a80de51bfd01/draft', route => {
-    savedDraftRequest = route.request().postDataJSON();
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        ...form,
-        draft: savedDraftRequest.draft,
-        draftRevision: 3,
-        updatedAtUtc: '2026-09-04T00:01:00Z'
-      })
-    });
+  const design = { widgetList: [{ id: 'amount_e2e', type: 'input', formItemFlag: true, options: { name: 'amount_e2e', label: '原始标题', required: true, placeholder: '保持配置' } }], formConfig: { jsonVersion: 3, labelWidth: 180 } };
+  await page.route('**/api/v1/workflow/forms/019bc2b1-2a40-7cc3-8992-a80de51bfd01/design-asset', route => {
+    if (route.request().method() === 'PUT') savedDraftRequest = route.request().postDataJSON();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ formId: form.id, draftRevision: savedDraftRequest ? 3 : 2, sourceCommit: 'c67479e496bab56a93a3dff168a4f529d8293c67', formatVersion: 3, designerJson: savedDraftRequest?.designerJson ?? design, contentHash: 'a'.repeat(64) }) });
   });
   await page.route('**/api/v1/workflow/forms/019bc2b1-2a40-7cc3-8992-a80de51bfd01', route => route.fulfill({
     status: 200,
@@ -3716,19 +3692,291 @@ test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ pag
   await view.getByTestId('workflow-form-edit').click();
   const designer = view.getByTestId('vform3-workflow-designer');
   await expect(designer).toBeVisible();
-  await expect(designer.getByText('amount_e2e', { exact: false }).first()).toBeVisible();
-  await designer.locator('input[type="checkbox"]').uncheck();
+  await expect(designer.frameLocator('iframe').getByText('原始标题', { exact: true }).first()).toBeVisible();
   await view.getByTestId('workflow-form-save').click();
   await expect.poll(() => savedDraftRequest).toBeTruthy();
   expect(savedDraftRequest.expectedRevision).toBe(2);
-  expect(savedDraftRequest.draft.sections[0].fields[0]).toMatchObject({
-    fieldKey: 'amount_e2e',
-    fieldTypeKey: 'money',
-    required: false,
-    constraints: { scale: 2 }
-  });
+  expect(savedDraftRequest.designerJson.widgetList).toEqual(design.widgetList);
+  expect(savedDraftRequest.designerJson.formConfig.labelWidth).toBe(180);
   await expect(view.getByRole('dialog').getByText('Revision 3', { exact: true })).toBeVisible();
 });
+
+test('VForm 3 待办抽屉：原版输入、必需意见与手写签名实际提交', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const user = currentUserResponse(null); user.permissions.push('workflow.todos.read', 'workflow.todos.approve', 'workflow.todos.reject', 'workflow.todos.sign');
+  await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+  const navigation = navigationResponse(); navigation.push({ id: 'workflow-todos', parentId: null, routeName: 'workflow-todos', path: '/workflow/todos', componentKey: 'workflow-todos', title: '我的待办', caption: '办理', icon: 'list', order: 81, requiredPermission: 'workflow.todos.read', children: [] });
+  await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+  const id = '019bc2b1-2a40-7cc3-8992-a80de51bfd02';
+  const { readFile } = await import('node:fs/promises');
+  const release = JSON.parse(await readFile(new URL('../../../../contracts/workflow/vform3-runtime-release.json', import.meta.url), 'utf8'));
+  const todo = { id, instanceId: id, stepId: id, statusKey: 'active', arrivedAtUtc: '2026-10-24T00:00:00Z', completedAtUtc: null,
+    resultActionKey: null, revision: 1, businessTitle: '原版办理', businessType: 'vform', businessId: '1', instanceStatusKey: 'active', definitionKey: 'vform', nodeKey: 'approve' };
+  const requests = [];
+  const signatureUploads = [];
+  await page.route(`**/api/v1/workflow/todos/${id}/signature-uploads?expectedRevision=1`, route => {
+    signatureUploads.push(route.request().postDataBuffer());
+    return route.fulfill({ json: { fileId: id, sizeBytes: 1024, contentHash: 'b'.repeat(64) } });
+  });
+  await page.route('**/api/v1/workflow/todos/mine?*', route => route.fulfill({ json: { items: requests.length ? [] : [todo], page: 1, pageSize: 20, total: requests.length ? 0 : 1 } }));
+  await page.route(`**/api/v1/workflow/todos/${id}/runtime`, route => route.fulfill({ json: {
+    ...todo, assigneeUserId: user.id, formVersionId: id, formSchemaHash: 'a'.repeat(64),
+    allowedActions: ['approve'], signRequired: true, commentRequired: true,
+    formSchema: { schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: [{ fieldKey: 'title', fieldTypeKey: 'text', required: true, constraints: {} }] }] },
+    submission: { title: '办理初值' }, fieldPolicies: { title: 'required' }, submissionRevision: 1, approvalModeKey: 'single', requiredApprovalCount: 1, approvedCount: 0, rejectedCount: 0, pendingCount: 1,
+    webRenderJson: { widgetList: [{ id: 'title', type: 'input', formItemFlag: true, options: { name: 'title', label: '原样申请标题', required: true } }], formConfig: { jsonVersion: 3 },
+      fullNetRuntime: { bindingVersion: 1, rendererHash: release.contentHash, bindings: [{ fieldKey: 'title', componentId: 'title', codec: 'string' }] } }
+  } }));
+  await page.route(`**/api/v1/workflow/todos/${id}/approve`, route => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({ json: { id, definitionVersionId: id, formVersionId: id, businessTitle: '原版办理', businessType: 'vform', businessId: '1', statusKey: 'completed', revision: 2, activeTodoId: null, startedAtUtc: '2026-10-24T00:00:00Z' } });
+  });
+  await page.goto('/#/workflow/todos');
+  const view = page.locator('.workflow-todos'); await view.getByTestId('workflow-todo-open').click();
+  const input = view.frameLocator('iframe').getByRole('textbox', { name: '原样申请标题' });
+  await expect(input).toHaveValue('办理初值'); await input.fill('原版实际点击'); await input.blur();
+  await expect(view.getByTestId('workflow-todo-reject')).toHaveCount(0);
+  await expect(view.getByTestId('workflow-todo-approve')).toBeDisabled();
+  await view.getByTestId('workflow-todo-comment').fill('确认本次签署');
+  await expect(view.getByTestId('workflow-todo-approve')).toBeDisabled();
+  const canvas = view.getByLabel('签名画布'); await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox(); expect(box).toBeTruthy();
+  await page.mouse.move(box.x + 25, box.y + 30); await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 80, { steps: 12 }); await page.mouse.up();
+  await view.getByRole('button', { name: '保存本次签名', exact: true }).click();
+  await expect(view.getByText('签名已采集，将与本次办理一同提交。', { exact: true })).toBeVisible();
+  expect(signatureUploads).toHaveLength(1);
+  expect(signatureUploads[0].includes(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
+  await view.getByTestId('workflow-todo-approve').click();
+  await expect.poll(() => requests, { timeout: 5000 }).toHaveLength(1);
+  expect(requests[0].fieldPatch).toEqual({ title: '原版实际点击' });
+  expect(requests[0].expectedFormRevision).toBe(1);
+  expect(requests[0].signatureFileId).toBe(id);
+  expect(requests[0].comment).toBe('确认本次签署');
+});
+
+test('子流程：真实设计器固定版本、字段映射和多实例保存回显', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const user = currentUserResponse(); user.permissions.push('workflow.definitions.read', 'workflow.definitions.update', 'workflow.definitions.publish', 'workflow.forms.read');
+  await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+  const navigation = navigationResponse(); navigation.push({ id: 'workflow-definitions', parentId: null, routeName: 'workflow-definitions', path: '/workflow/definitions', componentKey: 'workflow-definitions', title: '流程定义', caption: '工作流定义', icon: 'list', order: 81, requiredPermission: 'workflow.definitions.read', children: [] });
+  await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+  const parentId = '019bc2b1-2a40-7cc3-8992-a80de51bfd40'; const childId = '019bc2b1-2a40-7cc3-8992-a80de51bfd41';
+  const versionId = '019bc2b1-2a40-7cc3-8992-a80de51bfd42'; const parentFormId = '019bc2b1-2a40-7cc3-8992-a80de51bfd43'; const childFormId = '019bc2b1-2a40-7cc3-8992-a80de51bfd44';
+  const actorId = '019bc2b1-2a40-7cc3-8992-a80de51bfd45'; const now = '2026-10-26T00:00:00Z';
+  const node = (nodeKey, nodeTypeKey, config) => ({ nodeKey, nodeTypeKey, nodeSchemaVersion: 1, config });
+  const schema = names => ({ schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: names.map(fieldKey => ({ fieldKey, fieldTypeKey: 'text', required: false, constraints: {} })) }] });
+  const parentSchema = schema(['title', 'result']); const childSchema = schema(['subject', 'answer']);
+  const detail = { maxRows: 4, columns: [{ columnKey: 'label', fieldTypeKey: 'text', required: true, constraints: {} }] };
+  parentSchema.sections[0].fields.push({ fieldKey: 'documents', fieldTypeKey: 'attachment', required: false, constraints: { maxCount: 2, maxSizeBytes: 1024, allowedExtensions: ['png'] } }, { fieldKey: 'rows', fieldTypeKey: 'subtable', required: false, constraints: detail });
+  childSchema.sections[0].fields.push({ fieldKey: 'evidence', fieldTypeKey: 'attachment', required: false, constraints: { maxCount: 2, maxSizeBytes: 1024, allowedExtensions: ['png'] } }, { fieldKey: 'childRows', fieldTypeKey: 'subtable', required: false, constraints: detail });
+  const formVersion = (id, value) => ({ id, formDefinitionId: id, versionNumber: 1, schemaVersion: 1, adapterVersion: 1, componentCatalogVersion: 1, formSchemaJson: JSON.stringify(value), webRenderSchemaJson: '{}', contentHash: 'a'.repeat(64), publishedById: actorId, publishedAtUtc: now });
+  const configuration = { subprocessPolicy: { definitionVersionId: versionId, inputFields: { subject: 'title' }, outputFields: { result: 'answer' } }, fieldPolicies: { title: 'readOnly', result: 'editable' } };
+  const childDraft = { schemaVersion: 1, workflowKindKey: 'automation', nodes: [node('start', 'start', { nextNodeKeys: ['end'] }), node('end', 'end', {})] };
+  const metadata = { draftRevision: 1, version: 1, statusKey: 'active', businessTitleTemplate: null, createdAtUtc: now, updatedAtUtc: null };
+  let parent = { ...metadata, id: parentId, definitionKey: 'parent', latestPublishedVersionId: null, draft: { schemaVersion: 1, workflowKindKey: 'automation', nodes: [node('start', 'start', { nextNodeKeys: ['child'] }), node('child', 'process.subprocess', { nodeName: '固定子流程', nextNodeKeys: ['end'], ...configuration }), node('end', 'end', {})] } };
+  const child = { ...metadata, id: childId, definitionKey: 'child', latestPublishedVersionId: versionId, draft: childDraft };
+  const childVersion = { id: versionId, definitionId: childId, formVersionId: childFormId, versionNumber: 1, schemaVersion: 1, canonicalJson: JSON.stringify(childDraft), contentHash: 'b'.repeat(64), businessTitleTemplate: null, publishedById: actorId, publishedAtUtc: now };
+  await page.route('**/api/v1/workflow/forms', route => route.fulfill({ json: [{ ...metadata, id: parentFormId, formKey: 'parent', latestPublishedVersionId: parentFormId, draft: parentSchema }] }));
+  await page.route(`**/api/v1/workflow/form-versions/${parentFormId}`, route => route.fulfill({ json: formVersion(parentFormId, parentSchema) }));
+  await page.route(`**/api/v1/workflow/form-versions/${childFormId}`, route => route.fulfill({ json: formVersion(childFormId, childSchema) }));
+  await page.route('**/api/v1/workflow/definitions', route => route.fulfill({ json: [parent, child] }));
+  await page.route(`**/api/v1/workflow/definitions/${parentId}`, route => route.fulfill({ json: parent }));
+  await page.route(`**/api/v1/workflow/definitions/${childId}/versions`, route => route.fulfill({ json: [childVersion] }));
+  await page.route(`**/api/v1/workflow/definition-versions/${versionId}`, route => route.fulfill({ json: childVersion }));
+  const saved = [];
+  await page.route(`**/api/v1/workflow/definitions/${parentId}/draft`, route => { const body = route.request().postDataJSON(); saved.push(body); parent = { ...parent, draftRevision: parent.draftRevision + 1, draft: body.draft }; return route.fulfill({ json: parent }); });
+  await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: { catalogVersion: 25, definitionSchemaVersion: 1, nodeTypes: ['start', 'process.subprocess', 'end'].map(nodeTypeKey => ({ nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true, supportsFieldPolicies: nodeTypeKey === 'process.subprocess' })) } }));
+  await page.goto('/'); await openNavigationLink(page, /工作流定义/); await page.getByTestId('workflow-definition-edit').first().click();
+  const designer = page.getByTestId('workflow-vue3-designer'); await designer.locator('.node-wrap-box').filter({ hasText: '固定子流程' }).click();
+  const drawer = page.getByRole('dialog', { name: '子流程', exact: true }); await expect(drawer.getByRole('combobox', { name: '固定发布版本', exact: true })).toBeVisible();
+  await drawer.getByRole('combobox', { name: '回填父流程 result', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: 'subject', exact: true }).click();
+  await drawer.getByRole('combobox', { name: '传入子流程 evidence', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: 'documents', exact: true }).click();
+  await drawer.getByRole('combobox', { name: '回填父流程 rows', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: 'childRows', exact: true }).click();
+  await drawer.getByTestId('subprocess-multi-mode').click(); await page.getByRole('option', { name: '并行多实例', exact: true }).click();
+  await drawer.getByTestId('subprocess-multi-count').locator('input').fill('3'); await drawer.getByTestId('subprocess-multi-count').locator('input').press('Tab');
+  await drawer.getByTestId('subprocess-multi-percentage').locator('input').fill('67'); await drawer.getByTestId('subprocess-multi-percentage').locator('input').press('Tab');
+  await drawer.getByRole('combobox', { name: 'rows 结果归约', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: '按项顺序追加（受字段上限约束）', exact: true }).click();
+  await drawer.getByTestId('subprocess-save').click(); await page.getByTestId('workflow-definition-save').click(); await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.subprocessPolicy).toEqual({ ...configuration.subprocessPolicy, inputFields: { subject: 'title', evidence: 'documents' }, outputFields: { result: 'subject', rows: 'childRows' } });
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.multiInstancePolicy).toEqual({ modeKey: 'parallel', source: { kindKey: 'fixed_count', count: 3 }, requiredPercentage: 67, emptyModeKey: 'reject', outputReducers: { result: 'first', rows: 'append' } });
+  await page.getByTestId('workflow-definition-close-editor').click(); await page.getByTestId('workflow-definition-edit').first().click(); await designer.locator('.node-wrap-box').filter({ hasText: '固定子流程' }).click();
+  await expect(drawer.getByTestId('subprocess-output-result')).toContainText('subject');
+  await expect(drawer.getByTestId('subprocess-output-rows')).toContainText('childRows');
+  await expect(drawer.getByTestId('subprocess-multi-reducer-rows')).toContainText('按项顺序追加（受字段上限约束）');
+  await expect(drawer.getByTestId('subprocess-multi-mode')).toContainText('并行多实例');
+  await expect(drawer.getByTestId('subprocess-multi-count').locator('input')).toHaveValue('3');
+  await expect(drawer.getByTestId('subprocess-multi-percentage').locator('input')).toHaveValue('67');
+});
+
+test('比例会签：真实设计器保存与重新打开保留百分比和成员', async ({ page }) => {
+  await page.route('**/api/v1/workflow/definitions/position-candidates**', route => route.fulfill({ json: { items: [], page: 1, pageSize: 100, total: 0 } }));
+  await mockAuthenticatedSession(page);
+  const user = currentUserResponse();
+  user.permissions.push('workflow.definitions.read', 'workflow.definitions.update');
+  await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+  const navigation = navigationResponse();
+  navigation.push({ id: 'workflow-definitions', parentId: null, routeName: 'workflow-definitions',
+    path: '/workflow/definitions', componentKey: 'workflow-definitions', title: '流程定义',
+    caption: '工作流定义', icon: 'list', order: 81, requiredPermission: 'workflow.definitions.read', children: [] });
+  await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+  const members = ['019bc2b1-2a40-7cc3-8992-a80de51bfd21', '019bc2b1-2a40-7cc3-8992-a80de51bfd22', '019bc2b1-2a40-7cc3-8992-a80de51bfd23'];
+  await page.route('**/api/v1/workflow/definitions/role-candidates**', route => route.fulfill({ json: {
+    items: [], page: 1, pageSize: 100, total: 0
+  } }));
+  await page.route('**/api/v1/workflow/definitions/organization-unit-candidates**', route => route.fulfill({ json: {
+    items: [], page: 1, pageSize: 100, total: 0
+  } }));
+  await page.route('**/api/v1/workflow/definitions/recipient-candidates**', route => route.fulfill({ json: {
+    items: members.map((id, index) => ({ id, username: `member${index}`, displayName: `办理人${index + 1}` })),
+    page: 1, pageSize: 100, total: 3
+  } }));
+  const node = (key, type, config) => ({ nodeKey: key, nodeTypeKey: type, nodeSchemaVersion: 1, config });
+  let definition = { id: '019bc2b1-2a40-7cc3-8992-a80de51bfd24', definitionKey: 'approval.percentage',
+    draftRevision: 1, version: 1, statusKey: 'active', latestPublishedVersionId: null, businessTitleTemplate: null,
+    createdAtUtc: '2026-10-24T00:00:00Z', updatedAtUtc: null, draft: { schemaVersion: 1, nodes: [
+      node('start', 'start', { nodeName: '发起人', nextNodeKeys: ['review'] }),
+      node('review', 'human.approval', { nodeName: '比例会签', nextNodeKeys: ['end'],
+        assigneePolicy: { sources: [{ resolverKindKey: 'specified_users', userIds: [members[0]] }, { resolverKindKey: 'initiator' }] },
+        approvalPolicy: { modeKey: 'all', approverUserIds: members } }),
+      node('end', 'end', { nextNodeKeys: [] })
+    ] } };
+  const saved = [];
+  await page.route('**/api/v1/workflow/definitions', route => route.fulfill({ json: [definition] }));
+  await page.route(`**/api/v1/workflow/definitions/${definition.id}`, route => route.fulfill({ json: definition }));
+  await page.route(`**/api/v1/workflow/definitions/${definition.id}/draft`, route => {
+    const body = route.request().postDataJSON(); saved.push(body);
+    definition = { ...definition, draftRevision: definition.draftRevision + 1, draft: body.draft };
+    return route.fulfill({ json: definition });
+  });
+  await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: {
+    catalogVersion: 3, definitionSchemaVersion: 1, nodeTypes: ['start', 'human.approval', 'end'].map(nodeTypeKey => ({
+      nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true,
+      supportsFieldPolicies: nodeTypeKey === 'human.approval'
+    }))
+  } }));
+  await page.goto('/');
+  await openNavigationLink(page, /工作流定义/);
+  await page.getByTestId('workflow-definition-edit').click();
+  const designer = page.getByTestId('workflow-vue3-designer');
+  await designer.locator('.node-wrap-box').filter({ hasText: '比例会签' }).click();
+  await page.getByTestId('workflow-assignee-source-1').click();
+  await expect(page.getByTestId('workflow-assignee-source-kind')).toContainText('流程发起人');
+  await page.getByTestId('workflow-assignee-source-0').click();
+  await page.getByTestId('workflow-approval-mode').getByRole('combobox').press('ArrowDown');
+  await page.getByRole('option', { name: '按比例会签', exact: true }).click();
+  await page.getByTestId('workflow-approval-percentage').locator('input').fill('67');
+  await page.getByTestId('workflow-timeout-save').click();
+  await page.getByTestId('workflow-definition-save').click();
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'review').config.approvalPolicy)
+    .toEqual({ modeKey: 'percent', approverUserIds: members, requiredPercentage: 67 });
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'review').config.assigneePolicy)
+    .toEqual({ sources: [{ resolverKindKey: 'specified_users', userIds: [members[0]] }, { resolverKindKey: 'initiator' }] });
+  await page.getByTestId('workflow-definition-close-editor').click();
+  await page.getByTestId('workflow-definition-edit').click();
+  await designer.locator('.node-wrap-box').filter({ hasText: '比例会签' }).click();
+  await expect(page.getByTestId('workflow-approval-percentage').locator('input')).toHaveValue('67');
+  await page.getByTestId('workflow-assignee-source-1').click();
+  await expect(page.getByTestId('workflow-assignee-source-kind')).toContainText('流程发起人');
+});
+
+for (const [gatewayType, conditionCount] of [['exclusive', 15], ['parallel', 8], ['inclusive', 8]]) {
+  test(`工作流网关整改：${gatewayType} 公共后继保存回显与分支上限`, async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    const user = currentUserResponse();
+    user.permissions.push('workflow.definitions.read', 'workflow.definitions.update');
+    await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+    const navigation = navigationResponse();
+    navigation.push({
+      id: 'workflow-definitions', parentId: null, routeName: 'workflow-definitions',
+      path: '/workflow/definitions', componentKey: 'workflow-definitions', title: '流程定义',
+      caption: '工作流定义', icon: 'list', order: 81,
+      requiredPermission: 'workflow.definitions.read', children: []
+    });
+    await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+    const node = (key, type, config) => ({ nodeKey: key, nodeTypeKey: type, nodeSchemaVersion: 1, config });
+    const branches = Array.from({ length: conditionCount }, (_, index) => ({
+      branchKey: `branch-${index}`, nextNodeKey: `approval-${index}`,
+      ...(gatewayType === 'parallel' ? {} : {
+        condition: { fieldKey: 'amount', operator: 'greaterThan', value: index }
+      })
+    }));
+    if (gatewayType === 'exclusive') branches[0].condition = { operator: 'and', conditions: [branches[0].condition, { fieldKey: 'amount', operator: 'lessThan', value: 1000 }] };
+    const targets = branches.map(branch => branch.nextNodeKey);
+    const allTargets = gatewayType === 'parallel' ? targets : [...targets, 'fallback'];
+    const nextAfterBranch = gatewayType === 'exclusive' ? 'common' : 'route-join';
+    const config = gatewayType === 'exclusive'
+      ? { nextNodeKeys: allTargets, branches, defaultNextNodeKey: 'fallback' }
+      : { gatewayRoleKey: 'fork', joinNodeKey: 'route-join', branches,
+          ...(gatewayType === 'inclusive' ? { defaultNextNodeKey: 'fallback' } : {}) };
+    let definition = {
+      id: '019bc2b1-2a40-7cc3-8992-a80de51bfd03', definitionKey: 'gateway.regression',
+      draftRevision: 1, version: 1, statusKey: 'active', latestPublishedVersionId: null,
+      businessTitleTemplate: null, createdAtUtc: '2026-10-24T00:00:00Z', updatedAtUtc: null,
+      draft: { schemaVersion: 1, nodes: [
+        node('start', 'start', { nodeName: '发起人', nextNodeKeys: ['route'] }),
+        node('route', `gateway.${gatewayType}`, { nodeName: '路由', ...config }),
+        ...allTargets.map(key => node(key, gatewayType === 'exclusive' && key === targets[0] ? 'control.empty' : 'human.approval', { nodeName: gatewayType === 'exclusive' && key === targets[0] ? '空节点' : key, nextNodeKeys: [nextAfterBranch] })),
+        ...(gatewayType === 'exclusive' ? [] : [node('route-join', `gateway.${gatewayType}`, {
+          gatewayRoleKey: 'join', forkNodeKey: 'route', nextNodeKeys: ['common']
+        })]),
+        node('common', 'human.approval', { nodeName: '公共审批', nextNodeKeys: ['end'] }),
+        node('end', 'end', { nextNodeKeys: [] })
+      ] }
+    };
+    const saved = [];
+    await page.route('**/api/v1/workflow/definitions', route => route.fulfill({ json: [definition] }));
+    await page.route(`**/api/v1/workflow/definitions/${definition.id}`, route => route.fulfill({ json: definition }));
+    await page.route(`**/api/v1/workflow/definitions/${definition.id}/draft`, route => {
+      const body = route.request().postDataJSON();
+      saved.push(body);
+      definition = { ...definition, draftRevision: definition.draftRevision + 1, draft: body.draft };
+      return route.fulfill({ json: definition });
+    });
+    await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: {
+      catalogVersion: 3, definitionSchemaVersion: 1,
+      nodeTypes: ['start', 'human.approval', 'control.empty', 'end', `gateway.${gatewayType}`].map(nodeTypeKey => ({
+        nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true,
+        supportsFieldPolicies: nodeTypeKey === 'human.approval'
+      }))
+    } }));
+    await page.goto('/');
+    await openNavigationLink(page, /工作流定义/);
+    await page.getByTestId('workflow-definition-edit').click();
+    const designer = page.getByTestId('workflow-vue3-designer');
+    await expect(designer.locator('.editable-title').filter({ hasText: /^公共审批$/ })).toBeVisible();
+    await expect(designer.locator('.add-branch')).toBeDisabled();
+    await expect(designer.locator('.copy-branch').first()).toBeDisabled();
+    if (gatewayType === 'exclusive') {
+      await designer.locator('.condition-node .content').first().click();
+      const conditionDrawer = page.getByRole('dialog', { name: '配置分支条件' });
+      await expect(conditionDrawer.getByRole('switch', { name: '组合条件与集合判断' })).toBeChecked();
+      await conditionDrawer.getByRole('combobox', { name: '条件关系' }).first().press('ArrowDown');
+      await page.getByRole('option', { name: '任一满足（OR）', exact: true }).click();
+      await conditionDrawer.getByRole('button', { name: '确定', exact: true }).click();
+      await designer.locator('.node-wrap-box').filter({ hasText: '公共审批' }).locator('..').getByRole('button', { name: '添加流程节点' }).click();
+      await page.getByRole('button', { name: '空节点', exact: true }).click();
+      await designer.getByRole('combobox', { name: '流程类别' }).press('ArrowDown');
+      await page.getByRole('option', { name: '自动化流程', exact: true }).click();
+    }
+    await page.getByTestId('workflow-definition-save').click();
+    await expect.poll(() => saved.length).toBe(1);
+    expect(saved[0].expectedRevision).toBe(1);
+    if (gatewayType === 'exclusive') {
+      expect(saved[0].draft.workflowKindKey).toBe('automation');
+      expect(saved[0].draft.nodes.find(item => item.nodeKey === 'route').config.branches[0].condition.operator).toBe('or');
+      expect(saved[0].draft.nodes.filter(item => item.nodeTypeKey === 'control.empty')).toHaveLength(2);
+    }
+    for (const target of allTargets) {
+      expect(saved[0].draft.nodes.find(item => item.nodeKey === target).config.nextNodeKeys).toEqual([nextAfterBranch]);
+    }
+    await page.getByTestId('workflow-definition-close-editor').click();
+    await page.getByTestId('workflow-definition-edit').click();
+    await expect(designer.locator('.editable-title').filter({ hasText: /^公共审批$/ })).toBeVisible();
+    await expect(designer.locator('.add-branch')).toBeDisabled();
+  });
+}
 
 async function mockAuthenticatedSession(page, options = {}) {
   const state = { tenantId: options.initialTenantId ?? null };

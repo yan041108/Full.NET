@@ -23,6 +23,9 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<WorkflowRoleMemberRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1)));
+        registrar.Register<WorkflowRoleUserRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
+        registrar.Register<WorkflowRoleListRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
         registrar.Register<Full.NET.Modules.Identity.HostUsers.TenantActiveMemberCountRow>(reader => new(reader.GetGuid(0),
             System.Convert.ToInt64(reader.GetValue(1), System.Globalization.CultureInfo.InvariantCulture)));
         registrar.Register<HostRoleMemberUserState>(reader => new HostRoleMemberUserState(reader.GetGuid(0), AotDataReaderExtensions.ReadBoolean(reader, 1)));

@@ -1,7 +1,7 @@
 {
   "id": "messaging-dead-letters-v1",
   "version": 1,
-  "description": "消费死信分页查询 HTTP 契约夹具。",
+  "description": "Inbox 失败行兼存量入口、Legacy 与真实 Kafka DLQ 运维契约。",
   "paths": [
     {
       "path": "/api/v1/messaging/dead-letters",
@@ -11,6 +11,78 @@
           "permission": "messaging.dead_letters.read",
           "successStatus": 200,
           "responseSchema": "MessagingDeadLetterPage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/outbox/dead-letters",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "messaging.dead_letters.read",
+          "successStatus": 200,
+          "responseSchema": "OperationalDeadLetterPage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/outbox/dead-letters/{id}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "messaging.dead_letters.read",
+          "successStatus": 200,
+          "responseSchema": "OperationalDeadLetter"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/outbox/dead-letters/{id}/requeue",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "messaging.outbox_dead_letters.requeue",
+          "successStatus": 200,
+          "requiredBody": [
+            "reason"
+          ],
+          "responseSchema": "RecoverDeadLetterResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/kafka/dead-letters",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "messaging.dead_letters.read",
+          "successStatus": 200,
+          "responseSchema": "OperationalDeadLetterPage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/kafka/dead-letters/{id}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "messaging.dead_letters.read",
+          "successStatus": 200,
+          "responseSchema": "OperationalDeadLetter"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/messaging/kafka/dead-letters/{id}/replay",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "messaging.dead_letters.replay",
+          "successStatus": 200,
+          "requiredBody": [
+            "reason"
+          ],
+          "responseSchema": "RecoverDeadLetterResponse"
         }
       ]
     }
@@ -37,6 +109,50 @@
         "total"
       ],
       "itemSchema": "MessagingDeadLetter"
+    },
+    "OperationalDeadLetter": {
+      "properties": [
+        "id",
+        "source",
+        "consumerName",
+        "messageId",
+        "messageType",
+        "schemaVersion",
+        "tenantId",
+        "attempts",
+        "errorCode",
+        "firstFailedAtUtc",
+        "lastFailedAtUtc",
+        "sourceTopic",
+        "sourcePartition",
+        "sourceOffset",
+        "dlqTopic",
+        "dlqPartition",
+        "dlqOffset",
+        "canReplay",
+        "replayedAtUtc"
+      ],
+      "offsetEncoding": "decimal-string",
+      "excludes": [
+        "payload",
+        "rawPayload",
+        "snapshotJson"
+      ]
+    },
+    "OperationalDeadLetterPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "OperationalDeadLetter"
+    },
+    "RecoverDeadLetterResponse": {
+      "properties": [
+        "id",
+        "outcome"
+      ]
     }
   }
 }

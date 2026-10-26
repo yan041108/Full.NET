@@ -1,0 +1,5 @@
+/* 空画布提示只负责展示，不能覆盖原版 Sortable 的拖放目标。 */
+.form-widget-container .no-widget-hint { pointer-events: none; }
+.form-widget-container .form-widget-list > div { min-height: inherit; }
+/* 导入与切换期间，退场动画中的旧控件不能重新成为当前选中组件。 */
+.form-widget-container .fade-leave-active { pointer-events: none; }

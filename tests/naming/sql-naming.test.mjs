@@ -57,6 +57,16 @@ test('SQL 门禁报告表、列、约束、长度、保留所有权和 SELECT �
   assert.ok(violations.every(item => item.actual && item.recommendation));
 });
 
+test('双库静态删索引仍检查表和长度，缺少目标、复合、未知 Schema 及动态语句拒绝', async () => {
+  const violations = await validateSqlNaming([path.join(fixtureRoot, 'drop-index.sql')],
+    { repositoryRoot, debt: { schemaVersion: 1, items: [] } });
+  assert.deepEqual(violations.filter(item => item.ruleId === 'FNSQL003').map(item => item.line), [4, 5, 6, 7]);
+  assert.ok(violations.some(item => item.ruleId === 'FNDB001' && item.line === 3 && item.actual === 'BadTarget'));
+  assert.ok(violations.some(item => item.ruleId === 'FNDB004' && item.line === 8));
+  assert.ok(violations.some(item => item.ruleId === 'FNSQL002' && item.line === 9));
+  assert.ok(violations.every(item => item.line > 2));
+});
+
 test('债务清单只能精确放行同文件、同类型和同值', async () => {
   const file = path.join(fixtureRoot, 'debt-schema.sql');
   const exactDebt = {

@@ -3,6 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fullnet_client/features/workflow/workflow_models.dart';
 
 void main() {
+  for (final kind in ['human.approval', 'human.group_approval']) {
+    test('delegation action does not make a $kind todo unreadable', () {
+      final detail = WorkflowTodoDetail.fromJson({
+        'id': '01912345-6789-7abc-8def-0123456789ab',
+        'instanceId': '01912345-6789-7abc-8def-0123456789ac',
+        'stepId': '01912345-6789-7abc-8def-0123456789ad',
+        'assigneeUserId': '01912345-6789-7abc-8def-0123456789ae',
+        'statusKey': 'active',
+        'revision': 1,
+        'submissionRevision': 1,
+        'submission': <String, dynamic>{},
+        'activityKindKey': kind,
+        'allowedActions': ['approve', 'delegate'],
+        'signRequired': false,
+        'commentRequired': false
+      });
+      expect(detail.allowedActions, ['approve', 'delegate']);
+    });
+  }
   test('parseWorkflowTodoListPage guards list items', () {
     final items = parseWorkflowTodoListPage({
       'items': [

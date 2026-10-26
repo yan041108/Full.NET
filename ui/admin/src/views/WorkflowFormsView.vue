@@ -1,23 +1,21 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ElButton, ElCard, ElLoading, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import {
   createWorkflowFormDraft,
   isFullNetProblemDetails,
-  type FullNetProblemDetails,
-  type WorkflowFormComponentCatalogResponse,
-  type WorkflowFormSchema
+  type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import {
   createWorkflowForm,
   deleteWorkflowFormVersion,
   getWorkflowForm,
-  getWorkflowFormComponentCatalog,
+  getWorkflowDesignerAsset,
+  saveWorkflowDesignerAsset,
   listWorkflowFormVersions,
   listWorkflowForms,
   publishWorkflowForm,
   setWorkflowFormStatus,
-  updateWorkflowFormDraft,
   type WorkflowFormResponse,
   type WorkflowFormVersionResponse
 } from '../api/workflow-forms';
@@ -25,11 +23,12 @@ import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import VForm3WorkflowDesigner from '../workflow/VForm3WorkflowDesigner.vue';
+import { VFORM_RUNTIME_HASH } from '@fullnet/admin-form-designer';
 import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
 interface VForm3WorkflowDesignerInstance {
-  readSchema: () => WorkflowFormSchema;
+  readDesign: () => Promise<Record<string, unknown>>;
 }
 
 const { t, locale } = useAdminI18n();
@@ -49,13 +48,13 @@ function formStatusTagType(status: 'active' | 'disabled' | 'archived'): 'success
   }
 }
 const session = useSessionStore();
+const vLoading = ElLoading.directive;
 const forms = ref<WorkflowFormResponse[]>([]);
 const versions = ref<WorkflowFormVersionResponse[]>([]);
 const selectedFormId = ref<string>();
 const selectedForm = ref<WorkflowFormResponse>();
 const selected = ref<WorkflowFormResponse>();
-const localDraft = ref<WorkflowFormSchema>();
-const catalog = ref<WorkflowFormComponentCatalogResponse>();
+const localDesign = ref<Record<string, unknown>>();
 const formKey = ref('');
 const creating = ref(false);
 const busy = ref(false);
@@ -65,17 +64,32 @@ const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCru
 watchLoading(busy);
 const problem = ref<FullNetProblemDetails>();
 const designer = ref<VForm3WorkflowDesignerInstance>();
+let generation = 0; let disposed = false; let reads = new AbortController();
+const context = computed(() => JSON.stringify([
+  session.currentUser?.id, session.currentUser?.sessionId, session.currentUser?.tenantId,
+  session.currentUser?.scope, session.switching, session.can('workflow.forms.read'), session.can('workflow.forms.update')
+]));
+watch(context, () => {
+  // KeepAlive 保留页面实例；身份/作用域/设计权限变化必须先移除旧资产，再接收新上下文的数据。
+  generation++; reads.abort(); reads = new AbortController();
+  forms.value = []; versions.value = []; selectedFormId.value = undefined; selectedForm.value = undefined;
+  closeEditor(); creating.value = false; busy.value = false;
+  if (!disposed) void loadForms();
+}, { flush: 'sync' });
+onBeforeUnmount(() => { disposed = true; generation++; reads.abort(); });
+function isCurrent(value: number): boolean { return !disposed && value === generation; }
 
 onMounted(loadForms);
 
 async function loadForms(): Promise<void> {
-  if (!session.can('workflow.forms.read')) return;
-  await act(async () => {
-    forms.value = await listWorkflowForms();
-  }, 'workflowForms.loadFailed');
+  if (disposed || session.switching || !session.can('workflow.forms.read')) return;
+  const requested = generation;
+  const result = await act(() => listWorkflowForms(reads.signal), 'workflowForms.loadFailed');
+  if (isCurrent(requested) && result !== undefined) forms.value = result;
 }
 
 function openCreate(): void {
+  if (busy.value || session.switching || !session.can('workflow.forms.create')) return;
   formKey.value = '';
   creating.value = true;
   problem.value = undefined;
@@ -83,72 +97,91 @@ function openCreate(): void {
 
 async function submitCreate(): Promise<void> {
   const key = formKey.value.trim();
-  if (!key || busy.value) return;
+  if (!key || busy.value || session.switching || !session.can('workflow.forms.create')) return;
+  const requested = generation;
   const created = await act(
     () => createWorkflowForm(key, createWorkflowFormDraft()),
     'workflowForms.operationFailed'
   );
-  if (created !== undefined) {
+  if (isCurrent(requested) && created !== undefined) {
     creating.value = false;
     await loadForms();
   }
 }
 
 async function openEditor(row: WorkflowFormResponse): Promise<void> {
-  if (busy.value || formStatus(row as WorkflowFormResponse) === 'archived') return;
+  if (busy.value || session.switching || !session.can('workflow.forms.read') || !session.can('workflow.forms.update') || formStatus(row as WorkflowFormResponse) === 'archived') return;
+  const current = generation; const signal = reads.signal;
   const result = await act(
-    () => Promise.all([getWorkflowForm(row.id), getWorkflowFormComponentCatalog()]),
+    async () => {
+      // 先读取定义再查设计资产，避免较早的“资产不存在”与较新的定义修订拼成重建稿。
+      const form = await getWorkflowForm(row.id, signal);
+      if (!isCurrent(current)) return undefined;
+      const asset = await getWorkflowDesignerAsset(row.id, signal);
+      return { form, asset };
+    },
     'workflowForms.loadFailed'
   );
-  if (result !== undefined) {
-    selected.value = result[0];
-    localDraft.value = structuredClone(result[0].draft);
-    catalog.value = result[1];
+  if (isCurrent(current) && result !== undefined) {
+    // 设计 JSON 和保存时的期望修订必须来自同一次资产读取，不能借用另一次请求的修订。
+    selected.value = { ...result.form, draftRevision: result.asset?.draftRevision ?? result.form.draftRevision };
+    localDesign.value = result.asset?.designerJson ?? {
+      widgetList: [], formConfig: { jsonVersion: 3 },
+      fullNetReconstruction: { status: 'requires-review', originalBusinessSchema: result.form.draft }
+    };
   }
 }
 
 async function saveDraft(): Promise<void> {
   const current = selected.value;
-  if (current === undefined || localDraft.value === undefined || busy.value) return;
-  let draft: WorkflowFormSchema;
+  if (current === undefined || localDesign.value === undefined || busy.value || session.switching || !session.can('workflow.forms.read') || !session.can('workflow.forms.update')) return;
+  const requested = generation;
+  busy.value = true;
+  let draft: Record<string, unknown>;
   try {
-    draft = designer.value?.readSchema() ?? localDraft.value;
+    if (!designer.value) throw new Error('client.vform3_not_ready');
+    draft = await designer.value.readDesign();
   } catch (error: unknown) {
+    if (!isCurrent(requested)) return;
+    busy.value = false;
     showDesignerError(error instanceof Error ? error.message : 'client.invalid_workflow_form_draft');
     return;
   }
+  // 读取隔离帧期间可能已切换身份；旧编辑器的 JSON 不能再以新上下文发起写入。
+  if (!isCurrent(requested)) return;
   const saved = await act(
-    () => updateWorkflowFormDraft(current.id, current.draftRevision, draft),
+    () => saveWorkflowDesignerAsset(current.id, current.draftRevision, draft),
     'workflowForms.operationFailed'
   );
-  if (saved !== undefined) {
-    replaceForm(saved);
-    selected.value = saved;
-    localDraft.value = structuredClone(saved.draft);
+  if (isCurrent(requested) && saved !== undefined) {
+    const updated = { ...current, draftRevision: saved.draftRevision };
+    replaceForm(updated);
+    selected.value = updated;
+    localDesign.value = saved.designerJson;
   }
 }
 
 async function publish(row: WorkflowFormResponse): Promise<void> {
-  if (busy.value) return;
+  if (busy.value || session.switching || !session.can('workflow.forms.publish')) return;
+  const requested = generation; const signal = reads.signal;
   const published = await act(
-    () => publishWorkflowForm(row.id, { expectedRevision: row.draftRevision }),
+    () => publishWorkflowForm(row.id, { expectedRevision: row.draftRevision, expectedBindingRevision: row.draftRevision, targets: ['web'], rendererHash: VFORM_RUNTIME_HASH }),
     'workflowForms.operationFailed'
   );
-  if (published === undefined) return;
-  const authoritative = await act(() => getWorkflowForm(row.id), 'workflowForms.loadFailed');
-  if (authoritative !== undefined) {
+  if (!isCurrent(requested) || published === undefined) return;
+  const authoritative = await act(() => getWorkflowForm(row.id, signal), 'workflowForms.loadFailed');
+  if (isCurrent(requested) && authoritative !== undefined) {
     replaceForm(authoritative);
     if (selected.value?.id === authoritative.id) {
       selected.value = authoritative;
-      localDraft.value = structuredClone(authoritative.draft);
+      // 发布只刷新版本信息，设计稿由独立资产读取，不以业务投影覆盖画布。
     }
   }
 }
 
 function closeEditor(): void {
   selected.value = undefined;
-  localDraft.value = undefined;
-  catalog.value = undefined;
+  localDesign.value = undefined;
   problem.value = undefined;
 }
 
@@ -172,12 +205,14 @@ async function changeFormStatus(
   form: WorkflowFormResponse,
   statusKey: 'active' | 'disabled' | 'archived'
 ): Promise<void> {
+  if (busy.value || session.switching || !session.can('workflow.forms.manage_status')) return;
+  const requested = generation;
   const version = Number((form as WorkflowFormResponse & { version?: number }).version ?? 0);
   const updated = await act(
     () => setWorkflowFormStatus(form.id, statusKey, version),
     'workflowForms.operationFailed'
   );
-  if (updated === undefined) {
+  if (!isCurrent(requested) || updated === undefined) {
     return;
   }
   replaceForm(updated);
@@ -191,14 +226,15 @@ async function changeFormStatus(
 }
 
 async function openVersions(form: WorkflowFormResponse): Promise<void> {
-  if (busy.value) {
+  if (busy.value || session.switching || !session.can('workflow.forms.read')) {
     return;
   }
+  const requested = generation;
   const rows = await act(
-    () => listWorkflowFormVersions(form.id),
+    () => listWorkflowFormVersions(form.id, reads.signal),
     'workflowForms.loadFailed'
   );
-  if (rows === undefined) {
+  if (!isCurrent(requested) || rows === undefined) {
     return;
   }
   versions.value = rows;
@@ -207,18 +243,20 @@ async function openVersions(form: WorkflowFormResponse): Promise<void> {
 }
 
 async function removeFormVersion(version: WorkflowFormVersionResponse): Promise<void> {
-  await act(
+  const formId = selectedFormId.value;
+  if (!formId || busy.value || session.switching || !session.can('workflow.forms.delete_version')) return;
+  const current = generation; const signal = reads.signal;
+  const result = await act(
     async () => {
       await deleteWorkflowFormVersion(version.id);
-      if (selectedFormId.value !== undefined) {
-        versions.value = await listWorkflowFormVersions(selectedFormId.value);
-        const refreshed = await getWorkflowForm(selectedFormId.value);
-        replaceForm(refreshed);
-        selectedForm.value = refreshed;
-      }
+      if (!isCurrent(current)) return undefined;
+      const [rows, refreshed] = await Promise.all([listWorkflowFormVersions(formId, signal), getWorkflowForm(formId, signal)]);
+      return { rows, refreshed };
     },
     'workflowForms.operationFailed'
   );
+  if (!isCurrent(current) || result === undefined) return;
+  versions.value = result.rows; replaceForm(result.refreshed); selectedForm.value = result.refreshed;
   ElMessage.success(t('workflowForms.deleteVersionSuccess'));
 }
 
@@ -230,18 +268,21 @@ async function act<T>(
   action: () => Promise<T>,
   fallbackKey: 'workflowForms.loadFailed' | 'workflowForms.operationFailed'
 ): Promise<T | undefined> {
+  const requested = generation;
   busy.value = true;
   problem.value = undefined;
   try {
-    return await action();
+    const result = await action();
+    return isCurrent(requested) ? result : undefined;
   } catch (error: unknown) {
+    if (!isCurrent(requested)) return undefined;
     problem.value = isFullNetProblemDetails(error)
       ? error
       : { status: 500, code: 'client.workflow_form_failed', title: t(fallbackKey) };
     return undefined;
   } finally {
-    busy.value = false;
-    void nextTick(updateTableHeight);
+    // 旧操作的 finally 不能解除新上下文请求的 busy，也不能回填错误或页面内容。
+    if (isCurrent(requested)) { busy.value = false; void nextTick(updateTableHeight); }
   }
 }
 </script>
@@ -369,7 +410,7 @@ async function act<T>(
       </div>
     </aside>
 
-    <aside v-if="selected && localDraft && catalog" class="workflow-forms__panel workflow-forms__panel--designer" aria-modal="true" role="dialog">
+    <aside v-if="selected && localDesign" class="workflow-forms__panel workflow-forms__panel--designer" aria-modal="true" role="dialog">
       <div class="workflow-forms__editor-heading">
         <div>
           <h2 translate="no">{{ selected.formKey }}</h2>
@@ -379,12 +420,12 @@ async function act<T>(
           {{ t('workflowForms.close') }}
         </el-button>
       </div>
+      <p v-if="localDesign.fullNetReconstruction" role="status">{{ t('workflowForms.reconstructionNotice') }}</p>
+      <ul v-if="problem?.errors" role="alert"><li v-for="(messages, path) in problem.errors" :key="path"><code>{{ path }}</code>: {{ messages.join(' / ') }}</li></ul>
       <VForm3WorkflowDesigner
         ref="designer"
-        :schema="localDraft"
-        :catalog="catalog"
+        :designer-json="localDesign"
         :disabled="busy"
-        @update:schema="localDraft = $event"
         @validation-error="showDesignerError"
       />
       <div class="workflow-forms__decision-bar">
@@ -415,7 +456,10 @@ async function act<T>(
 .workflow-forms__versions li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .workflow-forms__empty { padding: 2.5rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
 .workflow-forms__panel { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--el-border-color); border-top: 4px solid var(--el-color-primary); background: var(--el-bg-color); box-shadow: var(--el-box-shadow-light); }
-.workflow-forms__panel--designer { position: fixed; z-index: 2000; inset: 4vh 3vw; overflow: auto; }
+.workflow-forms__panel--designer { position: fixed; z-index: 2000; inset: 4vh 3vw; display: flex; flex-direction: column; overflow: hidden; }
+.workflow-forms__panel--designer :deep(.fullnet-form-designer) { flex: 1; min-height: 0; --fullnet-form-min-height: 0px; --fullnet-form-height: 100%; }
+.workflow-forms__panel--designer .workflow-forms__editor-heading,
+.workflow-forms__panel--designer .workflow-forms__decision-bar { flex-shrink: 0; }
 .workflow-forms__panel label { display: grid; gap: 0.4rem; }
 .workflow-forms__panel input { min-height: 38px; padding: 0.5rem 0.7rem; border: 1px solid var(--el-border-color); border-radius: 8px; color: var(--el-text-color-primary); background: var(--el-bg-color); font: inherit; }
 .workflow-forms__editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }

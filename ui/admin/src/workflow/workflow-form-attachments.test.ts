@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { uploadHostFile } from '../api/host-files';
 import { http } from '../api/http';
-import { downloadWorkflowFormAttachment, uploadWorkflowFormAttachment } from './workflow-form-attachments';
+import { downloadWorkflowFormAttachment, downloadWorkflowTodoFormAttachment, uploadWorkflowFormAttachment } from './workflow-form-attachments';
 
 vi.mock('../api/host-files', () => ({ uploadHostFile: vi.fn(), downloadHostFileContent: vi.fn() }));
 vi.mock('../api/http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
@@ -27,5 +27,11 @@ describe('workflow form attachment transport', () => {
       '/api/v1/workflow/instances/instance-id/form-attachments/file-id/content',
       { method: 'GET' }, signal
     );
+  });
+
+  it('个人选票读取绑定实际Todo，不依赖实例查询权限', async () => {
+    const blob = new Blob(['private']); vi.mocked(http.requestBlob).mockResolvedValue(blob);
+    expect(await downloadWorkflowTodoFormAttachment('todo-id', 'file-id')).toBe(blob);
+    expect(http.requestBlob).toHaveBeenCalledWith('/api/v1/workflow/todos/todo-id/form-attachments/file-id/content', { method: 'GET', headers: { accept: 'application/octet-stream' } }, undefined);
   });
 });

@@ -276,7 +276,7 @@ const counterexamples = [
   [
     'messaging-cdc-missing-kafka',
     ['values-role-worker.yaml', 'values-messaging-cdc-missing-kafka.yaml'],
-    'worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka',
+    'worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is HybridKafka',
   ],
   [
     'messaging-consumer-old-broker',

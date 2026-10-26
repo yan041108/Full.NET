@@ -225,6 +225,10 @@ public sealed class IdentityModuleRegistrationTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(ITenantUserSelectionDirectory)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ITenantMemberSelectionDirectory)
+            && descriptor.ImplementationType == typeof(TenantMemberSelectionDirectory)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
     }
 
     [TestMethod]

@@ -53,6 +53,8 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<SerialNumberPreviewService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioHandler, SerialRuleApprovalScenarioHandler>());
+        services.TryAddScoped<Features.WorkflowCommands.SerialRuleApprovedCommandExecutor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioCommandHandler, Features.WorkflowCommands.SerialRuleScenarioCommandHandler>());
         services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<SerialRuleUpdateApprovalService>();
@@ -83,6 +85,8 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<IDataApprovalScenarioPolicyPort, Features.DataApprovalBridge.WorkerSerialRuleApprovalScenarioPolicy>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioHandler, SerialRuleApprovalScenarioHandler>());
+        services.TryAddScoped<Features.WorkflowCommands.SerialRuleApprovedCommandExecutor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataApprovalScenarioCommandHandler, Features.WorkflowCommands.SerialRuleScenarioCommandHandler>());
         services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<ISerialRuleChangeApprovalSource, Features.DataApprovalBridge.SerialRuleChangeApprovalSource>();

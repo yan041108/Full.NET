@@ -104,18 +104,10 @@ if (commandLine.VersionRetirement is not null)
     WorkerMaintenanceRegistration.StripBackgroundLoops(builder.Services);
 }
 
-var rawMode = builder.Configuration
+var messagingWorkerMode = builder.Configuration
     .GetSection(MessagingWorkerOptions.SectionName)
     .Get<MessagingWorkerOptions>()?.Mode
     ?? MessagingWorkerMode.LegacyPolling;
-
-// CdcKafka 枚举值作为 HybridKafka 的过时别名保留一个发布周期，
-// 在服务注册前统一规范化为 HybridKafka 语义，避免双重分支判断。
-#pragma warning disable CS0618 // CdcKafka 作为过时别名保留一版，旧配置字符串反序列化会得到该值。
-var messagingWorkerMode = rawMode == MessagingWorkerMode.CdcKafka
-    ? MessagingWorkerMode.HybridKafka
-    : rawMode;
-#pragma warning restore CS0618
 
 if (commandLine.VersionRetirement is null)
 {
@@ -147,7 +139,7 @@ if (commandLine.VersionRetirement is null)
         }
     }
 
-    // HybridKafka（含过时别名 CdcKafka）模式注册 Kafka 模块化与消费能力。
+    // HybridKafka模式注册 Kafka 模块化与消费能力。
     if (messagingWorkerMode == MessagingWorkerMode.HybridKafka)
     {
         builder.Services.AddFullNetModularity();
@@ -175,7 +167,7 @@ await using (var scope = app.Services.CreateAsyncScope())
         && messagingWorkerMode == MessagingWorkerMode.HybridKafka)
     {
         // 通过 Scoped 目录按流验证订阅，保证与 KafkaConsumerWorker
-        // BuildConsumerGroups 所见一致；同时识别 CdcKafka 旧别名情况。
+        // BuildConsumerGroups 所见一致；保持各入口使用相同的模式语义。
         var provider = scope.ServiceProvider;
         var catalog = provider
             .GetRequiredService<IIntegrationEventSubscriptionCatalog>();
@@ -254,7 +246,7 @@ static Task WriteErrorAsync(string code) =>
 /// 装配顺序：ServiceDefaults → Dapper/Caching/MemoryPack/Realtime Publisher →
 /// <see cref="FullNetHostProfile.Worker"/> 模块后台能力（仅 <c>AddBackgroundServices</c>）→ 后台服务与 Kafka 消费。
 /// <para>后台服务按 <c>MessagingWorkerMode</c> 选择注册：<c>OutboxProcessor</c>、<c>OutboxRetentionProcessor</c>、
-/// <c>ShadowEventComparisonProcessor</c> 与 Kafka 消费者；<c>CdcKafka</c> 作为过时别名规范化为 <c>HybridKafka</c>。</para>
+/// <c>ShadowEventComparisonProcessor</c> 与 Kafka 消费者。</para>
 /// <para>支持一次性 Outbox 版本退役扫描命令；非退役模式下才注册后台服务并 <c>RunAsync</c>。</para>
 /// </remarks>
 public partial class Program;

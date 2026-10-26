@@ -27,6 +27,7 @@ internal static class Endpoint
             var result = await service.GetAsync(cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("messagingGetDeliveryOverview")
         .Produces<DeliveryStatusResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.EventsRead));
     }

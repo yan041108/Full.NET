@@ -8,6 +8,30 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowFormValueValidatorTests
 {
     [TestMethod]
+    [DataRow("08:30")]
+    [DataRow("08:30:00")]
+    [DataRow("12:45:37")]
+    [DataRow("18:00:00")]
+    public void Validate_accepts_time_precision_without_discarding_seconds(string value)
+    {
+        var schema = Schema(Field("cutoff", "time", true, "{\"minimum\":\"08:30\",\"maximum\":\"18:00\"}"));
+        var values = ParseElement($"{{\"cutoff\":\"{value}\"}}");
+        Assert.IsTrue(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
+    [TestMethod]
+    [DataRow("08:29:59")]
+    [DataRow("18:00:01")]
+    [DataRow("24:00:00")]
+    [DataRow("12:60:00")]
+    [DataRow("12:00:60")]
+    [DataRow("12:30:00.000")]
+    public void Validate_rejects_invalid_time_or_seconds_outside_bounds(string value)
+    {
+        var schema = Schema(Field("cutoff", "time", true, "{\"minimum\":\"08:30\",\"maximum\":\"18:00\"}"));
+        Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, ParseElement($"{{\"cutoff\":\"{value}\"}}")));
+    }
+    [TestMethod]
     public void Validate_accepts_choice_values_declared_by_the_published_schema()
     {
         var schema = Schema(
@@ -106,7 +130,7 @@ public sealed class WorkflowFormValueValidatorTests
     [DataRow("date", "{}", "\"2026-02-30\"")]
     [DataRow("date", "{}", "\"2026/08/30\"")]
     [DataRow("time", "{}", "\"24:00\"")]
-    [DataRow("time", "{}", "\"10:30:00\"")]
+    [DataRow("time", "{}", "\"10:30:00.001\"")]
     [DataRow("datetime", "{}", "\"2026-08-30T10:30:00\"")]
     [DataRow("datetime", "{}", "\"2026-08-30T10:30:00.000Z\"")]
     [DataRow("datetime", "{\"maximum\":\"2026-08-30T02:00:00Z\"}", "\"2026-08-30T10:30:00+08:00\"")]

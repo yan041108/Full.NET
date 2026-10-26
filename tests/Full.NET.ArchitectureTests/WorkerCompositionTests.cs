@@ -64,17 +64,12 @@ public sealed class WorkerCompositionTests
     }
 
     [TestMethod]
-    public void Cdc_kafka_mode_is_accepted_as_obsolete_alias_for_hybrid_kafka()
+    public void Worker_mode_uses_hybrid_kafka_without_a_delivery_owner_alias()
     {
-        // 为保证一个发布周期内的配置兼容性，CdcKafka 字符串仍应在 Program.cs
-        // 启动守卫中被识别（映射到 HybridKafka 语义），或在验证器中标记为 obsolete 别名。
-        var source = File.ReadAllText(WorkerProgramPath);
-
-        // CdcKafka 必须仍然出现在分支判断里（兼容旧配置），不能直接移除导致 Options 验证失败。
-        StringAssert.Contains(
-            source,
-            "MessagingWorkerMode.CdcKafka",
-            "Program.cs 必须保留 CdcKafka 模式判断以兼容旧配置（作为 HybridKafka 过时别名）。");
+        var mode = File.ReadAllText(Path.Combine(Path.GetDirectoryName(WorkerProgramPath)!, "MessagingWorkerMode.cs"));
+        StringAssert.Contains(mode, "HybridKafka = 2");
+        Assert.IsFalse(mode.Contains("CdcKafka =", StringComparison.Ordinal));
+        Assert.IsFalse(File.ReadAllText(WorkerProgramPath).Contains("MessagingWorkerMode.CdcKafka", StringComparison.Ordinal));
     }
 
     [TestMethod]

@@ -241,27 +241,37 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ### 8.1 职责
 
-- 事件流所有权注册与切换：LegacyPolling ↔ ShadowCdcKafka ↔ CdcKafka
-- 死信（DLQ）查询与人工重放
+- 事件流所有权切换：切流接口只接受 LegacyPolling → CdcKafka，回退接口只接受 CdcKafka → LegacyPolling；ShadowCdc 是影子阶段，不能按双向切换链理解
+- Legacy 死信查询与精确 Id 回队；真实 Kafka DLQ 持久投影查询及经原订阅/Inbox 的单条重放；保留历史 Inbox failed 行接口
 - Kafka 范围重放运维 API
-- Inbox 积压监控
-- CDC 启用/禁用脚本（SQL Server CDC / MySQL Binlog 验证）
+- Legacy Outbox 全局积压与目录流所有者查询（所有者批量解析）
+- CDC 模板与数据库启用/验证由部署基础设施承担，模块切流不会自动启停 Connector/Consumer
 
 ### 8.2 所有权切换 CAS
 
 ```
-切换请求: StreamId, TargetOwner
-  1. 读取 EventStreamOwnershipRecord: { CurrentOwner, PreviousOwner, Version }
-  2. 检查目标积压（DueRetryCount / ActiveLeaseCount）只看目标流，其他流不阻塞
-  3. SQL UPDATE ... 
-     WHERE StreamId = @StreamId AND PreviousOwner = @ExpectedPreviousOwner
+切流请求: EventType, SchemaVersion, TargetOwner, Reason
+  1. 检查切流开关、目标所有者、理由并取得流级所有权事务门
+  2. 检查 Legacy 所有权与目标流 pending / dead letter / due retry / active lease
+  3. SQL UPDATE ...
+     WHERE MessageType = @MessageType AND SchemaVersion = @SchemaVersion
+       AND CurrentOwner = @PreviousOwner
      （原子 Compare-And-Swap）
   4. 受影响行数 = 0 → 并发冲突异常
-  5. 成功后：
-     - 旧 Worker 立即停止领取该流
-     - CDC Relay 开始（或停止）捕获该流追加 INSERT
-     - Kafka Consumer Group 开始（或停止）消费
+  5. 同事务写所有权与领域审计，后续生产者按新所有权路由到追加式 Outbox
+     - Legacy Worker 按有效所有权拒绝继续处理已撤销的流
+     - Connector/Consumer 的部署、启停和运行就绪不由该 CAS 自动完成
 ```
+
+### 8.3 当前缺口与整改边界（2026-10-24）
+
+第一批在 `main / a77902afd8` 基线上实施，实际验收见 [第一批记录](../docs/superpowers/plans/2026-10-24-messaging-operations-batch1.md)，不提升生产或容量认证：
+
+- Kafka 终态失败发布到 `.dlq`，新增独立投影 Worker 经模块端口写 `fn_messaging_dead_letter`，提交后确认 Offset；位置唯一键避免重复覆盖恢复状态。损坏信封保留位置、原始字节并拒绝重放；查询不返回载荷。Legacy 经 `IOutboxDeadLetterStore` 查询与条件回队，保留 Id、载荷和 Attempts。
+- API 仅注册范围重放，回退默认失败关闭。真实 Connect reader 暂停后全部检查通过才登记内存状态，失败补偿可能遗漏已暂停资源；登记不持久化且恢复未验证任务实际运行，需先修复再接入 API。
+- 全部人工写操作从认证上下文解析操作者并要求不超过 512 字符的理由；恢复与领域审计同事务。前端提供来源页签、筛选分页、详情及独立写权限，导航与内容统一读权限。切流仍未读取影子通过记录或目标运行就绪证明。
+
+整改按“真实失败查询/受控恢复与审计 → 持久回退恢复和切流证据 → 状态、操作进度与页面”推进，保持原有事务、幂等与单一发布所有权。完整范围及聚焦验收条件见 [Messaging 运行时拓扑](../docs/operations/messaging-runtime-topology.md#2026-10-24-运维整改范围第一批已实现)，运行限制见 [CDC 运维说明](../docs/operations/cdc-kafka-event-delivery.md)。
 
 ---
 
@@ -435,7 +445,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 > 2026-10-23 专项修订：完整 Workflow-Vue3 节点整改与两项已复现待修缺陷以[现行规格](../docs/superpowers/specs/2026-08-20-workflow-module-design.md#53-完整节点整改矩阵2026-10-23)为准；目标为 18 类可添加节点加发起/结束，排除 LogicFlow。以下接口/事件说明描述已有实现，新增节点尚未实现；Webhooks 仅直接消费完成集成事件，不实现三种终态 Sink。
 
-> 表单设计器最新目标：VForm3 先完整原样迁入，保留全部组件/布局/属性/预览/工具栏，独立设计 JSON 无损保存回显后再二开。当前仍为精简子集及简化 Schema 链路；目标契约见[规格 §6](../docs/superpowers/specs/2026-08-20-workflow-module-design.md#6-表单引擎与跨端渲染)，实施只按[完整迁入计划](../docs/superpowers/plans/2026-10-23-vform3-full-source-migration.md)，不能从下文已有服务/表结构推断目标已交付。
+> 表单设计器最新状态：2026-10-24 已迁入固定来源 338 文件和完整原版隔离设计器/Renderer，保留全部组件/布局/属性/预览/工具栏，完整 JSON 走独立设计资产 API/双库存储；组件绑定、Web 目标、绑定修订与实际运行摘要核验已接入。[定向验证](../docs/verification/2026-10-24-vform3-full-source-migration.md)覆盖设计/保存回显/发布及真实页面办理提交，双库与 Host.Api 完整 AOT 分析通过。继续验证已补当前 Linux Native AOT 发布与 VForm 原生双库 2/2，修复通用校验错误 JSON 元数据歧义，托管回归 17/17。独立审查、其它原生路径和全部业务绑定未验证，不整体标记 Workflow Verified。契约见[规格 §6](../docs/superpowers/specs/2026-08-20-workflow-module-design.md#6-表单引擎与跨端渲染)，后续二开边界见[完整迁入计划](../docs/superpowers/plans/2026-10-23-vform3-full-source-migration.md)。
 
 > 项目：[`src/Modules/Full.NET.Modules.Workflow`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Workflow)
 > 稳定模块键：`Workflow`

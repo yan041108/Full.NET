@@ -12,6 +12,11 @@ internal static class MessagingDomainAuditActionKeys
     public const string DeliveryCutover = "messaging.delivery.cutover";
 
     public const string DeliveryRollback = "messaging.delivery.rollback";
+
+    public const string DeliveryRollbackRecovery = "messaging.delivery.rollback_recovery";
+
+    /// <summary>受控业务影子采集窗口的开始和关闭。</summary>
+    public const string ShadowCaptureControl = "messaging.shadow_capture.control";
 }
 
 /// <summary>

@@ -14,4 +14,5 @@ namespace Full.NET.Messaging.Kafka.Serialization;
 [JsonSerializable(typeof(List<KafkaConnectAdminClient.ConnectorOffsetEntry>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(RollbackControlResources))]
 internal partial class KafkaMessagingJsonSerializerContext : JsonSerializerContext;

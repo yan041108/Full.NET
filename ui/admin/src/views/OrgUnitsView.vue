@@ -29,6 +29,7 @@ import {
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import OrgUnitLeadershipDialog from '../organization/OrgUnitLeadershipDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -69,6 +70,7 @@ const appliedFilters = ref<AppliedFilters>({ code: '', name: '', status: '' });
 const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingUnit = ref<OrganizationUnit | null>(null);
+const leadershipUnit = ref<OrganizationUnit | null>(null);
 const editorFormRef = ref<FormInstance>();
 const editorForm = reactive({ code: '', name: '', parentId: '' as string | null });
 const fieldErrors = reactive({ code: '', name: '', parentId: '' });
@@ -575,6 +577,10 @@ function toProblem(
                   @click="disable(row as OrganizationUnitTreeNode)"
                     />
                   </PermissionGate>
+                  <PermissionGate code="organization.unit_leadership.read">
+                    <ArtTableActionButton type="roles" test-id="org-units-action-leadership" :title="t('orgUnitLeadership.action')"
+                      :disabled="changing" @click="leadershipUnit = row as OrganizationUnitTreeNode" />
+                  </PermissionGate>
                 </ArtTableActionGroup>
               </template>
             </el-table-column>
@@ -667,6 +673,7 @@ function toProblem(
       </el-form>
     </ArtFormDialog>
   </section>
+  <OrgUnitLeadershipDialog v-if="leadershipUnit" :key="leadershipUnit.id" :unit-id="leadershipUnit.id" :unit-name="leadershipUnit.name" @close="leadershipUnit = null" />
 </template>
 
 <style scoped>

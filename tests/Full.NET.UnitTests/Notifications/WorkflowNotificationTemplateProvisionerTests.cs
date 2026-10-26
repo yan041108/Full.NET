@@ -16,6 +16,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
 {
     [TestMethod]
     [DataRow("workflow.todo.assigned")]
+    [DataRow("workflow.todo.manual_reminder")]
     [DataRow("workflow.instance.completed")]
     [DataRow("workflow.instance.rejected")]
     [DataRow("workflow.instance.cancelled")]
@@ -38,6 +39,8 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var transaction = new RecordingTransaction();
         var templateId = Guid.CreateVersion7();
         var versionId = Guid.CreateVersion7();
+        var englishTemplateId = Guid.CreateVersion7();
+        var englishVersionId = Guid.CreateVersion7();
         var tenantId = Guid.CreateVersion7();
         var actorUserId = Guid.CreateVersion7();
         query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
@@ -51,7 +54,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
                 Arg.Any<CancellationToken>())
             .Returns(1);
         var ids = Substitute.For<IIdGenerator>();
-        ids.NewId().Returns(templateId, versionId);
+        ids.NewId().Returns(templateId, versionId, englishTemplateId, englishVersionId);
         var service = new WorkflowNotificationTemplateProvisioner(
             query,
             command,
@@ -67,8 +70,8 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         Assert.AreNotEqual(
             actorUserId,
             WorkflowNotificationTemplateProvisioner.AutomaticProvisionerActorId);
-        Assert.AreEqual(1, transaction.ExecutionCount);
-        await command.Received(1).ExecuteAsync(
+        Assert.AreEqual(2, transaction.ExecutionCount);
+        await command.Received(2).ExecuteAsync(
             NotificationPlatformSql.InsertTemplateTenant,
             Arg.Is<object?>(value =>
                 HasParameter(value, "TenantId", tenantId)
@@ -90,6 +93,9 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
             NotificationPlatformSql.PublishTemplate,
             Arg.Is<object?>(value => HasParameter(value, "LatestPublishedVersionId", versionId)),
             Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(NotificationPlatformSql.InsertTemplateVersion,
+            Arg.Is<object?>(value => HasParameter(value, "Id", englishVersionId) && HasParameter(value, "TemplateId", englishTemplateId)
+                && HasParameter(value, "LocaleTag", LocaleCatalog.English)), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -183,6 +189,18 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
             NotificationPlatformSql.InsertTemplateVersion,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task English_admin_draft_is_preserved_while_default_published_template_remains_available()
+    {
+        var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
+        query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(NotificationPlatformSql.FindTemplateByKeyAndLocale,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call => HasParameter(call[1], "LocaleTag", LocaleCatalog.English)
+                ? CreateTemplate(null) with { LocaleTag = LocaleCatalog.English } : CreateTemplate(Guid.CreateVersion7()));
+        await new WorkflowNotificationTemplateProvisioner(query, command, new RecordingTransaction(), Substitute.For<IClock>(), Substitute.For<IIdGenerator>())
+            .EnsurePublishedAsync(NotificationInboxScope.FromTrustedTenantId(null), "workflow.todo.manual_reminder", CancellationToken.None);
+        Assert.AreEqual(0, command.ReceivedCalls().Count());
     }
 
     private static NotificationTemplateRecord CreateTemplate(Guid? publishedVersionId) =>

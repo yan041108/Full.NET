@@ -63,15 +63,21 @@ internal sealed class WorkflowParallelJoinCoordinator(
             WorkflowSql.FindParallelJoinById,
             WorkflowSqlParameters.Create(("Id", parallelJoinId), ("InstanceId", instanceId)),
             cancellationToken).ConfigureAwait(false);
-        if (join is null || join.StatusKey != "waiting")
+        if (join is null || await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowBranchSql.CountSelectedBranch,
+                WorkflowSqlParameters.Create(("ParallelJoinId", parallelJoinId), ("BranchKey", branchKey)), cancellationToken)
+                .ConfigureAwait(false) != 1)
+            return new WorkflowParallelJoinArrivalResult(false, false, join, false);
+        if (join.StatusKey != "waiting")
         {
-            return new WorkflowParallelJoinArrivalResult(false, false, join);
+            return new WorkflowParallelJoinArrivalResult(false, false, join, join.StatusKey == "completed");
         }
 
-        var isNewArrival = true;
-        try
-        {
-            await commandExecutor.ExecuteAsync(
+        // 调用方已经持有实例锁；先读去重事实，避免唯一约束异常使 SQL Server 外层事务不可提交。
+        if (await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowBranchSql.CountArrival,
+                WorkflowSqlParameters.Create(("ParallelJoinId", parallelJoinId), ("BranchKey", branchKey)), cancellationToken)
+                .ConfigureAwait(false) != 0)
+            return new WorkflowParallelJoinArrivalResult(false, false, join);
+        await commandExecutor.ExecuteAsync(
                 WorkflowSql.InsertParallelBranchArrival,
                 WorkflowSqlParameters.Create(
                     ("Id", idGenerator.NewId()),
@@ -79,34 +85,26 @@ internal sealed class WorkflowParallelJoinCoordinator(
                     ("BranchKey", branchKey),
                     ("ArrivedAtUtc", arrivedAtUtc)),
                 cancellationToken).ConfigureAwait(false);
-        }
-        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        var updated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.IncrementParallelJoinArrival,
+            WorkflowSqlParameters.Create(
+                ("Id", parallelJoinId),
+                ("InstanceId", instanceId),
+                ("Revision", join.Revision),
+                ("CompletedAtUtc", arrivedAtUtc)),
+            cancellationToken).ConfigureAwait(false);
+        if (updated != 1)
         {
-            isNewArrival = false;
+            throw new InvalidOperationException("Failed to increment parallel join arrival count.");
         }
 
-        if (isNewArrival)
-        {
-            var updated = await commandExecutor.ExecuteAsync(
-                WorkflowSql.IncrementParallelJoinArrival,
-                WorkflowSqlParameters.Create(
-                    ("Id", parallelJoinId),
-                    ("InstanceId", instanceId),
-                    ("Revision", join.Revision),
-                    ("CompletedAtUtc", arrivedAtUtc)),
-                cancellationToken).ConfigureAwait(false);
-            if (updated != 1)
-            {
-                throw new InvalidOperationException("Failed to increment parallel join arrival count.");
-            }
-        }
 
         join = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowParallelJoinRecord>(
             WorkflowSql.FindParallelJoinById,
             WorkflowSqlParameters.Create(("Id", parallelJoinId), ("InstanceId", instanceId)),
             cancellationToken).ConfigureAwait(false);
         return new WorkflowParallelJoinArrivalResult(
-            isNewArrival,
+            true,
             join?.StatusKey == "completed",
             join);
     }
@@ -131,7 +129,9 @@ internal sealed class WorkflowParallelJoinCoordinator(
 /// <param name="IsNewArrival">本次调用是否首次记录该分支到达。</param>
 /// <param name="IsJoinComplete">汇合是否因全部分支到达而完成。</param>
 /// <param name="Join">最新汇合状态快照。</param>
+/// <param name="IsValid">到达身份必须属于本次分叉选定的分支。</param>
 internal sealed record WorkflowParallelJoinArrivalResult(
     bool IsNewArrival,
     bool IsJoinComplete,
-    WorkflowParallelJoinRecord? Join);
+    WorkflowParallelJoinRecord? Join,
+    bool IsValid = true);

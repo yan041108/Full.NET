@@ -6,6 +6,22 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class WorkflowErrorCodes
 {
+    /// <summary>业务所有者保留类型只能从实际业务入口经受信端口发起。</summary>
+    public const string BusinessOwnerRequired = "workflow.business_owner_required";
+    /// <summary>实际业务动作不在当前目录或不符合受控根审批最终提交位置。</summary>
+    public const string DefinitionBusinessCommandInvalid = "workflow.definition.business_command_invalid";
+    /// <summary>固定子版本、字段映射或层级执行额度无效。</summary>
+    public const string DefinitionSubprocessInvalid = "workflow.definition.subprocess_invalid";
+    /// <summary>原父活动、子输入或剩余额度不允许激活。</summary>
+    public const string SubprocessActivationInvalid = "workflow.subprocess.activation_invalid";
+    /// <summary>工作日历窗口、时区或请求结构无效。</summary>
+    public const string CalendarInvalid=Prefix+"calendar.invalid";
+    /// <summary>当前作用域不存在所选工作日历。</summary>
+    public const string CalendarNotFound=Prefix+"calendar.not_found";
+    /// <summary>当前作用域已存在相同稳定日历键。</summary>
+    public const string CalendarKeyExists=Prefix+"calendar.key_exists";
+    /// <summary>当前作用域不存在所选不可变日历版本。</summary>
+    public const string CalendarVersionNotFound=Prefix+"calendar.version_not_found";
     /// <summary>工作流模块错误码统一前缀；所有稳定错误码均以此前缀开头。</summary>
     public const string Prefix = "workflow.";
     /// <summary>工作流定义包含未知节点类型；调用方应使用已注册节点类型重新提交定义。</summary>
@@ -28,13 +44,29 @@ public static class WorkflowErrorCodes
     public const string DefinitionSchemaUnsupported = Prefix + "definition.schema_unsupported";
     /// <summary>工作流定义字段策略配置无效；调用方应检查字段权限或映射规则。</summary>
     public const string DefinitionFieldPolicyInvalid = Prefix + "definition.field_policy_invalid";
+    /// <summary>可能同时执行的自动分支写入了同一表单字段。</summary>
+    public const string DefinitionParallelWriteConflict = Prefix + "definition.parallel_write_conflict";
+    /// <summary>异步等待依赖缺失、越过实际激活路径或引用未来/自身节点。</summary>
+    public const string DefinitionAsyncDependencyInvalid = Prefix + "definition.async_dependency_invalid";
     /// <summary>工作流定义抄送接收人配置无效；调用方应修正抄送接收人列表。</summary>
     public const string DefinitionCcRecipientsInvalid = Prefix + "definition.cc_recipients_invalid";
     /// <summary>工作流定义网关配置无效；调用方应检查网关节点分支与条件。</summary>
     public const string DefinitionGatewayInvalid = Prefix + "definition.gateway_invalid";
     /// <summary>审批待办超时、催办或升级策略无效。</summary>
     public const string DefinitionTimeoutPolicyInvalid = Prefix + "definition.timeout_policy_invalid";
-    /// <summary>多人审批模式、办理人或法定票数配置无效。</summary>
+    /// <summary>延时类型、时区、时间点或绑定字段无效。</summary>
+    public const string DefinitionDelayPolicyInvalid = Prefix + "definition.delay_policy_invalid";
+    /// <summary>办理提交完成规则无效，不能回退为审批规则。</summary>
+    public const string DefinitionTaskPolicyInvalid = Prefix + "definition.task_policy_invalid";
+    /// <summary>独立投票规则、表单版本或结果字段绑定无效。</summary>
+    public const string DefinitionVotePolicyInvalid = Prefix + "definition.vote_policy_invalid";
+    /// <summary>领取池的释放规则无效。</summary>
+    public const string DefinitionClaimPolicyInvalid = Prefix + "definition.claim_policy_invalid";
+    /// <summary>发布版本的发起人撤回边界配置无效。</summary>
+    public const string DefinitionWithdrawalPolicyInvalid = Prefix + "definition.withdrawal_policy_invalid";
+    /// <summary>当前活动或已发生的业务副作用不允许发起人撤回。</summary>
+    public const string InstanceWithdrawalBoundaryInvalid = Prefix + "instance.withdrawal_boundary_invalid";
+    /// <summary>审批完成门槛配置无效。</summary>
     public const string DefinitionApprovalPolicyInvalid = Prefix + "definition.approval_policy_invalid";
     /// <summary>办理人解析策略结构、作用域或实体引用无效。</summary>
     public const string DefinitionAssigneePolicyInvalid = Prefix + "definition.assignee_policy_invalid";
@@ -106,6 +138,8 @@ public static class WorkflowErrorCodes
     public const string ActiveInstanceExists = Prefix + "instance.active_exists";
     /// <summary>无权操作该工作流实例；调用方应申请相应权限。</summary>
     public const string InstanceForbidden = Prefix + "instance.forbidden";
+    /// <summary>当前可信作用域内不存在该实例或活动。</summary>
+    public const string InstanceNotFound = Prefix + "instance.not_found";
     /// <summary>无权操作该待办；调用方应申请相应权限。</summary>
     public const string TodoForbidden = Prefix + "todo.forbidden";
     /// <summary>指定步骤不是当前实例有效执行链上的已完成人工审批节点。</summary>
@@ -131,6 +165,17 @@ public static class WorkflowErrorCodes
     /// <summary>找不到可取消的活动加签链。</summary>
     public const string TodoCountersignChainNotFound = Prefix + "todo.countersign_chain_not_found";
 
+    /// <summary>节点动作、签名或意见配置无效。</summary>
+    public const string DefinitionActionPolicyInvalid = Prefix + "definition.action_policy_invalid";
+    /// <summary>发布节点禁止该办理动作。</summary>
+    public const string TodoActionForbidden = Prefix + "todo.action_forbidden";
+    /// <summary>发布节点要求填写办理意见。</summary>
+    public const string TodoCommentRequired = Prefix + "todo.comment_required";
+    /// <summary>发布节点要求绑定签名文件证据。</summary>
+    public const string TodoSignatureRequired = Prefix + "todo.signature_required";
+    /// <summary>签名文件不可用、越权或内容不符合要求。</summary>
+    public const string TodoSignatureInvalid = Prefix + "todo.signature_invalid";
+
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         DefinitionNodeTypeUnknown,
@@ -147,6 +192,11 @@ public static class WorkflowErrorCodes
         DefinitionGatewayInvalid,
         DefinitionTimeoutPolicyInvalid,
         DefinitionApprovalPolicyInvalid,
+        DefinitionTaskPolicyInvalid,
+        DefinitionVotePolicyInvalid,
+        DefinitionClaimPolicyInvalid,
+        DefinitionWithdrawalPolicyInvalid,
+        InstanceWithdrawalBoundaryInvalid,
         DefinitionAssigneePolicyInvalid,
         DefinitionTopologyUnsupported,
         DefinitionDisabled,
@@ -194,5 +244,14 @@ public static class WorkflowErrorCodes
         TodoCountersignDirectionInvalid,
         TodoCountersignChainActive,
         TodoCountersignChainNotFound,
+        BusinessOwnerRequired,
+        DefinitionBusinessCommandInvalid,
+        DefinitionSubprocessInvalid,
+        SubprocessActivationInvalid,
+        DefinitionActionPolicyInvalid,
+        TodoActionForbidden,
+        TodoCommentRequired,
+        TodoSignatureRequired,
+        TodoSignatureInvalid,
     ]);
 }

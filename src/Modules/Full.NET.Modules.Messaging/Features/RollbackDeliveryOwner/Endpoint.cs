@@ -21,6 +21,27 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/messaging/delivery")
             .WithTags("Messaging");
 
+        group.MapGet("/rollback-operations", async (string eventType, int schemaVersion,
+            DeliveryRollbackRecoveryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.FindLatestAsync(eventType, schemaVersion, token).ConfigureAwait(false), context))
+            .WithName("messagingGetLatestRollbackOperation")
+            .Produces<RollbackOperationResponse>(StatusCodes.Status200OK)
+            .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.EventsRead));
+
+        group.MapGet("/rollback-operations/{generation:guid}", async (Guid generation,
+            DeliveryRollbackRecoveryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.FindAsync(generation, token).ConfigureAwait(false), context))
+            .WithName("messagingGetRollbackOperation")
+            .Produces<RollbackOperationResponse>(StatusCodes.Status200OK)
+            .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.EventsRead));
+
+        group.MapPost("/rollback-operations/{generation:guid}/recover", async (Guid generation, RecoverRollbackRequest request,
+            DeliveryRollbackRecoveryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.RecoverAsync(generation, request, token).ConfigureAwait(false), context))
+            .WithName("messagingRecoverRollbackOperation")
+            .Produces<RollbackOperationResponse>(StatusCodes.Status200OK)
+            .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.DeliveryRollback));
+
         group.MapPost("/rollback", async (
             ChangeDeliveryOwnerRequest request,
             DeliveryRollbackService service,
@@ -32,6 +53,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("messagingRollbackDeliveryOwner")
         .Produces<DeliveryRollbackResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.DeliveryRollback));
     }

@@ -133,9 +133,9 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
                 })).ConfigureAwait(false);
         }
         catch (CreateTopicsException exception) when (
-            exception.Results.All(result => result.Error.Code == ErrorCode.TopicAlreadyExists))
+            exception.Results.All(result => result.Error.Code is ErrorCode.NoError or ErrorCode.TopicAlreadyExists))
         {
-            // 共享 fixture 重跑同名 Topic 时保持幂等。
+            // 同批可同时包含新建成功和已存在的 Topic；两种成功状态都保持 Ensure 的幂等语义。
         }
     }
 

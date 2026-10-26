@@ -17,13 +17,15 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new PermissionDefinition(MessagingPermissions.OperationsRead, "进入消息运维页面", AuthorizationScope.Host),
+        new PermissionDefinition(MessagingPermissions.LegacyDeadLettersRequeue, "回队 Legacy 死信", AuthorizationScope.Host),
         new PermissionDefinition(
             MessagingPermissions.EventsRead,
-            "查询事件交付状态",
+            "查询交付总览与操作记录",
             AuthorizationScope.Host),
         new PermissionDefinition(
             MessagingPermissions.DeadLettersRead,
-            "查询消费死信",
+            "查询 Legacy 与 Kafka 死信",
             AuthorizationScope.Host),
         new PermissionDefinition(
             MessagingPermissions.DeadLettersReplay,
@@ -55,11 +57,17 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
             "Messaging",
             "connection",
             59,
-            MessagingPermissions.EventsRead),
+            MessagingPermissions.OperationsRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition(MessagingPermissions.EventsRead, "host-messaging-ops", MessagingPermissions.EventsRead,
+            "查看交付总览与操作记录", "read-overview", 0),
+        new AuthorizationActionDefinition(MessagingPermissions.DeadLettersRead, "host-messaging-ops", MessagingPermissions.DeadLettersRead,
+            "查看死信", "read-dead-letters", 1),
+        new AuthorizationActionDefinition(MessagingPermissions.LegacyDeadLettersRequeue, "host-messaging-ops",
+            MessagingPermissions.LegacyDeadLettersRequeue, "回队 Legacy 死信", "requeue", 5),
         new AuthorizationActionDefinition(
             "messaging.dead_letters.replay",
             "host-messaging-ops",

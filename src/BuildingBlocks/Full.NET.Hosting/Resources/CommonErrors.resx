@@ -13,4 +13,5 @@
   <data name="validation.maximum_length" xml:space="preserve"><value>长度不能超过 {MaxLength} 个字符。</value></data>
   <data name="validation.invalid_format" xml:space="preserve"><value>字段格式无效。</value></data>
   <data name="localization.unsupported_locale" xml:space="preserve"><value>不支持请求的语言。</value></data>
+  <data name="common.request.invalid" xml:space="preserve"><value>请求内容无效或不受支持。</value></data>
 </root>

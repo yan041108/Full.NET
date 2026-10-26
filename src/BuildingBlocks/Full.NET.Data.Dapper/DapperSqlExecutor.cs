@@ -18,8 +18,7 @@ namespace Full.NET.Data.Dapper;
 /// 这是多租户数据隔离的第一道防线（SqlScopeGuard 本身为最后一道）。</para>
 /// <para>观测能力：所有操作均通过 <see cref="DapperTelemetry"/> 记录 OpenTelemetry Metrics，
 /// 并通过结构化日志输出 Statement 名称、Provider、耗时与错误码。</para>
-/// <para>异常映射：Execute 操作会通过 <see cref="DataCommandExceptionMapper"/> 将 Provider 特定的
-/// 数据库异常映射为领域异常（如唯一键冲突 → ConcurrencyException）。</para>
+/// <para>异常映射：Execute 转换明确命令失败，查询仅统一死锁并发类别；模块无需依赖具体数据库驱动。</para>
 /// </remarks>
 internal sealed class DapperSqlExecutor(
     DbSession session,
@@ -141,6 +140,7 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }
         finally
@@ -202,6 +202,7 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }
         finally
@@ -335,6 +336,7 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }
         finally

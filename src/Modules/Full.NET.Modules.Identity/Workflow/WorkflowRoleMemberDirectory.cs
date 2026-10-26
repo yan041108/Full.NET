@@ -16,6 +16,62 @@ internal sealed class WorkflowRoleMemberDirectory(
     IOptions<DatabaseOptions> databaseOptions,
     ICurrentTenant currentTenant) : IWorkflowRoleMemberDirectory
 {
+    /// <inheritdoc />
+    public async Task<PagedResult<WorkflowRoleUserDirectoryEntry>> ListActiveMembersOfRolesAsync(IReadOnlyCollection<Guid> roleIds,
+        int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(roleIds);
+        var roles = roleIds.Distinct().ToArray();
+        if (roles.Length is < 1 or > 5 || roles.Contains(Guid.Empty) || page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
+            throw new ArgumentException("Workflow role selection is outside its bounds.");
+        var parameters = IdentitySqlParameters.Create(("RoleIds", roles), ("Offset", (long)(page - 1) * pageSize), ("PageSize", pageSize));
+        var mysql = databaseOptions.Value.Provider == DatabaseProvider.MySql;
+        var count = WorkflowRoleSelectionSql.CountHost;
+        var list = mysql ? WorkflowRoleSelectionSql.ListHostMySql : WorkflowRoleSelectionSql.ListHostSqlServer;
+        if (!currentTenant.IsHost)
+        {
+            var scope = ResolveTenantScope(); parameters["TenantId"] = scope.TenantId; parameters["TenantScopeKey"] = scope.TenantScopeKey;
+            count = WorkflowRoleSelectionSql.CountTenant; list = mysql ? WorkflowRoleSelectionSql.ListTenantMySql : WorkflowRoleSelectionSql.ListTenantSqlServer;
+        }
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(count, parameters, cancellationToken).ConfigureAwait(false);
+        var rows = await queryExecutor.QueryAsync<WorkflowRoleUserRow>(list, parameters, cancellationToken).ConfigureAwait(false);
+        return new(rows.Select(row => new WorkflowRoleUserDirectoryEntry(row.Id, row.Username, row.DisplayName)).ToArray(), page, pageSize, total);
+    }
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> FindSelectedActiveMembersByRoleIdsAsync(
+        IReadOnlyCollection<Guid> roleIds, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(roleIds); ArgumentNullException.ThrowIfNull(userIds);
+        var roles = roleIds.Distinct().ToArray(); var users = userIds.Distinct().ToArray();
+        if (roles.Length > 320 || users.Length > 160 || roles.Contains(Guid.Empty) || users.Contains(Guid.Empty))
+            throw new ArgumentException("Workflow selection is outside its bounds.");
+        if (roles.Length == 0 || users.Length == 0) return new Dictionary<Guid, IReadOnlyList<Guid>>();
+        var statement = WorkflowRoleMemberSql.FindSelectedHostRoleMembers;
+        var parameters = IdentitySqlParameters.Create(("RoleIds", roles), ("UserIds", users));
+        if (!currentTenant.IsHost)
+        {
+            var scope = ResolveTenantScope(); parameters["TenantId"] = scope.TenantId; parameters["TenantScopeKey"] = scope.TenantScopeKey;
+            statement = WorkflowRoleMemberSql.FindSelectedTenantRoleMembers;
+        }
+        var rows = await queryExecutor.QueryAsync<WorkflowRoleMemberRow>(statement, parameters, cancellationToken).ConfigureAwait(false);
+        return rows.GroupBy(row => row.RoleId).ToDictionary(group => group.Key, group => (IReadOnlyList<Guid>)group.Select(row => row.UserId).ToArray());
+    }
+    /// <inheritdoc />
+    public async Task<bool> IsActiveMemberOfAnyRoleAsync(Guid userId, IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(roleIds);
+        var ids = roleIds.Distinct().ToArray();
+        if (ids.Length > 5 || ids.Contains(Guid.Empty)) throw new ArgumentException("Workflow role source is outside its bounds.", nameof(roleIds));
+        if (userId == Guid.Empty || ids.Length == 0) return false;
+        var parameters = IdentitySqlParameters.Create(("UserId", userId), ("RoleIds", ids));
+        var statement = WorkflowRoleMemberSql.IsActiveHostRoleMember;
+        if (!currentTenant.IsHost)
+        {
+            var scope = ResolveTenantScope(); parameters["TenantId"] = scope.TenantId; parameters["TenantScopeKey"] = scope.TenantScopeKey;
+            statement = WorkflowRoleMemberSql.IsActiveTenantRoleMember;
+        }
+        return await queryExecutor.QuerySingleOrDefaultAsync<int>(statement, parameters, cancellationToken).ConfigureAwait(false) == 1;
+    }
     /// <summary>分页读取当前可信作用域内可配置为办理人来源的活动角色。</summary>
     /// <param name="page">从 1 开始的页码。</param>
     /// <param name="pageSize">受控单页数量。</param>
@@ -136,8 +192,10 @@ internal sealed class WorkflowRoleMemberDirectory(
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumMembersPerRole, 21);
         if (roleIds.Count > 5) throw new ArgumentException("Workflow role source cannot exceed five roles.", nameof(roleIds));
         var result = new Dictionary<Guid, IReadOnlyList<Guid>>();
+        var activeRoles = await FindActiveRolesAsync(roleIds, cancellationToken).ConfigureAwait(false);
         foreach (var roleId in roleIds.Distinct())
         {
+            if (!activeRoles.ContainsKey(roleId)) continue;
             var mysql = databaseOptions.Value.Provider == DatabaseProvider.MySql;
             var parameters = IdentitySqlParameters.Create(("RoleIds", new[] { roleId }), ("MemberLimit", maximumMembersPerRole));
             var statement = mysql ? WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIdsMySql
@@ -151,7 +209,8 @@ internal sealed class WorkflowRoleMemberDirectory(
                     : WorkflowRoleMemberSql.ListActiveTenantRoleMembersByRoleIds;
             }
             var rows = await queryExecutor.QueryAsync<WorkflowRoleMemberRow>(statement, parameters, cancellationToken).ConfigureAwait(false);
-            if (rows.Count > 0) result[roleId] = rows.Select(row => row.UserId).Distinct().ToArray();
+            // 活动空角色保留键，缺键仅表示无效来源；无人策略不能靠猜测角色是否仍存在。
+            result[roleId] = rows.Select(row => row.UserId).Distinct().ToArray();
         }
         return result;
     }

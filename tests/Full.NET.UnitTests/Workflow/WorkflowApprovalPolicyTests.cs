@@ -7,6 +7,28 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowApprovalPolicyTests
 {
+    [TestMethod]
+    [DataRow("all", 0)]
+    [DataRow("sequential", 0)]
+    [DataRow("any", 0)]
+    [DataRow("percent", 0)]
+    [DataRow("nOfM", 0)]
+    [DataRow("all", 1)]
+    [DataRow("sequential", 1)]
+    [DataRow("nOfM", 1)]
+    public void Dynamic_cohort_does_not_require_unrelated_explicit_users(string mode, int additionalCount)
+    {
+        var approval = new Dictionary<string, object> { ["modeKey"] = mode,
+            ["approverUserIds"] = Enumerable.Range(0, additionalCount).Select(_ => Guid.CreateVersion7()).ToArray() };
+        if (mode == "percent") approval["requiredPercentage"] = 67;
+        if (mode == "nOfM") approval["requiredApprovals"] = 2;
+        var config = JsonSerializer.SerializeToElement(new { approvalPolicy = approval,
+            assigneePolicy = new { sources = new[] { new { resolverKindKey = "position_members", positionIds = new[] { Guid.CreateVersion7() } } } } });
+        Assert.IsTrue(WorkflowApprovalPolicy.TryRead(config, out var policy)); Assert.AreEqual(additionalCount, policy!.ApproverUserIds.Count);
+        Assert.IsTrue(policy.RequiredApprovals >= 1);
+        Assert.IsFalse(WorkflowApprovalPolicy.TryRead(JsonSerializer.SerializeToElement(new { approvalPolicy = approval }), out _));
+    }
+
     /// <summary>三种多人审批模式必须推导确定的法定票数。</summary>
     [TestMethod]
     public void Supported_modes_resolve_required_approval_count()
@@ -14,8 +36,35 @@ public sealed class WorkflowApprovalPolicyTests
         var users = Enumerable.Range(0, 3).Select(_ => Guid.CreateVersion7()).ToArray();
 
         AssertPolicy("all", users, null, 3);
+        AssertPolicy("sequential", users, null, 3);
         AssertPolicy("any", users, null, 1);
         AssertPolicy("nOfM", users, 2, 2);
+    }
+
+    [TestMethod]
+    [DataRow(1, 1)]
+    [DataRow(34, 2)]
+    [DataRow(67, 3)]
+    [DataRow(100, 3)]
+    public void Percentage_threshold_rounds_up_and_keeps_published_percentage(int percentage, int expected)
+    {
+        var users = Enumerable.Range(0, 3).Select(_ => Guid.CreateVersion7()).ToArray();
+        var config = JsonSerializer.SerializeToElement(new { approvalPolicy = new {
+            modeKey = "percent", approverUserIds = users, requiredPercentage = percentage,
+        } });
+        Assert.IsTrue(WorkflowApprovalPolicy.TryRead(config, out var policy));
+        Assert.AreEqual(expected, policy!.RequiredApprovals);
+        Assert.AreEqual(percentage, policy.RequiredPercentage);
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(101)]
+    [DataRow(-1)]
+    public void Invalid_percentage_never_falls_back_to_another_mode(int percentage)
+    {
+        AssertInvalid(new { modeKey = "percent", approverUserIds = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() },
+            requiredPercentage = percentage });
     }
 
     /// <summary>未配置审批策略时必须保留现有单人审批兼容语义。</summary>

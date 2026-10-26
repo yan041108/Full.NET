@@ -15,7 +15,7 @@ using Full.NET.Modules.Workflow.Features;
 namespace Full.NET.Modules.Workflow.Features.ManageForms;
 
 /// <summary>维护当前可信作用域的表单草稿，并以追加方式发布不可变版本。</summary>
-internal sealed class WorkflowFormManagementService(
+internal sealed partial class WorkflowFormManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -68,7 +68,7 @@ internal sealed class WorkflowFormManagementService(
         CancellationToken cancellationToken = default)
     {
         var formKey = NormalizeKey(request.FormKey);
-        if (formKey is null)
+        if (formKey is null || request.DesignerJson is { } suppliedDesign && !WorkflowDesignerAsset.IsValid(suppliedDesign))
         {
             return Invalid<WorkflowFormResponse>();
         }
@@ -97,6 +97,13 @@ internal sealed class WorkflowFormManagementService(
                                     ("CreatedById", actorUserId), ("CreatedAtUtc", now)),
                                 token)
                             .ConfigureAwait(false);
+                        if (request.DesignerJson is { } initialDesign)
+                        {
+                            var design = WorkflowJsonCanonicalizer.Compile(initialDesign);
+                            await commandExecutor.ExecuteAsync(WorkflowDesignerAssetSql.Insert,
+                                Parameters(("FormId", id), ("TenantScopeKey", scope.TenantScopeKey), ("SourceCommit", WorkflowDesignerAsset.SourceCommit),
+                                    ("FormatVersion", WorkflowDesignerAsset.FormatVersion), ("DesignerJson", design.CanonicalJson), ("ContentHash", design.ContentHash)), token).ConfigureAwait(false);
+                        }
                         return Result<WorkflowFormResponse>.Success(new(
                             id, formKey, request.Draft, 1, null,
                             WorkflowDefinitionStatusKeys.Active, 1, now, null));
@@ -275,7 +282,9 @@ internal sealed class WorkflowFormManagementService(
                 Parameters(("FormVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (runningCount > 0)
+        var voteReferences = await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowVoteSql.CountFormVersionReferences,
+            Parameters(("FormVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        if (runningCount > 0 || voteReferences > 0)
         {
             return Failure<bool>(WorkflowErrorCodes.FormVersionInUse, ErrorType.Conflict);
         }
@@ -332,6 +341,9 @@ internal sealed class WorkflowFormManagementService(
             return Failure<WorkflowFormResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict);
         }
 
+        // 设计资产成为权威后，业务投影不能再由独立写入覆盖并造成两份草稿分叉。
+        if (await FindDesignerAssetAsync(id, scope, cancellationToken).ConfigureAwait(false) is not null)
+            return Failure<WorkflowFormResponse>(WorkflowErrorCodes.FormExtensionForbidden, ErrorType.Validation);
         var affected = await commandExecutor.ExecuteAsync(
                 WorkflowSql.UpdateFormDraft,
                 Parameters(
@@ -375,7 +387,20 @@ internal sealed class WorkflowFormManagementService(
             return RevisionConflict<WorkflowFormVersionResponse>();
         }
 
-        var schema = Deserialize(definition.DraftSchemaJson);
+        var designAsset = await FindDesignerAssetAsync(id, scope, cancellationToken).ConfigureAwait(false);
+        WorkflowFormSchema? schema;
+        if (designAsset is not null)
+        {
+            if (request.ExpectedBindingRevision != definition.DraftRevision) return RevisionConflict<WorkflowFormVersionResponse>();
+            if (request.Targets is not ["web"] || request.RendererHash != WorkflowDesignerRelease.ContentHash)
+                return Result<WorkflowFormVersionResponse>.Failure(new Error(WorkflowErrorCodes.FormExtensionForbidden, "The requested target, binding revision or runtime is unsupported.", ErrorType.Validation,
+                    new Dictionary<string, string[]> { ["publication"] = ["workflow.form_runtime_mismatch"] }));
+            using var designDocument = JsonDocument.Parse(designAsset.DesignerJson);
+            schema = WorkflowDesignerAsset.Project(designDocument.RootElement, out var diagnostic);
+            if (schema is null) return Result<WorkflowFormVersionResponse>.Failure(new Error(WorkflowErrorCodes.FormFieldTypeUnknown, "Unsupported business binding.", ErrorType.Validation,
+                new Dictionary<string, string[]> { [diagnostic ?? "designerJson"] = ["workflow.form_binding_unsupported"] }));
+        }
+        else schema = Deserialize(definition.DraftSchemaJson);
         if (schema is null)
         {
             return Invalid<WorkflowFormVersionResponse>();
@@ -404,7 +429,7 @@ internal sealed class WorkflowFormManagementService(
                         ("SchemaVersion", schema.SchemaVersion), ("AdapterVersion", schema.AdapterVersion),
                         ("ComponentCatalogVersion", ComponentCatalogVersion),
                         ("FormSchemaJson", artifact.CanonicalJson),
-                        ("WebRenderSchemaJson", artifact.CanonicalJson),
+                        ("WebRenderSchemaJson", designAsset?.DesignerJson ?? artifact.CanonicalJson),
                         ("ContentHash", artifact.ContentHash),
                         ("PublishedById", actorUserId), ("PublishedAtUtc", now)),
                     cancellationToken)
@@ -413,6 +438,16 @@ internal sealed class WorkflowFormManagementService(
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
             return RevisionConflict<WorkflowFormVersionResponse>();
+        }
+
+        if (designAsset is not null)
+        {
+            using var design = JsonDocument.Parse(designAsset.DesignerJson);
+            var binding = WorkflowDesignerAsset.CompileBindings(design.RootElement, schema, definition.DraftRevision);
+            await commandExecutor.ExecuteAsync(WorkflowDesignerAssetSql.Snapshot,
+                Parameters(("FormVersionId", versionId), ("SourceCommit", designAsset.SourceCommit), ("FormatVersion", designAsset.FormatVersion),
+                    ("DesignerJson", designAsset.DesignerJson), ("DesignHash", designAsset.ContentHash), ("RuntimeVersion", WorkflowDesignerRelease.ContentHash),
+                    ("BindingJson", binding.CanonicalJson)), cancellationToken).ConfigureAwait(false);
         }
 
         var affected = await commandExecutor.ExecuteAsync(
@@ -443,7 +478,7 @@ internal sealed class WorkflowFormManagementService(
 
         return Result<WorkflowFormVersionResponse>.Success(new(
             versionId, id, versionNumber, schema.SchemaVersion, schema.AdapterVersion,
-            ComponentCatalogVersion, artifact.CanonicalJson, artifact.CanonicalJson,
+            ComponentCatalogVersion, artifact.CanonicalJson, designAsset?.DesignerJson ?? artifact.CanonicalJson,
             artifact.ContentHash, actorUserId, now));
     }
 

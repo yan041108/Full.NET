@@ -19,6 +19,8 @@ public static class CommonErrorCodes
     /// 未预期的服务端错误。
     /// </summary>
     public const string Unexpected = "common.unexpected";
+    /// <summary>HTTP请求内容无法绑定、超出限制或使用不受支持的格式。</summary>
+    public const string RequestInvalid="common.request.invalid";
 
     /// <summary>
     /// 当前身份缺少所需权限。
@@ -41,5 +43,5 @@ public static class CommonErrorCodes
     /// </summary>
     public static IReadOnlyList<string> All { get; } =
         Array.AsReadOnly(
-            [Unexpected, PermissionDenied, RateLimited, DatabaseCapacityExhausted]);
+            [Unexpected, RequestInvalid, PermissionDenied, RateLimited, DatabaseCapacityExhausted]);
 }

@@ -56,7 +56,7 @@ public sealed class KafkaReplayTests
             []);
         var service = new KafkaReplayService(
             catalog,
-            new KafkaReplayConsumerFactory(),
+            new KafkaReplayConsumerFactory(Options.Create(options)),
             processor,
             Options.Create(options));
         var result = await service.ReplayAsync(

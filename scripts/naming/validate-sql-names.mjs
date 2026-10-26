@@ -124,7 +124,7 @@ function inspectSql(sql, file, profile, debt, violations) {
     const containsUnsupportedDdl = /\bCREATE\s+(?:OR\s+ALTER\s+)?(?:VIEW|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bDROP\s+(?:TABLE|VIEW|COLUMN|INDEX|CONSTRAINT|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN)\b|\bALTER\s+TABLE\b.*\bRENAME\b/i
       .test(text);
     const supportedDropConstraint = /^\s*ALTER\s+TABLE\s+(?:[A-Za-z][A-Za-z0-9_]*\.)?[A-Za-z][A-Za-z0-9_]*\s+DROP\s+CONSTRAINT\s+[A-Za-z][A-Za-z0-9_]*\s*;?\s*$/i.test(text);
-    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint && !staticTableRename(text) && !recoveryProcedureLines.has(index)) {
+    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint && !staticIndexDrop(text) && !staticTableRename(text) && !recoveryProcedureLines.has(index)) {
       violations.push(violation(
         'FNSQL003',
         'unsupported_sql',
@@ -167,6 +167,8 @@ function collectTableReferences(lines, cteNames) {
     const text = stripComment(line);
     const renamed = staticTableRename(text);
     if (renamed) for (const name of renamed.slice(1)) references.push({ name, line: index + 1 });
+    const droppedIndex = staticIndexDrop(text);
+    if (droppedIndex && !/^\s*ALTER\s+TABLE\b/iu.test(text)) references.push({ name: droppedIndex.table, line: index + 1 });
     for (const match of text.matchAll(pattern)) {
       if (isSystemSchema(match[1]) || cteNames.has(match[2].toLowerCase())) continue;
       if (ignoredTableValuedFunctions.has(match[2].toLowerCase())) continue;
@@ -188,6 +190,14 @@ function collectTableReferences(lines, cteNames) {
 /** 仅支持两个字面表名的一对一重命名；两侧仍接受完整所有权与命名校验。 */
 function staticTableRename(text) {
   return /^\s*RENAME\s+TABLE\s+([A-Za-z][A-Za-z0-9_]*)\s+TO\s+([A-Za-z][A-Za-z0-9_]*)\s*;\s*$/iu.exec(text);
+}
+
+/** 仅接纳单条、明确表和索引名的两库删索引语法；动态名称、未知 Schema 及复合语句仍拒绝。 */
+function staticIndexDrop(text) {
+  const drop = /^\s*DROP\s+INDEX\s+([A-Za-z][A-Za-z0-9_]*)\s+ON\s+(?:dbo\.)?([A-Za-z][A-Za-z0-9_]*)\s*;\s*$/iu.exec(text);
+  if (drop) return { index: drop[1], table: drop[2] };
+  const alter = /^\s*ALTER\s+TABLE\s+(?:dbo\.)?([A-Za-z][A-Za-z0-9_]*)\s+DROP\s+INDEX\s+([A-Za-z][A-Za-z0-9_]*)\s*;\s*$/iu.exec(text);
+  return alter ? { index: alter[2], table: alter[1] } : undefined;
 }
 
 function collectCteNames(lines) {

@@ -35,45 +35,10 @@ public static class ServiceCollectionExtensions
             .AddOptions<KafkaMessagingOptions>()
             .BindConfiguration(KafkaMessagingOptions.SectionName)
             .ValidateOnStart();
-        services
-            .AddOptions<KafkaConnectRollbackOptions>()
-            .BindConfiguration(KafkaConnectRollbackOptions.SectionName);
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
 
-        services.TryAddSingleton<RollbackControlPlaneFenceRegistry>();
-        services.TryAddSingleton<KafkaConsumerLagObserver>();
-        services.TryAddSingleton<KafkaConnectAdminClient>(serviceProvider =>
-        {
-            var rollbackOptions = serviceProvider
-                .GetRequiredService<IOptions<KafkaConnectRollbackOptions>>()
-                .Value;
-            var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(
-                    Math.Max(rollbackOptions.PrepareTimeoutSeconds, 30)),
-            };
-            if (!string.IsNullOrWhiteSpace(rollbackOptions.ConnectBaseUri))
-            {
-                httpClient.BaseAddress = new Uri(rollbackOptions.ConnectBaseUri);
-            }
-
-            return new KafkaConnectAdminClient(httpClient);
-        });
-        services.TryAddSingleton<IKafkaConnectAdminClient>(
-            serviceProvider => serviceProvider.GetRequiredService<KafkaConnectAdminClient>());
-
-        var rollbackOptions = configuration
-                .GetSection(KafkaConnectRollbackOptions.SectionName)
-                .Get<KafkaConnectRollbackOptions>()
-            ?? new KafkaConnectRollbackOptions();
-        if (rollbackOptions.Enabled)
-        {
-            services.RemoveAll<IEventDeliveryRollbackReadinessReader>();
-            services.TryAddSingleton<
-                IEventDeliveryRollbackReadinessReader,
-                KafkaConnectEventDeliveryRollbackReadinessReader>();
-        }
+        services.AddFullNetKafkaDeliveryControl(configuration);
 
         services.TryAddSingleton<KafkaEnvelopeReader>();
         services.TryAddSingleton<KafkaOffsetCommitter>();
@@ -84,7 +49,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<KafkaDeadLetterPublisher>();
         services.TryAddSingleton<IKafkaReplayConsumerFactory, KafkaReplayConsumerFactory>();
         services.TryAddScoped<IKafkaReplayMessageProcessor, KafkaReplayMessageProcessor>();
-        services.TryAddScoped<IKafkaReplayService, KafkaReplayService>();
+        services.TryAddScoped<KafkaReplayService>();
+        services.TryAddScoped<IKafkaReplayService>(provider => provider.GetRequiredService<KafkaReplayService>());
+        services.TryAddScoped<ITrackedKafkaReplayService>(provider => provider.GetRequiredService<KafkaReplayService>());
         services.TryAddSingleton<KafkaHealthCheck>();
         services.AddHealthChecks()
             .Add(new HealthCheckRegistration(
@@ -109,8 +76,38 @@ public static class ServiceCollectionExtensions
         if (options.Enabled)
         {
             services.AddHostedService<KafkaConsumerWorker>();
+            if (options.DeadLetterProjectionEnabled)
+                services.AddHostedService<KafkaDeadLetterProjectionWorker>();
         }
 
+        return services;
+    }
+
+    /// <summary>仅装配 API 控制面；不注册常驻消费者、生产者或后台服务。</summary>
+    public static IServiceCollection AddFullNetKafkaDeliveryControl(this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+        services.AddOptions<KafkaMessagingOptions>().BindConfiguration(KafkaMessagingOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
+        services.AddOptions<KafkaConnectRollbackOptions>().BindConfiguration(KafkaConnectRollbackOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaConnectRollbackOptions>, KafkaConnectRollbackOptionsValidator>());
+        services.TryAddSingleton<KafkaConsumerLagObserver>();
+        services.TryAddSingleton<KafkaConnectAdminClient>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<KafkaConnectRollbackOptions>>().Value;
+            return new KafkaConnectAdminClient(new Uri(options.ConnectBaseUri ?? "http://127.0.0.1:8083"),
+                TimeSpan.FromSeconds(options.PrepareTimeoutSeconds));
+        });
+        services.TryAddSingleton<IKafkaConnectAdminClient>(provider => provider.GetRequiredService<KafkaConnectAdminClient>());
+        services.TryAddSingleton<IKafkaReplayConsumerFactory, KafkaReplayConsumerFactory>();
+        if (configuration.GetValue<bool>($"{KafkaConnectRollbackOptions.SectionName}:Enabled"))
+        {
+            services.RemoveAll<IEventDeliveryRollbackReadinessReader>();
+            services.AddSingleton<IEventDeliveryRollbackReadinessReader, KafkaConnectEventDeliveryRollbackReadinessReader>();
+            services.RemoveAll<IEventDeliveryCutoverProbe>();
+            services.AddScoped<IEventDeliveryCutoverProbe, KafkaEventDeliveryCutoverProbe>();
+        }
         return services;
     }
 
@@ -144,7 +141,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<KafkaEnvelopeReader>();
         services.TryAddSingleton<IKafkaReplayConsumerFactory, KafkaReplayConsumerFactory>();
         services.TryAddScoped<IKafkaReplayMessageProcessor, KafkaReplayMessageProcessor>();
-        services.TryAddScoped<IKafkaReplayService, KafkaReplayService>();
+        services.TryAddScoped<KafkaReplayService>();
+        services.TryAddScoped<IKafkaReplayService>(provider => provider.GetRequiredService<KafkaReplayService>());
+        services.TryAddScoped<ITrackedKafkaReplayService>(provider => provider.GetRequiredService<KafkaReplayService>());
         return services;
     }
 }

@@ -7,6 +7,51 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowAssigneePolicyTests
 {
+    [TestMethod]
+    public void Organization_member_and_leader_chain_sources_have_closed_typed_parameters()
+    {
+        var id = Guid.CreateVersion7();
+        foreach (var source in new object[] {
+            new { resolverKindKey = "position_members", positionIds = new[] { id } },
+            new { resolverKindKey = "organization_unit_members", unitId = id },
+            new { resolverKindKey = "initiator_leader_chain", maximumLevels = 3 },
+            new { resolverKindKey = "initiator_direct_manager" },
+        })
+        {
+            var config = JsonSerializer.SerializeToElement(new { assigneePolicy = new { sources = new[] { source } } });
+            Assert.IsTrue(WorkflowAssigneePolicy.TryRead(config, out var policy)); Assert.AreEqual(1, policy.Sources.Count);
+        }
+        foreach (var source in new object[] {
+            new { resolverKindKey = "position_members", positionIds = new[] { id, id } },
+            new { resolverKindKey = "position_members", positionIds = Enumerable.Range(0, 6).Select(_ => Guid.CreateVersion7()).ToArray() },
+            new { resolverKindKey = "organization_unit_members", unitId = Guid.Empty },
+            new { resolverKindKey = "initiator_leader_chain", maximumLevels = 0 },
+            new { resolverKindKey = "initiator_leader_chain", maximumLevels = 21 },
+            new { resolverKindKey = "initiator_leader_chain", maximumLevels = "3" },
+            new { resolverKindKey = "initiator_direct_manager", unitId = id },
+        }) AssertInvalid(new { sources = new[] { source } });
+    }
+
+    [TestMethod]
+    public void Explicit_approval_members_do_not_inherit_an_implicit_initiator()
+    {
+        var config = JsonSerializer.SerializeToElement(new { approvalPolicy = new {
+            modeKey = "all", approverUserIds = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() } } });
+        Assert.IsTrue(WorkflowAssigneePolicy.TryRead(config, out var policy));
+        Assert.AreEqual(0, policy.Sources.Count);
+    }
+
+    [TestMethod]
+    [DataRow("{\"sources\":[{\"resolverKindKey\":\"initiator\"}],\"unexpected\":true}")]
+    [DataRow("{\"sources\":[{\"resolverKindKey\":\"initiator\"}],\"sources\":[{\"resolverKindKey\":\"initiator\"}]}")]
+    public void Policy_envelope_rejects_unknown_or_duplicate_properties(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        Assert.IsFalse(WorkflowAssigneePolicy.TryReadPolicy(document.RootElement, out _));
+        using var config = JsonDocument.Parse("{\"assigneePolicy\":" + json + "}");
+        Assert.IsFalse(WorkflowAssigneePolicy.TryRead(config.RootElement, out _));
+    }
+
     /// <summary>缺失办理人策略时必须回落到默认发起人单人语义。</summary>
     [TestMethod]
     public void Missing_policy_defaults_to_initiator()

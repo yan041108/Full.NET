@@ -17,6 +17,16 @@ internal static class Endpoint
             .WithTags("WorkflowForms");
 
         FormComponentCatalogEndpoint.Map(group);
+        group.MapGet("/{formId:guid}/design-asset", async (Guid formId, WorkflowFormManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.GetDesignerAssetAsync(formId, token).ConfigureAwait(false), context))
+            .WithName("workflowGetDesignerAsset").Produces<WorkflowDesignerAssetResponse>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
+        group.MapPut("/{formId:guid}/design-asset", async (Guid formId, SaveWorkflowDesignerAssetRequest request, WorkflowFormManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.SaveDesignerAssetAsync(formId, request, token).ConfigureAwait(false), context))
+            .WithName("workflowSaveDesignerAsset").Produces<WorkflowDesignerAssetResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsUpdate));
 
         group.MapGet("/", async (WorkflowFormManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) =>

@@ -1,6 +1,6 @@
 worker:
   messaging:
-    mode: CdcKafka
+    mode: HybridKafka
     kafka:
       bootstrapSecretName: fullnet-kafka
       producerQueueMaxKbytes: 1023

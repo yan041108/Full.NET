@@ -7,6 +7,25 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class CdcDeliveryPositionTests
 {
     [TestMethod]
+    [DataRow("another-bin.000010", 100L)]
+    [DataRow("mysql-bin.invalid", 100L)]
+    [DataRow("mysql-bin.000010", -1L)]
+    public void Invalid_or_unrelated_binlog_coordinates_do_not_cover_a_fence(string file, long offset)
+    {
+        Assert.IsFalse(CdcDeliveryPosition.ConnectorCoversProducerFence(
+            CdcDeliveryPosition.ForMySql(null, "mysql-bin.000009", 20), CdcDeliveryPosition.ForMySql(null, file, offset)));
+    }
+
+    [TestMethod]
+    [DataRow("00000027::00000123:0001")]
+    [DataRow("00000027:00000123:ffffffff")]
+    [DataRow("27:123:1")]
+    public void Malformed_lsn_is_not_a_covering_position(string lsn)
+    {
+        Assert.IsFalse(CdcDeliveryPosition.ConnectorCoversProducerFence(
+            CdcDeliveryPosition.ForSqlServer(null, "00000027:00000123:0001"), CdcDeliveryPosition.ForSqlServer(null, lsn)));
+    }
+    [TestMethod]
     public void MySql_connector_position_covers_same_file_and_higher_offset()
     {
         var fence = CdcDeliveryPosition.ForMySql(
@@ -69,9 +88,9 @@ public sealed class CdcDeliveryPositionTests
     {
         var bytes = new byte[]
         {
-            0x27, 0x00, 0x00, 0x00,
-            0x23, 0x01, 0x00, 0x00,
-            0x01, 0x00,
+            0x00, 0x00, 0x00, 0x27,
+            0x00, 0x00, 0x01, 0x23,
+            0x00, 0x01,
         };
 
         var position = CdcDeliveryPosition.ForSqlServerBytes(Guid.CreateVersion7(), bytes);

@@ -12,6 +12,25 @@ internal sealed class KafkaConsumerLagObserver
     internal KafkaConsumerLagObserver(Func<KafkaMessagingOptions, IKafkaLagQueryClient> createClient) =>
         _createClient = createClient;
 
+    /// <summary>排空证据必须绑定实际 Broker 集群；查询失败或未知返回 null。</summary>
+    internal async Task<string?> ObserveClusterIdAsync(KafkaMessagingOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            using var client = _createClient(options);
+            var id = await client.ReadClusterIdAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return string.IsNullOrWhiteSpace(id) ? null : id;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
     public async Task<bool> WaitUntilDrainedAsync(
         KafkaMessagingOptions kafkaOptions, string topicName, string consumerGroupId,
         TimeSpan timeout, TimeSpan pollInterval, CancellationToken cancellationToken)
@@ -60,7 +79,9 @@ internal sealed class KafkaConsumerLagObserver
                 // 缺失或错误的高水位不是零积压；未知提交位置则从起点保守计算。
                 if (!ends.TryGetValue(partition, out var end) || end < 0) return null;
                 var offset = committed.TryGetValue(partition, out var value) && value >= 0 ? value : 0;
-                totalLag = checked(totalLag + Math.Max(0, end - offset));
+                // 提交位置超出当前日志意味着 Topic 被截断、重建或位点失配；不能伪装成零积压。
+                if (offset > end) return null;
+                totalLag = checked(totalLag + end - offset);
             }
             var ratio = lagRetentionRatioOverride ?? 0d;
             KafkaMessagingTelemetry.UpdateConsumerLag("kafka", consumerGroupId, totalLag, ratio);

@@ -240,6 +240,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<IHostUserBatchSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
         services.TryAddScoped<ITenantUserSelectionDirectory, HostUsers.TenantUserSelectionDirectory>();
+        // Workflow 后台推进按当前活动成员复核，不把旧租户角色视作成员关系。
+        services.TryAddScoped<ITenantMemberSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
         return services;
     }
 }

@@ -11,6 +11,13 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
     private const int SchemaVersion = 1;
     private const string Producer = "fullnet.workflow";
 
+    /// <summary>人工催办携带独立请求和序号，不能伪装成自动逾期信号。</summary>
+    public Task PublishManualReminderAsync(Guid requestId, Guid instanceId, Guid todoId, Guid requestedByUserId, Guid recipientUserId,
+        string businessType, string businessId, int manualSequence, DateTimeOffset now, CancellationToken token) =>
+        outboxWriter.AddAsync(WorkflowNotificationIntegrationEventTypes.TodoManualReminderRequested, SchemaVersion,
+            new WorkflowTodoManualReminderRequestedIntegrationEvent(requestId, instanceId, todoId, requestedByUserId,
+                recipientUserId, businessType, businessId, manualSequence, now), CreateMetadata(instanceId), token);
+
     /// <summary>发布待办已分配事实。</summary>
     /// <param name="instanceId">工作流实例标识。</param>
     /// <param name="todoId">新待办标识。</param>
@@ -96,7 +103,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        outboxWriter.AddAsync(
+        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceCompleted,
             SchemaVersion,
             new WorkflowInstanceCompletedIntegrationEvent(
@@ -118,7 +125,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        outboxWriter.AddAsync(
+        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceRejected,
             SchemaVersion,
             new WorkflowInstanceRejectedIntegrationEvent(
@@ -140,7 +147,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        outboxWriter.AddAsync(
+        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceCancelled,
             SchemaVersion,
             new WorkflowInstanceCancelledIntegrationEvent(

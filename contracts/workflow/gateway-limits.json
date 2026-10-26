@@ -1,0 +1,5 @@
+{
+  "gateway.exclusive": { "minimumBranches": 1, "maximumBranches": 15, "hasDefaultBranch": true },
+  "gateway.parallel": { "minimumBranches": 2, "maximumBranches": 8, "hasDefaultBranch": false },
+  "gateway.inclusive": { "minimumBranches": 1, "maximumBranches": 8, "hasDefaultBranch": true }
+}

@@ -24,7 +24,9 @@ public static class DisabledKafkaReplayServiceCollectionExtensions
                 false,
                 1_000,
                 TimeSpan.FromSeconds(45)));
-        services.AddScoped<IKafkaReplayService, DisabledKafkaReplayService>();
+        services.AddScoped<DisabledKafkaReplayService>();
+        services.AddScoped<IKafkaReplayService>(provider => provider.GetRequiredService<DisabledKafkaReplayService>());
+        services.AddScoped<ITrackedKafkaReplayService>(provider => provider.GetRequiredService<DisabledKafkaReplayService>());
         return services;
     }
 }

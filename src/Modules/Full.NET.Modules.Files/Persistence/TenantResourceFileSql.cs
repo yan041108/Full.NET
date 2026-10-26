@@ -5,6 +5,12 @@ namespace Full.NET.Modules.Files.Persistence;
 /// <summary>租户资源文件独立元数据；所有访问均绑定可信租户和精确所属资源。</summary>
 internal static class TenantResourceFileSql
 {
+    /// <summary>描述查询不使用旧 Host 回退；资源与上传人必须来自当前租户的权威文件行。</summary>
+    public static readonly SqlStatement FindReadyDescriptor = new("files.tenant_resource_file.find_ready_descriptor", """
+        SELECT Id, OriginalFileName, ContentType, SizeBytes, ContentHash, CreatedByUserId
+        FROM fn_files_tenant_resource_file
+        WHERE TenantId=@TenantId AND OwnerModuleKey=@OwnerModuleKey AND ResourceId=@ResourceId AND Id=@Id AND StatusKey='ready'
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     /// <summary>清理仅扫描当前租户和所属资源，覆盖 pending 与可重试墓碑。</summary>
     public static readonly SqlStatement SumReadyBytesByTenantsForHost = new(
         "files.tenant_resource_file.sum_ready_by_tenants_host", "SELECT TenantId, COALESCE(SUM(SizeBytes), 0) AS UsageValue FROM fn_files_tenant_resource_file WHERE TenantId IN @TenantIds AND StatusKey = 'ready' GROUP BY TenantId", SqlDataScope.HostOnly);

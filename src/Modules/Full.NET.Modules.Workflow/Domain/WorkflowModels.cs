@@ -8,14 +8,17 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>工作流领域模型与不变量；定义、实例与节点状态的内部表示。</summary>
 internal sealed record WorkflowDefinitionDraft(
     int SchemaVersion,
-    IReadOnlyList<WorkflowNodeDraft> Nodes);
+    IReadOnlyList<WorkflowNodeDraft> Nodes,
+    string WorkflowKindKey = "approval");
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowNodeDraft(
     string NodeKey,
     string NodeTypeKey,
     int NodeSchemaVersion,
-    JsonElement Config);
+    JsonElement Config,
+    // 依赖属于图的因果关系，不放进各节点的业务配置或信任客户端执行状态。
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? AwaitActivityNodeKeys = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowFormSchema(

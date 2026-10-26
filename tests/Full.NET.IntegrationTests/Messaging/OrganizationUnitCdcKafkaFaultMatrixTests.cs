@@ -74,11 +74,11 @@ public sealed class OrganizationUnitCdcKafkaFaultMatrixTests
             ? await DebeziumConnectorTemplateFactory.CreateMySqlShadowConfigAsync(
                 connectionString,
                 pipeline.HostGateway,
-                pipeline.InternalKafkaBootstrapServers)
+                pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true)
             : await DebeziumConnectorTemplateFactory.CreateSqlServerShadowConfigAsync(
                 connectionString,
                 pipeline.HostGateway,
-                pipeline.InternalKafkaBootstrapServers);
+                pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true);
         try
         {
             await CdcDebeziumConnectorTestSupport.RegisterHealthyShadowConnectorAsync(

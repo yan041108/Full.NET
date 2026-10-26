@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="messaging.operations.actor_required" xml:space="preserve"><value>A trusted authenticated operator is required.</value></data>
+  <data name="messaging.operations.reason_invalid" xml:space="preserve"><value>Provide an operations reason of 1 to 512 characters.</value></data>
+  <data name="messaging.dead_letter.filter_invalid" xml:space="preserve"><value>The paging, filter, or time range is invalid.</value></data>
+  <data name="messaging.dead_letter.not_found" xml:space="preserve"><value>The recoverable dead letter was not found.</value></data>
+  <data name="messaging.dead_letter.owner_conflict" xml:space="preserve"><value>The current stream owner does not allow this recovery operation.</value></data>
+  <data name="messaging.dead_letter.state_conflict" xml:space="preserve"><value>The message was already processed or requeued by another operation.</value></data>
+  <data name="messaging.dead_letter.not_replayable" xml:space="preserve"><value>The envelope is malformed or its consumer is missing. Inspect the source first.</value></data>
+  <data name="messaging.dead_letter.snapshot_invalid" xml:space="preserve"><value>The persisted envelope does not match the message identity.</value></data>
+  <data name="messaging.subscription_route.not_found" xml:space="preserve"><value>The consumer route is not registered.</value></data>
+  <data name="messaging.delivery.rollback_operation_not_found" xml:space="preserve"><value>The rollback operation for this stream or generation was not found.</value></data>
+  <data name="messaging.replay_operation.state_conflict" xml:space="preserve"><value>The replay state, execution generation or original resource changed. Refresh the persisted record.</value></data>
+  <data name="messaging.replay_operation.not_found" xml:space="preserve"><value>The replay operation was not found.</value></data>
+  <data name="messaging.replay_operation.request_invalid" xml:space="preserve"><value>The replay operation query parameters are invalid.</value></data>
+  <data name="messaging.shadow_capture.unavailable" xml:space="preserve"><value>Controlled shadow capture is disabled.</value></data>
+  <data name="messaging.shadow_capture.request_invalid" xml:space="preserve"><value>The shadow stream, budget, duration or expected generation is invalid.</value></data>
+  <data name="messaging.shadow_capture.state_conflict" xml:space="preserve"><value>The generation changed, a window is active, or persisted Legacy ownership is unavailable. Refresh and verify prerequisites.</value></data>
+  <data name="messaging.shadow_capture.not_found" xml:space="preserve"><value>The current stream or shadow capture generation was not found.</value></data>
+  <data name="messaging.delivery.producer_fenced" xml:space="preserve"><value>Event delivery is protected for rollback. Retry the operation later.</value></data>
+</root>

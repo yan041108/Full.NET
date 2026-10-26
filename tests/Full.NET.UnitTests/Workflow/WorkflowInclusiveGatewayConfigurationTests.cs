@@ -8,6 +8,27 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInclusiveGatewayConfigurationTests
 {
     [TestMethod]
+    [DataRow(8, true)]
+    [DataRow(9, false)]
+    public void Conditional_branch_limit_excludes_default_branch(int count, bool accepted)
+    {
+        var fork = JsonSerializer.SerializeToElement(new
+        {
+            gatewayRoleKey = "fork",
+            joinNodeKey = "join",
+            defaultNextNodeKey = "fallback",
+            branches = Enumerable.Range(0, count).Select(index => new
+            {
+                branchKey = $"branch-{index}",
+                nextNodeKey = $"approve-{index}",
+                condition = new { fieldKey = "amount", @operator = "equals", value = index },
+            }).ToArray(),
+        });
+
+        Assert.AreEqual(accepted, WorkflowInclusiveGatewayConfiguration.TryRead(fork, null, out _));
+    }
+
+    [TestMethod]
     public void Fork_and_join_configuration_is_accepted()
     {
         var fork = JsonSerializer.SerializeToElement(new

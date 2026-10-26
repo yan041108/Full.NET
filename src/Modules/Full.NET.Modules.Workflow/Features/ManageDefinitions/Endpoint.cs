@@ -19,6 +19,7 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/workflow/definitions").WithTags("WorkflowDefinitions");
 
         NodeTypeCatalogEndpoint.Map(group);
+        BusinessActionCatalogEndpoint.Map(group);
 
         group.MapGet("/recipient-candidates", async (
             int? page,
@@ -70,6 +71,15 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
+
+        group.MapGet("/position-candidates", async (int? page, int? pageSize,
+            [FromServices] WorkflowPositionCandidateQueryService service, CancellationToken token) =>
+            await service.ListAsync(Math.Max(page ?? 1, 1), Math.Clamp(pageSize ?? 50, 1, 100), token).ConfigureAwait(false))
+            .WithName("workflowListPositionCandidates")
+            .Produces<WorkflowPositionCandidatePageResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
 
         group.MapPost("/assignee-preview", async (
             PreviewWorkflowAssigneeRequest request,

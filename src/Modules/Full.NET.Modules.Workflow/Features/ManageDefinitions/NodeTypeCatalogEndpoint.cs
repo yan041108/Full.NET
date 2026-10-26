@@ -33,6 +33,15 @@ internal static class NodeTypeCatalogEndpoint
                 node.Designable,
                 node.Publishable,
                 node.Executable,
-                node.SupportsFieldPolicies)).ToArray());
+                node.SupportsFieldPolicies)
+            {
+                ConfigurationProperties = node.ConfigurationProperties,
+                MinimumBranches = node.NodeTypeKey.StartsWith("gateway.", StringComparison.Ordinal)
+                    ? WorkflowGatewayLimits.MinimumBranches(node.NodeTypeKey) : null,
+                MaximumBranches = node.NodeTypeKey.StartsWith("gateway.", StringComparison.Ordinal)
+                    ? WorkflowGatewayLimits.MaximumBranches(node.NodeTypeKey) : null,
+                HasDefaultBranch = node.NodeTypeKey.StartsWith("gateway.", StringComparison.Ordinal)
+                    ? WorkflowGatewayLimits.HasDefaultBranch(node.NodeTypeKey) : null,
+            }).ToArray());
     }
 }

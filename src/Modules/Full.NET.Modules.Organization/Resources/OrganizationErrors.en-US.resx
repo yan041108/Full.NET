@@ -19,4 +19,12 @@
   <data name="organization.positions.not_found" xml:space="preserve"><value>The organization position was not found.</value></data>
   <data name="organization.position_levels.code_exists" xml:space="preserve"><value>An organization position level with this code already exists.</value></data>
   <data name="organization.position_levels.not_found" xml:space="preserve"><value>The organization position level was not found.</value></data>
+  <data name="organization.unit_leadership.invalid_request" xml:space="preserve"><value>The unit leadership request or version is invalid.</value></data>
+  <data name="organization.unit_leadership.revision_conflict" xml:space="preserve"><value>The unit status, data scope or leadership configuration changed. Refresh and retry.</value></data>
+  <data name="organization.unit_leadership.leader_invalid" xml:space="preserve"><value>The leader must be an active member of the current tenant.</value></data>
+  <data name="organization.reporting_lines.invalid_request" xml:space="preserve"><value>The reporting relationship or selected active tenant member is invalid.</value></data>
+  <data name="organization.reporting_lines.employee_not_found" xml:space="preserve"><value>The active tenant member was not found.</value></data>
+  <data name="organization.reporting_lines.revision_conflict" xml:space="preserve"><value>The reporting relationship changed. Refresh before updating.</value></data>
+  <data name="organization.reporting_lines.cycle_or_depth" xml:space="preserve"><value>The reporting relationship forms a cycle or exceeds 64 levels.</value></data>
+  <data name="organization.reporting_lines.scope_denied" xml:space="preserve"><value>Full organization data scope is required to manage reporting relationships.</value></data>
 </root>

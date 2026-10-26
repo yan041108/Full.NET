@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onBeforeUnmount } from 'vue';
 import { reactive, watch } from 'vue';
 import type {
   WorkflowFieldPolicy,
@@ -15,6 +15,7 @@ import {
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   downloadWorkflowFormAttachment,
+  downloadWorkflowTodoFormAttachment,
   openWorkflowFormAttachmentBlob,
   uploadWorkflowFormAttachment
 } from './workflow-form-attachments';
@@ -24,6 +25,7 @@ const props = defineProps<{
   submission: WorkflowSubmission;
   fieldPolicies: Readonly<Record<string, WorkflowFieldPolicy>>;
   instanceId?: string;
+  todoId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -35,6 +37,10 @@ const values = reactive<Record<string, unknown>>({});
 const patch = reactive<Record<string, unknown>>({});
 const uploadingFieldKey = ref<string>();
 const attachmentError = ref<string>();
+let downloadEpoch = 0;
+let downloadController: AbortController | undefined;
+watch(() => [props.todoId, props.instanceId], () => { downloadEpoch++; downloadController?.abort(); });
+onBeforeUnmount(() => { downloadEpoch++; downloadController?.abort(); });
 
 watch(
   () => props.submission,
@@ -199,14 +205,18 @@ function removeAttachment(field: WorkflowFormField, fileId: string): void {
 }
 
 async function openAttachment(fileId: string): Promise<void> {
-  if (props.instanceId === undefined) {
+  if (props.todoId === undefined && props.instanceId === undefined) {
     return;
   }
 
+  downloadController?.abort(); downloadController = new AbortController(); const epoch = ++downloadEpoch;
   try {
-    const blob = await downloadWorkflowFormAttachment(props.instanceId, fileId);
+    const blob = props.todoId !== undefined ? await downloadWorkflowTodoFormAttachment(props.todoId, fileId, downloadController.signal)
+      : await downloadWorkflowFormAttachment(props.instanceId!, fileId, downloadController.signal);
+    if (epoch !== downloadEpoch) return;
     openWorkflowFormAttachmentBlob(blob);
   } catch {
+    if (epoch !== downloadEpoch) return;
     attachmentError.value = t('workflowForms.attachment.downloadFailed');
   }
 }
@@ -479,7 +489,7 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
                 <button
                   type="button"
                   class="workflow-form__attachment-link"
-                  :disabled="instanceId === undefined"
+                  :disabled="todoId === undefined && instanceId === undefined"
                   @click="openAttachment(fileId)"
                 >
                   {{ fileId }}

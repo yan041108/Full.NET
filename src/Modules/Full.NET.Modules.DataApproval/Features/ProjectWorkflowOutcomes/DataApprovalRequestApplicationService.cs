@@ -108,7 +108,7 @@ internal sealed class DataApprovalRequestApplicationService(
         return await ReloadAsync(row, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<Result<DataApprovalRequestResponse>> CompleteApprovedApplicationAsync(
+    internal async Task<Result<DataApprovalRequestResponse>> CompleteApprovedApplicationAsync(
         DataApprovalRequestRecord row,
         CancellationToken cancellationToken)
     {

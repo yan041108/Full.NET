@@ -1,9 +1,13 @@
 using System.Resources;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.Serialization;
 using Full.NET.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Hosting;
 
@@ -11,6 +15,36 @@ namespace Full.NET.UnitTests.Hosting;
 [TestClass]
 public sealed class StandardApiResultMapperTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Validation_error_extensions_serialize_with_generated_metadata_only(bool structured)
+    {
+        var services = new ServiceCollection().AddLogging().AddProblemDetails().AddFullNetJson();
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            foreach (var resolver in options.SerializerOptions.TypeInfoResolverChain.OfType<DefaultJsonTypeInfoResolver>().ToArray())
+                options.SerializerOptions.TypeInfoResolverChain.Remove(resolver);
+        });
+        using var provider = services.BuildServiceProvider();
+        var context = new DefaultHttpContext { RequestServices = provider };
+        using var body = new MemoryStream(); context.Response.Body = body;
+        var mapped = CreateMapper().Map(Result<string>.Failure(new Error(
+            Code: ValidationErrorCodes.Failed,
+            Message: "Validation failed.",
+            Type: ErrorType.Validation,
+            ValidationErrors: new Dictionary<string, string[]> { ["publication"] = ["workflow.form_runtime_mismatch"] },
+            Arguments: null,
+            ValidationViolations: structured ? [new ValidationViolation("publication", ValidationErrorCodes.Required, new Dictionary<string, object?>())] : null)), context);
+        // 执行 ASP.NET Core 自带 ProblemDetails writer；只序列化外层字典不能复现其元数据闭包。
+        await mapped.ExecuteAsync(context);
+        using var json = JsonDocument.Parse(body.ToArray());
+        Assert.AreEqual(400, context.Response.StatusCode);
+        Assert.AreEqual(1, json.RootElement.GetProperty("errors").GetProperty("publication").GetArrayLength());
+        Assert.AreEqual(ValidationErrorCodes.Failed, json.RootElement.GetProperty("code").GetString());
+        Assert.AreEqual(structured, json.RootElement.TryGetProperty("violations", out _));
+    }
+
     [TestMethod]
     [DataRow(ErrorType.Validation, StatusCodes.Status400BadRequest)]
     [DataRow(ErrorType.Unauthorized, StatusCodes.Status401Unauthorized)]

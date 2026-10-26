@@ -8,6 +8,19 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowRuntimePlanTests
 {
     [TestMethod]
+    public void Empty_activity_preserves_trace_and_never_satisfies_required_human_approval()
+    {
+        var draft = new WorkflowDefinitionDraft(1, [Node("start", "start", "empty"),
+            Node("empty", "control.empty", "end"), Node("end", "end")], "automation");
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
+        Assert.IsTrue(plan!.TryResolveStart(out var transition));
+        Assert.IsTrue(transition.CompletesInstance);
+        Assert.AreEqual("empty", transition.AutomaticNodes.Single().NodeKey);
+        Assert.AreEqual("control.empty", transition.AutomaticNodes.Single().NodeTypeKey);
+        Assert.IsFalse(WorkflowRuntimePlan.TryCreate(draft with { WorkflowKindKey = "approval" }, out _));
+    }
+
+    [TestMethod]
     public void Linear_plan_resolves_first_and_subsequent_approval_nodes()
     {
         var draft = new WorkflowDefinitionDraft(1,
@@ -23,12 +36,12 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsTrue(created);
         Assert.IsNotNull(plan);
         Assert.IsTrue(plan.TryResolveStart(out var initial));
-        Assert.AreEqual("first", initial.NextApprovalNodeKey);
-        Assert.IsTrue(plan.TryResolveApproval("first", out var first));
-        Assert.AreEqual("second", first.NextApprovalNodeKey);
+        Assert.AreEqual("first", initial.NextHumanNodeKey);
+        Assert.IsTrue(plan.TryResolveAfterHuman("first", out var first));
+        Assert.AreEqual("second", first.NextHumanNodeKey);
         Assert.IsFalse(first.CompletesInstance);
-        Assert.IsTrue(plan.TryResolveApproval("second", out var second));
-        Assert.IsNull(second.NextApprovalNodeKey);
+        Assert.IsTrue(plan.TryResolveAfterHuman("second", out var second));
+        Assert.IsNull(second.NextHumanNodeKey);
         Assert.IsTrue(second.CompletesInstance);
     }
 
@@ -103,18 +116,18 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
         Assert.IsNotNull(plan);
         Assert.IsTrue(plan.TryResolveStart(out var initial));
-        Assert.AreEqual("first", initial.NextApprovalNodeKey);
+        Assert.AreEqual("first", initial.NextHumanNodeKey);
         CollectionAssert.AreEqual(new[] { "before" },
             initial.CcNodes.Select(node => node.NodeKey).ToArray());
 
-        Assert.IsTrue(plan.TryResolveApproval("first", out var middle));
-        Assert.AreEqual("second", middle.NextApprovalNodeKey);
+        Assert.IsTrue(plan.TryResolveAfterHuman("first", out var middle));
+        Assert.AreEqual("second", middle.NextHumanNodeKey);
         Assert.IsFalse(middle.CompletesInstance);
         CollectionAssert.AreEqual(new[] { "middle" },
             middle.CcNodes.Select(node => node.NodeKey).ToArray());
 
-        Assert.IsTrue(plan.TryResolveApproval("second", out var trailing));
-        Assert.IsNull(trailing.NextApprovalNodeKey);
+        Assert.IsTrue(plan.TryResolveAfterHuman("second", out var trailing));
+        Assert.IsNull(trailing.NextHumanNodeKey);
         Assert.IsTrue(trailing.CompletesInstance);
         CollectionAssert.AreEqual(new[] { "after" },
             trailing.CcNodes.Select(node => node.NodeKey).ToArray());
@@ -151,12 +164,12 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, schema, out var plan));
         Assert.IsNotNull(plan);
         Assert.IsTrue(plan.TryResolveStart(Values("{\"amount\":\"1200.00\"}"), out var finance));
-        Assert.AreEqual("finance", finance.NextApprovalNodeKey);
+        Assert.AreEqual("finance", finance.NextHumanNodeKey);
         Assert.AreEqual("route", finance.AutomaticNodes.Single().NodeKey);
         Assert.AreEqual("large", finance.AutomaticNodes.Single().OutcomeKey);
 
         Assert.IsTrue(plan.TryResolveStart(Values("{\"amount\":\"100.00\"}"), out var manager));
-        Assert.AreEqual("manager", manager.NextApprovalNodeKey);
+        Assert.AreEqual("manager", manager.NextHumanNodeKey);
         Assert.AreEqual("default", manager.AutomaticNodes.Single().OutcomeKey);
     }
 
@@ -179,18 +192,18 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsTrue(plan.TryResolveStart(out var start));
         Assert.IsNotNull(start.ParallelFork);
         Assert.AreEqual(2, start.ParallelFork!.Branches.Count);
-        Assert.AreEqual("approve-a", start.ParallelFork.Branches[0].NextApprovalNodeKey);
-        Assert.AreEqual("approve-b", start.ParallelFork.Branches[1].NextApprovalNodeKey);
+        Assert.AreEqual("approve-a", start.ParallelFork.Branches[0].NextHumanNodeKey);
+        Assert.AreEqual("approve-b", start.ParallelFork.Branches[1].NextHumanNodeKey);
 
-        Assert.IsTrue(plan.TryResolveApproval("approve-a", Values("{}"), "join1", out var branchA));
+        Assert.IsTrue(plan.TryResolveAfterHuman("approve-a", Values("{}"), "join1", out var branchA));
         Assert.IsTrue(branchA.WaitsAtJoin);
         Assert.AreEqual("join1", branchA.JoinArrival!.JoinNodeKey);
 
-        Assert.IsTrue(plan.TryResolveApproval("approve-b", Values("{}"), "join1", out var branchB));
+        Assert.IsTrue(plan.TryResolveAfterHuman("approve-b", Values("{}"), "join1", out var branchB));
         Assert.IsTrue(branchB.WaitsAtJoin);
 
         Assert.IsTrue(plan.TryResolveAfterJoin("join1", Values("{}"), out var afterJoin));
-        Assert.AreEqual("after", afterJoin.NextApprovalNodeKey);
+        Assert.AreEqual("after", afterJoin.NextHumanNodeKey);
     }
 
     [TestMethod]
@@ -225,7 +238,7 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsNotNull(start.ParallelFork);
         Assert.AreEqual("inclusive", start.ParallelFork!.GatewayTypeKey);
         Assert.AreEqual(1, start.ParallelFork.Branches.Count);
-        Assert.AreEqual("manager", start.ParallelFork.Branches[0].NextApprovalNodeKey);
+        Assert.AreEqual("manager", start.ParallelFork.Branches[0].NextHumanNodeKey);
     }
 
     private static WorkflowNodeDraft InclusiveForkNode(

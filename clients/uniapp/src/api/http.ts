@@ -3,6 +3,7 @@ import { HttpProblem, toHttpProblem } from './problem-details';
 
 export interface HttpClientDependencies {
   readonly request: Uni['request'];
+  readonly uploadFile?: Uni['uploadFile'];
   readonly getLocale: () => CanonicalLocale;
   readonly getAccessToken?: () => string | undefined;
   readonly apiBaseUrl?: string;
@@ -19,14 +20,24 @@ export interface HttpRequestOptions {
   readonly data?: unknown;
   readonly headers?: Readonly<Record<string, string>>;
   readonly retryUnauthorized?: boolean;
+  readonly responseType?: 'arraybuffer';
 }
 
 export interface HttpClient {
   request<T>(options: HttpRequestOptions): Promise<T>;
+  upload?<T>(options: HttpUploadOptions): Promise<T>;
+}
+
+/** 文件采集只接收应用内 API 路径，避免把当前凭据发送给任意地址。 */
+export interface HttpUploadOptions {
+  readonly path: string;
+  readonly filePath: string;
+  readonly retryUnauthorized?: boolean;
 }
 
 export interface ConfigurableHttpClient extends HttpClient {
   configureAuthentication(bridge?: AuthenticationBridge): void;
+  upload<T>(options: HttpUploadOptions): Promise<T>;
 }
 
 /** 创建不缓存语言或认证状态的 uni.request Promise 适配器。 */
@@ -39,12 +50,12 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
     refreshInFlight = undefined;
   }
 
-  async function request<T>(options: HttpRequestOptions): Promise<T> {
+  async function authorized<T>(operation: () => Promise<T>, retryUnauthorized = true): Promise<T> {
     try {
-      return await send<T>(options);
+      return await operation();
     } catch (error: unknown) {
       const authenticationBridge = authentication;
-      const shouldRetry = options.retryUnauthorized !== false
+      const shouldRetry = retryUnauthorized
         && error instanceof HttpProblem
         && error.status === 401
         && authenticationBridge !== undefined;
@@ -59,14 +70,39 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
           refreshInFlight = undefined;
         });
       if (await refreshInFlight) {
-        return await request<T>({
-          ...options,
-          retryUnauthorized: false
-        });
+        return await operation();
       }
 
       throw error;
     }
+  }
+
+  function request<T>(options: HttpRequestOptions): Promise<T> {
+    return authorized(() => send<T>(options), options.retryUnauthorized !== false);
+  }
+
+  function upload<T>(options: HttpUploadOptions): Promise<T> {
+    if (!options.path.startsWith('/api/') || !dependencies.uploadFile) {
+      return Promise.reject(new HttpProblem({ status: 0, code: 'http.upload_unavailable', title: 'File upload unavailable.' }));
+    }
+    return authorized(() => new Promise<T>((resolve, reject) => {
+      try {
+        dependencies.uploadFile!({
+          url: resolveRequestUrl(options.path, dependencies.apiBaseUrl),
+          filePath: options.filePath,
+          name: 'file',
+          header: mergeHeaders(undefined, dependencies.getLocale(), authentication === undefined ? dependencies.getAccessToken?.() : authentication.getAccessToken()),
+          success(response) {
+            const body = parseResponseData(response.data);
+            if (!isHttpStatus(response.statusCode)) {
+              reject(new HttpProblem({ status: 0, code: 'http.unexpected_response', title: 'Request failed.' }));
+            } else if (response.statusCode >= 200 && response.statusCode <= 299) resolve(body as T);
+            else reject(toHttpProblem(response.statusCode, body));
+          },
+          fail() { reject(new HttpProblem({ status: 0, code: 'http.network_error', title: 'Network request failed.' })); }
+        });
+      } catch { reject(new HttpProblem({ status: 0, code: 'http.network_error', title: 'Network request failed.' })); }
+    }), options.retryUnauthorized !== false);
   }
 
   function send<T>(options: HttpRequestOptions): Promise<T> {
@@ -108,7 +144,7 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
           method: options.method ?? 'GET',
           data: options.data as UniNamespace.RequestOptions['data'],
           header: headers,
-          dataType: 'json',
+          ...(options.responseType === 'arraybuffer' ? { responseType: 'arraybuffer' as const, dataType: 'text' } : { dataType: 'json' }),
           withCredentials: true,
           success(response) {
             try {
@@ -139,7 +175,8 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
 
   return {
     configureAuthentication,
-    request
+    request,
+    upload
   };
 }
 
@@ -185,6 +222,9 @@ function isHttpStatus(value: unknown): value is number {
 }
 
 function parseResponseData(value: unknown): unknown {
+  if (value instanceof ArrayBuffer) {
+    try { value = new TextDecoder('utf-8', { fatal: true }).decode(value); } catch { return undefined; }
+  }
   if (typeof value !== 'string') {
     return value;
   }

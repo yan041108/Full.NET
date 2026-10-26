@@ -14,7 +14,7 @@ const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+    if (window === window.top) localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });
 });
 
@@ -23,7 +23,7 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   request
 }, testInfo) => {
   test.skip(testInfo.project.metadata.clientKind !== 'vue', 'VForm3 表单设计器仅在 Vue 交付线验收');
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
 
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
@@ -37,6 +37,8 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   const stamp = Date.now().toString(36);
   const formKey = `e2e.form.${stamp}`;
   const fieldKey = `amount_${stamp}`;
+  const initializedKey = `initialized_${stamp}`;
+  const timeKey = `cutoff_${stamp}`;
   const currentAccessToken = trackUiAccessToken(page);
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /工作流表单/, '工作流');
@@ -59,28 +61,18 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   expect(formsResponse.status()).toBe(200);
   const created = (await formsResponse.json()).find(item => item.formKey === formKey);
   expect(created?.id).toBeTruthy();
-  const updateResponse = await request.put(
-    `${apiBaseUrl}/api/v1/workflow/forms/${created.id}/draft`,
-    {
-      data: {
-        expectedRevision: created.draftRevision,
-        draft: {
-          schemaVersion: 1,
-          adapterVersion: 1,
-          sections: [{
-            sectionKey: 'main',
-            fields: [{
-              fieldKey,
-              fieldTypeKey: 'money',
-              required: true,
-              constraints: { scale: 2 }
-            }]
-          }]
-        }
-      },
-      headers
-    }
-  );
+  const originalDesign = {
+    widgetList: [{ id: fieldKey, type: 'input', formItemFlag: true, options: {
+      name: fieldKey, label: '原样申请标题', required: true, defaultValue: '默认内容', placeholder: '原样占位', customClass: ['original-field'], extra: { keep: [1, true, null] }
+    } }, { id: initializedKey, type: 'input', formItemFlag: true, options: {
+      name: initializedKey, label: '挂载脚本初值', required: false, defaultValue: ''
+    } }, { id: timeKey, type: 'time', formItemFlag: true, options: {
+      name: timeKey, label: '原样截止时间', required: true, format: 'HH:mm:ss', defaultValue: ''
+    } }], formConfig: { jsonVersion: 3, labelWidth: 180, labelPosition: 'top', size: 'large', cssCode: '.original-field { color: #123456; }', onFormMounted: `this.setFieldValue('${initializedKey}', '挂载脚本实际初值');` }
+  };
+  const updateResponse = await request.put(`${apiBaseUrl}/api/v1/workflow/forms/${created.id}/design-asset`, {
+    data: { expectedRevision: created.draftRevision, sourceCommit: 'c67479e496bab56a93a3dff168a4f529d8293c67', formatVersion: 3, designerJson: originalDesign }, headers
+  });
   expect(updateResponse.status()).toBe(200);
   await page.reload();
 
@@ -91,7 +83,7 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   const designer = refreshedView.getByTestId('vform3-workflow-designer');
   await expect(designer).toBeVisible();
   // VForm3 会把必填标记与字段标签合成渲染，不应将第三方 DOM 文本结构当成稳定契约。
-  await expect(designer.getByText(fieldKey, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(designer.frameLocator('iframe').getByText('原样申请标题', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await refreshedView.getByTestId('workflow-form-save').click();
   await expect(refreshedView.getByRole('dialog').getByText('Revision 3', { exact: true }))
     .toBeVisible({ timeout: 15_000 });
@@ -114,7 +106,54 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   const frozen = await frozenResponse.json();
   expect(JSON.parse(frozen.formSchemaJson).sections
     .flatMap(section => section.fields)
-    .some(field => field.fieldKey === fieldKey && field.fieldTypeKey === 'money')).toBeTruthy();
+    .some(field => field.fieldKey === fieldKey && field.fieldTypeKey === 'text')).toBeTruthy();
+  const assetResponse = await request.get(`${apiBaseUrl}/api/v1/workflow/forms/${created.id}/design-asset`, { headers });
+  expect(assetResponse.status()).toBe(200);
+  const asset = await assetResponse.json();
+  expect(asset.designerJson.widgetList).toEqual(originalDesign.widgetList);
+  for (const [key, value] of Object.entries(originalDesign.formConfig)) expect(asset.designerJson.formConfig[key]).toEqual(value);
+  expect(JSON.parse(frozen.webRenderSchemaJson)).toEqual(asset.designerJson);
+  const definitionKey = `vform.runtime.${stamp}`;
+  const definitionResponse = await request.post(`${apiBaseUrl}/api/v1/workflow/definitions`, { headers, data: {
+    definitionKey, draft: { schemaVersion: 1, nodes: [
+      { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approve'] } },
+      { nodeKey: 'approve', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'], fieldPolicies: { [fieldKey]: 'required', [initializedKey]: 'required', [timeKey]: 'required' } } },
+      { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }
+    ] }
+  } });
+  expect(definitionResponse.status(), await definitionResponse.text()).toBe(201);
+  const definition = await definitionResponse.json();
+  const definitionPublished = await request.post(`${apiBaseUrl}/api/v1/workflow/definitions/${definition.id}/publish`, { headers, data: { expectedRevision: definition.draftRevision, formVersionId: frozen.id } });
+  expect(definitionPublished.status(), await definitionPublished.text()).toBe(200);
+  const definitionVersion = await definitionPublished.json();
+  const started = await request.post(`${apiBaseUrl}/api/v1/workflow/instances`, { headers, data: { definitionVersionId: definitionVersion.id, businessType: 'e2e.vform.runtime', businessId: stamp, initialValues: { [fieldKey]: '办理初值', [timeKey]: '08:30' }, idempotencyKey: crypto.randomUUID() } });
+  expect(started.status(), await started.text()).toBe(201);
+  const instance = await started.json();
+  await clickMainNavLink(page, /我的待办/, '工作流');
+  const todos = page.locator('.workflow-todos');
+  await todos.getByTestId('workflow-todo-business-type-filter').fill('e2e.vform.runtime');
+  await todos.getByTestId('workflow-todo-filter-apply').click();
+  const todo = todos.getByRole('row').filter({ hasText: definitionKey }); await expect(todo).toBeVisible();
+  await todo.getByTestId('workflow-todo-open').click();
+  const runtime = todos.frameLocator('iframe');
+  const title = runtime.getByRole('textbox', { name: '原样申请标题' });
+  await expect(runtime.getByRole('textbox', { name: '挂载脚本初值' })).toHaveValue('挂载脚本实际初值');
+  const time = runtime.getByRole('combobox', { name: '原样截止时间' });
+  await expect(time).toHaveValue('08:30:00');
+  await time.fill('12:45:37'); await time.press('Enter'); await time.blur();
+  await expect(title).toHaveValue('办理初值'); await title.fill('原版 Renderer 实际提交'); await title.blur();
+  const sent = page.waitForRequest(value => value.method() === 'POST' && value.url().includes(`/todos/${instance.activeTodoId}/approve`));
+  await todos.getByTestId('workflow-todo-approve').click();
+  expect((await sent).postDataJSON().fieldPatch).toEqual({ [fieldKey]: '原版 Renderer 实际提交', [initializedKey]: '挂载脚本实际初值', [timeKey]: '12:45:37' });
+  await expect(todo).toHaveCount(0, { timeout: 15000 });
+  headers.Authorization = `Bearer ${currentAccessToken()}`;
+  const actualRuntime = await request.get(`${apiBaseUrl}/api/v1/workflow/todos/${instance.activeTodoId}/runtime`, { headers });
+  expect(actualRuntime.status(), await actualRuntime.text()).toBe(200);
+  const actual = await actualRuntime.json();
+  expect(actual.submission[fieldKey]).toBe('原版 Renderer 实际提交');
+  expect(actual.submission[initializedKey]).toBe('挂载脚本实际初值');
+  expect(actual.submission[timeKey]).toBe('12:45:37');
+  expect(actual.webRenderJson.fullNetRuntime.bindings[0].componentId).toBe(fieldKey);
   expect(runtimeErrors).toEqual([]);
 });
 

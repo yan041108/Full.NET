@@ -164,6 +164,79 @@ public sealed class KafkaReplayServiceTests
             Arg.Any<TimeSpan>());
     }
 
+    [TestMethod]
+    public async Task Tracked_replay_persists_intent_before_handler_and_confirmation_after()
+    {
+        var f = TrackedFixture(10, 13, [10, 11, 12]); var order = new List<string>();
+        f.Progress.BeforeMessageAsync(0, Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(call => { order.Add("before:" + call.ArgAt<long>(1)); return Task.CompletedTask; });
+        f.Processor.ProcessAsync(Arg.Any<string>(), Arg.Any<ConsumeResult<string, byte[]>>(), Arg.Any<CancellationToken>()).Returns(call => { order.Add("handle:" + call.ArgAt<ConsumeResult<string, byte[]>>(1).Offset.Value); return Task.FromResult(KafkaReplayMessageOutcome.Processed); });
+        f.Progress.AfterMessageAsync(0, Arg.Any<long>(), Arg.Any<KafkaReplayConfirmedOutcome>(), Arg.Any<CancellationToken>()).Returns(call => { order.Add("after:" + call.ArgAt<long>(1)); return Task.CompletedTask; });
+        var result = await f.Service.ReplayTrackedAsync(CreateRequest(10, 12), null, f.Progress, default);
+        Assert.AreEqual(3, result.ProcessedMessages);
+        CollectionAssert.AreEqual(new[] { "before:10", "handle:10", "after:10", "before:11", "handle:11", "after:11", "before:12", "handle:12", "after:12" }, order);
+        await f.Progress.Received(1).BindSnapshotAsync(Arg.Is<KafkaReplaySnapshot>(item => item != null && item.ClusterId == "cluster-a" && item.TopicId == "topic-a" && item.Ranges[0].EndOffsetExclusive == 13), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Tracked_resume_assigns_persisted_next_offset_and_never_expands_to_new_broker_messages()
+    {
+        var f = TrackedFixture(0, 20, [12, 13]);
+        var snapshot = new KafkaReplaySnapshot("cluster-a", "topic-a", [new(0, 10, 13, 12)]);
+        var result = await f.Service.ReplayTrackedAsync(CreateRequest(10, 12), snapshot, f.Progress, default);
+        Assert.AreEqual(1, result.ProcessedMessages);
+        f.Consumer.Received(1).Assign(Arg.Is<IReadOnlyList<TopicPartitionOffset>>(items => items != null && items.Count == 1 && items[0].Offset.Value == 12));
+    }
+
+    [TestMethod]
+    [DataRow("cluster-other", "topic-a", 0L, 20L)]
+    [DataRow("cluster-a", "topic-other", 0L, 20L)]
+    [DataRow("cluster-a", "topic-a", 13L, 20L)]
+    [DataRow("cluster-a", "topic-a", 0L, 12L)]
+    public async Task Changed_resource_or_retained_window_blocks_before_assignment(string cluster, string topic, long low, long high)
+    {
+        var f = TrackedFixture(low, high, []);
+        var snapshot = new KafkaReplaySnapshot(cluster, topic, [new(0, 10, 13, 12)]);
+        await Assert.ThrowsExactlyAsync<KafkaReplayWindowUnavailableException>(() => f.Service.ReplayTrackedAsync(CreateRequest(10, 12), snapshot, f.Progress, default));
+        f.Consumer.DidNotReceive().Assign(Arg.Any<IReadOnlyList<TopicPartitionOffset>>());
+        Assert.IsEmpty(f.Processor.ReceivedCalls());
+    }
+
+    [TestMethod]
+    public async Task Exact_offset_creation_rejects_retention_clamping_instead_of_silently_losing_messages()
+    {
+        var f = TrackedFixture(11, 13, []);
+        await Assert.ThrowsExactlyAsync<KafkaReplayWindowUnavailableException>(() => f.Service.ReplayTrackedAsync(CreateRequest(10, 12), null, f.Progress, default));
+        Assert.IsEmpty(f.Progress.ReceivedCalls()); Assert.IsEmpty(f.Processor.ReceivedCalls());
+    }
+
+    [TestMethod]
+    public async Task Rejected_tracked_message_stops_before_later_message_and_unknown_outcome_cannot_checkpoint()
+    {
+        var f = TrackedFixture(10, 13, [10, 11, 12]);
+        f.Processor.ProcessAsync(Arg.Any<string>(), Arg.Any<ConsumeResult<string, byte[]>>(), Arg.Any<CancellationToken>()).Returns(KafkaReplayMessageOutcome.Rejected);
+        var result = await f.Service.ReplayTrackedAsync(CreateRequest(10, 12), null, f.Progress, default);
+        Assert.AreEqual(1, result.ScannedMessages); Assert.AreEqual(1, result.RejectedMessages);
+        f = TrackedFixture(10, 13, [10]);
+        f.Processor.ProcessAsync(Arg.Any<string>(), Arg.Any<ConsumeResult<string, byte[]>>(), Arg.Any<CancellationToken>()).Returns((KafkaReplayMessageOutcome)999);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.Service.ReplayTrackedAsync(CreateRequest(10, 12), null, f.Progress, default));
+        await f.Progress.DidNotReceive().AfterMessageAsync(Arg.Any<int>(), Arg.Any<long>(), Arg.Any<KafkaReplayConfirmedOutcome>(), Arg.Any<CancellationToken>());
+    }
+
+    private static (KafkaReplayService Service, IKafkaReplayConsumer Consumer, IKafkaReplayMessageProcessor Processor, IKafkaReplayProgressSink Progress) TrackedFixture(long low, long high, long[] offsets)
+    {
+        var consumer = Substitute.For<IKafkaReplayConsumer>();
+        var partition = new TopicPartition("messaging.orders.v1", 0);
+        consumer.GetPartitions(partition.Topic, Arg.Any<TimeSpan>()).Returns([partition]);
+        consumer.ReadResourceIdentityAsync(partition.Topic, Arg.Any<CancellationToken>()).Returns(("cluster-a", "topic-a"));
+        consumer.QueryWatermarkOffsets(partition, Arg.Any<TimeSpan>()).Returns(new WatermarkOffsets(low, high));
+        var queue = new Queue<ConsumeResult<string, byte[]>>(offsets.Select(offset => CreateResult(partition, offset)));
+        consumer.Consume(Arg.Any<TimeSpan>()).Returns(_ => queue.Count > 0 ? queue.Dequeue() : new ConsumeResult<string, byte[]> { Topic = partition.Topic, Partition = 0, Offset = high, IsPartitionEOF = true });
+        var factory = Substitute.For<IKafkaReplayConsumerFactory>(); factory.Create(Arg.Any<ConsumerConfig>()).Returns(consumer);
+        var processor = Substitute.For<IKafkaReplayMessageProcessor>();
+        processor.ProcessAsync(Arg.Any<string>(), Arg.Any<ConsumeResult<string, byte[]>>(), Arg.Any<CancellationToken>()).Returns(KafkaReplayMessageOutcome.Processed);
+        return (new(CreateCatalog(), factory, processor, Options.Create(CreateOptions())), consumer, processor, Substitute.For<IKafkaReplayProgressSink>());
+    }
+
     private static KafkaReplayRequest CreateRequest(long from, long to) =>
         new(
             "messaging.orders.v1",

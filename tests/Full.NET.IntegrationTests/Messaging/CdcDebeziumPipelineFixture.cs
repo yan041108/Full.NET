@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
+using Full.NET.IntegrationTests.Api;
 using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.IntegrationTests.Messaging;
@@ -161,8 +162,7 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
 
     private static string ResolveJavaCryptoPolicyPath()
     {
-        var repositoryRoot = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var repositoryRoot = FullNetApiFactory.FindRepositoryRoot();
         return Path.Combine(
             repositoryRoot,
             "tests",

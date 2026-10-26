@@ -17,7 +17,7 @@ internal sealed class WorkflowAssigneePreviewService(
     ICurrentTenant currentTenant,
     WorkflowAssigneeResolver resolver,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory)
+    ITenantMemberSelectionDirectory tenantUserDirectory)
 {
     /// <summary>预览办理人策略在当前作用域下对指定发起人的解析结果。</summary>
     /// <param name="request">办理人策略与可选发起人。</param>
@@ -29,7 +29,9 @@ internal sealed class WorkflowAssigneePreviewService(
         Guid actorUserId,
         CancellationToken cancellationToken = default)
     {
-        if (!WorkflowAssigneePolicy.TryReadPolicy(request.AssigneePolicy, out var policy))
+        var additional = request.AdditionalUserIds ?? [];
+        if (additional.Count > 20 || additional.Contains(Guid.Empty) || additional.Distinct().Count() != additional.Count ||
+            !WorkflowAssigneePolicy.TryReadPolicy(request.AssigneePolicy, out var policy) || policy.Handling is not null)
         {
             return Invalid();
         }
@@ -43,7 +45,7 @@ internal sealed class WorkflowAssigneePreviewService(
 
         var resolved = await resolver.ResolveAsync(
                 policy,
-                [],
+                additional,
                 scope,
                 initiatorUserId,
                 cancellationToken)
@@ -75,7 +77,7 @@ internal sealed class WorkflowAssigneePreviewService(
         if (scope.TenantId.HasValue)
         {
             var users = await tenantUserDirectory
-                .FindActiveTenantUsersAsync(userIds, cancellationToken)
+                .FindActiveTenantMembersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
             return userIds
                 .Where(users.ContainsKey)

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from '../auth/session';
 import {
   cancelWorkflowInstance,
+  withdrawWorkflowInstance,
   getWorkflowInstance,
   listMyWorkflowInstances,
   listWorkflowInstanceExecutionLogs,
@@ -18,6 +19,7 @@ import WorkflowInstancesView from './WorkflowInstancesView.vue';
 
 vi.mock('../api/workflow-instances', () => ({
   cancelWorkflowInstance: vi.fn(),
+  withdrawWorkflowInstance: vi.fn(),
   getWorkflowInstance: vi.fn(),
   listMyWorkflowInstances: vi.fn(),
   listWorkflowInstanceExecutionLogs: vi.fn(),
@@ -52,6 +54,32 @@ function mountView(permissions = ['workflow.instances.read']) {
 }
 
 describe('WorkflowInstancesView', () => {
+  it('撤回同时需要精确权限和服务端的本人发布边界能力', async () => {
+    const base = await getWorkflowInstance(instanceId);
+    vi.mocked(getWorkflowInstance).mockResolvedValue({ ...base, withdrawal: { canWithdraw: true, modeKey: 'before_any_human_action' } });
+    const admin = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    await admin.get('[data-testid="workflow-instance-id"]').setValue(instanceId); await admin.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    expect(admin.find('[data-testid="workflow-instance-withdraw"]').exists()).toBe(false); admin.unmount();
+    const owner = mountView(['workflow.instances.read', 'workflow.instances.withdraw']);
+    await owner.get('[data-testid="workflow-instance-id"]').setValue(instanceId); await owner.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    expect(owner.find('[data-testid="workflow-instance-withdraw"]').exists()).toBe(true); expect(owner.find('[data-testid="workflow-instance-cancel"]').exists()).toBe(false);
+    owner.unmount();
+  });
+  it('撤回网络结果未知时复用键，身份切换立即清除旧实例', async () => {
+    const base = await getWorkflowInstance(instanceId);
+    vi.mocked(getWorkflowInstance).mockResolvedValue({ ...base, withdrawal: { canWithdraw: true, modeKey: 'before_any_human_action' } });
+    vi.mocked(withdrawWorkflowInstance).mockRejectedValue({ status: 503, code: 'test.unavailable', title: '暂时不可用' });
+    const owner = mountView(['workflow.instances.read', 'workflow.instances.withdraw']);
+    try {
+      await owner.get('[data-testid="workflow-instance-id"]').setValue(instanceId); await owner.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+      await owner.get('[data-testid="workflow-instance-withdraw"]').trigger('click'); await flushPromises();
+      await owner.get('[data-testid="workflow-instance-withdraw"]').trigger('click'); await flushPromises();
+      expect(withdrawWorkflowInstance).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(withdrawWorkflowInstance).mock.calls[0]).toEqual(vi.mocked(withdrawWorkflowInstance).mock.calls[1]);
+      useSessionStore().currentUser!.tenantId = '01912345-6789-7abc-8def-0123456789ff'; await flushPromises();
+      expect(owner.find('[data-testid="workflow-instance-summary"]').exists()).toBe(false);
+    } finally { owner.unmount(); }
+  });
   it('缓存页面切换深链时重新读取，旧实例请求不能覆盖当前资源', async () => {
     const base = await getWorkflowInstance(instanceId);
     const secondId = '01912345-6789-7abc-8def-0123456789b2';
@@ -74,6 +102,7 @@ describe('WorkflowInstancesView', () => {
     wrapper.unmount();
   });
   beforeEach(() => {
+    vi.mocked(withdrawWorkflowInstance).mockReset();
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
     vi.mocked(listMyWorkflowInstances).mockReset().mockResolvedValue({
       items: [{

@@ -25,7 +25,7 @@
   <data name="workflow.definition.disabled" xml:space="preserve"><value>工作流定义已停用，不能发布新版本或启动实例。</value></data>
   <data name="workflow.definition.archived" xml:space="preserve"><value>工作流定义已归档，不能再修改。</value></data>
   <data name="workflow.definition.status_invalid" xml:space="preserve"><value>工作流定义状态或状态迁移无效。</value></data>
-  <data name="workflow.version.in_use" xml:space="preserve"><value>仍有运行中的实例引用该定义版本，不能删除。</value></data>
+  <data name="workflow.version.in_use" xml:space="preserve"><value>该定义版本仍被已发布流程、父调用或实例历史引用，不能删除。</value></data>
   <data name="workflow.definition.key_exists" xml:space="preserve"><value>当前作用域已存在相同流程定义键。</value></data>
   <data name="workflow.form.field_type_unknown" xml:space="preserve"><value>表单包含未知字段类型。</value></data>
   <data name="workflow.form.field_key_duplicate" xml:space="preserve"><value>表单字段标识重复。</value></data>
@@ -55,7 +55,7 @@
   <data name="workflow.version.not_published" xml:space="preserve"><value>工作流版本尚未发布。</value></data>
   <data name="workflow.instance.active_exists" xml:space="preserve"><value>相同业务对象已存在活动实例。</value></data>
   <data name="workflow.todo.forbidden" xml:space="preserve"><value>无权处理该工作流待办。</value></data>
-  <data name="workflow.todo.return_target_invalid" xml:space="preserve"><value>退回目标不是当前实例有效执行链上的已完成人工审批步骤。</value></data>
+  <data name="workflow.todo.return_target_invalid" xml:space="preserve"><value>退回目标不是当前实例有效执行链上可安全重新激活的已完成人工活动。</value></data>
   <data name="workflow.todo.countersign_assignee_invalid" xml:space="preserve"><value>加签办理人无效、重复或包含当前办理人。</value></data>
   <data name="workflow.todo.countersign_direction_invalid" xml:space="preserve"><value>加签方向必须是 before 或 after。</value></data>
   <data name="workflow.todo.countersign_chain_active" xml:space="preserve"><value>当前待办已存在活动加签链。</value></data>
@@ -65,4 +65,27 @@
   <data name="workflow.recovery.not_found" xml:space="preserve"><value>工作流恢复任务不存在或不属于当前作用域。</value></data>
   <data name="workflow.recovery.retry_invalid" xml:space="preserve"><value>工作流恢复任务不能重试。</value></data>
   <data name="workflow.recovery.reconcile_invalid" xml:space="preserve"><value>工作流恢复任务不能对账。</value></data>
+  <data name="workflow.todo.action_forbidden" xml:space="preserve"><value>发布的节点配置禁止该办理动作。</value></data>
+  <data name="workflow.todo.comment_required" xml:space="preserve"><value>请填写该节点要求的办理意见。</value></data>
+  <data name="workflow.todo.signature_required" xml:space="preserve"><value>请提供该节点要求的签名文件证据。</value></data>
+  <data name="workflow.todo.signature_invalid" xml:space="preserve"><value>签名文件无效或无权使用，请重新采集签名。</value></data>
+  <data name="workflow.definition.action_policy_invalid" xml:space="preserve"><value>节点动作、签名或意见配置无效。</value></data>
+  <data name="workflow.definition.task_policy_invalid" xml:space="preserve"><value>办理提交完成规则无效。</value></data>
+  <data name="workflow.definition.vote_policy_invalid" xml:space="preserve"><value>投票规则、独立表单版本或结果字段绑定无效。</value></data>
+  <data name="workflow.definition.claim_policy_invalid" xml:space="preserve"><value>领取池的释放规则无效。</value></data>
+  <data name="workflow.definition.withdrawal_policy_invalid" xml:space="preserve"><value>发起人撤回策略或指定活动边界无效。</value></data>
+  <data name="workflow.instance.withdrawal_boundary_invalid" xml:space="preserve"><value>当前办理状态或已发生的业务副作用不允许撤回。</value></data>
+  <data name="workflow.instance.reminder_rate_limited" xml:space="preserve"><value>手动催办过于频繁或该节点的催办次数已用完，请稍后再试。</value></data>
+  <data name="workflow.definition.delay_policy_invalid" xml:space="preserve"><value>延时模式、时区、时长或绝对时间字段绑定无效。</value></data>
+  <data name="workflow.instance.not_found" xml:space="preserve"><value>当前作用域内不存在该工作流实例或活动。</value></data>
+  <data name="workflow.definition.parallel_write_conflict" xml:space="preserve"><value>并发自动分支可能写入同一字段，请拆分字段或将动作放在汇合后执行。</value></data>
+  <data name="workflow.definition.async_dependency_invalid" xml:space="preserve"><value>异步结果的等待依赖无效，请显式引用当前路径已保证激活的前序异步节点。</value></data>
+  <data name="workflow.calendar.invalid" xml:space="preserve"><value>工作日历窗口、时区或请求结构无效。</value></data>
+  <data name="workflow.calendar.not_found" xml:space="preserve"><value>当前作用域不存在该工作日历。</value></data>
+  <data name="workflow.calendar.key_exists" xml:space="preserve"><value>当前作用域已存在相同日历键。</value></data>
+  <data name="workflow.calendar.version_not_found" xml:space="preserve"><value>当前作用域不存在该日历版本。</value></data>
+  <data name="workflow.business_owner_required" xml:space="preserve"><value>请从对应业务入口发起该审批，不能直接创建业务所有者保留类型的工作流。</value></data>
+  <data name="workflow.definition.business_command_invalid" xml:space="preserve"><value>请选择当前作用域可用的业务动作，并将它直接放在根审批之后、结束节点之前。</value></data>
+  <data name="workflow.definition.subprocess_invalid" xml:space="preserve"><value>请选择可用的子流程版本，并校验字段映射与执行额度。</value></data>
+  <data name="workflow.subprocess.activation_invalid" xml:space="preserve"><value>当前父活动、固定子输入或剩余额度不允许启动子流程。</value></data>
 </root>

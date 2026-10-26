@@ -22,5 +22,6 @@ internal static class HostApiServiceRegistration
         IConfiguration configuration)
     {
         services.AddFullNetKafkaReplayOperations(configuration);
+        services.AddFullNetKafkaDeliveryControl(configuration);
     }
 }

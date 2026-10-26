@@ -5,6 +5,50 @@ namespace Full.NET.Modules.Identity.Persistence;
 /// <summary>Workflow 办理人解析使用的角色与成员只读 SQL 集合。</summary>
 internal static class WorkflowRoleMemberSql
 {
+    public static readonly SqlStatement FindSelectedHostRoleMembers = new("identity.workflow.find_selected_host_role_members", """
+        SELECT DISTINCT userRole.RoleId, userRole.UserId
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject ON roleObject.Id=userRole.RoleId
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id=userRole.UserId
+        WHERE userRole.UserId IN @UserIds AND userRole.RoleId IN @RoleIds
+          AND roleObject.ScopeKey='host' AND roleObject.TenantId IS NULL AND roleObject.IsActive=1 AND roleObject.IsSuperAdministrator=0
+          AND identityUser.ScopeKey='host' AND identityUser.TenantId IS NULL AND identityUser.IsActive=1
+        ORDER BY userRole.RoleId, userRole.UserId
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement FindSelectedTenantRoleMembers = new("identity.workflow.find_selected_tenant_role_members", """
+        SELECT DISTINCT userRole.RoleId, userRole.UserId
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject ON roleObject.Id=userRole.RoleId
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id=userRole.UserId
+        INNER JOIN fn_identity_tenant_member AS member ON member.UserId=identityUser.Id AND member.TenantId=@TenantId AND member.Status='Active'
+        WHERE userRole.UserId IN @UserIds AND userRole.RoleId IN @RoleIds
+          AND roleObject.TenantId=@TenantId AND roleObject.ScopeKey=@TenantScopeKey AND roleObject.IsActive=1 AND roleObject.IsSuperAdministrator=0
+          AND identityUser.IsActive=1 AND ((identityUser.TenantId=@TenantId AND identityUser.ScopeKey=@TenantScopeKey)
+            OR (identityUser.TenantId IS NULL AND identityUser.ScopeKey='host'))
+        ORDER BY userRole.RoleId, userRole.UserId
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement IsActiveHostRoleMember = new("identity.workflow.is_active_host_role_member", """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM fn_identity_user_role AS userRole
+            INNER JOIN fn_identity_role AS roleObject ON roleObject.Id=userRole.RoleId
+            INNER JOIN fn_identity_user AS identityUser ON identityUser.Id=userRole.UserId
+            WHERE userRole.UserId=@UserId AND userRole.RoleId IN @RoleIds
+              AND roleObject.ScopeKey='host' AND roleObject.TenantId IS NULL AND roleObject.IsActive=1 AND roleObject.IsSuperAdministrator=0
+              AND identityUser.ScopeKey='host' AND identityUser.TenantId IS NULL AND identityUser.IsActive=1
+        ) THEN 1 ELSE 0 END
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement IsActiveTenantRoleMember = new("identity.workflow.is_active_tenant_role_member", """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM fn_identity_user_role AS userRole
+            INNER JOIN fn_identity_role AS roleObject ON roleObject.Id=userRole.RoleId
+            INNER JOIN fn_identity_user AS identityUser ON identityUser.Id=userRole.UserId
+            INNER JOIN fn_identity_tenant_member AS member ON member.UserId=identityUser.Id AND member.TenantId=@TenantId AND member.Status='Active'
+            WHERE userRole.UserId=@UserId AND userRole.RoleId IN @RoleIds
+              AND roleObject.TenantId=@TenantId AND roleObject.ScopeKey=@TenantScopeKey AND roleObject.IsActive=1 AND roleObject.IsSuperAdministrator=0
+              AND identityUser.IsActive=1 AND ((identityUser.TenantId=@TenantId AND identityUser.ScopeKey=@TenantScopeKey)
+                OR (identityUser.TenantId IS NULL AND identityUser.ScopeKey='host'))
+        ) THEN 1 ELSE 0 END
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     public static readonly SqlStatement CountActiveHostRoles = new(
         "identity.workflow.count_active_host_roles",
         """

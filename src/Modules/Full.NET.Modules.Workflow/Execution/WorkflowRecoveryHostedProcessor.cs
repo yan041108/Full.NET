@@ -67,7 +67,11 @@ internal sealed class WorkflowRecoveryHostedProcessor(
             if (await scanner.ScanAsync(cancellationToken).ConfigureAwait(false) >= _options.BatchSize)
                 _nextScanAtUtc = now;
         }
-        return await processor.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+        var timers = await scope.ServiceProvider.GetRequiredService<WorkflowDelayProcessor>()
+            .ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+        var activities = await scope.ServiceProvider.GetRequiredService<WorkflowActivityWorkProcessor>()
+            .ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+        return timers + activities + await processor.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>满批立即再跑，避免积压被 Poll 人为拉长。</summary>

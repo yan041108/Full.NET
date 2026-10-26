@@ -1,4 +1,5 @@
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Localization;
 
 namespace Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
 
@@ -8,6 +9,12 @@ internal static class WorkflowNotificationTemplateCatalog
     private static readonly IReadOnlyDictionary<string, WorkflowNotificationTemplateDefinition> Definitions =
         new Dictionary<string, WorkflowNotificationTemplateDefinition>(StringComparer.Ordinal)
         {
+            ["workflow.activity.completed"] = Create("workflow.activity.completed", "工作流活动已完成",
+                "业务 {businessType}（{businessId}）的一个工作流活动已完成。", includeTodoId: false),
+            ["workflow.activity.rejected"] = Create("workflow.activity.rejected", "工作流活动已驳回",
+                "业务 {businessType}（{businessId}）的一个工作流活动已驳回。", includeTodoId: false),
+            ["workflow.todo.manual_reminder"] = Create("workflow.todo.manual_reminder", "工作流催办提醒",
+                "发起人提醒您处理业务 {businessType}（{businessId}）的工作流待办。", includeTodoId: true, includeManualSequence: true),
             ["workflow.todo.assigned"] = Create(
                 "workflow.todo.assigned",
                 "您有新的审批待办",
@@ -50,6 +57,25 @@ internal static class WorkflowNotificationTemplateCatalog
         out WorkflowNotificationTemplateDefinition? definition) =>
         Definitions.TryGetValue(templateKey, out definition);
 
+    /// <summary>闭合英文变体与默认变体具有相同参数边界，管理员已有内容不由系统覆盖。</summary>
+    public static WorkflowNotificationTemplateDefinition English(WorkflowNotificationTemplateDefinition definition)
+    {
+        var (subject, body) = definition.TemplateKey switch
+        {
+            "workflow.activity.completed" => ("Workflow activity completed", "A workflow activity for business {businessType} ({businessId}) has completed."),
+            "workflow.activity.rejected" => ("Workflow activity rejected", "A workflow activity for business {businessType} ({businessId}) was rejected."),
+            "workflow.todo.assigned" => ("New workflow task", "Business {businessType} ({businessId}) has a new workflow task for you."),
+            "workflow.todo.reminder" => ("Overdue workflow task", "Your workflow task for business {businessType} ({businessId}) is overdue."),
+            "workflow.todo.manual_reminder" => ("Workflow reminder", "The initiator reminds you to handle the workflow task for business {businessType} ({businessId})."),
+            "workflow.todo.escalation" => ("Workflow task escalation", "The workflow task for business {businessType} ({businessId}) has reached its escalation deadline."),
+            "workflow.instance.completed" => ("Workflow completed", "The workflow for business {businessType} ({businessId}) has completed."),
+            "workflow.instance.rejected" => ("Workflow rejected", "The workflow for business {businessType} ({businessId}) was rejected."),
+            "workflow.instance.cancelled" => ("Workflow cancelled", "The workflow for business {businessType} ({businessId}) was cancelled."),
+            _ => throw new InvalidOperationException("notifications.template_not_found"),
+        };
+        return definition with { LocaleTag = LocaleCatalog.English, Subject = subject, Body = new(body) };
+    }
+
     /// <summary>创建一条参数边界与 Workflow 事件载荷一致的模板定义。</summary>
     /// <param name="templateKey">稳定模板键。</param>
     /// <param name="subject">默认标题。</param>
@@ -61,7 +87,8 @@ internal static class WorkflowNotificationTemplateCatalog
         string subject,
         string body,
         bool includeTodoId,
-        bool includeReminderSequence = false)
+        bool includeReminderSequence = false,
+        bool includeManualSequence = false)
     {
         var parameters = new List<NotificationTemplateParameterDefinition>
         {
@@ -77,6 +104,12 @@ internal static class WorkflowNotificationTemplateCatalog
         if (includeReminderSequence)
         {
             parameters.Add(new NotificationTemplateParameterDefinition("reminderSequence", "integer", true, null));
+        }
+
+        if (includeManualSequence)
+        {
+            parameters.Add(new("manualRequestId", "string", true, 36));
+            parameters.Add(new("manualSequence", "integer", true, null));
         }
 
         return new WorkflowNotificationTemplateDefinition(
@@ -96,4 +129,5 @@ internal sealed record WorkflowNotificationTemplateDefinition(
     string TemplateKey,
     string Subject,
     NotificationTemplateBody Body,
-    NotificationTemplateParameterSchema ParameterSchema);
+    NotificationTemplateParameterSchema ParameterSchema,
+    string LocaleTag = LocaleCatalog.DefaultLocale);

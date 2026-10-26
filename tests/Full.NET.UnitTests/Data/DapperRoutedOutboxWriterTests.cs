@@ -7,6 +7,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Data.Dapper.Outbox;
 using Full.NET.Messaging.Abstractions;
 using NSubstitute;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Data;
 
@@ -30,7 +31,7 @@ public sealed class DapperRoutedOutboxWriterTests
         var c = CreateRoutedCollaborators(counters);
         c.Gate.AcquireProducerAsync(UnknownStream, 1, Arg.Any<CancellationToken>()).Returns(EventDeliveryOwner.CdcKafka);
         c.Resolver.ResolveDeliveryOwner(UnknownStream, 1, EventDeliveryOwner.CdcKafka).Returns(EventDeliveryOwner.CdcKafka);
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
 
         await routed.AddAsync(UnknownStream, 1, new SamplePayload(1, "locked"),
             IntegrationEventMetadata.Create("partition", "producer"));
@@ -50,7 +51,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             legacyOwners: [LegacyStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
         var payload = new SamplePayload(42, "hello");
 
         await routed.AddAsync(
@@ -77,7 +78,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
         var payload = new SamplePayload(7, "org-unit-42");
 
         await routed.AddAsync(
@@ -99,7 +100,7 @@ public sealed class DapperRoutedOutboxWriterTests
         var counters = new OutboxCallCounters();
         var c = CreateRoutedCollaborators(counters);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
         var payload = new SamplePayload(1, "unregistered-event");
 
         await routed.AddAsync(
@@ -122,7 +123,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
         var payload = new SamplePayload(3, "must-fail");
 
         try
@@ -158,7 +159,7 @@ public sealed class DapperRoutedOutboxWriterTests
             legacyOwners: [LegacyStream],
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate, DisabledCapture());
         var payload = new SamplePayload(11, "both-registered-separately");
 
         await routed.AddAsync(
@@ -178,6 +179,9 @@ public sealed class DapperRoutedOutboxWriterTests
         Assert.AreEqual(0, counters.AppendPlainCalls);
         Assert.AreEqual(1, counters.AppendMetadataCalls);
     }
+
+    private static DapperShadowCaptureWriter DisabledCapture() => new(Substitute.For<ICommandExecutor>(),
+        Substitute.For<IClock>(), Options.Create(new ShadowCaptureOptions()));
 
     private sealed class OutboxCallCounters
     {

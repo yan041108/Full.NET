@@ -47,7 +47,7 @@ internal sealed class WorkflowNodeFieldPolicy
 
         if (matchedNode is not { } matched ||
             !matched.TryGetProperty("nodeTypeKey", out var nodeType) ||
-            nodeType.GetString() != "human.approval" ||
+            !WorkflowHumanActivityKinds.IsFormActivity(nodeType.GetString()) ||
             !matched.TryGetProperty("config", out var config) ||
             config.ValueKind != JsonValueKind.Object)
         {
@@ -144,6 +144,7 @@ internal sealed class WorkflowNodeFieldPolicy
         return true;
     }
 
-    private bool IsVisible(string fieldKey) =>
+    /// <summary>文件下载沿用节点字段可见性，不能绕过隐藏字段裁剪。</summary>
+    public bool IsVisible(string fieldKey) =>
         _fields.TryGetValue(fieldKey, out var access) && access != "hidden";
 }

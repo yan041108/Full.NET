@@ -2,6 +2,6 @@ roles:
   worker: true
 worker:
   messaging:
-    mode: CdcKafka
+    mode: HybridKafka
     kafka:
       bootstrapSecretName: ""

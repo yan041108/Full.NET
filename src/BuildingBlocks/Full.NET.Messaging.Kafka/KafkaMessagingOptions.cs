@@ -213,6 +213,12 @@ public sealed class KafkaMessagingOptions
     /// </summary>
     public string[] RetryStages { get; set; } = ["5s", "1m", "15m"];
 
+    /// <summary>已显式启用 Kafka 时消费 DLQ 建立运维投影；不改变业务消费者的消费组。</summary>
+    public bool DeadLetterProjectionEnabled { get; set; } = true;
+
+    /// <summary>DLQ 投影的稳定消费组；同一数据库的副本使用同一组，不同环境必须隔离。</summary>
+    public string DeadLetterProjectionGroupId { get; set; } = "fullnet.messaging.dead-letter-projection.v1";
+
     /// <summary>
     /// 是否启用 Offset 自动提交；必须保持 false，以保证至少一次与精确语义可控。
     /// </summary>
@@ -388,6 +394,10 @@ internal static class KafkaMessagingOptionsValidation
         }
 
         var failures = new List<string>();
+
+        if (options.DeadLetterProjectionEnabled && (string.IsNullOrWhiteSpace(options.DeadLetterProjectionGroupId)
+            || options.DeadLetterProjectionGroupId.Length > 200))
+            failures.Add($"{KafkaMessagingOptions.SectionName}:DeadLetterProjectionGroupId must contain 1..200 characters.");
 
         if (options.EnableAutoCommit)
         {

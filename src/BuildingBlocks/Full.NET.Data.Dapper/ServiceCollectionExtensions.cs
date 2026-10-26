@@ -180,6 +180,9 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddOptions<MessagingOutboxOptions>()
             .BindConfiguration(MessagingOutboxOptions.SectionName);
+        services.AddOptions<ShadowCaptureOptions>().BindConfiguration(ShadowCaptureOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ShadowCaptureOptions>, ShadowCaptureOptionsValidator>());
+        services.AddScoped<DapperShadowCaptureWriter>();
         var outboxCommandPath = DapperOutboxCommandPathPolicy.Resolve(
             configuration,
             environmentName);
@@ -205,6 +208,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IIntegrationEventInbox>(provider =>
             provider.GetRequiredService<DapperIntegrationEventInbox>());
         services.AddScoped<DapperOutboxStore>();
+        services.AddScoped<IOutboxDeadLetterStore, DapperOutboxDeadLetterStore>();
         services.AddScoped<IOutboxStore>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<IOutboxBacklogReader>(provider =>

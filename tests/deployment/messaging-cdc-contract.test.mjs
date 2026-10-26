@@ -36,6 +36,20 @@ const messagingFiles = [
   'deploy/messaging/mysql/verify-binlog.sql',
 ];
 
+for (const provider of ['mysql', 'sqlserver']) {
+  for (const profile of ['shadow', 'capacity']) {
+    test(`${provider} ${profile} explicitly preserves raw MemoryPack bytes`, async () => {
+      const { config } = await readJson(`deploy/messaging/connectors/${provider}-outbox-${profile}.json`);
+      assert.equal(config['value.converter'], 'io.debezium.converters.BinaryDataConverter');
+      assert.equal(config['value.converter.delegate.converter.type'], 'org.apache.kafka.connect.json.JsonConverter');
+      assert.equal(config['value.converter.delegate.converter.type.schemas.enable'], 'false');
+      assert.equal(config['topic.heartbeat.prefix'], `fullnet.${profile === 'shadow' ? 'dev.shadow' : 'capacity'}.internal.heartbeat.${provider}`);
+      assert.equal(config['heartbeat.topics.prefix'], undefined);
+      if (provider === 'mysql') assert.equal(config['heartbeat.interval.ms'], '1000');
+    });
+  }
+}
+
 test('messaging CDC deploy artifacts exist', async () => {
   for (const file of messagingFiles) {
     assert.equal(await exists(file), true, `${file} missing`);
@@ -55,20 +69,20 @@ test('compose pins Kafka 4.1.2 and Debezium 3.4.3.Final without :latest', async 
   assert.match(compose, /fullnet\.dev\.shadow\.internal\./);
 });
 
-test('SQL Server shadow connector scopes capture to append-only outbox', async () => {
+test('SQL Server shadow connector isolates diagnostic captures', async () => {
   const connector = await readJson(
     'deploy/messaging/connectors/sqlserver-outbox-shadow.json'
   );
   const config = connector.config;
   assert.equal(config['snapshot.mode'], 'no_data');
-  assert.equal(config['table.include.list'], 'dbo.fn_messaging_outbox_event');
-  assert.equal(config['capture.instance'], 'fullnet_fn_messaging_outbox_event');
+  assert.equal(config['table.include.list'], 'dbo.fn_messaging_shadow_event');
+  assert.equal(config['capture.instance'], 'fullnet_fn_messaging_shadow_event');
   assert.match(
     config['transforms.outbox.route.topic.replacement'],
-    /^fullnet\.dev\.shadow\.\$\{routedByValue\}$/
+    /^\$\{FULLNET_SHADOW_TOPIC\}$/
   );
   assert.match(config['schema.history.internal.kafka.topic'], /fullnet\.dev\.shadow\.internal\./);
-  assert.match(config['heartbeat.topics.prefix'], /fullnet\.dev\.shadow\.internal\./);
+  assert.match(config['topic.heartbeat.prefix'], /fullnet\.dev\.shadow\.internal\./);
   assert.doesNotMatch(JSON.stringify(config), /fn_messaging_inbox_message/);
   assert.doesNotMatch(JSON.stringify(config), /fn_outbox_message/);
 });
@@ -79,11 +93,14 @@ test('MySQL shadow connector requires ROW binlog semantics via runbook and scope
   );
   const config = connector.config;
   assert.equal(config['snapshot.mode'], 'no_data');
-  assert.match(config['table.include.list'], /fn_messaging_outbox_event$/);
+  assert.match(config['table.include.list'], /fn_messaging_shadow_event$/);
+  assert.equal(config['transforms.outbox.table.field.event.timestamp'], 'OccurredAtUtc');
+  assert.match(config['transforms.outbox.table.fields.additional.placement'], /CaptureGeneration:header:capture_generation/);
+  assert.equal(config['transforms.outbox.table.op.invalid.behavior'], 'fatal');
   assert.doesNotMatch(config['table.include.list'], /fn_messaging_inbox_message/);
   assert.match(
     config['transforms.outbox.route.topic.replacement'],
-    /^fullnet\.dev\.shadow\.\$\{routedByValue\}$/
+    /^\$\{FULLNET_SHADOW_TOPIC\}$/
   );
   assert.match(config['schema.history.internal.kafka.topic'], /fullnet\.dev\.shadow\.internal\./);
 
@@ -99,7 +116,7 @@ for (const profile of ['shadow', 'capacity']) {
   test(`MySQL ${profile} bounds schema history to its captured outbox`, async () => {
     const { config } = await readJson(`deploy/messaging/connectors/mysql-outbox-${profile}.json`);
     assert.equal(config['database.include.list'], '${FULLNET_MYSQL_DATABASE}');
-    assert.equal(config['table.include.list'], '${FULLNET_MYSQL_DATABASE}.fn_messaging_outbox_event');
+    assert.equal(config['table.include.list'], '${FULLNET_MYSQL_DATABASE}.fn_messaging_' + (profile === 'shadow' ? 'shadow' : 'outbox') + '_event');
     assert.equal(config['schema.history.internal.store.only.captured.databases.ddl'], 'true');
     assert.equal(config['schema.history.internal.store.only.captured.tables.ddl'], 'true');
     assert.equal(config['snapshot.mode'], 'no_data');
@@ -134,4 +151,23 @@ test('application Helm chart does not ship Debezium or Kafka Connect images', as
     assert.doesNotMatch(text, /quay\.io\/debezium/i);
     assert.doesNotMatch(text, /debezium\/connect/i);
   }
+});
+
+test('Helm accepts the HybridKafka worker mode and rejects the former delivery-owner alias', async () => {
+  const schema = await readJson('deploy/helm/fullnet/values.schema.json');
+  assert.deepEqual(schema.properties.worker.properties.messaging.properties.mode.enum, ['LegacyPolling', 'ShadowCdc', 'HybridKafka']);
+  for (const file of ['templates/configmap.yaml', 'templates/worker-deployment.yaml', 'templates/_helpers.tpl']) {
+    const text = await read(`deploy/helm/fullnet/${file}`);
+    assert.match(text, /"HybridKafka"/);
+    assert.doesNotMatch(text, /"CdcKafka"/);
+  }
+});
+
+test('shadow CDC scripts explicitly target diagnostics outside DbUp', async () => {
+  const enable = await read('deploy/messaging/sqlserver/enable-shadow-cdc.sql');
+  const disable = await read('deploy/messaging/sqlserver/disable-shadow-cdc.sql');
+  assert.match(enable, /fullnet_fn_messaging_shadow_event/);
+  assert.match(enable, /sp_cdc_enable_table/);
+  assert.match(disable, /sp_cdc_disable_table/);
+  assert.doesNotMatch(enable + disable, /@source_name\s*=\s*N?'fn_messaging_outbox_event'/);
 });

@@ -15,6 +15,13 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<OrganizationReportingLineRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), AotDataReaderExtensions.ReadNullableGuid(reader, 2), reader.GetInt64(3), reader.GetGuid(4), AotDataReaderExtensions.ReadDateTimeOffset(reader, 5)));
+        registrar.Register<OrganizationLeadershipUnitRecord>(reader => new(reader.GetGuid(0), AotDataReaderExtensions.ReadBoolean(reader, 1), reader.GetInt32(2)));
+        registrar.Register<OrganizationUnitLeadershipRecord>(reader => new(reader.GetGuid(0), AotDataReaderExtensions.ReadNullableGuid(reader, 1), reader.GetInt64(2), reader.GetGuid(3), AotDataReaderExtensions.ReadDateTimeOffset(reader, 4)));
+        registrar.Register<OrganizationLeaderSourceUnitRecord>(reader => new(reader.GetGuid(0), AotDataReaderExtensions.ReadNullableGuid(reader, 1), AotDataReaderExtensions.ReadNullableGuid(reader, 2)));
+        registrar.Register<WorkflowOrganizationUnitListRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
+        registrar.Register<WorkflowOrganizationPositionListRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
+        registrar.Register<WorkflowOrganizationAssigneeMemberRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1)));
         registrar.Register<PositionImportReceiptRecord>(reader => new(
             AotDataReaderExtensions.ReadNullableGuid(reader, 0), reader.GetString(1)));
         registrar.Register<OrganizationUnitRecord>(ReadOrganizationUnitRecord);

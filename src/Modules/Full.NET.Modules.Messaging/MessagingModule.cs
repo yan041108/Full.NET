@@ -35,6 +35,13 @@ namespace Full.NET.Modules.Messaging;
 /// </remarks>
 public sealed class MessagingModule : IFullNetModule
 {
+    /// <inheritdoc />
+    public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
+    {
+        // 位于通用异常处理器之内、授权之后，所有业务 Endpoint 的回退屏障异常先经模块语义映射。
+        if (stage == ModulePipelineStage.BeforeEndpoints) app.Use(MessagingProducerFenceMiddleware.InvokeAsync);
+    }
+
     /// <summary>获取消息运维模块名称。</summary>
     public string Name => "Messaging";
 
@@ -49,6 +56,9 @@ public sealed class MessagingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, MessagingErrorResourceSource>());
+        services.TryAddScoped<Features.ManageOperationalDeadLetters.OperationalDeadLetterService>();
         Persistence.MessagingLogTimelineSources.Register(services);
         RegisterMessagingCore(services);
         MessagingNativeKafkaReplayTestHarness.RegisterIfTesting(services, configuration);
@@ -60,9 +70,16 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<DeadLetterQueryService>();
         services.TryAddScoped<DeadLetterReplayService>();
         services.TryAddScoped<KafkaRangeReplayOperationsService>();
+        services.TryAddScoped<Features.ManageShadowCapture.ShadowCaptureService>();
+        services.TryAddScoped<ShadowCaptureStore>();
+        services.TryAddScoped<KafkaReplayOperationService>();
+        services.TryAddScoped<KafkaReplayOperationStore>();
         services.TryAddScoped<DeliveryStatusQueryService>();
         services.TryAddScoped<DeliveryCutoverService>();
+        services.TryAddScoped<DeliveryCutoverEvidenceService>();
+        services.TryAddSingleton<IEventDeliveryCutoverProbe, FailClosedEventDeliveryCutoverProbe>();
         services.TryAddScoped<DeliveryRollbackService>();
+        services.TryAddScoped<DeliveryRollbackRecoveryService>();
         services.TryAddSingleton<
             IEventDeliveryRollbackReadinessReader,
             FailClosedEventDeliveryRollbackReadinessReader>();
@@ -99,7 +116,11 @@ public sealed class MessagingModule : IFullNetModule
 
     private static void RegisterMessagingCore(IServiceCollection services)
     {
+        services.TryAddScoped<KafkaDeadLetterStore>();
+        services.TryAddScoped<IIntegrationEventDeadLetterSink>(provider => provider.GetRequiredService<KafkaDeadLetterStore>());
         services.TryAddScoped<EventStreamOwnershipStore>();
+        services.TryAddScoped<DeliveryRollbackJournal>();
+        services.TryAddScoped<IEventDeliveryRollbackJournal>(provider => provider.GetRequiredService<DeliveryRollbackJournal>());
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
         services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
@@ -132,9 +153,11 @@ public sealed class MessagingModule : IFullNetModule
     /// <summary>映射消息运维模块全部受保护 HTTP 路由，覆盖死信查询、重放、状态查询与所有权切换。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        Features.ManageOperationalDeadLetters.Endpoint.Map(endpoints);
         Features.GetDeadLetters.Endpoint.Map(endpoints);
         Features.ReplayDeadLetter.Endpoint.Map(endpoints);
         Features.ReplayKafkaRange.Endpoint.Map(endpoints);
+        Features.ManageShadowCapture.Endpoint.Map(endpoints);
         Features.GetDeliveryStatus.Endpoint.Map(endpoints);
         Features.ChangeDeliveryOwner.Endpoint.Map(endpoints);
         Features.RollbackDeliveryOwner.Endpoint.Map(endpoints);

@@ -1,7 +1,9 @@
-import { mount } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
+import { describe, expect, it, vi } from 'vitest';
 import type { WorkflowFormSchema } from '@fullnet/client-contracts';
 import WorkflowFormRenderer from './WorkflowFormRenderer.vue';
+import { downloadWorkflowTodoFormAttachment, openWorkflowFormAttachmentBlob } from './workflow-form-attachments';
+vi.mock('./workflow-form-attachments', () => ({ downloadWorkflowFormAttachment: vi.fn(), downloadWorkflowTodoFormAttachment: vi.fn(), openWorkflowFormAttachmentBlob: vi.fn(), uploadWorkflowFormAttachment: vi.fn() }));
 
 const schema = {
   schemaVersion: 1,
@@ -17,6 +19,18 @@ const schema = {
 } satisfies WorkflowFormSchema;
 
 describe('WorkflowFormRenderer', () => {
+  it('附件使用本人Todo，切换详情后忽略迟到的旧文件', async () => {
+    let resolve!: (blob: Blob) => void; vi.mocked(downloadWorkflowTodoFormAttachment).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    const wrapper = mount(WorkflowFormRenderer, { props: { schema: { schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: [{
+      fieldKey: 'file', fieldTypeKey: 'attachment', required: false, constraints: { maxCount: 1, maxSizeBytes: 1024, allowedExtensions: ['png'] } }] }] },
+      submission: { file: ['file-id'] }, fieldPolicies: { file: 'readOnly' }, instanceId: 'instance-id', todoId: 'todo-id' } });
+    try {
+      await wrapper.get('.workflow-form__attachment-link').trigger('click');
+      expect(downloadWorkflowTodoFormAttachment).toHaveBeenCalledWith('todo-id', 'file-id', expect.any(AbortSignal));
+      await wrapper.setProps({ todoId: 'new-todo' }); resolve(new Blob(['private'])); await flushPromises();
+      expect(openWorkflowFormAttachmentBlob).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
   it('隐藏不可见字段、锁定只读字段并只发送可编辑 patch', async () => {
     const wrapper = mount(WorkflowFormRenderer, {
       props: {

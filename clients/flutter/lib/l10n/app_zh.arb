@@ -14,9 +14,85 @@
   "permissionDenied": "当前账号没有查看待办的权限。",
   "loadFailed": "待办加载失败，请稍后重试。",
   "comment": "处理意见",
+  "signatureTitle": "办理签名",
+  "signatureCanvas": "请在此处手写签名",
+  "signatureSave": "保存本次签名",
+  "signatureClear": "清除签名",
+  "signatureReady": "签名已采集，将与本次办理一同提交。",
+  "signaturePending": "尚未保存签名。",
+  "signaturePermissionRequired": "此节点要求签名，当前账号缺少签名采集权限。",
+  "evidenceRequired": "请填写节点要求的意见并采集签名。",
   "approve": "同意",
+  "completeTask": "提交完成",
+  "claimPoolsTitle": "待领取任务",
+  "claimTask": "领取任务",
+  "releaseTask": "释放任务",
+  "submitVote": "提交选票",
+  "privateBallot": "本人的独立投票表单",
+  "voteChoice": "投票选择",
+  "voteChoiceLabel": "{choice, select, yes{赞成} no{反对} abstain{弃权} other{选择无效}}",
+  "@voteChoiceLabel": {
+    "placeholders": {
+      "choice": {
+        "type": "String"
+      }
+    }
+  },
+  "voteProgress": "已提交 {submitted}/{total} 人",
+  "@voteProgress": {
+    "placeholders": {
+      "submitted": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "requiredField": "此项为必填项。",
+  "invalidField": "请检查此项内容。",
+  "voteFormUnavailable": "此投票表单需要当前客户端尚未支持的控件，请使用管理端办理。",
+  "taskProgress": "已完成 {completed}/{required} 人，待处理 {pending} 人",
+  "@taskProgress": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "required": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
   "reject": "驳回",
   "submitting": "正在提交…",
   "completed": "处理成功。",
-  "actionFailed": "审批操作失败。"
+  "actionFailed": "审批操作失败。",
+  "pendingTasks": "待办",
+  "delegatedTodos": "我委托的待办",
+  "delegateTask": "委托代理",
+  "delegateTarget": "选择代理人",
+  "delegateHelp": "仅委托当前待办，原席位和截止时间保持不变；代理人使用本人的业务权限办理。",
+  "recallDelegation": "收回代理",
+  "recallReason": "收回原因",
+  "recallHelp": "代理办结前可收回；收回不代替业务决定，也不要求代理人签名。",
+  "handoffUnsaved": "交接不提交字段，请先恢复尚未提交的修改。",
+  "previousPage": "上一页",
+  "nextPage": "下一页",
+  "reloadCandidates": "重新加载候选",
+  "delegationStatusActive": "代理中",
+  "delegationStatusCompleted": "已办结",
+  "delegationStatusRecalled": "已收回",
+  "delegationStatusReassigned": "管理员已改派",
+  "delegationStatusCancelled": "已关闭",
+  "managementLabel": "{key, select, history{已办历史} choose{请选择目标} transfer{转办} return{退回} countersign{加签} before{前加签} after{后加签} add{加入加签顺序} remove{移除} chain{当前加签链} cancel{取消加签} remind{催办} unsaved{请先刷新并恢复未保存的表单内容，再执行管理动作。} pending{待激活} active{办理中} completed{已完成} cancelled{已取消} other{Unsupported action}}",
+  "@managementLabel": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  }
 }

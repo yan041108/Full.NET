@@ -21,3 +21,22 @@ test('消费死信 OpenAPI 夹具包含分页 GET', async () => {
   assert.equal(getOperation.permission, 'messaging.dead_letters.read');
   assert.ok(contract.schemas.MessagingDeadLetterPage);
 });
+
+test('双来源死信的读取和恢复权限独立，恢复必须提供理由', async () => {
+  const contract = JSON.parse(await readFile(contractPath, 'utf8'));
+  for (const [source, action, permission] of [
+    ['outbox', 'requeue', 'messaging.outbox_dead_letters.requeue'],
+    ['kafka', 'replay', 'messaging.dead_letters.replay']
+  ]) {
+    const root = `/api/v1/messaging/${source}/dead-letters`;
+    for (const route of [root, `${root}/{id}`]) {
+      const operation = contract.paths.find(item => item.path === route)?.operations.find(item => item.method === 'GET');
+      assert.equal(operation?.permission, 'messaging.dead_letters.read');
+    }
+    const recovery = contract.paths.find(item => item.path === `${root}/{id}/${action}`)?.operations.find(item => item.method === 'POST');
+    assert.equal(recovery?.permission, permission);
+    assert.deepEqual(recovery?.requiredBody, ['reason']);
+  }
+  assert.equal(contract.schemas.OperationalDeadLetter.offsetEncoding, 'decimal-string');
+  assert.ok(!contract.schemas.OperationalDeadLetter.properties.some(name => /payload|snapshot|lastError$/i.test(name)));
+});

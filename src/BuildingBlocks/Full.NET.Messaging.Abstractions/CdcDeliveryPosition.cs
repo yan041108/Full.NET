@@ -146,12 +146,10 @@ public sealed class CdcDeliveryPosition
 
         return producerFence.Provider switch
         {
-            MySqlProvider => MySqlBinlogCoordinates.Covers(
-                producerFence.Binlog!,
-                connector.Binlog!),
-            SqlServerProvider => SqlServerCdcLsnCoordinates.Covers(
-                producerFence.Lsn!,
-                connector.Lsn!),
+            MySqlProvider when producerFence.Binlog is not null && connector.Binlog is not null => MySqlBinlogCoordinates.Covers(
+                producerFence.Binlog, connector.Binlog),
+            SqlServerProvider when producerFence.Lsn is not null && connector.Lsn is not null => SqlServerCdcLsnCoordinates.Covers(
+                producerFence.Lsn, connector.Lsn),
             _ => false,
         };
     }
@@ -172,6 +170,14 @@ public sealed record MySqlBinlogCoordinates(string File, long Position)
         MySqlBinlogCoordinates producerFence,
         MySqlBinlogCoordinates connector)
     {
+        if (string.IsNullOrWhiteSpace(producerFence.File) || string.IsNullOrWhiteSpace(connector.File)) return false;
+        var fenceDot = producerFence.File.LastIndexOf('.');
+        var connectorDot = connector.File.LastIndexOf('.');
+        if (producerFence.Position < 0 || connector.Position < 0 || fenceDot <= 0 || connectorDot <= 0
+            || !string.Equals(producerFence.File[..fenceDot], connector.File[..connectorDot], StringComparison.Ordinal)
+            || !ExtractNumericSuffix(producerFence.File).HasValue || !ExtractNumericSuffix(connector.File).HasValue
+            || ExtractNumericSuffix(producerFence.File) < 0 || ExtractNumericSuffix(connector.File) < 0)
+            return false;
         var fileCompare = CompareBinlogFiles(producerFence.File, connector.File);
         return fileCompare switch
         {
@@ -236,9 +242,9 @@ public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
             throw new ArgumentException("SQL Server LSN must be 10 bytes.", nameof(lsnBytes));
         }
 
-        var segmentA = ReadUInt32LittleEndian(lsnBytes, 0);
-        var segmentB = ReadUInt32LittleEndian(lsnBytes, 4);
-        var segmentC = (ushort)(lsnBytes[8] | (lsnBytes[9] << 8));
+        var segmentA = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(lsnBytes.AsSpan(0, 4));
+        var segmentB = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(lsnBytes.AsSpan(4, 4));
+        var segmentC = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(lsnBytes.AsSpan(8, 2));
         return new SqlServerCdcLsnCoordinates(
             $"{segmentA:x8}:{segmentB:x8}:{segmentC:x4}");
     }
@@ -258,8 +264,8 @@ public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
             return false;
         }
 
-        var segments = value.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (segments.Length != 3)
+        var segments = value.Split(':');
+        if (segments.Length != 3 || segments[0].Length != 8 || segments[1].Length != 8 || segments[2].Length != 4)
         {
             return false;
         }
@@ -274,12 +280,6 @@ public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
         parsed = new SqlServerLsn(a, b, c);
         return true;
     }
-
-    private static uint ReadUInt32LittleEndian(byte[] buffer, int offset) =>
-        (uint)(buffer[offset]
-            | (buffer[offset + 1] << 8)
-            | (buffer[offset + 2] << 16)
-            | (buffer[offset + 3] << 24));
 
     private readonly record struct SqlServerLsn(uint A, uint B, uint C) : IComparable<SqlServerLsn>
     {

@@ -44,6 +44,8 @@ describe('workflow instances api', () => {
     const instanceId = '01912345-6789-7abc-8def-0123456789ab';
     const body = {
       assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
+      todoId: '01912345-6789-7abc-8def-0123456789b1',
+      expectedTodoRevision: 1,
       expectedRevision: 3,
       reason: '审批人请假',
       idempotencyKey: 'reassign-01912345'

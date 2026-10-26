@@ -35,8 +35,10 @@ public sealed class WorkflowAuthorizationContributorTests
             {
                 WorkflowPermissions.DefinitionsRead,
                 WorkflowPermissions.FormsRead,
+                WorkflowPermissions.CalendarsRead,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.TodosRead,
+                WorkflowPermissions.ClaimPoolsRead,
                 WorkflowPermissions.CcRead,
                 WorkflowPermissions.RecoveryTasksRead,
             },
@@ -46,8 +48,10 @@ public sealed class WorkflowAuthorizationContributorTests
             [
                 WorkflowPermissions.DefinitionsRead,
                 WorkflowPermissions.FormsRead,
+                WorkflowPermissions.CalendarsRead,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.TodosRead,
+                WorkflowPermissions.ClaimPoolsRead,
                 WorkflowPermissions.CcRead,
                 WorkflowPermissions.RecoveryTasksRead,
             ]).ToArray(),

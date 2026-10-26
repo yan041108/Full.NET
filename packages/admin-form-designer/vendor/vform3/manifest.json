@@ -1,0 +1,1697 @@
+{
+  "repository": "https://github.com/vform666/variant-form3-vite",
+  "commit": "c67479e496bab56a93a3dff168a4f529d8293c67",
+  "version": "3.0.10",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "30fe825f9b3e9922079a43ef813c5fd224a4001743ca1e79e50a31f177952c58",
+      "bytes": 128
+    },
+    {
+      "path": "index.html",
+      "sha256": "9e128973552496099eeb7395a7c134a7bcc8ffa531f7ebb70e115c8e0cfa2da3",
+      "bytes": 343
+    },
+    {
+      "path": "install-render.js",
+      "sha256": "81e3be358b728c471d12a8c777adfcc1563c98a3281462352a6c1c5e840bf353",
+      "bytes": 994
+    },
+    {
+      "path": "install.js",
+      "sha256": "1293df2734a58c56909e03678f7dc19172afc2ec3b25d0a9e4f840737c6eb1fd",
+      "bytes": 1670
+    },
+    {
+      "path": "jsconfig.json",
+      "sha256": "77b3a8ad581380b266321991a4bb1f01b6b9c17d25d0af4c0bb301bc6bd0db21",
+      "bytes": 213
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.common.js",
+      "sha256": "2b66d3fc336383e8ba69e989e778c8cdb918474377cc672dfd65fce1d2997530",
+      "bytes": 157512
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.common.js.map",
+      "sha256": "7246dc1e1695b96c2cc6133476bbf3597031975d369332c1cf1434f546a73787",
+      "bytes": 213804
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.umd.js",
+      "sha256": "bb12efbacfad3c40d26184c7aa2b9af08db69f23520f54c22727e1f3e667bcce",
+      "bytes": 158126
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.umd.js.map",
+      "sha256": "6a08a9b79609278ee37db3103cb54bd72f548e76def2533348d8ad18479db6b5",
+      "bytes": 214589
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.umd.min.js",
+      "sha256": "9ac3c8f280e9daec472fda7fc064bfff952a2c8027a0f4d2f26d17ae13db4442",
+      "bytes": 52023
+    },
+    {
+      "path": "lib/vuedraggable/dist/vuedraggable.umd.min.js.map",
+      "sha256": "5403d43fca7ea7d4c50c24eeace7882aa86015e2f7f52aeef8e81561e42b39cf",
+      "bytes": 236469
+    },
+    {
+      "path": "lib/vuedraggable/LICENSE",
+      "sha256": "51d704aa90fdccd11edd8c63601d5b46ba6a7158bc3210433543a461ce33151e",
+      "bytes": 1088
+    },
+    {
+      "path": "lib/vuedraggable/package.json",
+      "sha256": "01ca0d62febd9e69ac746718a85d15e90f02e90a5dcb1f4a03395c347dae093b",
+      "bytes": 3462
+    },
+    {
+      "path": "lib/vuedraggable/README.md",
+      "sha256": "f93945be6e879e8809f22a5a13885604de1d8fe15015a88df5087365e544402d",
+      "bytes": 13584
+    },
+    {
+      "path": "license.txt",
+      "sha256": "14d4c89c5dcea15e70e00f8a01c4cdf4b2fa164bac349ad444d4d533c8f9b129",
+      "bytes": 972
+    },
+    {
+      "path": "package.json",
+      "sha256": "17275eee62875b21c2f9de9772b19ad5e8a9db38fa1f9d5e7e09c793d68ef35b",
+      "bytes": 1098
+    },
+    {
+      "path": "public/favicon.ico",
+      "sha256": "ff173a1011018a4e2683a6228473773edc16aa2adcf45cf53874811532095ce4",
+      "bytes": 4286
+    },
+    {
+      "path": "README.md",
+      "sha256": "0d2156e8c2d62bb73bfb96bf9cfd6828de902db73e9a023f8555d6bb82c6d6af",
+      "bytes": 4795
+    },
+    {
+      "path": "src/App.vue",
+      "sha256": "c7d69ffba4cf19aa76fac93fb66e8de5e9a683585fba1bb7bce849b237f36516",
+      "bytes": 842
+    },
+    {
+      "path": "src/assets/ft-images/t1.png",
+      "sha256": "883ab621fdb8fd07e0b6a9621e3bc32149fcdfa2737b1910b9dc6ca03b84e5f7",
+      "bytes": 33254
+    },
+    {
+      "path": "src/assets/ft-images/t2.png",
+      "sha256": "4eaedb21d8333a43f5de4c8f11a2cca757232be616c042b85aaee7d2ed76acf9",
+      "bytes": 35608
+    },
+    {
+      "path": "src/assets/ft-images/t3.png",
+      "sha256": "6478f0f7299e1e6e41a19e2e50e1a8caced8a4d8fbfccff4a6736aa6d68e7ae4",
+      "bytes": 41621
+    },
+    {
+      "path": "src/assets/ft-images/t4.png",
+      "sha256": "6375d1cceda3960eb6c877429a6658b43e450872dce0b24bd8f9c61a7545f16f",
+      "bytes": 30098
+    },
+    {
+      "path": "src/assets/ft-images/t5.png",
+      "sha256": "e8168fb6a9d517779f3de9eabd65eeb2ebe92336b8fbd797eb56bad056df5908",
+      "bytes": 56386
+    },
+    {
+      "path": "src/assets/ft-images/t6.png",
+      "sha256": "e3b7888efa037412c20d131261f0c1445800b9d688371809dc9b67f082a0a84f",
+      "bytes": 32704
+    },
+    {
+      "path": "src/assets/ft-images/t7.png",
+      "sha256": "1a389ec2951b75626ee0e52ce566dd8422fcea1f943d1a98fbedf7ab80113983",
+      "bytes": 68981
+    },
+    {
+      "path": "src/assets/ft-images/t8.png",
+      "sha256": "22bf19fd1117d39234cc29a1daf6c861a978176e0bc210f8368165452a2fce79",
+      "bytes": 50912
+    },
+    {
+      "path": "src/assets/vform-logo.png",
+      "sha256": "b516bd725e8849e14dd717e4636f76f3b0d27c5ae83963d8f07120ded66c0c53",
+      "bytes": 453
+    },
+    {
+      "path": "src/components/code-editor/index.vue",
+      "sha256": "ed13b7d8817058bbc7bcbc5c79fa6dc1f0ae00b1d17a23cdd8fdb82b9b78d592",
+      "bytes": 4238
+    },
+    {
+      "path": "src/components/form-designer/designer.js",
+      "sha256": "e34308e1f6b8a873fd5b080b937767bcc105d143025bc3ec2030bc58856f6a42",
+      "bytes": 32494
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/container-wrapper.vue",
+      "sha256": "bc1ebc639a350b07f342ae29f67093627038863b57ab36117ef36d06bad1103c",
+      "bytes": 3657
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/containerMixin.js",
+      "sha256": "9eb619225a0646c45a15f7f03aaea499478df4816f2cb9c3f1d8c12a542ca469",
+      "bytes": 2584
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/grid-col-widget.vue",
+      "sha256": "5bd587747537282a15e1d13f7c8d53550f7bdc774f2f68abda1888cf5ffe6c95",
+      "bytes": 9469
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/grid-widget.vue",
+      "sha256": "dff908c2ee470349c377d6a46898a57ec832d10b917b2a221432f01b7716a8de",
+      "bytes": 2491
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/index.js",
+      "sha256": "f8fbc50d0d59946de1a811192aacc2922f5e8f8a1aad2630f9ef020105759332",
+      "bytes": 225
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/tab-widget.vue",
+      "sha256": "706d1f2411a974fb37996eecbf6f1cbd03e22024e1570269ce87c5297a7436da",
+      "bytes": 3843
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/table-cell-widget.vue",
+      "sha256": "873f913ab9ff8244fb7972fd5d932b895b2fa8290f4c5d21dfd5b697943bbd16",
+      "bytes": 12711
+    },
+    {
+      "path": "src/components/form-designer/form-widget/container-widget/table-widget.vue",
+      "sha256": "356a76e8faf681591fff0759ce0fa77e33911c29ad0c1860730dc83e2bf46148",
+      "bytes": 3133
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/button-widget.vue",
+      "sha256": "2db4c17f9c9d18cdb8746cacd1c7c4af20b41e843a30a94d21fa88976fc5367f",
+      "bytes": 2621
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/cascader-widget.vue",
+      "sha256": "a3447da3a6a3f27ebe2da7e63c5a8e6c9ec7dbdbbe1196fb672d15e4656e9ffb",
+      "bytes": 3465
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/checkbox-widget.vue",
+      "sha256": "c447a1a101177af36912260ac1ee99dd036d5fac52ac6f5f43058900f8c39881",
+      "bytes": 3346
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/color-widget.vue",
+      "sha256": "c5572ee2e06f03036d3f0c7c7d20747b09941698f435fdf33491f55ee20ddfe7",
+      "bytes": 2682
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/date-range-widget.vue",
+      "sha256": "947055cd8e769ebab27cfed11591c3be6a5dd5743f69fcda83e4674b8f75b7aa",
+      "bytes": 3456
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/date-widget.vue",
+      "sha256": "1582129bc024036285617320a0a6a846256a106508d116b1dc939a91f3b8e79c",
+      "bytes": 3192
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/divider-widget.vue",
+      "sha256": "4c59ecf8a8a0f73bab04b45b3dd489a7ee42b3504f9191df2ad78b0a49b52ca1",
+      "bytes": 2373
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/fieldMixin.js",
+      "sha256": "3647ee5f1c22aa1d69ef9494065220bfa11525bd9844afab3e6ab3a2e8275f8a",
+      "bytes": 19337
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/file-upload-widget.vue",
+      "sha256": "80ba1e740f9e9c96a88d9ff94b12628104da936ff33745f3e47fdd05d2388b08",
+      "bytes": 10964
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/form-item-wrapper.vue",
+      "sha256": "beef62d64ba4bf9c4472de8cfed6c7e515d1ab9b3c2dd2d030c70844eb710382",
+      "bytes": 10071
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/html-text-widget.vue",
+      "sha256": "c94ca3acfcae1de441de7007c2ef6ebc18d88c1946c00f8e801a0e2593f58be1",
+      "bytes": 2293
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/index.js",
+      "sha256": "d61354b6f93e6af037ed3755c31674be050ae9db4710de33b745f5a9c5aac06e",
+      "bytes": 199
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/input-widget.vue",
+      "sha256": "6a0cf6bdf9305e974c927a6fae7df368636f0c8433f175066dd41511e5d45029",
+      "bytes": 3860
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/number-widget.vue",
+      "sha256": "0b49f30a778bc8e6023285455de9b52e1d88519a1d8e7021d8f18916407e6314",
+      "bytes": 3061
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/picture-upload-widget.vue",
+      "sha256": "655e9db4124c2999e3cbdec933490b1639402b10b1e29bb4551a28580f6f932a",
+      "bytes": 11578
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/radio-widget.vue",
+      "sha256": "23cf80bcbe67c83529ced14c993e15a6ea6080fdb5263fbf141b7c414cdf7aea",
+      "bytes": 3437
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/rate-widget.vue",
+      "sha256": "15a82e217fd92fec94a7fd8e5f2b1852f0b1c27953dbb3cd623eecbdd3976a80",
+      "bytes": 2888
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/rich-editor-widget.vue",
+      "sha256": "d4238c8b65c0045334c66235699922782c4ae0b8f16e3bb56990e3fb5c6e0504",
+      "bytes": 4277
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/select-widget.vue",
+      "sha256": "1f53050c6ec7f9eb76444333c79b2fb3a518ccb186dac2dc9e64cb9b963e5df4",
+      "bytes": 3859
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/slider-widget.vue",
+      "sha256": "7f639489728bb6d1ceb2f7195d11c3c6a287c0d3178db5003198c6fa5ce13b08",
+      "bytes": 2828
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/slot-widget.vue",
+      "sha256": "56dcdf1d8082c2792dc882aee3fe850f95cd5acea4170265a7963e80579ed0be",
+      "bytes": 2737
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/static-content-wrapper.vue",
+      "sha256": "6f37731ffc0e922f87f866dee3244c267b3500d7274cbf756d5bc8247a6374cc",
+      "bytes": 5864
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/static-text-widget.vue",
+      "sha256": "126e3cfd7a3451d8ffe5af8ff65a0650fe1623eaf1bcf35000ae173a7dec0aff",
+      "bytes": 2534
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/switch-widget.vue",
+      "sha256": "0c2e933e1c104752af37ac0ae1665cd9575f8ceeffd37246fe859b977303d43b",
+      "bytes": 2871
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/textarea-widget.vue",
+      "sha256": "02ef7994639b522897e690c36a4fc0aa166302d8cd9752cc5e2119e9b777c1d4",
+      "bytes": 2985
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/time-range-widget.vue",
+      "sha256": "8aabde91aa5438c280d30ab2f2725d4ac405a7dbddf55324abc57b2ed5191600",
+      "bytes": 3509
+    },
+    {
+      "path": "src/components/form-designer/form-widget/field-widget/time-widget.vue",
+      "sha256": "012efd7515eb3ff282de5fad9d5d6b0b1704ab9eff4f9b4b1df804cda710d1bb",
+      "bytes": 3147
+    },
+    {
+      "path": "src/components/form-designer/form-widget/index.vue",
+      "sha256": "a5b32f2ef3024770fff72d0f8638230cbe32a7b988e49ba649f6690a135bdf87",
+      "bytes": 7175
+    },
+    {
+      "path": "src/components/form-designer/index.vue",
+      "sha256": "4053fa374fe9567fe35a55d82e511cd93e0d6aad0a0b69e328e7a6328308e0d4",
+      "bytes": 14328
+    },
+    {
+      "path": "src/components/form-designer/refMixinDesign.js",
+      "sha256": "866a1fa0cf4249563eb81b4e2f64f9dd91391b85b2566dd584cc71b6aafd9891",
+      "bytes": 740
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/form-setting.vue",
+      "sha256": "2487650ed05c9c7c09e15b51571185174e0d591663e0fe28fef706ae910df35a",
+      "bytes": 14997
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/index.vue",
+      "sha256": "041771eec6ef0710d15e609b9228a74b28ae12ea192b7867868e8a78dd7ef424",
+      "bytes": 13404
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/option-items-setting.vue",
+      "sha256": "630dfb7ed3d6bfc9176a563a6ba3adb880ba4f943767b6af04d79e7986f852ee",
+      "bytes": 9370
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/allowCreate-editor.vue",
+      "sha256": "c59a60ab6cb9c6e2e7c3d5fbfc22c8daea770e6c864f3a838bc94d7c19f4fc2d",
+      "bytes": 425
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/appendButton-editor.vue",
+      "sha256": "137842ab1104f1b80f9bb6f8db42d97012ca94d046883b72b5676b9ad72dc786",
+      "bytes": 601
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/appendButtonDisabled-editor.vue",
+      "sha256": "600ab489714a20de2bc5bcb56d33e3aa67371536f9de029c2e9ff1fa337d2d11",
+      "bytes": 451
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/autoFullWidth-editor.vue",
+      "sha256": "d924e83198dd16664d534365c1f74e3f15242003e98c7447f632561f635ae1e3",
+      "bytes": 430
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/automaticDropdown-editor.vue",
+      "sha256": "4cd232fbd92052a2754998c5515e3bda9ce9840ca00f873dc44213f350c3a090",
+      "bytes": 442
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/border-editor.vue",
+      "sha256": "9a834bcc1be0cc3f9b704381b463561c6e73984c346232c394276ac05c781cb2",
+      "bytes": 409
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/buttonIcon-editor.vue",
+      "sha256": "27ea0fd9fe1f9cc9863b904969a7447f1a7bc023faece716396201a24ed94fc0",
+      "bytes": 437
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/buttonStyle-editor.vue",
+      "sha256": "2b874680903f95f30c9b73e2e1ea19ea1ff4b20dae98311ae1899b6b28206a6b",
+      "bytes": 424
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/clearable-editor.vue",
+      "sha256": "d536181afc038a5862f3d95fe409234e5e8af7fa203c71650ae4f373b28fde37",
+      "bytes": 418
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/columnWidth-editor.vue",
+      "sha256": "a8c676ce42dc9d6f49be1040b2404a9e4a82d449034e43b6119fc16d020b9b18",
+      "bytes": 913
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid/colHeight-editor.vue",
+      "sha256": "fc890af8599c421f65f3249803864e147e3bbb1ad3877751e4dce0c6718d21f6",
+      "bytes": 651
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid/gutter-editor.vue",
+      "sha256": "f285a723938604bef5ce05623754f4ecbd8fd7c1b77e303475355f8875ea402b",
+      "bytes": 2462
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid-col/grid-col-offset-editor.vue",
+      "sha256": "b2710e1c00af992d32eaeaf6a2e9bce58c8a0209741fb3fad6512cc1fbbf2923",
+      "bytes": 506
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid-col/grid-col-pull-editor.vue",
+      "sha256": "3b5a4ed680f6086146f070029584f37fb76b8ee9f1499537090579980a54df9a",
+      "bytes": 500
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid-col/grid-col-push-editor.vue",
+      "sha256": "f3ba585819c38638fc8127252b1812f37dd2fb8b2728a36725d68729b8436bcd",
+      "bytes": 500
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid-col/grid-col-responsive-editor.vue",
+      "sha256": "eccd6260452b1191939af19e40d912cf01e718e8d9f03af163bfa88e1aa5fab8",
+      "bytes": 442
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-grid-col/grid-col-span-editor.vue",
+      "sha256": "2732e786668ecd1f1137796e4b33bae44353a37fb51661fc852b59a097d4f68b",
+      "bytes": 1606
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-sub-form/showBlankRow-editor.vue",
+      "sha256": "97e3c7f0e69f6692256fe832dc9f51261c5f1a5c3253e04d886591bc11b670de",
+      "bytes": 427
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-sub-form/showRowNumber-editor.vue",
+      "sha256": "74eae7cd20c5cac796dbfe9616740a481415ebaeb6d4b2815f6f9db9978f06aa",
+      "bytes": 430
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-sub-form/sub-form-labelAlign-editor.vue",
+      "sha256": "3a7cb695de2d17d44492b7e46de5c086f254c2f4e4e725b4f12fbce7aaffaed9",
+      "bytes": 960
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-tab/tab-customClass-editor.vue",
+      "sha256": "79092406f3474f19bac15079a67159c709db734347751a71589ba1b3c55263f3",
+      "bytes": 3598
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-table-cell/cellHeight-editor.vue",
+      "sha256": "37a662a716ea0af3fc2c2d1f8e5f6ab6c897652f1993d3428dcbb7805afb5399",
+      "bytes": 431
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-table-cell/cellWidth-editor.vue",
+      "sha256": "561eb9986a89ad53228308335afb3e9575e9da2e1f7bd43963fe84ad4e1c80b1",
+      "bytes": 428
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/container-table-cell/wordBreak-editor.vue",
+      "sha256": "f9051b35a3cb3676af103f57452434544b12f7fc5760ba130c1f7d1449d16224",
+      "bytes": 429
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/customClass-editor.vue",
+      "sha256": "b814f255c291a21cbaa958e924e2913d0110199198a9754a3a1c842cdeea5a7d",
+      "bytes": 1025
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/defaultValue-editor.vue",
+      "sha256": "e33d5a46c0295bd068d3ea59bd1a77376494c5aac5e5f0093664307145177947",
+      "bytes": 633
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/disabled-editor.vue",
+      "sha256": "29cbf6d81468753757140f47ea0216d1e4c54afee8121e1f4182b81a754bd849",
+      "bytes": 415
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/displayStyle-editor.vue",
+      "sha256": "954daf9f5a9e0ac63790cbb36dde3cdb4497d61b57ed751282cc2922a2d2fe12",
+      "bytes": 610
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/editable-editor.vue",
+      "sha256": "7522fa8d63e917e77dec431dd918d878ea329ba14aa99006f4463cd0dd18f910",
+      "bytes": 416
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/endPlaceholder-editor.vue",
+      "sha256": "3c1aec089abae0ef0bfbe457c4a2d0039c9c213778bf4e70c1f4b9e0c2a0c353",
+      "bytes": 443
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/eventMixin.js",
+      "sha256": "3267f61cefb47511b573ae11d3d7f3bd00ccffda9fba920cbcac20e4d71bb922",
+      "bytes": 295
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onAppendButtonClick-editor.vue",
+      "sha256": "276a9c87e3453b602bc349297e4d759d15687f13c36ba22d2925f88e0460b566",
+      "bytes": 745
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onBeforeUpload-editor.vue",
+      "sha256": "9330dd30193a366b9e1dabdc87525534d404785afa4b6b6e4a7b23841fd38249",
+      "bytes": 736
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onBlur-editor.vue",
+      "sha256": "a6f4832b7bfc05e898b3b9bfb7dfd23e5cbb00cd96cd2ec7d417351820e7dd4d",
+      "bytes": 713
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onChange-editor.vue",
+      "sha256": "0d5e5de30f29b2f24a6e6cc5bed5003d325ccfa7e60792bfdc038ac479997933",
+      "bytes": 755
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onClick-editor.vue",
+      "sha256": "21c1ac31e37ff330759f0478c3d6933c2289ba34a23a7493490390ef5068fd94",
+      "bytes": 709
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onCreated-editor.vue",
+      "sha256": "ec28bcc0b8c849c0af03c3f5b9b1f467fc792391c831e1597031a085555f95a9",
+      "bytes": 716
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onFileRemove.vue",
+      "sha256": "eb7130c1293d177de43297eab8d1522d6bab9571b455c235d84394b64a0a77e7",
+      "bytes": 742
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onFocus-editor.vue",
+      "sha256": "4077c3d7597d3331e40af2605ea39640b28019dc65fc7be4c23a0aa8e0449535",
+      "bytes": 716
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onInput-editor.vue",
+      "sha256": "af11005fa56972a07eeee866e07a31f65a3614d76abc0b68e0b0052be052c22c",
+      "bytes": 716
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onMounted-editor.vue",
+      "sha256": "7b1e8f92a10a7937355fa087d6b729a839de245c271e39960095eb9e6dd07c05",
+      "bytes": 715
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onRemoteQuery-editor.vue",
+      "sha256": "a10f9716b821e3e4c80cf84f9677afbfc015bda1c6ab67c5bf524c088d12c0cc",
+      "bytes": 736
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onSubFormRowAdd-editor.vue",
+      "sha256": "c45747a449b93d9f762d1011eb981da1c5c753a31a7a26b99a13a3f9304d8a9b",
+      "bytes": 758
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onSubFormRowChange-editor.vue",
+      "sha256": "582fc109a74c65eccc7c84cdc4dfc37d5beb0dfd4323a40bf52064713c73bd08",
+      "bytes": 755
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onSubFormRowDelete-editor.vue",
+      "sha256": "bb2b8bb5684368f7309999716377dd7d04eda8fb0f1461c0c98ef723632f4c8a",
+      "bytes": 773
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onSubFormRowInsert-editor.vue",
+      "sha256": "c71aea3f8f74c5baaae55abc5e97b8c590240e0b0c269df9ea857ccfdc37b14f",
+      "bytes": 767
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onUploadError-editor.vue",
+      "sha256": "9c1bd1bea55faa3972918ad8d76d25d9f1e2af1ffdacbea1bb0bf87de643d1d3",
+      "bytes": 754
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onUploadSuccess-editor.vue",
+      "sha256": "c03d4b8774c66551a2fd728c514104d6e5c05d5a89ddc04a3d3a92f61e6aeed2",
+      "bytes": 761
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/event-handler/onValidate-editor.vue",
+      "sha256": "10a4f64338a84777335e06471624aa85c2d19ed51c23f13549b77e4bd8418406",
+      "bytes": 745
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-button/button-type-editor.vue",
+      "sha256": "0eff63b2279f79177b4c4eaac5f702e4c338a1effa78f8763d586cada2271161",
+      "bytes": 963
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-button/circle-editor.vue",
+      "sha256": "12a351afadb42068dd54d93825e423ffa17ba894c148004dea43f1d974643ca4",
+      "bytes": 410
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-button/icon-editor.vue",
+      "sha256": "44efb4456f1c8a2b877f529443251707921b86a3be6cd035c5efcf478c26efb4",
+      "bytes": 419
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-button/plain-editor.vue",
+      "sha256": "bc7a6784b3e939fa84d8606b506f8a66804c26850b5136ea427aacdfe11b36df",
+      "bytes": 407
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-button/round-editor.vue",
+      "sha256": "4d5a5303291c1b88c3963a61dc3e259c340b843636b44bb8519db6c5c542eafb",
+      "bytes": 407
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-cascader/cascader-defaultValue-editor.vue",
+      "sha256": "3fb746c256bfabf280a5a59874853e957015c696d3c343469e1bf46e65f70e19",
+      "bytes": 271
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-cascader/cascader-multiple-editor.vue",
+      "sha256": "392a691779a205bef7a1a0473d6e3a4daddd0bef55189188cecd3416697828bc",
+      "bytes": 540
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-cascader/checkStrictly-editor.vue",
+      "sha256": "ed67b15416a0c5279c759b5185f69a6b7e2200ab74ad71ba5d451fb6c5c80355",
+      "bytes": 430
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-cascader/showAllLevels-editor.vue",
+      "sha256": "7bf8b3b9c36b5592b24d1331e7f7ef7c435c8a2c79c4a02a341bff8caf19b05f",
+      "bytes": 430
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-checkbox/checkbox-defaultValue-editor.vue",
+      "sha256": "ef6453e17a1dfdf047bf051530c50a84119fa6e1fc6d3718acb5f6e327d6a635",
+      "bytes": 271
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-color/color-defaultValue-editor.vue",
+      "sha256": "a4f382dbbb876ae8d439b09f44eed4a19088ecf92094192cc9a1b3e87301ef95",
+      "bytes": 599
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date/date-defaultValue-editor.vue",
+      "sha256": "97692c44544eda8a881c5a0112083b37956a2f9b76abb3e859f3f73f32a24e39",
+      "bytes": 730
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date/date-format-editor.vue",
+      "sha256": "b9b03d1cab96a69ceef8d06bc25073bbe6b02908564d0ecd93fb93a47ba531bd",
+      "bytes": 834
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date/date-type-editor.vue",
+      "sha256": "0fdd142a97cbbbb9b7a5e45639b501d0ce4ba9bde3bb0f14b451e6d833e484ec",
+      "bytes": 769
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date/date-valueFormat-editor.vue",
+      "sha256": "e2f810799df1d944f0b8524bed14248bd05164afc856add2ec747339cb3d1a5f",
+      "bytes": 612
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date-range/date-range-defaultValue-editor.vue",
+      "sha256": "6908fbd02a2c2624166a53883817cd3f5151a6640a1611048d30a8d681ff47e4",
+      "bytes": 736
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date-range/date-range-format-editor.vue",
+      "sha256": "e4e8394b3528c9af8f635f29dfe3a43872cf868239eba573a920155c6970e7e3",
+      "bytes": 840
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date-range/date-range-type-editor.vue",
+      "sha256": "4111affcc750cbec265def9d5edbcf5d1e9afe346693aaf36d9642cd9d8f837c",
+      "bytes": 647
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-date-range/date-range-valueFormat-editor.vue",
+      "sha256": "b9922abb920637c399836a155c74e267406fe4d0b890ed95ee396bad7a1c3f58",
+      "bytes": 618
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-divider/contentPosition-editor.vue",
+      "sha256": "e66dcc31972a6df080a3b21343a61927b1274cb260c69e871962989fca8447fe",
+      "bytes": 615
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-file-upload/file-upload-fileTypes-editor.vue",
+      "sha256": "dd8092361bf8a0eccd4a26ff31e3c3c2e9865291beb71b92efcf6f4abb7c3e5f",
+      "bytes": 1239
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-html-text/htmlContent-editor.vue",
+      "sha256": "a3479fd9df96d6885ea53065d88cace45b91a52048df71029d930e56125e79ed",
+      "bytes": 604
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-number/controlsPosition-editor.vue",
+      "sha256": "29280163489d7ab0f405285c6f1bd02b47307e05800b51b6a42e3005bd6cb948",
+      "bytes": 558
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-number/number-defaultValue-editor.vue",
+      "sha256": "8db0ed242e668b0cc6d35bd53176983bd02ba6c7a136127df6501fc4170c2cc9",
+      "bytes": 674
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-picture-upload/picture-upload-fileTypes-editor.vue",
+      "sha256": "1d4922b3253e4c4463774b9347195870bed4a1d4369d5eb89201c46b3e1b3a89",
+      "bytes": 1369
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-radio/radio-defaultValue-editor.vue",
+      "sha256": "8edc84c0ed50fdbb9fdfd8a32d3b349ac95090de218ae6d7acd7275805aeb980",
+      "bytes": 268
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/allowHalf-editor.vue",
+      "sha256": "acacebaef15ffc9f2246f5a1cfcaf4516526fccf8d5e6bd5fa2e249f2eb0b434",
+      "bytes": 418
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/highThreshold-editor.vue",
+      "sha256": "182e49bb3473224482908e2e1fff3b83b3a686e6d364896ee80200dc11c5729a",
+      "bytes": 563
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/lowThreshold-editor.vue",
+      "sha256": "dfb5776c374a40b388d13e83b91957ca2abdb257d8eda040ce9728436113523a",
+      "bytes": 547
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/rate-defaultValue-editor.vue",
+      "sha256": "94010ab1aa2bcd33b946225c00bbd277c65b91be33f0bd746d5dee9fd4e93d0d",
+      "bytes": 671
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/rate-max-editor.vue",
+      "sha256": "a952d1c5e13543fef7c1065fedd6ccb47ba4d9685676cb8b59d868a3be6c33d1",
+      "bytes": 509
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/showScore-editor.vue",
+      "sha256": "79d9b9a9cb19d9c110b3e9195fad9d1dd9be62cff70f2fb4a2410819ef664aa7",
+      "bytes": 418
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rate/showText-editor.vue",
+      "sha256": "78efd062f22faeb2da12136d2f53bb43ab29ff42687c73d940b70b0f3a17c5e5",
+      "bytes": 415
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-rich-editor/rich-editor-contentHeight-editor.vue",
+      "sha256": "f941135da8e8fcd70b1c393728bd714d511a05bc23b1d96bc4a409ae4cf1dc6a",
+      "bytes": 475
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-select/select-defaultValue-editor.vue",
+      "sha256": "41694e93ce1fb23cb8d126d32db1ed466e1e6d44c00ad6c97c76ad0ac0b82551",
+      "bytes": 269
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-slider/range-editor.vue",
+      "sha256": "716326ea972a56aedbe7ea4bc82474d2aa9e8ac09db8787d9b42e3cd1d00c923",
+      "bytes": 407
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-slider/showStops-editor.vue",
+      "sha256": "0da4052944ebf674152cd946e9e53c278e6b9c38317f24fbc82ef121bd8ce63c",
+      "bytes": 418
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-slider/vertical-editor.vue",
+      "sha256": "0b14ca1b53f0412c75a14587aa5a63cbc895e16ab61ca43f29ed3ffd69c89980",
+      "bytes": 415
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-static-text/fontSize-editor.vue",
+      "sha256": "9a9a174393ae6c4d5c08584035c58d675a5b0fbc358aec5360a2bdb3e13892f1",
+      "bytes": 413
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-static-text/preWrap-editor.vue",
+      "sha256": "7f06f69292a8f74acd35f3375b09d03a78cdf72fc091e3413ac195de16e733af",
+      "bytes": 424
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-static-text/textContent-editor.vue",
+      "sha256": "b70733b5280726e58d77c81a18e909511093727b422dc7c55151d278f9ad44ec",
+      "bytes": 448
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/activeColor-editor.vue",
+      "sha256": "4d8c4dd9955097aee406a4b9c4addd454e636f0a37d601b77a1e604abc17282e",
+      "bytes": 436
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/activeText-editor.vue",
+      "sha256": "588baa71f408e86dec161cb63f078088659b92c1934a8720ed6bffe0fab74341",
+      "bytes": 419
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/inactiveColor-editor.vue",
+      "sha256": "0d755c7010652b2f19f1c594daba5239b5ccd01fba7182adfff6e99f1d9cfc87",
+      "bytes": 442
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/inactiveText-editor.vue",
+      "sha256": "d72a528ca72d484a0d4bf3de2c6e251bbeaecf029275985047c181cdbc866306",
+      "bytes": 425
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/switch-defaultValue-editor.vue",
+      "sha256": "b02129014ecc84454d3b41605172a9b7ba641fcd1945acb5ece262dba4847745",
+      "bytes": 639
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-switch/switchWidth-editor.vue",
+      "sha256": "d0ef87114f642dc7d7b5ac1d33977183d4218e81fe562dd6b7c0843aaa71b631",
+      "bytes": 456
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-time/time-defaultValue-editor.vue",
+      "sha256": "cc428997267ae7827e7885b00bc9c9cba792e5907352207598ba3731c24ff965",
+      "bytes": 689
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-time/time-format-editor.vue",
+      "sha256": "58908bf8c5e212204adb8c7ebfef1ef736832da930dbdc733676631ca98f1bef",
+      "bytes": 649
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-time-range/time-range-defaultValue-editor.vue",
+      "sha256": "44840173055d98e2580b94c2615d743f427d94ccd871daf3670dd5ec01366fbd",
+      "bytes": 704
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/field-time-range/time-range-format-editor.vue",
+      "sha256": "3f99d7a5601de49cbb4aff649e518079d5899201e67f7923a83a602fe8db761e",
+      "bytes": 655
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/fileMaxSize-editor.vue",
+      "sha256": "85331ea147208637b21d26d539e927fa861333b73c4958afc379ba9f082551d6",
+      "bytes": 490
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/filterable-editor.vue",
+      "sha256": "caf4f5b20cb5bb4357c22ec0a5eaef8affd466b4cbfe17c05213d42b08093e82",
+      "bytes": 421
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/hidden-editor.vue",
+      "sha256": "d72d7723a421eefaf119ef56ac7268a13741f2d73d80d109e52e9403b257c5d3",
+      "bytes": 409
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/index.js",
+      "sha256": "ba13c71c0c1ce81deb2ffbe4905dade3e1a8a1e987b2619b7aedb26eb8f493e1",
+      "bytes": 202
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/label-editor.vue",
+      "sha256": "08bb0405adc31882c5c93e466bf3a4050bd2902ccccf9fbdd7cf05cc799375c1",
+      "bytes": 668
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelAlign-editor.vue",
+      "sha256": "863293bc81ad4de909c6f23e25efcf05feb89ec1a76966a285ff714f92e1a56f",
+      "bytes": 1227
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelHidden-editor.vue",
+      "sha256": "1fcfcb9358754469b34529bc801ae9675c2a757a8095ead1d623a1f150d08d24",
+      "bytes": 424
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelIconClass-editor.vue",
+      "sha256": "b47d2cb8e6086ee3fa3da86bf946fc89007582285f0a397617955ee25f1d835f",
+      "bytes": 621
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelIconPosition-editor.vue",
+      "sha256": "3bfe4e331fa406b48f952dd27e32c7d77ace60796492dfd9699d64079b564d9a",
+      "bytes": 764
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelTooltip-editor.vue",
+      "sha256": "83178667c88eeb76e3d8cba4b73b3238bddd59bfa3899c01cc0b168be0fc96c3",
+      "bytes": 437
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/labelWidth-editor.vue",
+      "sha256": "acccab0079727d624bf7fd8d1a1ba8390b698bb90ae746ad3721956e2540f3fd",
+      "bytes": 624
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/limit-editor.vue",
+      "sha256": "dfc4d20eea9b147d7fc52591e993121be004c91063d32dc77c7fa7a3f23b9e17",
+      "bytes": 473
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/max-editor.vue",
+      "sha256": "5297e9e4feaf5c3fe792c0b8a8a74613f2d173eaf659101c133a2d6325658f10",
+      "bytes": 777
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/maxLength-editor.vue",
+      "sha256": "1e1a63658a57edf4bbb680fead71c704f1a53020fca0e50d99b8397c8f4db236",
+      "bytes": 969
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/min-editor.vue",
+      "sha256": "77ec0aa399980edc4202f0436506b4cba0223cb910c54b6818a57adbdb66b5ae",
+      "bytes": 886
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/minLength-editor.vue",
+      "sha256": "4041038cec0280d88a2dc9630434288f24be866167c013231d9d3520ee8f9490",
+      "bytes": 970
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/multiple-editor.vue",
+      "sha256": "74c05979b3c6135bd3bb84dd9b33fd2c47f40f076e44dac18eb98da8cff78b0e",
+      "bytes": 560
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/multipleLimit-editor.vue",
+      "sha256": "20dfc151e9994b46f97aa847a2b991eb0887e817854647cc58bb53dbfdefb57f",
+      "bytes": 517
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/multipleSelect-editor.vue",
+      "sha256": "620237b1e1300368dfe0cc321047c5791db7fc366f7f0ded9682732cc3c2ce72",
+      "bytes": 435
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/name-editor.vue",
+      "sha256": "92f90b21f28b0d450ad5e068b6e01920c4031bf1527211abf87375980c26ce2e",
+      "bytes": 3093
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/optionItems-editor.vue",
+      "sha256": "1fd1e948524ed97c28605da0d8e77bacec5c8eddbd948c3529526f1794e1db2f",
+      "bytes": 691
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/placeholder-editor.vue",
+      "sha256": "01e5d314513924e54ef3c01d8702055e2c4ea5626b17ac0c91f1b0b81d958612",
+      "bytes": 550
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/precision-editor.vue",
+      "sha256": "70cf74c6886fc4c04268b2fa88a33c3c85af73a767e0ff244a2d8d79e38ad185",
+      "bytes": 484
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/prefixIcon-editor.vue",
+      "sha256": "542e1ff16ed8463c42c26d59a440eb0e03ecfbeb1ecff5478ad191cfafe2faa4",
+      "bytes": 432
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/propertyMixin.js",
+      "sha256": "84f694b313511dfe6e44e6601e21b43e3584c7a2f460037c10573284aae1e167",
+      "bytes": 1215
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/readonly-editor.vue",
+      "sha256": "bb71fc4dc953c638735a2a21b9bc2e3405cdea0f962e512fefd676debc01c300",
+      "bytes": 415
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/remote-editor.vue",
+      "sha256": "d75aaf3d382e7a732ff44d8dde3f169c19728b0a8e35d0a5da45f84fec611fa8",
+      "bytes": 551
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/required-editor.vue",
+      "sha256": "22bd8055d2b48500c56a062a617e6b1e4a4298d836bcd31a5738864be0975d9a",
+      "bytes": 415
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/requiredHint-editor.vue",
+      "sha256": "0cb910776cbf1329e31f8950ba5ca1e8a883a009dd5705bb688ac9be90499aeb",
+      "bytes": 553
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/rows-editor.vue",
+      "sha256": "4935e9d7eee773440a345a81adef5e526b3d980b590c27833a7a09ff51fb5391",
+      "bytes": 436
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/showFileList-editor.vue",
+      "sha256": "8746b8cce53d4066448d79cfd9038c232fa5a9bdfa512f7311294d9341ae8f67",
+      "bytes": 427
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/showPassword-editor.vue",
+      "sha256": "500a377e3b7674a0391dd64e4f52e543a28795e2edaec7f2baceb13992230937",
+      "bytes": 468
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/showWordLimit-editor.vue",
+      "sha256": "eff69cef9841d64334dc1e12bd6a9a3081d9296a032753ab7aac626cf48ea67c",
+      "bytes": 431
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/size-editor.vue",
+      "sha256": "7533f39c78c8f4c25e6d5b958417332457e28d349ae701ffd2078c893482c3a6",
+      "bytes": 851
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/startPlaceholder-editor.vue",
+      "sha256": "e7528be87a729440c3a37b3df0942270f9e5717604af9f743051d8c8a9aae9e7",
+      "bytes": 449
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/step-editor.vue",
+      "sha256": "599b3a5f3cc2d3f86651b1806563f43b85b807ca3ddb5472a5745e79929d38a7",
+      "bytes": 460
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/suffixIcon-editor.vue",
+      "sha256": "1265c67989a880a48c38094b6b1fb0a5ccc755253b92e6b97e56931c6f542ad5",
+      "bytes": 432
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/textAlign-editor.vue",
+      "sha256": "dde52187d01c45a280f1f83f40b170d59853943e58f91ec2feded9b30b065bed",
+      "bytes": 959
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/type-editor.vue",
+      "sha256": "4bb42457b777c94b4ecf48ec00ceee79cfe80f637f1307c989f6254e77cb34da",
+      "bytes": 857
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/uploadTip-editor.vue",
+      "sha256": "3dbe35abbeccda57a0780a5ed0115126b19017c05b61ba6afca0d7f1af105737",
+      "bytes": 429
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/uploadURL-editor.vue",
+      "sha256": "bc98a67ae67218f5326aebce79b63c81e4ade6055e8e0ab0c6f24e2d59526beb",
+      "bytes": 604
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/validation-editor.vue",
+      "sha256": "54250ee7e001272c8769ea425cd842f11228aa2add0f9e7c9118a1758e96dbf8",
+      "bytes": 1711
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/validationHint-editor.vue",
+      "sha256": "64b31d924ab1a78ec2eac28a9b539257efff1904bd51b23ff9f5c997afc8cd4f",
+      "bytes": 443
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor/withCredentials-editor.vue",
+      "sha256": "a90af1d1d8e96f6c1e3b5ac5f5bdf13805fd86186691497cf20d988817f543a6",
+      "bytes": 436
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/property-editor-factory.jsx",
+      "sha256": "0ffa6921517f9af36ac83fa250292df8fd9173ce09023b959e7e77d1e906d2ed",
+      "bytes": 4354
+    },
+    {
+      "path": "src/components/form-designer/setting-panel/propertyRegister.js",
+      "sha256": "5847f0a30c0ba0e797ce7092f07432822c72f3e2d6120f0936770a7ecfa34b0f",
+      "bytes": 9480
+    },
+    {
+      "path": "src/components/form-designer/toolbar-panel/index.vue",
+      "sha256": "9d075f23f97750010b79c6b74f715af783ba9b2bd68190c0af06294473b1ceae",
+      "bytes": 42908
+    },
+    {
+      "path": "src/components/form-designer/widget-panel/index.vue",
+      "sha256": "9789d0cd6d99e4b54036f791f62b78c54ddc38445f89c1256c7aaba7ee58fee3",
+      "bytes": 12578
+    },
+    {
+      "path": "src/components/form-designer/widget-panel/templatesConfig.js",
+      "sha256": "2f9b73b349fca0105957bad498e2cdd72a8a9d8fb49811b572a3440166e3c68f",
+      "bytes": 2080
+    },
+    {
+      "path": "src/components/form-designer/widget-panel/widgetsConfig.js",
+      "sha256": "2fcfc87b92353135d5e6a67acaf4588973256b605a87d3fc98ad2e2b28c811b3",
+      "bytes": 20463
+    },
+    {
+      "path": "src/components/form-render/container-item/container-item-wrapper.vue",
+      "sha256": "dd21ea4a09daf7d1f4d05e2447df40864bd26dedaf15d72ddadeb6c8a8c6f643",
+      "bytes": 634
+    },
+    {
+      "path": "src/components/form-render/container-item/containerItemMixin.js",
+      "sha256": "8799f406aee3e7ccff82cf94381e62c9a023bc1f28a77d708f1bb26d9221682c",
+      "bytes": 5799
+    },
+    {
+      "path": "src/components/form-render/container-item/grid-col-item.vue",
+      "sha256": "90517a77809e1a5cbb67afb485037c5ca2d75b5325745c407bee997858dc227f",
+      "bytes": 4045
+    },
+    {
+      "path": "src/components/form-render/container-item/grid-item.vue",
+      "sha256": "dde29842f52e16a934f24a49f5f2ec4ada35783d720942f0a7d71376cdf10887",
+      "bytes": 1730
+    },
+    {
+      "path": "src/components/form-render/container-item/index.js",
+      "sha256": "4327563eb5da11964f12f3e07832e2c848dca6ee2174442e41aa9e818d05990d",
+      "bytes": 226
+    },
+    {
+      "path": "src/components/form-render/container-item/sub-form-item.vue",
+      "sha256": "e96f66a99e4839dd2049e88c5bfeda540a61fe1029b4a51a2b5cdef1df91a128",
+      "bytes": 14143
+    },
+    {
+      "path": "src/components/form-render/container-item/tab-item.vue",
+      "sha256": "42711352bcc5821bba0a33e78c7d94385514ad7be146b0b29e80c53f5593e5e5",
+      "bytes": 3237
+    },
+    {
+      "path": "src/components/form-render/container-item/table-cell-item.vue",
+      "sha256": "f7695261f81f59abe79f646f2b8e7a5d8427c09b7e7b0e889693540ad8377d13",
+      "bytes": 2381
+    },
+    {
+      "path": "src/components/form-render/container-item/table-item.vue",
+      "sha256": "a2c1579a5d68cc7ae0631d66eb719284e535269223acd7258b71be918223e43f",
+      "bytes": 1917
+    },
+    {
+      "path": "src/components/form-render/index.vue",
+      "sha256": "b67d2bf905b1b907c90fd5ba0de16debc4d28f31b3cd1ebabb2d4d938bee9471",
+      "bytes": 23439
+    },
+    {
+      "path": "src/components/form-render/refMixin.js",
+      "sha256": "45bb68c807b6cb5dba2fc8f0ab2ccb6dc4382d14868b53e4cb870ac98662bb63",
+      "bytes": 800
+    },
+    {
+      "path": "src/components/svg-icon/index.vue",
+      "sha256": "57e026e69da724f53f9d498fc36712a1a5ca2086497ef49e42cf035c02a29fa3",
+      "bytes": 925
+    },
+    {
+      "path": "src/components/v-table/index.vue",
+      "sha256": "5a1adbeff24ac33ea0b0e651c9a25a020604b749c8234526a4a6d5907a342378",
+      "bytes": 3024
+    },
+    {
+      "path": "src/extension/extension-helper.js",
+      "sha256": "6a5c4823fe23ec200c6628cc34032aa2df56daed92360c6d7b0e7f3e54f1e8ab",
+      "bytes": 530
+    },
+    {
+      "path": "src/extension/extension-loader.js",
+      "sha256": "a4d2db92f6a60edc33ba3847f2cd70411581c5f97e4d7b6de63bc751f9482684",
+      "bytes": 5623
+    },
+    {
+      "path": "src/extension/samples/alert/alert-widget.vue",
+      "sha256": "de0816730fb9c9257805f29644483fb4cbced7af07a9165efbc05c21b7248672",
+      "bytes": 2339
+    },
+    {
+      "path": "src/extension/samples/card/card-item.vue",
+      "sha256": "e45631fdc22cde924df03d959504596eea650b8793421c17ab18ab75787693a5",
+      "bytes": 3578
+    },
+    {
+      "path": "src/extension/samples/card/card-widget.vue",
+      "sha256": "d26e1f811d583eae3c2e8ebd8060d1379d6cf1ff703000eb7e23243b18203f57",
+      "bytes": 4365
+    },
+    {
+      "path": "src/extension/samples/extension-schema.js",
+      "sha256": "98e25b49eeb38da5053254552046294536f0e26958a51311adf6d312a0f6c072",
+      "bytes": 633
+    },
+    {
+      "path": "src/extension/samples/extension-sfc-generator.js",
+      "sha256": "588656db30b6eb25d3d3bd839cca56e1c52baba8e58167315775b24567f5a2cf",
+      "bytes": 1812
+    },
+    {
+      "path": "src/iconfont/iconfont.css",
+      "sha256": "f60aa7f4c9abebebc58c046a94d4195c9eed9c39c8bb54df3c023cc6283d8b6f",
+      "bytes": 480
+    },
+    {
+      "path": "src/iconfont/iconfont.eot",
+      "sha256": "d9219757926eec6b53e3262d955bad891df41ef70d57853582d3d9bf66e8d472",
+      "bytes": 2388
+    },
+    {
+      "path": "src/iconfont/iconfont.js",
+      "sha256": "de6592bcd9687e1081245e200348f1d9a58347a92a17b7a5c387ab06702bd985",
+      "bytes": 4430
+    },
+    {
+      "path": "src/iconfont/iconfont.json",
+      "sha256": "9074735c8accc0ce44b9eab13fe646dfd7eda24d9b638dcde69ae544f16fbb04",
+      "bytes": 742
+    },
+    {
+      "path": "src/iconfont/iconfont.svg",
+      "sha256": "f8f3002d29751d6a71272f0cc78ff4dbbf7fac22f0cc93d4bb25ce65b4708570",
+      "bytes": 3194
+    },
+    {
+      "path": "src/iconfont/iconfont.ttf",
+      "sha256": "d43099a22a2d17b477423154e4834522b39b47e5d90b6ea6fc7738e69487a037",
+      "bytes": 2468
+    },
+    {
+      "path": "src/iconfont/iconfont.woff",
+      "sha256": "79182cb335fc42da78c6743f1b39cc83b30c0d3619bebfadf391ca7b38604444",
+      "bytes": 1448
+    },
+    {
+      "path": "src/iconfont/iconfont.woff2",
+      "sha256": "5aa4012f4416f5eaa4ad324a8003a43f08b90fec515178fdf323f573b9d98315",
+      "bytes": 1072
+    },
+    {
+      "path": "src/icons/svg/alert.svg",
+      "sha256": "a3a599317948dbd130eaba14fa800eba03605c3d4061feb5df3fc36415e96c50",
+      "bytes": 1444
+    },
+    {
+      "path": "src/icons/svg/button.svg",
+      "sha256": "3afa2dc3defcadbac7e356b754f9d357698575499ba5140701b9fc5e731c3cc7",
+      "bytes": 762
+    },
+    {
+      "path": "src/icons/svg/card.svg",
+      "sha256": "ba190f52af509c7c07c6654bb4630bc1cf315f3134ee1c5b9e359e8bc88b6359",
+      "bytes": 977
+    },
+    {
+      "path": "src/icons/svg/cascader-field.svg",
+      "sha256": "7f1ac08fad907ccf7cb004c680fe3925466658a801c99a49a719b82bc41645e0",
+      "bytes": 1140
+    },
+    {
+      "path": "src/icons/svg/checkbox-field.svg",
+      "sha256": "8946ac630160df0f3675cc2ec0671134869d6bbfccac93a48396b9947b42dff1",
+      "bytes": 2021
+    },
+    {
+      "path": "src/icons/svg/color-field.svg",
+      "sha256": "eeb95b4ee5eea81fa49ef3668515c74fd9c3a48c188c1e2e24a19d5882069d24",
+      "bytes": 2117
+    },
+    {
+      "path": "src/icons/svg/custom/search.svg",
+      "sha256": "3a5dbdc64a880c3d3880f10137b2db50b9e4ce0ceb6ab3e7aa63285612934cc5",
+      "bytes": 723
+    },
+    {
+      "path": "src/icons/svg/custom-component.svg",
+      "sha256": "34364248c87463341502fc1f2bc753b5a3f25daad2418555a69bfcf742cd205e",
+      "bytes": 979
+    },
+    {
+      "path": "src/icons/svg/data-table.svg",
+      "sha256": "bb33c1af545d52559fd371d0cfacaca23368bcee6d7240d1f87099649fceedff",
+      "bytes": 2898
+    },
+    {
+      "path": "src/icons/svg/date-field.svg",
+      "sha256": "d876ea230eb7088bb01a503c5d58497d319a02d684879077dbc1a4d6273d4455",
+      "bytes": 4895
+    },
+    {
+      "path": "src/icons/svg/date-range-field.svg",
+      "sha256": "d381bd55d0d0bd17c11ff83bc3d4ec00251318722a717face43b0032d8f3848b",
+      "bytes": 1728
+    },
+    {
+      "path": "src/icons/svg/divider.svg",
+      "sha256": "5f1c1313f8924fac3311830271905ebfcca8b8816afe7ae6a37c59db0203d308",
+      "bytes": 444
+    },
+    {
+      "path": "src/icons/svg/document.svg",
+      "sha256": "19f8f0c4ff7cc88f5ff9d5b1cdd09eeca719c2b5a9fec05e8fa82215389ea1ef",
+      "bytes": 1980
+    },
+    {
+      "path": "src/icons/svg/drag.svg",
+      "sha256": "79c3778c4b450bf3616c448d08749036a63acdb31346be5ec2ea0273f4a06d2d",
+      "bytes": 724
+    },
+    {
+      "path": "src/icons/svg/el/arrow-down.svg",
+      "sha256": "2a6252a38b18a8ac18e42e62dd122b506e303d9639f89f042a7f6e2cd56d1f14",
+      "bytes": 693
+    },
+    {
+      "path": "src/icons/svg/el/back.svg",
+      "sha256": "be669d134835bbaa8119a7fdfeca9295db2f3d1a1dfbcfc298896721fedd92e1",
+      "bytes": 346
+    },
+    {
+      "path": "src/icons/svg/el/check.svg",
+      "sha256": "5817417fdf391fd3bcc1a9bbd3eacae70fe783d345ca7c7538d0384ed089eef6",
+      "bytes": 243
+    },
+    {
+      "path": "src/icons/svg/el/clone.svg",
+      "sha256": "7c12cddd478730417ef00d12794b105af8434153df470dfe7d232702afe2da21",
+      "bytes": 1642
+    },
+    {
+      "path": "src/icons/svg/el/delete.svg",
+      "sha256": "a9da8d9687e0b318cbcd96f15a6fe6e6c4e4897d129e59e8eb3c122fde79beee",
+      "bytes": 466
+    },
+    {
+      "path": "src/icons/svg/el/download.svg",
+      "sha256": "3a37242156086600da4c406f4266593f92b47c30a063ff796cd775c1138f8967",
+      "bytes": 1171
+    },
+    {
+      "path": "src/icons/svg/el/drag-move.svg",
+      "sha256": "2108d14b84ff4f0ed0c098186d6056043e142ae4b35ad402a277bb6dd235cb6f",
+      "bytes": 862
+    },
+    {
+      "path": "src/icons/svg/el/form-template.svg",
+      "sha256": "c6d1db9bdf1c502940f51bf6332acbb227c2d7c8a3f56b5954675ea26ff3ef54",
+      "bytes": 1276
+    },
+    {
+      "path": "src/icons/svg/el/hide.svg",
+      "sha256": "1080cee242c2fd85f648f3ded6ccc1fcc3db6739e69ef295c1e9b90a367de7c4",
+      "bytes": 1372
+    },
+    {
+      "path": "src/icons/svg/el/info.svg",
+      "sha256": "1af911eb0ac2d47c3d768a3b5b55ddd75f80c31b69c6bb94acb730039933a4ca",
+      "bytes": 877
+    },
+    {
+      "path": "src/icons/svg/el/insert-column.svg",
+      "sha256": "bbf67bdfab4ea37cc0de4f27ac356286f486870d29c3e89bbe30eeb8ee1c0a21",
+      "bytes": 1137
+    },
+    {
+      "path": "src/icons/svg/el/insert-row.svg",
+      "sha256": "b08c8f2a73da42df4c0bd3210ccb3ed62a0a45b417b621705e5c1ef7db1a336f",
+      "bytes": 1185
+    },
+    {
+      "path": "src/icons/svg/el/menu.svg",
+      "sha256": "c3e143b4c19b4bdff2528887259011070354564dd68030bc2264ee6aeab40954",
+      "bytes": 1004
+    },
+    {
+      "path": "src/icons/svg/el/move-down.svg",
+      "sha256": "76b9b51985b5c962895d824da7aeb184d632927f95714d3f309e67f71fae85b9",
+      "bytes": 889
+    },
+    {
+      "path": "src/icons/svg/el/move-up.svg",
+      "sha256": "3aa74fb62d9e6be3bb4b855abbfbb741eba29c155a55849671264bcb2c48a0ab",
+      "bytes": 939
+    },
+    {
+      "path": "src/icons/svg/el/plus.svg",
+      "sha256": "c2471b8fda6469d589405b84c6872378b6bdbecb3896c5ab885217f70195236b",
+      "bytes": 514
+    },
+    {
+      "path": "src/icons/svg/el/set-up.svg",
+      "sha256": "6344bd00c90cc3d3705a104ecc7e55cb9048b9650aeca431670937d5626bf291",
+      "bytes": 2656
+    },
+    {
+      "path": "src/icons/svg/el/view.svg",
+      "sha256": "90dc7bcccaa90cfc4cf3202a36c8947f0d61c642bc417d0e570f018f583ca181",
+      "bytes": 508
+    },
+    {
+      "path": "src/icons/svg/el/zoom-in.svg",
+      "sha256": "46a4c13f078031afc9580557c6ddcfaed9150cdee324eea623435265dedbb752",
+      "bytes": 383
+    },
+    {
+      "path": "src/icons/svg/file-upload-field.svg",
+      "sha256": "8c91c9cd005e628511ed3b3360ef4b0d8174f7f8b659b08a46ee6b47d93e4c64",
+      "bytes": 637
+    },
+    {
+      "path": "src/icons/svg/github.svg",
+      "sha256": "f8f2db5124577770db59c568d595e4046786af025f700ec77155a7772a77bbf6",
+      "bytes": 1841
+    },
+    {
+      "path": "src/icons/svg/grid.svg",
+      "sha256": "dd46777696b988779edc89266e43d6b60b3b7958b69a275fab528139a94dccac",
+      "bytes": 2200
+    },
+    {
+      "path": "src/icons/svg/html-text.svg",
+      "sha256": "3ebd16f5b9ed0f4573b1a70238c7eb62e0da1f71946e6be1bc1ac0db2bb54599",
+      "bytes": 958
+    },
+    {
+      "path": "src/icons/svg/node-tree.svg",
+      "sha256": "a7dc3ac11055ff6e720552b93dbb7c013f3725337fa1ac8f24be04a533bd68f9",
+      "bytes": 1266
+    },
+    {
+      "path": "src/icons/svg/number-field.svg",
+      "sha256": "e8d18789caa4bbd5387e66200edec94b4c4634b6a0f5abfd982a11bfe9920754",
+      "bytes": 963
+    },
+    {
+      "path": "src/icons/svg/picture-upload-field.svg",
+      "sha256": "840a968a73c184ef5f58a27567764b67a3f122e5b3228fd0d508f8b00556f3fc",
+      "bytes": 1046
+    },
+    {
+      "path": "src/icons/svg/radio-field.svg",
+      "sha256": "c2987251a03e6da0d0f3054855a753a7087f093bcff331c7da95031f39b74106",
+      "bytes": 1060
+    },
+    {
+      "path": "src/icons/svg/rate-field.svg",
+      "sha256": "a32bbe83dadbc9cd33c5c5343db675306939daa7af2ba608696c77046be285f5",
+      "bytes": 1202
+    },
+    {
+      "path": "src/icons/svg/redo.svg",
+      "sha256": "21fae49cdde9fb8a848c88ca1bebbd40888b9e21c7e728ff35253eec0c387801",
+      "bytes": 845
+    },
+    {
+      "path": "src/icons/svg/rich-editor-field.svg",
+      "sha256": "a6d0ad40899b8408eb6775a3bc61a5eebfcf36b45f7a7dcb2161384f24671bba",
+      "bytes": 2340
+    },
+    {
+      "path": "src/icons/svg/section.svg",
+      "sha256": "c8334f92b5d85b95e7e630bd5db930aaf6000fa4f6093672c122e97858cfc6bd",
+      "bytes": 942
+    },
+    {
+      "path": "src/icons/svg/select-field.svg",
+      "sha256": "baa97230e33a85dadaa8d13dfd605ca45e18ea683cb563f2e72af3310f43ae44",
+      "bytes": 1266
+    },
+    {
+      "path": "src/icons/svg/slider-field.svg",
+      "sha256": "97b139dc398b0e7a428cf76f040352c4fffc21d9bbbd45248711e8854d2a34c6",
+      "bytes": 523
+    },
+    {
+      "path": "src/icons/svg/slot-component.svg",
+      "sha256": "46ea4ef7c136cb1f9d5ba4039ec160dbe9fd21d84869d88aee9127401c2c58f9",
+      "bytes": 904
+    },
+    {
+      "path": "src/icons/svg/slot-field.svg",
+      "sha256": "05dcd518ffcf20e28cba3cd46660fd9ed14cc70bba5617ce9a7625a7f75df07c",
+      "bytes": 1629
+    },
+    {
+      "path": "src/icons/svg/static-text.svg",
+      "sha256": "b2d091e5ccdbb95b1c3b8a500fc4f2ceb9a38f07a3884e94be62e84fe5f5fc65",
+      "bytes": 2724
+    },
+    {
+      "path": "src/icons/svg/sub-form.svg",
+      "sha256": "dddd9878b84f73d9f25f9defdd0f17a1c650194a6f5202c2ea070947a36cdf3a",
+      "bytes": 1476
+    },
+    {
+      "path": "src/icons/svg/switch-field.svg",
+      "sha256": "6981c393735e81d1e0fa76c951e680c0aab0d2232a1f43e2d5e1144470de452a",
+      "bytes": 676
+    },
+    {
+      "path": "src/icons/svg/tab.svg",
+      "sha256": "e8faca71aae0d30887ba4af83c85120533d3667665fffb8f9beeced491eb83f9",
+      "bytes": 1221
+    },
+    {
+      "path": "src/icons/svg/table.svg",
+      "sha256": "7cdc51e75f40f29157d8c018a04aea289067da62b098a6161c251afc485e82f0",
+      "bytes": 1137
+    },
+    {
+      "path": "src/icons/svg/text-field.svg",
+      "sha256": "27c95408501df916a36e4140fa07bcc60512a1a1ef25e10699bf2060be8d1bc0",
+      "bytes": 747
+    },
+    {
+      "path": "src/icons/svg/textarea-field.svg",
+      "sha256": "3e50cf8eea031afea957d1af5222fd5601f0b5b3fa92804cb059fca1719c162f",
+      "bytes": 917
+    },
+    {
+      "path": "src/icons/svg/time-field.svg",
+      "sha256": "da25c1eef47f3dfdf3abef3aeee655ffda880bcc399d7c832167cff3f249ddd4",
+      "bytes": 1762
+    },
+    {
+      "path": "src/icons/svg/time-range-field.svg",
+      "sha256": "b9652db8ade80eba94784705a0c8d11f59a052c69ca1aaa136dfd500ac8f55a9",
+      "bytes": 1763
+    },
+    {
+      "path": "src/icons/svg/undo.svg",
+      "sha256": "328fb200b82335daf5a28f3e5937a0e05faee1e47f77947655f7cfcd69822256",
+      "bytes": 842
+    },
+    {
+      "path": "src/icons/svg/vue-sfc.svg",
+      "sha256": "c952143eb1f6593a9e8c9871056b62fc9c4a0721e363288dadc9afdd0488d600",
+      "bytes": 3004
+    },
+    {
+      "path": "src/lang/en-US.js",
+      "sha256": "6ed96e9f20411e183bacb8cc3a2a72fcd095e7b4901bb2dad670cecabb1a3680",
+      "bytes": 11491
+    },
+    {
+      "path": "src/lang/en-US_extension.js",
+      "sha256": "3bb309670bb11aa4fc8cf6b6b9ddf42176dcba2d2051fb297a012c01ba96b9bf",
+      "bytes": 484
+    },
+    {
+      "path": "src/lang/en-US_render.js",
+      "sha256": "8cb6067fdc7a3316d22c422adddc228238d23a25e875f5b5720e60d848273588",
+      "bytes": 1202
+    },
+    {
+      "path": "src/lang/zh-CN.js",
+      "sha256": "6c22113790d1a70f1b77c43db9b52ad4743253f38e278733018d50a70e36d540",
+      "bytes": 12081
+    },
+    {
+      "path": "src/lang/zh-CN_extension.js",
+      "sha256": "05e3635a9bae84aebf1d9a17a7171cb46e5cafe2f2bd3de7d3f9dbaaa43ed148",
+      "bytes": 537
+    },
+    {
+      "path": "src/lang/zh-CN_render.js",
+      "sha256": "1d01d57bb9ad3ab2ff7a042986f4affaf7a305394b48026dd8977dc47a495ba5",
+      "bytes": 1157
+    },
+    {
+      "path": "src/main.js",
+      "sha256": "08eec8ef97ddd7be2a8ad4db8eaaa750eb608106bbdb004962e478bcd9990063",
+      "bytes": 1013
+    },
+    {
+      "path": "src/styles/global.scss",
+      "sha256": "ebfb23589411ca1f459295d41a6a186688a536f93f49690fe883ed6f9ce7f4e3",
+      "bytes": 2037
+    },
+    {
+      "path": "src/styles/index.scss",
+      "sha256": "c3af443ca181f6e06334007669f735c5a225c2dd06a1c3595fa86de0d392c296",
+      "bytes": 351
+    },
+    {
+      "path": "src/utils/beautifierLoader.js",
+      "sha256": "5bfe7962eb2a283ca539e59fe20147880a70bf3d3094b4b45c5f8fedad09d640",
+      "bytes": 1932
+    },
+    {
+      "path": "src/utils/code-generator.js",
+      "sha256": "fe8357eb580336ab68b5b1c812923621d8188d1210e62fce21064a9cd0c64a87",
+      "bytes": 2523
+    },
+    {
+      "path": "src/utils/config.js",
+      "sha256": "0ff99cf529d3c044ecda130f79c2be01c8985edf8e00d585c044ace01dd4a93d",
+      "bytes": 500
+    },
+    {
+      "path": "src/utils/create-app.js",
+      "sha256": "c6c06845940b418632c75f3ae14540b98860f2fe5e6bbe89878467aa46c24924",
+      "bytes": 97
+    },
+    {
+      "path": "src/utils/debug-console.js",
+      "sha256": "1341a6652629cbac6c70862584801254475f519c920d2885111329b21a57ff2b",
+      "bytes": 177
+    },
+    {
+      "path": "src/utils/directive.js",
+      "sha256": "a4032f9b1c2b94fa7179802ba09b214d873ebcb35d2a7f8b67133413b655ba1e",
+      "bytes": 5165
+    },
+    {
+      "path": "src/utils/el-icons.js",
+      "sha256": "df0a873a0d379a9e87fb46fe10f6c5d9b237cd0fc88f8beda0fe6a06cfbde651",
+      "bytes": 560
+    },
+    {
+      "path": "src/utils/emitter.js",
+      "sha256": "0f9cd140cb0cf447d098420ba13d30351be5f79ae1453df37e4f8aaa6b02c920",
+      "bytes": 2921
+    },
+    {
+      "path": "src/utils/event-bus.js",
+      "sha256": "c538ccf7bf11d9a3536c8bec4bd726ef60295edfbf70dcffb0a49d1b9fd20343",
+      "bytes": 181
+    },
+    {
+      "path": "src/utils/i18n.js",
+      "sha256": "0d906b97bbbbb6e4b34514c683cecb3c586a515985143e1d6897568c4618b12e",
+      "bytes": 1171
+    },
+    {
+      "path": "src/utils/sfc-generator.js",
+      "sha256": "0a1a9e1990eb4faf7b611b55b2d4784664022d1d93c8feec80d33e549a8be63f",
+      "bytes": 24326
+    },
+    {
+      "path": "src/utils/smart-vue-i18n/index.js",
+      "sha256": "b3964a15f3644a89a0d003c46ad4662c255a9f9429e15942a91b14c66a53038e",
+      "bytes": 770
+    },
+    {
+      "path": "src/utils/smart-vue-i18n/utils.js",
+      "sha256": "ebf99cde5e44cbd9ca06ddf1d86e24223690406bfd75befdc20da42d33ede6bd",
+      "bytes": 914
+    },
+    {
+      "path": "src/utils/util.js",
+      "sha256": "9f786dd0e969d0cc331dc32330a5ea12df0e9cc2c055ee6c18f7b3b6cfaa9339",
+      "bytes": 9640
+    },
+    {
+      "path": "src/utils/validators.js",
+      "sha256": "22c7efb7e82785ea1d5ff476b0aad974f5aadddd5c617cf1e31b44cc3c9237cd",
+      "bytes": 3407
+    },
+    {
+      "path": "src/utils/vue2js-generator.js",
+      "sha256": "3e207372db6ec93718babac7179f539146c8255b37b0cf2084f95014019e3f55",
+      "bytes": 3925
+    },
+    {
+      "path": "src/utils/vue3js-generator.js",
+      "sha256": "e35002cc314aac5c57f9010b623ecb91b5d1b0b28e6873db55936fd53fbffa30",
+      "bytes": 1755
+    },
+    {
+      "path": "vite-lib-render.config.js",
+      "sha256": "936206782c3454c3873c4d7c6b1bf4b4e587aaca53b7366aff96ba263e119388",
+      "bytes": 2097
+    },
+    {
+      "path": "vite-lib.config.js",
+      "sha256": "92ea79861a9f18b3fa2e8d98ce8e2d6476eb03b9d7a0c0811283d4f0ece3be59",
+      "bytes": 2069
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "53ecfe422a92c2f560e1a84f256294e1f8ce1aea14d8850e30b8098116053694",
+      "bytes": 2244
+    }
+  ]
+}

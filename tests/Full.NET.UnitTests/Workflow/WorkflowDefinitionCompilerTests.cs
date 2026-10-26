@@ -9,6 +9,92 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowDefinitionCompilerTests
 {
     [TestMethod]
+    [DataRow("中文")]
+    [DataRow("has space")]
+    [DataRow("")]
+    public void Invalid_node_identity_is_rejected_before_persistence(string key)
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            new WorkflowNodeDraft("start", "start", 1, JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { key } })),
+            Node(key, "human.approval", """{"nextNodeKeys":["end"]}"""), Node("end", "end", "{}"),
+        ]);
+        Assert.IsFalse(WorkflowDefinitionCompiler.Compile(draft).IsSuccess);
+        Assert.IsFalse(WorkflowRuntimePlan.TryCreate(draft, out _));
+    }
+
+    [TestMethod]
+    public void Unimplemented_listener_configuration_is_rejected_instead_of_ignored()
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", """{"nextNodeKeys":["approval"]}"""),
+            Node("approval", "human.approval", """{"nextNodeKeys":["end"],"listener":{"url":"https://example.invalid"}}"""),
+            Node("end", "end", "{}"),
+        ]);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionNodeTypeUnavailable, WorkflowDefinitionCompiler.Compile(draft).ErrorCode);
+        Assert.IsFalse(WorkflowRuntimePlan.TryCreate(draft, out _));
+        Assert.IsTrue(WorkflowNodeTypeCatalog.TryGet("human.approval", out var approval));
+        Assert.IsFalse(approval!.ConfigurationProperties.Contains("listener"));
+        Assert.AreEqual(8, WorkflowGatewayLimits.MaximumBranches("gateway.inclusive"));
+        Assert.IsTrue(WorkflowGatewayLimits.HasDefaultBranch("gateway.inclusive"));
+    }
+
+    [TestMethod]
+    public void Automation_can_complete_without_human_but_approval_and_unknown_kinds_cannot()
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+            [Node("start", "start", """{"nextNodeKeys":["end"]}"""), Node("end", "end", "{}")], "automation");
+        var compiled = WorkflowDefinitionCompiler.Compile(draft);
+        Assert.IsTrue(compiled.IsSuccess);
+        using var canonical = JsonDocument.Parse(compiled.Value!.CanonicalJson);
+        Assert.AreEqual("automation", canonical.RootElement.GetProperty("workflowKindKey").GetString());
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
+        Assert.IsTrue(plan!.TryResolveStart(out var transition));
+        Assert.IsTrue(transition.CompletesInstance);
+        Assert.IsNull(transition.NextHumanNodeKey);
+        Assert.IsFalse(WorkflowDefinitionCompiler.Compile(draft with { WorkflowKindKey = "approval" }).IsSuccess);
+        Assert.IsFalse(WorkflowDefinitionCompiler.Compile(draft with { WorkflowKindKey = "unknown" }).IsSuccess);
+    }
+
+    [TestMethod]
+    public void Exclusive_branches_publish_and_execute_through_the_common_approval()
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", """{"nextNodeKeys":["route"]}"""),
+            Node("route", "gateway.exclusive", """
+                {"nextNodeKeys":["finance","manager"],
+                 "branches":[{"branchKey":"large","nextNodeKey":"finance",
+                    "condition":{"fieldKey":"amount","operator":"greaterThan","value":100}}],
+                 "defaultNextNodeKey":"manager"}
+                """),
+            Node("finance", "human.approval", """{"nextNodeKeys":["common"]}"""),
+            Node("manager", "human.approval", """{"nextNodeKeys":["common"]}"""),
+            Node("common", "human.approval", """{"nextNodeKeys":["end"]}"""),
+            Node("end", "end", "{}"),
+        ]);
+
+        // 实际发布与启动必须绑定表单类型；纯图级计划只校验拓扑，不能执行条件比较。
+        var schema = new WorkflowFormSchema(1, 1,
+            [new WorkflowFormSection("main", [new WorkflowFormField("amount", "integer", true,
+                new Dictionary<string, JsonElement>())])]);
+        Assert.IsTrue(WorkflowDefinitionCompiler.Compile(draft, schema).IsSuccess);
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, schema, out var plan));
+        foreach (var amount in new[] { 50, 150 })
+        {
+            var values = new Dictionary<string, JsonElement> { ["amount"] = JsonSerializer.SerializeToElement(amount) };
+            Assert.IsTrue(plan!.TryResolveStart(values, out var start));
+            Assert.AreEqual(amount > 100 ? "finance" : "manager", start.NextHumanNodeKey);
+            Assert.IsTrue(plan.TryResolveAfterHuman(start.NextHumanNodeKey!, values, out var continuation));
+            Assert.AreEqual("common", continuation.NextHumanNodeKey);
+            Assert.IsFalse(continuation.CompletesInstance);
+            Assert.IsTrue(plan.TryResolveAfterHuman("common", values, out var completed));
+            Assert.IsTrue(completed.CompletesInstance);
+        }
+    }
+
+    [TestMethod]
     public void Compile_rejects_oversized_graph_before_recursive_topology_checks()
     {
         var nodes = Enumerable.Range(0, WorkflowDefinitionCompiler.MaximumNodes + 1)
@@ -22,8 +108,8 @@ public sealed class WorkflowDefinitionCompilerTests
     [TestMethod]
     public void Compile_produces_stable_canonical_json_and_hash_for_reordered_object_keys()
     {
-        var first = CompileValid("{\"label\":\"审批\",\"nextNodeKeys\":[\"end\"]}");
-        var second = CompileValid("{\"nextNodeKeys\":[\"end\"],\"label\":\"审批\"}");
+        var first = CompileValid("{\"nodeName\":\"审批\",\"nextNodeKeys\":[\"end\"]}");
+        var second = CompileValid("{\"nextNodeKeys\":[\"end\"],\"nodeName\":\"审批\"}");
 
         Assert.IsTrue(first.IsSuccess);
         Assert.IsTrue(second.IsSuccess);

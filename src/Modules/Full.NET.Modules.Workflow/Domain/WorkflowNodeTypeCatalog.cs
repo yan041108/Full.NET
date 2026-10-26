@@ -6,7 +6,28 @@ internal sealed record WorkflowNodeTypeDefinition(
     bool Designable,
     bool Publishable,
     bool Executable,
-    bool SupportsFieldPolicies);
+    bool SupportsFieldPolicies)
+{
+    public IReadOnlyList<string> ConfigurationProperties => NodeTypeKey switch
+    {
+        "start" => ["nodeName", "nextNodeKeys", "withdrawalPolicy", "administratorUserIds"],
+        "human.approval" => ["nodeName", "nextNodeKeys", "fieldPolicies", "approvalPolicy", "assigneePolicy", "timeoutPolicy", "slaPolicy", "resultCallbackFieldKey", "listeners", "operationPermissions", "signRequired", "commentRequired"],
+        "human.group_approval" => ["nodeName", "nextNodeKeys", "fieldPolicies", "groups", "groupApprovalPolicy", "timeoutPolicy", "slaPolicy", "resultCallbackFieldKey", "listeners", "operationPermissions", "signRequired", "commentRequired"],
+        "human.task" => ["nodeName", "nextNodeKeys", "fieldPolicies", "taskPolicy", "assigneePolicy", "timeoutPolicy", "slaPolicy", "resultCallbackFieldKey", "listeners", "operationPermissions", "signRequired", "commentRequired"],
+        "human.vote" => ["nodeName", "nextNodeKeys", "fieldPolicies", "votePolicy", "assigneePolicy", "timeoutPolicy", "slaPolicy", "resultCallbackFieldKey", "listeners", "operationPermissions", "signRequired", "commentRequired"],
+        "human.claim" => ["nodeName", "nextNodeKeys", "fieldPolicies", "claimPolicy", "assigneePolicy", "timeoutPolicy", "slaPolicy", "resultCallbackFieldKey", "listeners", "operationPermissions", "signRequired", "commentRequired"],
+        "notify.cc" => ["nodeName", "nextNodeKeys", "recipientUserIds", "recipientPolicy"],
+        "timer.delay" => ["nodeName", "nextNodeKeys", "delayPolicy"],
+        "business.command" => ["nodeName", "nextNodeKeys", "businessCommandPolicy", "boundBusinessActionHash"],
+        "process.subprocess" => ["nodeName", "nextNodeKeys", "fieldPolicies", "subprocessPolicy", "boundSubprocess", "multiInstancePolicy"],
+        "data.modify" or "data.clear" => ["nodeName", "nextNodeKeys", "fieldPolicies", "mutationPolicy"],
+        "integration.trigger" or "integration.async_trigger" => ["nodeName", "nextNodeKeys", "fieldPolicies", "connectorPolicy", "boundConnectorHash"],
+        "gateway.exclusive" => ["nodeName", "nextNodeKeys", "branches", "defaultNextNodeKey"],
+        "gateway.parallel" => ["nodeName", "gatewayRoleKey", "joinNodeKey", "forkNodeKey", "nextNodeKeys", "branches"],
+        "gateway.inclusive" => ["nodeName", "gatewayRoleKey", "joinNodeKey", "forkNodeKey", "nextNodeKeys", "branches", "defaultNextNodeKey"],
+        _ => ["nodeName", "nextNodeKeys"],
+    };
+}
 
 internal sealed record WorkflowNodeTypeCatalogSnapshot(
     int CatalogVersion,
@@ -20,7 +41,19 @@ internal static class WorkflowNodeTypeCatalog
     [
         Node("start"),
         Node("human.approval", supportsFieldPolicies: true),
+        Node("human.group_approval", supportsFieldPolicies: true),
+        Node("human.task", supportsFieldPolicies: true),
+        Node("human.vote", supportsFieldPolicies: true),
+        Node("human.claim", supportsFieldPolicies: true),
         Node("notify.cc"),
+        Node("control.empty"),
+        Node("timer.delay"),
+        Node("business.command"),
+        Node(WorkflowSubprocessPolicy.NodeType, supportsFieldPolicies: true),
+        Node("data.modify", supportsFieldPolicies: true),
+        Node("data.clear", supportsFieldPolicies: true),
+        Node("integration.trigger", supportsFieldPolicies: true),
+        Node("integration.async_trigger", supportsFieldPolicies: true),
         Node("gateway.exclusive"),
         Node("gateway.parallel"),
         Node("gateway.inclusive"),
@@ -31,13 +64,19 @@ internal static class WorkflowNodeTypeCatalog
         Definitions.ToDictionary(definition => definition.NodeTypeKey, StringComparer.Ordinal);
 
     public static WorkflowNodeTypeCatalogSnapshot Current { get; } =
-        new(1, 1, Array.AsReadOnly(Definitions));
+        new(26, 1, Array.AsReadOnly(Definitions));
 
     public static bool TryGet(string? nodeTypeKey, out WorkflowNodeTypeDefinition? definition)
     {
         definition = null;
         return nodeTypeKey is not null && ByNodeType.TryGetValue(nodeTypeKey, out definition);
     }
+
+    public static bool SupportsConfiguration(WorkflowNodeDraft node) =>
+        node.Config.ValueKind == System.Text.Json.JsonValueKind.Object &&
+        (node.NodeTypeKey is not ("start" or "end" or "human.approval" or "human.group_approval" or "human.task" or "human.vote" or "human.claim" or "control.empty" or "timer.delay" or "business.command" or "process.subprocess" or "data.modify" or "data.clear" or "integration.trigger" or "integration.async_trigger") ||
+            (TryGet(node.NodeTypeKey, out var type) && node.Config.EnumerateObject().All(property =>
+                type!.ConfigurationProperties.Contains(property.Name, StringComparer.Ordinal))));
 
     private static WorkflowNodeTypeDefinition Node(
         string nodeTypeKey,

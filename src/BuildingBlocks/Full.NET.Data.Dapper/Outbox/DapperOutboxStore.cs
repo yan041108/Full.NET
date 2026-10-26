@@ -40,6 +40,33 @@ internal sealed class DapperOutboxStore(
     private const int MaximumErrorLength = 2000;
     private readonly DatabaseOptions _databaseOptions = databaseOptions.Value;
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<OutboxStreamBacklogSnapshot>> ReadStreamBacklogsAsync(int maximumStreams, CancellationToken cancellationToken)
+    {
+        if (maximumStreams is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(maximumStreams));
+        var parameters = DapperSqlParameters.Create(("MaxStreams", maximumStreams + 1), ("Now", clock.UtcNow));
+        if (_databaseOptions.Provider == DatabaseProvider.SqlServer)
+        {
+            var rows = await queryExecutor.QueryAsync<SqlServerStreamBacklogRow>(OutboxSql.ReadStreamBacklogsSqlServer, parameters, cancellationToken).ConfigureAwait(false);
+            return rows.Select(row => new OutboxStreamBacklogSnapshot(row.MessageType, row.SchemaVersion,
+                new(row.PendingCount, row.OldestOccurredAtUtc) { DueRetryCount = row.DueRetryCount, ActiveLeaseCount = row.ActiveLeaseCount,
+                    DeadLetterCount = row.DeadLetterCount, OldestDeadLetteredAtUtc = row.OldestDeadLetteredAtUtc })).ToArray();
+        }
+        if (_databaseOptions.Provider != DatabaseProvider.MySql) throw new NotSupportedException("Unsupported Outbox backlog provider.");
+        var mySql = await queryExecutor.QueryAsync<MySqlStreamBacklogRow>(OutboxSql.ReadStreamBacklogsMySql, parameters, cancellationToken).ConfigureAwait(false);
+        static DateTimeOffset? Utc(DateTime? value) => value is { } time ? new(DateTime.SpecifyKind(time, DateTimeKind.Utc)) : null;
+        return mySql.Select(row => new OutboxStreamBacklogSnapshot(row.MessageType, row.SchemaVersion,
+            new(row.PendingCount, Utc(row.OldestOccurredAtUtc)) { DueRetryCount = row.DueRetryCount, ActiveLeaseCount = row.ActiveLeaseCount,
+                DeadLetterCount = row.DeadLetterCount, OldestDeadLetteredAtUtc = Utc(row.OldestDeadLetteredAtUtc) })).ToArray();
+    }
+
+    /// <summary>SQL Server 分组快照，时间保留 datetimeoffset；独立形状避免复用全局聚合列序。</summary>
+    internal sealed record SqlServerStreamBacklogRow(string MessageType, int SchemaVersion, long PendingCount,
+        DateTimeOffset? OldestOccurredAtUtc, long DueRetryCount, long ActiveLeaseCount, long DeadLetterCount, DateTimeOffset? OldestDeadLetteredAtUtc);
+    /// <summary>MySQL 分组快照，以 DATETIME 接收并在边界明确标注 UTC。</summary>
+    internal sealed record MySqlStreamBacklogRow(string MessageType, int SchemaVersion, long PendingCount,
+        DateTime? OldestOccurredAtUtc, long DueRetryCount, long ActiveLeaseCount, long DeadLetterCount, DateTime? OldestDeadLetteredAtUtc);
+
     /// <summary>
     /// 读取全局 Outbox 积压快照（待处理、到期重试、活动 Lease、死信数量与最旧时间戳）。
     /// </summary>

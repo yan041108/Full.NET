@@ -1,5 +1,6 @@
 import {
   workflowCancelInstance as cancelInstance,
+  workflowWithdrawInstance as withdrawInstance,
   workflowGetInstance,
   workflowListInstanceExecutionLogs,
   workflowListInstances,
@@ -11,13 +12,36 @@ import {
   type CancelWorkflowInstanceRequest,
   type PauseWorkflowInstanceRequest,
   type RecoverWorkflowInstanceRequest,
-  type ReassignWorkflowInstanceRequest,
+  type ReassignWorkflowInstanceRequest as GeneratedReassignWorkflowInstanceRequest,
   type ResumeWorkflowInstanceRequest,
   type WorkflowExecutionLogResponse,
   type WorkflowInstanceListItemResponse,
-  type WorkflowInstanceResponse
+  readWorkflowInstanceResponse,
+  type WorkflowInstanceResponse as GeneratedWorkflowInstanceResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+type WorkflowWithdrawalAvailability = { readonly canWithdraw: boolean; readonly modeKey: string };
+type WorkflowInstanceResponse = GeneratedWorkflowInstanceResponse & { readonly withdrawal?: WorkflowWithdrawalAvailability | null };
+export interface WithdrawWorkflowInstanceRequest { readonly expectedRevision: number; readonly idempotencyKey: string; readonly reason?: string | null }
+
+/** 受控的撤回只读能力仍需与平台精确权限相交，提交时由服务端锁内重验。 */
+function readWithdrawalProjection(value: GeneratedWorkflowInstanceResponse): WorkflowInstanceResponse {
+  const result = value as WorkflowInstanceResponse;
+  const policy = result.withdrawal;
+  if (policy != null && (typeof policy !== 'object' || typeof policy.canWithdraw !== 'boolean' ||
+    !['before_any_human_action', 'at_active_nodes'].includes(policy.modeKey))) throw new TypeError('workflow.invalid_withdrawal_availability');
+  return result;
+}
+
+/** 撤回请求不携带发起人、租户、授权或补偿豁免。 */
+export async function withdrawWorkflowInstance(instanceId: string, body: WithdrawWorkflowInstanceRequest, signal?: AbortSignal): Promise<WorkflowInstanceResponse> {
+  if (!Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 1 || typeof body.idempotencyKey !== 'string' || !body.idempotencyKey.trim() || body.idempotencyKey.length > 128 ||
+    body.reason != null && (typeof body.reason !== 'string' || body.reason.length > 512) || Object.keys(body).some(key => !['expectedRevision', 'idempotencyKey', 'reason'].includes(key)))
+    throw new TypeError('workflow.invalid_withdrawal_request');
+  return readWorkflowInstanceResponse(await withdrawInstance(http, { instanceId, body }, signal));
+}
+
 
 /** 取消工作流实例。 */
 export async function cancelWorkflowInstance(
@@ -76,8 +100,8 @@ export async function reassignWorkflowInstance(
   return reassignInstance(http, { instanceId, body }, signal);
 }
 
-/** 改派请求必须显式携带目标用户、expectedRevision 与幂等键。 */
-export type { ReassignWorkflowInstanceRequest };
+/** 管理员显式目标待办及其修订均来自真实生成协议，不额外拼接临时契约。 */
+export type ReassignWorkflowInstanceRequest = GeneratedReassignWorkflowInstanceRequest;
 
 /** 分页查询当前作用域内全部工作流实例。 */
 export async function listWorkflowInstances(
@@ -116,7 +140,7 @@ export async function getWorkflowInstance(
   instanceId: string,
   signal?: AbortSignal
 ): Promise<WorkflowInstanceResponse> {
-  return workflowGetInstance(http, { instanceId }, signal);
+  return readWithdrawalProjection(await workflowGetInstance(http, { instanceId }, signal));
 }
 
 /** 查询工作流实例执行日志，供前端按实例时间线回显节点推进过程。 */

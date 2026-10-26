@@ -25,7 +25,8 @@ internal sealed class DeadLetterReplayService(
     ICommandTransaction transaction,
     IntegrationEventConsumerDispatcher dispatcher,
     IntegrationEventSubscriptionCatalog catalog,
-    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter)
+    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter,
+    Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -40,6 +41,8 @@ internal sealed class DeadLetterReplayService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (MessagingOperationActor.Validate(MessagingOperationActor.Resolve(httpContextAccessor), request.Reason) is { } actorError)
+            return Task.FromResult(Result<DeadLetterReplayResponse>.Failure(actorError));
         if (request.MessageId == Guid.Empty)
         {
             return Task.FromResult(Result<DeadLetterReplayResponse>.Failure(new Error(
@@ -132,13 +135,14 @@ internal sealed class DeadLetterReplayService(
                     request.MessageId,
                     outbox.TenantId,
                     MessagingDomainAuditOutcomes.Success,
-                    ActorUserId: null,
-                    ActorDisplayName: null,
+                    ActorUserId: MessagingOperationActor.Resolve(httpContextAccessor)!.UserId,
+                    ActorDisplayName: MessagingOperationActor.Resolve(httpContextAccessor)!.DisplayName,
                     DiffSummaryJson: JsonSerializer.Serialize(
                         new DeadLetterReplayAuditDiff(
                             request.ConsumerName,
                             request.MessageId,
-                            outcome),
+                            outcome,
+                            request.Reason),
                         MessagingJsonSerializerContext.Default.DeadLetterReplayAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);

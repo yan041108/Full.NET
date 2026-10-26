@@ -41,6 +41,9 @@ public static class HostFileReferenceClaimStates
 /// </summary>
 public static class HostFileReferenceClaimIdempotencyKeys
 {
+    /// <summary>每次 Workflow 动作签名使用独立证据身份，失败的并发请求不能释放他人的签名引用。</summary>
+    public static string WorkflowActionSignature(Guid evidenceId) => $"workflow-action-signature:{evidenceId:D}";
+
     /// <summary>同一知识库版本始终使用相同引用键，客户端不能指定文件引用。</summary>
     /// <param name="versionId">服务端生成的版本标识。</param>
     public static string AiKnowledgeVersion(Guid versionId) => $"ai-knowledge-version:{versionId:D}";

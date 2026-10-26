@@ -14,6 +14,7 @@ using Full.NET.Modules.Workflow.Serialization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Features;
+using Full.NET.Modules.Workflow.Execution.Connectors;
 
 namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 
@@ -34,9 +35,9 @@ internal sealed class WorkflowDefinitionManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberSelectionDirectory tenantUserDirectory,
     WorkflowAssigneePublishValidator assigneePublishValidator,
-    ITenantFeatureEntitlementPort featureEntitlements)
+    ITenantFeatureEntitlementPort featureEntitlements, WorkflowConnectorCatalog connectors, WorkflowBusinessActionCatalog businessActions)
 {
     public async Task<Result<IReadOnlyList<WorkflowDefinitionResponse>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -190,10 +191,17 @@ internal sealed class WorkflowDefinitionManagementService(
     /// <param name="request">发布修订号与绑定表单版本。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>
     /// <returns>发布成功后的不可变定义版本，或稳定业务错误。</returns>
-    public Task<Result<WorkflowDefinitionVersionResponse>> PublishAsync(
+    public async Task<Result<WorkflowDefinitionVersionResponse>> PublishAsync(
         Guid id, Guid actorUserId, PublishWorkflowDefinitionRequest request,
-        CancellationToken cancellationToken = default) =>
-        PublishCoreAsync(id, actorUserId, request, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        try { return await PublishCoreAsync(id, actorUserId, request, cancellationToken).ConfigureAwait(false); }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.Deadlock)
+        {
+            // 仅在读取失败或所属事务已回滚之后返回冲突，不在半个发布事务中重试单条SQL。
+            return RevisionConflict<WorkflowDefinitionVersionResponse>();
+        }
+    }
 
     /// <summary>在乐观并发保护下变更定义启停或归档状态。</summary>
     /// <param name="id">工作流定义标识。</param>
@@ -252,13 +260,22 @@ internal sealed class WorkflowDefinitionManagementService(
         return await GetAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>删除未被运行实例引用的不可变定义版本。</summary>
+    /// <summary>删除未被发布依赖、父调用或任何根历史引用的不可变定义版本。</summary>
     /// <param name="versionId">待删除定义版本标识。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>
     /// <returns>删除成功或稳定业务错误。</returns>
     public async Task<Result<bool>> DeleteVersionAsync(
         Guid versionId,
         CancellationToken cancellationToken = default)
+    {
+        try { return await DeleteVersionCoreAsync(versionId, cancellationToken).ConfigureAwait(false); }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.Deadlock)
+        {
+            return RevisionConflict<bool>();
+        }
+    }
+
+    private async Task<Result<bool>> DeleteVersionCoreAsync(Guid versionId, CancellationToken cancellationToken)
     {
         if (versionId == Guid.Empty)
         {
@@ -287,37 +304,36 @@ internal sealed class WorkflowDefinitionManagementService(
             return Failure<bool>(WorkflowErrorCodes.DefinitionNotFound, ErrorType.NotFound);
         }
 
-        var runningCount = await queryExecutor.QuerySingleOrDefaultAsync<int>(
-                WorkflowSql.CountRunningInstancesByDefinitionVersion,
-                Parameters(("DefinitionVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (runningCount > 0)
-        {
-            return Failure<bool>(WorkflowErrorCodes.VersionInUse, ErrorType.Conflict);
-        }
-
-        var remainingVersions = (await queryExecutor.QueryAsync<WorkflowDefinitionVersionRecord>(
-                WorkflowSql.ListDefinitionVersions,
-                Parameters(("DefinitionId", version.DefinitionId), ("TenantScopeKey", scope.TenantScopeKey)),
-                cancellationToken)
-            .ConfigureAwait(false))
-            .Where(item => item.Id != versionId)
-            .ToArray();
-        var nextLatestVersionId = remainingVersions.MaxBy(item => item.VersionNumber)?.Id;
-
         return await transaction.ExecuteResultAsync(async token =>
         {
-            var affected = await commandExecutor.ExecuteAsync(
-                WorkflowSql.DeleteDefinitionVersion,
-                Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
-                token).ConfigureAwait(false);
-            if (affected != 1)
-            {
+            await commandExecutor.ExecuteAsync(WorkflowVersionReferenceSql.LockDefinition,
+                Parameters(("DefinitionId", version.DefinitionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+            var currentDefinition = await FindDefinitionAsync(version.DefinitionId, scope, token).ConfigureAwait(false);
+            var currentVersion = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionVersionRecord>(WorkflowSql.FindDefinitionVersionById,
+                Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+            if (currentDefinition is null || currentVersion is null)
                 return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+            if (await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowVersionReferenceSql.HasReferences,
+                    Parameters(("DefinitionVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 0)
+                return Failure<bool>(WorkflowErrorCodes.VersionInUse, ErrorType.Conflict);
+            var remainingVersions = await queryExecutor.QueryAsync<WorkflowDefinitionVersionRecord>(WorkflowSql.ListDefinitionVersions,
+                Parameters(("DefinitionId", version.DefinitionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+            var nextLatestVersionId = remainingVersions.Where(item => item.Id != versionId).MaxBy(item => item.VersionNumber)?.Id;
+            try
+            {
+                await commandExecutor.ExecuteAsync(WorkflowVersionReferenceSql.DeleteOwned,
+                    Parameters(("DefinitionVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+                if (await commandExecutor.ExecuteAsync(WorkflowSql.DeleteDefinitionVersion,
+                        Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
+                    return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+            }
+            catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.InvalidValue)
+            {
+                // 另一父版本可能刚提交引用；删除失败必须回滚自身依赖清理，不能留下半删除状态。
+                return Failure<bool>(WorkflowErrorCodes.VersionInUse, ErrorType.Conflict);
             }
 
-            if (definition.LatestPublishedVersionId == versionId)
+            if (currentDefinition.LatestPublishedVersionId == versionId)
             {
                 await commandExecutor.ExecuteAsync(
                     WorkflowSql.SetLatestDefinitionVersion,
@@ -428,6 +444,19 @@ internal sealed class WorkflowDefinitionManagementService(
         var formSchema = JsonSerializer.Deserialize(
             formVersion.FormSchemaJson,
             WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        if (model is not null && formSchema is not null)
+        {
+            if (!connectors.TryBindDraft(scope.TenantScopeKey, model, formSchema, out var bound))
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionFieldPolicyInvalid, ErrorType.Validation);
+            model = await WorkflowWorkCalendarBindings.BindAsync(bound!,queryExecutor,scope,token).ConfigureAwait(false);
+            if(model is null)return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.CalendarInvalid,ErrorType.Validation);
+            var businessBinding = WorkflowBusinessCommandBindings.Bind(model, scope, businessActions);
+            if (!businessBinding.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(businessBinding.Error!);
+            model = businessBinding.Value;
+            var subprocessBinding = await WorkflowSubprocessBindings.BindAsync(model!, formSchema, scope, queryExecutor, token, definition.Id).ConfigureAwait(false);
+            if (!subprocessBinding.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(subprocessBinding.Error!);
+            model = subprocessBinding.Value;
+        }
         var compilation = model is null || formSchema is null
             ? null
             : WorkflowDefinitionCompiler.Compile(model, formSchema);
@@ -439,15 +468,17 @@ internal sealed class WorkflowDefinitionManagementService(
 
         var ccRecipientUserIds = model!.Nodes
             .Where(node => node.NodeTypeKey == "notify.cc")
-            .SelectMany(node => WorkflowCcNodeConfiguration.TryReadRecipients(
+            .SelectMany(node => WorkflowCcNodeConfiguration.TryReadPolicy(
                 node.Config,
-                out var recipients) ? recipients : [])
+                out var recipients) ? recipients.Sources.Where(source => source.ResolverKindKey == WorkflowAssigneePolicy.SpecifiedUsers).SelectMany(source => source.UserIds) : [])
             .Distinct()
             .ToArray();
         var approvalUserIds = model.Nodes
-            .Where(node => node.NodeTypeKey == "human.approval")
+            .Where(node => WorkflowHumanActivityKinds.IsApproval(node.NodeTypeKey))
             .SelectMany(node => WorkflowApprovalPolicy.TryRead(node.Config, out var policy) && policy is not null
-                ? policy.ApproverUserIds
+                ? policy.GroupConfiguration is { } groups
+                    ? groups.Groups.SelectMany(group => group.ApprovalPolicy?.ApproverUserIds ?? []).ToArray()
+                    : policy.ApproverUserIds
                 : [])
             .Distinct()
             .ToArray();
@@ -456,7 +487,7 @@ internal sealed class WorkflowDefinitionManagementService(
         if (scope.TenantId.HasValue)
         {
             // Tenant 定义中的审批和抄送身份统一批量复核，禁止逐节点回退查询或跨租户引用。
-            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(referencedUserIds, token)
+            var users = await tenantUserDirectory.FindActiveTenantMembersAsync(referencedUserIds, token)
                 .ConfigureAwait(false);
             validUserIds = users.Keys.ToHashSet();
         }
@@ -482,27 +513,57 @@ internal sealed class WorkflowDefinitionManagementService(
                 ErrorType.Validation);
         }
 
-        foreach (var node in model.Nodes.Where(item => item.NodeTypeKey == "human.approval"))
+        var start = model.Nodes.SingleOrDefault(item => item.NodeTypeKey == "start");
+        if (start is null || !WorkflowFlowAdministrators.TryRead(start.Config, out var flowAdministrators) ||
+            flowAdministrators.Count > 0 && !await assigneePublishValidator.ValidateSourceAsync(
+                new(WorkflowAssigneePolicy.SpecifiedUsers, flowAdministrators, [], null, null), scope, token).ConfigureAwait(false))
+            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+        foreach (var cc in model.Nodes.Where(node => node.NodeTypeKey == "notify.cc"))
         {
-            if (!WorkflowAssigneePolicy.TryRead(node.Config, out var assigneePolicy))
-            {
-                return Failure<WorkflowDefinitionVersionResponse>(
-                    WorkflowErrorCodes.DefinitionAssigneePolicyInvalid,
-                    ErrorType.Validation);
-            }
-
-            foreach (var source in assigneePolicy!.Sources)
-            {
+            if (!WorkflowCcNodeConfiguration.TryReadPolicy(cc.Config, out var recipients))
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
+            foreach (var source in recipients.Sources)
                 if (!WorkflowAssigneePublishValidator.IsScopeCompatible(source.ResolverKindKey, scope) ||
-                    !await assigneePublishValidator.ValidateSourceAsync(source, scope, token).ConfigureAwait(false))
-                {
-                    return Failure<WorkflowDefinitionVersionResponse>(
-                        WorkflowErrorCodes.DefinitionAssigneePolicyInvalid,
-                        ErrorType.Validation);
-                }
+                    source.ResolverKindKey is not (WorkflowAssigneePolicy.SpecifiedUsers or WorkflowAssigneePolicy.FlowAdministrators) &&
+                    !await assigneePublishValidator.ValidateSourceAsync(source, scope, token, allowEmpty: true, flowAdministratorUserIds: flowAdministrators).ConfigureAwait(false))
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
+        }
+        foreach (var node in model.Nodes.Where(item => WorkflowHumanActivityKinds.IsFormActivity(item.NodeTypeKey)))
+        {
+            IReadOnlyList<WorkflowAssigneePolicy> policies;
+            if (node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval)
+            {
+                if (!WorkflowGroupApprovalConfiguration.TryRead(node.Config, out var groups))
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+                // 已知显式身份不可跨组重复；动态来源仍在激活时按实际成员集合再次验证。
+                var explicitUsers = groups!.Groups.SelectMany(group => group.ApprovalPolicy?.ApproverUserIds ?? []).ToArray();
+                if (explicitUsers.Distinct().Count() != explicitUsers.Length)
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid, ErrorType.Validation);
+                policies = groups.Groups.Select(group => group.AssigneePolicy).ToArray();
+            }
+            else
+            {
+                if (!WorkflowAssigneePolicy.TryRead(node.Config, out var policy))
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+                policies = [policy!];
+            }
+            foreach (var policy in policies)
+            {
+                if (!await assigneePublishValidator.ValidatePolicyAsync(policy, scope, token, flowAdministrators).ConfigureAwait(false))
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
             }
         }
 
+        foreach (var node in model.Nodes.Where(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType))
+        {
+            if (!WorkflowSubprocessPolicy.TryRead(node.Config, null, out var subprocess))
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+            if (subprocess.Multi?.RoleId is { } roleId && !await assigneePublishValidator.ValidateSourceAsync(
+                new(WorkflowAssigneePolicy.RoleMembers, [], [roleId], null, null), scope, token, allowEmpty: true).ConfigureAwait(false))
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+        }
+        var voteForms = await PrepareVoteFormsAsync(model, scope, token).ConfigureAwait(false);
+        if (!voteForms.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(voteForms.Error!);
         return await transaction.ExecuteResultAsync(
             transactionToken => PersistPublishedVersionAsync(
                 id,
@@ -512,6 +573,7 @@ internal sealed class WorkflowDefinitionManagementService(
                 definition,
                 model,
                 compilation.Value!,
+                voteForms.Value!,
                 transactionToken),
             token).ConfigureAwait(false);
     }
@@ -533,9 +595,17 @@ internal sealed class WorkflowDefinitionManagementService(
         WorkflowDefinitionRecord definition,
         WorkflowDefinitionDraft model,
         WorkflowCompiledArtifact artifact,
+        IReadOnlyList<WorkflowPreparedVoteFormBinding> voteForms,
         CancellationToken token)
     {
         var now = clock.UtcNow;
+        await commandExecutor.ExecuteAsync(WorkflowVersionReferenceSql.LockDefinition,
+            Parameters(("DefinitionId", id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        var currentDefinition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
+        if (currentDefinition is null) return NotFound<WorkflowDefinitionVersionResponse>();
+        if (!WorkflowDefinitionLifecycleRules.AllowsPublish(currentDefinition.StatusKey))
+            return Failure<WorkflowDefinitionVersionResponse>(currentDefinition.StatusKey == WorkflowDefinitionStatusKeys.Archived
+                ? WorkflowErrorCodes.DefinitionArchived : WorkflowErrorCodes.DefinitionDisabled, ErrorType.Conflict);
         var claimed = await commandExecutor.ExecuteAsync(
             WorkflowSql.ClaimDefinitionDraftForPublish,
             Parameters(("DefinitionId", id), ("TenantScopeKey", scope.TenantScopeKey),
@@ -563,6 +633,30 @@ internal sealed class WorkflowDefinitionManagementService(
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
             return RevisionConflict<WorkflowDefinitionVersionResponse>();
+        }
+
+        var childVersions = model.Nodes.Where(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType)
+            .Select(node => node.Config.GetProperty("subprocessPolicy").GetProperty("definitionVersionId").GetGuid()).Distinct().Order().ToArray();
+        try
+        {
+            foreach (var childVersionId in childVersions)
+                if (await commandExecutor.ExecuteAsync(WorkflowVersionReferenceSql.Insert,
+                        Parameters(("DefinitionId", id), ("ParentVersionId", versionId), ("ChildVersionId", childVersionId),
+                            ("TenantScopeKey", scope.TenantScopeKey), ("CreatedAtUtc", now)), token).ConfigureAwait(false) != 1)
+                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Conflict);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.InvalidValue)
+        {
+            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Conflict);
+        }
+
+        foreach (var binding in voteForms)
+        {
+            if (await commandExecutor.ExecuteAsync(WorkflowVoteSql.InsertFormBinding,
+                Parameters(("Id", idGenerator.NewId()), ("DefinitionVersionId", versionId), ("NodeKey", binding.NodeKey),
+                    ("BallotFormVersionId", binding.FormVersionId), ("FormSchemaHash", binding.FormSchemaHash),
+                    ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionVotePolicyInvalid, ErrorType.Conflict);
         }
 
         var updated = await commandExecutor.ExecuteAsync(
@@ -627,6 +721,42 @@ internal sealed class WorkflowDefinitionManagementService(
     private static WorkflowDefinitionVersionResponse Map(WorkflowDefinitionVersionRecord row) =>
         new(row.Id, row.DefinitionId, row.FormVersionId, row.VersionNumber, row.SchemaVersion,
             row.CanonicalJson, row.ContentHash, row.BusinessTitleTemplate, row.PublishedById, row.PublishedAtUtc);
+
+    /// <summary>独立表单在发布事务外按实际不同版本一次读取；不以客户端设计器内容替代正式版本。</summary>
+    private async Task<Result<IReadOnlyList<WorkflowPreparedVoteFormBinding>>> PrepareVoteFormsAsync(
+        WorkflowDefinitionDraft model, WorkflowManagementScope scope, CancellationToken token)
+    {
+        var nodes = model.Nodes.Where(node => node.NodeTypeKey == WorkflowHumanActivityKinds.Vote).ToArray();
+        if (nodes.Length == 0) return Result<IReadOnlyList<WorkflowPreparedVoteFormBinding>>.Success([]);
+        var policies = new List<(string NodeKey, WorkflowVotePolicy Policy)>();
+        foreach (var node in nodes)
+        {
+            if (!WorkflowVotePolicy.TryRead(node.Config, out var policy))
+                return Failure<IReadOnlyList<WorkflowPreparedVoteFormBinding>>(WorkflowErrorCodes.DefinitionVotePolicyInvalid, ErrorType.Validation);
+            policies.Add((node.NodeKey, policy!));
+        }
+        var candidates = await queryExecutor.QueryAsync<WorkflowVoteFormCandidateRecord>(WorkflowVoteSql.FindFormCandidates,
+            Parameters(("FormVersionIds", policies.Select(item => item.Policy.BallotFormVersionId).Distinct().ToArray()),
+                ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        var byVersion = candidates.ToDictionary(form => form.Id);
+        foreach (var form in candidates)
+        {
+            if (form.FormStatusKey != "active" || JsonSerializer.Deserialize(form.FormSchemaJson, WorkflowJsonSerializerContext.Default.WorkflowFormSchema) is null ||
+                !WorkflowDesignerRelease.AllowsExecution(await WorkflowDesignerRelease.ReadBindingsAsync(queryExecutor, form.Id, scope, token).ConfigureAwait(false)))
+                return Failure<IReadOnlyList<WorkflowPreparedVoteFormBinding>>(WorkflowErrorCodes.DefinitionVotePolicyInvalid, ErrorType.Validation);
+        }
+        var prepared = new List<WorkflowPreparedVoteFormBinding>();
+        foreach (var item in policies)
+        {
+            if (!byVersion.TryGetValue(item.Policy.BallotFormVersionId, out var form))
+                return Failure<IReadOnlyList<WorkflowPreparedVoteFormBinding>>(WorkflowErrorCodes.DefinitionVotePolicyInvalid, ErrorType.Validation);
+            prepared.Add(new(item.NodeKey, form.Id, Hash(form.FormSchemaJson)));
+        }
+        return Result<IReadOnlyList<WorkflowPreparedVoteFormBinding>>.Success(prepared);
+    }
+
+    /// <summary>传入本地发布事务的表单绑定只有固定版本和摘要，不携带不可信租户或临时设计内容。</summary>
+    private sealed record WorkflowPreparedVoteFormBinding(string NodeKey, Guid FormVersionId, string FormSchemaHash);
 
     private static string Serialize(WorkflowDefinitionDraft draft) =>
         JsonSerializer.Serialize(draft, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);

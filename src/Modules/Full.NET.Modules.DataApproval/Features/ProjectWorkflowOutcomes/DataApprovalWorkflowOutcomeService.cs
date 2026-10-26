@@ -18,6 +18,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
 {
     /// <summary>按工作流实例终态更新 DataApproval 请求。</summary>
     /// <param name="tenantId">事件租户标识。</param>
+    /// <param name="workflowInstanceId">事件所属真实根实例，必须与请求已关联实例一致。</param>
     /// <param name="businessType">稳定业务类型。</param>
     /// <param name="businessId">稳定业务标识，即请求 Id 文本。</param>
     /// <param name="workflowStatusKey">工作流实例终态键。</param>
@@ -26,6 +27,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task HandleTerminalWorkflowAsync(
         Guid tenantId,
+        Guid workflowInstanceId,
         string businessType,
         string businessId,
         string workflowStatusKey,
@@ -33,7 +35,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
         string idempotencyKey,
         CancellationToken cancellationToken = default)
     {
-        if (!IsSerialNumberRuleBusinessType(businessType))
+        if (workflowInstanceId == Guid.Empty || !IsSerialNumberRuleBusinessType(businessType))
         {
             return;
         }
@@ -62,6 +64,18 @@ internal sealed class DataApprovalWorkflowOutcomeService(
             return;
         }
 
+        // 自动流程可能先完成、后由独立所有者事务关联；保留消息重试，不能静默吞掉终态事实。
+        if (row.WorkflowInstanceId is null)
+        {
+            if (row.StatusKey is DataApprovalStatusKeys.Pending or DataApprovalStatusKeys.InReview)
+                throw new InvalidOperationException("data_approvals.workflow_link_pending");
+            return;
+        }
+        // 业务ID不是调用授权：只有该请求固化的根实例、发起人、场景与作用域可以驱动业务应用。
+        if (row.WorkflowInstanceId != workflowInstanceId || row.SubmittedByUserId != actorUserId ||
+            row.TenantId != scope.TenantId || row.TenantScopeKey != scope.TenantScopeKey ||
+            DataApprovalScenarioCatalog.Find(row.ScenarioKey)?.WorkflowBusinessType != businessType) return;
+
         if (string.Equals(row.StatusKey, targetStatus, StringComparison.Ordinal))
         {
             return;
@@ -74,6 +88,14 @@ internal sealed class DataApprovalWorkflowOutcomeService(
 
         if (string.Equals(targetStatus, DataApprovalStatusKeys.Approved, StringComparison.Ordinal))
         {
+            // 节点命令已由所有者凭据提交；根终态只结清审批请求，不能再执行旧的规则应用路径。
+            if (await queryExecutor.QuerySingleOrDefaultAsync<int>(DataApprovalCommandSql.CountApplied,
+                    DataApprovalSqlParameters.Create(("RequestId", row.Id), ("InstanceId", workflowInstanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false) > 0)
+            {
+                var completed = await applicationService.CompleteApprovedApplicationAsync(row, cancellationToken).ConfigureAwait(false);
+                if (!completed.IsSuccess) throw new InvalidOperationException("data_approvals.command_finalize_conflict");
+                return;
+            }
             await applicationService.TryApplyApprovedChangeAsync(
                     row,
                     actorUserId,

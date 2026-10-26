@@ -5,6 +5,20 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>描述执行器可闭合处理的审批、抄送、排他网关与并行网关有向无环运行计划。</summary>
 internal sealed class WorkflowRuntimePlan
 {
+    /// <summary>处置轨迹沿用固定版本的真实节点类型，不能把人工节点伪装为空节点。</summary>
+    public string? FindNodeTypeKey(string nodeKey) => nodes.TryGetValue(nodeKey, out var node) ? node.NodeTypeKey : null;
+    public WorkflowSlaPolicy? FindSlaPolicy(string nodeKey) => nodes.TryGetValue(nodeKey, out var node) &&
+        WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out var policy) ? policy : null;
+    public bool TryGetResultCallbackPolicy(string nodeKey, out WorkflowResultCallbackPolicy? policy)
+    {
+        policy = null;
+        return nodes.TryGetValue(nodeKey, out var node) && WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out policy);
+    }
+    public bool TryGetActivityListeners(string nodeKey, out IReadOnlyList<WorkflowActivityListenerPolicy> listeners)
+    {
+        listeners = [];
+        return nodes.TryGetValue(nodeKey, out var node) && WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out listeners);
+    }
     private static readonly IReadOnlyDictionary<string, JsonElement> EmptyValues =
         new Dictionary<string, JsonElement>(StringComparer.Ordinal);
 
@@ -16,6 +30,11 @@ internal sealed class WorkflowRuntimePlan
     private readonly IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks;
     private readonly IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins;
     private readonly string startNextNodeKey;
+    private readonly WorkflowFormSchema? formSchema;
+    private readonly IReadOnlyDictionary<string, WorkflowAsyncWaitDefinition> asynchronousWaits;
+    public IReadOnlyList<Guid> FlowAdministratorUserIds { get; }
+    public bool HasBusinessCommands { get; }
+    public bool HasSubprocess { get; }
 
     /// <summary>使用已验证节点、出口和网关条件创建不可变运行计划。</summary>
     /// <param name="nodes">按稳定节点键索引的定义节点。</param>
@@ -34,7 +53,9 @@ internal sealed class WorkflowRuntimePlan
         IReadOnlyDictionary<string, WorkflowParallelGatewayDefinition> parallelJoins,
         IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks,
         IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins,
-        string startNextNodeKey)
+        string startNextNodeKey,
+        IReadOnlyList<Guid> flowAdministratorUserIds, WorkflowFormSchema? formSchema,
+        IReadOnlyDictionary<string, WorkflowAsyncWaitDefinition> asynchronousWaits)
     {
         this.nodes = nodes;
         this.outgoing = outgoing;
@@ -44,6 +65,11 @@ internal sealed class WorkflowRuntimePlan
         this.inclusiveForks = inclusiveForks;
         this.inclusiveJoins = inclusiveJoins;
         this.startNextNodeKey = startNextNodeKey;
+        this.formSchema = formSchema;
+        this.asynchronousWaits = asynchronousWaits;
+        FlowAdministratorUserIds = flowAdministratorUserIds;
+        HasBusinessCommands = nodes.Values.Any(node => node.NodeTypeKey == "business.command");
+        HasSubprocess = nodes.Values.Any(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType);
     }
 
     /// <summary>从定义草稿构造结构闭合的运行计划。</summary>
@@ -57,14 +83,23 @@ internal sealed class WorkflowRuntimePlan
     /// <param name="draft">已经过结构反序列化的定义草稿。</param>
     /// <param name="formSchema">发布版本绑定的表单架构；为空时只验证结构。</param>
     /// <param name="plan">构造成功后的不可变运行计划。</param>
-    /// <returns>全部路径都可到达终点且每条路径至少包含一个审批时返回 <see langword="true"/>。</returns>
+    /// <returns>全部路径到达终点，且审批类定义每条路径包含人工审批时返回 <see langword="true"/>。</returns>
     public static bool TryCreate(
         WorkflowDefinitionDraft draft,
         WorkflowFormSchema? formSchema,
         out WorkflowRuntimePlan? plan)
     {
         plan = null;
-        if (draft.Nodes.Count < 3 || draft.Nodes.Count > WorkflowDefinitionCompiler.MaximumNodes ||
+        if (draft is null || draft.Nodes is null || draft.Nodes.Any(node => node is null || !WorkflowNodeKeyValidator.IsValid(node.NodeKey)) ||
+            draft.SchemaVersion != WorkflowNodeTypeCatalog.Current.DefinitionSchemaVersion ||
+            draft.WorkflowKindKey is not ("approval" or "automation") ||
+            draft.Nodes.Any(node => !WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var type) ||
+                node.NodeSchemaVersion != type!.NodeSchemaVersion || !WorkflowNodeTypeCatalog.SupportsConfiguration(node) ||
+                !WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out _) ||
+                !WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out _) ||
+                !WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
+            draft.Nodes.Any(node => !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
+            draft.Nodes.Count < 2 || draft.Nodes.Count > WorkflowDefinitionCompiler.MaximumNodes ||
             draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return false;
@@ -72,7 +107,8 @@ internal sealed class WorkflowRuntimePlan
 
         var nodes = draft.Nodes.ToDictionary(node => node.NodeKey, StringComparer.Ordinal);
         var starts = draft.Nodes.Where(node => node.NodeTypeKey == "start").ToArray();
-        if (starts is not [var start] || !TryReadSingleNext(start.Config, out var startNextNodeKey))
+        if (starts is not [var start] || !TryReadSingleNext(start.Config, out var startNextNodeKey) ||
+            !WorkflowFlowAdministrators.TryRead(start.Config, out var flowAdministrators))
         {
             return false;
         }
@@ -96,16 +132,24 @@ internal sealed class WorkflowRuntimePlan
             return false;
         }
 
+        if (!WorkflowDynamicAssigneeDefinitionRules.ValidateGraph(draft, outgoing, start.NodeKey) ||
+            formSchema is not null && !WorkflowDynamicAssigneeDefinitionRules.ValidateFields(draft, formSchema)) return false;
+
         if (!ValidateParallelPairs(parallelForks, parallelJoins) ||
             !ValidateInclusivePairs(inclusiveForks, inclusiveJoins))
         {
             return false;
         }
 
+        var forkBoundaries = parallelForks.ToDictionary(pair => pair.Key, pair => pair.Value.JoinNodeKey!, StringComparer.Ordinal);
+        foreach (var pair in inclusiveForks) forkBoundaries.Add(pair.Key, pair.Value.JoinNodeKey!);
+        if (!ValidateExecutionScopes(start.NodeKey, nodes, outgoing, forkBoundaries,
+                parallelJoins.Keys.Concat(inclusiveJoins.Keys).ToHashSet(StringComparer.Ordinal))) return false;
+
         var reachable = new HashSet<string>(StringComparer.Ordinal);
         if (!ValidatePath(
                 start.NodeKey,
-                hasApproval: false,
+                hasApproval: draft.WorkflowKindKey == "automation",
                 nodes,
                 outgoing,
                 reachable,
@@ -116,6 +160,7 @@ internal sealed class WorkflowRuntimePlan
             return false;
         }
 
+        if (!WorkflowAsyncDefinitionPlan.TryCompile(draft, outgoing, out var asynchronousWaits)) return false;
         plan = new WorkflowRuntimePlan(
             nodes,
             outgoing,
@@ -124,14 +169,14 @@ internal sealed class WorkflowRuntimePlan
             parallelJoins,
             inclusiveForks,
             inclusiveJoins,
-            startNextNodeKey!);
+            startNextNodeKey!, flowAdministrators, formSchema, asynchronousWaits);
         return true;
     }
 
     /// <summary>解析不含条件网关的兼容启动迁移。</summary>
     /// <param name="transition">启动迁移。</param>
     /// <returns>路径无需表单值即可求值时返回 <see langword="true"/>。</returns>
-    public bool TryResolveStart(out WorkflowApprovalTransition transition) =>
+    public bool TryResolveStart(out WorkflowRuntimeTransition transition) =>
         TryResolveStart(EmptyValues, out transition);
 
     /// <summary>根据实例表单值解析启动后到首个等待点的迁移。</summary>
@@ -140,26 +185,26 @@ internal sealed class WorkflowRuntimePlan
     /// <returns>网关条件可安全求值且路径可达等待点时返回 <see langword="true"/>。</returns>
     public bool TryResolveStart(
         IReadOnlyDictionary<string, JsonElement> values,
-        out WorkflowApprovalTransition transition) =>
+        out WorkflowRuntimeTransition transition) =>
         TryTraverse(startNextNodeKey, values, stopAtJoinNodeKey: null, out transition);
 
     /// <summary>解析不含条件网关的兼容审批通过迁移。</summary>
     /// <param name="nodeKey">当前人工审批节点键。</param>
     /// <param name="transition">匹配到的闭合迁移。</param>
     /// <returns>节点属于计划且路径无需表单值即可求值时返回 <see langword="true"/>。</returns>
-    public bool TryResolveApproval(string nodeKey, out WorkflowApprovalTransition transition) =>
-        TryResolveApproval(nodeKey, EmptyValues, null, out transition);
+    public bool TryResolveAfterHuman(string nodeKey, out WorkflowRuntimeTransition transition) =>
+        TryResolveAfterHuman(nodeKey, EmptyValues, null, out transition);
 
     /// <summary>根据审批后的实例表单值解析下一迁移。</summary>
     /// <param name="nodeKey">当前人工审批节点键。</param>
     /// <param name="values">应用本次字段补丁后的完整表单值。</param>
     /// <param name="transition">匹配到的闭合迁移。</param>
     /// <returns>当前节点与后继路径有效时返回 <see langword="true"/>。</returns>
-    public bool TryResolveApproval(
+    public bool TryResolveAfterHuman(
         string nodeKey,
         IReadOnlyDictionary<string, JsonElement> values,
-        out WorkflowApprovalTransition transition) =>
-        TryResolveApproval(nodeKey, values, null, out transition);
+        out WorkflowRuntimeTransition transition) =>
+        TryResolveAfterHuman(nodeKey, values, null, out transition);
 
     /// <summary>根据审批后的实例表单值解析并行分支上的下一迁移。</summary>
     /// <param name="nodeKey">当前人工审批节点键。</param>
@@ -167,15 +212,15 @@ internal sealed class WorkflowRuntimePlan
     /// <param name="stopAtJoinNodeKey">分支所属汇合节点键；到达汇合点时停止推进。</param>
     /// <param name="transition">匹配到的闭合迁移。</param>
     /// <returns>当前节点与后继路径有效时返回 <see langword="true"/>。</returns>
-    public bool TryResolveApproval(
+    public bool TryResolveAfterHuman(
         string nodeKey,
         IReadOnlyDictionary<string, JsonElement> values,
         string? stopAtJoinNodeKey,
-        out WorkflowApprovalTransition transition)
+        out WorkflowRuntimeTransition transition)
     {
         transition = default;
         return nodes.TryGetValue(nodeKey, out var node) &&
-               node.NodeTypeKey == "human.approval" &&
+               WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                outgoing.TryGetValue(nodeKey, out var next) &&
                next is [var nextNodeKey] &&
                TryTraverse(nextNodeKey, values, stopAtJoinNodeKey, out transition);
@@ -185,11 +230,13 @@ internal sealed class WorkflowRuntimePlan
     /// <param name="joinNodeKey">汇合节点键。</param>
     /// <param name="values">实例绑定且已验证的表单值。</param>
     /// <param name="transition">汇合后继续的闭合迁移。</param>
+    /// <param name="stopAtJoinNodeKey">嵌套汇合恢复后应停留的父级汇合边界。</param>
     /// <returns>汇合节点存在且后继路径可闭合时返回 <see langword="true"/>。</returns>
     public bool TryResolveAfterJoin(
         string joinNodeKey,
         IReadOnlyDictionary<string, JsonElement> values,
-        out WorkflowApprovalTransition transition)
+        out WorkflowRuntimeTransition transition,
+        string? stopAtJoinNodeKey = null)
     {
         transition = default;
         string? nextNodeKey = null;
@@ -203,7 +250,7 @@ internal sealed class WorkflowRuntimePlan
         }
 
         return nextNodeKey is not null &&
-               TryTraverse(nextNodeKey, values, stopAtJoinNodeKey: null, out transition);
+               TryTraverse(nextNodeKey, values, stopAtJoinNodeKey, out transition);
     }
 
     /// <summary>确认分叉节点属于包容网关。</summary>
@@ -212,23 +259,68 @@ internal sealed class WorkflowRuntimePlan
     public bool IsInclusiveFork(string forkNodeKey) =>
         inclusiveForks.ContainsKey(forkNodeKey);
 
+    /// <summary>耐久续办仅从固定版本节点和原分支汇合边界恢复。</summary>
+    public bool TryResolveContinuation(string nodeKey, IReadOnlyDictionary<string, JsonElement> values,
+        string? joinNodeKey, out WorkflowRuntimeTransition transition, string? acknowledgedAwaitNodeKey = null)
+    {
+        transition = default;
+        return (acknowledgedAwaitNodeKey is null || acknowledgedAwaitNodeKey == nodeKey) &&
+            TryTraverse(nodeKey, values, joinNodeKey, out transition, acknowledgedAwaitNodeKey);
+    }
+
+    public bool TryGetAsyncWait(string nodeKey, out WorkflowAsyncWaitDefinition? definition) =>
+        asynchronousWaits.TryGetValue(nodeKey, out definition);
+
+    /// <summary>自动等待结束后才求值后继，不能将等待节点冒充人工办理完成。</summary>
+    public bool TryResolveAfterAutomaticWait(string nodeKey, IReadOnlyDictionary<string, JsonElement> values,
+        string? joinNodeKey, out WorkflowRuntimeTransition transition)
+    {
+        transition = default;
+        return nodes.TryGetValue(nodeKey, out var node) && node.NodeTypeKey is "timer.delay" or "data.modify" or "data.clear" &&
+            outgoing.TryGetValue(nodeKey, out var next) && next is [var key] &&
+            TryTraverse(key, values, joinNodeKey, out transition);
+    }
+
     /// <summary>确认节点是否为当前计划中的人工审批等待点。</summary>
     /// <param name="nodeKey">待检查的节点键。</param>
     /// <returns>节点存在且属于人工审批时返回 <see langword="true"/>。</returns>
-    public bool ContainsApprovalNode(string nodeKey) =>
-        nodes.TryGetValue(nodeKey, out var node) && node.NodeTypeKey == "human.approval";
+    public bool ContainsHumanNode(string nodeKey) =>
+        nodes.TryGetValue(nodeKey, out var node) && WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey);
+
+    /// <summary>每条分支必须先闭合自己的汇合范围，禁止逃逸终点、交叉汇合或跨范围共享节点。</summary>
+    private static bool ValidateExecutionScopes(string start, IReadOnlyDictionary<string, WorkflowNodeDraft> nodes,
+        IReadOnlyDictionary<string, string[]> outgoing, IReadOnlyDictionary<string, string> forks, ISet<string> joins)
+    {
+        var scopes = new Dictionary<string, string>(StringComparer.Ordinal);
+        bool Visit(string key, IReadOnlyList<string> stack)
+        {
+            var signature = string.Join('\n', stack);
+            if (scopes.TryGetValue(key, out var previous)) return previous == signature;
+            scopes.Add(key, signature);
+            if (nodes[key].NodeTypeKey == "end") return stack.Count == 0;
+            var nextStack = stack;
+            if (joins.Contains(key))
+            {
+                if (stack.Count == 0 || stack[^1] != key) return false;
+                nextStack = stack.Take(stack.Count - 1).ToArray();
+            }
+            if (forks.TryGetValue(key, out var join)) nextStack = [..nextStack, join];
+            return outgoing[key].All(next => Visit(next, nextStack));
+        }
+        return Visit(start, []);
+    }
 
     /// <summary>读取不可变发布版本中指定人工审批节点的超时策略。</summary>
     /// <param name="nodeKey">目标人工审批节点键。</param>
     /// <param name="timeoutPolicy">节点固化的可选超时策略。</param>
     /// <returns>目标存在、类型正确且策略可解析时返回 <see langword="true"/>。</returns>
-    public bool TryGetApprovalTimeoutPolicy(
+    public bool TryGetHumanTimeoutPolicy(
         string nodeKey,
         out WorkflowTodoTimeoutPolicy? timeoutPolicy)
     {
         timeoutPolicy = null;
         return nodes.TryGetValue(nodeKey, out var node) &&
-               node.NodeTypeKey == "human.approval" &&
+               WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                WorkflowTodoTimeoutPolicy.TryRead(node.Config, out timeoutPolicy);
     }
 
@@ -242,7 +334,7 @@ internal sealed class WorkflowRuntimePlan
         string initialNodeKey,
         IReadOnlyDictionary<string, JsonElement> values,
         string? stopAtJoinNodeKey,
-        out WorkflowApprovalTransition transition)
+        out WorkflowRuntimeTransition transition, string? acknowledgedAwaitNodeKey = null)
     {
         transition = default;
         var automaticNodes = new List<WorkflowAutomaticRuntimeNode>();
@@ -250,9 +342,75 @@ internal sealed class WorkflowRuntimePlan
         var current = initialNodeKey;
         while (visited.Add(current) && nodes.TryGetValue(current, out var node))
         {
+            // 只有服务器已验证的原屏障续办能跳过首节点等待；后继的另一等待仍须正常建立。
+            if (current != acknowledgedAwaitNodeKey && asynchronousWaits.TryGetValue(current, out var asynchronousWait))
+            {
+                transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                    automaticWait: new WorkflowAsyncBarrierWaitPlan(current, asynchronousWait));
+                return true;
+            }
+            acknowledgedAwaitNodeKey = null;
             switch (node.NodeTypeKey)
             {
+                case WorkflowSubprocessPolicy.NodeType:
+                    if (formSchema is null || !WorkflowSubprocessPolicy.TryRead(node.Config, formSchema, out var childPolicy) ||
+                        !node.Config.TryGetProperty("boundSubprocess", out var childBoundJson) || !WorkflowBoundSubprocess.TryRead(childBoundJson, childPolicy.DefinitionVersionId, out var childBound) ||
+                        outgoing[node.NodeKey] is not [var childNext]) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowSubprocessWaitPlan(node.NodeKey, childNext, childPolicy, childBound, formSchema, node.Config.Clone()));
+                    return true;
+                case "business.command":
+                    if (!WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out var businessPolicy) || businessPolicy is null ||
+                        !node.Config.TryGetProperty("boundBusinessActionHash", out var businessHash) || !WorkflowBusinessCommandPolicy.ValidHash(businessHash) ||
+                        outgoing[node.NodeKey] is not [var businessNext] || !WorkflowBusinessCommandBindings.TryReadFinalizer(
+                            new WorkflowDefinitionDraft(1, nodes.Values.ToArray()), node.NodeKey, out var approvals)) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowBusinessCommandWaitPlan(node.NodeKey, businessNext, businessPolicy, businessHash.GetString()!, approvals));
+                    return true;
+                case "integration.trigger":
+                case "integration.async_trigger":
+                    if (!WorkflowConnectorPolicy.TryRead(node.Config, formSchema, out var connectorPolicy) ||
+                        !node.Config.TryGetProperty("boundConnectorHash", out var boundHash) || boundHash.ValueKind != JsonValueKind.String ||
+                        boundHash.GetString() is not { Length: 64 } hash || hash.Any(character => !char.IsAsciiHexDigitLower(character)) ||
+                        outgoing[node.NodeKey] is not [var connectorNext]) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowConnectorWaitPlan(node.NodeKey, connectorNext, connectorPolicy!, hash, node.NodeTypeKey == "integration.async_trigger"));
+                    return true;
+                case "timer.delay":
+                    if (!WorkflowDelayPolicy.TryRead(node.Config, null, out var delayPolicy) || outgoing[node.NodeKey] is not [var delayNext]) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowDelayWaitPlan(node.NodeKey, delayNext, delayPolicy!));
+                    return true;
+                case "data.modify":
+                case "data.clear":
+                    if (!WorkflowFieldMutationPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out var fieldPolicy) ||
+                        outgoing[node.NodeKey] is not [var fieldNext]) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowFieldWaitPlan(node.NodeKey, fieldNext, fieldPolicy!));
+                    return true;
+                case "human.claim":
+                    if (!WorkflowClaimPolicy.TryRead(node.Config, out var claimPolicy) ||
+                        !WorkflowAssigneePolicy.TryRead(node.Config, out var claimAssignees) ||
+                        !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var claimTimeout)) return false;
+                    transition = new WorkflowRuntimeTransition(node.NodeKey, false, automaticNodes, claimTimeout,
+                        assigneePolicy: claimAssignees, claimPolicy: claimPolicy);
+                    return true;
+                case "human.vote":
+                    if (!WorkflowVotePolicy.TryRead(node.Config, out var votePolicy) ||
+                        !WorkflowAssigneePolicy.TryRead(node.Config, out var voteAssignees) ||
+                        !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var voteTimeout)) return false;
+                    transition = new WorkflowRuntimeTransition(node.NodeKey, false, automaticNodes, voteTimeout,
+                        assigneePolicy: voteAssignees, votePolicy: votePolicy);
+                    return true;
+                case "human.task":
+                    if (!WorkflowTaskPolicy.TryRead(node.Config, out var taskPolicy) ||
+                        !WorkflowAssigneePolicy.TryRead(node.Config, out var taskAssignees) ||
+                        !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var taskTimeout)) return false;
+                    transition = new WorkflowRuntimeTransition(node.NodeKey, false, automaticNodes, taskTimeout,
+                        assigneePolicy: taskAssignees, taskPolicy: taskPolicy);
+                    return true;
                 case "human.approval":
+                case "human.group_approval":
                     if (!WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var timeoutPolicy) ||
                         !WorkflowApprovalPolicy.TryRead(node.Config, out var approvalPolicy) ||
                         !WorkflowAssigneePolicy.TryRead(node.Config, out var assigneePolicy))
@@ -260,14 +418,14 @@ internal sealed class WorkflowRuntimePlan
                         return false;
                     }
 
-                    transition = new WorkflowApprovalTransition(
+                    transition = new WorkflowRuntimeTransition(
                         node.NodeKey, false, automaticNodes, timeoutPolicy, approvalPolicy, assigneePolicy);
                     return true;
                 case "end":
-                    transition = new WorkflowApprovalTransition(null, true, automaticNodes, null);
+                    transition = new WorkflowRuntimeTransition(null, true, automaticNodes, null);
                     return true;
                 case "notify.cc":
-                    if (!WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out var recipients) ||
+                    if (!WorkflowCcNodeConfiguration.TryReadPolicy(node.Config, out var recipientPolicy) ||
                         outgoing[node.NodeKey] is not [var ccNext])
                     {
                         return false;
@@ -276,9 +434,13 @@ internal sealed class WorkflowRuntimePlan
                     automaticNodes.Add(new WorkflowAutomaticRuntimeNode(
                         node.NodeKey,
                         node.NodeTypeKey,
-                        recipients,
-                        null));
+                        recipientPolicy.Sources.Where(source => source.ResolverKindKey == WorkflowAssigneePolicy.SpecifiedUsers).SelectMany(source => source.UserIds).Distinct().ToArray(),
+                        null, recipientPolicy));
                     current = ccNext;
+                    break;
+                case "control.empty":
+                    automaticNodes.Add(new WorkflowAutomaticRuntimeNode(node.NodeKey, node.NodeTypeKey, [], null));
+                    current = outgoing[node.NodeKey][0];
                     break;
                 case "gateway.exclusive":
                     if (!gateways.TryGetValue(node.NodeKey, out var gateway) ||
@@ -318,7 +480,7 @@ internal sealed class WorkflowRuntimePlan
                             branchPlans.Add(branchPlan);
                         }
 
-                        transition = new WorkflowApprovalTransition(
+                        transition = new WorkflowRuntimeTransition(
                             null,
                             false,
                             automaticNodes,
@@ -338,7 +500,7 @@ internal sealed class WorkflowRuntimePlan
                     if (stopAtJoinNodeKey is not null &&
                         string.Equals(node.NodeKey, stopAtJoinNodeKey, StringComparison.Ordinal))
                     {
-                        transition = new WorkflowApprovalTransition(
+                        transition = new WorkflowRuntimeTransition(
                             null,
                             false,
                             automaticNodes,
@@ -391,7 +553,7 @@ internal sealed class WorkflowRuntimePlan
                             inclusiveBranchPlans.Add(branchPlan);
                         }
 
-                        transition = new WorkflowApprovalTransition(
+                        transition = new WorkflowRuntimeTransition(
                             null,
                             false,
                             automaticNodes,
@@ -411,7 +573,7 @@ internal sealed class WorkflowRuntimePlan
                     if (stopAtJoinNodeKey is not null &&
                         string.Equals(node.NodeKey, stopAtJoinNodeKey, StringComparison.Ordinal))
                     {
-                        transition = new WorkflowApprovalTransition(
+                        transition = new WorkflowRuntimeTransition(
                             null,
                             false,
                             automaticNodes,
@@ -479,12 +641,15 @@ internal sealed class WorkflowRuntimePlan
 
         branchPlan = new WorkflowParallelBranchPlan(
             branchKey,
-            transition.NextApprovalNodeKey,
+            transition.NextHumanNodeKey,
             transition.CompletesInstance,
             transition.AutomaticNodes,
             transition.TimeoutPolicy,
             transition.ApprovalPolicy,
-            transition.AssigneePolicy);
+            transition.AssigneePolicy,
+            ParallelFork: transition.ParallelFork,
+            TaskPolicy: transition.TaskPolicy, VotePolicy: transition.VotePolicy, ClaimPolicy: transition.ClaimPolicy,
+            AutomaticWait: transition.AutomaticWait);
         return true;
     }
 
@@ -554,9 +719,37 @@ internal sealed class WorkflowRuntimePlan
     {
         switch (node.NodeTypeKey)
         {
+            case WorkflowSubprocessPolicy.NodeType:
+                if (!TryReadSingleNext(node.Config, out var childNext) || !WorkflowSubprocessPolicy.TryRead(node.Config, formSchema, out _)) return false;
+                outgoing.Add(node.NodeKey, [childNext!]); return true;
+            case "business.command":
+                if (!TryReadSingleNext(node.Config, out var businessNext) || !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) return false;
+                outgoing.Add(node.NodeKey, [businessNext!]); return true;
+            case "integration.trigger":
+            case "integration.async_trigger":
+                if (!TryReadSingleNext(node.Config, out var connectorNext) ||
+                    !WorkflowConnectorPolicy.TryRead(node.Config, formSchema, out _)) return false;
+                outgoing.Add(node.NodeKey, [connectorNext!]);
+                return true;
+            case "data.modify":
+            case "data.clear":
+                if (!TryReadSingleNext(node.Config, out var fieldNext) ||
+                    !WorkflowFieldMutationPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out _)) return false;
+                outgoing.Add(node.NodeKey, [fieldNext!]);
+                return true;
+            case "timer.delay":
+                if (!TryReadSingleNext(node.Config, out var delayNext) || !WorkflowDelayPolicy.TryRead(node.Config, formSchema, out _)) return false;
+                outgoing.Add(node.NodeKey, [delayNext!]);
+                return true;
             case "start":
+                if (!WorkflowWithdrawalPolicy.TryRead(node.Config, out _)) return false;
+                goto case "control.empty";
+            case "control.empty":
             case "human.approval":
+            case "human.group_approval":
                 if (!TryReadSingleNext(node.Config, out var nextNodeKey) ||
+                    (node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval && !WorkflowGroupApprovalConfiguration.TryRead(node.Config, out _)) ||
+                    !WorkflowHumanActionPolicy.TryRead(node.Config, out _) ||
                     !WorkflowApprovalPolicy.TryRead(node.Config, out _) ||
                     !WorkflowAssigneePolicy.TryRead(node.Config, out _))
                 {
@@ -565,9 +758,31 @@ internal sealed class WorkflowRuntimePlan
 
                 outgoing.Add(node.NodeKey, [nextNodeKey!]);
                 return true;
+            case "human.claim":
+                if (!TryReadSingleNext(node.Config, out var claimNext) || !WorkflowClaimPolicy.TryRead(node.Config, out _) ||
+                    !WorkflowAssigneePolicy.TryRead(node.Config, out _) ||
+                    !WorkflowHumanActionPolicy.TryRead(node.Config, out _, WorkflowHumanActivityKinds.Claim) ||
+                    !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) return false;
+                outgoing.Add(node.NodeKey, [claimNext!]);
+                return true;
+            case "human.vote":
+                if (!TryReadSingleNext(node.Config, out var voteNext) || !WorkflowVotePolicy.TryRead(node.Config, out _) ||
+                    !WorkflowAssigneePolicy.TryRead(node.Config, out _) ||
+                    !WorkflowHumanActionPolicy.TryRead(node.Config, out _, WorkflowHumanActivityKinds.Vote) ||
+                    !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) return false;
+                outgoing.Add(node.NodeKey, [voteNext!]);
+                return true;
+            case "human.task":
+                if (!TryReadSingleNext(node.Config, out var taskNext) ||
+                    !WorkflowTaskPolicy.TryRead(node.Config, out _) ||
+                    !WorkflowAssigneePolicy.TryRead(node.Config, out _) ||
+                    !WorkflowHumanActionPolicy.TryRead(node.Config, out _, WorkflowHumanActivityKinds.Task) ||
+                    !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) return false;
+                outgoing.Add(node.NodeKey, [taskNext!]);
+                return true;
             case "notify.cc":
                 if (!TryReadSingleNext(node.Config, out nextNodeKey) ||
-                    !WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out _))
+                    !WorkflowCcNodeConfiguration.TryReadPolicy(node.Config, out _))
                 {
                     return false;
                 }
@@ -670,7 +885,7 @@ internal sealed class WorkflowRuntimePlan
         }
 
         activePath.Add(nodeKey);
-        var pathHasApproval = hasApproval || node.NodeTypeKey == "human.approval";
+        var pathHasApproval = hasApproval || GuaranteesHumanDecision(node);
         var valid = node.NodeTypeKey == "end"
             ? pathHasApproval
             : outgoing[nodeKey].Length > 0 && outgoing[nodeKey].All(next =>
@@ -690,6 +905,24 @@ internal sealed class WorkflowRuntimePlan
 
         return valid;
     }
+
+    /// <summary>成功路径可能自动通过或跳过的审批不能满足人审屏障；投票零有效成员只挂起或拒绝。</summary>
+    private static bool GuaranteesHumanDecision(WorkflowNodeDraft node)
+    {
+        if (node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType)
+            return WorkflowSubprocessPolicy.TryRead(node.Config, null, out var child) &&
+                child.Multi?.EmptyModeKey != "skip" && node.Config.TryGetProperty("boundSubprocess", out var data) && WorkflowBoundSubprocess.TryRead(data, child.DefinitionVersionId, out var binding) && binding.HasHumanApproval;
+        if (!WorkflowHumanActivityKinds.IsHumanDecision(node.NodeTypeKey)) return false;
+        if (node.NodeTypeKey == WorkflowHumanActivityKinds.Vote) return true;
+        if (node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval)
+            return WorkflowGroupApprovalConfiguration.TryRead(node.Config, out var groups) &&
+                groups!.RequiredGroups > groups.Groups.Count(group => MayPassWithoutHuman(group.AssigneePolicy));
+        return WorkflowAssigneePolicy.TryRead(node.Config, out var policy) &&
+            !MayPassWithoutHuman(policy);
+    }
+
+    private static bool MayPassWithoutHuman(WorkflowAssigneePolicy policy) => policy.Handling is { } handling &&
+        (handling.WhenEmpty.ActionKey == "auto_pass" || handling.WhenInitiator.ActionKey == "skip");
 
     /// <summary>从节点配置读取唯一后继节点键。</summary>
     /// <param name="config">节点配置 JSON。</param>
@@ -739,20 +972,25 @@ internal sealed record WorkflowAutomaticRuntimeNode(
     string NodeKey,
     string NodeTypeKey,
     IReadOnlyList<Guid> RecipientUserIds,
-    string? OutcomeKey);
+    string? OutcomeKey,
+    WorkflowAssigneePolicy? RecipientPolicy = null,
+    string? ResolutionJson = null,
+    string? ResolutionHash = null);
 
 /// <summary>描述一次审批边界之间需要同步落库的抄送节点。</summary>
 /// <param name="NodeKey">稳定抄送节点键。</param>
 /// <param name="RecipientUserIds">经过编译校验的收件人用户标识。</param>
 internal sealed record WorkflowCcRuntimeNode(
     string NodeKey,
-    IReadOnlyList<Guid> RecipientUserIds);
+    IReadOnlyList<Guid> RecipientUserIds,
+    string? ResolutionJson = null,
+    string? ResolutionHash = null);
 
 /// <summary>描述启动或审批通过后到下一等待点的闭合迁移。</summary>
-internal readonly record struct WorkflowApprovalTransition
+internal readonly record struct WorkflowRuntimeTransition
 {
     /// <summary>创建一次闭合运行迁移。</summary>
-    /// <param name="nextApprovalNodeKey">下一人工审批节点；流程结束时为空。</param>
+    /// <param name="nextHumanNodeKey">下一人工审批节点；流程结束时为空。</param>
     /// <param name="completesInstance">迁移完成后是否结束实例。</param>
     /// <param name="automaticNodes">到达下一等待点前按顺序执行的自动节点。</param>
     /// <param name="timeoutPolicy">下一人工审批节点发布时固化的超时策略。</param>
@@ -760,17 +998,21 @@ internal readonly record struct WorkflowApprovalTransition
     /// <param name="assigneePolicy">下一人工审批节点发布时固化的办理人解析策略。</param>
     /// <param name="parallelFork">并行分叉计划；存在时表示需要同时激活多个分支。</param>
     /// <param name="joinArrival">并行分支到达汇合点计划；存在时表示当前分支需要等待其他分支。</param>
-    public WorkflowApprovalTransition(
-        string? nextApprovalNodeKey,
+    public WorkflowRuntimeTransition(
+        string? nextHumanNodeKey,
         bool completesInstance,
         IReadOnlyList<WorkflowAutomaticRuntimeNode> automaticNodes,
         WorkflowTodoTimeoutPolicy? timeoutPolicy = null,
         WorkflowApprovalPolicy? approvalPolicy = null,
         WorkflowAssigneePolicy? assigneePolicy = null,
         WorkflowParallelForkPlan? parallelFork = null,
-        WorkflowJoinArrivalPlan? joinArrival = null)
+        WorkflowJoinArrivalPlan? joinArrival = null,
+        WorkflowTaskPolicy? taskPolicy = null,
+        WorkflowVotePolicy? votePolicy = null,
+        WorkflowClaimPolicy? claimPolicy = null,
+        WorkflowAutomaticWaitPlan? automaticWait = null)
     {
-        NextApprovalNodeKey = nextApprovalNodeKey;
+        NextHumanNodeKey = nextHumanNodeKey;
         CompletesInstance = completesInstance;
         AutomaticNodes = automaticNodes;
         TimeoutPolicy = timeoutPolicy;
@@ -778,10 +1020,14 @@ internal readonly record struct WorkflowApprovalTransition
         AssigneePolicy = assigneePolicy ?? WorkflowAssigneePolicy.CreateDefault();
         ParallelFork = parallelFork;
         JoinArrival = joinArrival;
+        TaskPolicy = taskPolicy;
+        VotePolicy = votePolicy;
+        ClaimPolicy = claimPolicy;
+        AutomaticWait = automaticWait;
     }
 
     /// <summary>获取下一人工审批节点；流程结束时为空。</summary>
-    public string? NextApprovalNodeKey { get; }
+    public string? NextHumanNodeKey { get; }
 
     /// <summary>获取迁移完成后是否结束实例。</summary>
     public bool CompletesInstance { get; }
@@ -794,6 +1040,16 @@ internal readonly record struct WorkflowApprovalTransition
 
     /// <summary>获取下一审批等待点的多人审批策略；为空时沿用旧单人办理语义。</summary>
     public WorkflowApprovalPolicy? ApprovalPolicy { get; }
+
+    /// <summary>办理活动独立的提交完成规则；不会转换为审批票。</summary>
+    public WorkflowTaskPolicy? TaskPolicy { get; }
+    /// <summary>独立投票的固定规则，与审批席位门槛和普通办理完成规则分开。</summary>
+    public WorkflowVotePolicy? VotePolicy { get; }
+    /// <summary>领取池的释放规则；候选尚未领取时不产生个人待办。</summary>
+    public WorkflowClaimPolicy? ClaimPolicy { get; }
+
+    /// <summary>不创建人工待办的耐久自动等待点。</summary>
+    public WorkflowAutomaticWaitPlan? AutomaticWait { get; }
 
     /// <summary>获取下一审批等待点固化的办理人解析策略。</summary>
     public WorkflowAssigneePolicy AssigneePolicy { get; }
@@ -811,6 +1067,6 @@ internal readonly record struct WorkflowApprovalTransition
     public IReadOnlyList<WorkflowCcRuntimeNode> CcNodes =>
         AutomaticNodes
             .Where(node => node.NodeTypeKey == "notify.cc")
-            .Select(node => new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds))
+            .Select(node => new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds, node.ResolutionJson, node.ResolutionHash))
             .ToArray();
 }

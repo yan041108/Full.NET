@@ -77,6 +77,10 @@ internal static class MessagingOperationsAssertions
             cancellationToken);
         await VerifyReplayLifecycleAndAuditAsync(factory, client, cancellationToken);
         await VerifyCutoverPreconditionsAsync(factory, client, cancellationToken);
+        await VerifyDeliveryControlEndpointsAsync(factory, client, cancellationToken);
+        var exportPath = Environment.GetEnvironmentVariable("FULLNET_CLIENT_OPENAPI_EXPORT_PATH");
+        if (!string.IsNullOrWhiteSpace(exportPath))
+            await File.WriteAllTextAsync(exportPath, await client.GetStringAsync("/openapi/v1.json", cancellationToken), cancellationToken);
     }
 
     private static async Task VerifyKafkaRangeReplayRequiresDedicatedPermissionAsync(
@@ -162,7 +166,7 @@ internal static class MessagingOperationsAssertions
         await using var replayScope = factory.Services.CreateAsyncScope();
         var service = new KafkaReplayService(
             replayScope.ServiceProvider.GetRequiredService<IIntegrationEventSubscriptionCatalog>(),
-            new KafkaReplayConsumerFactory(),
+            new KafkaReplayConsumerFactory(Options.Create(kafka.CreateOptions($"fullnet.kafka.replay.inbox.{factory.Provider.ToString().ToLowerInvariant()}"))),
             new KafkaReplayMessageProcessor(
                 factory.Services.GetRequiredService<IServiceScopeFactory>(),
                 new KafkaEnvelopeReader()),
@@ -231,9 +235,7 @@ internal static class MessagingOperationsAssertions
             HttpMethod.Post,
             "/api/v1/messaging/dead-letters/replay",
             adminToken,
-            new ReplayDeadLetterRequest(
-                MessagingInboxTestSupport.ConsumerName,
-                eventId));
+            new ReplayDeadLetterRequest(MessagingInboxTestSupport.ConsumerName, eventId, "repair verified projection"));
         using var replayResponse = await client.SendAsync(replayRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, replayResponse.StatusCode);
         var replayed = await replayResponse.Content.ReadFromJsonAsync<DeadLetterReplayResponse>(
@@ -248,9 +250,7 @@ internal static class MessagingOperationsAssertions
             HttpMethod.Post,
             "/api/v1/messaging/dead-letters/replay",
             adminToken,
-            new ReplayDeadLetterRequest(
-                MessagingInboxTestSupport.ConsumerName,
-                eventId));
+            new ReplayDeadLetterRequest(MessagingInboxTestSupport.ConsumerName, eventId, "repair verified projection"));
         using var duplicateResponse = await client.SendAsync(duplicateReplay, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, duplicateResponse.StatusCode);
         var duplicate = await duplicateResponse.Content.ReadFromJsonAsync<DeadLetterReplayResponse>(
@@ -262,7 +262,7 @@ internal static class MessagingOperationsAssertions
             HttpMethod.Post,
             "/api/v1/messaging/dead-letters/replay",
             adminToken,
-            new ReplayDeadLetterRequest("fullnet.messaging.unknown.consumer", eventId));
+            new ReplayDeadLetterRequest("fullnet.messaging.unknown.consumer", eventId, "verify missing route"));
         using var unknownRouteResponse = await client.SendAsync(unknownRouteReplay, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, unknownRouteResponse.StatusCode);
     }
@@ -309,8 +309,54 @@ internal static class MessagingOperationsAssertions
         using var problem = JsonDocument.Parse(
             await backlogResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
-            MessagingErrorCodes.LegacyBacklogNotDrained,
+            MessagingErrorCodes.CutoverPreconditionFailed,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyDeliveryControlEndpointsAsync(
+        FullNetApiFactory factory, HttpClient client, CancellationToken cancellationToken)
+    {
+        var generation = Guid.CreateVersion7();
+        var readToken = await factory.CreateHostAccessTokenAsync([MessagingPermissions.EventsRead], cancellationToken);
+        var rollbackToken = await factory.CreateHostAccessTokenAsync([MessagingPermissions.DeliveryRollback], cancellationToken);
+        var cutoverToken = await factory.CreateHostAccessTokenAsync([MessagingPermissions.DeliveryCutover], cancellationToken);
+        var operations = "/api/v1/messaging/delivery/rollback-operations";
+        foreach (var route in new[] { operations + $"?eventType={LegacyEventType}&schemaVersion=1", operations + $"/{generation}" })
+        {
+            using var forbidden = new HttpRequestMessage(HttpMethod.Get, route);
+            forbidden.Headers.Authorization = new("Bearer", rollbackToken);
+            using var forbiddenResponse = await client.SendAsync(forbidden, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
+            using var allowed = new HttpRequestMessage(HttpMethod.Get, route);
+            allowed.Headers.Authorization = new("Bearer", readToken);
+            using var response = await client.SendAsync(allowed, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+            using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(MessagingErrorCodes.RollbackOperationNotFound, problem.RootElement.GetProperty("code").GetString());
+        }
+        using var forbiddenRecover = CreateBearerJsonRequest(HttpMethod.Post, operations + $"/{generation}/recover",
+            readToken, new RecoverRollbackRequest("verify exact recovery permission"));
+        using var forbiddenRecoverResponse = await client.SendAsync(forbiddenRecover, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenRecoverResponse.StatusCode);
+        using var invalidRecover = CreateBearerJsonRequest(HttpMethod.Post, operations + $"/{generation}/recover",
+            rollbackToken, new RecoverRollbackRequest(" "));
+        using var invalidRecoverResponse = await client.SendAsync(invalidRecover, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, invalidRecoverResponse.StatusCode);
+        using var invalidReason = JsonDocument.Parse(await invalidRecoverResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("messaging.operations.reason_invalid", invalidReason.RootElement.GetProperty("code").GetString());
+        using var missingRecover = CreateBearerJsonRequest(HttpMethod.Post, operations + $"/{generation}/recover",
+            rollbackToken, new RecoverRollbackRequest("verify missing generation"));
+        using var missingRecoverResponse = await client.SendAsync(missingRecover, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, missingRecoverResponse.StatusCode);
+        var evidenceRoute = "/api/v1/messaging/delivery/cutover-evidence";
+        using var forbiddenEvidence = CreateBearerJsonRequest(HttpMethod.Post, evidenceRoute, rollbackToken,
+            new VerifyCutoverRequest(LegacyEventType, 1, "verify exact evidence permission"));
+        using var forbiddenEvidenceResponse = await client.SendAsync(forbiddenEvidence, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenEvidenceResponse.StatusCode);
+        using var unavailableEvidence = CreateBearerJsonRequest(HttpMethod.Post, evidenceRoute, cutoverToken,
+            new VerifyCutoverRequest(LegacyEventType, 1, "verify unavailable target"));
+        using var unavailableEvidenceResponse = await client.SendAsync(unavailableEvidence, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, unavailableEvidenceResponse.StatusCode);
     }
 
     private static async Task<Guid> SeedFailedDeadLetterAsync(

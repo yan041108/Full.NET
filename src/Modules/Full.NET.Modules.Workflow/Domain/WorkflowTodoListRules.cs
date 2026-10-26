@@ -6,8 +6,16 @@ internal static class WorkflowTodoListRules
     private static readonly HashSet<string> ValidResultActionKeys = new(StringComparer.Ordinal)
     {
         "approve",
+        "complete",
+        "vote",
+        "release",
+        "withdraw",
         "reject",
         "return",
+        "transfer",
+        "delegate",
+        "delegate_recall",
+        "reassign",
         "cancel",
         "cancelled",
     };

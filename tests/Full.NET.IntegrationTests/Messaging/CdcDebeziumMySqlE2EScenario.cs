@@ -64,7 +64,7 @@ internal sealed class CdcDebeziumMySqlE2EScenario : IAsyncDisposable
         DebeziumConnectorTemplateFactory.CreateMySqlShadowConfigAsync(
             ConnectionString,
             Pipeline.HostGateway,
-            Pipeline.InternalKafkaBootstrapServers);
+            Pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true);
 
     public async ValueTask DisposeAsync()
     {

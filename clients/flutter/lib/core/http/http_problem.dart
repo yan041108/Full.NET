@@ -30,17 +30,21 @@ HttpProblem? tryParseHttpProblem(int status, Object? body) {
   }
 
   final extensions = body['extensions'];
-  final code = extensions is Map<String, dynamic>
-      ? extensions['code']?.toString()
-      : null;
+  final code = body['code'] is String
+      ? body['code'] as String
+      : extensions is Map<String, dynamic>
+          ? extensions['code']?.toString()
+          : null;
 
   return HttpProblem(
     status: status,
     code: code ?? 'http.problem',
     title: title,
     detail: body['detail']?.toString(),
-    traceId: extensions is Map<String, dynamic>
-        ? extensions['traceId']?.toString()
-        : null,
+    traceId: body['traceId'] is String
+        ? body['traceId'] as String
+        : extensions is Map<String, dynamic>
+            ? extensions['traceId']?.toString()
+            : null,
   );
 }

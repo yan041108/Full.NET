@@ -36,6 +36,7 @@ function createHttp(responses: readonly unknown[]): {
   return {
     calls,
     http: {
+      async upload<T>(): Promise<T> { throw new Error('Unexpected upload in identity test'); },
       configureAuthentication() {},
       async request<T>(options: HttpRequestOptions): Promise<T> {
         calls.push(options);

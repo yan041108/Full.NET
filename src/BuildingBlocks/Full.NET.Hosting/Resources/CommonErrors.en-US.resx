@@ -13,4 +13,5 @@
   <data name="validation.maximum_length" xml:space="preserve"><value>Length must not exceed {MaxLength} characters.</value></data>
   <data name="validation.invalid_format" xml:space="preserve"><value>The field format is invalid.</value></data>
   <data name="localization.unsupported_locale" xml:space="preserve"><value>The requested locale is not supported.</value></data>
+  <data name="common.request.invalid" xml:space="preserve"><value>The request content is invalid or unsupported.</value></data>
 </root>

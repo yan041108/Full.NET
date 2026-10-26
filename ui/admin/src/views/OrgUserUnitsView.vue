@@ -35,6 +35,7 @@ import {
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import OrgReportingLineDialog from '../organization/OrgReportingLineDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listOrganizationUnits } from '../api/org-units';
@@ -67,6 +68,7 @@ interface AppliedFilters {
 }
 
 const session = useSessionStore();
+const reportingEmployee = ref<{ id: string; name: string }>();
 const { t } = useAdminI18n();
 const allAssignments = ref<OrganizationUserUnit[]>([]);
 const users = ref<OrganizationAssignableUser[]>([]);
@@ -540,12 +542,16 @@ function appendUniqueUsers(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="120"
+              width="160"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate code="organization.reporting_lines.read">
+                    <ArtTableActionButton type="edit" :title="t('orgReporting.manager')" test-id="org-user-units-action-reporting"
+                      @click="reportingEmployee = { id: row.userId, name: row.displayName || row.username }" />
+                  </PermissionGate>
                   <PermissionGate v-if="canUpdate" code="organization.user_units.update">
                     <ArtTableActionButton
                       v-if="row.isActive && !row.isPrimary"
@@ -586,6 +592,8 @@ function appendUniqueUsers(
       </div>
     </el-card>
 
+    <OrgReportingLineDialog v-if="reportingEmployee" :key="reportingEmployee.id" :employee-user-id="reportingEmployee.id"
+      :employee-name="reportingEmployee.name" @close="reportingEmployee = undefined" />
     <ArtFormDialog
       v-model:open="editorOpen"
       :title="t('orgUserUnits.createDialogTitle')"

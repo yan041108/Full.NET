@@ -142,7 +142,7 @@ internal static class WorkflowFormFieldConstraints
                 return true;
             case "time" when TimeOnly.TryParseExact(
                 text,
-                "HH:mm",
+                ["HH:mm", "HH:mm:ss"],
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.None,
                 out var time):

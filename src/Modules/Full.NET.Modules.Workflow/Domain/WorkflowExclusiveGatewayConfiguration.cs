@@ -5,7 +5,6 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>解析排他网关的闭合配置，并在发布期绑定表单字段协议。</summary>
 internal static class WorkflowExclusiveGatewayConfiguration
 {
-    private const int MaximumBranchCount = 15;
     private const int MaximumKeyLength = 128;
 
     /// <summary>读取排他网关配置；未提供表单架构时仅执行结构校验。</summary>
@@ -31,7 +30,8 @@ internal static class WorkflowExclusiveGatewayConfiguration
         }
 
         var branchElements = branchesElement.EnumerateArray().ToArray();
-        if (branchElements.Length is < 1 or > MaximumBranchCount)
+        if (branchElements.Length < WorkflowGatewayLimits.MinimumBranches("gateway.exclusive") ||
+            branchElements.Length > WorkflowGatewayLimits.MaximumBranches("gateway.exclusive"))
         {
             return false;
         }
@@ -113,12 +113,37 @@ internal static class WorkflowExclusiveGatewayConfiguration
     /// <param name="fields">可选的表单字段索引。</param>
     /// <param name="condition">解析后的条件。</param>
     /// <returns>条件协议有效时返回 <see langword="true"/>。</returns>
-    private static bool TryReadCondition(
+    internal static bool TryReadCondition(
         JsonElement element,
         IReadOnlyDictionary<string, WorkflowFormField>? fields,
         out WorkflowExclusiveGatewayCondition? condition)
     {
+        var remaining = 64;
+        return TryReadCondition(element, fields, 0, ref remaining, out condition);
+    }
+
+    // 所有递归共享节点预算，在递归前检查深度和形状，拒绝无限或空的组合表达式。
+    private static bool TryReadCondition(JsonElement element,
+        IReadOnlyDictionary<string, WorkflowFormField>? fields, int depth, ref int remaining,
+        out WorkflowExclusiveGatewayCondition? condition)
+    {
         condition = null;
+        if (depth >= 8 || --remaining < 0 || element.ValueKind != JsonValueKind.Object) return false;
+        if (element.TryGetProperty("operator", out var logical) && logical.ValueKind == JsonValueKind.String &&
+            logical.GetString() is "and" or "or")
+        {
+            if (!HasOnlyProperties(element, "operator", "conditions") ||
+                !element.TryGetProperty("conditions", out var children) || children.ValueKind != JsonValueKind.Array ||
+                children.GetArrayLength() is < 2 or > 16) return false;
+            var parsed = new List<WorkflowExclusiveGatewayCondition>();
+            foreach (var child in children.EnumerateArray())
+            {
+                if (!TryReadCondition(child, fields, depth + 1, ref remaining, out var item)) return false;
+                parsed.Add(item!);
+            }
+            condition = new("", default, null, null) { LogicalOperator = logical.GetString(), Conditions = parsed };
+            return true;
+        }
         if (element.ValueKind != JsonValueKind.Object ||
             !TryReadStableKey(element, "fieldKey", out var fieldKey) ||
             !TryReadOperator(element, out var gatewayOperator))
@@ -135,11 +160,16 @@ internal static class WorkflowExclusiveGatewayConfiguration
             return false;
         }
 
+        var collection = gatewayOperator is WorkflowExclusiveGatewayOperator.In or WorkflowExclusiveGatewayOperator.NotIn or
+            WorkflowExclusiveGatewayOperator.ContainsAny or WorkflowExclusiveGatewayOperator.ContainsAll;
+        if (collection && !IsValidSet(expectedValue)) return false;
         WorkflowFormField? field = null;
         if (fields is not null &&
             (!fields.TryGetValue(fieldKey, out field) ||
              !IsOperatorCompatible(field, gatewayOperator) ||
-             (!isEmptyOperator && !WorkflowFormValueValidator.IsFieldValueValid(field, expectedValue))))
+             (!isEmptyOperator && !(collection && gatewayOperator is WorkflowExclusiveGatewayOperator.In or WorkflowExclusiveGatewayOperator.NotIn
+                 ? expectedValue.EnumerateArray().All(item => WorkflowFormValueValidator.IsFieldValueValid(field, item))
+                 : WorkflowFormValueValidator.IsFieldValueValid(field, expectedValue)))))
         {
             return false;
         }
@@ -149,6 +179,18 @@ internal static class WorkflowExclusiveGatewayConfiguration
             gatewayOperator,
             isEmptyOperator ? null : expectedValue.Clone(),
             field);
+        return true;
+    }
+
+    private static bool IsValidSet(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() is < 1 or > 32) return false;
+        var items = value.EnumerateArray().ToArray();
+        for (var index = 0; index < items.Length; index++)
+        {
+            if (items[index].ValueKind is not (JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False) ||
+                items.Take(index).Any(previous => JsonElement.DeepEquals(previous, items[index]))) return false;
+        }
         return true;
     }
 
@@ -186,6 +228,10 @@ internal static class WorkflowExclusiveGatewayConfiguration
             "lessThanOrEqual" => WorkflowExclusiveGatewayOperator.LessThanOrEqual,
             "isEmpty" => WorkflowExclusiveGatewayOperator.IsEmpty,
             "isNotEmpty" => WorkflowExclusiveGatewayOperator.IsNotEmpty,
+            "in" => WorkflowExclusiveGatewayOperator.In,
+            "notIn" => WorkflowExclusiveGatewayOperator.NotIn,
+            "containsAny" => WorkflowExclusiveGatewayOperator.ContainsAny,
+            "containsAll" => WorkflowExclusiveGatewayOperator.ContainsAll,
             _ => default,
         };
         return gatewayOperator != default;
@@ -205,8 +251,10 @@ internal static class WorkflowExclusiveGatewayConfiguration
             return true;
         }
 
+        if (gatewayOperator is WorkflowExclusiveGatewayOperator.ContainsAny or WorkflowExclusiveGatewayOperator.ContainsAll)
+            return field.FieldTypeKey == "checkbox";
         if (gatewayOperator is WorkflowExclusiveGatewayOperator.Equals or
-            WorkflowExclusiveGatewayOperator.NotEquals)
+            WorkflowExclusiveGatewayOperator.NotEquals or WorkflowExclusiveGatewayOperator.In or WorkflowExclusiveGatewayOperator.NotIn)
         {
             return field.FieldTypeKey is "text" or "textarea" or "money" or "decimal" or
                 "date" or "time" or "datetime" or "radio" or "select" or "integer" or "switch";
@@ -288,7 +336,8 @@ internal static class WorkflowExclusiveGatewayConfiguration
     private static bool HasOnlyProperties(JsonElement element, params string[] allowedProperties)
     {
         var allowed = new HashSet<string>(allowedProperties, StringComparer.Ordinal);
-        return element.EnumerateObject().All(property => allowed.Contains(property.Name));
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        return element.EnumerateObject().All(property => allowed.Contains(property.Name) && seen.Add(property.Name));
     }
 
     /// <summary>验证机器键只使用 ASCII 字母、数字、下划线、短横线和点。</summary>
@@ -383,6 +432,8 @@ internal sealed record WorkflowExclusiveGatewayCondition(
     JsonElement? ExpectedValue,
     WorkflowFormField? Field)
 {
+    public string? LogicalOperator { get; init; }
+    public IReadOnlyList<WorkflowExclusiveGatewayCondition> Conditions { get; init; } = [];
     /// <summary>使用严格字段类型比较条件，禁止字符串与数字间隐式转换。</summary>
     /// <param name="values">实例绑定且已校验的字段值。</param>
     /// <param name="matched">条件是否成立。</param>
@@ -390,6 +441,16 @@ internal sealed record WorkflowExclusiveGatewayCondition(
     public bool TryEvaluate(IReadOnlyDictionary<string, JsonElement> values, out bool matched)
     {
         matched = false;
+        if (LogicalOperator is "and" or "or")
+        {
+            matched = LogicalOperator == "and";
+            foreach (var child in Conditions)
+            {
+                if (!child.TryEvaluate(values, out var childMatched)) return false;
+                matched = LogicalOperator == "and" ? matched && childMatched : matched || childMatched;
+            }
+            return true;
+        }
         if (Field is null)
         {
             return false;
@@ -417,6 +478,19 @@ internal sealed record WorkflowExclusiveGatewayCondition(
             return true;
         }
 
+        if (Operator is WorkflowExclusiveGatewayOperator.In or WorkflowExclusiveGatewayOperator.NotIn)
+        {
+            var contains = ExpectedValue!.Value.EnumerateArray().Any(item => Compare(actualValue, item, Field) == 0);
+            matched = Operator == WorkflowExclusiveGatewayOperator.In ? contains : !contains;
+            return true;
+        }
+        if (Operator is WorkflowExclusiveGatewayOperator.ContainsAny or WorkflowExclusiveGatewayOperator.ContainsAll)
+        {
+            var actual = actualValue.EnumerateArray().Select(item => item.GetString()).ToHashSet(StringComparer.Ordinal);
+            var expected = ExpectedValue!.Value.EnumerateArray().Select(item => item.GetString());
+            matched = Operator == WorkflowExclusiveGatewayOperator.ContainsAll ? expected.All(actual.Contains) : expected.Any(actual.Contains);
+            return true;
+        }
         var comparison = Compare(actualValue, ExpectedValue!.Value, Field);
         if (comparison is null)
         {
@@ -533,4 +607,12 @@ internal enum WorkflowExclusiveGatewayOperator
 
     /// <summary>字段存在且不为空。</summary>
     IsNotEmpty = 8,
+    /// <summary>标量属于已声明集合。</summary>
+    In = 9,
+    /// <summary>非空标量不属于已声明集合。</summary>
+    NotIn = 10,
+    /// <summary>多选字段包含至少一个候选值。</summary>
+    ContainsAny = 11,
+    /// <summary>多选字段包含全部候选值。</summary>
+    ContainsAll = 12,
 }

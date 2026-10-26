@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch, onBeforeUnmount } from 'vue';
 import { ElButton, ElCard, ElDrawer, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import {
   isFullNetProblemDetails,
@@ -33,6 +33,8 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
 import WorkflowVue3Designer from '../workflow/WorkflowVue3Designer.vue';
+import WorkflowStarterSelectionPicker from '../workflow/WorkflowStarterSelectionPicker.vue';
+import type { WorkflowAssigneeSelections } from '../api/workflow-starter-selections';
 import {
   toWorkflowVue3Tree,
   type WorkflowVue3Node
@@ -53,6 +55,12 @@ const selectedDefinition = ref<WorkflowDefinitionResponse>();
 const selectedVersion = ref<WorkflowDefinitionVersionResponse>();
 const startSchema = ref<WorkflowFormSchema>();
 const initialValues = ref<WorkflowSubmission>({});
+const assigneeSelections = ref<WorkflowAssigneeSelections>({});
+const selectionsReady = ref(false);
+let identityEpoch = 0;
+let disposed = false;
+let listRequest = 0;
+let pendingStart: { intent: string; key: string } | undefined;
 const businessType = ref('');
 const businessId = ref('');
 const loading = ref(false);
@@ -84,12 +92,21 @@ const startPolicies = computed<WorkflowFieldPolicies>(() => {
 });
 
 const canSubmit = computed(() => {
-  if (!businessType.value.trim() || !businessId.value.trim() || startSchema.value === undefined) {
+  if (!session.can('workflow.instances.start') || !selectionsReady.value || !businessType.value.trim() || !businessId.value.trim() || startSchema.value === undefined) {
     return false;
   }
   return Object.entries(startPolicies.value).every(([key, policy]) =>
     policy !== 'required' || hasValue(initialValues.value[key]));
 });
+
+watch(() => JSON.stringify([session.currentUser?.id, session.currentUser?.sessionId, session.currentUser?.tenantId, session.currentUser?.scope,
+  session.switching, session.can('workflow.instances.start'), session.can('workflow.definitions.read'), session.can('workflow.definitions.update'), session.can('workflow.definitions.publish')]), () => {
+  identityEpoch++; listRequest++; loading.value = false; acting.value = false; pendingStart = undefined;
+  closeStart(); closeEditor(); creating.value = false; definitionKey.value = ''; businessTitleTemplate.value = '';
+  definitions.value = []; versions.value = []; selectedDefinition.value = undefined; selectedDefinitionId.value = undefined; problem.value = undefined;
+  if (!session.switching && session.can('workflow.definitions.read')) void loadDefinitions();
+}, { flush: 'sync' });
+onBeforeUnmount(() => { disposed = true; identityEpoch++; pendingStart = undefined; });
 
 onMounted(loadDefinitions);
 
@@ -232,14 +249,16 @@ async function runManagementAction<T>(
   fallbackKey: 'workflowDefinitions.loadFailed' | 'workflowDefinitions.operationFailed'
 ): Promise<T | undefined> {
   acting.value = true;
+  const epoch = identityEpoch;
   problem.value = undefined;
   try {
-    return await action();
+    const result = await action();
+    return epoch === identityEpoch && !disposed ? result : undefined;
   } catch (error: unknown) {
-    problem.value = toProblem(error, fallbackKey);
+    if (epoch === identityEpoch && !disposed) problem.value = toProblem(error, fallbackKey);
     return undefined;
   } finally {
-    acting.value = false;
+    if (epoch === identityEpoch && !disposed) acting.value = false;
   }
 }
 
@@ -300,31 +319,31 @@ async function changeDefinitionStatus(
 }
 
 async function removeDefinitionVersion(version: WorkflowDefinitionVersionResponse): Promise<void> {
-  await runManagementAction(
-    async () => {
-      await deleteWorkflowDefinitionVersion(version.id);
-      if (selectedDefinitionId.value !== undefined) {
-        versions.value = await listWorkflowDefinitionVersions(selectedDefinitionId.value);
-        const refreshed = await getWorkflowDefinition(selectedDefinitionId.value);
-        definitions.value = definitions.value.map(item => item.id === refreshed.id ? refreshed : item);
-        selectedDefinition.value = refreshed;
-      }
-    },
+  const epoch = identityEpoch; const id = selectedDefinitionId.value;
+  const removed = await runManagementAction(
+    async () => { await deleteWorkflowDefinitionVersion(version.id); return true; },
     'workflowDefinitions.operationFailed'
   );
+  if (removed !== true || epoch !== identityEpoch || disposed) return;
+  if (id !== undefined) {
+    const refreshed = await runManagementAction(() => Promise.all([listWorkflowDefinitionVersions(id), getWorkflowDefinition(id)]), 'workflowDefinitions.loadFailed');
+    if (refreshed === undefined) return;
+    versions.value = refreshed[0]; definitions.value = definitions.value.map(item => item.id === refreshed[1].id ? refreshed[1] : item); selectedDefinition.value = refreshed[1];
+  }
   ElMessage.success(t('workflowDefinitions.deleteVersionSuccess'));
 }
 
 async function loadDefinitions(): Promise<void> {
+  const epoch = identityEpoch; const request = ++listRequest;
   loading.value = true;
   problem.value = undefined;
   try {
-    definitions.value = await listWorkflowDefinitions();
+    const result = await listWorkflowDefinitions();
+    if (epoch === identityEpoch && request === listRequest && !disposed) definitions.value = result;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
+    if (epoch === identityEpoch && request === listRequest && !disposed) problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
   } finally {
-    loading.value = false;
-    void nextTick(updateTableHeight);
+    if (epoch === identityEpoch && request === listRequest && !disposed) { loading.value = false; void nextTick(updateTableHeight); }
   }
 }
 
@@ -333,15 +352,18 @@ async function openVersions(definition: WorkflowDefinitionResponse): Promise<voi
     return;
   }
   loading.value = true;
+  const epoch = identityEpoch;
   problem.value = undefined;
   try {
-    versions.value = await listWorkflowDefinitionVersions(definition.id);
+    const result = await listWorkflowDefinitionVersions(definition.id);
+    if (epoch !== identityEpoch || disposed) return;
+    versions.value = result;
     selectedDefinitionId.value = definition.id;
     selectedDefinition.value = definition;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
+    if (epoch === identityEpoch && !disposed) problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
   } finally {
-    loading.value = false;
+    if (epoch === identityEpoch && !disposed) loading.value = false;
   }
 }
 
@@ -350,18 +372,21 @@ async function openStart(version: WorkflowDefinitionVersionResponse): Promise<vo
     return;
   }
   loading.value = true;
+  const epoch = identityEpoch;
   problem.value = undefined;
   try {
     const form = await getWorkflowStartForm(version.formVersionId);
+    if (epoch !== identityEpoch || disposed || session.switching || !session.can('workflow.instances.start')) return;
     selectedVersion.value = version;
     startSchema.value = form.schema;
     initialValues.value = {};
+    assigneeSelections.value = {}; selectionsReady.value = false; pendingStart = undefined;
     businessType.value = '';
     businessId.value = '';
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
+    if (epoch === identityEpoch && !disposed) problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
   } finally {
-    loading.value = false;
+    if (epoch === identityEpoch && !disposed) loading.value = false;
   }
 }
 
@@ -371,6 +396,9 @@ async function submitStart(): Promise<void> {
     return;
   }
   acting.value = true;
+  const epoch = identityEpoch;
+  const intent = JSON.stringify([version.id, businessType.value.trim(), businessId.value.trim(), initialValues.value, assigneeSelections.value]);
+  if (pendingStart?.intent !== intent) pendingStart = { intent, key: createIdempotencyKey() };
   problem.value = undefined;
   try {
     await startWorkflowInstance(
@@ -378,14 +406,19 @@ async function submitStart(): Promise<void> {
       businessType.value.trim(),
       businessId.value.trim(),
       initialValues.value,
-      createIdempotencyKey()
+      pendingStart.key,
+      undefined,
+      assigneeSelections.value
     );
+    if (epoch !== identityEpoch || disposed) return;
     ElMessage.success(t('workflowDefinitions.startSuccess'));
     closeStart();
   } catch (error: unknown) {
+    if (epoch !== identityEpoch || disposed) return;
+    if (isFullNetProblemDetails(error) && error.status < 500) pendingStart = undefined;
     problem.value = toProblem(error, 'workflowDefinitions.operationFailed');
   } finally {
-    acting.value = false;
+    if (epoch === identityEpoch && !disposed) acting.value = false;
   }
 }
 
@@ -393,6 +426,7 @@ function closeStart(): void {
   selectedVersion.value = undefined;
   startSchema.value = undefined;
   initialValues.value = {};
+  assigneeSelections.value = {}; selectionsReady.value = false; pendingStart = undefined;
   businessType.value = '';
   businessId.value = '';
 }
@@ -682,6 +716,7 @@ function toProblem(
           :field-policies="startPolicies"
           @update:patch="initialValues = $event"
         />
+        <WorkflowStarterSelectionPicker v-if="selectedVersion" :version-id="selectedVersion.id" v-model="assigneeSelections" @ready="selectionsReady = $event" />
         <div class="workflow-definitions__decision-bar">
           <el-button :disabled="acting" @click="closeStart">
             {{ t('workflowDefinitions.close') }}

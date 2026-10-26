@@ -6,6 +6,7 @@ namespace Full.NET.Messaging.Kafka;
 /// <summary>一次采样拥有一个客户端；每次异步请求有 SDK 超时，调用方须等待在途请求结束后释放。</summary>
 internal interface IKafkaLagQueryClient : IDisposable
 {
+    Task<string?> ReadClusterIdAsync();
     Task<IReadOnlyList<TopicPartition>> ReadPartitionsAsync(string topic);
     Task<IReadOnlyDictionary<TopicPartition, long>> ReadCommittedOffsetsAsync(string group, IReadOnlyList<TopicPartition> partitions);
     Task<IReadOnlyDictionary<TopicPartition, long>> ReadEndOffsetsAsync(IReadOnlyList<TopicPartition> partitions);
@@ -16,6 +17,9 @@ internal sealed class KafkaLagQueryClient(KafkaMessagingOptions options) : IKafk
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
     private readonly IAdminClient _admin = new AdminClientBuilder(options.BuildClientConfig()).Build();
+
+    public async Task<string?> ReadClusterIdAsync() => (await _admin.DescribeClusterAsync(
+        new DescribeClusterOptions { RequestTimeout = RequestTimeout }).ConfigureAwait(false)).ClusterId;
 
     public async Task<IReadOnlyList<TopicPartition>> ReadPartitionsAsync(string topic)
     {

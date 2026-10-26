@@ -33,7 +33,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var users = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
 
@@ -53,7 +53,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var service = new WorkflowDefinitionManagementService(
             query, command, new ImmediateTransaction(), tenant, clock, ids, users, tenantUsers,
             WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
-            CreatePermissiveFeatureEntitlements());
+            CreatePermissiveFeatureEntitlements(), new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), new Full.NET.Modules.Workflow.Domain.WorkflowBusinessActionCatalog([]));
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -79,7 +79,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var users = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
@@ -115,7 +115,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var service = new WorkflowDefinitionManagementService(
             query, command, transaction, tenant, clock, ids, users, tenantUsers,
             WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
-            CreatePermissiveFeatureEntitlements());
+            CreatePermissiveFeatureEntitlements(), new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), new Full.NET.Modules.Workflow.Domain.WorkflowBusinessActionCatalog([]));
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -142,7 +142,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(false);
         tenant.IsAvailable.Returns(true);
@@ -167,7 +167,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
                 WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId, tenantId));
-        tenantUsers.FindActiveTenantUsersAsync(
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
@@ -180,14 +180,14 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var service = new WorkflowDefinitionManagementService(
             query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers,
             WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
-            CreatePermissiveFeatureEntitlements());
+            CreatePermissiveFeatureEntitlements(), new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), new Full.NET.Modules.Workflow.Domain.WorkflowBusinessActionCatalog([]));
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, result.Error!.Code);
-        await tenantUsers.Received(1).FindActiveTenantUsersAsync(
+        await tenantUsers.Received(1).FindActiveTenantMembersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(userIds =>
                 userIds != null && userIds.SequenceEqual(new[] { recipientId })),
             Arg.Any<CancellationToken>());
@@ -224,9 +224,9 @@ public sealed class WorkflowDefinitionManagementServiceTests
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberSelectionDirectory>(),
             WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
-            featureEntitlements);
+            featureEntitlements, new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), new Full.NET.Modules.Workflow.Domain.WorkflowBusinessActionCatalog([]));
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));

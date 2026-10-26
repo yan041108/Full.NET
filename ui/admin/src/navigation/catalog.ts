@@ -365,6 +365,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.workflowTodos.title',
     captionKey: 'navigation.workflowTodos.caption'
   }],
+  ['workflow-claim-pools', {
+    titleKey: 'workflowTodos.claimPools',
+    captionKey: 'workflowTodos.claimPools'
+  }],
   ['workflow-cc', {
     titleKey: 'navigation.workflowCc.title',
     captionKey: 'navigation.workflowCc.caption'
@@ -376,6 +380,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['workflow-forms', {
     titleKey: 'navigation.workflowForms.title',
     captionKey: 'navigation.workflowForms.caption'
+  }],
+  ['workflow-calendars', {
+    titleKey: 'navigation.workflowCalendars.title',
+    captionKey: 'navigation.workflowCalendars.caption'
   }],
   ['workflow-instances', {
     titleKey: 'navigation.workflowInstances.title',

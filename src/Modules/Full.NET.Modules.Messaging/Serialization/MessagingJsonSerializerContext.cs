@@ -5,6 +5,10 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
+using Full.NET.Modules.Messaging.Features.ManageOperationalDeadLetters;
+using Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
+using Full.NET.Modules.Messaging.Features.ReplayKafkaRange;
+using Full.NET.Modules.Messaging.Features.ManageShadowCapture;
 
 namespace Full.NET.Modules.Messaging.Serialization;
 
@@ -13,9 +17,30 @@ namespace Full.NET.Modules.Messaging.Serialization;
 /// 在模块注册时插入 HTTP JSON 选项的解析器链以提升序列化性能，并供审计 Diff 摘要序列化使用。
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(StartShadowCaptureRequest))]
+[JsonSerializable(typeof(CloseShadowCaptureRequest))]
+[JsonSerializable(typeof(ShadowCaptureResponse))]
+[JsonSerializable(typeof(ShadowCapturePolicyResponse))]
+[JsonSerializable(typeof(ShadowCaptureAuditDiff))]
+[JsonSerializable(typeof(CreateKafkaReplayOperationRequest))]
+[JsonSerializable(typeof(ChangeKafkaReplayOperationRequest))]
+[JsonSerializable(typeof(KafkaReplayOperationResponse))]
+[JsonSerializable(typeof(PagedResult<KafkaReplayOperationResponse>))]
+[JsonSerializable(typeof(KafkaReplaySnapshot))]
+[JsonSerializable(typeof(KafkaReplayOperationAuditDiff))]
+[JsonSerializable(typeof(OperationalDeadLetterAuditDiff))]
+[JsonSerializable(typeof(OperationalDeadLetterResponse))]
+[JsonSerializable(typeof(PagedResult<OperationalDeadLetterResponse>))]
+[JsonSerializable(typeof(RecoverDeadLetterRequest))]
+[JsonSerializable(typeof(RecoverDeadLetterResponse))]
 [JsonSerializable(typeof(DeadLetterReplayAuditDiff))]
 [JsonSerializable(typeof(DeliveryCutoverAuditDiff))]
 [JsonSerializable(typeof(DeliveryRollbackAuditDiff))]
+[JsonSerializable(typeof(RollbackRecoveryAuditDiff))]
+[JsonSerializable(typeof(RecoverRollbackRequest))]
+[JsonSerializable(typeof(RollbackOperationResponse))]
+[JsonSerializable(typeof(VerifyCutoverRequest))]
+[JsonSerializable(typeof(CutoverEvidenceResponse))]
 [JsonSerializable(typeof(KafkaRangeReplayCancelledAuditDiff))]
 [JsonSerializable(typeof(KafkaRangeReplayFailedAuditDiff))]
 [JsonSerializable(typeof(KafkaRangeReplayRequestedAuditDiff))]

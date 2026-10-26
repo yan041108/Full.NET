@@ -8,7 +8,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <param name="unitLeaderDirectory">活动机构单元批量目录。</param>
 internal sealed class WorkflowOrganizationUnitCandidateQueryService(
     ICurrentTenant currentTenant,
-    IWorkflowUnitLeaderDirectory unitLeaderDirectory)
+    IWorkflowOrganizationAssigneeDirectory unitLeaderDirectory)
 {
     /// <summary>分页读取当前 Tenant 可配置为办理人来源的机构单元候选。</summary>
     /// <param name="page">从 1 开始的页码。</param>

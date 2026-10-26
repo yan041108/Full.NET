@@ -101,6 +101,6 @@ public sealed class FailClosedEventDeliveryRollbackReadinessReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
-        return Task.CompletedTask;
+        throw new InvalidOperationException("回退控制面未装配，不能确认持久暂停操作已经恢复。");
     }
 }

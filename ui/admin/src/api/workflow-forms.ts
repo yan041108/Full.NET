@@ -1,5 +1,8 @@
 import {
   workflowCreateForm,
+  workflowGetDesignerAsset,
+  workflowSaveDesignerAsset,
+  type WorkflowDesignerAssetResponse,
   workflowDeleteFormVersion,
   workflowGetForm,
   workflowGetFormComponentCatalog,
@@ -46,7 +49,7 @@ export async function createWorkflowForm(
   signal?: AbortSignal
 ): Promise<WorkflowFormResponse> {
   return readSafeForm(await workflowCreateForm(http, {
-    body: { formKey, draft: toGeneratedDraft(draft) }
+    body: { formKey, draft: toGeneratedDraft(draft), designerJson: { widgetList: [], formConfig: { jsonVersion: 3 } } }
   }, signal));
 }
 
@@ -131,4 +134,28 @@ function toGeneratedDraft(draft: WorkflowFormSchema) {
       }))
     }))
   };
+}
+
+/** 读取独立完整设计稿；旧业务 Schema 不作为设计稿的静默替代。 */
+export async function getWorkflowDesignerAsset(formId: string, signal?: AbortSignal): Promise<WorkflowDesignerAsset | undefined> {
+  try { return readDesignerAsset(await workflowGetDesignerAsset(http, { formId }, signal)); }
+  catch (error) { if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) return undefined; throw error; }
+}
+
+/** 原样提交完整 JSON，由服务端计算摘要并原子推进草稿修订。 */
+export async function saveWorkflowDesignerAsset(formId: string, expectedRevision: number, designerJson: Record<string, unknown>): Promise<WorkflowDesignerAsset> {
+  return readDesignerAsset(await workflowSaveDesignerAsset(http, { formId, body: { expectedRevision, sourceCommit: 'c67479e496bab56a93a3dff168a4f529d8293c67', formatVersion: 3, designerJson } }));
+}
+
+type WorkflowDesignerAsset = Omit<WorkflowDesignerAssetResponse, 'designerJson'> & { readonly designerJson: Record<string, unknown> };
+
+/** 原版 JSON 保持完整，但根必须为对象，才能进入设计器对象协议。 */
+function readDesignerAsset(value: WorkflowDesignerAssetResponse): WorkflowDesignerAsset {
+  const json = value.designerJson;
+  if (!isDesignObject(json) || !Array.isArray(json.widgetList) || !isDesignObject(json.formConfig)) throw new Error('client.invalid_workflow_designer_asset');
+  // 只校验必要根结构，完整组件与扩展配置原样返回。
+  return { ...value, designerJson: json };
+}
+function isDesignObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

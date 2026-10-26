@@ -228,6 +228,12 @@ public static class SerialNumberRulePermissions
 /// <remarks>错误码字符串发布后不可改名或删除；新增错误码只能追加到本类末尾，避免破坏既有客户端错误处理逻辑。</remarks>
 public static class SerialNumberErrorCodes
 {
+    /// <summary>同一审批命令身份已固定为另一份业务输入。</summary>
+    public const string ApprovalCommandInputConflict = "serial_numbers.approval_command.input_conflict";
+    /// <summary>后续业务修改使本次命令不能安全恢复原快照。</summary>
+    public const string ApprovalCommandCompensationConflict = "serial_numbers.approval_command.compensation_conflict";
+    /// <summary>命令持久凭据损坏，不能证明已应用或已补偿。</summary>
+    public const string ApprovalCommandReceiptInvalid = "serial_numbers.approval_command.receipt_invalid";
     /// <summary>流水号 Pattern 不满足受限语法或长度边界。</summary>
     public const string PatternInvalid = "serial_numbers.pattern.invalid";
 

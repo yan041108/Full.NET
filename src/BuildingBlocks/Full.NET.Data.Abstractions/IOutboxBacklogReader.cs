@@ -5,6 +5,11 @@ namespace Full.NET.Data.Abstractions;
 /// </summary>
 public interface IOutboxBacklogReader
 {
+    /// <summary>以一次分组查询读取活动 Legacy 流；最多返回上限加一行，调用方必须显式处理截断。</summary>
+    /// <param name="maximumStreams">允许展示的流数，范围 1～1000；多出的一行用于识别不完整结果。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按事件类型与版本稳定排序的只读聚合；不修改租约或消息状态。</returns>
+    Task<IReadOnlyList<OutboxStreamBacklogSnapshot>> ReadStreamBacklogsAsync(int maximumStreams, CancellationToken cancellationToken);
     /// <summary>
     /// 读取当前全部未处理且未死信消息的积压快照。
     /// </summary>
@@ -50,6 +55,12 @@ public interface IOutboxBacklogReader
         int schemaVersion,
         CancellationToken cancellationToken);
 }
+
+/// <summary>同一事件类型和版本的 Legacy 聚合，不把未登记目录的流混同为没有积压。</summary>
+/// <param name="EventType">Legacy 消息的事件类型。</param>
+/// <param name="SchemaVersion">消息版本。</param>
+/// <param name="Backlog">该流的实际聚合快照。</param>
+public sealed record OutboxStreamBacklogSnapshot(string EventType, int SchemaVersion, OutboxBacklogSnapshot Backlog);
 
 /// <summary>
 /// 表示某一采样时刻的 Outbox 未处理消息积压。

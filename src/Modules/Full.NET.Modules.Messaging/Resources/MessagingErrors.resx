@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="messaging.operations.actor_required" xml:space="preserve"><value>缺少可信的运维操作者身份。</value></data>
+  <data name="messaging.operations.reason_invalid" xml:space="preserve"><value>请提供不超过 512 字的运维理由。</value></data>
+  <data name="messaging.dead_letter.filter_invalid" xml:space="preserve"><value>分页、筛选或时间范围无效。</value></data>
+  <data name="messaging.dead_letter.not_found" xml:space="preserve"><value>未找到可恢复的死信。</value></data>
+  <data name="messaging.dead_letter.owner_conflict" xml:space="preserve"><value>当前事件流所有权不允许此恢复操作。</value></data>
+  <data name="messaging.dead_letter.state_conflict" xml:space="preserve"><value>消息已被其他操作处理或回队。</value></data>
+  <data name="messaging.dead_letter.not_replayable" xml:space="preserve"><value>信封损坏或缺少消费者，请先核查来源。</value></data>
+  <data name="messaging.dead_letter.snapshot_invalid" xml:space="preserve"><value>持久化信封与消息身份不一致。</value></data>
+  <data name="messaging.subscription_route.not_found" xml:space="preserve"><value>消费者路由尚未登记。</value></data>
+  <data name="messaging.delivery.rollback_operation_not_found" xml:space="preserve"><value>未找到指定事件流或代次的回退操作。</value></data>
+  <data name="messaging.replay_operation.state_conflict" xml:space="preserve"><value>重放操作状态、执行代次或原始资源已变化，请刷新持久记录。</value></data>
+  <data name="messaging.replay_operation.not_found" xml:space="preserve"><value>未找到指定重放操作。</value></data>
+  <data name="messaging.replay_operation.request_invalid" xml:space="preserve"><value>重放操作查询参数无效。</value></data>
+  <data name="messaging.shadow_capture.unavailable" xml:space="preserve"><value>部署已关闭受控影子采集。</value></data>
+  <data name="messaging.shadow_capture.request_invalid" xml:space="preserve"><value>影子采集流、预算、期限或预期代次无效。</value></data>
+  <data name="messaging.shadow_capture.state_conflict" xml:space="preserve"><value>采集代次已变化、窗口仍活动，或缺少持久 Legacy 所有权。请刷新并核对前置条件。</value></data>
+  <data name="messaging.shadow_capture.not_found" xml:space="preserve"><value>未找到当前事件流或代次的影子采集记录。</value></data>
+  <data name="messaging.delivery.producer_fenced" xml:space="preserve"><value>事件交付正在受回退保护，请稍后重试本次操作。</value></data>
+</root>

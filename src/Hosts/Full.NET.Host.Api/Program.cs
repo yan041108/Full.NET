@@ -2,6 +2,7 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Dapper;
+using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Forwarding;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.OpenApi;
@@ -44,6 +45,7 @@ app.UseFullNetLocalization();
 app.UseFullNetRequestLogging();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeExceptionHandler);
 app.UseExceptionHandler();
+app.UseFullNetRequestBodyProblemDetails();
 app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthentication);
 app.UseAuthentication();

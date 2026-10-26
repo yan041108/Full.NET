@@ -7,6 +7,12 @@ using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.Organization.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(SetOrganizationReportingLineRequest))]
+[JsonSerializable(typeof(OrganizationReportingLineResponse))]
+[JsonSerializable(typeof(PagedResult<OrganizationReportingCandidate>))]
+[JsonSerializable(typeof(SetOrganizationUnitLeadershipRequest))]
+[JsonSerializable(typeof(OrganizationUnitLeadershipResponse))]
+[JsonSerializable(typeof(PagedResult<OrganizationUnitLeaderCandidateResponse>))]
 [JsonSerializable(typeof(TenantOrganizationMembershipTarget[]))]
 [JsonSerializable(typeof(Full.NET.Modules.Organization.Features.ImportExport.TenantPositionImportPlan))]
 [JsonSerializable(typeof(CreateOrganizationUnitRequest))]

@@ -14,9 +14,85 @@
   "permissionDenied": "This account cannot read workflow tasks.",
   "loadFailed": "Tasks could not be loaded. Try again later.",
   "comment": "Comment",
+  "signatureTitle": "Action signature",
+  "signatureCanvas": "Draw your signature here",
+  "signatureSave": "Save this signature",
+  "signatureClear": "Clear signature",
+  "signatureReady": "Signature captured for this action.",
+  "signaturePending": "Signature has not been saved.",
+  "signaturePermissionRequired": "This node requires signature capture permission.",
+  "evidenceRequired": "Provide the comment and signature required by this node.",
   "approve": "Approve",
+  "completeTask": "Complete task",
+  "claimPoolsTitle": "Available tasks",
+  "claimTask": "Claim task",
+  "releaseTask": "Release task",
+  "submitVote": "Submit ballot",
+  "privateBallot": "Your private ballot form",
+  "voteChoice": "Your choice",
+  "voteChoiceLabel": "{choice, select, yes{Yes} no{No} abstain{Abstain} other{Invalid choice}}",
+  "@voteChoiceLabel": {
+    "placeholders": {
+      "choice": {
+        "type": "String"
+      }
+    }
+  },
+  "voteProgress": "{submitted}/{total} candidates submitted",
+  "@voteProgress": {
+    "placeholders": {
+      "submitted": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "requiredField": "This field is required.",
+  "invalidField": "Check this value.",
+  "voteFormUnavailable": "This ballot needs a form capability that is not available on this client yet.",
+  "taskProgress": "Completed {completed}/{required}, pending {pending}",
+  "@taskProgress": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "required": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
   "reject": "Reject",
   "submitting": "Submitting…",
   "completed": "Task completed.",
-  "actionFailed": "Task action failed."
+  "actionFailed": "Task action failed.",
+  "pendingTasks": "Pending",
+  "delegatedTodos": "Delegated tasks",
+  "delegateTask": "Delegate",
+  "delegateTarget": "Select a proxy",
+  "delegateHelp": "Delegate this todo only. The seat and deadline remain unchanged; the proxy uses their own permissions.",
+  "recallDelegation": "Recall delegation",
+  "recallReason": "Reason for recall",
+  "recallHelp": "Recall before completion. Recall is not a business decision and does not require the proxy signature.",
+  "handoffUnsaved": "Handoff does not submit fields. Restore unsaved changes first.",
+  "previousPage": "Previous",
+  "nextPage": "Next",
+  "reloadCandidates": "Reload candidates",
+  "delegationStatusActive": "Active delegation",
+  "delegationStatusCompleted": "Completed",
+  "delegationStatusRecalled": "Recalled",
+  "delegationStatusReassigned": "Reassigned",
+  "delegationStatusCancelled": "Closed",
+  "managementLabel": "{key, select, history{Completed history} choose{Choose a target} transfer{Transfer} return{Return} countersign{Countersign} before{Before} after{After} add{Add in order} remove{Remove} chain{Current countersign chain} cancel{Cancel countersign} remind{Remind} unsaved{Refresh to discard unsaved form changes before a management action.} pending{Pending} active{Active} completed{Completed} cancelled{Cancelled} other{Unsupported action}}",
+  "@managementLabel": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  }
 }

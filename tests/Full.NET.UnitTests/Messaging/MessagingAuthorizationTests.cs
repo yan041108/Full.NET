@@ -22,15 +22,17 @@ public sealed class MessagingAuthorizationContributorTests
                 MessagingPermissions.DeliveryRollback,
                 MessagingPermissions.EventsRead,
                 MessagingPermissions.KafkaRangeReplay,
+                MessagingPermissions.LegacyDeadLettersRequeue,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var navigation = catalog.Navigation.Single(item => item.Id == "host-messaging-ops");
-        Assert.AreEqual(MessagingPermissions.EventsRead, navigation.RequiredPermission);
+        Assert.AreEqual(MessagingPermissions.DeadLettersRead, navigation.RequiredPermission);
 
         CollectionAssert.AreEqual(
             new[]
             {
+                MessagingPermissions.LegacyDeadLettersRequeue,
                 MessagingPermissions.DeadLettersReplay,
                 MessagingPermissions.KafkaRangeReplay,
                 MessagingPermissions.DeliveryCutover,

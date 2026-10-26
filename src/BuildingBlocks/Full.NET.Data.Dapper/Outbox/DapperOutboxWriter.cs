@@ -59,13 +59,22 @@ internal class DapperOutboxWriter(
     /// <param name="cancellationToken">取消令牌。</param>
     /// <exception cref="ArgumentException">当 eventType 为空、schemaVersion 小于 1 时抛出。</exception>
     /// <exception cref="InvalidOperationException">当 INSERT 影响行数不为 1 时抛出（并发或触发器异常）。</exception>
-    public virtual async Task AddAsync<
+    public virtual Task AddAsync<
         [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
             System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
         CancellationToken cancellationToken = default)
+    {
+        return InsertSnapshotAsync(CreateSnapshot(eventType, schemaVersion, payload), cancellationToken);
+    }
+
+    /// <summary>构造一次真实信封；影子路径复用同一标识、序列化字节和发生时间。</summary>
+    internal OutboxMessage CreateSnapshot<
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
+        string eventType, int schemaVersion, TEvent payload)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentNullException.ThrowIfNull(payload);
@@ -77,7 +86,7 @@ internal class DapperOutboxWriter(
                 "The schema version must be at least 1.");
         }
 
-        var message = new OutboxMessage(
+        return new OutboxMessage(
             idGenerator.NewId(),
             eventType,
             schemaVersion,
@@ -87,6 +96,11 @@ internal class DapperOutboxWriter(
             serializer.Serialize(payload),
             clock.UtcNow);
 
+    }
+
+    /// <summary>写入已构造的 Legacy 信封；调用方仍须持有业务事务和生产者所有权锁。</summary>
+    internal async Task InsertSnapshotAsync(OutboxMessage message, CancellationToken cancellationToken)
+    {
         var affectedRows = await ExecuteInsertAsync(message, cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

@@ -95,14 +95,21 @@ public sealed class MessagingWorkerOptionsTests
     }
 
     [TestMethod]
-    public void MessagingWorkerOptions_rejects_cdc_kafka_without_kafka_enabled()
+    public void Removed_worker_alias_is_rejected_by_configuration_binding()
     {
-        // 旧配置字符串 CdcKafka 仍可反序列化并通过验证器（因被规范化为 HybridKafka），
-        // 但 Kafka 关闭时应拒绝，错误消息按 HybridKafka（有效语义）输出。
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Messaging:Worker:Mode"] = "CdcKafka" }).Build();
+        Assert.ThrowsExactly<InvalidOperationException>(() => configuration.GetSection("Messaging:Worker").Get<MessagingWorkerOptions>());
+    }
+
+    [TestMethod]
+    public void MessagingWorkerOptions_rejects_hybrid_kafka_without_kafka_enabled()
+    {
+        // Worker 混合模式必须启用 Kafka；流所有者 CdcKafka 使用独立契约。
         using var provider = CreateProvider(
             new Dictionary<string, string?>
             {
-                ["Messaging:Worker:Mode"] = "CdcKafka",
+                ["Messaging:Worker:Mode"] = "HybridKafka",
                 ["Messaging:Kafka:Enabled"] = "false",
             });
 
@@ -121,7 +128,7 @@ public sealed class MessagingWorkerOptionsTests
         using var provider = CreateProvider(
             new Dictionary<string, string?>
             {
-                ["Messaging:Worker:Mode"] = "CdcKafka",
+                ["Messaging:Worker:Mode"] = "HybridKafka",
                 ["Messaging:Kafka:Enabled"] = "true",
                 ["Messaging:ShadowComparison:Enabled"] = "true",
             });
@@ -161,11 +168,11 @@ public sealed class MessagingWorkerOptionsTests
     public void MessagingWorkerCatalogGuard_rejects_cdc_mode_without_real_subscriptions()
     {
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
-            MessagingWorkerCatalogGuard.ValidateCdcKafkaMode([]));
+            MessagingWorkerCatalogGuard.ValidateProductionSubscriptions([]));
 
         StringAssert.Contains(
             exception.Message,
-            "CdcKafka delivery mode requires at least one production IIntegrationEventSubscription");
+            "HybridKafka delivery mode requires at least one production IIntegrationEventSubscription");
     }
 
     [TestMethod]

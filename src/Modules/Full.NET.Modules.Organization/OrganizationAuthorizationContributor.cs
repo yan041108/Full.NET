@@ -12,6 +12,10 @@ internal sealed class OrganizationAuthorizationContributor
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new PermissionDefinition(OrganizationReportingLinePermissions.Read, "查看直属汇报关系", AuthorizationScope.Tenant),
+        new PermissionDefinition(OrganizationReportingLinePermissions.Update, "配置直属汇报关系", AuthorizationScope.Tenant),
+        new PermissionDefinition(OrganizationUnitLeadershipPermissions.Read, "查看机构领导权配置", AuthorizationScope.Tenant),
+        new PermissionDefinition(OrganizationUnitLeadershipPermissions.Update, "配置机构负责人", AuthorizationScope.Tenant),
         new PermissionDefinition(
             OrganizationUnitManagementPermissions.Read,
             "查看机构",
@@ -171,6 +175,14 @@ internal sealed class OrganizationAuthorizationContributor
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("organization.user_units.read_reporting", "org-user-units",
+            OrganizationReportingLinePermissions.Read, "查看直属上级", "read_reporting", 40),
+        new AuthorizationActionDefinition("organization.user_units.set_reporting", "org-user-units",
+            OrganizationReportingLinePermissions.Update, "配置直属上级", "set_reporting", 50),
+        new AuthorizationActionDefinition("organization.units.read_leadership", "org-units",
+            OrganizationUnitLeadershipPermissions.Read, "查看机构负责人", "read_leadership", 40),
+        new AuthorizationActionDefinition("organization.units.set_leadership", "org-units",
+            OrganizationUnitLeadershipPermissions.Update, "配置机构负责人", "set_leadership", 50),
         new AuthorizationActionDefinition(
             "organization.units.create",
             "org-units",

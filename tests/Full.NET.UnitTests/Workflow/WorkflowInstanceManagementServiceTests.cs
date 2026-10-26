@@ -12,6 +12,7 @@ using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
+using Full.NET.Modules.Workflow.Features.CrossModulePorts;
 using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -21,6 +22,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace Full.NET.UnitTests.Workflow;
 
@@ -28,6 +30,117 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowInstanceManagementServiceTests
 {
+    [TestMethod]
+    public async Task Withdraw_endpoint_requires_its_own_permission() =>
+        await AssertEndpointPermissionAsync("/api/v1/workflow/instances/{instanceId:guid}/withdraw", WorkflowPermissions.InstancesWithdraw);
+    [TestMethod]
+    [DataRow(0, "active", 32)]
+    [DataRow(WorkflowActivityScheduler.InstanceActivityBudget, "suspended", 0)]
+    public async Task Long_automatic_start_enqueues_a_fixed_input_after_the_dispatch_budget(int activationCount, string status, int completedSteps)
+    {
+        var actor = Guid.CreateVersion7();
+        var version = Guid.CreateVersion7();
+        var query = CreateAutomationQuery(version);
+        var command = Substitute.For<ICommandExecutor>();
+        query.QuerySingleOrDefaultAsync<int>(WorkflowActivitySql.CountActivations,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(activationCount);
+        command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        query.QueryAsync<Guid>(WorkflowSql.ListCcRecipientIdsByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Guid>());
+        var nodes = new List<WorkflowNodeDraft> { new("start", "start", 1, JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { "copy0" } })) };
+        for (var index = 0; index < 35; index++) nodes.Add(new("copy" + index, "notify.cc", 1,
+            JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { index == 34 ? "end" : "copy" + (index + 1) }, recipientUserIds = new[] { actor } })));
+        nodes.Add(new("end", "end", 1, JsonSerializer.SerializeToElement(new { })));
+        var canonical = WorkflowDefinitionCompiler.Compile(new(1, nodes, "automation")).Value!.CanonicalJson;
+        query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowRuntimeAssetRecord(version,
+                Guid.CreateVersion7(), canonical, """{"schemaVersion":1,"adapterVersion":1,"sections":[]}""", null, "active"));
+        query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(WorkflowSql.FindFormSubmissionByInstance,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowFormSubmissionRecord(
+                Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "{}", "none", 1, actor, DateTimeOffset.UtcNow));
+
+        var result = await CreateService(query, command, actor).StartAsync(actor,
+            new(version, "automation", "long", JsonDocument.Parse("{}").RootElement.Clone(), "long"));
+
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.AreEqual(status, result.Value!.StatusKey);
+        Assert.IsNull(result.Value.ActiveTodoId);
+        await command.Received(completedSteps).ExecuteAsync(WorkflowSql.InsertCompletedCcStep, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(WorkflowActivitySql.InsertWork,
+            Arg.Is<object?>(parameters => ((IReadOnlyDictionary<string, object?>)parameters!)["NodeKey"]!.Equals("copy" + completedSteps)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Automation_start_persists_input_before_completion_and_replays_the_original_receipt()
+    {
+        var actor = Guid.CreateVersion7();
+        var version = Guid.CreateVersion7();
+        var query = CreateAutomationQuery(version);
+        var command = Substitute.For<ICommandExecutor>();
+        var writes = new List<SqlStatement>();
+        WorkflowStartReceiptRecord? receipt = null;
+        command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var statement = call.ArgAt<SqlStatement>(0);
+                writes.Add(statement);
+                if (statement == WorkflowActivitySql.InsertStartReceipt)
+                {
+                    var parameters = (IReadOnlyDictionary<string, object?>)call[1]!;
+                    receipt = new((string)parameters["RequestHash"]!, (string)parameters["ResponseJson"]!);
+                }
+                return 1;
+            });
+        query.QuerySingleOrDefaultAsync<WorkflowStartReceiptRecord>(WorkflowActivitySql.FindStartReceipt,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => receipt);
+        var service = CreateService(query, command, actor);
+        var request = new StartWorkflowInstanceRequest(version, "automation", "one",
+            JsonDocument.Parse("{}").RootElement.Clone(), "start-one");
+
+        var started = await service.StartAsync(actor, request);
+
+        Assert.IsTrue(started.IsSuccess, started.Error?.Code);
+        Assert.AreEqual("completed", started.Value!.StatusKey);
+        Assert.AreEqual(2L, started.Value.Revision);
+        Assert.IsNull(started.Value.ActiveTodoId);
+        Assert.IsTrue(writes.IndexOf(WorkflowSql.InsertFormSubmission) < writes.IndexOf(WorkflowSql.CompleteInstanceWithRevision));
+        Assert.IsFalse(writes.Contains(WorkflowSql.InsertTodo));
+        var writeCount = writes.Count;
+        var replay = await service.StartAsync(actor, request);
+        Assert.AreEqual(started.Value, replay.Value);
+        Assert.AreEqual(writeCount, writes.Count);
+        var conflict = await service.StartAsync(actor, request with { BusinessId = "different" });
+        Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, conflict.Error?.Code);
+        Assert.AreEqual(writeCount, writes.Count);
+    }
+
+    [TestMethod]
+    public async Task Business_approval_port_cannot_start_an_automation_definition()
+    {
+        var version = Guid.CreateVersion7();
+        var command = Substitute.For<ICommandExecutor>();
+        var service = CreateService(CreateAutomationQuery(version), command, Guid.CreateVersion7());
+        var result = await new WorkflowInstanceStarterAdapter(service).StartAsync(Guid.CreateVersion7(),
+            new StartWorkflowInstanceCommand(version, "approval", "one", "{}", "protected"));
+        Assert.AreEqual(WorkflowErrorCodes.SchemaInvalid, result.Error?.Code);
+        Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
+    private static IQueryExecutor CreateAutomationQuery(Guid version)
+    {
+        var query = Substitute.For<IQueryExecutor>();
+        const string schema = """{"schemaVersion":1,"adapterVersion":1,"sections":[]}""";
+        query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowRuntimeAssetRecord(
+                version, Guid.CreateVersion7(),
+                """{"schemaVersion":1,"workflowKindKey":"automation","nodes":[{"nodeKey":"start","nodeTypeKey":"start","nodeSchemaVersion":1,"config":{"nextNodeKeys":["end"]}},{"nodeKey":"end","nodeTypeKey":"end","nodeSchemaVersion":1,"config":{}}]}""",
+                schema, null, "active"));
+        query.QuerySingleOrDefaultAsync<string>(WorkflowDesignerAssetSql.FindBindings,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(schema);
+        return query;
+    }
+
     /// <summary>暂停只改实例状态，必须保留原活动待办且不得写入通知。</summary>
     [TestMethod]
     public async Task Pause_keeps_the_original_todo_and_does_not_publish_notifications()
@@ -59,6 +172,45 @@ public sealed class WorkflowInstanceManagementServiceTests
         await command.DidNotReceive().ExecuteAsync(
             WorkflowSql.InsertStep, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(0, outbox.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Business_command_wait_can_pause_and_resume_without_a_personal_todo(bool resume)
+    {
+        var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7();
+        var query = CreateQuery(id, actor, resume ? "suspended" : "active", 3, Guid.CreateVersion7(), null);
+        query.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(WorkflowSql.FindActiveWorkByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns((WorkflowActiveWorkRecord?)null);
+        query.QuerySingleOrDefaultAsync<int>(WorkflowBusinessCommandSql.CountRecoverable, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var commands = Substitute.For<ICommandExecutor>(); commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var outbox = Substitute.For<IOutboxWriter>(); var service = CreateService(query, commands, actor, outbox);
+        var result = resume ? await service.ResumeAsync(id, actor, new(3, null, "business-resume")) : await service.PauseAsync(id, actor, new(3, null, "business-pause"));
+        Assert.IsTrue(result.IsSuccess); Assert.IsNull(result.Value!.ActiveTodoId);
+        Assert.AreEqual(resume ? "active" : "suspended", result.Value.StatusKey);
+        Assert.AreEqual(0, outbox.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Business_command_unknown_result_blocks_blind_resume()
+    {
+        var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7();
+        var query = CreateQuery(id, actor, "suspended", 3, Guid.CreateVersion7(), null);
+        query.QuerySingleOrDefaultAsync<int>(WorkflowBusinessCommandSql.CountBlocked, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var commands = Substitute.For<ICommandExecutor>(); commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var result = await CreateService(query, commands, actor).ResumeAsync(id, actor, new(3, null, "business-blocked"));
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, result.Error!.Code);
+        await commands.DidNotReceive().ExecuteAsync(WorkflowSql.ResumeInstanceWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Child_root_cannot_be_started_without_the_internal_parent_proof()
+    {
+        var actor = Guid.CreateVersion7(); var query = Substitute.For<IQueryExecutor>(); var commands = Substitute.For<ICommandExecutor>();
+        var result = await CreateService(query, commands, actor).StartAsync(actor,
+            new(Guid.CreateVersion7(), WorkflowChildStartContext.BusinessType, Guid.CreateVersion7().ToString("D"), System.Text.Json.JsonDocument.Parse("{}").RootElement.Clone(), "forged-child"));
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(WorkflowErrorCodes.BusinessOwnerRequired, result.Error!.Code);
+        Assert.AreEqual(0, query.ReceivedCalls().Count()); Assert.AreEqual(0, commands.ReceivedCalls().Count());
     }
 
     /// <summary>同一操作人、幂等键和摘要重放必须返回当前快照且不再写入。</summary>
@@ -265,7 +417,6 @@ public sealed class WorkflowInstanceManagementServiceTests
         tenant.IsHost.Returns(true);
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
         var notificationPublisher = new WorkflowNotificationOutboxPublisher(
             outbox ?? Substitute.For<IOutboxWriter>());
         var featureEntitlements = Substitute.For<ITenantFeatureEntitlementPort>();
@@ -280,15 +431,13 @@ public sealed class WorkflowInstanceManagementServiceTests
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
-            new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
-            WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
                 query, command, ids, outbox ?? Substitute.For<IOutboxWriter>()),
             WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
             WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator(),
-            featureEntitlements);
+            featureEntitlements,
+            new WorkflowHumanActivityPreparation(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()));
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>

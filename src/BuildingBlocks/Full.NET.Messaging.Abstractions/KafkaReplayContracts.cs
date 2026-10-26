@@ -17,12 +17,12 @@ public sealed class KafkaReplayRequest
     /// </summary>
     /// <param name="topicCode">目录注册的逻辑 Topic 代码。</param>
     /// <param name="fromTimestampUtc">UTC 起始时间戳（含）；必须与 <paramref name="toTimestampUtc"/> 成对提供。</param>
-    /// <param name="toTimestampUtc">UTC 结束时间戳（含）；必须与 <paramref name="fromTimestampUtc"/> 成对提供。</param>
+    /// <param name="toTimestampUtc">UTC 结束时间戳（不含）；必须与 <paramref name="fromTimestampUtc"/> 成对提供。</param>
     /// <param name="fromOffset">起始 Offset（含）；必须与 <paramref name="toOffset"/> 成对提供，且不得与时间范围同时提供。</param>
     /// <param name="toOffset">结束 Offset（含）；必须与 <paramref name="fromOffset"/> 成对提供。</param>
     /// <param name="partitions">需要重放的分区列表；空数组表示全部分区，但总数不得超过 <see cref="MaximumPartitions"/>。</param>
     /// <param name="replayConsumerName">发起重放的业务消费者名；用于审计与临时 Group 后缀拼接。</param>
-    /// <param name="maxMessages">单分区最多扫描的消息数；上限 100,000 防止调用方误操作。</param>
+    /// <param name="maxMessages">跨所选分区合计最多扫描的消息数；上限 100,000 防止调用方误操作。</param>
     /// <param name="reason">审计原因文本，1-512 字符。</param>
     public KafkaReplayRequest(
         string topicCode,
@@ -127,7 +127,7 @@ public sealed class KafkaReplayRequest
     public DateTimeOffset? FromTimestampUtc { get; }
 
     /// <summary>
-    /// UTC 结束时间戳（含）；采用时间范围重放时不为 null。
+    /// UTC 结束时间戳（不含）；采用时间范围重放时不为 null。
     /// </summary>
     public DateTimeOffset? ToTimestampUtc { get; }
 
@@ -152,7 +152,7 @@ public sealed class KafkaReplayRequest
     public string ReplayConsumerName { get; }
 
     /// <summary>
-    /// 单分区最多扫描的消息条数上限；达到后立即停止该分区继续读取。
+    /// 本次执行在全部所选分区内累计扫描的消息条数上限。
     /// </summary>
     public int MaxMessages { get; }
 
@@ -175,7 +175,7 @@ public sealed class KafkaReplayRequest
 /// <summary>
 /// Kafka 范围重放服务契约；实现需保证：
 /// 1. 使用临时独立 Consumer Group，绝不修改正式消费组的 Committed Offset；
-/// 2. 每分区到达高水位或 <see cref="KafkaReplayRequest.MaxMessages"/> 后立即退出；
+/// 2. 各分区到达固定高水位或所有分区合计达到 <see cref="KafkaReplayRequest.MaxMessages"/> 后立即退出；
 /// 3. 严格复用 Inbox 幂等表判定 <c>AlreadyProcessed</c>，避免重复执行业务副作用。
 /// </summary>
 public interface IKafkaReplayService

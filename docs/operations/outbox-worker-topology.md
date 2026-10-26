@@ -266,22 +266,28 @@ ORDER BY DeadLetteredAtUtc DESC;
 
 ## 8. 受控人工重放
 
-当前仓库没有提供通用重放 API 或一键脚本。人工重放必须满足以下前提：
+第一批已提供 Legacy Outbox 运维 API：`GET /api/v1/messaging/outbox/dead-letters` 查询，`GET /api/v1/messaging/outbox/dead-letters/{id}` 查看详情，`POST /api/v1/messaging/outbox/dead-letters/{id}/requeue` 按精确 Id 回队。Vue 消息运维默认展示此来源；原 `/api/v1/messaging/dead-letters` 保留其 Inbox failed 行语义。
+
+接口经基础设施运维端口访问 Legacy 表，在同一事务中取得流所有权门、检查 Legacy/Shadow 所有权并条件更新未处理的死信；保留载荷、Id 与历史 Attempts。查询需要 `messaging.dead_letters.read`，回队独立要求 `messaging.outbox_dead_letters.requeue`，仅 Host；请求体 `{ "reason": "根因修复依据" }` 必填且不超过 512 字符。可信操作者从认证上下文取得，恢复与领域审计同事务；并发重复不能产生两次成功。实际双库验证及边界见 [第一批记录](../superpowers/plans/2026-10-24-messaging-operations-batch1.md)，完整整改范围见 [Messaging 运行时拓扑](messaging-runtime-topology.md#2026-10-24-运维整改范围第一批已实现)。
+
+现有人工重放必须满足以下前提：
 
 1. 已确认根因，例如缺失 Handler、坏载荷生产者缺陷、依赖故障或错误配置。
 2. 根因修复已经部署，并完成最小回归验证。
 3. 已锁定待重放的精确消息集合，禁止批量扫表式“全量清死信”。
 4. 已记录操作人、工单、时间窗与预期影响。
+5. 已确认目标流仍由 Legacy/Shadow 所有权处理，并在操作窗口避免与切流或回退并发；人工只读检查不构成数据库原子所有权门。已切为 CdcKafka 的流不得套用下述回队示例。
+6. 已核对目标 Handler 的幂等或对账策略。Legacy 回队不经过 Kafka Inbox，仅保留 MessageId 不能独立保证外部副作用不重复；副作用结果不确定时先对账或使用业务补偿。
 
 推荐流程：
 
-1. 先用只读 SQL 导出目标消息的 `Id`、`MessageType`、`SchemaVersion`、`Attempts`、`DeadLetterReasonCode` 与 `Error`。
+1. 通过列表和详情核对精确消息 `Id`、`MessageType`、`SchemaVersion`、`Attempts` 与原因码；仅必要诊断由授权人员读取数据库原始错误。
 2. 评估是否需要先停对应生产者或临时缩小 Worker 副本，避免修复前再次制造同类死信。
-3. 在变更窗口内，仅对明确目标消息执行受控回队。
+3. 在变更窗口内，通过页面或上述 API 对精确目标填写理由、确认并回队。
 4. 回队后观察 `ProcessedAtUtc`、新的 `Attempts`、应用日志和死信计数是否符合预期。
 5. 若再次死信，停止批量操作，按新的原因重新诊断。
 
-受控回队示例只允许按精确 `Id` 执行，且必须保留 `ProcessedAtUtc IS NULL` 防护：
+以下保留紧急数据库诊断的状态更新语义参考；日常恢复使用 API。SQL 片段不包含认证、领域审计或并发所有权门，不能作为完整通用恢复命令；确需应急数据库操作时仍须单独授权、保留审计并满足上述窗口、所有权和幂等前提。
 
 SQL Server：
 
@@ -325,5 +331,5 @@ WHERE Id = @Id
 
 - 相邻版本升级链与生产发布平台中的持续退役门禁；
 - 真实多副本压力基准与容量建议；
-- 受控人工重放自动化工具；
+- 无界批量恢复不提供；自动升级、补偿和对账需业务场景单独设计；
 - 结合 Redis/编排器的更广生产演练。

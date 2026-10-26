@@ -33,52 +33,63 @@ internal sealed class DeliveryCutoverService(
     IIdGenerator idGenerator,
     IClock clock,
     ICommandTransaction transaction,
-    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter)
+    ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter,
+    DeliveryCutoverEvidenceService evidenceService,
+    IDatabaseSessionLock sessionLock,
+    IEnumerable<IntegrationEventTopicDefinition> registeredTopics,
+    Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// 执行交付所有权切换：校验前置条件后，在命令事务内 CAS 写入新所有者、记录切流边界并写领域审计。
     /// </summary>
     /// <param name="request">切流请求，必须包含事件类型、版本、目标所有者与运维理由。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
     /// <returns>切流结果；前置条件不满足或 CAS 并发冲突时返回对应错误，成功时返回切流边界事件。</returns>
-    public Task<Result<DeliveryCutoverResponse>> CutoverAsync(
+    public async Task<Result<DeliveryCutoverResponse>> CutoverAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (MessagingOperationActor.Validate(MessagingOperationActor.Resolve(httpContextAccessor), request.Reason) is { } actorError)
+            return Result<DeliveryCutoverResponse>.Failure(actorError);
         if (!cutoverOptions.Value.Enabled)
         {
-            return Task.FromResult(Result<DeliveryCutoverResponse>.Failure(new Error(
+            return Result<DeliveryCutoverResponse>.Failure(new Error(
                 MessagingErrorCodes.CutoverPreconditionFailed,
                 "CDC/Kafka delivery cutover is disabled for this environment.",
-                ErrorType.BusinessRule)));
+                ErrorType.BusinessRule));
         }
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
-            return Task.FromResult(Result<DeliveryCutoverResponse>.Failure(new Error(
+            return Result<DeliveryCutoverResponse>.Failure(new Error(
                 MessagingErrorCodes.ReasonRequired,
                 "A cutover reason is required.",
-                ErrorType.Validation)));
+                ErrorType.Validation));
         }
 
         if (request.TargetOwner is not EventDeliveryOwner.CdcKafka)
         {
-            return Task.FromResult(Result<DeliveryCutoverResponse>.Failure(new Error(
+            return Result<DeliveryCutoverResponse>.Failure(new Error(
                 MessagingErrorCodes.InvalidCutoverTarget,
                 "Only CDC Kafka ownership can be requested through this endpoint.",
-                ErrorType.BusinessRule)));
+                ErrorType.BusinessRule));
         }
 
-        return transaction.ExecuteResultAsync(
-            token => CutoverCoreAsync(request, token),
-            cancellationToken);
+        await using var control = await sessionLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock, cancellationToken).ConfigureAwait(false);
+        if (control is null) return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
+            "Another delivery control operation is running.", ErrorType.Conflict));
+        // 外部探测在事务外执行；命令事务内只重验短期证明及权威数据摘要。
+        var evidence = await evidenceService.FindReadyAsync(request.EventType, request.SchemaVersion, cancellationToken).ConfigureAwait(false);
+        if (evidence is null) return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
+            "Fresh durable shadow evidence and live target resources are required.", ErrorType.BusinessRule));
+        return await transaction.ExecuteResultAsync(
+            token => CutoverCoreAsync(request, evidence, token), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<DeliveryCutoverResponse>> CutoverCoreAsync(
         ChangeDeliveryOwnerRequest request,
+        CutoverEvidenceRow evidence,
         CancellationToken cancellationToken)
     {
         if (!await ownershipGate.AcquireOwnershipChangeAsync(
@@ -114,6 +125,18 @@ internal sealed class DeliveryCutoverService(
                 "Cutover is only supported from legacy polling ownership.",
                 ErrorType.BusinessRule));
         }
+
+        // 当前固定 Topic 的专用 Connector 协议只支持一个活动试点流，不能把共享 Outbox 的其他流一起路由。
+        var declaredOwners = await ownerResolver.GetDeliveryOwnersAsync(registeredTopics.ToArray(), cancellationToken).ConfigureAwait(false);
+        var persistedOwners = await ownershipStore.ListAsync(cancellationToken).ConfigureAwait(false);
+        if (declaredOwners.Any(item => item.Value == EventDeliveryOwner.CdcKafka && (item.Key.EventType != request.EventType || item.Key.SchemaVersion != request.SchemaVersion))
+            || persistedOwners.Any(item => item.CurrentOwner == EventDeliveryOwner.CdcKafka && (item.MessageType != request.EventType || item.SchemaVersion != request.SchemaVersion)))
+            return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
+                "The current dedicated connector protocol supports only one active CDC pilot stream.", ErrorType.BusinessRule));
+
+        if (evidence.ExpiresAtUtc <= clock.UtcNow || !await evidenceService.IsSourceUnchangedAsync(evidence, cancellationToken).ConfigureAwait(false))
+            return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
+                "Shadow evidence expired or its source data changed.", ErrorType.BusinessRule));
 
         var retirement = await backlogReader
             .ReadVersionRetirementAsync(
@@ -157,7 +180,7 @@ internal sealed class DeliveryCutoverService(
             cutoffEventId,
             cutoffOccurredAtUtc,
             null,
-            null,
+            MessagingOperationActor.Resolve(httpContextAccessor)!.UserId,
             request.Reason,
             null,
             null,
@@ -183,8 +206,8 @@ internal sealed class DeliveryCutoverService(
                     cutoffEventId != Guid.Empty ? cutoffEventId : idGenerator.NewId(),
                     TenantId: null,
                     MessagingDomainAuditOutcomes.Success,
-                    ActorUserId: null,
-                    ActorDisplayName: null,
+                    ActorUserId: MessagingOperationActor.Resolve(httpContextAccessor)!.UserId,
+                    ActorDisplayName: MessagingOperationActor.Resolve(httpContextAccessor)!.DisplayName,
                     DiffSummaryJson: JsonSerializer.Serialize(
                         new DeliveryCutoverAuditDiff(
                             request.EventType,
@@ -194,7 +217,8 @@ internal sealed class DeliveryCutoverService(
                             cutoffEventId,
                             cutoffOccurredAtUtc,
                             request.Reason,
-                            OwnershipPersisted: true),
+                            OwnershipPersisted: true,
+                            evidence.Id),
                         MessagingJsonSerializerContext.Default.DeliveryCutoverAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);

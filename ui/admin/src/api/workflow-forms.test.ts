@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   workflowCreateForm,
+  workflowGetDesignerAsset,
+  workflowSaveDesignerAsset,
   workflowGetForm,
   workflowGetFormComponentCatalog,
   workflowListForms,
@@ -10,6 +12,8 @@ import {
 } from '@fullnet/client-contracts';
 import {
   createWorkflowForm,
+  getWorkflowDesignerAsset,
+  saveWorkflowDesignerAsset,
   getWorkflowForm,
   getWorkflowFormComponentCatalog,
   listWorkflowForms,
@@ -20,6 +24,8 @@ import {
 vi.mock('@fullnet/client-contracts', async importOriginal => ({
   ...await importOriginal<typeof import('@fullnet/client-contracts')>(),
   workflowCreateForm: vi.fn(),
+  workflowGetDesignerAsset: vi.fn(),
+  workflowSaveDesignerAsset: vi.fn(),
   workflowGetForm: vi.fn(),
   workflowGetFormComponentCatalog: vi.fn(),
   workflowListForms: vi.fn(),
@@ -38,6 +44,32 @@ const draft = {
 
 describe('workflow forms api', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('完整设计稿只接受对象根，并保留未知扩展内容', async () => {
+    const asset = { formId: 'form-1', draftRevision: 1, sourceCommit: 'c67479e496bab56a93a3dff168a4f529d8293c67',
+      formatVersion: 3, contentHash: 'a'.repeat(64), designerJson: { widgetList: [], formConfig: { jsonVersion: 3 }, extension: { keep: true } } };
+    vi.mocked(workflowGetDesignerAsset).mockResolvedValue(asset);
+    expect((await getWorkflowDesignerAsset('form-1'))?.designerJson).toEqual(asset.designerJson);
+    vi.mocked(workflowGetDesignerAsset).mockResolvedValue({ ...asset, designerJson: [] });
+    await expect(getWorkflowDesignerAsset('form-1')).rejects.toThrow('client.invalid_workflow_designer_asset');
+  });
+
+  it('完整设计资产读取和保存保留扩展字段及配置', async () => {
+    const designerJson = { widgetList: [{ type: 'future-widget', options: { keep: [1, true, null] } }], formConfig: { jsonVersion: 3, cssCode: '.a {}' }, extension: { keep: true } };
+    const asset = { formId: 'form-1', draftRevision: 2, formatVersion: 3, sourceCommit: 'source', contentHash: 'hash', designerJson };
+    vi.mocked(workflowGetDesignerAsset).mockResolvedValue(asset);
+    vi.mocked(workflowSaveDesignerAsset).mockResolvedValue(asset);
+    expect((await getWorkflowDesignerAsset('form-1'))?.designerJson).toEqual(designerJson);
+    expect((await saveWorkflowDesignerAsset('form-1', 1, designerJson)).designerJson).toEqual(designerJson);
+  });
+
+  it.each([null, [], 'invalid', {}, { widgetList: [] }, { widgetList: [], formConfig: [] }])('非法完整设计资产 %j 读取和保存均失败关闭', async designerJson => {
+    const asset = { formId: 'form-1', draftRevision: 2, formatVersion: 3, sourceCommit: 'source', contentHash: 'hash', designerJson };
+    vi.mocked(workflowGetDesignerAsset).mockResolvedValue(asset);
+    vi.mocked(workflowSaveDesignerAsset).mockResolvedValue(asset);
+    await expect(getWorkflowDesignerAsset('form-1')).rejects.toThrow('client.invalid_workflow_designer_asset');
+    await expect(saveWorkflowDesignerAsset('form-1', 1, { widgetList: [], formConfig: {} })).rejects.toThrow('client.invalid_workflow_designer_asset');
+  });
 
   it('只通过生成客户端读取列表、详情与组件目录', async () => {
     vi.mocked(workflowListForms).mockResolvedValue([]);
@@ -64,7 +96,7 @@ describe('workflow forms api', () => {
 
     expect(workflowCreateForm).toHaveBeenCalledWith(
       expect.anything(),
-      { body: { formKey: 'purchase.request', draft } },
+      { body: { formKey: 'purchase.request', draft, designerJson: { widgetList: [], formConfig: { jsonVersion: 3 } } } },
       undefined
     );
     expect(workflowUpdateFormDraft).toHaveBeenCalledWith(

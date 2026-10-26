@@ -51,7 +51,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.connectionSecretName }}
                   key: {{ .Values.database.connectionSecretKey }}
-{{- if eq .Values.worker.messaging.mode "CdcKafka" }}
+{{- if eq .Values.worker.messaging.mode "HybridKafka" }}
             - name: Messaging__Kafka__Enabled
               value: "true"
             - name: Messaging__Kafka__BootstrapServers

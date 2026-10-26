@@ -13,9 +13,52 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
     {
         registrar.Register<EventStreamOwnershipPersistenceRow>(ReadEventStreamOwnershipPersistenceRow);
         registrar.Register<RollbackPreparationRecord>(ReadRollbackPreparationRecord);
+        registrar.Register<ShadowCaptureRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3),
+            AotDataReaderExtensions.ReadInt32(reader, 4), reader.GetString(5), AotDataReaderExtensions.ReadInt32(reader, 6),
+            AotDataReaderExtensions.ReadInt64(reader, 7), AotDataReaderExtensions.ReadInt32(reader, 8), AotDataReaderExtensions.ReadInt64(reader, 9),
+            AotDataReaderExtensions.ReadInt32(reader, 10), AotDataReaderExtensions.ReadNullableGuid(reader, 11),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 12), AotDataReaderExtensions.ReadDateTimeOffset(reader, 13),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14), AotDataReaderExtensions.ReadNullableString(reader, 15),
+            reader.GetGuid(16), reader.GetString(17), reader.GetString(18), AotDataReaderExtensions.ReadDateTimeOffset(reader, 19),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 20), AotDataReaderExtensions.ReadNullableGuid(reader, 21)));
+        registrar.Register<Features.GetDeliveryStatus.DeliveryStreamObservationRow>(reader => new(
+            AotDataReaderExtensions.ReadNullableString(reader, 0), reader.IsDBNull(1) ? null : AotDataReaderExtensions.ReadInt32(reader, 1),
+            AotDataReaderExtensions.ReadInt64(reader, 2), AotDataReaderExtensions.ReadInt64(reader, 3),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 4), AotDataReaderExtensions.ReadInt64(reader, 5),
+            AotDataReaderExtensions.ReadInt64(reader, 6), AotDataReaderExtensions.ReadNullableGuid(reader, 7)));
+        registrar.Register<KafkaReplayOperationRow>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), AotDataReaderExtensions.ReadInt32(reader, 3),
+            reader.GetString(4), reader.GetString(5), reader.GetString(6), AotDataReaderExtensions.ReadNullableString(reader, 7),
+            reader.GetString(8), AotDataReaderExtensions.ReadInt32(reader, 9), AotDataReaderExtensions.ReadNullableGuid(reader, 10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11), reader.IsDBNull(12) ? null : AotDataReaderExtensions.ReadInt32(reader, 12),
+            reader.IsDBNull(13) ? null : reader.GetInt64(13), reader.GetInt64(14), reader.GetInt64(15), reader.GetInt64(16),
+            AotDataReaderExtensions.ReadNullableString(reader, 17), reader.GetGuid(18), reader.GetString(19), reader.GetString(20),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 21), AotDataReaderExtensions.ReadDateTimeOffset(reader, 22)));
+        registrar.Register<Full.NET.Messaging.Abstractions.EventDeliveryRollbackOperation>(reader => new(
+            reader.GetGuid(0), reader.GetString(1), AotDataReaderExtensions.ReadInt32(reader, 2),
+            (Full.NET.Messaging.Abstractions.EventDeliveryRollbackPhase)AotDataReaderExtensions.ReadInt32(reader, 3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 5), AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
+            reader.GetBoolean(7), AotDataReaderExtensions.ReadNullableGuid(reader, 8), AotDataReaderExtensions.ReadNullableString(reader, 9)));
         registrar.Register<OutboxStreamCutoffRecord>(ReadOutboxStreamCutoffRecord);
+        registrar.Register<Full.NET.Messaging.Abstractions.CutoverShadowEvent>(reader => new(reader.GetGuid(0), reader.GetString(1),
+            reader.GetFieldValue<byte[]>(2), AotDataReaderExtensions.ReadDateTimeOffset(reader, 3), reader.GetString(4),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5), AotDataReaderExtensions.ReadNullableString(reader, 6),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 7), AotDataReaderExtensions.ReadNullableString(reader, 8), reader.GetString(9), reader.GetGuid(10)));
+        registrar.Register<Features.ChangeDeliveryOwner.CutoverEvidenceRow>(reader => new(reader.GetGuid(0), reader.GetString(1),
+            AotDataReaderExtensions.ReadInt32(reader, 2), reader.GetString(3), reader.GetString(4), AotDataReaderExtensions.ReadInt32(reader, 5),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 6), AotDataReaderExtensions.ReadDateTimeOffset(reader, 7)));
         registrar.Register<DeadLetterRecord>(ReadDeadLetterRecord);
         registrar.Register<OutboxEnvelopeRecord>(ReadOutboxEnvelopeRecord);
+        registrar.Register<KafkaDeadLetterRow>(reader => new(
+            reader.GetGuid(0), reader.GetString(1), reader.GetString(2), AotDataReaderExtensions.ReadInt32(reader, 3),
+            reader.GetInt64(4), reader.GetString(5), AotDataReaderExtensions.ReadInt32(reader, 6), reader.GetInt64(7),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 8), AotDataReaderExtensions.ReadNullableString(reader, 9),
+            reader.IsDBNull(10) ? null : AotDataReaderExtensions.ReadInt32(reader, 10),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 11), AotDataReaderExtensions.ReadInt32(reader, 12),
+            reader.GetString(13), AotDataReaderExtensions.ReadDateTimeOffset(reader, 14),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 15), reader.GetBoolean(16),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 17), reader.GetString(18)));
     }
 
     /// <remarks>

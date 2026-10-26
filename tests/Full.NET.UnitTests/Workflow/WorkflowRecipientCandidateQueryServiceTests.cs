@@ -17,11 +17,11 @@ public sealed class WorkflowRecipientCandidateQueryServiceTests
         var userId = Guid.CreateVersion7();
         var currentTenant = Substitute.For<ICurrentTenant>();
         var hostUsers = Substitute.For<IHostUserSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
         currentTenant.IsHost.Returns(false);
         currentTenant.IsAvailable.Returns(true);
         currentTenant.Id.Returns(tenantId);
-        tenantUsers.ListActiveTenantUsersAsync(1, 50, Arg.Any<CancellationToken>())
+        tenantUsers.ListActiveTenantMembersAsync(1, 50, Arg.Any<CancellationToken>())
             .Returns(new PagedResult<TenantUserDirectoryEntry>(
                 [new TenantUserDirectoryEntry(userId, "tenant-user", "租户用户")],
                 1,
@@ -36,7 +36,7 @@ public sealed class WorkflowRecipientCandidateQueryServiceTests
 
         Assert.AreEqual(1L, result.Total);
         Assert.AreEqual(userId, result.Items.Single().Id);
-        await tenantUsers.Received(1).ListActiveTenantUsersAsync(
+        await tenantUsers.Received(1).ListActiveTenantMembersAsync(
             1,
             50,
             Arg.Any<CancellationToken>());
@@ -52,7 +52,7 @@ public sealed class WorkflowRecipientCandidateQueryServiceTests
         var userId = Guid.CreateVersion7();
         var currentTenant = Substitute.For<ICurrentTenant>();
         var hostUsers = Substitute.For<IHostUserSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
         currentTenant.IsHost.Returns(true);
         hostUsers.ListActiveHostUsersAsync(1, 50, Arg.Any<CancellationToken>())
             .Returns(new PagedResult<HostUserDirectoryEntry>(
@@ -73,7 +73,7 @@ public sealed class WorkflowRecipientCandidateQueryServiceTests
             1,
             50,
             Arg.Any<CancellationToken>());
-        await tenantUsers.DidNotReceiveWithAnyArgs().ListActiveTenantUsersAsync(
+        await tenantUsers.DidNotReceiveWithAnyArgs().ListActiveTenantMembersAsync(
             default,
             default,
             default);

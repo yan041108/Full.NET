@@ -13,7 +13,7 @@ namespace Full.NET.Host.Worker;
 internal static class MessagingWorkerCatalogGuard
 {
     /// <summary>
-    /// 通过 IServiceScopeFactory 创建 AsyncScope 解析目录，校验 HybridKafka（含过时 CdcKafka 别名）模式。
+    /// 通过 IServiceScopeFactory 创建 AsyncScope 解析目录，校验 HybridKafka模式。
     /// </summary>
     /// <param name="scopeFactory">DI 作用域工厂；通常由 Singleton 启动守卫或 HostedService 持有。</param>
     /// <param name="mode">当前 Worker 运行模式。</param>
@@ -24,20 +24,13 @@ internal static class MessagingWorkerCatalogGuard
     /// 2) 空目录默认值实现（EmptyIntegrationEventSubscriptionCatalog）返回空集合，
     ///    通过 catalog.GetAllSubscriptions() 判断比直接 GetServices 更可靠——目录构造已完成一致性校验。
     /// </remarks>
-    public static async Task ValidateCdcKafkaModeAsync(
+    public static async Task ValidateHybridKafkaModeAsync(
         IServiceScopeFactory scopeFactory,
         MessagingWorkerMode mode)
     {
         ArgumentNullException.ThrowIfNull(scopeFactory);
 
-        // CdcKafka 枚举值作为 HybridKafka 的过时别名，两者共享同一守卫。
-#pragma warning disable CS0618 // CdcKafka 作为过时别名保留一版，比较操作是兼容旧配置的必要步骤。
-        var effectiveMode = mode == MessagingWorkerMode.CdcKafka
-            ? MessagingWorkerMode.HybridKafka
-            : mode;
-#pragma warning restore CS0618
-
-        if (effectiveMode is not MessagingWorkerMode.HybridKafka)
+        if (mode is not MessagingWorkerMode.HybridKafka)
         {
             return;
         }
@@ -59,14 +52,14 @@ internal static class MessagingWorkerCatalogGuard
     /// 正式 Kafka 模式必须存在真实业务订阅；空目录会让 Worker 看似健康却静默退出。
     /// </summary>
     /// <remarks>保留直接传集合的重载，便于单元测试（不依赖 DI 容器）。</remarks>
-    public static void ValidateCdcKafkaMode(
+    public static void ValidateProductionSubscriptions(
         IReadOnlyCollection<IIntegrationEventSubscription> subscriptions)
     {
         ArgumentNullException.ThrowIfNull(subscriptions);
         if (subscriptions.Count == 0)
         {
             throw new InvalidOperationException(
-                "CdcKafka delivery mode requires at least one production IIntegrationEventSubscription; "
+                "HybridKafka delivery mode requires at least one production IIntegrationEventSubscription; "
                 + "currently no module registered any. See docs/operations/cdc-kafka-event-delivery.md.");
         }
     }

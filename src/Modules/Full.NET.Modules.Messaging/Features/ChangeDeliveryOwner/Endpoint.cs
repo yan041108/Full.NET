@@ -18,6 +18,13 @@ internal static class Endpoint
     /// </remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost("/api/v1/messaging/delivery/cutover-evidence", async (VerifyCutoverRequest request,
+            DeliveryCutoverEvidenceService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.VerifyAsync(request, token).ConfigureAwait(false), context))
+            .WithName("messagingVerifyCutoverEvidence")
+            .WithTags("Messaging")
+            .Produces<CutoverEvidenceResponse>(StatusCodes.Status200OK)
+            .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.DeliveryCutover));
         var group = endpoints.MapGroup("/api/v1/messaging/delivery")
             .WithTags("Messaging");
 
@@ -32,6 +39,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("messagingCutoverDeliveryOwner")
         .Produces<DeliveryCutoverResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(MessagingPermissions.DeliveryCutover));
     }

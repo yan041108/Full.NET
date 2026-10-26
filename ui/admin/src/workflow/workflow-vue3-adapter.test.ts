@@ -6,7 +6,161 @@ import {
 } from './workflow-vue3-adapter';
 
 describe('Workflow-Vue3 定义适配器', () => {
+  it('开始节点的撤回边界无损往返，不接受客户端授权或补偿豁免', () => {
+    const tree = { id: 'start', type: 0, withdrawalPolicy: { modeKey: 'at_active_nodes', nodeKeys: ['review'] },
+      childNode: { id: 'review', type: 1, childNode: null } };
+    expect(toWorkflowVue3Tree(fromWorkflowVue3Tree(tree))).toMatchObject(tree);
+    expect(() => fromWorkflowVue3Tree({ ...tree, withdrawalPolicy: { modeKey: 'before_any_human_action', skipCompensation: true } })).toThrow();
+    expect(() => fromWorkflowVue3Tree({ ...tree, withdrawalPolicy: { modeKey: 'at_active_nodes', nodeKeys: ['review', 'review'] } })).toThrow();
+  });
+  it('领取往返固定候选和释放策略，不能混入审批或个人投票', () => {
+    const tree = { id: 'start', type: 0, workflowKindKey: 'automation', childNode: { id: 'claim', type: 17, childNode: null,
+      claimPolicy: { allowRelease: true }, assigneePolicy: { sources: [{ resolverKindKey: 'initiator' }] },
+      operationPermissions: { complete: true, release: true, transfer: false } } };
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'claim')?.nodeTypeKey).toBe('human.claim');
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+    expect(() => fromWorkflowVue3Tree({ ...tree, childNode: { ...tree.childNode, claimPolicy: { allowRelease: true, actorId: 'foreign' } } })).toThrow();
+    expect(() => fromWorkflowVue3Tree({ ...tree, childNode: { ...tree.childNode, approvalPolicy: { modeKey: 'single' } } })).toThrow();
+    expect(() => fromWorkflowVue3Tree({ ...tree, childNode: { ...tree.childNode, operationPermissions: { vote: true } } })).toThrow();
+  });
+  it('办理往返保留独立提交规则，不接受审批策略混入', () => {
+    const tree = { id: 'start', type: 0, workflowKindKey: 'automation', childNode: { id: 'task', type: 18, childNode: null,
+      taskPolicy: { completionModeKey: 'sequential' }, assigneePolicy: { sources: [{ resolverKindKey: 'initiator' }] },
+      operationPermissions: { complete: true, transfer: false }, commentRequired: true } };
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.workflowKindKey).toBe('automation'); expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'task')?.nodeTypeKey).toBe('human.task');
+    expect(() => fromWorkflowVue3Tree({ ...tree, childNode: { ...tree.childNode, approvalPolicy: { modeKey: 'all', approverUserIds: [] } } })).toThrow();
+    expect(() => fromWorkflowVue3Tree({ ...tree, childNode: { ...tree.childNode, operationPermissions: { approve: true } } })).toThrow();
+  });
+
+  it('分组往返保留组内顺序与组间比例，并拒绝跨组重复成员', () => {
+    const users = ['019bc2b1-2a40-7cc3-8992-a80de51bfd21', '019bc2b1-2a40-7cc3-8992-a80de51bfd22', '019bc2b1-2a40-7cc3-8992-a80de51bfd23', '019bc2b1-2a40-7cc3-8992-a80de51bfd24'];
+    const group = (key: string, ids: string[]) => ({ groupKey: key, approvalPolicy: { modeKey: 'sequential', approverUserIds: ids } });
+    const tree = { id: 'start', type: 0, childNode: { id: 'review', type: 21, childNode: null,
+      groups: [group('first', users.slice(0, 2)), group('second', users.slice(2))],
+      groupApprovalPolicy: { modeKey: 'percent', requiredPercentage: 67 }, commentRequired: true } };
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'review')?.nodeTypeKey).toBe('human.group_approval');
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+    const overlapping = structuredClone(tree);
+    overlapping.childNode.groups[1]!.approvalPolicy.approverUserIds[0] = users[0]!;
+    expect(() => fromWorkflowVue3Tree(overlapping)).toThrow('client.invalid_workflow_approval_policy');
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: { id: 'empty', type: 21, childNode: null } })).toThrow();
+  });
+
+  it('依次审批往返保留指定成员顺序，不能排序或降级为会签', () => {
+    const users = ['019bc2b1-2a40-7cc3-8992-a80de51bfd23', '019bc2b1-2a40-7cc3-8992-a80de51bfd21'];
+    const tree = { id: 'start', type: 0, nodeName: '发起人', childNode: {
+      id: 'review', type: 1, nodeName: '依次审批', childNode: null,
+      approvalPolicy: { modeKey: 'sequential', approverUserIds: users }
+    } };
+    expect(toWorkflowVue3Tree(fromWorkflowVue3Tree(tree))).toMatchObject(tree);
+  });
+
+  it('按比例审批完整往返并拒绝越界或隐式转换百分比', () => {
+    const users = ['019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001', '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002'];
+    const tree = (percentage: unknown) => ({ id: 'start', type: 0, nodeName: '发起人', childNode: {
+      id: 'review', type: 1, nodeName: '比例审批', childNode: null,
+      approvalPolicy: { modeKey: 'percent', approverUserIds: users, requiredPercentage: percentage }
+    } });
+    const draft = fromWorkflowVue3Tree(tree(67));
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree(67));
+    for (const value of [0, 101, 50.5, '50']) {
+      expect(() => fromWorkflowVue3Tree(tree(value))).toThrow('client.invalid_workflow_approval_policy');
+    }
+  });
+
+  it('无人工节点的自动化类别在保存与回显后保留', () => {
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0, nodeName: '发起人', workflowKindKey: 'automation', childNode: null });
+    expect(draft.workflowKindKey).toBe('automation');
+    expect(draft.nodes.map(node => node.nodeTypeKey)).toEqual(['start', 'end']);
+    expect(fromWorkflowVue3Tree(toWorkflowVue3Tree(draft))).toEqual(draft);
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0, workflowKindKey: 'unknown' })).toThrow();
+  });
+
   const financeUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001';
+
+  function gateway(id: string, type = 10, branchCount = 1, childNode: unknown = null): Record<string, unknown> {
+    return {
+      id, type, childNode,
+      conditionNodes: [
+        ...Array.from({ length: branchCount }, (_, index) => ({
+          id: `${id}-condition-${index}`, type: 3, branchKey: `branch-${index}`,
+          fieldKey: 'amount', operator: 'greaterThan', value: index,
+          childNode: { id: `${id}-approval-${index}`, type: 1, childNode: null }
+        })),
+        { id: `${id}-default`, type: 3, isDefault: true,
+          childNode: { id: `${id}-fallback`, type: 1, childNode: null } }
+      ]
+    };
+  }
+
+  it.each([
+    ['公共审批', { id: 'common', type: 1, childNode: null }],
+    ['公共排他网关', gateway('common')],
+    ['公共并行网关', gateway('common', 12)],
+    ['公共包容网关', gateway('common', 13)]
+  ])('排他分支末端连接%s且双向转换保留公共节点', (_label, common) => {
+    const tree = { id: 'start', type: 0, childNode: gateway('route', 10, 1, common) };
+    const draft = fromWorkflowVue3Tree(tree);
+    for (const key of ['route-approval-0', 'route-fallback']) {
+      expect(draft.nodes.find(node => node.nodeKey === key)?.config).toMatchObject({ nextNodeKeys: ['common'] });
+    }
+    expect(fromWorkflowVue3Tree(toWorkflowVue3Tree(draft))).toMatchObject(draft);
+  });
+
+  it('嵌套排他网关分别接入本层公共节点及外层公共节点', () => {
+    const inner = gateway('inner', 10, 1, { id: 'inner-common', type: 1, childNode: null });
+    const outer = gateway('outer', 10, 1, { id: 'outer-common', type: 1, childNode: null });
+    (outer.conditionNodes as Array<Record<string, unknown>>)[0]!.childNode = inner;
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: outer });
+    expect(draft.nodes.find(node => node.nodeKey === 'inner-approval-0')?.config).toMatchObject({ nextNodeKeys: ['inner-common'] });
+    expect(draft.nodes.find(node => node.nodeKey === 'inner-common')?.config).toMatchObject({ nextNodeKeys: ['outer-common'] });
+    expect(fromWorkflowVue3Tree(toWorkflowVue3Tree(draft))).toMatchObject(draft);
+  });
+
+  it('包容网关允许八条条件分支和一个独立默认分支往返', () => {
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: gateway('inclusive', 13, 8) });
+    expect(fromWorkflowVue3Tree(toWorkflowVue3Tree(draft))).toMatchObject(draft);
+  });
+
+  it('正向及反向转换均拒绝九条包容条件分支', () => {
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: gateway('inclusive', 13, 9) }))
+      .toThrow('client.invalid_workflow_gateway');
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: gateway('inclusive', 13, 8) });
+    const fork = draft.nodes.find(node => node.nodeKey === 'inclusive')!;
+    const config = fork.config as { branches: Array<Record<string, unknown>> };
+    config.branches.push({ branchKey: 'overflow', nextNodeKey: 'overflow', condition: { fieldKey: 'amount', operator: 'equals', value: 1 } });
+    expect(() => toWorkflowVue3Tree(draft)).toThrow('client.invalid_workflow_gateway');
+  });
+
+  it.each([12, 13])('类型 %i 的内部汇合键不能与用户节点重复或超长', type => {
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0,
+      childNode: gateway('fork', type, 1, { id: 'fork-join', type: 1, childNode: null })
+    })).toThrow('client.invalid_workflow_definition_draft');
+    const longKeyGateway = { ...gateway('fork', type), id: 'f'.repeat(125) };
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0,
+      childNode: longKeyGateway
+    })).toThrow('client.invalid_workflow_definition_draft');
+  });
+
+  it('反向转换拒绝定义或节点的不支持版本而不静默降级', () => {
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0,
+      childNode: { id: 'approve', type: 1, childNode: null } });
+    expect(() => toWorkflowVue3Tree({ ...draft, schemaVersion: 2 })).toThrow('client.invalid_workflow_definition_draft');
+    expect(() => toWorkflowVue3Tree({ ...draft, nodes: draft.nodes.map(item => ({ ...item, nodeSchemaVersion: 2 })) }))
+      .toThrow('client.invalid_workflow_definition_draft');
+  });
+
+  it('反向转换拒绝重复节点键和悬空分支并返回稳定错误', () => {
+    const draft = fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: gateway('route') });
+    expect(() => toWorkflowVue3Tree({ ...draft, nodes: [...draft.nodes, draft.nodes[0]!] }))
+      .toThrow('client.invalid_workflow_definition_draft');
+    expect(() => toWorkflowVue3Tree({ ...draft, nodes: draft.nodes.filter(item => item.nodeKey !== 'route-approval-0') }))
+      .toThrow('client.invalid_workflow_definition_draft');
+  });
 
   it('审批节点超时策略在设计树与服务端草稿之间保持闭合往返', () => {
     const tree = {
@@ -307,8 +461,8 @@ describe('Workflow-Vue3 定义适配器', () => {
     expect(() => fromWorkflowVue3Tree({
       id: 'start',
       type: 0,
-      childNode: { id: 'trigger', type: 7, remoteUrl: 'https://example.test', childNode: null }
-    })).toThrow('client.unsupported_workflow_node');
+      childNode: { id: 'trigger', type: 6, remoteUrl: 'https://example.test', childNode: null }
+    })).toThrow('client.invalid_workflow_connector');
 
     expect(() => fromWorkflowVue3Tree({
       id: 'start',
@@ -381,6 +535,40 @@ describe('Workflow-Vue3 定义适配器', () => {
     expect(draft.nodes.find(node => node.nodeKey === 'approve')?.config).toMatchObject({
       assigneePolicy: { sources: [{ resolverKindKey: 'role_members', roleIds: [roleId] }] }
     });
+  });
+
+  it.each([
+    { resolverKindKey: 'position_members', positionIds: ['019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002'] },
+    { resolverKindKey: 'organization_unit_members', unitId: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002' },
+    { resolverKindKey: 'initiator_leader_chain', maximumLevels: 3 }
+  ])('动态来源独立提供审批成员，配置往返不注入其他用户：%j', source => {
+    const approvalPolicy = { modeKey: 'all', approverUserIds: [] };
+    const assigneePolicy = { sources: [source] };
+    const draft = { schemaVersion: 1, nodes: [node('start', 'start', ['review']),
+      node('review', 'human.approval', ['end'], { assigneePolicy, approvalPolicy }), node('end', 'end', [])] };
+    const saved = fromWorkflowVue3Tree(toWorkflowVue3Tree(draft));
+    expect(saved.nodes.find(item => item.nodeKey === 'review')?.config).toMatchObject({ approvalPolicy, assigneePolicy });
+    expect(() => toWorkflowVue3Tree({ ...draft, nodes: [node('start', 'start', ['review']),
+      node('review', 'human.approval', ['end'], { approvalPolicy }), node('end', 'end', [])] }))
+      .toThrow('client.invalid_workflow_approval_policy');
+  });
+
+  it.each([0, 21, 1.5, '3'])('连续主管级数必须为有界整数：%j', maximumLevels => {
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0, childNode: { id: 'review', type: 1, childNode: null,
+      assigneePolicy: { sources: [{ resolverKindKey: 'initiator_leader_chain', maximumLevels }] } } }))
+      .toThrow('client.invalid_workflow_assignee_policy');
+  });
+
+  it.each([
+    { sources: [{ resolverKindKey: 'initiator' }], fallback: 'skip' },
+    { sources: [{ resolverKindKey: 'initiator', unexpected: true }] }
+  ])('办理人来源的未知配置必须拒绝而非静默删除：%j', assigneePolicy => {
+    const draft = { schemaVersion: 1, nodes: [node('start', 'start', ['review']),
+      node('review', 'human.approval', ['end'], { assigneePolicy }), node('end', 'end', [])] };
+    expect(() => toWorkflowVue3Tree(draft)).toThrow('client.invalid_workflow_assignee_policy');
+    expect(() => fromWorkflowVue3Tree({ id: 'start', type: 0,
+      childNode: { id: 'review', type: 1, assigneePolicy, childNode: null } }))
+      .toThrow('client.invalid_workflow_assignee_policy');
   });
 });
 

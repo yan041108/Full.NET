@@ -5,8 +5,6 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>解析并行网关分叉与汇合节点的闭合配置。</summary>
 internal static class WorkflowParallelGatewayConfiguration
 {
-    private const int MinimumBranchCount = 2;
-    private const int MaximumBranchCount = 8;
     private const int MaximumKeyLength = 128;
 
     /// <summary>读取并行网关节点配置。</summary>
@@ -48,7 +46,8 @@ internal static class WorkflowParallelGatewayConfiguration
         }
 
         var branchElements = branchesElement.EnumerateArray().ToArray();
-        if (branchElements.Length is < MinimumBranchCount or > MaximumBranchCount)
+        if (branchElements.Length < WorkflowGatewayLimits.MinimumBranches("gateway.parallel") ||
+            branchElements.Length > WorkflowGatewayLimits.MaximumBranches("gateway.parallel"))
         {
             return false;
         }

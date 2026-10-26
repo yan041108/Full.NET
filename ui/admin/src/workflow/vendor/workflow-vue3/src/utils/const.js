@@ -54,6 +54,8 @@ export const NodeType = {
   GroupApprover: 21,
   /** 空节点（扩展） */
   Empty: 22,
+  /** 真实所有者业务命令 */
+  BusinessCommand: 23,
 }
 
 /**
@@ -80,6 +82,7 @@ export const nodeTypeMetaMap = {
   [NodeType.CrossTenantApprover]: { label: '跨租户审批', icon: '', bgIndex: 1, configMode: 'approver' },
   [NodeType.GroupApprover]: { label: '分组审批', icon: '', bgIndex: 1, configMode: 'approver' },
   [NodeType.Empty]: { label: '空节点', icon: '', bgIndex: 0, configMode: 'json' },
+  [NodeType.BusinessCommand]: { label: '业务操作', icon: '', bgIndex: 0, configMode: 'json' },
 }
 
 /**

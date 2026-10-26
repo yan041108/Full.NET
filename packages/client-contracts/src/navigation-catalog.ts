@@ -395,6 +395,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/forms'
   },
   {
+    componentKey: 'workflow-calendars',
+    routeName: 'workflow-calendars',
+    path: '/workflow/calendars'
+  },
+  {
     componentKey: 'workflow-instances',
     routeName: 'workflow-instances',
     path: '/workflow/instances'

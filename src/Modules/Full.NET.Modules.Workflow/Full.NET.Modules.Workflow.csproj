@@ -5,6 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../../contracts/workflow/gateway-limits.json" LogicalName="Full.NET.Workflow.GatewayLimits.json" />
+    <EmbeddedResource Include="../../../contracts/workflow/vform3-runtime-release.json" LogicalName="Full.NET.Workflow.VFormRuntimeRelease.json" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />

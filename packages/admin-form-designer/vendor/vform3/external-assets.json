@@ -1,0 +1,102 @@
+{
+  "source": "Upstream templatesConfig.js referenced official sample resources",
+  "retrievedOn": "2026-10-24",
+  "files": [
+    {
+      "path": "json1.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json1.txt",
+      "bytes": 8693,
+      "sha256": "22d30b3e0f998a7d285abb5370c041940c30c4c96bc6aaa1ec77c419774f66c7"
+    },
+    {
+      "path": "json2.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json2.txt",
+      "bytes": 24799,
+      "sha256": "3c16121778cc22a54bbc4383ea59bdc46afea7b01f31ff6ad612533d8d03e3d8"
+    },
+    {
+      "path": "json3.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json3.txt",
+      "bytes": 28925,
+      "sha256": "67fee4e15769892756b368d3a553d93dc6e42b97086a680f44692718ae0f8a75"
+    },
+    {
+      "path": "json4.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json4.txt",
+      "bytes": 19229,
+      "sha256": "21462883a06830f04966c4ed999c86db664de74e7d70e43fe446015b7cd4ff67"
+    },
+    {
+      "path": "json5.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json5.txt",
+      "bytes": 32467,
+      "sha256": "261163da4546f791e3be83c99a4be9842e9e79a910f1100af7d32e3263696985"
+    },
+    {
+      "path": "json6.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json6.txt",
+      "bytes": 26477,
+      "sha256": "98f0c168cd02bf94ff1030c81fe9caa34a71389b1db17b956e4c4ab9ba1c2939"
+    },
+    {
+      "path": "json7.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json7.txt",
+      "bytes": 14789,
+      "sha256": "755c318e7b6350287536779dc35b8ed7fbe719f67b41c44c743a1bbfc2d2b382"
+    },
+    {
+      "path": "json8.txt",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/json8.txt",
+      "bytes": 160201,
+      "sha256": "3649246446f95cb50fd76eeff5525ea5e8f5402059ebdfb44f9c8e29e36a7c7d"
+    },
+    {
+      "path": "t1.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t1.png",
+      "bytes": 33254,
+      "sha256": "883ab621fdb8fd07e0b6a9621e3bc32149fcdfa2737b1910b9dc6ca03b84e5f7"
+    },
+    {
+      "path": "t2.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t2.png",
+      "bytes": 35608,
+      "sha256": "4eaedb21d8333a43f5de4c8f11a2cca757232be616c042b85aaee7d2ed76acf9"
+    },
+    {
+      "path": "t3.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t3.png",
+      "bytes": 41621,
+      "sha256": "6478f0f7299e1e6e41a19e2e50e1a8caced8a4d8fbfccff4a6736aa6d68e7ae4"
+    },
+    {
+      "path": "t4.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t4.png",
+      "bytes": 30098,
+      "sha256": "6375d1cceda3960eb6c877429a6658b43e450872dce0b24bd8f9c61a7545f16f"
+    },
+    {
+      "path": "t5.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t5.png",
+      "bytes": 56386,
+      "sha256": "e8168fb6a9d517779f3de9eabd65eeb2ebe92336b8fbd797eb56bad056df5908"
+    },
+    {
+      "path": "t6.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t6.png",
+      "bytes": 32704,
+      "sha256": "e3b7888efa037412c20d131261f0c1445800b9d688371809dc9b67f082a0a84f"
+    },
+    {
+      "path": "t7.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t7.png",
+      "bytes": 68981,
+      "sha256": "1a389ec2951b75626ee0e52ce566dd8422fcea1f943d1a98fbedf7ab80113983"
+    },
+    {
+      "path": "t8.png",
+      "url": "https://ks3-cn-beijing.ksyuncs.com/vform-static/form-samples/t8.png",
+      "bytes": 50912,
+      "sha256": "22bf19fd1117d39234cc29a1daf6c861a978176e0bc210f8368165452a2fce79"
+    }
+  ]
+}

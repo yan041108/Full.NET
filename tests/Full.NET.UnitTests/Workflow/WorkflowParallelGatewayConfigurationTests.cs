@@ -8,6 +8,25 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowParallelGatewayConfigurationTests
 {
     [TestMethod]
+    [DataRow(1, false)]
+    [DataRow(2, true)]
+    [DataRow(8, true)]
+    [DataRow(9, false)]
+    public void Parallel_branch_limit_counts_all_branches(int count, bool accepted)
+    {
+        var config = JsonSerializer.SerializeToElement(new
+        {
+            gatewayRoleKey = "fork", joinNodeKey = "join",
+            branches = Enumerable.Range(0, count).Select(index => new
+            {
+                branchKey = $"branch-{index}", nextNodeKey = $"approve-{index}",
+            }).ToArray(),
+        });
+
+        Assert.AreEqual(accepted, WorkflowParallelGatewayConfiguration.TryRead(config, out _));
+    }
+
+    [TestMethod]
     public void Fork_and_join_configuration_is_accepted()
     {
         var fork = JsonSerializer.SerializeToElement(new

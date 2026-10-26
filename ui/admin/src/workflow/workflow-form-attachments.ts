@@ -1,5 +1,6 @@
 import { uploadHostFile } from '../api/host-files';
 import { http } from '../api/http';
+import { workflowDownloadTodoFormAttachment } from '@fullnet/client-contracts';
 
 /** 上传工作流表单附件，返回 Host 文件标识。 */
 export async function uploadWorkflowFormAttachment(
@@ -21,6 +22,11 @@ export async function downloadWorkflowFormAttachment(
     { method: 'GET' },
     signal
   );
+}
+
+/** 个人办理使用精确 Todo 路径，由服务端核对本次节点和私有选票视图。 */
+export async function downloadWorkflowTodoFormAttachment(todoId: string, fileId: string, signal?: AbortSignal): Promise<Blob> {
+  return workflowDownloadTodoFormAttachment(http, { todoId, fileId }, signal);
 }
 
 /** 打开工作流实例附件内容。 */

@@ -1,15 +1,18 @@
 // 模块 API 契约类型；与 Endpoint 和 Handler 共享的稳定形状。
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record StartWorkflowInstanceRequest(
     Guid DefinitionVersionId,
     string BusinessType,
     string BusinessId,
     JsonElement InitialValues,
     string IdempotencyKey,
-    string? BusinessTitle = null);
+    string? BusinessTitle = null,
+    IReadOnlyDictionary<string, IReadOnlyList<Guid>>? AssigneeSelections = null);
 
 internal sealed record CancelWorkflowInstanceRequest(
     long ExpectedRevision,
@@ -52,7 +55,9 @@ internal sealed record ReassignWorkflowInstanceRequest(
     Guid AssigneeUserId,
     long ExpectedRevision,
     string? Reason,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    Guid TodoId,
+    long ExpectedTodoRevision);
 
 /// <summary>实例详情展示的网关汇合分支到达事实。</summary>
 /// <param name="BranchKey">稳定分支键。</param>
@@ -121,7 +126,11 @@ internal sealed record WorkflowInstanceResponse(
     int? ApprovedCount = null,
     int? RejectedCount = null,
     int? PendingCount = null,
-    IReadOnlyList<WorkflowGatewayJoinResponse>? GatewayJoins = null);
+    IReadOnlyList<WorkflowGatewayJoinResponse>? GatewayJoins = null,
+    WorkflowWithdrawalAvailabilityResponse? Withdrawal = null);
+
+/// <summary>发起人当前发布边界的只读投影；平台权限与提交时的锁内重验仍独立执行。</summary>
+internal sealed record WorkflowWithdrawalAvailabilityResponse(bool CanWithdraw, string ModeKey);
 
 internal sealed record WorkflowExecutionLogResponse(
     Guid Id,

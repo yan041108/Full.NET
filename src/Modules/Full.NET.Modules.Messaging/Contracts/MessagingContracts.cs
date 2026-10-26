@@ -9,6 +9,8 @@ namespace Full.NET.Modules.Messaging.Contracts;
 /// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class MessagingPermissions
 {
+    /// <summary>允许进入消息运维页面；各数据区域和写操作仍需独立权限。</summary>
+    public const string OperationsRead = "messaging.operations.read";
     /// <summary>允许读取 Outbox 事件流目录与积压摘要。</summary>
     public const string EventsRead = "messaging.events.read";
 
@@ -26,6 +28,9 @@ public static class MessagingPermissions
 
     /// <summary>允许将事件交付所有权从 CDC Kafka 回退到 Legacy 轮询，属于高风险运维操作。</summary>
     public const string DeliveryRollback = "messaging.delivery.rollback";
+
+    /// <summary>允许精确回队单条 Legacy 死信，不重置载荷或历史尝试次数。</summary>
+    public const string LegacyDeadLettersRequeue = "messaging.outbox_dead_letters.requeue";
 }
 
 /// <summary>
@@ -34,6 +39,9 @@ public static class MessagingPermissions
 /// <remarks>错误码字符串发布后不可改名或删除；新增错误码只能追加到本类末尾，避免破坏既有客户端错误处理逻辑。</remarks>
 public static class MessagingErrorCodes
 {
+    /// <summary>回退生产者屏障暂时拒绝业务写入，调用方可在保护解除后重试。</summary>
+    public const string ProducerFenced = "messaging.delivery.producer_fenced";
+
     /// <summary>
     /// 模块错误码的通用前缀；所有具体错误码均以前缀 + '.' + 后缀拼接，避免跨模块冲突。
     /// </summary>
@@ -62,6 +70,9 @@ public static class MessagingErrorCodes
 
     /// <summary>回退前置条件不满足。</summary>
     public const string RollbackPreconditionFailed = "messaging.delivery.rollback_precondition_failed";
+
+    /// <summary>指定流或代次尚无可查询的回退操作。</summary>
+    public const string RollbackOperationNotFound = "messaging.delivery.rollback_operation_not_found";
 
     /// <summary>高风险运维操作必须提供理由。</summary>
     public const string ReasonRequired = "messaging.delivery.reason_required";
@@ -123,7 +134,7 @@ public sealed record DeadLetterResponse(
 /// </remarks>
 /// <param name="ConsumerName">死信所属的消费者名。</param>
 /// <param name="MessageId">原始集成事件的 MessageId。</param>
-public sealed record ReplayDeadLetterRequest(string ConsumerName, Guid MessageId);
+public sealed record ReplayDeadLetterRequest(string ConsumerName, Guid MessageId, string Reason);
 
 /// <summary>死信重放响应契约，<c>Outcome</c> 取 <see cref="DeadLetterReplayOutcomes"/> 的稳定值。</summary>
 /// <remarks>
@@ -173,12 +184,16 @@ public sealed record KafkaRangeReplayRequest(
 /// <param name="AlreadyProcessedMessages">因幂等去重被判定已处理而跳过的消息数。</param>
 /// <param name="RejectedMessages">重放请求校验阶段被直接拒绝的消息数（如未注册消费者或缺失 Schema）。</param>
 /// <param name="LimitReached">true 表示扫描到 MaxMessages 上限后提前中止，区间未完全覆盖。</param>
+/// <param name="OperationId">可查询和恢复的持久重放操作标识。</param>
+/// <param name="State">操作的稳定状态码；不能用 HTTP 成功推断全部窗口已完成。</param>
 public sealed record KafkaRangeReplayResponse(
     int ScannedMessages,
     int ProcessedMessages,
     int AlreadyProcessedMessages,
     int RejectedMessages,
-    bool LimitReached);
+    bool LimitReached,
+    Guid OperationId,
+    string State);
 
 /// <summary>Outbox 积压摘要响应契约，用于运维监控当前积压、到期重试、活动租约与死信规模。</summary>
 /// <remarks>
@@ -204,13 +219,33 @@ public sealed record OutboxBacklogSummaryResponse(
 /// </remarks>
 /// <param name="EventType">事件类型的稳定 CLR FullName 标识。</param>
 /// <param name="SchemaVersion">该事件流的 Schema 版本号；不同版本视为独立流。</param>
-/// <param name="TopicCode">Kafka Topic 的稳定编码标识，用于目录映射。</param>
-/// <param name="DeliveryOwner">当前生效的交付所有者枚举值。</param>
+/// <param name="TopicCode">目录 Topic；未登记的 Legacy 流为空。</param>
+/// <param name="DeliveryOwner">当前生效的所有者；目录未知或读取失败时为空。</param>
+/// <param name="IsRegistered">事件流是否在权威目录登记。</param>
+/// <param name="ConsumerNames">与流匹配的权威 Inbox 订阅名。</param>
+/// <param name="ObservationState">本流数据观察状态，不代表目标运行健康。</param>
+/// <param name="LegacyBacklog">实际 Legacy 聚合；读取失败或截断无法确定时为空。</param>
+/// <param name="RetainedEventCount">保留源事件数，不等同于 Broker lag。</param>
+/// <param name="KafkaProjectedDeadLetterCount">尚未重放的 DLQ 数据库投影数，不证明 Broker 完整性。</param>
+/// <param name="OldestKafkaDeadLetterAtUtc">投影中最早待恢复失败时间。</param>
+/// <param name="RollbackGeneration">当前生产者保护的回退代次。</param>
+/// <param name="CutoverReadiness">blocked 或 unknown；实际就绪必须由证明与切流服务重新观测。</param>
+/// <param name="BlockingReasons">稳定阻断或未知原因码。</param>
 public sealed record EventStreamStatusResponse(
     string EventType,
     int SchemaVersion,
-    string TopicCode,
-    EventDeliveryOwner DeliveryOwner);
+    string? TopicCode,
+    EventDeliveryOwner? DeliveryOwner,
+    bool IsRegistered,
+    IReadOnlyList<string> ConsumerNames,
+    string ObservationState,
+    OutboxBacklogSummaryResponse? LegacyBacklog,
+    long? RetainedEventCount,
+    long? KafkaProjectedDeadLetterCount,
+    DateTimeOffset? OldestKafkaDeadLetterAtUtc,
+    Guid? RollbackGeneration,
+    string CutoverReadiness,
+    IReadOnlyList<string> BlockingReasons);
 
 /// <summary>交付状态总览响应契约，包含 Outbox 积压摘要与各事件流状态。</summary>
 /// <remarks>
@@ -218,9 +253,29 @@ public sealed record EventStreamStatusResponse(
 /// </remarks>
 /// <param name="Backlog">发布侧 Outbox 队列积压快照。</param>
 /// <param name="Streams">已在交付目录中登记的事件流状态列表，按 (EventType, SchemaVersion) 去重。</param>
+/// <param name="ObservationState">数据源可用性，不将读取失败表示为零积压。</param>
+/// <param name="HasMoreStreams">有界查询或目录展示被截断。</param>
+/// <param name="UnattributedKafkaDeadLetters">无法归属流的待恢复 DLQ 投影数；读取失败为空。</param>
+/// <param name="CutoverEnabled">当前 API 的正式切流门禁是否显式开启。</param>
+/// <param name="ReplayEnabled">当前 API 的有界重放是否启用。</param>
+/// <param name="ReplayMaximumSynchronousMessages">当前 API 每次执行消息数上限。</param>
+/// <param name="ReplayExecutionTimeoutSeconds">当前 API 每次执行时间预算，单位秒。</param>
+/// <param name="ControlAdapterConfigured">API 是否装配真实控制适配器，不代表远端运行健康。</param>
+/// <param name="TargetRuntimeState">总览尚未观测真实 Worker/Connector 的状态。</param>
+/// <param name="ShadowCapturePolicy">服务端受控采集策略，关闭时不暴露无效或陈旧配置。</param>
 public sealed record DeliveryStatusResponse(
-    OutboxBacklogSummaryResponse Backlog,
-    IReadOnlyList<EventStreamStatusResponse> Streams);
+    OutboxBacklogSummaryResponse? Backlog,
+    IReadOnlyList<EventStreamStatusResponse> Streams,
+    string ObservationState,
+    bool HasMoreStreams,
+    long? UnattributedKafkaDeadLetters,
+    bool CutoverEnabled,
+    bool ReplayEnabled,
+    int ReplayMaximumSynchronousMessages,
+    int ReplayExecutionTimeoutSeconds,
+    bool ControlAdapterConfigured,
+    string TargetRuntimeState,
+    ShadowCapturePolicyResponse ShadowCapturePolicy);
 
 /// <summary>
 /// 切换事件交付所有者的请求契约，目标所有者当前限定为 <see cref="EventDeliveryOwner.CdcKafka"/>。

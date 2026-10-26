@@ -41,6 +41,7 @@ function createHttp(responses: readonly unknown[]): {
     calls,
     readBridge: () => bridge,
     http: {
+      async upload<T>(): Promise<T> { throw new Error('Unexpected upload in identity test'); },
       configureAuthentication(value) {
         bridge = value;
       },

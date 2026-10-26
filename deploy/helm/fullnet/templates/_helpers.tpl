@@ -184,9 +184,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- end -}}
 {{- end -}}
 
-{{- if and .Values.roles.worker (eq .Values.worker.messaging.mode "CdcKafka") -}}
+{{- if and .Values.roles.worker (eq .Values.worker.messaging.mode "HybridKafka") -}}
   {{- if eq .Values.worker.messaging.kafka.bootstrapSecretName "" -}}
-    {{- fail "worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka." -}}
+    {{- fail "worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is HybridKafka." -}}
   {{- end -}}
   {{- if and (eq .Values.worker.messaging.kafka.consumerGroupProtocol "Consumer") (lt (.Values.worker.messaging.kafka.brokerMajorVersion | int) 4) -}}
     {{- fail "worker.messaging.kafka.brokerMajorVersion must be at least 4 when consumerGroupProtocol is Consumer." -}}

@@ -14,6 +14,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Execution;
 using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.SqlClient;
@@ -173,7 +174,7 @@ internal static class WorkflowRuntimeApiAssertions
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
-        await factory.InitializeAsync(cancellationToken);
+        await factory.InitializeAsync(cancellationToken, useSchemaTemplate: false);
         using var client = factory.CreateClientForHost("localhost");
         var identity = await factory.CreateHostIdentityAsync(
             $"workflow-return-{Guid.NewGuid():N}",
@@ -210,6 +211,7 @@ internal static class WorkflowRuntimeApiAssertions
             AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", identity.AccessToken, new
             {
                 expectedRevision = 1,
+                expectedFormRevision = 1,
                 fieldPatch = new { decision = "first-approved" },
                 comment = "first stage",
                 idempotencyKey = $"approve-{Guid.NewGuid():N}",
@@ -223,6 +225,7 @@ internal static class WorkflowRuntimeApiAssertions
             AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{secondTodoId:D}/approve", identity.AccessToken, new
             {
                 expectedRevision = 1,
+                expectedFormRevision = 2,
                 fieldPatch = new { decision = "second-approved" },
                 comment = "second stage",
                 idempotencyKey = $"approve-{Guid.NewGuid():N}",
@@ -257,6 +260,7 @@ internal static class WorkflowRuntimeApiAssertions
         {
             targetStepId = firstStepId,
             expectedRevision = 1,
+            expectedFormRevision = 3,
             fieldPatch = new { decision = "returned" },
             comment = "return integration",
             idempotencyKey = returnIdempotencyKey,
@@ -274,10 +278,15 @@ internal static class WorkflowRuntimeApiAssertions
             await secondReturn.Content.ReadAsStringAsync(cancellationToken));
         using var returned = JsonDocument.Parse(await firstReturn.Content.ReadAsStringAsync(cancellationToken));
         using var replayedReturn = JsonDocument.Parse(await secondReturn.Content.ReadAsStringAsync(cancellationToken));
-        var returnedTodoId = returned.RootElement.GetProperty("activeTodoId").GetGuid();
+        Assert.AreEqual(JsonValueKind.Null, returned.RootElement.GetProperty("activeTodoId").ValueKind);
         Assert.AreEqual(4, returned.RootElement.GetProperty("revision").GetInt64());
-        Assert.AreEqual(returnedTodoId, replayedReturn.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(JsonValueKind.Null, replayedReturn.RootElement.GetProperty("activeTodoId").ValueKind);
         Assert.AreEqual(4, replayedReturn.RootElement.GetProperty("revision").GetInt64());
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+            Assert.AreEqual(1, await scope.ServiceProvider.GetRequiredService<WorkflowActivityWorkProcessor>().ProcessPendingAsync(cancellationToken));
+        await using var returnedConnection = CreateConnection(factory);
+        var returnedTodoId = await returnedConnection.ExecuteScalarAsync<Guid>("SELECT Id FROM fn_workflow_todo WHERE InstanceId=@instanceId AND StatusKey='active'", new { instanceId });
 
         await AssertReturnPersistenceAsync(
             factory, instanceId, firstStepId, secondStepId, returnIdempotencyKey, cancellationToken);
@@ -291,6 +300,7 @@ internal static class WorkflowRuntimeApiAssertions
             AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{returnedTodoId:D}/approve", identity.AccessToken, new
             {
                 expectedRevision = 1,
+                expectedFormRevision = 4,
                 fieldPatch = new { decision = "approved-after-return" },
                 comment = "continue after return",
                 idempotencyKey = $"approve-{Guid.NewGuid():N}",
@@ -305,7 +315,7 @@ internal static class WorkflowRuntimeApiAssertions
             await stableReplay.Content.ReadAsStringAsync(cancellationToken));
         using var stable = JsonDocument.Parse(await stableReplay.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(4, stable.RootElement.GetProperty("revision").GetInt64());
-        Assert.AreEqual(returnedTodoId, stable.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(JsonValueKind.Null, stable.RootElement.GetProperty("activeTodoId").ValueKind);
     }
 
     /// <summary>验收启动、办理、改派、取消、暂停/恢复以及 OpenAPI operationId。</summary>
@@ -473,7 +483,7 @@ internal static class WorkflowRuntimeApiAssertions
         using var reassignStarted = JsonDocument.Parse(
             await reassignStart.Content.ReadAsStringAsync(cancellationToken));
         var reassignInstanceId = reassignStarted.RootElement.GetProperty("id").GetGuid();
-        var reassignTodoId = reassignStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        var originalReassignTodoId = reassignStarted.RootElement.GetProperty("activeTodoId").GetGuid();
 
         using var permissionDeniedReassign = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post,
@@ -481,6 +491,8 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     assigneeUserId = other.UserId,
+                    todoId = originalReassignTodoId,
+                    expectedTodoRevision = 1,
                     expectedRevision = 1,
                     reason = "missing recovery permission",
                     idempotencyKey = $"reassign-{Guid.NewGuid():N}",
@@ -494,6 +506,8 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     assigneeUserId = other.UserId,
+                    todoId = originalReassignTodoId,
+                    expectedTodoRevision = 1,
                     expectedRevision = 1,
                     reason = "审批人请假",
                     idempotencyKey = reassignIdempotencyKey,
@@ -502,7 +516,8 @@ internal static class WorkflowRuntimeApiAssertions
             await reassign.Content.ReadAsStringAsync(cancellationToken));
         using var reassigned = JsonDocument.Parse(await reassign.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(2, reassigned.RootElement.GetProperty("revision").GetInt64());
-        Assert.AreEqual(reassignTodoId, reassigned.RootElement.GetProperty("activeTodoId").GetGuid());
+        var reassignTodoId = reassigned.RootElement.GetProperty("activeTodoId").GetGuid();
+        Assert.AreNotEqual(originalReassignTodoId, reassignTodoId);
 
         using var reassignReplay = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post,
@@ -510,6 +525,8 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     assigneeUserId = other.UserId,
+                    todoId = originalReassignTodoId,
+                    expectedTodoRevision = 1,
                     expectedRevision = 1,
                     reason = "审批人请假",
                     idempotencyKey = reassignIdempotencyKey,

@@ -23,6 +23,7 @@ import {
 } from '@fullnet/client-contracts';
 import {
   cancelWorkflowInstance,
+  withdrawWorkflowInstance,
   getWorkflowInstance,
   listMyWorkflowInstances,
   listWorkflowInstanceExecutionLogs,
@@ -41,6 +42,8 @@ import {
   formatWorkflowBusinessLabel
 } from '../workflow/workflowBusinessDetail';
 import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import WorkflowManualReminderPanel from '../workflow/WorkflowManualReminderPanel.vue';
+import WorkflowConnectorCallsPanel from '../workflow/WorkflowConnectorCallsPanel.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 
 const statusFilterOptions = [
@@ -73,6 +76,8 @@ const definitionKeyFilter = ref('');
 const instanceId = ref('');
 const loading = ref(false);
 const cancelling = ref(false);
+const withdrawing = ref(false);
+let pendingWithdrawal: { instanceId: string; revision: number; key: string } | undefined;
 const pausing = ref(false);
 const resuming = ref(false);
 const recovering = ref(false);
@@ -80,6 +85,18 @@ const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
+let identityEpoch = 0;
+let listRequest = 0;
+let disposed = false;
+const identityContext = computed(() => JSON.stringify([session.currentUser?.id, session.currentUser?.sessionId,
+  session.currentUser?.tenantId, session.currentUser?.scope, session.switching,
+  session.can('workflow.instances.read'), session.can('workflow.instances.list'), session.can('workflow.instances.withdraw')]));
+watch(identityContext, () => {
+  identityEpoch++; listRequest++; loadController?.abort(); loading.value = false; listLoading.value = false;
+  instance.value = undefined; executionLogs.value = []; listItems.value = []; listTotal.value = 0;
+  pendingWithdrawal = undefined; problem.value = undefined;
+  if (!session.switching && session.can('workflow.instances.read')) void loadList();
+}, { flush: 'sync' });
 
 /** 把执行轨迹迁移键映射为可读标签，并行网关使用专用文案。 */
 function transitionLabel(transitionKey: string): string {
@@ -95,6 +112,7 @@ function transitionLabel(transitionKey: string): string {
   if (transitionKey === 'node.gateway.inclusive.join') {
     return t('workflowInstances.inclusiveJoin');
   }
+  if (transitionKey === 'instance.withdraw') return t('workflowInstances.transition.instance.withdraw');
   return transitionKey;
 }
 
@@ -147,8 +165,10 @@ const showApprovalProgress = computed(() => {
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
 const canListAll = computed(() => session.can('workflow.instances.list'));
 const mutating = computed(() =>
-  cancelling.value || pausing.value || resuming.value || recovering.value
+  withdrawing.value || cancelling.value || pausing.value || resuming.value || recovering.value
 );
+const canWithdraw = computed(() => instance.value?.withdrawal?.canWithdraw === true &&
+  ['active', 'suspended'].includes(instance.value.statusKey) && session.can('workflow.instances.withdraw') && !mutating.value);
 const canCancel = computed(() =>
   (instance.value?.statusKey === 'active' || instance.value?.statusKey === 'suspended') &&
   session.can('workflow.instances.cancel') &&
@@ -170,7 +190,7 @@ const canRecover = computed(() =>
   !mutating.value
 );
 
-onBeforeUnmount(() => loadController?.abort());
+onBeforeUnmount(() => { disposed = true; identityEpoch++; listRequest++; loadController?.abort(); });
 
 onMounted(() => {
   void loadList();
@@ -201,6 +221,7 @@ watch(activeTab, () => {
 });
 
 async function loadList(): Promise<void> {
+  const current = ++listRequest;
   listLoading.value = true;
   problem.value = undefined;
   try {
@@ -213,15 +234,16 @@ async function loadList(): Promise<void> {
     const result = activeTab.value === 'all' && canListAll.value
       ? await listWorkflowInstances(query)
       : await listMyWorkflowInstances(query);
+    if (current !== listRequest || disposed) return;
     listItems.value = result.items;
     listPage.value = result.page;
     listPageSize.value = result.pageSize;
     listTotal.value = result.total;
   } catch (error: unknown) {
+    if (current !== listRequest || disposed) return;
     problem.value = toProblem(error, 'workflowInstances.listFailed');
   } finally {
-    listLoading.value = false;
-    void syncTableLayout();
+    if (current === listRequest && !disposed) { listLoading.value = false; void syncTableLayout(); }
   }
 }
 
@@ -292,6 +314,27 @@ async function load(): Promise<void> {
       loading.value = false;
     }
   }
+}
+
+async function withdrawInstance(): Promise<void> {
+  const current = instance.value;
+  const actorContext = JSON.stringify([session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.scope]);
+  if (!current || !canWithdraw.value) return;
+  try {
+    await ElMessageBox.confirm(t('workflowInstances.withdrawConfirm'), t('workflowInstances.withdraw'), {
+      type: 'warning', confirmButtonText: t('workflowInstances.withdraw'), cancelButtonText: t('status.back')
+    });
+    if (actorContext !== JSON.stringify([session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.scope]) || !canWithdraw.value) return;
+    if (pendingWithdrawal?.instanceId !== current.id || pendingWithdrawal.revision !== current.revision)
+      pendingWithdrawal = { instanceId: current.id, revision: current.revision, key: `withdraw-${crypto.randomUUID()}` };
+    withdrawing.value = true;
+    await mutateInstance(current.id, () => withdrawWorkflowInstance(current.id, { expectedRevision: current.revision,
+      idempotencyKey: pendingWithdrawal!.key, reason: null }), 'workflowInstances.withdrawSuccess');
+    pendingWithdrawal = undefined;
+  } catch (error) {
+    if (isFullNetProblemDetails(error) && error.status < 500) pendingWithdrawal = undefined;
+    captureActionError(error);
+  } finally { withdrawing.value = false; }
 }
 
 async function cancelInstance(): Promise<void> {
@@ -432,9 +475,15 @@ async function mutateInstance(
   submit: () => Promise<WorkflowInstanceResponse>,
   successKey: MessageKey
 ): Promise<void> {
+  if (instance.value?.id !== currentId || disposed || session.switching) return;
+  const current = identityEpoch;
   problem.value = undefined;
-  instance.value = await submit();
-  executionLogs.value = await listWorkflowInstanceExecutionLogs(currentId);
+  const result = await submit();
+  if (current !== identityEpoch || disposed || instance.value?.id !== currentId) return;
+  instance.value = result;
+  const logs = await listWorkflowInstanceExecutionLogs(currentId);
+  if (current !== identityEpoch || disposed || instance.value?.id !== currentId) return;
+  executionLogs.value = logs;
   ElMessage.success(t(successKey));
 }
 
@@ -495,6 +544,9 @@ function toProblem(
           @click="recoverInstance"
         >
           {{ t('workflowInstances.recover') }}
+        </el-button>
+        <el-button v-if="canWithdraw" type="warning" plain data-testid="workflow-instance-withdraw" :loading="withdrawing" @click="withdrawInstance">
+          {{ t('workflowInstances.withdraw') }}
         </el-button>
         <el-button
           v-if="canCancel"
@@ -639,6 +691,8 @@ function toProblem(
     </div>
 
     <template v-if="instance">
+      <WorkflowManualReminderPanel v-if="session.can('workflow.instances.remind')" :instance-id="instance.id" :revision="instance.revision" :status-key="instance.statusKey" />
+      <WorkflowConnectorCallsPanel v-if="session.can('workflow.connector_calls.read')" :instance-id="instance.id" :revision="instance.revision" :status-key="instance.statusKey" :can-reconcile="session.can('workflow.connector_calls.reconcile')" @resolved="load" />
       <section
         class="workflow-instances__summary"
         data-testid="workflow-instance-summary"

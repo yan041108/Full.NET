@@ -319,10 +319,16 @@ public sealed class GlobalSqlStatementCatalogTests
             ? $"{type.DeclaringType.FullName}.{type.Name}"
             : type.FullName!;
 
+    // 同一 SQL 类型的各字段共享来源；按仓库和类型缓存，避免每条声明重复遍历大型输出树。
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Root, Type Type), string> SourceFiles = new();
+
     /// <summary>解析真实类型声明所在文件，支持切片文件内的多个 SQL 类型并拒绝歧义。</summary>
     /// <param name="root">仓库根目录。</param>
     /// <param name="type">需要定位的声明类型。</param>
-    private static string ResolveSourceFile(string root, Type type)
+    private static string ResolveSourceFile(string root, Type type) =>
+        SourceFiles.GetOrAdd((root, type), key => ResolveSourceFileCore(key.Root, key.Type));
+
+    private static string ResolveSourceFileCore(string root, Type type)
     {
         if (type.IsNested && type.DeclaringType is not null)
         {

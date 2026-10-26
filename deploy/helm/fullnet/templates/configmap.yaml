@@ -58,7 +58,7 @@ data:
 {{- else }}
   Messaging__ShadowComparison__Enabled: "false"
 {{- end }}
-{{- if ne .Values.worker.messaging.mode "CdcKafka" }}
+{{- if ne .Values.worker.messaging.mode "HybridKafka" }}
   Messaging__Kafka__Enabled: "false"
 {{- end }}
   RateLimiting__GlobalApiPermitLimitPerMinute: {{ .Values.applicationRateLimiting.globalApiPermitLimitPerMinutePerReplica | quote }}

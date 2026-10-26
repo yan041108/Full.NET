@@ -243,7 +243,8 @@ internal sealed record WorkflowTodoRuntimeRecord(
     int? ApprovalSlotCount,
     Guid? ParallelJoinId,
     string? ParallelBranchKey,
-    string? ParallelJoinNodeKey);
+    string? ParallelJoinNodeKey,
+    string NodeTypeKey = "human.approval");
 
 /// <summary>当前待办对应的一人一票审批席位。</summary>
 /// <param name="Id">审批席位标识。</param>
@@ -277,14 +278,14 @@ internal sealed record WorkflowApprovalTallyRecord(
 /// <summary>审批退回使用的当前有效执行链历史目标。</summary>
 /// <param name="StepId">历史步骤标识。</param>
 /// <param name="NodeKey">稳定节点键。</param>
-/// <param name="AssigneeUserId">历史办理人快照。</param>
+/// <param name="AssigneeUserId">单人目标的历史代表人；完整成员由新激活按发布策略解析。</param>
 /// <param name="ExecutionSequence">实例内单调执行序号，用于可靠失效目标及其后的旧执行链。</param>
 /// <param name="StartedAtUtc">步骤开始时间。</param>
 /// <param name="CompletedAtUtc">步骤完成时间。</param>
 internal sealed record WorkflowTodoReturnTargetRecord(
     Guid StepId,
     string NodeKey,
-    Guid AssigneeUserId,
+    Guid? AssigneeUserId,
     long ExecutionSequence,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset CompletedAtUtc);
@@ -317,7 +318,8 @@ internal sealed record WorkflowActionReceiptRecord(
     string IdempotencyKey,
     string? RequestHash,
     Guid? ResultTodoId,
-    string? ResultStatusKey = null);
+    string? ResultStatusKey = null,
+    Guid? TodoId = null);
 
 /// <summary>实例执行轨迹的追加式投影。</summary>
 internal sealed record WorkflowExecutionLogRecord(

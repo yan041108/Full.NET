@@ -199,7 +199,7 @@ internal sealed class ShadowEventComparisonProcessor : BackgroundService
             "messaging.shadow.outbox.fingerprint",
             """
             SELECT Id, MessageType, SchemaVersion, PartitionKey, Payload, OccurredAtUtc
-            FROM fn_messaging_outbox_event
+            FROM fn_messaging_shadow_event
             WHERE Id = @Id
             """,
             SqlDataScope.Global);

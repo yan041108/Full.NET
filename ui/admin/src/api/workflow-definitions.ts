@@ -4,6 +4,7 @@ import {
   workflowGetDefinition,
   workflowGetNodeTypeCatalog,
   workflowListRecipientCandidates,
+  workflowListPositionCandidates,
   workflowPreviewAssignees,
   workflowPublishDefinition,
   workflowSetDefinitionStatus,
@@ -109,18 +110,20 @@ export async function listWorkflowOrganizationUnitCandidates(
   return readWorkflowCandidatePage(value);
 }
 
+/** 分页读取设计器可选择的当前租户活动岗位。 */
+export async function listWorkflowPositionCandidates(page = 1, pageSize = 50, signal?: AbortSignal): Promise<WorkflowCandidatePage> {
+  return workflowListPositionCandidates(http, { page, pageSize }, signal);
+}
+
 /** 预览办理人解析结果，供设计器范围校验。 */
 export async function previewWorkflowAssignees(
   assigneePolicy: Record<string, unknown>,
   initiatorUserId?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  additionalUserIds: readonly string[] = []
 ): Promise<ReadonlyArray<WorkflowRecipientCandidateResponse>> {
-  const response = await workflowPreviewAssignees(http, {
-    body: {
-      assigneePolicy,
-      initiatorUserId: initiatorUserId ?? null
-    }
-  }, signal);
+  const body = { assigneePolicy, initiatorUserId: initiatorUserId ?? null, additionalUserIds: [...additionalUserIds] };
+  const response = await workflowPreviewAssignees(http, { body }, signal);
   return response.users;
 }
 

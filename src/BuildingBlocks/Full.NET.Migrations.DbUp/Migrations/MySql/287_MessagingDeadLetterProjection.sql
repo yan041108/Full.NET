@@ -1,0 +1,27 @@
+-- 287：从真实 Kafka DLQ 建立可恢复、可重放的 Host 运维查询投影。
+CREATE TABLE IF NOT EXISTS fn_messaging_dead_letter (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键，由应用生成 UUID v7',
+    ConsumerName varchar(200) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '原始失败消费者名称',
+    DlqTopic varchar(249) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '真实死信 Topic',
+    DlqPartition int NOT NULL COMMENT '死信分区编号',
+    DlqOffset bigint NOT NULL COMMENT '死信分区中的唯一 Offset',
+    SourceTopic varchar(249) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '首次失败来源 Topic',
+    SourcePartition int NOT NULL COMMENT '首次失败来源分区',
+    SourceOffset bigint NOT NULL COMMENT '首次失败来源 Offset',
+    MessageId BINARY(16) NULL COMMENT '合法信封的消息标识，损坏消息可空',
+    MessageType varchar(256) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '合法信封的稳定消息类型',
+    SchemaVersion int NULL COMMENT '合法信封的结构版本',
+    TenantId BINARY(16) NULL COMMENT '原事务可信租户标识，损坏或宿主消息可空',
+    Attempts int NOT NULL COMMENT '失败时累计重试次数',
+    ErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定失败原因码，不保存异常正文',
+    FirstFailedAtUtc datetime(6) NOT NULL COMMENT '首次失败 UTC 时间',
+    LastFailedAtUtc datetime(6) NOT NULL COMMENT '最近失败 UTC 时间',
+    CanReplay boolean NOT NULL COMMENT '信封与消费者可用于受控重放',
+    ReplayedAtUtc datetime(6) NULL COMMENT '首次受控重放提交的 UTC 时间',
+    SnapshotJson longtext NOT NULL COMMENT '仅供内部重放的不可变消息快照，禁止直接返回客户端',
+    CONSTRAINT PK_fn_messaging_dead_letter PRIMARY KEY (Id),
+    UNIQUE KEY UX_fn_messaging_dead_letter_DlqTopic_DlqPartition_DlqOffset (DlqTopic, DlqPartition, DlqOffset),
+    KEY IX_fn_messaging_dead_letter_LastFailedAtUtc_Id (LastFailedAtUtc, Id),
+    CONSTRAINT CK_fn_messaging_dead_letter_Position CHECK (DlqPartition >= 0 AND DlqOffset >= 0 AND SourcePartition >= 0 AND SourceOffset >= 0),
+    CONSTRAINT CK_fn_messaging_dead_letter_Attempts CHECK (Attempts >= 0)
+) COMMENT='消息死信运维投影与不可变恢复快照' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

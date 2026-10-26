@@ -54,6 +54,7 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
         var position = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => await ReadSqlServerPositionAsync(
+                    eventType, schemaVersion,
                     lastEvent?.CutoffEventId,
                     cancellationToken)
                 .ConfigureAwait(false),
@@ -65,6 +66,7 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
                 $"Database provider '{databaseOptions.Value.Provider}' is not supported."),
         };
 
+        if (position is null) return null;
         return new EventDeliveryProducerFenceSnapshot(
             rollbackGeneration,
             position,
@@ -95,19 +97,21 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
             status.Position.Value);
     }
 
-    private async Task<CdcDeliveryPosition> ReadSqlServerPositionAsync(
+    private async Task<CdcDeliveryPosition?> ReadSqlServerPositionAsync(
+        string eventType, int schemaVersion,
         Guid? lastEventId,
         CancellationToken cancellationToken)
     {
         var lsn = await queryExecutor
             .QuerySingleOrDefaultAsync<SqlServerMaxLsnRow>(
-                ProducerFenceSql.SqlServerMaxLsn,
+                lastEventId is null ? ProducerFenceSql.SqlServerMaxLsn : ProducerFenceSql.SqlServerCapturedStreamLsn,
+                DapperSqlParameters.Create(("MessageType", eventType), ("SchemaVersion", schemaVersion)),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (lsn?.MaxLsn is null or { Length: 0 })
         {
-            throw new InvalidOperationException(
-                "SQL Server CDC max LSN is unavailable for producer fence capture.");
+            // Capture Job 尚未覆盖全部已冻结源行时，不得用旧的全库 max LSN 放行暂停。
+            return null;
         }
 
         return CdcDeliveryPosition.ForSqlServerBytes(lastEventId, lsn.MaxLsn);
@@ -189,5 +193,18 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
             "messaging.producer_fence.sqlserver_max_lsn",
             "SELECT CAST(sys.fn_cdc_get_max_lsn() AS varbinary(10)) AS MaxLsn",
             SqlDataScope.Global);
+
+        public static readonly SqlStatement SqlServerCapturedStreamLsn = new(
+            "messaging.producer_fence.captured_stream_lsn.sql_server",
+            """
+            SELECT CAST(MAX(changes.__$start_lsn) AS varbinary(10)) AS MaxLsn
+            FROM cdc.fullnet_fn_messaging_outbox_event_CT changes
+            INNER JOIN fn_messaging_outbox_event source ON source.Id = changes.Id
+            WHERE source.MessageType = @MessageType AND source.SchemaVersion = @SchemaVersion
+              AND changes.__$operation = 2
+            HAVING COUNT(DISTINCT changes.Id) = (
+                SELECT COUNT(*) FROM fn_messaging_outbox_event
+                WHERE MessageType = @MessageType AND SchemaVersion = @SchemaVersion)
+            """, SqlDataScope.Global);
     }
 }

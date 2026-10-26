@@ -48,6 +48,7 @@ internal sealed class WorkflowCcTransitionWriter(
                 knownRecipients,
                 executionSequence,
                 occurredAtUtc,
+                tenantScopeKey,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -79,6 +80,7 @@ internal sealed class WorkflowCcTransitionWriter(
     /// <param name="knownRecipients">同一实例已经知会的用户集合。</param>
     /// <param name="executionSequence">本次实例迁移的单调执行序号。</param>
     /// <param name="occurredAtUtc">统一业务发生时间。</param>
+    /// <param name="tenantScopeKey">必须与实例一致的可信作用域键。</param>
     /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
     internal async Task WriteNodeAsync(
         Guid instanceId,
@@ -86,19 +88,23 @@ internal sealed class WorkflowCcTransitionWriter(
         ISet<Guid> knownRecipients,
         long executionSequence,
         DateTimeOffset occurredAtUtc,
+        string tenantScopeKey,
         CancellationToken cancellationToken)
     {
         var stepId = idGenerator.NewId();
-        await commandExecutor.ExecuteAsync(
+        if (await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertCompletedCcStep,
             WorkflowSqlParameters.Create(
                 ("Id", stepId),
                 ("InstanceId", instanceId),
+                ("TenantScopeKey", tenantScopeKey),
                 ("NodeKey", node.NodeKey),
                 ("ExecutionSequence", executionSequence),
                 ("StartedAtUtc", occurredAtUtc),
-                ("CompletedAtUtc", occurredAtUtc)),
-            cancellationToken).ConfigureAwait(false);
+                ("CompletedAtUtc", occurredAtUtc),
+                ("AssigneeSnapshotJson", node.ResolutionJson), ("AssigneeSnapshotHash", node.ResolutionHash)),
+            cancellationToken).ConfigureAwait(false) != 1)
+            throw new InvalidOperationException("workflow.cc.instance_scope_missing");
 
         var insertedCount = 0;
         foreach (var recipientUserId in node.RecipientUserIds)

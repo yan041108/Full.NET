@@ -24,22 +24,22 @@ internal static class WorkflowRecoverySql
     public static readonly SqlStatement ScanStuckInstancesSqlServer = new(
         "workflow.recovery.scan_stuck_instances.sql_server",
         CreateScanText(false, false,
-            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
     public static readonly SqlStatement ScanStuckInstancesMySql = new(
         "workflow.recovery.scan_stuck_instances.mysql",
         CreateScanText(true, false,
-            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
     public static readonly SqlStatement ScanIncompleteStepsSqlServer = new(
         "workflow.recovery.scan_incomplete_steps.sql_server",
         CreateScanText(false, true,
-            "step.StatusKey='active' AND step.NodeTypeKey='human.approval' AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
+            "step.StatusKey='active' AND step.NodeTypeKey IN ('human.approval','human.group_approval','human.task') AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
     public static readonly SqlStatement ScanIncompleteStepsMySql = new(
         "workflow.recovery.scan_incomplete_steps.mysql",
         CreateScanText(true, true,
-            "step.StatusKey='active' AND step.NodeTypeKey='human.approval' AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
+            "step.StatusKey='active' AND step.NodeTypeKey IN ('human.approval','human.group_approval','human.task') AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
 
     // 扫描仅返回本模块尚未占用的有界候选；插入端仍须去重以覆盖多 Worker 的竞争窗口。

@@ -38,12 +38,14 @@
           <i class="anticon anticon-exclamation-circle"></i>
         </div>
     </div>
+    <button v-if="fullnetDependencies && dependencyTypes.has('integration.async_trigger') && nodeConfig.type !== NodeType.Starter" type="button" data-testid="workflow-edit-dependencies" @click.stop="editDependencies">{{ dependencyLabel }}</button>
     <addNode v-model:childNodeP="nodeConfig.childNode" />
   </div>
   <div class="branch-wrap" v-if="isRouteNode">
+    <button v-if="fullnetDependencies && dependencyTypes.has('integration.async_trigger')" type="button" data-testid="workflow-edit-dependencies" @click.stop="editDependencies">{{ dependencyLabel }}</button>
     <div class="branch-box-wrap">
       <div class="branch-box">
-        <button class="add-branch" @click="addTerm">添加条件</button>
+        <button class="add-branch" :disabled="branchLimitReached" @click="addTerm">添加条件</button>
         <div class="col-box" v-for="(item, index) in nodeConfig.conditionNodes" :key="index">
           <div class="condition-node">
             <div class="condition-node-box">
@@ -61,7 +63,7 @@
                   />
                   <span v-else class="editable-title" @click="clickEvent(index)">{{ item.nodeName }}</span>
                   <span class="priority-title" @click="setPerson(item.priorityLevel)">优先级{{ item.priorityLevel }}</span>
-                  <span v-if="!item.isDefault" class="copy-branch" @click.stop="copyTerm(index)">复制</span>
+                  <button v-if="!item.isDefault" type="button" class="copy-branch" :disabled="branchLimitReached" @click.stop="copyTerm(index)">复制</button>
                   <i v-if="!item.isDefault" class="anticon anticon-close close" @click="delTerm(index)"></i>
                 </div>
                 <div class="sort-right" v-if="index < nodeConfig.conditionNodes.length - 2 && !item.isDefault" @click="arrTransfer(index)">&gt;</div>
@@ -109,12 +111,24 @@
   </el-drawer>
 </template>
 <script setup>
-import { ref, watch, watchEffect, getCurrentInstance, computed } from "vue";
+import { ref, watch, watchEffect, getCurrentInstance, computed, inject } from "vue";
 import { ElButton, ElDrawer, ElInput, ElMessage } from "element-plus";
 import $func from "../utils/index.js";
 import { useStore } from '../stores/index.js'
 import { bgColors, placeholderList, NodeType, getNodeTypeMeta } from '../utils/const.js'
 import addNode from './addNode.vue'
+import { maximumDesignerGatewayBranches } from '../../../../workflow-gateway-limits'
+// Full.NET 由同一份闭合配置提供摘要与校验，不把原版临时选人数组当作权威配置。
+const fullnetApprovalPresentation = inject('fullnetWorkflowApprovalPresentation', undefined)
+const fullnetCcPresentation = inject('fullnetWorkflowCcPresentation', undefined)
+const fullnetDelayPresentation = inject('fullnetWorkflowDelayPresentation', undefined)
+const fullnetFieldPresentation = inject('fullnetWorkflowFieldPresentation', undefined)
+const fullnetConnectorPresentation = inject('fullnetWorkflowConnectorPresentation', undefined)
+const fullnetSubprocessPresentation = inject('fullnetWorkflowSubprocessPresentation', undefined)
+const fullnetDependencies = inject('fullnetWorkflowEditDependencies', undefined)
+const dependencyTypes = inject('fullnetWorkflowEnabledNodeTypes', computed(() => new Set()))
+const dependencyLabel = inject('fullnetWorkflowDependencyLabel', '')
+const editDependencies = () => fullnetDependencies?.(props.nodeConfig, value => emits('update:nodeConfig', value))
 const store = useStore();
 let _uid = getCurrentInstance().uid;
 
@@ -135,6 +149,10 @@ let props = defineProps({
         default: () => [],
     },
 });
+
+// 添加与复制共用边界，默认分支单独占一个位置；处理器仍复查以防连续点击越界。
+const branchLimitReached = computed(() =>
+    (props.nodeConfig.conditionNodes?.length ?? 0) >= maximumDesignerGatewayBranches(Number(props.nodeConfig.type)))
 
 /**
  * 是否为审批类节点（使用审批人抽屉配置）
@@ -358,6 +376,12 @@ let defaultText = computed(() => {
 let showText = computed(() => {
     // 业务规则变更：空节点作为占位节点展示固定说明文案，不需要配置
     if (normalizeType(props.nodeConfig.type) == NodeType.Empty) return '默认执行通过'
+    if (isApproverLike(props.nodeConfig.type) && fullnetApprovalPresentation) return fullnetApprovalPresentation(props.nodeConfig).text
+    const ccPresentation = normalizeType(props.nodeConfig.type) == NodeType.Copyer ? fullnetCcPresentation?.(props.nodeConfig) : undefined
+    if (ccPresentation) return ccPresentation.text
+    if (normalizeType(props.nodeConfig.type) === NodeType.Delay && fullnetDelayPresentation) return fullnetDelayPresentation(props.nodeConfig).text
+    if ([NodeType.ModifyData, NodeType.DeleteData].includes(normalizeType(props.nodeConfig.type)) && fullnetFieldPresentation) return fullnetFieldPresentation(props.nodeConfig).text
+    if ([NodeType.Trigger, NodeType.AsyncTrigger, NodeType.BusinessCommand].includes(normalizeType(props.nodeConfig.type)) && fullnetConnectorPresentation) return fullnetConnectorPresentation(props.nodeConfig).text
     if (props.nodeConfig.placeHolder) return props.nodeConfig.placeHolder
     if (normalizeType(props.nodeConfig.type) == NodeType.Starter) return $func.arrToStr(props.flowPermission) || '所有人'
     if (isApproverLike(props.nodeConfig.type)) return $func.setApproverStr(props.nodeConfig)
@@ -674,21 +698,35 @@ const refreshNodeError = () => {
     let nextTip = ''
 
     if (isApproverLike(cfg.type)) {
-        const requiredTip = calcApproverRequiredError(cfg)
+        const presentation = fullnetApprovalPresentation?.(cfg)
+        const requiredTip = presentation ? presentation.tip : calcApproverRequiredError(cfg)
         const listenerTip = calcApproverListenerError(cfg)
         nextTip = listenerTip || requiredTip
         nextError = !!nextTip
     } else if (cfg.type == NodeType.Copyer) {
-        const ok = !!$func.copyerStr(cfg)
+        const presentation = fullnetCcPresentation?.(cfg)
+        const ok = presentation ? !presentation.error : !!$func.copyerStr(cfg)
         nextError = !ok
-        nextTip = ok ? '' : `请选择${defaultText.value}`
-    } else if ([NodeType.Trigger, NodeType.AsyncTrigger].includes(cfg.type)) {
+        nextTip = presentation ? presentation.tip : ok ? '' : `请选择${defaultText.value}`
+    } else if ([NodeType.Trigger, NodeType.AsyncTrigger, NodeType.BusinessCommand].includes(cfg.type)) {
+        if (fullnetConnectorPresentation) {
+            const presentation = fullnetConnectorPresentation(cfg)
+            cfg.error = presentation.error; cfg.errorTip = presentation.tip; cfg.placeHolder = presentation.text
+            return
+        }
         const url = String(cfg.url || '').trim()
         const ok = !!(url && /^https?:\/\/.+/i.test(url))
         nextError = !ok
         nextTip = url ? '请求地址格式不正确' : '请设置请求地址'
         if (cfg.placeHolder !== nextTip) cfg.placeHolder = nextTip
     } else if (isDelayLike(cfg)) {
+        if (fullnetDelayPresentation) {
+            const presentation = fullnetDelayPresentation(cfg)
+            if (cfg.error !== presentation.error) cfg.error = presentation.error
+            if (cfg.errorTip !== presentation.tip) cfg.errorTip = presentation.tip
+            if (cfg.placeHolder !== presentation.text) cfg.placeHolder = presentation.text
+            return
+        }
         // 业务规则变更：当节点配置缺失 type，但含延时字段时仍视为延时器
         const mode = resolveDelayMode(cfg.mode)
         const timePointSource = cfg.timePointSource === 'form' ? 'form' : 'input'
@@ -729,16 +767,31 @@ const refreshNodeError = () => {
         nextTip = tip
         if (cfg.placeHolder !== placeHolder) cfg.placeHolder = placeHolder
     } else if (normalizeType(cfg.type) === NodeType.SubProcess) {
+        if (fullnetSubprocessPresentation) {
+            const presentation = fullnetSubprocessPresentation(cfg)
+            cfg.error = presentation.error; cfg.errorTip = presentation.tip; cfg.placeHolder = presentation.text
+            return
+        }
         const { error, tip, placeHolder } = calcSubProcessError(cfg)
         nextError = error
         nextTip = tip
         if (cfg.placeHolder !== placeHolder) cfg.placeHolder = placeHolder
     } else if (normalizeType(cfg.type) === NodeType.ModifyData) {
+        if (fullnetFieldPresentation) {
+            const presentation = fullnetFieldPresentation(cfg)
+            cfg.error = presentation.error; cfg.errorTip = presentation.tip; cfg.placeHolder = presentation.text
+            return
+        }
         const { error, tip, placeHolder } = calcModifyDataError(cfg)
         nextError = error
         nextTip = tip
         if (cfg.placeHolder !== placeHolder) cfg.placeHolder = placeHolder
     } else if (normalizeType(cfg.type) === NodeType.DeleteData) {
+        if (fullnetFieldPresentation) {
+            const presentation = fullnetFieldPresentation(cfg)
+            cfg.error = presentation.error; cfg.errorTip = presentation.tip; cfg.placeHolder = presentation.text
+            return
+        }
         const { error, tip, placeHolder } = calcDeleteDataError(cfg)
         nextError = error
         nextTip = tip
@@ -789,6 +842,7 @@ let conditionsConfig1 = computed(()=> store.conditionsConfig1)
 let dynamicRouteConfig1 = computed(()=> store.dynamicRouteConfig1)
 let modifyDataConfig1 = computed(()=> store.modifyDataConfig1)
 let deleteDataConfig1 = computed(()=> store.deleteDataConfig1)
+let subProcessConfig1 = computed(()=> store.subProcessConfig1)
 watch(flowPermission1, (flow) => {
     if (flow.flag && flow.id === _uid) {
         emits("update:flowPermission", flow.value);
@@ -834,6 +888,12 @@ watch(deleteDataConfig1, (deleteData) => {
         emits("update:nodeConfig", deleteData.value);
     }
 });
+// 子流程抽屉与其他节点一样，只向打开它的节点回写已确认配置。
+watch(subProcessConfig1, (subProcess) => {
+    if (subProcess.flag && subProcess.id === _uid) {
+        emits("update:nodeConfig", subProcess.value);
+    }
+});
 
 const clickEvent = (index) => {
     if (index || index === 0) {
@@ -855,6 +915,7 @@ const delNode = () => {
     emits("update:nodeConfig", props.nodeConfig.childNode);
 };
 const addTerm = () => {
+    if (branchLimitReached.value) return
     let len = props.nodeConfig.conditionNodes.length + 1;
     const nodeId = genNodeId()
     const branch = {
@@ -908,6 +969,7 @@ const resetNodeIds = (node) => {
     if (node.childNode) resetNodeIds(node.childNode)
 }
 const copyTerm = (index) => {
+    if (branchLimitReached.value) return
     const source = props.nodeConfig.conditionNodes[index]
     if (!source) return
     const cloned = JSON.parse(JSON.stringify(source))
@@ -974,7 +1036,7 @@ const setPerson = (priorityLevel) => {
             flag: false,
             id: _uid,
         });
-    } else if ([NodeType.Trigger, NodeType.AsyncTrigger].includes(normalizedType)) {
+    } else if ([NodeType.Trigger, NodeType.AsyncTrigger, NodeType.BusinessCommand].includes(normalizedType)) {
         setTrigger(true);
         setTriggerConfig({
             value: JSON.parse(JSON.stringify(props.nodeConfig)),
@@ -1088,9 +1150,19 @@ const saveJsonDrawer = () => {
 
 .copy-branch {
     margin-left: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
     font-size: 12px;
     color: #409eff;
     cursor: pointer;
+}
+
+.copy-branch:disabled,
+.add-branch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .promoter_person .el-dialog__body {

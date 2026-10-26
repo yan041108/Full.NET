@@ -135,7 +135,7 @@ public sealed class MySqlCdcDebeziumInboxE2ETests
 
             var topics = await CdcDebeziumE2ESupport.ListShadowTopicsAsync(scenario.Pipeline);
             Assert.IsTrue(
-                topics.Contains("fullnet.dev.shadow.internal.schema-history.mysql", StringComparer.Ordinal),
+                topics.Contains(connectorConfig["schema.history.internal.kafka.topic"], StringComparer.Ordinal),
                 "Schema history topic must survive connector restart.");
 
             var secondDelivery = await CdcDebeziumE2ESupport.PublishAndWaitForShadowEventAsync(

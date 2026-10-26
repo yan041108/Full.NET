@@ -71,6 +71,7 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
   // API 预登录会写入共享 Cookie；UI 登录前必须清空，否则会表现为 client.login_failed。
   await page.context().clearCookies();
   await page.addInitScript(() => {
+    if (window !== window.top) return;
     localStorage.clear();
     localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });
@@ -91,6 +92,7 @@ export async function loginAsHostViewer(page, baseUrl = '/') {
   );
   await page.context().clearCookies();
   await page.addInitScript(() => {
+    if (window !== window.top) return;
     localStorage.clear();
     localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });
@@ -347,6 +349,7 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
   );
   await page.context().clearCookies();
   await page.addInitScript(() => {
+    if (window !== window.top) return;
     localStorage.clear();
     localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });

@@ -6,7 +6,23 @@ namespace Full.NET.Modules.Workflow.Domain;
 internal static class WorkflowCcNodeConfiguration
 {
     private static readonly HashSet<string> AllowedProperties =
-        new(["nextNodeKeys", "nodeName", "recipientUserIds"], StringComparer.Ordinal);
+        new(["nextNodeKeys", "nodeName", "recipientUserIds", "recipientPolicy"], StringComparer.Ordinal);
+
+    /// <summary>静态名单与策略二选一；正常无人只记录轨迹，不接受人工处置或嵌套替补。</summary>
+    public static bool TryReadPolicy(JsonElement config, out WorkflowAssigneePolicy policy)
+    {
+        policy = new([]);
+        if (config.ValueKind != JsonValueKind.Object || config.EnumerateObject().Any(property => !AllowedProperties.Contains(property.Name)) ||
+            config.EnumerateObject().GroupBy(property => property.Name, StringComparer.Ordinal).Any(group => group.Count() != 1)) return false;
+        if (config.TryGetProperty("recipientPolicy", out var value))
+        {
+            if (config.TryGetProperty("recipientUserIds", out _) || value.ValueKind != JsonValueKind.Object || value.EnumerateObject().Count() != 1 ||
+                !value.TryGetProperty("sources", out _) || !WorkflowAssigneePolicy.TryReadPolicy(value, out policy) || policy.Handling is not null) return false;
+            return policy.Sources.Where(source => source.ResolverKindKey == WorkflowAssigneePolicy.SpecifiedUsers).SelectMany(source => source.UserIds).Distinct().Count() <= 20;
+        }
+        if (!TryReadRecipients(config, out var users)) return false;
+        policy = new([new(WorkflowAssigneePolicy.SpecifiedUsers, users, [], null, null)]); return true;
+    }
 
     /// <summary>读取抄送收件人，并拒绝未批准字段、空标识、重复标识和超限集合。</summary>
     /// <param name="config">节点配置 JSON。</param>
@@ -18,6 +34,7 @@ internal static class WorkflowCcNodeConfiguration
     {
         recipientUserIds = [];
         if (config.ValueKind != JsonValueKind.Object ||
+            config.TryGetProperty("recipientPolicy", out _) ||
             config.EnumerateObject().Any(property => !AllowedProperties.Contains(property.Name)) ||
             !config.TryGetProperty("recipientUserIds", out var recipients) ||
             recipients.ValueKind != JsonValueKind.Array)

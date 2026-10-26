@@ -8,6 +8,14 @@ namespace Full.NET.IntegrationTests.NativeAot;
 public sealed class NativeApiWorkflowSqlServerE2ETests
 {
     [TestMethod]
+    public async Task SqlServer_native_artifact_preserves_full_vform_design_and_submission()
+    {
+        _ = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiVFormE2EAssertions.VerifyAsync(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task SqlServer_native_artifact_supports_workflow_approval_flow()
     {
         _ = NativeApiArtifactLocator.RequireArtifact();

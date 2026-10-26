@@ -5,6 +5,7 @@ import { createH5IdentitySession } from './h5-identity-session';
 
 export const h5HttpClient = createHttpClient({
   request: uni.request,
+  uploadFile: uni.uploadFile,
   getLocale: () => localeController.initialize().preferredLocale,
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? ''
 });

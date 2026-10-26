@@ -3,6 +3,18 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <summary>工作流管理页面与业务操作使用的精确权限码。</summary>
 public static class WorkflowPermissions
 {
+    /// <summary>读取当前作用域工作日历及固定版本。</summary>
+    public const string CalendarsRead="workflow.calendars.read";
+    /// <summary>创建当前作用域工作日历。</summary>
+    public const string CalendarsCreate="workflow.calendars.create";
+    /// <summary>修改工作日历草稿。</summary>
+    public const string CalendarsUpdate="workflow.calendars.update";
+    /// <summary>发布不可变工作日历版本。</summary>
+    public const string CalendarsPublish="workflow.calendars.publish";
+    /// <summary>对账受控连接器的未知结果及接纳服务器已保存的真实回执。</summary>
+    public const string ConnectorCallsReconcile = "workflow.connector_calls.reconcile";
+    /// <summary>查询当前可信作用域的连接器运维状态，不暴露原始业务载荷。</summary>
+    public const string ConnectorCallsRead = "workflow.connector_calls.read";
     /// <summary>查询工作流定义与版本。</summary>
     public const string DefinitionsRead = "workflow.definitions.read";
     /// <summary>创建工作流定义。</summary>
@@ -35,6 +47,10 @@ public static class WorkflowPermissions
     public const string InstancesStart = "workflow.instances.start";
     /// <summary>取消工作流实例。</summary>
     public const string InstancesCancel = "workflow.instances.cancel";
+    /// <summary>发起人按发布边界撤回本人实例，不授予管理员取消能力。</summary>
+    public const string InstancesWithdraw = "workflow.instances.withdraw";
+    /// <summary>发起人对本人实例的活动节点发起有界催办。</summary>
+    public const string InstancesRemind = "workflow.instances.remind";
     /// <summary>暂停正在运行的工作流实例。</summary>
     public const string InstancesPause = "workflow.instances.pause";
     /// <summary>普通恢复已暂停的工作流实例。</summary>
@@ -43,6 +59,20 @@ public static class WorkflowPermissions
     public const string InstancesRecover = "workflow.instances.recover";
     /// <summary>查询本人工作流待办。</summary>
     public const string TodosRead = "workflow.todos.read";
+    /// <summary>为本人活动待办采集签名证据。</summary>
+    public const string TodosSign = "workflow.todos.sign";
+    /// <summary>提交完成本人办理任务，不授予审批权限。</summary>
+    public const string TodosComplete = "workflow.todos.complete";
+    /// <summary>提交本人独立选票，不授权普通审批或其他候选的表单。</summary>
+    public const string TodosVote = "workflow.todos.vote";
+    /// <summary>查看本人固定候选领取池。</summary>
+    public const string ClaimPoolsRead = "workflow.claim_pools.read";
+    /// <summary>以当前有效候选身份领取池内任务。</summary>
+    public const string ClaimPoolsClaim = "workflow.claim_pools.claim";
+    /// <summary>管理员把尚未领取的任务明确分配给同作用域活动成员。</summary>
+    public const string ClaimPoolsAssign = "workflow.claim_pools.assign";
+    /// <summary>按发布策略释放本人已经领取的任务。</summary>
+    public const string TodosRelease = "workflow.todos.release";
     /// <summary>同意本人工作流待办。</summary>
     public const string TodosApprove = "workflow.todos.approve";
     /// <summary>拒绝本人工作流待办。</summary>
@@ -51,6 +81,12 @@ public static class WorkflowPermissions
     public const string TodosReturn = "workflow.todos.return";
     /// <summary>对本人活动待办发起前加签或后加签。</summary>
     public const string TodosCountersign = "workflow.todos.countersign";
+    /// <summary>把本人活动工作流待办转办给同作用域的可信活动成员。</summary>
+    public const string TodosTransfer = "workflow.todos.transfer";
+    /// <summary>把本人当前待办授权给同作用域代理人，仅覆盖这一份待办。</summary>
+    public const string TodosDelegate = "workflow.todos.delegate";
+    /// <summary>原办理人在代理办结前收回本人发出的待办代理。</summary>
+    public const string TodosRecallDelegation = "workflow.todos.recall_delegation";
     /// <summary>查询本人工作流抄送。</summary>
     public const string CcRead = "workflow.cc.read";
     /// <summary>标记本人工作流抄送已读。</summary>
@@ -65,6 +101,12 @@ public static class WorkflowPermissions
     /// <summary>获取当前模块全部精确权限码，供授权目录与测试枚举。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
+        CalendarsRead,
+        CalendarsCreate,
+        CalendarsUpdate,
+        CalendarsPublish,
+        ConnectorCallsRead,
+        ConnectorCallsReconcile,
         DefinitionsRead,
         DefinitionsCreate,
         DefinitionsUpdate,
@@ -81,14 +123,26 @@ public static class WorkflowPermissions
         InstancesList,
         InstancesStart,
         InstancesCancel,
+        InstancesWithdraw,
+        InstancesRemind,
         InstancesPause,
         InstancesResume,
         InstancesRecover,
         TodosRead,
+        TodosSign,
         TodosApprove,
+        TodosComplete,
+        TodosVote,
+        ClaimPoolsRead,
+        ClaimPoolsClaim,
+        ClaimPoolsAssign,
+        TodosRelease,
         TodosReject,
         TodosReturn,
         TodosCountersign,
+        TodosTransfer,
+        TodosDelegate,
+        TodosRecallDelegation,
         CcRead,
         CcMarkRead,
         RecoveryTasksRead,

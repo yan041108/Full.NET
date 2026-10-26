@@ -8,6 +8,7 @@ using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Persistence;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Abstractions.Messaging;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.DataApproval;
@@ -16,6 +17,51 @@ namespace Full.NET.UnitTests.DataApproval;
 [TestClass]
 public sealed class DataApprovalWorkflowOutcomeServiceTests
 {
+    [TestMethod]
+    [DataRow("rejected")]
+    [DataRow("cancelled")]
+    public async Task Another_workflow_cannot_resolve_the_bound_business_request(string outcome)
+    {
+        var row = CreateInReviewRow(Guid.CreateVersion7());
+        var query = Substitute.For<IQueryExecutor>(); var commands = Substitute.For<ICommandExecutor>(); var clock = Substitute.For<IClock>();
+        query.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(DataApprovalSql.FindRequestByBusinessId, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(row);
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var service = new DataApprovalWorkflowOutcomeService(query, commands, clock, new(query, commands, clock, []));
+        var context = new IntegrationEventContext(Guid.CreateVersion7(), "test", 1, null, null, DateTimeOffset.UtcNow);
+        if (outcome == "rejected") await new WorkflowInstanceRejectedDataApprovalSink(service).HandleAsync(context,
+            new(Guid.CreateVersion7(), row.SubmittedByUserId, DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, row.Id.ToString("D"), DateTimeOffset.UtcNow), CancellationToken.None);
+        else await new WorkflowInstanceCancelledDataApprovalSink(service).HandleAsync(context,
+            new(Guid.CreateVersion7(), row.SubmittedByUserId, DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, row.Id.ToString("D"), DateTimeOffset.UtcNow), CancellationToken.None);
+        Assert.AreEqual(0, commands.ReceivedCalls().Count(), "另一个工作流不能凭相同业务ID修改所有者请求。");
+    }
+    [TestMethod]
+    public async Task Terminal_message_before_workflow_link_is_retryable_instead_of_silently_lost()
+    {
+        var row = CreateInReviewRow(Guid.CreateVersion7()) with { WorkflowInstanceId = null, StatusKey = DataApprovalStatusKeys.Pending };
+        var query = Substitute.For<IQueryExecutor>(); var commands = Substitute.For<ICommandExecutor>(); var clock = Substitute.For<IClock>();
+        query.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(DataApprovalSql.FindRequestByBusinessId, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(row);
+        var service = new DataApprovalWorkflowOutcomeService(query, commands, clock, new(query, commands, clock, []));
+        var context = new IntegrationEventContext(Guid.CreateVersion7(), "test", 1, null, null, DateTimeOffset.UtcNow);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => new WorkflowInstanceCompletedDataApprovalSink(service).HandleAsync(context,
+            new(Guid.CreateVersion7(), row.SubmittedByUserId, DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, row.Id.ToString("D"), DateTimeOffset.UtcNow), CancellationToken.None));
+        Assert.AreEqual(0, commands.ReceivedCalls().Count());
+    }
+    [TestMethod]
+    [DataRow("actor")]
+    [DataRow("scenario")]
+    [DataRow("tenant")]
+    public async Task Correct_instance_still_requires_bound_actor_scenario_and_scope(string mismatch)
+    {
+        var row = CreateInReviewRow(Guid.CreateVersion7());
+        var query = Substitute.For<IQueryExecutor>(); var commands = Substitute.For<ICommandExecutor>(); var clock = Substitute.For<IClock>();
+        query.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(DataApprovalSql.FindRequestByBusinessId, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(row);
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var service = new DataApprovalWorkflowOutcomeService(query, commands, clock, new(query, commands, clock, []));
+        await service.HandleTerminalWorkflowAsync(mismatch == "tenant" ? Guid.CreateVersion7() : Guid.Empty,
+            row.WorkflowInstanceId!.Value, mismatch == "scenario" ? DataApprovalWorkflowBusinessTypes.SerialRuleDisable : DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
+            row.Id.ToString("D"), "rejected", mismatch == "actor" ? Guid.CreateVersion7() : row.SubmittedByUserId, "test", CancellationToken.None);
+        Assert.AreEqual(0, commands.ReceivedCalls().Count());
+    }
     /// <summary>工作流批准后若业务应用冲突，不得把请求直接标记为 approved。</summary>
     /// <returns>表示异步验证过程的任务。</returns>
     [TestMethod]
@@ -78,6 +124,7 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
 
         await service.HandleTerminalWorkflowAsync(
             Guid.Empty,
+            row.WorkflowInstanceId!.Value,
             DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
             requestId.ToString("D"),
             "completed",
@@ -181,6 +228,7 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
 
         await service.HandleTerminalWorkflowAsync(
             Guid.Empty,
+            row.WorkflowInstanceId!.Value,
             DataApprovalWorkflowBusinessTypes.SerialRuleDisable,
             requestId.ToString("D"),
             "completed",

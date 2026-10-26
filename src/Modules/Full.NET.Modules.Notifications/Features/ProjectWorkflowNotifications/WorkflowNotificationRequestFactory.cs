@@ -10,6 +10,26 @@ internal static class WorkflowNotificationRequestFactory
 {
     private const string ProducerKey = "workflow";
 
+    /// <summary>监听器仅接受闭合动作与阶段，幂等键绑定实际步骤和监听器，重投新消息标识也不重复通知。</summary>
+    public static CreateNotificationIntentRequest Create(Guid messageId, WorkflowActivityListenerRequestedIntegrationEvent value)
+    {
+        if (value.InstanceId == Guid.Empty || value.StepId == Guid.Empty || value.RecipientUserId == Guid.Empty ||
+            value.ActionKey != "notify.initiator" || value.ActionVersion != 1 || value.EventKey is not ("completed" or "rejected") ||
+            string.IsNullOrWhiteSpace(value.NodeKey) || value.NodeKey.Length > 128 ||
+            string.IsNullOrWhiteSpace(value.ListenerKey) || value.ListenerKey.Length > 64)
+            throw new InvalidOperationException("notifications.workflow_listener_invalid");
+        return CreateCore(messageId, "workflow.activity." + value.EventKey, value.RecipientUserId, value.InstanceId,
+            value.BusinessType, value.BusinessId, todoId: null) with {
+                IdempotencyKey = "workflow-listener-" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes($"{value.StepId:N}|{value.ListenerKey}|{value.EventKey}")))
+            };
+    }
+
+    /// <summary>人工催办以真实请求和待办稳定去重，与逾期提醒序号独立。</summary>
+    public static CreateNotificationIntentRequest Create(Guid messageId, WorkflowTodoManualReminderRequestedIntegrationEvent value) =>
+        CreateCore(messageId, "workflow.todo.manual_reminder", value.RecipientUserId, value.InstanceId,
+            value.BusinessType, value.BusinessId, value.TodoId, manualRequestId: value.RequestId, manualSequence: value.ManualSequence);
+
     /// <summary>把待办到达事件映射为站内信意图。</summary>
     /// <param name="messageId">稳定 Outbox 消息标识。</param>
     /// <param name="integrationEvent">待办到达事件。</param>
@@ -113,7 +133,9 @@ internal static class WorkflowNotificationRequestFactory
         string businessType,
         string businessId,
         Guid? todoId,
-        int? reminderSequence = null)
+        int? reminderSequence = null,
+        Guid? manualRequestId = null,
+        int? manualSequence = null)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -131,6 +153,11 @@ internal static class WorkflowNotificationRequestFactory
             }
 
             writer.WriteString("businessType", businessType);
+            if (manualRequestId is { } requestId)
+            {
+                writer.WriteString("manualRequestId", requestId);
+                writer.WriteNumber("manualSequence", manualSequence!.Value);
+            }
             writer.WriteString("businessId", businessId);
             writer.WriteEndObject();
         }
@@ -142,7 +169,7 @@ internal static class WorkflowNotificationRequestFactory
             sceneKey,
             [new NotificationRecipientInput("user", recipientUserId.ToString("N"))],
             document.RootElement.Clone(),
-            $"workflow-{messageId:N}",
+            manualRequestId is { } manualId ? $"workflow-manual-{manualId:N}-{todoId:N}" : $"workflow-{messageId:N}",
             DeepLink: new NotificationDeepLink(todoId.HasValue ? "workflow_todo" : "workflow_instance", todoId ?? instanceId));
     }
 }

@@ -203,7 +203,7 @@
   "properties": {
             "mode": {
               "type": "string",
-              "enum": ["LegacyPolling", "ShadowCdc", "CdcKafka"]
+              "enum": ["LegacyPolling", "ShadowCdc", "HybridKafka"]
             },
             "kafka": {
               "type": "object",

@@ -15,6 +15,8 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
         registrar.Register<Full.NET.Modules.Files.Features.TenantResourceFiles.TenantStorageUsageRow>(reader => new(reader.GetGuid(0),
             System.Convert.ToInt64(reader.GetValue(1), System.Globalization.CultureInfo.InvariantCulture)));
         registrar.Register<TenantResourceFileRecord>(ReadTenantResourceFileRecord);
+        registrar.Register<TenantResourceFileDescriptorRecord>(reader => new(reader.GetGuid(0), reader.GetString(1),
+            reader.GetString(2), reader.GetInt64(3), reader.GetString(4), reader.GetGuid(5)));
         registrar.Register<TenantResourceFileReadyRecord>(ReadTenantResourceFileReadyRecord);
         registrar.Register<TenantResourceFileReconciliationRecord>(ReadTenantResourceFileReconciliationRecord);
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);

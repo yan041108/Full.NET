@@ -45,16 +45,30 @@
       }
     },
     {
-      "name": "Vue VForm3 optional designer JavaScript",
-      "dist": "ui/admin/dist",
+      "name": "VForm3 complete isolated runtime JavaScript",
+      "dist": "ui/admin/dist/vform3",
       "asset": {
         "directory": "assets",
-        "assetPrefix": "VForm3EsmDesigner-",
+        "assetPrefix": "main-",
         "assetSuffix": ".js"
       },
       "budget": {
-        "minifiedBytes": 8450,
-        "gzipBytes": 3203,
+        "minifiedBytes": 3007445,
+        "gzipBytes": 796594,
+        "maxRegressionPercent": 5
+      }
+    },
+    {
+      "name": "VForm3 complete isolated runtime CSS",
+      "dist": "ui/admin/dist/vform3",
+      "asset": {
+        "directory": "assets",
+        "assetPrefix": "main-",
+        "assetSuffix": ".css"
+      },
+      "budget": {
+        "minifiedBytes": 483244,
+        "gzipBytes": 63048,
         "maxRegressionPercent": 5
       }
     }

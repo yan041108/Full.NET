@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Features;
+using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +19,40 @@ internal static class Endpoint
     /// <param name="endpoints">应用端点路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/v1/workflow/definition-versions/{versionId:guid}/starter-selections", async (Guid versionId,
+            WorkflowStarterSelectionQueryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.GetAsync(versionId, token).ConfigureAwait(false), context))
+            .WithName("workflowGetStarterSelections").WithTags("WorkflowInstances").Produces<WorkflowStarterSelectionsResponse>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesStart));
+        endpoints.MapGet("/api/v1/workflow/definition-versions/{versionId:guid}/starter-selections/{selectionKey}/candidates", async (Guid versionId,
+            string selectionKey, int? page, int? pageSize, WorkflowStarterSelectionQueryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.ListAsync(versionId, selectionKey, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context))
+            .WithName("workflowListStarterSelectionCandidates").WithTags("WorkflowInstances").Produces<Full.NET.Modules.Workflow.Features.ManageDefinitions.WorkflowRecipientCandidatePageResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesStart));
+        endpoints.MapGet("/api/v1/workflow/instances/{instanceId:guid}/reminder-targets", async (Guid instanceId,
+            WorkflowManualReminderService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            Guid.TryParse(context.User.FindFirst("sub")?.Value, out var actor)
+                ? mapper.Map(await service.ListAsync(instanceId, actor, token).ConfigureAwait(false), context) : Results.Unauthorized())
+            .WithName("workflowListManualReminderTargets").WithTags("WorkflowInstances").Produces<WorkflowManualReminderTargetsResponse>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRemind));
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/remind", async (Guid instanceId, RequestWorkflowManualReminder request,
+            WorkflowManualReminderService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            Guid.TryParse(context.User.FindFirst("sub")?.Value, out var actor)
+                ? mapper.Map(await service.RequestAsync(instanceId, actor, request, token).ConfigureAwait(false), context) : Results.Unauthorized())
+            .WithName("workflowRequestManualReminder").WithTags("WorkflowInstances").Produces<WorkflowManualReminderResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(429)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRemind));
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/withdraw", async (Guid instanceId, WithdrawWorkflowInstanceRequest request,
+            WorkflowInstanceManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            Guid.TryParse(context.User.FindFirst("sub")?.Value, out var actor)
+                ? mapper.Map(await service.WithdrawAsync(instanceId, actor, request, token).ConfigureAwait(false), context)
+                : Results.Unauthorized())
+            .WithName("workflowWithdrawInstance").WithTags("WorkflowInstances").Produces<WorkflowInstanceResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesWithdraw));
         endpoints.MapGet("/api/v1/workflow/instances", async (
             int? page,
             int? pageSize,
@@ -93,6 +128,7 @@ internal static class Endpoint
         endpoints.MapPost("/api/v1/workflow/instances", async (
             StartWorkflowInstanceRequest request,
             WorkflowInstanceManagementService service,
+            IEnumerable<WorkflowBusinessTypeOwnership> businessOwnerships,
             IApiResultMapper mapper,
             HttpContext context,
             CancellationToken token) =>
@@ -102,6 +138,9 @@ internal static class Endpoint
                 return Results.Unauthorized();
             }
 
+            if (WorkflowBusinessStartPolicy.RequiresOwner(request.BusinessType, businessOwnerships))
+                return mapper.Map(Result<WorkflowInstanceResponse>.Failure(new(WorkflowErrorCodes.BusinessOwnerRequired,
+                    "Start this workflow from its business owner.", ErrorType.Forbidden)), context);
             var result = await service.StartAsync(actorUserId, request, token).ConfigureAwait(false);
             return result.IsSuccess
                 ? Results.Created($"/api/v1/workflow/instances/{result.Value!.Id:D}", result.Value)
@@ -309,10 +348,11 @@ internal static class Endpoint
             HttpContext context,
             CancellationToken token) =>
         {
+            if (!TryGetActor(context, out var actorUserId)) return Results.Unauthorized();
             var scope = WorkflowManagementScope.Resolve(
                 context.RequestServices.GetRequiredService<ICurrentTenant>());
             var result = await attachmentAccess
-                .OpenInstanceAttachmentAsync(instanceId, fileId, scope.TenantScopeKey, token)
+                .OpenInstanceAttachmentAsync(instanceId, fileId, actorUserId, scope.TenantScopeKey, token)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {

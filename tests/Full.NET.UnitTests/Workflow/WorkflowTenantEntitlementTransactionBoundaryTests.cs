@@ -53,8 +53,9 @@ public sealed class WorkflowTenantEntitlementTransactionBoundaryTests
         {
             var service = new WorkflowDefinitionManagementService(query, command, transaction, tenant,
                 Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-                Substitute.For<IHostUserBatchSelectionDirectory>(), Substitute.For<ITenantUserSelectionDirectory>(),
-                WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(), entitlements);
+                Substitute.For<IHostUserBatchSelectionDirectory>(), Substitute.For<ITenantMemberSelectionDirectory>(),
+                WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(), entitlements,
+                new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), new Full.NET.Modules.Workflow.Domain.WorkflowBusinessActionCatalog([]));
             var result = await service.UpdateDraftAsync(id, actorId,
                 new UpdateWorkflowDefinitionDraftRequest(1, new WorkflowDefinitionDraft(1, [])));
             Assert.IsFalse(result.IsSuccess);

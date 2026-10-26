@@ -7,6 +7,22 @@
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Approver).icon }}</span></span>
             <span>审批人</span>
           </button>
+          <button v-if="enabledNodeTypes.has('human.group_approval')" type="button" class="add-node-popover-item approver" @click="addType(NodeType.GroupApprover)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.GroupApprover).icon }}</span></span>
+            <span>{{ t('workflowDesigner.groups.node') }}</span>
+          </button>
+          <button v-if="enabledNodeTypes.has('human.task')" type="button" class="add-node-popover-item approver" @click="addType(NodeType.Handler)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Handler).icon }}</span></span>
+            <span>{{ t('workflowDesigner.tasks.node') }}</span>
+          </button>
+          <button v-if="enabledNodeTypes.has('human.claim')" type="button" class="add-node-popover-item approver" @click="addType(NodeType.Rob)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Rob).icon }}</span></span>
+            <span>{{ t('workflowDesigner.claims.node') }}</span>
+          </button>
+          <button v-if="enabledNodeTypes.has('human.vote')" type="button" class="add-node-popover-item approver" @click="addType(NodeType.Vote)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Vote).icon }}</span></span>
+            <span>{{ t('workflowDesigner.votes.node') }}</span>
+          </button>
           <button v-if="enabledNodeTypes.has('notify.cc')" type="button" class="add-node-popover-item notifier" @click="addType(NodeType.Copyer)">
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Copyer).icon }}</span></span>
             <span>抄送人</span>
@@ -23,6 +39,19 @@
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.InclusiveRoute).icon }}</span></span>
             <span>包容分支</span>
           </button>
+          <button v-if="enabledNodeTypes.has('timer.delay')" type="button" class="add-node-popover-item condition" :aria-label="t('workflowDesigner.delay.title')" @click="addType(NodeType.Delay)">
+            <span class="item-wrapper" aria-hidden="true"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Delay).icon }}</span></span>
+            <span>{{ t('workflowDesigner.delay.title') }}</span>
+          </button>
+          <button v-if="enabledNodeTypes.has('control.empty')" type="button" class="add-node-popover-item condition" :aria-label="t('workflowDesigner.conditions.emptyNode')" @click="addType(NodeType.Empty)">
+            <span class="item-wrapper" aria-hidden="true"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Empty).icon }}</span></span>
+            <span>{{ t('workflowDesigner.conditions.emptyNode') }}</span>
+          </button>
+          <button v-if="enabledNodeTypes.has('data.modify')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.ModifyData)"><span>{{ t('workflowDesigner.fieldActivity.modify') }}</span></button>
+          <button v-if="enabledNodeTypes.has('data.clear')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.DeleteData)"><span>{{ t('workflowDesigner.fieldActivity.clear') }}</span></button>
+          <button v-if="enabledNodeTypes.has('integration.trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.Trigger)"><span>{{ t('workflowDesigner.connector.title') }}</span></button>
+          <button v-if="enabledNodeTypes.has('business.command')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.BusinessCommand)"><span>{{ t('workflowDesigner.businessCommand.title') }}</span></button>
+          <button v-if="enabledNodeTypes.has('integration.async_trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.AsyncTrigger)"><span>{{ t('workflowDesigner.connector.asyncTitle') }}</span></button>
         </div>
         <template #reference>
           <button class="btn" type="button" aria-label="添加流程节点">
@@ -37,8 +66,10 @@
 <script setup>
 import { computed, inject, ref } from 'vue'
 import { ElPopover } from 'element-plus'
+import { useAdminI18n } from '../../../../../i18n/adminI18n'
 import { NodeType, getNodeTypeMeta } from '../utils/const.js'
 
+const { t } = useAdminI18n()
 const props = defineProps({
   childNodeP: {
     type: Object,
@@ -61,8 +92,20 @@ const createNodeId = () => {
 }
 
 const addType = (type) => {
+  if (type === NodeType.BusinessCommand) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.businessCommand.title'), type, childNode: props.childNodeP }); visible.value = false;
+    return;
+  }
   visible.value = false
-  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route, NodeType.ParallelRoute, NodeType.InclusiveRoute].includes(type)) return
+  if (![NodeType.Approver, NodeType.Handler, NodeType.Vote, NodeType.Rob, NodeType.GroupApprover, NodeType.Copyer, NodeType.Route, NodeType.ParallelRoute, NodeType.InclusiveRoute, NodeType.Empty, NodeType.Delay, NodeType.ModifyData, NodeType.DeleteData, NodeType.Trigger, NodeType.AsyncTrigger].includes(type)) return
+  if ([NodeType.Trigger, NodeType.AsyncTrigger].includes(type)) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t(type === NodeType.AsyncTrigger ? 'workflowDesigner.connector.asyncTitle' : 'workflowDesigner.connector.title'), type, childNode: props.childNodeP })
+    return
+  }
+  if ([NodeType.ModifyData, NodeType.DeleteData].includes(type)) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t(type === NodeType.ModifyData ? 'workflowDesigner.fieldActivity.modify' : 'workflowDesigner.fieldActivity.clear'), type, childNode: props.childNodeP })
+    return
+  }
   if (type === NodeType.ParallelRoute) {
     const firstBranchId = createNodeId()
     const secondBranchId = createNodeId()
@@ -203,6 +246,38 @@ const addType = (type) => {
       ],
       childNode: props.childNodeP,
     })
+    return
+  }
+  if (type === NodeType.Empty) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.conditions.emptyNode'), type, childNode: props.childNodeP })
+    return
+  }
+  if (type === NodeType.Delay) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.delay.title'), type,
+      delayPolicy: { modeKey: 'relative', timeZoneKey: 'UTC', duration: 1, unitKey: 'minute' }, childNode: props.childNodeP })
+    return
+  }
+  if (type === NodeType.Handler) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.tasks.node'), type,
+      taskPolicy: { completionModeKey: 'all' }, childNode: props.childNodeP })
+    return
+  }
+  if (type === NodeType.Rob) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.claims.node'), type,
+      claimPolicy: { allowRelease: true }, childNode: props.childNodeP })
+    return
+  }
+  if (type === NodeType.Vote) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.votes.node'), type,
+      votePolicy: { ballotFormVersionId: '', participationPercentage: 100, approvalPercentage: 100, allowAbstain: true },
+      childNode: props.childNodeP })
+    return
+  }
+  if (type === NodeType.GroupApprover) {
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.groups.node'), type,
+      groups: [1, 2].map(number => ({ groupKey: `group_${number}`, groupName: t('workflowDesigner.groups.defaultName', { number }),
+        assigneePolicy: { sources: [{ resolverKindKey: 'initiator' }] } })),
+      groupApprovalPolicy: { modeKey: 'all' }, childNode: props.childNodeP })
     return
   }
   const isApprover = type === NodeType.Approver

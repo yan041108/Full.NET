@@ -816,6 +816,22 @@
         "UpdatedAtUtc": "更新时间(UTC)"
       }
     },
+    "fn_dataapproval_cmd_receipt": {
+      "comment": "审批节点所有者效果回执及结果Outbox提交凭据",
+      "columns": {
+        "CallId": "真实Workflow节点调用标识",
+        "CreatedAtUtc": "本地回执及Outbox提交UTC时间",
+        "Generation": "固定协议请求代次",
+        "Id": "应用端UUID v7回执标识",
+        "InputHash": "Workflow绑定输入摘要",
+        "InstanceId": "可信工作流根关联；无跨模块外键",
+        "OutcomeKey": "实际所有者应用、取消、补偿或失败结果",
+        "PhaseKey": "execute执行或compensate补偿",
+        "RequestId": "本模块拥有的审批请求",
+        "ResultJson": "最小回执；不含规则快照",
+        "TenantScopeKey": "审批请求可信作用域"
+      }
+    },
     "fn_dataapproval_request": {
       "comment": "数据审批申请表",
       "columns": {
@@ -1830,6 +1846,46 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_messaging_cutover_evidence": {
+      "comment": "切流影子验证与真实目标链路的短期证明",
+      "columns": {
+        "EventType": "证明所属事件流的稳定消息类型",
+        "ExpiresAtUtc": "证明失效的 UTC 时间",
+        "Id": "应用生成的切流证明 UUID v7",
+        "OperatorUserId": "可信验证操作者标识",
+        "Reason": "请求生成证明的不可变运维理由",
+        "ResourceFingerprint": "环境配置与真实目标实例的 SHA256 摘要",
+        "SampleCount": "已完整核对的样本数量",
+        "SchemaVersion": "事件流结构版本",
+        "ShadowPositionDigest": "完整影子扫描的固定起止位点摘要",
+        "SourceDigest": "权威样本完整摘要",
+        "VerifiedAtUtc": "验证成功的 UTC 时间"
+      }
+    },
+    "fn_messaging_dead_letter": {
+      "comment": "消息投递死信表",
+      "columns": {
+        "Attempts": "重试次数",
+        "CanReplay": "Can Replay",
+        "ConsumerName": "消费者名称",
+        "DlqOffset": "Dlq Offset",
+        "DlqPartition": "Dlq Partition",
+        "DlqTopic": "Dlq Topic",
+        "ErrorCode": "错误码",
+        "FirstFailedAtUtc": "First Failed At(UTC)",
+        "Id": "逻辑主键",
+        "LastFailedAtUtc": "Last Failed At(UTC)",
+        "MessageId": "消息标识",
+        "MessageType": "消息类型",
+        "ReplayedAtUtc": "Replayed At(UTC)",
+        "SchemaVersion": "Schema 版本",
+        "SnapshotJson": "Snapshot(JSON)",
+        "SourceOffset": "Source Offset",
+        "SourcePartition": "Source Partition",
+        "SourceTopic": "Source Topic",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_messaging_domain_audit": {
       "comment": "消息投递领域审计表",
       "columns": {
@@ -1878,6 +1934,94 @@
         "SchemaVersion": "Schema 版本",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "TraceParent": "追踪父级"
+      }
+    },
+    "fn_messaging_replay_operation": {
+      "comment": "Host 范围重放操作与可恢复检查点",
+      "columns": {
+        "AlreadyProcessedCount": "已持久确认的 Inbox 去重数量",
+        "AttemptCount": "已开始的执行代次数",
+        "ConsumerName": "原业务 Inbox 订阅名",
+        "CreatedAtUtc": "操作创建的 UTC 时间",
+        "EventType": "权威目录中的事件类型",
+        "Id": "应用生成的重放操作 UUID v7",
+        "InFlightOffset": "最近尚未确认消息的 Broker 位点",
+        "InFlightPartition": "最近尚未确认消息的分区号",
+        "LastReasonCode": "最近状态原因的稳定机器码",
+        "LeaseToken": "当前或最近执行代次标识",
+        "LeaseUntilUtc": "执行租约失效的 UTC 时间",
+        "OperatorDisplayName": "创建时的操作者显示名快照",
+        "OperatorUserId": "创建操作的可信用户标识",
+        "ProcessedCount": "已持久确认的新业务提交数量",
+        "Reason": "创建操作时的不可变运维理由",
+        "RejectedCount": "已确认拒绝的尝试次数",
+        "RequestId": "客户端创建重试键，不作为逻辑主键",
+        "RequestJson": "不可变的规范化请求，不包含载荷或凭据",
+        "SchemaVersion": "权威目录中的事件版本",
+        "SnapshotJson": "固定资源和分区窗口及未确认意图",
+        "State": "操作稳定状态码",
+        "TopicCode": "目标 Topic 机器码",
+        "UpdatedAtUtc": "最近持久进度的 UTC 时间"
+      }
+    },
+    "fn_messaging_rollback_operation": {
+      "comment": "事件交付回退操作与控制面恢复日志",
+      "columns": {
+        "CreatedAtUtc": "操作创建的 UTC 时间",
+        "EventType": "操作所属事件流的稳定消息类型",
+        "HasPauseIntent": "曾经持久化暂停意图，恢复时不可丢失",
+        "Id": "应用生成的回退代次 UUID v7",
+        "OperatorUserId": "建立回退操作的可信操作者标识",
+        "Phase": "持久回退状态，包含外部动作意图与最终结果",
+        "Reason": "建立回退操作的不可变运维理由",
+        "ResourcesJson": "暂停前冻结的控制资源快照，禁止向客户端返回",
+        "SchemaVersion": "事件流结构版本，必须大于零",
+        "UpdatedAtUtc": "最近一次状态迁移的 UTC 时间"
+      }
+    },
+    "fn_messaging_shadow_capture": {
+      "comment": "按流唯一的受控影子采集会话",
+      "columns": {
+        "CapturedBytes": "已采集真实载荷字节总数",
+        "CapturedCount": "与影子记录同事务确认的采集数量",
+        "ClosedAtUtc": "实际关闭或阻断时间",
+        "CreatedAtUtc": "控制记录创建时间",
+        "EndReason": "关闭或阻断的稳定原因码",
+        "ExpiresAtUtc": "当前代次不可延长的截止时间",
+        "Generation": "当前采集代次，重新开始时生成新 UUID v7",
+        "Id": "采集控制记录的应用端 UUID v7 主键",
+        "LastReservedEventId": "当前事务最后预留的真实 Legacy 消息标识",
+        "MaxEvents": "当前代次固定的消息预算",
+        "MaxPayloadBytes": "当前代次固定的载荷字节预算",
+        "MessageType": "已登记的试点事件类型",
+        "MissingMetadataCount": "采集窗口内缺少元数据的业务写入数量",
+        "OperatorDisplayName": "操作者显示名快照",
+        "OperatorUserId": "由可信认证上下文取得的操作者",
+        "Reason": "开始本代采集的人工理由",
+        "SchemaVersion": "已登记的事件版本",
+        "StartExpectedGeneration": "开始请求绑定的上一代，初次为空；用于完整幂等正文核对",
+        "StartRequestId": "开始采集的幂等请求键，重试必须复用相同预期代次和正文",
+        "StartedAtUtc": "当前代次开始时间",
+        "State": "采集状态 active、closed 或 blocked",
+        "UpdatedAtUtc": "控制记录最近更新时间"
+      }
+    },
+    "fn_messaging_shadow_event": {
+      "comment": "独立影子源；禁止作为正式业务发布源",
+      "columns": {
+        "CaptureGeneration": "来源采集代次，仅供隔离影子样本",
+        "CausationId": "原始因果消息标识",
+        "ContentType": "原始序列化内容类型",
+        "CorrelationId": "原业务关联标识",
+        "Id": "原 Legacy 消息的 UUID v7，影子不另行生成身份",
+        "MessageType": "原始业务事件类型",
+        "OccurredAtUtc": "原 Legacy 消息发生时间",
+        "PartitionKey": "真实业务分区键，禁止临时伪造",
+        "Payload": "原 Legacy 已序列化的同一份业务字节",
+        "Producer": "真实业务生产者代码",
+        "SchemaVersion": "原始业务事件版本",
+        "TenantId": "原业务可信租户上下文",
+        "TraceParent": "经格式校验的 W3C 链路上下文"
       }
     },
     "fn_messaging_stream_ownership": {
@@ -2503,6 +2647,25 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_organization_reporting_guard": {
+      "comment": "租户直属汇报图写入串行门闩；不保存身份资料",
+      "columns": {
+        "Id": "应用端UUIDv7串行门闩标识",
+        "TenantId": "可信租户标识；每个租户只有一个写门闩"
+      }
+    },
+    "fn_organization_reporting_line": {
+      "comment": "人员明确配置的直属汇报关系；不从部门或职级推定",
+      "columns": {
+        "EmployeeUserId": "当前租户的人员标识；身份由Identity验证",
+        "Id": "应用端UUIDv7汇报关系标识",
+        "ManagerUserId": "明确直属上级标识；空值表示没有直属上级",
+        "Revision": "直属关系的乐观锁修订",
+        "TenantId": "认证上下文中的可信租户标识",
+        "UpdatedAtUtc": "最近变更时间；统一UTC微秒精度",
+        "UpdatedById": "认证上下文中的实际操作人"
+      }
+    },
     "fn_organization_unit": {
       "comment": "组织机构机构单元表",
       "columns": {
@@ -2516,6 +2679,17 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_organization_unit_leadership": {
+      "comment": "机构明确授权的负责人配置；不从隶属成员推定",
+      "columns": {
+        "Id": "复用机构逻辑主键的一对一配置标识",
+        "LeaderUserId": "明确配置的负责人；空值表示尚无负责人",
+        "Revision": "负责人配置的乐观锁修订",
+        "TenantId": "由当前可信租户及所属机构确定的租户标识",
+        "UpdatedAtUtc": "最近配置时间；统一UTC微秒精度",
+        "UpdatedById": "认证上下文中的实际配置人标识"
       }
     },
     "fn_organization_user_position": {
@@ -2918,6 +3092,24 @@
         "TenantId": "租户标识；NULL 表示 Host 级"
       }
     },
+    "fn_serialnumbers_approval_cmd": {
+      "comment": "流水号审批命令的应用及精确补偿凭据",
+      "columns": {
+        "AppliedVersion": "规则实际应用后的修订；无效果取消为空",
+        "ApprovalRequestId": "DataApproval请求关联快照；不建立跨模块外键",
+        "BeforeSnapshotJson": "本次命令应用前的所有者规则快照",
+        "CompensatedVersion": "规则实际补偿后的修订；未补偿为空",
+        "CreatedAtUtc": "命令凭据创建UTC微秒时间",
+        "Id": "应用端UUID v7命令身份；重投复用同一标识",
+        "InputHash": "规范化授权输入的SHA256摘要",
+        "RequestedByUserId": "原始审批授权主体；不代表个人再次执行审批",
+        "Revision": "凭据乐观并发修订",
+        "RuleId": "SerialNumbers拥有的目标规则标识",
+        "ScenarioKey": "固定审批场景键",
+        "StatusKey": "applied已应用、cancelled无效果取消、compensated已补偿",
+        "UpdatedAtUtc": "凭据最近变更UTC微秒时间"
+      }
+    },
     "fn_serialnumbers_counter": {
       "comment": "序列号计数器表",
       "columns": {
@@ -3228,6 +3420,26 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_workflow_action_evidence": {
+      "comment": "工作流动作签名证据",
+      "columns": {
+        "ActionKey": "稳定办理动作键",
+        "ActorUserId": "实际执行人标识",
+        "CreatedAtUtc": "证据创建时间UTC",
+        "FileHash": "实际签名文件内容摘要",
+        "FileId": "签名文件标识",
+        "FormRevision": "签署提交表单修订号",
+        "FormVersionId": "固定表单版本标识",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "动作幂等键",
+        "InstanceId": "流程实例标识",
+        "OriginalAssigneeUserId": "原办理人标识快照",
+        "StepId": "活动步骤标识",
+        "SubmissionHash": "签署提交内容摘要",
+        "TenantScopeKey": "可信租户作用域键",
+        "TodoId": "实际办理待办标识"
+      }
+    },
     "fn_workflow_action_record": {
       "comment": "工作流动作记录表",
       "columns": {
@@ -3245,6 +3457,66 @@
         "TodoId": "待办标识"
       }
     },
+    "fn_workflow_activity_result": {
+      "comment": "工作流自动字段活动的不可变输入、输出与补丁事实",
+      "columns": {
+        "CreatedAtUtc": "本次活动结果接纳时间",
+        "Id": "复用自动字段活动步骤的UUID v7标识",
+        "InputFormRevision": "固定输入主表单或分支修订号",
+        "InputHash": "固定输入的SHA256摘要",
+        "InputJson": "本次活动不可变输入快照",
+        "InstanceId": "所属Workflow实例标识",
+        "OutcomeKey": "applied已执行或skipped条件未命中",
+        "OutputFormRevision": "接纳输出后的表单或分支修订号",
+        "OutputHash": "接纳输出的SHA256摘要",
+        "OutputJson": "本次活动接纳的完整输出快照",
+        "PatchJson": "本次活动显式授权的字段补丁",
+        "TenantScopeKey": "活动绑定的可信租户作用域"
+      }
+    },
+    "fn_workflow_activity_work": {
+      "comment": "工作流activity work表",
+      "columns": {
+        "AttemptCount": "尝试次数",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "DueAtUtc": "Due At(UTC)",
+        "ExecutionSequence": "执行序号",
+        "Id": "逻辑主键",
+        "InputFormRevision": "Input Form Revision",
+        "InputHash": "Input Hash",
+        "InputJson": "Input(JSON)",
+        "InstanceId": "实例标识",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseGeneration": "租约世代",
+        "LeaseOwnerKey": "租约持有者键",
+        "NodeKey": "Node Key",
+        "ParallelBranchKey": "并行分支键",
+        "ParallelJoinId": "并行汇合标识",
+        "ResultStatusKey": "结果状态键",
+        "ResultTodoId": "结果待办标识",
+        "ResumeBarrierId": "服务器原屏障续办证明；普通工作项为空，不能由客户端提供",
+        "StatusKey": "状态键",
+        "TenantScopeKey": "租户作用域唯一键"
+      }
+    },
+    "fn_workflow_approval_group": {
+      "comment": "工作流approval group表",
+      "columns": {
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "GroupKey": "Group Key",
+        "GroupName": "分组名称",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "ModeKey": "Mode Key",
+        "RequiredApprovalCount": "所需审批数",
+        "Revision": "修订号",
+        "SequenceNo": "序号",
+        "SlotCount": "Slot Count",
+        "StatusKey": "状态键",
+        "StepId": "步骤标识"
+      }
+    },
     "fn_workflow_approval_slot": {
       "comment": "工作流会签席位表",
       "columns": {
@@ -3252,11 +3524,120 @@
         "CreatedAtUtc": "创建时间(UTC)",
         "DecidedAtUtc": "Decided At(UTC)",
         "DecisionKey": "决策键",
+        "GroupId": "分组标识",
         "Id": "逻辑主键",
         "InstanceId": "实例标识",
         "Revision": "修订号",
+        "SequenceNo": "序号",
         "StepId": "步骤标识",
         "TodoId": "待办标识"
+      }
+    },
+    "fn_workflow_async_barrier": {
+      "comment": "工作流异步结果消费者的耐久等待、租约与唯一续办回执",
+      "columns": {
+        "CompletedAtUtc": "释放、取消或不可恢复失败时间UTC",
+        "CreatedAtUtc": "原屏障建立时间UTC",
+        "DependencyCallIdsJson": "本次等待绑定的原异步激活标识集合",
+        "DependencyHash": "固定依赖集合的SHA256摘要",
+        "DueAtUtc": "下次有界等待或安全接纳的UTC时间",
+        "ErrorKey": "稳定错误码，不保存异常或原始载荷",
+        "FailureCount": "连续准备或提交失败次数，正常等待不计失败",
+        "Id": "内部耐久等待步骤及屏障标识",
+        "InputFormRevision": "到达屏障时原主表单或分支修订",
+        "InputHash": "原屏障输入的SHA256摘要",
+        "InputJson": "到达屏障时的原表单或分支快照",
+        "InstanceId": "所属原工作流实例",
+        "LeaseExpiresAtUtc": "当前接纳租约的UTC截止",
+        "LeaseGeneration": "阻止旧Worker释放屏障的租约世代",
+        "LeaseOwnerKey": "当前接纳Worker的唯一领取身份",
+        "NodeKey": "依赖结果的原消费者节点键",
+        "OutputFormRevision": "唯一续办工作项绑定的实际表单或分支修订",
+        "OutputHash": "唯一续办工作项输入摘要",
+        "OutputJson": "释放时实际当前表单或分支输入",
+        "ParallelBranchKey": "原分叉中的稳定分支键",
+        "ParallelJoinId": "原并行或包容分叉执行身份",
+        "ResumeWorkId": "已释放屏障唯一允许续办的原工作项",
+        "Revision": "屏障乐观修订",
+        "StatusKey": "屏障的耐久闭合状态",
+        "TenantScopeKey": "可信Host或租户作用域"
+      }
+    },
+    "fn_workflow_branch_merge": {
+      "comment": "工作流branch merge表",
+      "columns": {
+        "FormRevision": "Form Revision",
+        "MergedAtUtc": "Merged At(UTC)",
+        "OutputJson": "Output(JSON)",
+        "ParallelJoinId": "并行汇合标识"
+      }
+    },
+    "fn_workflow_branch_state": {
+      "comment": "工作流branch state表",
+      "columns": {
+        "BranchKey": "分支键",
+        "InputFormRevision": "Input Form Revision",
+        "InputJson": "Input(JSON)",
+        "OutputJson": "Output(JSON)",
+        "ParallelJoinId": "并行汇合标识",
+        "Revision": "修订号"
+      }
+    },
+    "fn_workflow_business_cmd": {
+      "comment": "工作流真实业务命令等待与精确补偿意图",
+      "columns": {
+        "ActionHash": "静态动作元数据SHA256摘要",
+        "ActionKey": "实际所有者静态注册的动作键",
+        "ActionVersion": "固定动作版本",
+        "AppliedVersion": "实际应用后的所有者版本",
+        "BindingJson": "固定根业务绑定；不含业务快照",
+        "CompensatedVersion": "实际补偿后的所有者版本",
+        "CompensationRequested": "根取消后固化的补偿意图",
+        "ContinuationNodeKey": "发布资产中的唯一结束节点",
+        "CreatedAtUtc": "创建UTC微秒时间",
+        "ErrorCode": "受控机器错误码；不记录业务快照",
+        "Generation": "可靠执行与补偿投递代次",
+        "Id": "复用真实业务步骤的应用端UUID v7标识",
+        "InputHash": "绑定的规范化协议摘要",
+        "InstanceId": "本模块根实例标识",
+        "NodeKey": "发布资产中的业务节点键",
+        "OwnerInputHash": "所有者授权业务输入摘要",
+        "ResultJson": "实际所有者最小结果回执",
+        "Revision": "本地乐观并发修订",
+        "StatusKey": "请求、效果等待、已应用、取消、补偿或故障状态",
+        "TenantScopeKey": "可信实例租户作用域",
+        "UpdatedAtUtc": "更新UTC微秒时间"
+      }
+    },
+    "fn_workflow_calendar": {
+      "comment": "Workflow作用域内工作日历草稿与发布头",
+      "columns": {
+        "CalendarKey": "作用域内稳定日历键",
+        "CreatedAtUtc": "创建UTC微秒时间",
+        "CreatedById": "实际创建者标识",
+        "DisplayName": "日历显示名称",
+        "DraftJson": "待发布工作日历闭合草稿",
+        "Id": "工作日历UUID v7标识",
+        "LatestVersionNumber": "最近发布版本号，未发布为空",
+        "Revision": "草稿及发布的乐观锁修订",
+        "ScopeKey": "可信Host或Tenant作用域",
+        "TenantId": "可信租户标识，Host为空",
+        "TenantScopeKey": "可信租户复合作用域键",
+        "UpdatedAtUtc": "最近变更UTC微秒时间",
+        "UpdatedById": "实际最近修改者标识"
+      }
+    },
+    "fn_workflow_calendar_version": {
+      "comment": "Workflow不可变工作日历版本，包含固定时区规则",
+      "columns": {
+        "CalendarId": "所属Workflow日历标识",
+        "CanonicalJson": "固定工作窗口、例外日及序列化时区规则",
+        "ContentHash": "固定发布快照SHA256摘要",
+        "Id": "工作日历不可变版本UUID v7标识",
+        "PublishedAtUtc": "发布UTC微秒时间",
+        "PublishedById": "实际发布者标识",
+        "TimeZoneKey": "发布时固定的时区标识",
+        "VersionNumber": "所属日历内单调发布版本号"
       }
     },
     "fn_workflow_cc": {
@@ -3268,6 +3649,130 @@
         "ReadAtUtc": "已读时间(UTC)",
         "RecipientUserId": "接收人用户标识",
         "StepId": "流程步骤标识"
+      }
+    },
+    "fn_workflow_claim": {
+      "comment": "工作流claim表",
+      "columns": {
+        "AllowRelease": "Allow Release",
+        "ClaimCycle": "Claim Cycle",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CurrentAssigneeUserId": "Current Assignee User标识",
+        "CurrentTodoId": "Current Todo标识",
+        "DueAtUtc": "Due At(UTC)",
+        "EscalateAtUtc": "Escalate At(UTC)",
+        "EscalatedAtUtc": "Escalated At(UTC)",
+        "EscalationRecipientUserId": "Escalation Recipient User标识",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "MaxReminderCount": "Max Reminder Count",
+        "NextReminderAtUtc": "Next Reminder At(UTC)",
+        "ReminderCount": "Reminder Count",
+        "ReminderIntervalMinutes": "Reminder Interval Minutes",
+        "Revision": "修订号",
+        "StatusKey": "状态键"
+      }
+    },
+    "fn_workflow_claim_attempt": {
+      "comment": "工作流claim attempt表",
+      "columns": {
+        "AssigneeUserId": "办理人用户标识",
+        "AuthorizationKey": "Authorization Key",
+        "ClaimCycle": "Claim Cycle",
+        "ClaimedByUserId": "Claimed By User标识",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "OriginalAssigneeUserId": "Original Assignee User标识",
+        "PoolId": "Pool标识",
+        "Revision": "修订号",
+        "StatusKey": "状态键",
+        "TodoId": "待办标识"
+      }
+    },
+    "fn_workflow_claim_candidate": {
+      "comment": "工作流claim candidate表",
+      "columns": {
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "PoolId": "Pool标识",
+        "SequenceNo": "序号",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_workflow_connector_attempt": {
+      "comment": "工作流连接器每次外部调用的不可变请求与迟到响应事实",
+      "columns": {
+        "CallId": "本次尝试所属固定连接器激活",
+        "CompletedAtUtc": "收到本次结果的时间，可能晚于租约或实例取消",
+        "ErrorKey": "无凭据和异常原文的稳定错误机器码",
+        "HttpStatusCode": "实际收到的HTTP状态码",
+        "Id": "本次HTTP尝试UUID v7标识",
+        "LeaseGeneration": "发起HTTP时固定的租约世代",
+        "LeaseOwnerKey": "发起HTTP的固定Worker身份",
+        "OutcomeKey": "确定成功、拒绝、失败、可重试或未知结果",
+        "RequestHash": "本次尝试固定请求摘要",
+        "ResponseHash": "有界响应的SHA256摘要",
+        "ResponseJson": "有界原始响应，仅归本次尝试且不进入普通日志",
+        "StartedAtUtc": "本次外部调用持久建立时间",
+        "StatusKey": "inflight在途或received已收到结果",
+        "TenantScopeKey": "原激活可信租户作用域"
+      }
+    },
+    "fn_workflow_connector_call": {
+      "comment": "工作流受控连接器激活与当前分发接纳状态",
+      "columns": {
+        "AppliedFormRevision": "结果接纳后的主表单或分支修订号",
+        "ApplyAttemptCount": "结果接纳准备的有界尝试次数",
+        "AttemptCount": "已持久建立的HTTP尝试次数",
+        "CancelRequestedAtUtc": "取消请求时间，已在途副作用仍保留对账事实",
+        "CompletedAtUtc": "当前激活收敛时间",
+        "ConnectorHash": "固定连接器完整配置的SHA256摘要",
+        "ConnectorKey": "部署侧固定连接器键",
+        "ConnectorVersion": "激活绑定的连接器配置版本",
+        "ContinuationNodeKey": "结果接纳后才推进的固定后继节点键",
+        "CreatedAtUtc": "连接器激活创建时间",
+        "CurrentAttemptId": "当前HTTP尝试身份，读取时必须同时匹配本激活",
+        "DueAtUtc": "首次分发或退避后下一次可执行时间",
+        "Id": "复用连接器步骤的UUID v7激活标识及稳定业务幂等键",
+        "InputFormRevision": "固定输入所属主表单或分支修订号",
+        "InputHash": "原表单输入的SHA256摘要",
+        "InputJson": "激活不可变表单输入快照",
+        "InstanceId": "所属Workflow实例标识",
+        "LastErrorKey": "激活当前稳定错误码，不含异常或凭据原文",
+        "LeaseExpiresAtUtc": "当前租约UTC截止时间",
+        "LeaseGeneration": "HTTP分发或结果接纳的租约世代",
+        "LeaseOwnerKey": "当前Worker租约所有者",
+        "ModeKey": "sync同步等待或async耐久分发",
+        "NodeKey": "不可变定义中的连接器节点键",
+        "ParallelBranchKey": "激活所属稳定分支键",
+        "ParallelJoinId": "激活所属分叉汇合身份",
+        "RequestHash": "固定业务请求体的SHA256摘要",
+        "RequestJson": "按发布映射形成的最小请求体，不含凭据",
+        "Revision": "激活当前状态的并发裁决修订号",
+        "SelectedAttemptId": "被接纳的固定响应尝试身份",
+        "StatusKey": "分发、结果等待、接纳、拒绝、未知或取消状态",
+        "TenantScopeKey": "激活时绑定的可信租户作用域"
+      }
+    },
+    "fn_workflow_connector_resolution": {
+      "comment": "工作流连接器人工对账证据与不可变首次操作回执",
+      "columns": {
+        "ActionKey": "闭合对账动作键",
+        "ActorUserId": "具有精确对账权限的真实操作人",
+        "AttemptId": "接纳的真实原尝试标识",
+        "CallId": "被对账的原连接器激活",
+        "CreatedAtUtc": "首次对账提交时间",
+        "EvidenceReference": "人工核对的凭据或工单引用",
+        "Id": "对账操作UUID v7标识",
+        "IdempotencyKey": "同活动同操作人的语义幂等键",
+        "InstanceId": "原激活所属实例",
+        "Reason": "操作人明确填写的对账理由",
+        "RequestHash": "规范对账请求SHA256摘要",
+        "ResponseJson": "首次已提交对账响应快照",
+        "TenantScopeKey": "可信租户作用域"
       }
     },
     "fn_workflow_countersign_chain": {
@@ -3340,6 +3845,33 @@
         "VersionNumber": "版本号"
       }
     },
+    "fn_workflow_delay": {
+      "comment": "工作流耐久延时激活事实，唤醒与后继续办原子收敛",
+      "columns": {
+        "CalendarHash": "本次工作日历快照摘要",
+        "CalendarJson": "本次激活固定的日历及原时区规则快照",
+        "CalendarVersionId": "本次工作时长等待固定的日历版本",
+        "CompletedAtUtc": "唤醒或取消完成时间",
+        "ContinuationNodeKey": "等待结束后才解析的固定后继节点键",
+        "CreatedAtUtc": "激活创建时间",
+        "DueAtUtc": "已解析的UTC唤醒时间",
+        "Id": "复用延时激活步骤的UUID v7标识",
+        "InputFormRevision": "输入所属主表单或分支修订号",
+        "InputHash": "固定输入的SHA256摘要",
+        "InputJson": "本次激活不可变表单输入快照",
+        "InstanceId": "所属Workflow实例标识",
+        "ModeKey": "relative墙钟时长或absolute绝对时间",
+        "NodeKey": "发布版本中的延时节点键",
+        "ParallelBranchKey": "本次激活所属稳定分支键",
+        "ParallelJoinId": "本次激活所属分叉汇合身份",
+        "PausedAtUtc": "相对等待最近暂停时间，绝对时间不平移",
+        "RemainingMilliseconds": "暂停时冻结的非负相对等待毫秒数",
+        "Revision": "唤醒与暂停恢复并发裁决修订号",
+        "StatusKey": "waiting等待、fired已唤醒或cancelled已取消",
+        "TenantScopeKey": "激活时的可信租户作用域",
+        "TimeZoneKey": "配置原时区标识，绝对输入必须另带明确偏移"
+      }
+    },
     "fn_workflow_domain_audit": {
       "comment": "工作流领域审计表",
       "columns": {
@@ -3357,6 +3889,15 @@
         "TenantId": "租户标识；NULL 表示 Host 级"
       }
     },
+    "fn_workflow_exec_budget": {
+      "comment": "工作流根及子根的层级活动额度；子额度不重复分配",
+      "columns": {
+        "Granted": "由父项预留或普通根默认分配的总额",
+        "InstanceId": "复用应用端UUID v7实例身份",
+        "Reserved": "已预留给所有子项的总额；取消不自动返还",
+        "Revision": "预算乐观并发修订"
+      }
+    },
     "fn_workflow_execution_log": {
       "comment": "工作流执行日志表",
       "columns": {
@@ -3370,6 +3911,14 @@
         "Summary": "执行摘要",
         "ToStatusKey": "迁移后状态键",
         "TransitionKey": "状态迁移键"
+      }
+    },
+    "fn_workflow_fork_context": {
+      "comment": "工作流fork context表",
+      "columns": {
+        "ParallelJoinId": "并行汇合标识",
+        "ParentBranchKey": "Parent Branch Key",
+        "ParentParallelJoinId": "Parent Parallel Join标识"
       }
     },
     "fn_workflow_form_definition": {
@@ -3390,6 +3939,29 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_workflow_form_design_asset": {
+      "comment": "工作流form design asset表",
+      "columns": {
+        "ContentHash": "内容哈希",
+        "DesignerJson": "Designer(JSON)",
+        "FormId": "Form标识",
+        "FormatVersion": "Format Version",
+        "SourceCommit": "Source Commit",
+        "TenantScopeKey": "租户作用域唯一键"
+      }
+    },
+    "fn_workflow_form_design_snapshot": {
+      "comment": "工作流form design snapshot表",
+      "columns": {
+        "BindingJson": "Binding(JSON)",
+        "DesignHash": "Design Hash",
+        "DesignerJson": "Designer(JSON)",
+        "FormVersionId": "表单版本标识",
+        "FormatVersion": "Format Version",
+        "RuntimeVersion": "Runtime Version",
+        "SourceCommit": "Source Commit"
+      }
+    },
     "fn_workflow_form_submission": {
       "comment": "工作流表单提交表",
       "columns": {
@@ -3406,11 +3978,13 @@
     "fn_workflow_form_submission_attachment": {
       "comment": "工作流表单提交附件表",
       "columns": {
+        "ClaimReferenceId": "Files 引用预留的明确归属身份",
         "CreatedAtUtc": "创建时间(UTC)",
         "FieldKey": "字段键",
         "FileId": "文件标识",
         "Id": "逻辑主键",
         "InstanceId": "实例标识",
+        "OwnerResourceId": "租户文件所属资源身份，Host 文件为空",
         "SubmissionId": "提交标识",
         "TenantScopeKey": "租户作用域唯一键"
       }
@@ -3454,6 +4028,22 @@
         "StatusKey": "实例状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "TenantScopeKey": "租户作用域唯一键"
+      }
+    },
+    "fn_workflow_manual_reminder": {
+      "comment": "工作流manual reminder表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "InstanceId": "实例标识",
+        "InstanceRevision": "Instance Revision",
+        "ManualSequence": "Manual Sequence",
+        "RecipientCount": "Recipient Count",
+        "RequestHash": "完整请求绑定摘要",
+        "RequestedByUserId": "请求人用户标识",
+        "StepId": "步骤标识",
+        "StepRevision": "Step Revision"
       }
     },
     "fn_workflow_parallel_branch_arrival": {
@@ -3504,12 +4094,52 @@
         "UpdatedAtUtc": "更新时间(UTC)"
       }
     },
+    "fn_workflow_sla": {
+      "comment": "Workflow活动截止及系统处置事实",
+      "columns": {
+        "ActionKey": "发布固定的系统处置；不代表个人审批票",
+        "CompletedAtUtc": "处置或失效确认UTC时间",
+        "CreatedAtUtc": "活动截止创建UTC时间",
+        "DueAtUtc": "该次活动绝对截止UTC微秒时间",
+        "Id": "真实步骤标识；复用应用端UUID v7激活身份",
+        "InstanceId": "所属Workflow实例标识",
+        "PauseModeKey": "elapsed继续计时或freeze冻结剩余时间",
+        "PausedAtUtc": "显式冻结时间；继续计时模式为空",
+        "RemainingMilliseconds": "显式冻结时向上取整的剩余墙钟毫秒",
+        "Revision": "截止事实乐观锁修订",
+        "StatusKey": "waiting待处理、fired已处置、cancelled已失效",
+        "TenantScopeKey": "来自可信父实例的作用域键"
+      }
+    },
+    "fn_workflow_start_receipt": {
+      "comment": "工作流start receipt表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "IdempotencyKey": "幂等键",
+        "InstanceId": "实例标识",
+        "RequestHash": "完整请求绑定摘要",
+        "ResponseJson": "Response(JSON)",
+        "TenantScopeKey": "租户作用域唯一键"
+      }
+    },
+    "fn_workflow_starter_selection": {
+      "comment": "实例启动时固定的发起人自选快照；不授予永久办理资格",
+      "columns": {
+        "CreatedAtUtc": "随实例首次启动原子保存的UTC时间",
+        "Id": "实例标识，同时作为一对一选择快照主键",
+        "SelectionsHash": "规范化选择快照的SHA256摘要",
+        "SelectionsJson": "有界选择键与保序成员数组；不包含租户或发起人声明"
+      }
+    },
     "fn_workflow_step": {
       "comment": "工作流步骤表",
       "columns": {
+        "ApprovalGroupCount": "Approval Group Count",
         "ApprovalModeKey": "审批模式键",
         "ApprovalSlotCount": "审批席位数",
         "AssignedUserId": "当前处理人标识",
+        "AssigneeSnapshotHash": "Assignee Snapshot Hash",
+        "AssigneeSnapshotJson": "Assignee Snapshot(JSON)",
         "AttemptCount": "尝试次数",
         "CompletedAtUtc": "完成时间(UTC)",
         "DueAtUtc": "处理截止时间(UTC)",
@@ -3526,9 +4156,130 @@
         "StatusKey": "步骤状态键"
       }
     },
+    "fn_workflow_subprocess_call": {
+      "comment": "工作流固定子版本的真实父活动等待及预算预留",
+      "columns": {
+        "CancellationRequested": "父活动取消意图",
+        "ChildActivityBudget": "从父额度固定预留的子活动总额",
+        "ChildDefinitionVersionId": "固定子定义版本",
+        "ChildFormVersionId": "固定子表单版本",
+        "ContinuationNodeKey": "该次调用的后继节点",
+        "CreatedAtUtc": "创建UTC微秒时间",
+        "DefinitionHash": "子定义内容摘要",
+        "Depth": "当前子根在整组实例中的深度",
+        "ErrorCode": "不包含业务快照的稳定故障码",
+        "FormHash": "子表单内容摘要",
+        "Id": "复用真实父步骤的应用端UUID v7标识",
+        "InputFormRevision": "父输入表单或分支修订",
+        "InstanceId": "拥有该活动的父实例",
+        "NodeKey": "固定父节点键",
+        "ParallelBranchKey": "原并行分支键",
+        "ParallelJoinId": "原并行分叉身份",
+        "ParentInputJson": "父活动原始输入；只向子实例传输显式映射字段",
+        "PolicyJson": "固定父节点策略及服务端子版本绑定",
+        "Revision": "乐观并发修订",
+        "StatusKey": "请求、运行、结果等待、完成、故障或取消状态",
+        "TenantScopeKey": "可信父实例作用域",
+        "UpdatedAtUtc": "更新UTC微秒时间"
+      }
+    },
+    "fn_workflow_subprocess_choice": {
+      "comment": "工作流首次达标固化的成功子项；迟到结果不得追加",
+      "columns": {
+        "CallId": "归属集合的真实调用身份",
+        "CreatedAtUtc": "首次固化选择UTC时间",
+        "InstanceId": "实际父实例身份",
+        "ItemId": "已成功并被固化选择的真实项身份",
+        "TenantScopeKey": "父实例可信作用域"
+      }
+    },
+    "fn_workflow_subprocess_item": {
+      "comment": "工作流真实子项输入、原子根关联及不可变结果",
+      "columns": {
+        "CallId": "真实父步骤调用",
+        "ChildInstanceId": "与子根创建同事务保存的关联",
+        "ChildRevision": "确认子结果时的真实根修订",
+        "CreatedAtUtc": "创建UTC微秒时间",
+        "Id": "应用端UUID v7子项身份",
+        "InputHash": "固定子输入摘要",
+        "InputJson": "已授权且已校验的最小子输入",
+        "InstanceId": "拥有该项的父实例",
+        "ItemKey": "固定子项机器键",
+        "ResultHash": "固定子结果摘要",
+        "ResultJson": "只包含已授权映射的固定子结果",
+        "Revision": "项乐观并发修订",
+        "SequenceNo": "稳定子项顺序",
+        "StarterUserId": "激活时固定并验证的子发起人",
+        "StatusKey": "待启动、运行、成功、拒绝、取消或未知状态",
+        "TenantScopeKey": "可信父子同作用域",
+        "UpdatedAtUtc": "更新UTC微秒时间"
+      }
+    },
+    "fn_workflow_subprocess_ref": {
+      "comment": "工作流已发布父子版本依赖；固定子版本删除由同模块外键保护",
+      "columns": {
+        "ChildVersionId": "被父版本固定引用的子版本",
+        "CreatedAtUtc": "父版本发布时刻；统一UTC微秒精度",
+        "ParentVersionId": "拥有子调用的固定父版本",
+        "TenantScopeKey": "双方定义共有的可信作用域"
+      }
+    },
+    "fn_workflow_subprocess_set": {
+      "comment": "工作流多实例来源快照、完成门槛及固化结果集合",
+      "columns": {
+        "CallId": "复用真实父调用的UUID v7身份",
+        "CreatedAtUtc": "父调用激活UTC时间",
+        "InstanceId": "拥有调用的父实例",
+        "ItemCount": "实际固化项数；准备完成前为空",
+        "MaximumCount": "固定最大项数及预留额度上限",
+        "ModeKey": "serial依次或parallel并行",
+        "OutputHash": "合并输出SHA256摘要",
+        "OutputJson": "只归约固化成功集合的显式父字段补丁",
+        "RequiredPercentage": "固定成功百分比；不能使用变化分母",
+        "RequiredSuccesses": "按固化项数向上取整的成功门槛",
+        "Revision": "父锁内集合状态CAS修订",
+        "SelectionHash": "按ItemKey排序的固化成功项身份摘要",
+        "SourceHash": "完整来源快照SHA256摘要",
+        "SourceJson": "一次固化的来源项及角色成员依据",
+        "SourceKey": "已发布的闭合项来源类型",
+        "StatusKey": "准备、运行、收尾、结果停车及终态",
+        "TenantScopeKey": "父实例可信作用域",
+        "UpdatedAtUtc": "最近集合更新UTC时间"
+      }
+    },
+    "fn_workflow_task": {
+      "comment": "工作流task表",
+      "columns": {
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CompletionModeKey": "Completion Mode Key",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "MemberCount": "Member Count",
+        "RequiredCompletionCount": "Required Completion Count",
+        "Revision": "修订号",
+        "StatusKey": "状态键"
+      }
+    },
+    "fn_workflow_task_member": {
+      "comment": "工作流task member表",
+      "columns": {
+        "AssigneeUserId": "办理人用户标识",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "Revision": "修订号",
+        "SequenceNo": "序号",
+        "StatusKey": "状态键",
+        "TaskId": "任务标识",
+        "TodoId": "待办标识"
+      }
+    },
     "fn_workflow_todo": {
       "comment": "工作流待办表",
       "columns": {
+        "ActiveAssigneeUserId": "Active Assignee User标识",
         "ArrivedAtUtc": "待办到达时间(UTC)",
         "AssigneeUserId": "待办处理人标识",
         "CompletedAtUtc": "完成时间(UTC)",
@@ -3548,6 +4299,117 @@
         "Revision": "待办修订号",
         "StatusKey": "待办状态键",
         "StepId": "流程步骤标识"
+      }
+    },
+    "fn_workflow_todo_transfer": {
+      "comment": "工作流todo transfer表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "AuthorizationKey": "Authorization Key",
+        "ClaimAttemptId": "Claim Attempt标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Depth": "Depth",
+        "FormRevision": "Form Revision",
+        "FromAssigneeUserId": "From Assignee User标识",
+        "FromTodoId": "From Todo标识",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "OriginTodoId": "原始待办标识",
+        "OriginalAssigneeUserId": "Original Assignee User标识",
+        "SlotId": "Slot标识",
+        "StepId": "步骤标识",
+        "TaskMemberId": "Task Member标识",
+        "TenantScopeKey": "租户作用域唯一键",
+        "ToAssigneeUserId": "To Assignee User标识",
+        "ToTodoId": "To Todo标识",
+        "VoteBallotId": "Vote Ballot标识"
+      }
+    },
+    "fn_workflow_todo_view": {
+      "comment": "工作流本人活动输入输出视图",
+      "columns": {
+        "Id": "逻辑主键，复用待办标识",
+        "InputJson": "本次人工激活的固定完整输入",
+        "InputRevision": "人工激活时的表单修订",
+        "InstanceId": "工作流实例标识",
+        "OutputJson": "本人办理成功时的固定完整输出",
+        "OutputRevision": "本人办理成功时的表单修订",
+        "TenantScopeKey": "可信租户作用域键"
+      }
+    },
+    "fn_workflow_vote": {
+      "comment": "工作流vote表",
+      "columns": {
+        "AllowAbstain": "Allow Abstain",
+        "ApprovalPercentage": "Approval Percentage",
+        "ClosesAtUtc": "Closes At(UTC)",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FinalAbstainCount": "Final Abstain Count",
+        "FinalNoCount": "Final No Count",
+        "FinalUnsubmittedCount": "Final Unsubmitted Count",
+        "FinalYesCount": "Final Yes Count",
+        "FormBindingId": "Form Binding标识",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "MemberCount": "Member Count",
+        "ParticipationPercentage": "Participation Percentage",
+        "Revision": "修订号",
+        "StatusKey": "状态键"
+      }
+    },
+    "fn_workflow_vote_attachment": {
+      "comment": "工作流vote attachment表",
+      "columns": {
+        "BallotId": "Ballot标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FieldKey": "字段键",
+        "FileId": "文件标识",
+        "Id": "逻辑主键",
+        "InstanceId": "实例标识",
+        "OwnerResourceId": "Owner Resource标识",
+        "TenantScopeKey": "租户作用域唯一键"
+      }
+    },
+    "fn_workflow_vote_ballot": {
+      "comment": "工作流vote ballot表",
+      "columns": {
+        "AssigneeUserId": "办理人用户标识",
+        "CancelledAtUtc": "Cancelled At(UTC)",
+        "ChoiceKey": "Choice Key",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InputJson": "Input(JSON)",
+        "InstanceId": "实例标识",
+        "OriginalAssigneeUserId": "Original Assignee User标识",
+        "Revision": "修订号",
+        "StatusKey": "状态键",
+        "SubmissionJson": "Submission(JSON)",
+        "SubmittedAtUtc": "Submitted At(UTC)",
+        "TodoId": "待办标识",
+        "VoteId": "Vote标识"
+      }
+    },
+    "fn_workflow_vote_form": {
+      "comment": "工作流vote form表",
+      "columns": {
+        "BallotFormVersionId": "Ballot Form Version标识",
+        "DefinitionVersionId": "Definition Version标识",
+        "FormSchemaHash": "Form Schema Hash",
+        "Id": "逻辑主键",
+        "NodeKey": "Node Key"
+      }
+    },
+    "fn_workflow_vote_view": {
+      "comment": "工作流vote view表",
+      "columns": {
+        "BallotId": "Ballot标识",
+        "Id": "逻辑主键",
+        "InputJson": "Input(JSON)",
+        "InputRevision": "Input Revision",
+        "InstanceId": "实例标识",
+        "OutputJson": "Output(JSON)",
+        "OutputRevision": "Output Revision"
       }
     },
     "fn_ai_knowledge_document_manifest": {

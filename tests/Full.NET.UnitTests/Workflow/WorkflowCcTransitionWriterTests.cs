@@ -18,6 +18,7 @@ public sealed class WorkflowCcTransitionWriterTests
         var newRecipient = Guid.CreateVersion7();
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(WorkflowSql.InsertCompletedCcStep, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var ids = Substitute.For<IIdGenerator>();
         query.QueryAsync<Guid>(
                 WorkflowSql.ListCcRecipientIdsByInstance,

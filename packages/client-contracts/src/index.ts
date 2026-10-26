@@ -41,18 +41,26 @@ export * from './generated/index.generated.js';
 
 export {
   WORKFLOW_FIELD_TYPES,
+  readWorkflowSignatureUpload,
+  readWorkflowVoteRequest,
   isWorkflowFormSchema,
+  isWorkflowVoteForm,
+  isWorkflowVoteProgress,
   isWorkflowTodoDetail
 } from './workflow-todos.js';
 
 export type {
   WorkflowFieldPolicies,
+  WorkflowSignatureUpload,
   WorkflowFieldPolicy,
   WorkflowFieldType,
   WorkflowFormField,
   WorkflowFormSchema,
   WorkflowFormSection,
   WorkflowSubmission,
+  WorkflowVoteForm,
+  WorkflowVoteProgress,
+  WorkflowVoteRequest,
   WorkflowTodoDetail
 } from './workflow-todos.js';
 
@@ -852,6 +860,9 @@ export type {
   MessagingDeadLetter,
   MessagingDeadLetterPage
 } from './messaging-dead-letters.js';
+
+export { isOperationalDeadLetter, isOperationalDeadLetterPage } from './operational-dead-letters.js';
+export type { OperationalDeadLetter, OperationalDeadLetterPage } from './operational-dead-letters.js';
 
 export {
   isAcceptTenantInvitationResult,
@@ -1725,3 +1736,9 @@ export type { ReportingDefinitionSummary, ReportingDefinitionVersionSummary } fr
 export { knowledgeFileContentTypes, knowledgeFileAccept } from './ai-knowledge-formats.js';
 
 export type { AiKnowledgeSourceLocation } from './ai-knowledge-location.js';
+
+export * from './messaging-operations.js';
+
+export * from './workflow-claims.js';
+export * from './workflow-delegations.js';
+export * from './workflow-human-management.js';

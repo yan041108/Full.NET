@@ -13,7 +13,8 @@ internal static class WorkflowDefinitionCompiler
     /// <returns>包含规范化定义或稳定错误码的编译结果。</returns>
     public static WorkflowCompilationResult Compile(WorkflowDefinitionDraft draft)
     {
-        if (draft.Nodes.Count > MaximumNodes)
+        if (draft is null || draft.Nodes is null || draft.Nodes.Count > MaximumNodes ||
+            draft.Nodes.Any(node => node is null || !WorkflowNodeKeyValidator.IsValid(node.NodeKey)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
         }
@@ -38,10 +39,47 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
         }
 
+        // 目录只承诺实际可执行的配置，不能把监听器、脚本或其他未知选项静默当作空配置发布。
+        if (draft.Nodes.Any(node => !WorkflowNodeTypeCatalog.SupportsConfiguration(node)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType && !WorkflowSubprocessPolicy.TryRead(node.Config, null, out _) ||
+            node.NodeTypeKey != WorkflowSubprocessPolicy.NodeType && node.Config.ValueKind == JsonValueKind.Object &&
+            (node.Config.TryGetProperty("subprocessPolicy", out _) || node.Config.TryGetProperty("boundSubprocess", out _) || node.Config.TryGetProperty("multiInstancePolicy", out _))))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionSubprocessInvalid);
+        if (draft.Nodes.Any(node => !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
+            draft.Nodes.Count(node => node.NodeTypeKey == "business.command") > 1 ||
+            draft.Nodes.Any(node => node.NodeTypeKey == "business.command" && !WorkflowBusinessCommandBindings.TryReadFinalizer(draft, node.NodeKey, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionBusinessCommandInvalid);
+        var withdrawalStarts = draft.Nodes.Where(node => node.NodeTypeKey == "start").ToArray();
+        if (withdrawalStarts is [var withdrawalStart] && (!WorkflowWithdrawalPolicy.TryRead(withdrawalStart.Config, out var withdrawal) ||
+            withdrawal is not null && withdrawal.NodeKeys.Any(key => !draft.Nodes.Any(node => node.NodeKey == key && WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey)))))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionWithdrawalPolicyInvalid);
+        if (draft.Nodes.Any(node => WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) && !WorkflowHumanActionPolicy.TryRead(node.Config, out _, node.NodeTypeKey)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionActionPolicyInvalid);
+
+        // 分组必须显式声明组内来源及组间门槛，不能退化为默认发起人审批。
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval &&
+            !WorkflowGroupApprovalConfiguration.TryRead(node.Config, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid);
+
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowHumanActivityKinds.Task &&
+            !WorkflowTaskPolicy.TryRead(node.Config, out _)) || draft.Nodes.Any(node => node.NodeTypeKey != WorkflowHumanActivityKinds.Task &&
+                node.Config.ValueKind == JsonValueKind.Object && node.Config.TryGetProperty("taskPolicy", out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTaskPolicyInvalid);
+
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowHumanActivityKinds.Vote &&
+                !WorkflowVotePolicy.TryRead(node.Config, out _)) || draft.Nodes.Any(node => node.NodeTypeKey != WorkflowHumanActivityKinds.Vote &&
+                node.Config.ValueKind == JsonValueKind.Object && node.Config.TryGetProperty("votePolicy", out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionVotePolicyInvalid);
+
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowHumanActivityKinds.Claim && !WorkflowClaimPolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node => node.NodeTypeKey != WorkflowHumanActivityKinds.Claim && node.Config.ValueKind == JsonValueKind.Object && node.Config.TryGetProperty("claimPolicy", out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionClaimPolicyInvalid);
+
         // 抄送配置会进入运行时身份边界，只接受稳定用户标识的闭合集合，禁止任意副作用参数透传。
         if (draft.Nodes.Any(node =>
                 node.NodeTypeKey == "notify.cc" &&
-                !WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out _)))
+                !WorkflowCcNodeConfiguration.TryReadPolicy(node.Config, out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionCcRecipientsInvalid);
         }
@@ -69,11 +107,26 @@ internal static class WorkflowDefinitionCompiler
         }
 
         // 超时策略会直接驱动后台可靠事件，只允许审批节点携带闭合且可执行的时间与接收人配置。
+        if (draft.Nodes.Any(node => node.NodeTypeKey == "timer.delay" && !WorkflowDelayPolicy.TryRead(node.Config, null, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionDelayPolicyInvalid);
+        if (draft.Nodes.Any(node => node.NodeTypeKey is "data.modify" or "data.clear" &&
+            !WorkflowFieldMutationPolicy.TryRead(node.NodeTypeKey, node.Config, null, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+        if (draft.Nodes.Any(node => node.NodeTypeKey is "integration.trigger" or "integration.async_trigger" && !WorkflowConnectorPolicy.TryRead(node.Config, null, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+
+        if (draft.Nodes.Any(node => !WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid);
+        if (draft.Nodes.Any(node => !WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
+        if (draft.Nodes.Any(node => !WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, null, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+
         if (draft.Nodes.Any(node =>
-                node.NodeTypeKey == "human.approval" &&
+                WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                 !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) ||
             draft.Nodes.Any(node =>
-                node.NodeTypeKey != "human.approval" &&
+                !WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                 node.Config.ValueKind == JsonValueKind.Object &&
                 node.Config.TryGetProperty("timeoutPolicy", out _)))
         {
@@ -94,10 +147,10 @@ internal static class WorkflowDefinitionCompiler
 
         // 办理人解析策略决定节点激活时的可信办理人集合，发布前必须闭合结构与来源键。
         if (draft.Nodes.Any(node =>
-                node.NodeTypeKey == "human.approval" &&
+                WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                 !WorkflowAssigneePolicy.TryRead(node.Config, out _)) ||
             draft.Nodes.Any(node =>
-                node.NodeTypeKey != "human.approval" &&
+                !WorkflowHumanActivityKinds.IsFormActivity(node.NodeTypeKey) &&
                 node.Config.ValueKind == JsonValueKind.Object &&
                 node.Config.TryGetProperty("assigneePolicy", out _)))
         {
@@ -147,10 +200,19 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionEndMissing);
         }
 
+        if (!WorkflowDynamicAssigneeDefinitionRules.ValidateGraph(draft, edges, starts[0].NodeKey))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid);
+
+        if (!WorkflowAsyncDefinitionPlan.TryCompile(draft, edges, out _))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionAsyncDependencyInvalid);
+
         if (!WorkflowRuntimePlan.TryCreate(draft, out _))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
         }
+
+        if (!WorkflowParallelWritePolicy.Validate(draft, edges))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionParallelWriteConflict);
 
         return WorkflowCompilationResult.Success(
             WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, draft)));
@@ -173,6 +235,27 @@ internal static class WorkflowDefinitionCompiler
         if (!TryCompileFieldPolicies(draft, formSchema, out var policiesByNode))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+        }
+        if (draft.Nodes.Any(node => !WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+
+        if (!WorkflowDynamicAssigneeDefinitionRules.ValidateFields(draft, formSchema))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid);
+        if (draft.Nodes.Any(node => node.NodeTypeKey is "data.modify" or "data.clear" &&
+            !WorkflowFieldMutationPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+
+        if (draft.Nodes.Any(node => node.NodeTypeKey == "timer.delay" && !WorkflowDelayPolicy.TryRead(node.Config, formSchema, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionDelayPolicyInvalid);
+
+        foreach (var node in draft.Nodes.Where(node => node.NodeTypeKey == WorkflowHumanActivityKinds.Vote))
+        {
+            if (!WorkflowVotePolicy.TryRead(node.Config, out var vote))
+                return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionVotePolicyInvalid);
+            if (vote!.ResultFieldKey is not { } field) continue;
+            if (!formSchema.Sections.SelectMany(section => section.Fields).Any(item => item.FieldKey == field && item.FieldTypeKey == "switch") ||
+                !policiesByNode.TryGetValue(node.NodeKey, out var fields) || !fields.TryGetValue(field, out var access) || access is not ("editable" or "required"))
+                return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionVotePolicyInvalid);
         }
 
         // 发布时将每个条件绑定到不可变表单架构，运行时不再接受临时字段或类型推断。
@@ -210,6 +293,7 @@ internal static class WorkflowDefinitionCompiler
     {
         writer.WriteStartObject();
         writer.WriteNumber("schemaVersion", draft.SchemaVersion);
+        writer.WriteString("workflowKindKey", draft.WorkflowKindKey);
         writer.WritePropertyName("nodes");
         writer.WriteStartArray();
         foreach (var node in draft.Nodes.OrderBy(item => item.NodeKey, StringComparer.Ordinal))
@@ -218,6 +302,12 @@ internal static class WorkflowDefinitionCompiler
             writer.WriteString("nodeKey", node.NodeKey);
             writer.WriteString("nodeTypeKey", node.NodeTypeKey);
             writer.WriteNumber("nodeSchemaVersion", node.NodeSchemaVersion);
+            if (node.AwaitActivityNodeKeys is { Count: > 0 } dependencies)
+            {
+                writer.WritePropertyName("awaitActivityNodeKeys"); writer.WriteStartArray();
+                foreach (var source in dependencies.Order(StringComparer.Ordinal)) writer.WriteStringValue(source);
+                writer.WriteEndArray();
+            }
             writer.WritePropertyName("config");
             if (policiesByNode is not null && policiesByNode.TryGetValue(node.NodeKey, out var policies))
             {
@@ -271,7 +361,7 @@ internal static class WorkflowDefinitionCompiler
 
             var policies = fields.Values.ToDictionary(
                 field => field.FieldKey,
-                field => field.Required ? "required" : "editable",
+                field => node.NodeTypeKey is "data.modify" or "data.clear" or "integration.trigger" or "integration.async_trigger" ? "hidden" : field.Required ? "required" : "editable",
                 StringComparer.Ordinal);
             if (hasPolicies)
             {

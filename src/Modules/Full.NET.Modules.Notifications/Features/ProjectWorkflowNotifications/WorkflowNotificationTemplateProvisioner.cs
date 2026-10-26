@@ -42,7 +42,13 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
             throw new InvalidOperationException(NotificationsErrorCodes.TemplateNotFound);
         }
 
-        var existing = await FindAsync(scope, templateKey, cancellationToken).ConfigureAwait(false);
+        await EnsureDefinitionAsync(scope, definition!, cancellationToken).ConfigureAwait(false);
+        await EnsureDefinitionAsync(scope, WorkflowNotificationTemplateCatalog.English(definition!), cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsureDefinitionAsync(NotificationInboxScope scope, WorkflowNotificationTemplateDefinition definition, CancellationToken cancellationToken)
+    {
+        var existing = await FindAsync(scope, definition.TemplateKey, definition.LocaleTag, cancellationToken).ConfigureAwait(false);
         if (existing?.LatestPublishedVersionId is not null)
         {
             return;
@@ -51,11 +57,13 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         // 已有人工草稿时立即失败关闭；常态已发布路径也不会为每条通知额外开启事务。
         if (existing is not null)
         {
+            // 可选译文正在人工编辑时保留草稿，由已发布默认语言兜底。
+            if (definition.LocaleTag != LocaleCatalog.DefaultLocale) return;
             throw new InvalidOperationException(NotificationsErrorCodes.TemplateNotPublished);
         }
 
         await transaction.ExecuteAsync(
-            token => EnsureCoreAsync(scope, definition!, token),
+            token => EnsureCoreAsync(scope, definition, token),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -69,7 +77,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         WorkflowNotificationTemplateDefinition definition,
         CancellationToken cancellationToken)
     {
-        var existing = await FindAsync(scope, definition.TemplateKey, cancellationToken)
+        var existing = await FindAsync(scope, definition.TemplateKey, definition.LocaleTag, cancellationToken)
             .ConfigureAwait(false);
         if (existing?.LatestPublishedVersionId is not null)
         {
@@ -79,6 +87,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         // 同名未发布模板可能包含管理员正在编辑的内容，系统不得擅自覆盖或发布。
         if (existing is not null)
         {
+            if (definition.LocaleTag != LocaleCatalog.DefaultLocale) return true;
             throw new InvalidOperationException(NotificationsErrorCodes.TemplateNotPublished);
         }
 
@@ -103,7 +112,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                     ("TenantId", scope.TenantId),
                     ("TenantScopeKey", scope.TenantScopeKey),
                     ("TemplateKey", definition.TemplateKey),
-                    ("LocaleTag", LocaleCatalog.DefaultLocale),
+                    ("LocaleTag", definition.LocaleTag),
                     ("DefaultLocaleTag", LocaleCatalog.DefaultLocale),
                     ("ChannelKey", NotificationTemplateCompiler.InboxChannelKey),
                     ("ContentCategoryKey", "transactional"),
@@ -116,9 +125,9 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
             .ConfigureAwait(false);
         if (inserted == 0)
         {
-            var concurrent = await FindAsync(scope, definition.TemplateKey, cancellationToken)
+            var concurrent = await FindAsync(scope, definition.TemplateKey, definition.LocaleTag, cancellationToken)
                 .ConfigureAwait(false);
-            return concurrent?.LatestPublishedVersionId is not null
+            return concurrent?.LatestPublishedVersionId is not null || (concurrent is not null && definition.LocaleTag != LocaleCatalog.DefaultLocale)
                 ? true
                 : throw new InvalidOperationException(NotificationsErrorCodes.TemplateNotPublished);
         }
@@ -126,7 +135,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         const string classification = "c1";
         var versionId = idGenerator.NewId();
         var contentHash = NotificationTemplateCompiler.ComputeContentHash(
-            LocaleCatalog.DefaultLocale,
+            definition.LocaleTag,
             draft.Value.Subject,
             draft.Value.BodyJson,
             draft.Value.ParameterSchemaJson,
@@ -136,7 +145,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                 NotificationPlatformSqlParameters.Create(
                     ("Id", versionId),
                     ("TemplateId", templateId),
-                    ("LocaleTag", LocaleCatalog.DefaultLocale),
+                    ("LocaleTag", definition.LocaleTag),
                     ("VersionNumber", 1),
                     ("SchemaVersion", NotificationTemplateCompiler.SchemaVersion),
                     ("Subject", draft.Value.Subject),
@@ -181,12 +190,13 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
     private Task<NotificationTemplateRecord?> FindAsync(
         NotificationInboxScope scope,
         string templateKey,
+        string localeTag,
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
             NotificationPlatformSql.FindTemplateByKeyAndLocale,
             NotificationPlatformSqlParameters.Create(
                 ("TenantScopeKey", scope.TenantScopeKey),
                 ("TemplateKey", templateKey),
-                ("LocaleTag", LocaleCatalog.DefaultLocale)),
+                ("LocaleTag", localeTag)),
             cancellationToken);
 }

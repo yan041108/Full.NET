@@ -9,7 +9,8 @@ internal sealed record DeliveryCutoverAuditDiff(
     Guid CutoffEventId,
     DateTimeOffset CutoffOccurredAtUtc,
     string? Reason,
-    bool OwnershipPersisted);
+    bool OwnershipPersisted,
+    Guid CutoverEvidenceId);
 
 /// <summary>交付权回滚审计摘要。</summary>
 internal sealed record DeliveryRollbackAuditDiff(
@@ -28,7 +29,8 @@ internal sealed record DeliveryRollbackAuditDiff(
 internal sealed record DeadLetterReplayAuditDiff(
     string ConsumerName,
     Guid MessageId,
-    string Outcome);
+    string Outcome,
+    string Reason);
 
 /// <summary>Kafka 区间重放请求审计摘要。</summary>
 internal sealed record KafkaRangeReplayRequestedAuditDiff(

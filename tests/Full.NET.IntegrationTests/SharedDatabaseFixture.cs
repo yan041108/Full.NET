@@ -198,7 +198,7 @@ public static class SharedDatabaseFixture
         return container.GetConnectionString();
     }
 
-    private static void ApplyBoundedOwnership(IDictionary<string, string> labels)
+    internal static void ApplyBoundedOwnership(IDictionary<string, string> labels)
     {
         if (_boundedSession is null) throw new InvalidOperationException("有界资源会话尚未初始化。");
         labels["org.testcontainers.resource-reaper-session"] = _boundedSession;

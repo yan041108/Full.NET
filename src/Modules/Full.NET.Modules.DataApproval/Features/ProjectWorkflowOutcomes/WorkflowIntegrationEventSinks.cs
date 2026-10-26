@@ -13,6 +13,7 @@ internal sealed class WorkflowInstanceCompletedDataApprovalSink(
         CancellationToken cancellationToken) =>
         outcomeService.HandleTerminalWorkflowAsync(
             context.TenantId ?? Guid.Empty,
+            integrationEvent.InstanceId,
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             "completed",
@@ -31,6 +32,7 @@ internal sealed class WorkflowInstanceRejectedDataApprovalSink(
         CancellationToken cancellationToken) =>
         outcomeService.HandleTerminalWorkflowAsync(
             context.TenantId ?? Guid.Empty,
+            integrationEvent.InstanceId,
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             "rejected",
@@ -49,6 +51,7 @@ internal sealed class WorkflowInstanceCancelledDataApprovalSink(
         CancellationToken cancellationToken) =>
         outcomeService.HandleTerminalWorkflowAsync(
             context.TenantId ?? Guid.Empty,
+            integrationEvent.InstanceId,
             integrationEvent.BusinessType,
             integrationEvent.BusinessId,
             "cancelled",

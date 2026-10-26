@@ -7,6 +7,37 @@ namespace Full.NET.UnitTests.Notifications;
 [TestClass]
 public sealed class WorkflowNotificationRequestFactoryTests
 {
+    [TestMethod]
+    public void Listener_replay_keeps_business_identity_and_uses_real_instance_link()
+    {
+        var value = new WorkflowActivityListenerRequestedIntegrationEvent(Guid.CreateVersion7(), Guid.CreateVersion7(),
+            "review", "done", "completed", "notify.initiator", 1, Guid.CreateVersion7(), "order", "one", DateTimeOffset.UtcNow);
+        var first = WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value);
+        Assert.AreEqual(first.IdempotencyKey, WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value).IdempotencyKey);
+        Assert.AreEqual("workflow.activity.completed", first.SceneKey);
+        Assert.AreEqual("workflow_instance", first.DeepLink!.ResourceTypeKey);
+        Assert.AreEqual(value.InstanceId, first.DeepLink.ResourceId);
+        Assert.AreEqual(3, first.Parameters.EnumerateObject().Count());
+        Assert.IsFalse(first.Parameters.TryGetProperty("todoId", out _));
+        Assert.AreNotEqual(first.IdempotencyKey, WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value with { StepId = Guid.CreateVersion7() }).IdempotencyKey);
+        Assert.ThrowsExactly<InvalidOperationException>(() => WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value with { ActionKey = "eval" }));
+        Assert.ThrowsExactly<InvalidOperationException>(() => WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value with { ActionVersion = 2 }));
+    }
+    [TestMethod]
+    public void Manual_reminders_keep_stable_business_deduplication_across_message_redelivery()
+    {
+        var value = new WorkflowTodoManualReminderRequestedIntegrationEvent(Guid.CreateVersion7(), Guid.CreateVersion7(),
+            Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "contract", "C-004", 1, DateTimeOffset.UtcNow);
+        var first = WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value);
+        var replay = WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value);
+        Assert.AreEqual(first.IdempotencyKey, replay.IdempotencyKey);
+        Assert.AreEqual("workflow.todo.manual_reminder", first.SceneKey);
+        Assert.AreEqual(1, first.Parameters.GetProperty("manualSequence").GetInt32());
+        Assert.AreEqual(value.RequestId, first.Parameters.GetProperty("manualRequestId").GetGuid());
+        Assert.IsFalse(first.Parameters.TryGetProperty("reminderSequence", out _));
+        Assert.IsFalse(first.Parameters.TryGetProperty("requestedByUserId", out _));
+        Assert.AreNotEqual(first.IdempotencyKey, WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(), value with { TodoId = Guid.CreateVersion7() }).IdempotencyKey);
+    }
     /// <summary>待办事件应选择待办模板，并提供登录后定位所需的最小参数。</summary>
     [TestMethod]
     public void Assigned_event_maps_to_todo_scene_and_recipient()

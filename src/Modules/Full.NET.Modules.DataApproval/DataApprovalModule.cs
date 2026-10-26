@@ -39,6 +39,9 @@ public sealed class DataApprovalModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        RegisterBusinessCommands(services);
+        services.AddSingleton(new WorkflowBusinessTypeOwnership(DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, "data_approval"));
+        services.AddSingleton(new WorkflowBusinessTypeOwnership(DataApprovalWorkflowBusinessTypes.SerialRuleDisable, "data_approval"));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             DataApprovalAuthorizationContributor>());
@@ -70,6 +73,8 @@ public sealed class DataApprovalModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        RegisterBusinessCommands(services);
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IWorkflowBusinessCommandSink, DataApprovalBusinessCommandSink>());
         AddRecoveryWorkerOptions(services, configuration);
 #if FULLNET_AOT_COMPILE
         new Persistence.DataApprovalDapperAotMaterializerContributor()
@@ -93,6 +98,15 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCancelledSink,
             WorkflowInstanceCancelledDataApprovalSink>());
+    }
+
+    private static void RegisterBusinessCommands(IServiceCollection services)
+    {
+        services.TryAddScoped<DataApprovalBusinessCommandSink>();
+        services.AddSingleton(new WorkflowBusinessActionDefinition("data_approval", "data_approval.apply_serial_rule_update", 1,
+            "host", DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, "root_finalizer"));
+        services.AddSingleton(new WorkflowBusinessActionDefinition("data_approval", "data_approval.apply_serial_rule_disable", 1,
+            "host", DataApprovalWorkflowBusinessTypes.SerialRuleDisable, "root_finalizer"));
     }
 
     private static void AddRecoveryWorkerOptions(IServiceCollection services, IConfiguration configuration)

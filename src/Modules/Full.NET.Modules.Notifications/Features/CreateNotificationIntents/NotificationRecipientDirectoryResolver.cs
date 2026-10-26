@@ -6,10 +6,10 @@ namespace Full.NET.Modules.Notifications.Features.CreateNotificationIntents;
 
 /// <summary>按可信通知作用域批量校验活动用户，禁止 Tenant 请求退化为全局 Host 用户校验。</summary>
 /// <param name="hostUsers">活动 Host 用户批量目录。</param>
-/// <param name="tenantUsers">当前可信 Tenant 的活动用户批量目录。</param>
+/// <param name="tenantUsers">当前可信 Tenant 的权威活动成员批量目录。</param>
 internal sealed class NotificationRecipientDirectoryResolver(
     IHostUserBatchSelectionDirectory hostUsers,
-    ITenantUserSelectionDirectory tenantUsers)
+    ITenantMemberSelectionDirectory tenantUsers)
 {
     /// <summary>按输入顺序解析全部收件人；任一用户不属于当前作用域时失败关闭。</summary>
     /// <param name="scope">由请求上下文或消息 Envelope 构造的可信通知作用域。</param>
@@ -50,7 +50,7 @@ internal sealed class NotificationRecipientDirectoryResolver(
                 .Select(recipient => Guid.Parse(recipient.RecipientKey))
                 .ToArray();
             var directory = await tenantUsers
-                .FindActiveTenantUsersAsync(userIds, cancellationToken)
+                .FindActiveTenantMembersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
             foreach (var recipient in recipients)
             {

@@ -75,6 +75,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AssignWorkflowPoolRequest,
   AuthenticationEventCursorPage,
   AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
@@ -105,10 +106,15 @@ import type {
   CachePolicySummary,
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
+  CancelWorkflowTodoCountersignRequest,
+  ChangeDeliveryOwnerRequest,
   ChangeHostJobScheduleStateRequest,
+  ChangeKafkaReplayOperationRequest,
   ChangePasswordRequest,
   ChangePersonalScheduleRequest,
   ChangeSerialNumberRuleStatusRequest,
+  ClaimWorkflowPoolRequest,
+  CloseShadowCaptureRequest,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
@@ -142,6 +148,7 @@ import type {
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
   CopyHostRoleRequest,
+  CountersignWorkflowTodoRequest,
   CreateAdministrativeRegionRequest,
   CreateAiAgentApprovalRequest,
   CreateAiAgentApprovalResponse,
@@ -181,6 +188,7 @@ import type {
   CreateHostUserRequest,
   CreateK3CloudConnectionConfigRequest,
   CreateK3CloudDocumentSyncRequest,
+  CreateKafkaReplayOperationRequest,
   CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
   CreateNotificationProducerSceneRequest,
@@ -205,11 +213,14 @@ import type {
   CreateSerialNumberRuleRequest,
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
+  CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CutoverEvidenceResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
   DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
+  DelegateWorkflowTodoRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
   DeleteCodeGenerationTemplateRequest,
@@ -224,6 +235,9 @@ import type {
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
+  DeliveryCutoverResponse,
+  DeliveryRollbackResponse,
+  DeliveryStatusResponse,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
   DiagnosticPolicyRuleResponse,
@@ -238,6 +252,9 @@ import type {
   EnumCatalogDictGenerationUnmanagedItem,
   EnumCatalogMember,
   EnumCatalogSummary,
+  EventDeliveryOwner,
+  EventDeliveryRollbackPhase,
+  EventStreamStatusResponse,
   ExceptionLogResponse,
   ExecuteReportingDefinitionRequest,
   FieldProjectionDefaultVisibility,
@@ -339,6 +356,10 @@ import type {
   JsonElement,
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
+  KafkaRangeReplayRequest,
+  KafkaRangeReplayResponse,
+  KafkaReplayOperationResponse,
+  KafkaReplayPartitionResponse,
   LocalePreferenceResponse,
   LogCorrelationSnapshot,
   LogFileList,
@@ -376,6 +397,7 @@ import type {
   NotificationTemplateResponse,
   OcrIdCardTaskResponse,
   OcrProviderConfigResponse,
+  OperationalDeadLetterResponse,
   OperationLogDetailsContextV1,
   OperationLogDetailsResponse,
   OperationLogExportRequestSummaryV1,
@@ -384,10 +406,15 @@ import type {
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
   OrganizationPositionResponse,
+  OrganizationReportingCandidate,
+  OrganizationReportingLineResponse,
+  OrganizationUnitLeaderCandidateResponse,
+  OrganizationUnitLeadershipResponse,
   OrganizationUnitResponse,
   OrganizationUserPositionResponse,
   OrganizationUserUnitResponse,
   OutboundCallLogResponse,
+  OutboxBacklogSummaryResponse,
   PagedResultOfAccessLogResponse,
   PagedResultOfAdministrativeRegionResponse,
   PagedResultOfAiAgentToolCallListItem,
@@ -432,6 +459,7 @@ import type {
   PagedResultOfImportExportTaskResponse,
   PagedResultOfInboxMessageResponse,
   PagedResultOfK3CloudDocumentSyncResponse,
+  PagedResultOfKafkaReplayOperationResponse,
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
@@ -440,10 +468,13 @@ import type {
   PagedResultOfNotificationQuotaPolicyResponse,
   PagedResultOfNotificationTemplateResponse,
   PagedResultOfOcrIdCardTaskResponse,
+  PagedResultOfOperationalDeadLetterResponse,
   PagedResultOfOperationLogResponse,
   PagedResultOfOrganizationAssignableUserResponse,
   PagedResultOfOrganizationPositionLevelResponse,
   PagedResultOfOrganizationPositionResponse,
+  PagedResultOfOrganizationReportingCandidate,
+  PagedResultOfOrganizationUnitLeaderCandidateResponse,
   PagedResultOfOrganizationUnitResponse,
   PagedResultOfOrganizationUserPositionResponse,
   PagedResultOfOrganizationUserUnitResponse,
@@ -497,14 +528,21 @@ import type {
   PublishReportingDefinitionRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  PublishWorkflowWorkCalendarRequest,
   ReassignWorkflowInstanceRequest,
+  RecallWorkflowTodoDelegationRequest,
   ReceivedHostAnnouncementDetailResponse,
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
   ReconcileNotificationDeliveryRequest,
+  ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
+  RecoverDeadLetterRequest,
+  RecoverDeadLetterResponse,
+  RecoverRollbackRequest,
   RecoverWorkflowInstanceRequest,
+  ReleaseWorkflowTodoRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -525,6 +563,7 @@ import type {
   ReportingParameterSchemaEntry,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
+  RequestWorkflowManualReminder,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
@@ -543,6 +582,8 @@ import type {
   RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
+  RollbackOperationResponse,
+  SaveWorkflowDesignerAssetRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
@@ -568,9 +609,14 @@ import type {
   SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetNotificationQuotaPolicyEnabledRequest,
+  SetOrganizationReportingLineRequest,
+  SetOrganizationUnitLeadershipRequest,
   SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
+  ShadowCapturePolicyResponse,
+  ShadowCaptureResponse,
+  StartShadowCaptureRequest,
   StartWorkflowInstanceRequest,
   StaticImportRowPreviewResult,
   StaticImportSchemaDefinition,
@@ -594,6 +640,7 @@ import type {
   TestReportingDataSourceResult,
   TokenResponse,
   TotpEnrollmentStatusResponse,
+  TransferWorkflowTodoRequest,
   UpdateAdministrativeRegionRequest,
   UpdateAiChatSessionRequest,
   UpdateAiKnowledgeBaseRequest,
@@ -652,13 +699,31 @@ import type {
   UpdateTenantBrandingRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
+  UpdateWorkflowWorkCalendarRequest,
+  VerifyCutoverRequest,
   VerifyRecipientEndpointCodeRequest,
+  VoteWorkflowTodoRequest,
+  WithdrawWorkflowInstanceRequest,
+  WorkflowApprovalGroupProgressResponse,
   WorkflowAssigneePreviewResponse,
+  WorkflowBusinessActionCatalogItemResponse,
+  WorkflowBusinessActionCatalogResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
+  WorkflowClaimPoolPageResponse,
+  WorkflowClaimPoolResponse,
+  WorkflowClaimProgressResponse,
+  WorkflowConnectorAttemptResponse,
+  WorkflowConnectorCallPageResponse,
+  WorkflowConnectorCallResponse,
+  WorkflowConnectorCatalogItemResponse,
+  WorkflowConnectorCatalogResponse,
+  WorkflowConnectorParameterResponse,
+  WorkflowConnectorResolutionResponse,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
+  WorkflowDesignerAssetResponse,
   WorkflowExecutionLogResponse,
   WorkflowFormComponentCatalogResponse,
   WorkflowFormComponentResponse,
@@ -671,16 +736,42 @@ import type {
   WorkflowGatewayJoinResponse,
   WorkflowInstanceListItemResponse,
   WorkflowInstanceResponse,
+  WorkflowManualReminderResponse,
+  WorkflowManualReminderTargetResponse,
+  WorkflowManualReminderTargetsResponse,
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowPositionCandidatePageResponse,
+  WorkflowPositionCandidateResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
   WorkflowRecoveryTaskResponse,
+  WorkflowSignatureUploadResponse,
+  WorkflowStarterSelectionDescriptorResponse,
+  WorkflowStarterSelectionsResponse,
+  WorkflowTaskProgressResponse,
+  WorkflowTodoCountersignChainResponse,
+  WorkflowTodoCountersignItemResponse,
+  WorkflowTodoDelegationResponse,
+  WorkflowTodoDelegationStateResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoListItemResponse,
   WorkflowTodoReturnTargetResponse,
-  WorkflowTodoRuntimeResponse
+  WorkflowTodoRuntimeResponse,
+  WorkflowVoteFormResponse,
+  WorkflowVoteProgressResponse,
+  WorkflowWithdrawalAvailabilityResponse,
+  WorkflowWorkCalendarDraft,
+  WorkflowWorkCalendarException,
+  WorkflowWorkCalendarPageResponse,
+  WorkflowWorkCalendarRange,
+  WorkflowWorkCalendarResponse,
+  WorkflowWorkCalendarSummary,
+  WorkflowWorkCalendarVersionPageResponse,
+  WorkflowWorkCalendarVersionResponse,
+  WorkflowWorkCalendarVersionSummary,
+  WorkflowWorkCalendarWeekday
 } from './models.generated.js';
 
 export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
@@ -715,7 +806,7 @@ export function readActWorkflowTodoRequest(value: unknown): ActWorkflowTodoReque
 }
 
 function isActWorkflowTodoRequest(value: unknown): value is ActWorkflowTodoRequest {
-  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string');
+  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))));
 }
 
 export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocumentVersionRequest {
@@ -1325,6 +1416,15 @@ function isAssignOrganizationPositionUnitRequest(value: unknown): value is Assig
   return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAssignWorkflowPoolRequest(value: unknown): AssignWorkflowPoolRequest {
+  const normalizedValue = normalizeAssignWorkflowPoolRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAssignWorkflowPoolRequest(normalizedValue), 'assign_workflow_pool_request') as AssignWorkflowPoolRequest;
+}
+
+function isAssignWorkflowPoolRequest(value: unknown): value is AssignWorkflowPoolRequest {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
+}
+
 export function readAuthenticationEventCursorPage(value: unknown): AuthenticationEventCursorPage {
   return requireValidResponse(value, isAuthenticationEventCursorPage(value), 'authentication_event_cursor_page') as AuthenticationEventCursorPage;
 }
@@ -1581,6 +1681,24 @@ function isCancelWorkflowInstanceRequest(value: unknown): value is CancelWorkflo
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
+export function readCancelWorkflowTodoCountersignRequest(value: unknown): CancelWorkflowTodoCountersignRequest {
+  const normalizedValue = normalizeCancelWorkflowTodoCountersignRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCancelWorkflowTodoCountersignRequest(normalizedValue), 'cancel_workflow_todo_countersign_request') as CancelWorkflowTodoCountersignRequest;
+}
+
+function isCancelWorkflowTodoCountersignRequest(value: unknown): value is CancelWorkflowTodoCountersignRequest {
+  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
+}
+
+export function readChangeDeliveryOwnerRequest(value: unknown): ChangeDeliveryOwnerRequest {
+  const normalizedValue = normalizeChangeDeliveryOwnerRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isChangeDeliveryOwnerRequest(normalizedValue), 'change_delivery_owner_request') as ChangeDeliveryOwnerRequest;
+}
+
+function isChangeDeliveryOwnerRequest(value: unknown): value is ChangeDeliveryOwnerRequest {
+  return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["reason"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (isEventDeliveryOwner(value["targetOwner"]));
+}
+
 export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {
   const normalizedValue = normalizeChangeHostJobScheduleStateRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isChangeHostJobScheduleStateRequest(normalizedValue), 'change_host_job_schedule_state_request') as ChangeHostJobScheduleStateRequest;
@@ -1588,6 +1706,14 @@ export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHos
 
 function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHostJobScheduleStateRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readChangeKafkaReplayOperationRequest(value: unknown): ChangeKafkaReplayOperationRequest {
+  return requireValidResponse(value, isChangeKafkaReplayOperationRequest(value), 'change_kafka_replay_operation_request') as ChangeKafkaReplayOperationRequest;
+}
+
+function isChangeKafkaReplayOperationRequest(value: unknown): value is ChangeKafkaReplayOperationRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string');
 }
 
 export function readChangePasswordRequest(value: unknown): ChangePasswordRequest {
@@ -1614,6 +1740,23 @@ export function readChangeSerialNumberRuleStatusRequest(value: unknown): ChangeS
 
 function isChangeSerialNumberRuleStatusRequest(value: unknown): value is ChangeSerialNumberRuleStatusRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readClaimWorkflowPoolRequest(value: unknown): ClaimWorkflowPoolRequest {
+  const normalizedValue = normalizeClaimWorkflowPoolRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isClaimWorkflowPoolRequest(normalizedValue), 'claim_workflow_pool_request') as ClaimWorkflowPoolRequest;
+}
+
+function isClaimWorkflowPoolRequest(value: unknown): value is ClaimWorkflowPoolRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
+}
+
+export function readCloseShadowCaptureRequest(value: unknown): CloseShadowCaptureRequest {
+  return requireValidResponse(value, isCloseShadowCaptureRequest(value), 'close_shadow_capture_request') as CloseShadowCaptureRequest;
+}
+
+function isCloseShadowCaptureRequest(value: unknown): value is CloseShadowCaptureRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string');
 }
 
 export function readCodeGenerationCatalogColumnListResponse(value: unknown): CodeGenerationCatalogColumnListResponse {
@@ -1893,6 +2036,15 @@ export function readCopyHostRoleRequest(value: unknown): CopyHostRoleRequest {
 
 function isCopyHostRoleRequest(value: unknown): value is CopyHostRoleRequest {
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["name"] === 'string');
+}
+
+export function readCountersignWorkflowTodoRequest(value: unknown): CountersignWorkflowTodoRequest {
+  const normalizedValue = normalizeCountersignWorkflowTodoRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCountersignWorkflowTodoRequest(normalizedValue), 'countersign_workflow_todo_request') as CountersignWorkflowTodoRequest;
+}
+
+function isCountersignWorkflowTodoRequest(value: unknown): value is CountersignWorkflowTodoRequest {
+  return isRecord(value) && (Array.isArray(value["assigneeUserIds"]) && value["assigneeUserIds"].every(item24 => typeof item24 === 'string' && guidPattern.test(item24))) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["directionKey"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readCreateAdministrativeRegionRequest(value: unknown): CreateAdministrativeRegionRequest {
@@ -2224,6 +2376,15 @@ function isCreateK3CloudDocumentSyncRequest(value: unknown): value is CreateK3Cl
   return isRecord(value) && (typeof value["businessKey"] === 'string') && (typeof value["connectionConfigId"] === 'string' && guidPattern.test(value["connectionConfigId"])) && (typeof value["documentTypeKey"] === 'string') && (typeof value["payloadJson"] === 'string');
 }
 
+export function readCreateKafkaReplayOperationRequest(value: unknown): CreateKafkaReplayOperationRequest {
+  const normalizedValue = normalizeCreateKafkaReplayOperationRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreateKafkaReplayOperationRequest(normalizedValue), 'create_kafka_replay_operation_request') as CreateKafkaReplayOperationRequest;
+}
+
+function isCreateKafkaReplayOperationRequest(value: unknown): value is CreateKafkaReplayOperationRequest {
+  return isRecord(value) && ((value["fromOffset"] === null) || (typeof value["fromOffset"] === 'string')) && ((value["fromTimestampUtc"] === null) || (typeof value["fromTimestampUtc"] === 'string')) && (typeof value["maxMessages"] === 'number' && Number.isSafeInteger(value["maxMessages"])) && (Array.isArray(value["partitions"]) && value["partitions"].every(item19 => typeof item19 === 'number' && Number.isSafeInteger(item19))) && (typeof value["reason"] === 'string') && (typeof value["replayConsumerName"] === 'string') && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && ((value["toOffset"] === null) || (typeof value["toOffset"] === 'string')) && (typeof value["topicCode"] === 'string') && ((value["toTimestampUtc"] === null) || (typeof value["toTimestampUtc"] === 'string'));
+}
+
 export function readCreateMyRecipientEndpointRequest(value: unknown): CreateMyRecipientEndpointRequest {
   return requireValidResponse(value, isCreateMyRecipientEndpointRequest(value), 'create_my_recipient_endpoint_request') as CreateMyRecipientEndpointRequest;
 }
@@ -2427,7 +2588,16 @@ export function readCreateWorkflowFormRequest(value: unknown): CreateWorkflowFor
 }
 
 function isCreateWorkflowFormRequest(value: unknown): value is CreateWorkflowFormRequest {
-  return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["formKey"] === 'string');
+  return isRecord(value) && (value["designerJson"] === undefined || (isJsonValue(value["designerJson"]))) && (isWorkflowFormSchema(value["draft"])) && (typeof value["formKey"] === 'string');
+}
+
+export function readCreateWorkflowWorkCalendarRequest(value: unknown): CreateWorkflowWorkCalendarRequest {
+  const normalizedValue = normalizeCreateWorkflowWorkCalendarRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreateWorkflowWorkCalendarRequest(normalizedValue), 'create_workflow_work_calendar_request') as CreateWorkflowWorkCalendarRequest;
+}
+
+function isCreateWorkflowWorkCalendarRequest(value: unknown): value is CreateWorkflowWorkCalendarRequest {
+  return isRecord(value) && (typeof value["calendarKey"] === 'string') && (typeof value["displayName"] === 'string') && (isWorkflowWorkCalendarDraft(value["draft"]));
 }
 
 export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
@@ -2437,6 +2607,15 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+}
+
+export function readCutoverEvidenceResponse(value: unknown): CutoverEvidenceResponse {
+  const normalizedValue = normalizeCutoverEvidenceResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCutoverEvidenceResponse(normalizedValue), 'cutover_evidence_response') as CutoverEvidenceResponse;
+}
+
+function isCutoverEvidenceResponse(value: unknown): value is CutoverEvidenceResponse {
+  return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["sampleCount"] === 'number' && Number.isSafeInteger(value["sampleCount"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["verifiedAtUtc"] === 'string');
 }
 
 export function readDataApprovalRequestResponse(value: unknown): DataApprovalRequestResponse {
@@ -2473,6 +2652,15 @@ export function readDecideAiAgentApprovalRequest(value: unknown): DecideAiAgentA
 
 function isDecideAiAgentApprovalRequest(value: unknown): value is DecideAiAgentApprovalRequest {
   return isRecord(value) && (typeof value["approve"] === 'boolean') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"]));
+}
+
+export function readDelegateWorkflowTodoRequest(value: unknown): DelegateWorkflowTodoRequest {
+  const normalizedValue = normalizeDelegateWorkflowTodoRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDelegateWorkflowTodoRequest(normalizedValue), 'delegate_workflow_todo_request') as DelegateWorkflowTodoRequest;
+}
+
+function isDelegateWorkflowTodoRequest(value: unknown): value is DelegateWorkflowTodoRequest {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))));
 }
 
 export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdministrativeRegionRequest {
@@ -2601,6 +2789,33 @@ function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostRele
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readDeliveryCutoverResponse(value: unknown): DeliveryCutoverResponse {
+  const normalizedValue = normalizeDeliveryCutoverResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeliveryCutoverResponse(normalizedValue), 'delivery_cutover_response') as DeliveryCutoverResponse;
+}
+
+function isDeliveryCutoverResponse(value: unknown): value is DeliveryCutoverResponse {
+  return isRecord(value) && (isEventDeliveryOwner(value["currentOwner"])) && (typeof value["cutoffEventId"] === 'string' && guidPattern.test(value["cutoffEventId"])) && (typeof value["cutoffOccurredAtUtc"] === 'string') && (typeof value["eventType"] === 'string') && (typeof value["ownershipPersisted"] === 'boolean') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (isEventDeliveryOwner(value["targetOwner"]));
+}
+
+export function readDeliveryRollbackResponse(value: unknown): DeliveryRollbackResponse {
+  const normalizedValue = normalizeDeliveryRollbackResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeliveryRollbackResponse(normalizedValue), 'delivery_rollback_response') as DeliveryRollbackResponse;
+}
+
+function isDeliveryRollbackResponse(value: unknown): value is DeliveryRollbackResponse {
+  return isRecord(value) && (isEventDeliveryOwner(value["currentOwner"])) && (typeof value["eventType"] === 'string') && (typeof value["ownershipPersisted"] === 'boolean') && (typeof value["rollbackBoundaryEventId"] === 'string' && guidPattern.test(value["rollbackBoundaryEventId"])) && (typeof value["rollbackOccurredAtUtc"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (isEventDeliveryOwner(value["targetOwner"]));
+}
+
+export function readDeliveryStatusResponse(value: unknown): DeliveryStatusResponse {
+  const normalizedValue = normalizeDeliveryStatusResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeliveryStatusResponse(normalizedValue), 'delivery_status_response') as DeliveryStatusResponse;
+}
+
+function isDeliveryStatusResponse(value: unknown): value is DeliveryStatusResponse {
+  return isRecord(value) && ((value["backlog"] === null) || (isOutboxBacklogSummaryResponse(value["backlog"]))) && (typeof value["controlAdapterConfigured"] === 'boolean') && (typeof value["cutoverEnabled"] === 'boolean') && (typeof value["hasMoreStreams"] === 'boolean') && (typeof value["observationState"] === 'string') && (typeof value["replayEnabled"] === 'boolean') && (typeof value["replayExecutionTimeoutSeconds"] === 'number' && Number.isSafeInteger(value["replayExecutionTimeoutSeconds"])) && (typeof value["replayMaximumSynchronousMessages"] === 'number' && Number.isSafeInteger(value["replayMaximumSynchronousMessages"])) && (isShadowCapturePolicyResponse(value["shadowCapturePolicy"])) && (Array.isArray(value["streams"]) && value["streams"].every(item16 => isEventStreamStatusResponse(item16))) && (typeof value["targetRuntimeState"] === 'string') && ((value["unattributedKafkaDeadLetters"] === null) || (typeof value["unattributedKafkaDeadLetters"] === 'number' && Number.isSafeInteger(value["unattributedKafkaDeadLetters"])));
+}
+
 export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyResponse {
   const normalizedValue = normalizeDiagnosticPolicyResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isDiagnosticPolicyResponse(normalizedValue), 'diagnostic_policy_response') as DiagnosticPolicyResponse;
@@ -2724,6 +2939,31 @@ export function readEnumCatalogSummary(value: unknown): EnumCatalogSummary {
 
 function isEnumCatalogSummary(value: unknown): value is EnumCatalogSummary {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"]));
+}
+
+export function readEventDeliveryOwner(value: unknown): EventDeliveryOwner {
+  return requireValidResponse(value, isEventDeliveryOwner(value), 'event_delivery_owner') as EventDeliveryOwner;
+}
+
+function isEventDeliveryOwner(value: unknown): value is EventDeliveryOwner {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
+export function readEventDeliveryRollbackPhase(value: unknown): EventDeliveryRollbackPhase {
+  return requireValidResponse(value, isEventDeliveryRollbackPhase(value), 'event_delivery_rollback_phase') as EventDeliveryRollbackPhase;
+}
+
+function isEventDeliveryRollbackPhase(value: unknown): value is EventDeliveryRollbackPhase {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
+export function readEventStreamStatusResponse(value: unknown): EventStreamStatusResponse {
+  const normalizedValue = normalizeEventStreamStatusResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isEventStreamStatusResponse(normalizedValue), 'event_stream_status_response') as EventStreamStatusResponse;
+}
+
+function isEventStreamStatusResponse(value: unknown): value is EventStreamStatusResponse {
+  return isRecord(value) && (Array.isArray(value["blockingReasons"]) && value["blockingReasons"].every(item24 => typeof item24 === 'string')) && (Array.isArray(value["consumerNames"]) && value["consumerNames"].every(item22 => typeof item22 === 'string')) && (typeof value["cutoverReadiness"] === 'string') && ((value["deliveryOwner"] === null) || (isEventDeliveryOwner(value["deliveryOwner"]))) && (typeof value["eventType"] === 'string') && (typeof value["isRegistered"] === 'boolean') && ((value["kafkaProjectedDeadLetterCount"] === null) || (typeof value["kafkaProjectedDeadLetterCount"] === 'number' && Number.isSafeInteger(value["kafkaProjectedDeadLetterCount"]))) && ((value["legacyBacklog"] === null) || (isOutboxBacklogSummaryResponse(value["legacyBacklog"]))) && (typeof value["observationState"] === 'string') && ((value["oldestKafkaDeadLetterAtUtc"] === null) || (typeof value["oldestKafkaDeadLetterAtUtc"] === 'string')) && ((value["retainedEventCount"] === null) || (typeof value["retainedEventCount"] === 'number' && Number.isSafeInteger(value["retainedEventCount"]))) && ((value["rollbackGeneration"] === null) || (typeof value["rollbackGeneration"] === 'string' && guidPattern.test(value["rollbackGeneration"]))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && ((value["topicCode"] === null) || (typeof value["topicCode"] === 'string'));
 }
 
 export function readExceptionLogResponse(value: unknown): ExceptionLogResponse {
@@ -3601,6 +3841,42 @@ function isK3CloudDocumentSyncResponse(value: unknown): value is K3CloudDocument
   return isRecord(value) && (typeof value["businessKey"] === 'string') && (typeof value["connectionConfigId"] === 'string' && guidPattern.test(value["connectionConfigId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["documentTypeKey"] === 'string') && ((value["externalBillId"] === null) || (typeof value["externalBillId"] === 'string')) && ((value["externalBillNo"] === null) || (typeof value["externalBillNo"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastErrorCode"] === null) || (typeof value["lastErrorCode"] === 'string')) && ((value["lastErrorMessage"] === null) || (typeof value["lastErrorMessage"] === 'string')) && ((value["lastStepKey"] === null) || (typeof value["lastStepKey"] === 'string')) && (typeof value["statusKey"] === 'string') && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readKafkaRangeReplayRequest(value: unknown): KafkaRangeReplayRequest {
+  const normalizedValue = normalizeKafkaRangeReplayRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isKafkaRangeReplayRequest(normalizedValue), 'kafka_range_replay_request') as KafkaRangeReplayRequest;
+}
+
+function isKafkaRangeReplayRequest(value: unknown): value is KafkaRangeReplayRequest {
+  return isRecord(value) && ((value["fromOffset"] === null) || (typeof value["fromOffset"] === 'number' && Number.isSafeInteger(value["fromOffset"]))) && ((value["fromTimestampUtc"] === null) || (typeof value["fromTimestampUtc"] === 'string')) && (typeof value["maxMessages"] === 'number' && Number.isSafeInteger(value["maxMessages"])) && (Array.isArray(value["partitions"]) && value["partitions"].every(item19 => typeof item19 === 'number' && Number.isSafeInteger(item19))) && (typeof value["reason"] === 'string') && (typeof value["replayConsumerName"] === 'string') && ((value["toOffset"] === null) || (typeof value["toOffset"] === 'number' && Number.isSafeInteger(value["toOffset"]))) && (typeof value["topicCode"] === 'string') && ((value["toTimestampUtc"] === null) || (typeof value["toTimestampUtc"] === 'string'));
+}
+
+export function readKafkaRangeReplayResponse(value: unknown): KafkaRangeReplayResponse {
+  const normalizedValue = normalizeKafkaRangeReplayResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isKafkaRangeReplayResponse(normalizedValue), 'kafka_range_replay_response') as KafkaRangeReplayResponse;
+}
+
+function isKafkaRangeReplayResponse(value: unknown): value is KafkaRangeReplayResponse {
+  return isRecord(value) && (typeof value["alreadyProcessedMessages"] === 'number' && Number.isSafeInteger(value["alreadyProcessedMessages"])) && (typeof value["limitReached"] === 'boolean') && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["processedMessages"] === 'number' && Number.isSafeInteger(value["processedMessages"])) && (typeof value["rejectedMessages"] === 'number' && Number.isSafeInteger(value["rejectedMessages"])) && (typeof value["scannedMessages"] === 'number' && Number.isSafeInteger(value["scannedMessages"])) && (typeof value["state"] === 'string');
+}
+
+export function readKafkaReplayOperationResponse(value: unknown): KafkaReplayOperationResponse {
+  const normalizedValue = normalizeKafkaReplayOperationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isKafkaReplayOperationResponse(normalizedValue), 'kafka_replay_operation_response') as KafkaReplayOperationResponse;
+}
+
+function isKafkaReplayOperationResponse(value: unknown): value is KafkaReplayOperationResponse {
+  return isRecord(value) && (typeof value["alreadyProcessedMessages"] === 'number' && Number.isSafeInteger(value["alreadyProcessedMessages"])) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["confirmedMessages"] === 'number' && Number.isSafeInteger(value["confirmedMessages"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["eventType"] === 'string') && (typeof value["hasUnconfirmedMessage"] === 'boolean') && ((value["lastReasonCode"] === null) || (typeof value["lastReasonCode"] === 'string')) && (typeof value["maxMessages"] === 'number' && Number.isSafeInteger(value["maxMessages"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (Array.isArray(value["partitions"]) && value["partitions"].every(item19 => isKafkaReplayPartitionResponse(item19))) && (typeof value["processedMessages"] === 'number' && Number.isSafeInteger(value["processedMessages"])) && (typeof value["rejectedAttempts"] === 'number' && Number.isSafeInteger(value["rejectedAttempts"])) && (typeof value["replayConsumerName"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["state"] === 'string') && (typeof value["topicCode"] === 'string') && (typeof value["updatedAtUtc"] === 'string');
+}
+
+export function readKafkaReplayPartitionResponse(value: unknown): KafkaReplayPartitionResponse {
+  const normalizedValue = normalizeKafkaReplayPartitionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isKafkaReplayPartitionResponse(normalizedValue), 'kafka_replay_partition_response') as KafkaReplayPartitionResponse;
+}
+
+function isKafkaReplayPartitionResponse(value: unknown): value is KafkaReplayPartitionResponse {
+  return isRecord(value) && (typeof value["endOffsetExclusive"] === 'string') && (typeof value["nextOffset"] === 'string') && (typeof value["partition"] === 'number' && Number.isSafeInteger(value["partition"])) && (typeof value["startOffset"] === 'string');
+}
+
 export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
   const normalizedValue = normalizeLocalePreferenceResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isLocalePreferenceResponse(normalizedValue), 'locale_preference_response') as LocalePreferenceResponse;
@@ -3918,6 +4194,15 @@ function isOcrProviderConfigResponse(value: unknown): value is OcrProviderConfig
   return isRecord(value) && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readOperationalDeadLetterResponse(value: unknown): OperationalDeadLetterResponse {
+  const normalizedValue = normalizeOperationalDeadLetterResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isOperationalDeadLetterResponse(normalizedValue), 'operational_dead_letter_response') as OperationalDeadLetterResponse;
+}
+
+function isOperationalDeadLetterResponse(value: unknown): value is OperationalDeadLetterResponse {
+  return isRecord(value) && (typeof value["attempts"] === 'number' && Number.isSafeInteger(value["attempts"])) && (typeof value["canReplay"] === 'boolean') && ((value["consumerName"] === null) || (typeof value["consumerName"] === 'string')) && ((value["dlqOffset"] === null) || (typeof value["dlqOffset"] === 'string')) && ((value["dlqPartition"] === null) || (typeof value["dlqPartition"] === 'number' && Number.isSafeInteger(value["dlqPartition"]))) && ((value["dlqTopic"] === null) || (typeof value["dlqTopic"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["firstFailedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["lastFailedAtUtc"] === 'string') && ((value["messageId"] === null) || (typeof value["messageId"] === 'string' && guidPattern.test(value["messageId"]))) && ((value["messageType"] === null) || (typeof value["messageType"] === 'string')) && ((value["replayedAtUtc"] === null) || (typeof value["replayedAtUtc"] === 'string')) && ((value["schemaVersion"] === null) || (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]))) && (typeof value["source"] === 'string') && ((value["sourceOffset"] === null) || (typeof value["sourceOffset"] === 'string')) && ((value["sourcePartition"] === null) || (typeof value["sourcePartition"] === 'number' && Number.isSafeInteger(value["sourcePartition"]))) && ((value["sourceTopic"] === null) || (typeof value["sourceTopic"] === 'string')) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])));
+}
+
 export function readOperationLogDetailsContextV1(value: unknown): OperationLogDetailsContextV1 {
   const normalizedValue = normalizeOperationLogDetailsContextV1IntegerJson(value);
   return requireValidResponse(normalizedValue, isOperationLogDetailsContextV1(normalizedValue), 'operation_log_details_context_v1') as OperationLogDetailsContextV1;
@@ -3989,6 +4274,40 @@ function isOrganizationPositionResponse(value: unknown): value is OrganizationPo
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && ((value["positionLevelName"] === null) || (typeof value["positionLevelName"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string')) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && ((value["unitName"] === null) || (typeof value["unitName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readOrganizationReportingCandidate(value: unknown): OrganizationReportingCandidate {
+  return requireValidResponse(value, isOrganizationReportingCandidate(value), 'organization_reporting_candidate') as OrganizationReportingCandidate;
+}
+
+function isOrganizationReportingCandidate(value: unknown): value is OrganizationReportingCandidate {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
+}
+
+export function readOrganizationReportingLineResponse(value: unknown): OrganizationReportingLineResponse {
+  const normalizedValue = normalizeOrganizationReportingLineResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isOrganizationReportingLineResponse(normalizedValue), 'organization_reporting_line_response') as OrganizationReportingLineResponse;
+}
+
+function isOrganizationReportingLineResponse(value: unknown): value is OrganizationReportingLineResponse {
+  return isRecord(value) && (typeof value["employeeUserId"] === 'string' && guidPattern.test(value["employeeUserId"])) && ((value["managerDisplayName"] === null) || (typeof value["managerDisplayName"] === 'string')) && ((value["managerUserId"] === null) || (typeof value["managerUserId"] === 'string' && guidPattern.test(value["managerUserId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"])));
+}
+
+export function readOrganizationUnitLeaderCandidateResponse(value: unknown): OrganizationUnitLeaderCandidateResponse {
+  return requireValidResponse(value, isOrganizationUnitLeaderCandidateResponse(value), 'organization_unit_leader_candidate_response') as OrganizationUnitLeaderCandidateResponse;
+}
+
+function isOrganizationUnitLeaderCandidateResponse(value: unknown): value is OrganizationUnitLeaderCandidateResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
+}
+
+export function readOrganizationUnitLeadershipResponse(value: unknown): OrganizationUnitLeadershipResponse {
+  const normalizedValue = normalizeOrganizationUnitLeadershipResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isOrganizationUnitLeadershipResponse(normalizedValue), 'organization_unit_leadership_response') as OrganizationUnitLeadershipResponse;
+}
+
+function isOrganizationUnitLeadershipResponse(value: unknown): value is OrganizationUnitLeadershipResponse {
+  return isRecord(value) && (typeof value["isUnitActive"] === 'boolean') && (value["leaderDisplayName"] === undefined || ((value["leaderDisplayName"] === null) || (typeof value["leaderDisplayName"] === 'string'))) && ((value["leaderUserId"] === null) || (typeof value["leaderUserId"] === 'string' && guidPattern.test(value["leaderUserId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["unitVersion"] === 'number' && Number.isSafeInteger(value["unitVersion"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"])));
+}
+
 export function readOrganizationUnitResponse(value: unknown): OrganizationUnitResponse {
   const normalizedValue = normalizeOrganizationUnitResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isOrganizationUnitResponse(normalizedValue), 'organization_unit_response') as OrganizationUnitResponse;
@@ -4023,6 +4342,15 @@ export function readOutboundCallLogResponse(value: unknown): OutboundCallLogResp
 
 function isOutboundCallLogResponse(value: unknown): value is OutboundCallLogResponse {
   return isRecord(value) && (typeof value["destinationHostCategory"] === 'string') && (typeof value["durationMs"] === 'number' && Number.isSafeInteger(value["durationMs"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["operationKey"] === 'string') && (typeof value["providerKey"] === 'string') && (typeof value["retryCount"] === 'number' && Number.isSafeInteger(value["retryCount"])) && ((value["safeErrorCode"] === null) || (typeof value["safeErrorCode"] === 'string')) && (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+}
+
+export function readOutboxBacklogSummaryResponse(value: unknown): OutboxBacklogSummaryResponse {
+  const normalizedValue = normalizeOutboxBacklogSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isOutboxBacklogSummaryResponse(normalizedValue), 'outbox_backlog_summary_response') as OutboxBacklogSummaryResponse;
+}
+
+function isOutboxBacklogSummaryResponse(value: unknown): value is OutboxBacklogSummaryResponse {
+  return isRecord(value) && (typeof value["activeLeaseCount"] === 'number' && Number.isSafeInteger(value["activeLeaseCount"])) && (typeof value["deadLetterCount"] === 'number' && Number.isSafeInteger(value["deadLetterCount"])) && (typeof value["dueRetryCount"] === 'number' && Number.isSafeInteger(value["dueRetryCount"])) && ((value["oldestDeadLetteredAtUtc"] === null) || (typeof value["oldestDeadLetteredAtUtc"] === 'string')) && ((value["oldestOccurredAtUtc"] === null) || (typeof value["oldestOccurredAtUtc"] === 'string')) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"]));
 }
 
 export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultOfAccessLogResponse {
@@ -4421,6 +4749,15 @@ function isPagedResultOfK3CloudDocumentSyncResponse(value: unknown): value is Pa
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isK3CloudDocumentSyncResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfKafkaReplayOperationResponse(value: unknown): PagedResultOfKafkaReplayOperationResponse {
+  const normalizedValue = normalizePagedResultOfKafkaReplayOperationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfKafkaReplayOperationResponse(normalizedValue), 'paged_result_of_kafka_replay_operation_response') as PagedResultOfKafkaReplayOperationResponse;
+}
+
+function isPagedResultOfKafkaReplayOperationResponse(value: unknown): value is PagedResultOfKafkaReplayOperationResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isKafkaReplayOperationResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfMyReleaseNoteResponse(value: unknown): PagedResultOfMyReleaseNoteResponse {
   const normalizedValue = normalizePagedResultOfMyReleaseNoteResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfMyReleaseNoteResponse(normalizedValue), 'paged_result_of_my_release_note_response') as PagedResultOfMyReleaseNoteResponse;
@@ -4493,6 +4830,15 @@ function isPagedResultOfOcrIdCardTaskResponse(value: unknown): value is PagedRes
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOcrIdCardTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfOperationalDeadLetterResponse(value: unknown): PagedResultOfOperationalDeadLetterResponse {
+  const normalizedValue = normalizePagedResultOfOperationalDeadLetterResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfOperationalDeadLetterResponse(normalizedValue), 'paged_result_of_operational_dead_letter_response') as PagedResultOfOperationalDeadLetterResponse;
+}
+
+function isPagedResultOfOperationalDeadLetterResponse(value: unknown): value is PagedResultOfOperationalDeadLetterResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOperationalDeadLetterResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfOperationLogResponse(value: unknown): PagedResultOfOperationLogResponse {
   const normalizedValue = normalizePagedResultOfOperationLogResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfOperationLogResponse(normalizedValue), 'paged_result_of_operation_log_response') as PagedResultOfOperationLogResponse;
@@ -4527,6 +4873,24 @@ export function readPagedResultOfOrganizationPositionResponse(value: unknown): P
 
 function isPagedResultOfOrganizationPositionResponse(value: unknown): value is PagedResultOfOrganizationPositionResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationReportingCandidate(value: unknown): PagedResultOfOrganizationReportingCandidate {
+  const normalizedValue = normalizePagedResultOfOrganizationReportingCandidateIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationReportingCandidate(normalizedValue), 'paged_result_of_organization_reporting_candidate') as PagedResultOfOrganizationReportingCandidate;
+}
+
+function isPagedResultOfOrganizationReportingCandidate(value: unknown): value is PagedResultOfOrganizationReportingCandidate {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationReportingCandidate(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationUnitLeaderCandidateResponse(value: unknown): PagedResultOfOrganizationUnitLeaderCandidateResponse {
+  const normalizedValue = normalizePagedResultOfOrganizationUnitLeaderCandidateResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfOrganizationUnitLeaderCandidateResponse(normalizedValue), 'paged_result_of_organization_unit_leader_candidate_response') as PagedResultOfOrganizationUnitLeaderCandidateResponse;
+}
+
+function isPagedResultOfOrganizationUnitLeaderCandidateResponse(value: unknown): value is PagedResultOfOrganizationUnitLeaderCandidateResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUnitLeaderCandidateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationUnitResponse(value: unknown): PagedResultOfOrganizationUnitResponse {
@@ -4831,7 +5195,7 @@ export function readPreviewWorkflowAssigneeRequest(value: unknown): PreviewWorkf
 }
 
 function isPreviewWorkflowAssigneeRequest(value: unknown): value is PreviewWorkflowAssigneeRequest {
-  return isRecord(value) && (isJsonElement(value["assigneePolicy"])) && ((value["initiatorUserId"] === null) || (typeof value["initiatorUserId"] === 'string' && guidPattern.test(value["initiatorUserId"])));
+  return isRecord(value) && (value["additionalUserIds"] === undefined || ((value["additionalUserIds"] === null) || (Array.isArray(value["additionalUserIds"]) && value["additionalUserIds"].every(item26 => typeof item26 === 'string' && guidPattern.test(item26))))) && (isJsonElement(value["assigneePolicy"])) && ((value["initiatorUserId"] === null) || (typeof value["initiatorUserId"] === 'string' && guidPattern.test(value["initiatorUserId"])));
 }
 
 export function readPrintingFormFieldDefinition(value: unknown): PrintingFormFieldDefinition {
@@ -4999,6 +5363,15 @@ export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowF
 }
 
 function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowFormRequest {
+  return isRecord(value) && (value["expectedBindingRevision"] === undefined || ((value["expectedBindingRevision"] === null) || (typeof value["expectedBindingRevision"] === 'number' && Number.isSafeInteger(value["expectedBindingRevision"])))) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (value["rendererHash"] === undefined || ((value["rendererHash"] === null) || (typeof value["rendererHash"] === 'string'))) && (value["targets"] === undefined || ((value["targets"] === null) || (Array.isArray(value["targets"]) && value["targets"].every(item16 => typeof item16 === 'string'))));
+}
+
+export function readPublishWorkflowWorkCalendarRequest(value: unknown): PublishWorkflowWorkCalendarRequest {
+  const normalizedValue = normalizePublishWorkflowWorkCalendarRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPublishWorkflowWorkCalendarRequest(normalizedValue), 'publish_workflow_work_calendar_request') as PublishWorkflowWorkCalendarRequest;
+}
+
+function isPublishWorkflowWorkCalendarRequest(value: unknown): value is PublishWorkflowWorkCalendarRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
 }
 
@@ -5008,7 +5381,16 @@ export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWor
 }
 
 function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["expectedTodoRevision"] === 'number' && Number.isSafeInteger(value["expectedTodoRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string')) && (typeof value["todoId"] === 'string' && guidPattern.test(value["todoId"]));
+}
+
+export function readRecallWorkflowTodoDelegationRequest(value: unknown): RecallWorkflowTodoDelegationRequest {
+  const normalizedValue = normalizeRecallWorkflowTodoDelegationRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRecallWorkflowTodoDelegationRequest(normalizedValue), 'recall_workflow_todo_delegation_request') as RecallWorkflowTodoDelegationRequest;
+}
+
+function isRecallWorkflowTodoDelegationRequest(value: unknown): value is RecallWorkflowTodoDelegationRequest {
+  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readReceivedHostAnnouncementDetailResponse(value: unknown): ReceivedHostAnnouncementDetailResponse {
@@ -5053,6 +5435,15 @@ function isReconcileNotificationDeliveryRequest(value: unknown): value is Reconc
   return isRecord(value) && (typeof value["evidenceReference"] === 'string') && (typeof value["outcomeKey"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
 }
 
+export function readReconcileWorkflowConnectorRequest(value: unknown): ReconcileWorkflowConnectorRequest {
+  const normalizedValue = normalizeReconcileWorkflowConnectorRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReconcileWorkflowConnectorRequest(normalizedValue), 'reconcile_workflow_connector_request') as ReconcileWorkflowConnectorRequest;
+}
+
+function isReconcileWorkflowConnectorRequest(value: unknown): value is ReconcileWorkflowConnectorRequest {
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && ((value["attemptId"] === null) || (typeof value["attemptId"] === 'string' && guidPattern.test(value["attemptId"]))) && ((value["evidenceReference"] === null) || (typeof value["evidenceReference"] === 'string')) && (typeof value["expectedInstanceRevision"] === 'number' && Number.isSafeInteger(value["expectedInstanceRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
 export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
   const normalizedValue = normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isReconcileWorkflowRecoveryTaskRequest(normalizedValue), 'reconcile_workflow_recovery_task_request') as ReconcileWorkflowRecoveryTaskRequest;
@@ -5062,6 +5453,30 @@ function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is Reconc
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
+export function readRecoverDeadLetterRequest(value: unknown): RecoverDeadLetterRequest {
+  return requireValidResponse(value, isRecoverDeadLetterRequest(value), 'recover_dead_letter_request') as RecoverDeadLetterRequest;
+}
+
+function isRecoverDeadLetterRequest(value: unknown): value is RecoverDeadLetterRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string');
+}
+
+export function readRecoverDeadLetterResponse(value: unknown): RecoverDeadLetterResponse {
+  return requireValidResponse(value, isRecoverDeadLetterResponse(value), 'recover_dead_letter_response') as RecoverDeadLetterResponse;
+}
+
+function isRecoverDeadLetterResponse(value: unknown): value is RecoverDeadLetterResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["outcome"] === 'string');
+}
+
+export function readRecoverRollbackRequest(value: unknown): RecoverRollbackRequest {
+  return requireValidResponse(value, isRecoverRollbackRequest(value), 'recover_rollback_request') as RecoverRollbackRequest;
+}
+
+function isRecoverRollbackRequest(value: unknown): value is RecoverRollbackRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string');
+}
+
 export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
   const normalizedValue = normalizeRecoverWorkflowInstanceRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isRecoverWorkflowInstanceRequest(normalizedValue), 'recover_workflow_instance_request') as RecoverWorkflowInstanceRequest;
@@ -5069,6 +5484,15 @@ export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkf
 
 function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
+export function readReleaseWorkflowTodoRequest(value: unknown): ReleaseWorkflowTodoRequest {
+  const normalizedValue = normalizeReleaseWorkflowTodoRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReleaseWorkflowTodoRequest(normalizedValue), 'release_workflow_todo_request') as ReleaseWorkflowTodoRequest;
+}
+
+function isReleaseWorkflowTodoRequest(value: unknown): value is ReleaseWorkflowTodoRequest {
+  return isRecord(value) && (value["comment"] === undefined || ((value["comment"] === null) || (typeof value["comment"] === 'string'))) && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedPoolRevision"] === 'number' && Number.isSafeInteger(value["expectedPoolRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))));
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -5247,6 +5671,15 @@ function isReportingQueryPortParameterDefinition(value: unknown): value is Repor
   return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && ((value["maximum"] === null) || (typeof value["maximum"] === 'number' && Number.isSafeInteger(value["maximum"]))) && ((value["minimum"] === null) || (typeof value["minimum"] === 'number' && Number.isSafeInteger(value["minimum"]))) && (typeof value["parameterKey"] === 'string');
 }
 
+export function readRequestWorkflowManualReminder(value: unknown): RequestWorkflowManualReminder {
+  const normalizedValue = normalizeRequestWorkflowManualReminderIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRequestWorkflowManualReminder(normalizedValue), 'request_workflow_manual_reminder') as RequestWorkflowManualReminder;
+}
+
+function isRequestWorkflowManualReminder(value: unknown): value is RequestWorkflowManualReminder {
+  return isRecord(value) && (typeof value["expectedInstanceRevision"] === 'number' && Number.isSafeInteger(value["expectedInstanceRevision"])) && (typeof value["expectedStepRevision"] === 'number' && Number.isSafeInteger(value["expectedStepRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+}
+
 export function readResetHostUserPasswordRequest(value: unknown): ResetHostUserPasswordRequest {
   return requireValidResponse(value, isResetHostUserPasswordRequest(value), 'reset_host_user_password_request') as ResetHostUserPasswordRequest;
 }
@@ -5324,7 +5757,7 @@ export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTod
 }
 
 function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
-  return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
+  return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"])))) && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
 }
 
 export function readRevealHostUserProfileFieldsRequest(value: unknown): RevealHostUserProfileFieldsRequest {
@@ -5403,6 +5836,24 @@ export function readRollbackHostDocumentVersionRequest(value: unknown): Rollback
 
 function isRollbackHostDocumentVersionRequest(value: unknown): value is RollbackHostDocumentVersionRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readRollbackOperationResponse(value: unknown): RollbackOperationResponse {
+  const normalizedValue = normalizeRollbackOperationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRollbackOperationResponse(normalizedValue), 'rollback_operation_response') as RollbackOperationResponse;
+}
+
+function isRollbackOperationResponse(value: unknown): value is RollbackOperationResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["eventType"] === 'string') && (typeof value["generation"] === 'string' && guidPattern.test(value["generation"])) && (isEventDeliveryRollbackPhase(value["phase"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["updatedAtUtc"] === 'string');
+}
+
+export function readSaveWorkflowDesignerAssetRequest(value: unknown): SaveWorkflowDesignerAssetRequest {
+  const normalizedValue = normalizeSaveWorkflowDesignerAssetRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveWorkflowDesignerAssetRequest(normalizedValue), 'save_workflow_designer_asset_request') as SaveWorkflowDesignerAssetRequest;
+}
+
+function isSaveWorkflowDesignerAssetRequest(value: unknown): value is SaveWorkflowDesignerAssetRequest {
+  return isRecord(value) && (isJsonElement(value["designerJson"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["formatVersion"] === 'number' && Number.isSafeInteger(value["formatVersion"])) && (typeof value["sourceCommit"] === 'string');
 }
 
 export function readSelectAiPromptVersionRequest(value: unknown): SelectAiPromptVersionRequest {
@@ -5622,6 +6073,24 @@ function isSetNotificationQuotaPolicyEnabledRequest(value: unknown): value is Se
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetOrganizationReportingLineRequest(value: unknown): SetOrganizationReportingLineRequest {
+  const normalizedValue = normalizeSetOrganizationReportingLineRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetOrganizationReportingLineRequest(normalizedValue), 'set_organization_reporting_line_request') as SetOrganizationReportingLineRequest;
+}
+
+function isSetOrganizationReportingLineRequest(value: unknown): value is SetOrganizationReportingLineRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && ((value["managerUserId"] === null) || (typeof value["managerUserId"] === 'string' && guidPattern.test(value["managerUserId"])));
+}
+
+export function readSetOrganizationUnitLeadershipRequest(value: unknown): SetOrganizationUnitLeadershipRequest {
+  const normalizedValue = normalizeSetOrganizationUnitLeadershipRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetOrganizationUnitLeadershipRequest(normalizedValue), 'set_organization_unit_leadership_request') as SetOrganizationUnitLeadershipRequest;
+}
+
+function isSetOrganizationUnitLeadershipRequest(value: unknown): value is SetOrganizationUnitLeadershipRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["expectedUnitVersion"] === 'number' && Number.isSafeInteger(value["expectedUnitVersion"])) && ((value["leaderUserId"] === null) || (typeof value["leaderUserId"] === 'string' && guidPattern.test(value["leaderUserId"])));
+}
+
 export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersonalScheduleStatusRequest {
   const normalizedValue = normalizeSetPersonalScheduleStatusRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isSetPersonalScheduleStatusRequest(normalizedValue), 'set_personal_schedule_status_request') as SetPersonalScheduleStatusRequest;
@@ -5649,12 +6118,39 @@ function isSetWorkflowFormStatusRequest(value: unknown): value is SetWorkflowFor
   return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["statusKey"] === 'string');
 }
 
+export function readShadowCapturePolicyResponse(value: unknown): ShadowCapturePolicyResponse {
+  const normalizedValue = normalizeShadowCapturePolicyResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isShadowCapturePolicyResponse(normalizedValue), 'shadow_capture_policy_response') as ShadowCapturePolicyResponse;
+}
+
+function isShadowCapturePolicyResponse(value: unknown): value is ShadowCapturePolicyResponse {
+  return isRecord(value) && (typeof value["enabled"] === 'boolean') && ((value["eventType"] === null) || (typeof value["eventType"] === 'string')) && ((value["maximumEvents"] === null) || (typeof value["maximumEvents"] === 'number' && Number.isSafeInteger(value["maximumEvents"]))) && ((value["maximumPayloadBytes"] === null) || (typeof value["maximumPayloadBytes"] === 'number' && Number.isSafeInteger(value["maximumPayloadBytes"]))) && ((value["maximumWindowSeconds"] === null) || (typeof value["maximumWindowSeconds"] === 'number' && Number.isSafeInteger(value["maximumWindowSeconds"]))) && ((value["schemaVersion"] === null) || (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])));
+}
+
+export function readShadowCaptureResponse(value: unknown): ShadowCaptureResponse {
+  const normalizedValue = normalizeShadowCaptureResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isShadowCaptureResponse(normalizedValue), 'shadow_capture_response') as ShadowCaptureResponse;
+}
+
+function isShadowCaptureResponse(value: unknown): value is ShadowCaptureResponse {
+  return isRecord(value) && (typeof value["capturedBytes"] === 'number' && Number.isSafeInteger(value["capturedBytes"])) && (typeof value["capturedCount"] === 'number' && Number.isSafeInteger(value["capturedCount"])) && ((value["closedAtUtc"] === null) || (typeof value["closedAtUtc"] === 'string')) && ((value["endReason"] === null) || (typeof value["endReason"] === 'string')) && (typeof value["eventType"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["generation"] === 'string' && guidPattern.test(value["generation"])) && (typeof value["maxEvents"] === 'number' && Number.isSafeInteger(value["maxEvents"])) && (typeof value["maxPayloadBytes"] === 'number' && Number.isSafeInteger(value["maxPayloadBytes"])) && (typeof value["missingMetadataCount"] === 'number' && Number.isSafeInteger(value["missingMetadataCount"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["state"] === 'string');
+}
+
+export function readStartShadowCaptureRequest(value: unknown): StartShadowCaptureRequest {
+  const normalizedValue = normalizeStartShadowCaptureRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isStartShadowCaptureRequest(normalizedValue), 'start_shadow_capture_request') as StartShadowCaptureRequest;
+}
+
+function isStartShadowCaptureRequest(value: unknown): value is StartShadowCaptureRequest {
+  return isRecord(value) && (typeof value["eventType"] === 'string') && ((value["expectedGeneration"] === null) || (typeof value["expectedGeneration"] === 'string' && guidPattern.test(value["expectedGeneration"]))) && (typeof value["maxEvents"] === 'number' && Number.isSafeInteger(value["maxEvents"])) && (typeof value["reason"] === 'string') && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["windowSeconds"] === 'number' && Number.isSafeInteger(value["windowSeconds"]));
+}
+
 export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowInstanceRequest {
   return requireValidResponse(value, isStartWorkflowInstanceRequest(value), 'start_workflow_instance_request') as StartWorkflowInstanceRequest;
 }
 
 function isStartWorkflowInstanceRequest(value: unknown): value is StartWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["businessId"] === 'string') && (value["businessTitle"] === undefined || ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string'))) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["idempotencyKey"] === 'string') && (isJsonElement(value["initialValues"]));
+  return isRecord(value) && (value["assigneeSelections"] === undefined || ((value["assigneeSelections"] === null) || (isRecord(value["assigneeSelections"])))) && (typeof value["businessId"] === 'string') && (value["businessTitle"] === undefined || ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string'))) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["idempotencyKey"] === 'string') && (isJsonElement(value["initialValues"]));
 }
 
 export function readStaticImportRowPreviewResult(value: unknown): StaticImportRowPreviewResult {
@@ -5838,6 +6334,15 @@ export function readTotpEnrollmentStatusResponse(value: unknown): TotpEnrollment
 
 function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollmentStatusResponse {
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isEnrolled"] === 'boolean');
+}
+
+export function readTransferWorkflowTodoRequest(value: unknown): TransferWorkflowTodoRequest {
+  const normalizedValue = normalizeTransferWorkflowTodoRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTransferWorkflowTodoRequest(normalizedValue), 'transfer_workflow_todo_request') as TransferWorkflowTodoRequest;
+}
+
+function isTransferWorkflowTodoRequest(value: unknown): value is TransferWorkflowTodoRequest {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedFormRevision"] === 'number' && Number.isSafeInteger(value["expectedFormRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))));
 }
 
 export function readUpdateAdministrativeRegionRequest(value: unknown): UpdateAdministrativeRegionRequest {
@@ -6361,6 +6866,24 @@ function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkfl
   return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
 }
 
+export function readUpdateWorkflowWorkCalendarRequest(value: unknown): UpdateWorkflowWorkCalendarRequest {
+  const normalizedValue = normalizeUpdateWorkflowWorkCalendarRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isUpdateWorkflowWorkCalendarRequest(normalizedValue), 'update_workflow_work_calendar_request') as UpdateWorkflowWorkCalendarRequest;
+}
+
+function isUpdateWorkflowWorkCalendarRequest(value: unknown): value is UpdateWorkflowWorkCalendarRequest {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (isWorkflowWorkCalendarDraft(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+}
+
+export function readVerifyCutoverRequest(value: unknown): VerifyCutoverRequest {
+  const normalizedValue = normalizeVerifyCutoverRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isVerifyCutoverRequest(normalizedValue), 'verify_cutover_request') as VerifyCutoverRequest;
+}
+
+function isVerifyCutoverRequest(value: unknown): value is VerifyCutoverRequest {
+  return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["reason"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]));
+}
+
 export function readVerifyRecipientEndpointCodeRequest(value: unknown): VerifyRecipientEndpointCodeRequest {
   return requireValidResponse(value, isVerifyRecipientEndpointCodeRequest(value), 'verify_recipient_endpoint_code_request') as VerifyRecipientEndpointCodeRequest;
 }
@@ -6369,12 +6892,57 @@ function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRe
   return isRecord(value) && (typeof value["code"] === 'string');
 }
 
+export function readVoteWorkflowTodoRequest(value: unknown): VoteWorkflowTodoRequest {
+  const normalizedValue = normalizeVoteWorkflowTodoRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isVoteWorkflowTodoRequest(normalizedValue), 'vote_workflow_todo_request') as VoteWorkflowTodoRequest;
+}
+
+function isVoteWorkflowTodoRequest(value: unknown): value is VoteWorkflowTodoRequest {
+  return isRecord(value) && (typeof value["choiceKey"] === 'string') && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedBallotRevision"] === 'number' && Number.isSafeInteger(value["expectedBallotRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"])))) && (isJsonElement(value["values"]));
+}
+
+export function readWithdrawWorkflowInstanceRequest(value: unknown): WithdrawWorkflowInstanceRequest {
+  const normalizedValue = normalizeWithdrawWorkflowInstanceRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWithdrawWorkflowInstanceRequest(normalizedValue), 'withdraw_workflow_instance_request') as WithdrawWorkflowInstanceRequest;
+}
+
+function isWithdrawWorkflowInstanceRequest(value: unknown): value is WithdrawWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["reason"] === undefined || ((value["reason"] === null) || (typeof value["reason"] === 'string')));
+}
+
+export function readWorkflowApprovalGroupProgressResponse(value: unknown): WorkflowApprovalGroupProgressResponse {
+  const normalizedValue = normalizeWorkflowApprovalGroupProgressResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowApprovalGroupProgressResponse(normalizedValue), 'workflow_approval_group_progress_response') as WorkflowApprovalGroupProgressResponse;
+}
+
+function isWorkflowApprovalGroupProgressResponse(value: unknown): value is WorkflowApprovalGroupProgressResponse {
+  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["cancelledCount"] === 'number' && Number.isSafeInteger(value["cancelledCount"])) && (typeof value["groupKey"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isCurrentGroup"] === 'boolean') && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["sequenceNo"] === 'number' && Number.isSafeInteger(value["sequenceNo"])) && (typeof value["statusKey"] === 'string');
+}
+
 export function readWorkflowAssigneePreviewResponse(value: unknown): WorkflowAssigneePreviewResponse {
   return requireValidResponse(value, isWorkflowAssigneePreviewResponse(value), 'workflow_assignee_preview_response') as WorkflowAssigneePreviewResponse;
 }
 
 function isWorkflowAssigneePreviewResponse(value: unknown): value is WorkflowAssigneePreviewResponse {
   return isRecord(value) && (Array.isArray(value["users"]) && value["users"].every(item14 => isWorkflowRecipientCandidateResponse(item14)));
+}
+
+export function readWorkflowBusinessActionCatalogItemResponse(value: unknown): WorkflowBusinessActionCatalogItemResponse {
+  const normalizedValue = normalizeWorkflowBusinessActionCatalogItemResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowBusinessActionCatalogItemResponse(normalizedValue), 'workflow_business_action_catalog_item_response') as WorkflowBusinessActionCatalogItemResponse;
+}
+
+function isWorkflowBusinessActionCatalogItemResponse(value: unknown): value is WorkflowBusinessActionCatalogItemResponse {
+  return isRecord(value) && (typeof value["actionHash"] === 'string') && (typeof value["actionKey"] === 'string') && (typeof value["actionVersion"] === 'number' && Number.isSafeInteger(value["actionVersion"])) && (typeof value["businessType"] === 'string') && (typeof value["ownerKey"] === 'string') && (typeof value["placementKey"] === 'string');
+}
+
+export function readWorkflowBusinessActionCatalogResponse(value: unknown): WorkflowBusinessActionCatalogResponse {
+  const normalizedValue = normalizeWorkflowBusinessActionCatalogResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowBusinessActionCatalogResponse(normalizedValue), 'workflow_business_action_catalog_response') as WorkflowBusinessActionCatalogResponse;
+}
+
+function isWorkflowBusinessActionCatalogResponse(value: unknown): value is WorkflowBusinessActionCatalogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowBusinessActionCatalogItemResponse(item14)));
 }
 
 export function readWorkflowCcReadResponse(value: unknown): WorkflowCcReadResponse {
@@ -6393,13 +6961,102 @@ function isWorkflowCcResponse(value: unknown): value is WorkflowCcResponse {
   return isRecord(value) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["nodeKey"] === 'string') && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])));
 }
 
+export function readWorkflowClaimPoolPageResponse(value: unknown): WorkflowClaimPoolPageResponse {
+  const normalizedValue = normalizeWorkflowClaimPoolPageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowClaimPoolPageResponse(normalizedValue), 'workflow_claim_pool_page_response') as WorkflowClaimPoolPageResponse;
+}
+
+function isWorkflowClaimPoolPageResponse(value: unknown): value is WorkflowClaimPoolPageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowClaimPoolResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["totalCount"] === 'number' && Number.isSafeInteger(value["totalCount"]));
+}
+
+export function readWorkflowClaimPoolResponse(value: unknown): WorkflowClaimPoolResponse {
+  const normalizedValue = normalizeWorkflowClaimPoolResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowClaimPoolResponse(normalizedValue), 'workflow_claim_pool_response') as WorkflowClaimPoolResponse;
+}
+
+function isWorkflowClaimPoolResponse(value: unknown): value is WorkflowClaimPoolResponse {
+  return isRecord(value) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["claimCycle"] === 'number' && Number.isSafeInteger(value["claimCycle"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["nodeKey"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+}
+
+export function readWorkflowClaimProgressResponse(value: unknown): WorkflowClaimProgressResponse {
+  const normalizedValue = normalizeWorkflowClaimProgressResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowClaimProgressResponse(normalizedValue), 'workflow_claim_progress_response') as WorkflowClaimProgressResponse;
+}
+
+function isWorkflowClaimProgressResponse(value: unknown): value is WorkflowClaimProgressResponse {
+  return isRecord(value) && (typeof value["allowRelease"] === 'boolean') && (typeof value["claimCycle"] === 'number' && Number.isSafeInteger(value["claimCycle"])) && (typeof value["poolRevision"] === 'number' && Number.isSafeInteger(value["poolRevision"])) && (typeof value["poolStatusKey"] === 'string');
+}
+
+export function readWorkflowConnectorAttemptResponse(value: unknown): WorkflowConnectorAttemptResponse {
+  const normalizedValue = normalizeWorkflowConnectorAttemptResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorAttemptResponse(normalizedValue), 'workflow_connector_attempt_response') as WorkflowConnectorAttemptResponse;
+}
+
+function isWorkflowConnectorAttemptResponse(value: unknown): value is WorkflowConnectorAttemptResponse {
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && ((value["errorKey"] === null) || (typeof value["errorKey"] === 'string')) && ((value["httpStatusCode"] === null) || (typeof value["httpStatusCode"] === 'number' && Number.isSafeInteger(value["httpStatusCode"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["leaseGeneration"] === 'number' && Number.isSafeInteger(value["leaseGeneration"])) && ((value["outcomeKey"] === null) || (typeof value["outcomeKey"] === 'string')) && ((value["responseHash"] === null) || (typeof value["responseHash"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowConnectorCallPageResponse(value: unknown): WorkflowConnectorCallPageResponse {
+  const normalizedValue = normalizeWorkflowConnectorCallPageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorCallPageResponse(normalizedValue), 'workflow_connector_call_page_response') as WorkflowConnectorCallPageResponse;
+}
+
+function isWorkflowConnectorCallPageResponse(value: unknown): value is WorkflowConnectorCallPageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowConnectorCallResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readWorkflowConnectorCallResponse(value: unknown): WorkflowConnectorCallResponse {
+  const normalizedValue = normalizeWorkflowConnectorCallResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorCallResponse(normalizedValue), 'workflow_connector_call_response') as WorkflowConnectorCallResponse;
+}
+
+function isWorkflowConnectorCallResponse(value: unknown): value is WorkflowConnectorCallResponse {
+  return isRecord(value) && ((value["appliedFormRevision"] === null) || (typeof value["appliedFormRevision"] === 'number' && Number.isSafeInteger(value["appliedFormRevision"]))) && (typeof value["applyAttemptCount"] === 'number' && Number.isSafeInteger(value["applyAttemptCount"])) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isWorkflowConnectorAttemptResponse(item17))) && (typeof value["cancellationRequested"] === 'boolean') && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["connectorKey"] === 'string') && (typeof value["connectorVersion"] === 'number' && Number.isSafeInteger(value["connectorVersion"])) && (typeof value["createdAtUtc"] === 'string') && ((value["errorKey"] === null) || (typeof value["errorKey"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["inputFormRevision"] === 'number' && Number.isSafeInteger(value["inputFormRevision"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["modeKey"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["requiresReconciliation"] === 'boolean') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowConnectorCatalogItemResponse(value: unknown): WorkflowConnectorCatalogItemResponse {
+  const normalizedValue = normalizeWorkflowConnectorCatalogItemResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorCatalogItemResponse(normalizedValue), 'workflow_connector_catalog_item_response') as WorkflowConnectorCatalogItemResponse;
+}
+
+function isWorkflowConnectorCatalogItemResponse(value: unknown): value is WorkflowConnectorCatalogItemResponse {
+  return isRecord(value) && (typeof value["connectorKey"] === 'string') && (typeof value["connectorVersion"] === 'number' && Number.isSafeInteger(value["connectorVersion"])) && (Array.isArray(value["inputParameters"]) && value["inputParameters"].every(item24 => isWorkflowConnectorParameterResponse(item24))) && (Array.isArray(value["outputParameters"]) && value["outputParameters"].every(item25 => isWorkflowConnectorParameterResponse(item25))) && (typeof value["supportsIdempotency"] === 'boolean');
+}
+
+export function readWorkflowConnectorCatalogResponse(value: unknown): WorkflowConnectorCatalogResponse {
+  const normalizedValue = normalizeWorkflowConnectorCatalogResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorCatalogResponse(normalizedValue), 'workflow_connector_catalog_response') as WorkflowConnectorCatalogResponse;
+}
+
+function isWorkflowConnectorCatalogResponse(value: unknown): value is WorkflowConnectorCatalogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowConnectorCatalogItemResponse(item14)));
+}
+
+export function readWorkflowConnectorParameterResponse(value: unknown): WorkflowConnectorParameterResponse {
+  return requireValidResponse(value, isWorkflowConnectorParameterResponse(value), 'workflow_connector_parameter_response') as WorkflowConnectorParameterResponse;
+}
+
+function isWorkflowConnectorParameterResponse(value: unknown): value is WorkflowConnectorParameterResponse {
+  return isRecord(value) && (isRecord(value["constraints"])) && (typeof value["fieldTypeKey"] === 'string') && (typeof value["parameterKey"] === 'string') && (typeof value["required"] === 'boolean');
+}
+
+export function readWorkflowConnectorResolutionResponse(value: unknown): WorkflowConnectorResolutionResponse {
+  const normalizedValue = normalizeWorkflowConnectorResolutionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowConnectorResolutionResponse(normalizedValue), 'workflow_connector_resolution_response') as WorkflowConnectorResolutionResponse;
+}
+
+function isWorkflowConnectorResolutionResponse(value: unknown): value is WorkflowConnectorResolutionResponse {
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && (typeof value["callId"] === 'string' && guidPattern.test(value["callId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceRevision"] === 'number' && Number.isSafeInteger(value["instanceRevision"])) && (typeof value["instanceStatusKey"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string');
+}
+
 export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {
   const normalizedValue = normalizeWorkflowDefinitionDraftIntegerJson(value);
   return requireValidResponse(normalizedValue, isWorkflowDefinitionDraft(normalizedValue), 'workflow_definition_draft') as WorkflowDefinitionDraft;
 }
 
 function isWorkflowDefinitionDraft(value: unknown): value is WorkflowDefinitionDraft {
-  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isWorkflowNodeDraft(item14))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]));
+  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isWorkflowNodeDraft(item14))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (value["workflowKindKey"] === undefined || (typeof value["workflowKindKey"] === 'string'));
 }
 
 export function readWorkflowDefinitionResponse(value: unknown): WorkflowDefinitionResponse {
@@ -6418,6 +7075,15 @@ export function readWorkflowDefinitionVersionResponse(value: unknown): WorkflowD
 
 function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowDefinitionVersionResponse {
   return isRecord(value) && ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string')) && (typeof value["canonicalJson"] === 'string') && (typeof value["contentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
+export function readWorkflowDesignerAssetResponse(value: unknown): WorkflowDesignerAssetResponse {
+  const normalizedValue = normalizeWorkflowDesignerAssetResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowDesignerAssetResponse(normalizedValue), 'workflow_designer_asset_response') as WorkflowDesignerAssetResponse;
+}
+
+function isWorkflowDesignerAssetResponse(value: unknown): value is WorkflowDesignerAssetResponse {
+  return isRecord(value) && (typeof value["contentHash"] === 'string') && (isJsonElement(value["designerJson"])) && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["formatVersion"] === 'number' && Number.isSafeInteger(value["formatVersion"])) && (typeof value["formId"] === 'string' && guidPattern.test(value["formId"])) && (typeof value["sourceCommit"] === 'string');
 }
 
 export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecutionLogResponse {
@@ -6519,7 +7185,34 @@ export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceRe
 }
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
-  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((value["approvedCount"] === null) || (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])))) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (value["gatewayJoins"] === undefined || ((value["gatewayJoins"] === null) || (Array.isArray(value["gatewayJoins"]) && value["gatewayJoins"].every(item21 => isWorkflowGatewayJoinResponse(item21))))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((value["pendingCount"] === null) || (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])))) && (value["rejectedCount"] === undefined || ((value["rejectedCount"] === null) || (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])))) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isSafeInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((value["requiredApprovalCount"] === null) || (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
+  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((value["approvedCount"] === null) || (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])))) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (value["gatewayJoins"] === undefined || ((value["gatewayJoins"] === null) || (Array.isArray(value["gatewayJoins"]) && value["gatewayJoins"].every(item21 => isWorkflowGatewayJoinResponse(item21))))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((value["pendingCount"] === null) || (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])))) && (value["rejectedCount"] === undefined || ((value["rejectedCount"] === null) || (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])))) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isSafeInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((value["requiredApprovalCount"] === null) || (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string')) && (value["withdrawal"] === undefined || ((value["withdrawal"] === null) || (isWorkflowWithdrawalAvailabilityResponse(value["withdrawal"]))));
+}
+
+export function readWorkflowManualReminderResponse(value: unknown): WorkflowManualReminderResponse {
+  const normalizedValue = normalizeWorkflowManualReminderResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowManualReminderResponse(normalizedValue), 'workflow_manual_reminder_response') as WorkflowManualReminderResponse;
+}
+
+function isWorkflowManualReminderResponse(value: unknown): value is WorkflowManualReminderResponse {
+  return isRecord(value) && (typeof value["acceptedAtUtc"] === 'string') && (typeof value["instanceRevision"] === 'number' && Number.isSafeInteger(value["instanceRevision"])) && (typeof value["manualSequence"] === 'number' && Number.isSafeInteger(value["manualSequence"])) && (typeof value["recipientCount"] === 'number' && Number.isSafeInteger(value["recipientCount"])) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (typeof value["stepRevision"] === 'number' && Number.isSafeInteger(value["stepRevision"]));
+}
+
+export function readWorkflowManualReminderTargetResponse(value: unknown): WorkflowManualReminderTargetResponse {
+  const normalizedValue = normalizeWorkflowManualReminderTargetResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowManualReminderTargetResponse(normalizedValue), 'workflow_manual_reminder_target_response') as WorkflowManualReminderTargetResponse;
+}
+
+function isWorkflowManualReminderTargetResponse(value: unknown): value is WorkflowManualReminderTargetResponse {
+  return isRecord(value) && (typeof value["activeTodoCount"] === 'number' && Number.isSafeInteger(value["activeTodoCount"])) && (typeof value["canRemind"] === 'boolean') && ((value["lastRequestedAtUtc"] === null) || (typeof value["lastRequestedAtUtc"] === 'string')) && (typeof value["manualCount"] === 'number' && Number.isSafeInteger(value["manualCount"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeTypeKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (typeof value["stepRevision"] === 'number' && Number.isSafeInteger(value["stepRevision"]));
+}
+
+export function readWorkflowManualReminderTargetsResponse(value: unknown): WorkflowManualReminderTargetsResponse {
+  const normalizedValue = normalizeWorkflowManualReminderTargetsResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowManualReminderTargetsResponse(normalizedValue), 'workflow_manual_reminder_targets_response') as WorkflowManualReminderTargetsResponse;
+}
+
+function isWorkflowManualReminderTargetsResponse(value: unknown): value is WorkflowManualReminderTargetsResponse {
+  return isRecord(value) && (typeof value["instanceRevision"] === 'number' && Number.isSafeInteger(value["instanceRevision"])) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowManualReminderTargetResponse(item14)));
 }
 
 export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
@@ -6528,7 +7221,7 @@ export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
 }
 
 function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
-  return isRecord(value) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
+  return isRecord(value) && (value["awaitActivityNodeKeys"] === undefined || ((value["awaitActivityNodeKeys"] === null) || (Array.isArray(value["awaitActivityNodeKeys"]) && value["awaitActivityNodeKeys"].every(item30 => typeof item30 === 'string')))) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
 }
 
 export function readWorkflowNodeTypeCatalogResponse(value: unknown): WorkflowNodeTypeCatalogResponse {
@@ -6546,7 +7239,24 @@ export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeRe
 }
 
 function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeResponse {
-  return isRecord(value) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
+  return isRecord(value) && (value["configurationProperties"] === undefined || (Array.isArray(value["configurationProperties"]) && value["configurationProperties"].every(item32 => typeof item32 === 'string'))) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (value["hasDefaultBranch"] === undefined || ((value["hasDefaultBranch"] === null) || (typeof value["hasDefaultBranch"] === 'boolean'))) && (value["maximumBranches"] === undefined || ((value["maximumBranches"] === null) || (typeof value["maximumBranches"] === 'number' && Number.isSafeInteger(value["maximumBranches"])))) && (value["minimumBranches"] === undefined || ((value["minimumBranches"] === null) || (typeof value["minimumBranches"] === 'number' && Number.isSafeInteger(value["minimumBranches"])))) && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
+}
+
+export function readWorkflowPositionCandidatePageResponse(value: unknown): WorkflowPositionCandidatePageResponse {
+  const normalizedValue = normalizeWorkflowPositionCandidatePageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowPositionCandidatePageResponse(normalizedValue), 'workflow_position_candidate_page_response') as WorkflowPositionCandidatePageResponse;
+}
+
+function isWorkflowPositionCandidatePageResponse(value: unknown): value is WorkflowPositionCandidatePageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowPositionCandidateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readWorkflowPositionCandidateResponse(value: unknown): WorkflowPositionCandidateResponse {
+  return requireValidResponse(value, isWorkflowPositionCandidateResponse(value), 'workflow_position_candidate_response') as WorkflowPositionCandidateResponse;
+}
+
+function isWorkflowPositionCandidateResponse(value: unknown): value is WorkflowPositionCandidateResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string');
 }
 
 export function readWorkflowRecipientCandidatePageResponse(value: unknown): WorkflowRecipientCandidatePageResponse {
@@ -6575,13 +7285,85 @@ function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecove
   return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["leaseGeneration"] === 'number' && Number.isSafeInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
 }
 
+export function readWorkflowSignatureUploadResponse(value: unknown): WorkflowSignatureUploadResponse {
+  const normalizedValue = normalizeWorkflowSignatureUploadResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowSignatureUploadResponse(normalizedValue), 'workflow_signature_upload_response') as WorkflowSignatureUploadResponse;
+}
+
+function isWorkflowSignatureUploadResponse(value: unknown): value is WorkflowSignatureUploadResponse {
+  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"]));
+}
+
+export function readWorkflowStarterSelectionDescriptorResponse(value: unknown): WorkflowStarterSelectionDescriptorResponse {
+  const normalizedValue = normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowStarterSelectionDescriptorResponse(normalizedValue), 'workflow_starter_selection_descriptor_response') as WorkflowStarterSelectionDescriptorResponse;
+}
+
+function isWorkflowStarterSelectionDescriptorResponse(value: unknown): value is WorkflowStarterSelectionDescriptorResponse {
+  return isRecord(value) && (typeof value["maximumUsers"] === 'number' && Number.isSafeInteger(value["maximumUsers"])) && (typeof value["modeKey"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["nodeName"] === 'string') && (typeof value["rangeKey"] === 'string') && (typeof value["selectionKey"] === 'string');
+}
+
+export function readWorkflowStarterSelectionsResponse(value: unknown): WorkflowStarterSelectionsResponse {
+  const normalizedValue = normalizeWorkflowStarterSelectionsResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowStarterSelectionsResponse(normalizedValue), 'workflow_starter_selections_response') as WorkflowStarterSelectionsResponse;
+}
+
+function isWorkflowStarterSelectionsResponse(value: unknown): value is WorkflowStarterSelectionsResponse {
+  return isRecord(value) && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowStarterSelectionDescriptorResponse(item14)));
+}
+
+export function readWorkflowTaskProgressResponse(value: unknown): WorkflowTaskProgressResponse {
+  const normalizedValue = normalizeWorkflowTaskProgressResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowTaskProgressResponse(normalizedValue), 'workflow_task_progress_response') as WorkflowTaskProgressResponse;
+}
+
+function isWorkflowTaskProgressResponse(value: unknown): value is WorkflowTaskProgressResponse {
+  return isRecord(value) && (typeof value["cancelledCount"] === 'number' && Number.isSafeInteger(value["cancelledCount"])) && (typeof value["completedCount"] === 'number' && Number.isSafeInteger(value["completedCount"])) && (typeof value["completionModeKey"] === 'string') && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["requiredCompletionCount"] === 'number' && Number.isSafeInteger(value["requiredCompletionCount"]));
+}
+
+export function readWorkflowTodoCountersignChainResponse(value: unknown): WorkflowTodoCountersignChainResponse {
+  const normalizedValue = normalizeWorkflowTodoCountersignChainResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowTodoCountersignChainResponse(normalizedValue), 'workflow_todo_countersign_chain_response') as WorkflowTodoCountersignChainResponse;
+}
+
+function isWorkflowTodoCountersignChainResponse(value: unknown): value is WorkflowTodoCountersignChainResponse {
+  return isRecord(value) && (typeof value["chainId"] === 'string' && guidPattern.test(value["chainId"])) && (typeof value["directionKey"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowTodoCountersignItemResponse(item14))) && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowTodoCountersignItemResponse(value: unknown): WorkflowTodoCountersignItemResponse {
+  const normalizedValue = normalizeWorkflowTodoCountersignItemResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowTodoCountersignItemResponse(normalizedValue), 'workflow_todo_countersign_item_response') as WorkflowTodoCountersignItemResponse;
+}
+
+function isWorkflowTodoCountersignItemResponse(value: unknown): value is WorkflowTodoCountersignItemResponse {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["itemId"] === 'string' && guidPattern.test(value["itemId"])) && (typeof value["sequenceNo"] === 'number' && Number.isSafeInteger(value["sequenceNo"])) && (typeof value["statusKey"] === 'string') && ((value["todoId"] === null) || (typeof value["todoId"] === 'string' && guidPattern.test(value["todoId"])));
+}
+
+export function readWorkflowTodoDelegationResponse(value: unknown): WorkflowTodoDelegationResponse {
+  const normalizedValue = normalizeWorkflowTodoDelegationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowTodoDelegationResponse(normalizedValue), 'workflow_todo_delegation_response') as WorkflowTodoDelegationResponse;
+}
+
+function isWorkflowTodoDelegationResponse(value: unknown): value is WorkflowTodoDelegationResponse {
+  return isRecord(value) && (typeof value["canRecall"] === 'boolean') && (typeof value["createdAtUtc"] === 'string') && (typeof value["formRevision"] === 'number' && Number.isSafeInteger(value["formRevision"])) && (typeof value["originalAssigneeUserId"] === 'string' && guidPattern.test(value["originalAssigneeUserId"])) && (typeof value["originTodoId"] === 'string' && guidPattern.test(value["originTodoId"])) && (typeof value["proxyRevision"] === 'number' && Number.isSafeInteger(value["proxyRevision"])) && (typeof value["proxyTodoId"] === 'string' && guidPattern.test(value["proxyTodoId"])) && (typeof value["proxyUserId"] === 'string' && guidPattern.test(value["proxyUserId"])) && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowTodoDelegationStateResponse(value: unknown): WorkflowTodoDelegationStateResponse {
+  const normalizedValue = normalizeWorkflowTodoDelegationStateResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowTodoDelegationStateResponse(normalizedValue), 'workflow_todo_delegation_state_response') as WorkflowTodoDelegationStateResponse;
+}
+
+function isWorkflowTodoDelegationStateResponse(value: unknown): value is WorkflowTodoDelegationStateResponse {
+  return isRecord(value) && ((value["delegation"] === null) || (isWorkflowTodoDelegationResponse(value["delegation"])));
+}
+
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
   const normalizedValue = normalizeWorkflowTodoDetailResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isWorkflowTodoDetailResponse(normalizedValue), 'workflow_todo_detail_response') as WorkflowTodoDetailResponse;
 }
 
 function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
-  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"]));
+  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"]))));
 }
 
 export function readWorkflowTodoListItemResponse(value: unknown): WorkflowTodoListItemResponse {
@@ -6598,7 +7380,7 @@ export function readWorkflowTodoReturnTargetResponse(value: unknown): WorkflowTo
 }
 
 function isWorkflowTodoReturnTargetResponse(value: unknown): value is WorkflowTodoReturnTargetResponse {
-  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["completedAtUtc"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+  return isRecord(value) && ((value["assigneeUserId"] === null) || (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"]))) && (typeof value["completedAtUtc"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
 }
 
 export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRuntimeResponse {
@@ -6607,7 +7389,121 @@ export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRun
 }
 
 function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
-  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"]));
+  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"])))) && (value["webRenderJson"] === undefined || ((value["webRenderJson"] === null) || (isJsonElement(value["webRenderJson"]))));
+}
+
+export function readWorkflowVoteFormResponse(value: unknown): WorkflowVoteFormResponse {
+  const normalizedValue = normalizeWorkflowVoteFormResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowVoteFormResponse(normalizedValue), 'workflow_vote_form_response') as WorkflowVoteFormResponse;
+}
+
+function isWorkflowVoteFormResponse(value: unknown): value is WorkflowVoteFormResponse {
+  return isRecord(value) && (typeof value["allowAbstain"] === 'boolean') && ((value["choiceKey"] === null) || (typeof value["choiceKey"] === 'string')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["readOnly"] === 'boolean') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (isJsonElement(value["values"])) && ((value["webRenderJson"] === null) || (isJsonElement(value["webRenderJson"])));
+}
+
+export function readWorkflowVoteProgressResponse(value: unknown): WorkflowVoteProgressResponse {
+  const normalizedValue = normalizeWorkflowVoteProgressResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowVoteProgressResponse(normalizedValue), 'workflow_vote_progress_response') as WorkflowVoteProgressResponse;
+}
+
+function isWorkflowVoteProgressResponse(value: unknown): value is WorkflowVoteProgressResponse {
+  return isRecord(value) && ((value["abstainCount"] === null) || (typeof value["abstainCount"] === 'number' && Number.isSafeInteger(value["abstainCount"]))) && (typeof value["cancelledCount"] === 'number' && Number.isSafeInteger(value["cancelledCount"])) && ((value["closesAtUtc"] === null) || (typeof value["closesAtUtc"] === 'string')) && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"])) && ((value["noCount"] === null) || (typeof value["noCount"] === 'number' && Number.isSafeInteger(value["noCount"]))) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["requiredParticipationCount"] === 'number' && Number.isSafeInteger(value["requiredParticipationCount"])) && (typeof value["statusKey"] === 'string') && (typeof value["submittedCount"] === 'number' && Number.isSafeInteger(value["submittedCount"])) && ((value["unsubmittedCount"] === null) || (typeof value["unsubmittedCount"] === 'number' && Number.isSafeInteger(value["unsubmittedCount"]))) && ((value["yesCount"] === null) || (typeof value["yesCount"] === 'number' && Number.isSafeInteger(value["yesCount"])));
+}
+
+export function readWorkflowWithdrawalAvailabilityResponse(value: unknown): WorkflowWithdrawalAvailabilityResponse {
+  return requireValidResponse(value, isWorkflowWithdrawalAvailabilityResponse(value), 'workflow_withdrawal_availability_response') as WorkflowWithdrawalAvailabilityResponse;
+}
+
+function isWorkflowWithdrawalAvailabilityResponse(value: unknown): value is WorkflowWithdrawalAvailabilityResponse {
+  return isRecord(value) && (typeof value["canWithdraw"] === 'boolean') && (typeof value["modeKey"] === 'string');
+}
+
+export function readWorkflowWorkCalendarDraft(value: unknown): WorkflowWorkCalendarDraft {
+  const normalizedValue = normalizeWorkflowWorkCalendarDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarDraft(normalizedValue), 'workflow_work_calendar_draft') as WorkflowWorkCalendarDraft;
+}
+
+function isWorkflowWorkCalendarDraft(value: unknown): value is WorkflowWorkCalendarDraft {
+  return isRecord(value) && (value["exceptions"] === undefined || ((value["exceptions"] === null) || (Array.isArray(value["exceptions"]) && value["exceptions"].every(item19 => isWorkflowWorkCalendarException(item19))))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["timeZoneKey"] === 'string') && (Array.isArray(value["weekdays"]) && value["weekdays"].every(item17 => isWorkflowWorkCalendarWeekday(item17)));
+}
+
+export function readWorkflowWorkCalendarException(value: unknown): WorkflowWorkCalendarException {
+  return requireValidResponse(value, isWorkflowWorkCalendarException(value), 'workflow_work_calendar_exception') as WorkflowWorkCalendarException;
+}
+
+function isWorkflowWorkCalendarException(value: unknown): value is WorkflowWorkCalendarException {
+  return isRecord(value) && (typeof value["date"] === 'string') && (Array.isArray(value["ranges"]) && value["ranges"].every(item15 => isWorkflowWorkCalendarRange(item15)));
+}
+
+export function readWorkflowWorkCalendarPageResponse(value: unknown): WorkflowWorkCalendarPageResponse {
+  const normalizedValue = normalizeWorkflowWorkCalendarPageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarPageResponse(normalizedValue), 'workflow_work_calendar_page_response') as WorkflowWorkCalendarPageResponse;
+}
+
+function isWorkflowWorkCalendarPageResponse(value: unknown): value is WorkflowWorkCalendarPageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowWorkCalendarSummary(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"])));
+}
+
+export function readWorkflowWorkCalendarRange(value: unknown): WorkflowWorkCalendarRange {
+  return requireValidResponse(value, isWorkflowWorkCalendarRange(value), 'workflow_work_calendar_range') as WorkflowWorkCalendarRange;
+}
+
+function isWorkflowWorkCalendarRange(value: unknown): value is WorkflowWorkCalendarRange {
+  return isRecord(value) && (typeof value["end"] === 'string') && (typeof value["start"] === 'string');
+}
+
+export function readWorkflowWorkCalendarResponse(value: unknown): WorkflowWorkCalendarResponse {
+  const normalizedValue = normalizeWorkflowWorkCalendarResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarResponse(normalizedValue), 'workflow_work_calendar_response') as WorkflowWorkCalendarResponse;
+}
+
+function isWorkflowWorkCalendarResponse(value: unknown): value is WorkflowWorkCalendarResponse {
+  return isRecord(value) && (typeof value["calendarKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (isWorkflowWorkCalendarDraft(value["draft"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestVersionId"] === null) || (typeof value["latestVersionId"] === 'string' && guidPattern.test(value["latestVersionId"]))) && ((value["latestVersionNumber"] === null) || (typeof value["latestVersionNumber"] === 'number' && Number.isSafeInteger(value["latestVersionNumber"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["updatedAtUtc"] === 'string');
+}
+
+export function readWorkflowWorkCalendarSummary(value: unknown): WorkflowWorkCalendarSummary {
+  const normalizedValue = normalizeWorkflowWorkCalendarSummaryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarSummary(normalizedValue), 'workflow_work_calendar_summary') as WorkflowWorkCalendarSummary;
+}
+
+function isWorkflowWorkCalendarSummary(value: unknown): value is WorkflowWorkCalendarSummary {
+  return isRecord(value) && (typeof value["calendarKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestVersionId"] === null) || (typeof value["latestVersionId"] === 'string' && guidPattern.test(value["latestVersionId"]))) && ((value["latestVersionNumber"] === null) || (typeof value["latestVersionNumber"] === 'number' && Number.isSafeInteger(value["latestVersionNumber"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["timeZoneKey"] === null) || (typeof value["timeZoneKey"] === 'string')) && (typeof value["updatedAtUtc"] === 'string');
+}
+
+export function readWorkflowWorkCalendarVersionPageResponse(value: unknown): WorkflowWorkCalendarVersionPageResponse {
+  const normalizedValue = normalizeWorkflowWorkCalendarVersionPageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarVersionPageResponse(normalizedValue), 'workflow_work_calendar_version_page_response') as WorkflowWorkCalendarVersionPageResponse;
+}
+
+function isWorkflowWorkCalendarVersionPageResponse(value: unknown): value is WorkflowWorkCalendarVersionPageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowWorkCalendarVersionSummary(item14))) && ((value["nextBeforeVersionNumber"] === null) || (typeof value["nextBeforeVersionNumber"] === 'number' && Number.isSafeInteger(value["nextBeforeVersionNumber"])));
+}
+
+export function readWorkflowWorkCalendarVersionResponse(value: unknown): WorkflowWorkCalendarVersionResponse {
+  const normalizedValue = normalizeWorkflowWorkCalendarVersionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarVersionResponse(normalizedValue), 'workflow_work_calendar_version_response') as WorkflowWorkCalendarVersionResponse;
+}
+
+function isWorkflowWorkCalendarVersionResponse(value: unknown): value is WorkflowWorkCalendarVersionResponse {
+  return isRecord(value) && (isWorkflowWorkCalendarDraft(value["calendar"])) && (typeof value["calendarId"] === 'string' && guidPattern.test(value["calendarId"])) && (typeof value["contentHash"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["timeZoneKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
+export function readWorkflowWorkCalendarVersionSummary(value: unknown): WorkflowWorkCalendarVersionSummary {
+  const normalizedValue = normalizeWorkflowWorkCalendarVersionSummaryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarVersionSummary(normalizedValue), 'workflow_work_calendar_version_summary') as WorkflowWorkCalendarVersionSummary;
+}
+
+function isWorkflowWorkCalendarVersionSummary(value: unknown): value is WorkflowWorkCalendarVersionSummary {
+  return isRecord(value) && (typeof value["calendarId"] === 'string' && guidPattern.test(value["calendarId"])) && (typeof value["contentHash"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["timeZoneKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
+export function readWorkflowWorkCalendarWeekday(value: unknown): WorkflowWorkCalendarWeekday {
+  const normalizedValue = normalizeWorkflowWorkCalendarWeekdayIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowWorkCalendarWeekday(normalizedValue), 'workflow_work_calendar_weekday') as WorkflowWorkCalendarWeekday;
+}
+
+function isWorkflowWorkCalendarWeekday(value: unknown): value is WorkflowWorkCalendarWeekday {
+  return isRecord(value) && (typeof value["dayOfWeek"] === 'number' && Number.isSafeInteger(value["dayOfWeek"])) && (Array.isArray(value["ranges"]) && value["ranges"].every(item15 => isWorkflowWorkCalendarRange(item15)));
 }
 
 export function readAiCancelAgentRunResponse(value: unknown): boolean {
@@ -6927,7 +7823,7 @@ function normalizeAccessLogResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeActWorkflowTodoRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeAdministrativeRegionChildResponseIntegerJson(value: unknown): unknown {
@@ -7150,6 +8046,10 @@ function normalizeAssignOrganizationPositionUnitRequestIntegerJson(value: unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAssignWorkflowPoolRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
 function normalizeAuthorizationTreeActionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "order") ? { ["order"]: normalizeWireInteger(value["order"]) } : {}) } : value);
 }
@@ -7214,6 +8114,14 @@ function normalizeCancelWorkflowInstanceRequestIntegerJson(value: unknown): unkn
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeCancelWorkflowTodoCountersignRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeChangeDeliveryOwnerRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
 function normalizeChangeHostJobScheduleStateRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -7224,6 +8132,10 @@ function normalizeChangePersonalScheduleRequestIntegerJson(value: unknown): unkn
 
 function normalizeChangeSerialNumberRuleStatusRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeClaimWorkflowPoolRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeCodeGenerationCatalogColumnListResponseIntegerJson(value: unknown): unknown {
@@ -7284,6 +8196,10 @@ function normalizeConfigEntryResponseIntegerJson(value: unknown): unknown {
 
 function normalizeConfirmOcrIdCardTaskRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeCountersignWorkflowTodoRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeCreateAdministrativeRegionRequestIntegerJson(value: unknown): unknown {
@@ -7354,6 +8270,10 @@ function normalizeCreateK3CloudConnectionConfigRequestIntegerJson(value: unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "lcid") ? { ["lcid"]: normalizeWireInteger(value["lcid"]) } : {}) } : value);
 }
 
+function normalizeCreateKafkaReplayOperationRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxMessages") ? { ["maxMessages"]: normalizeWireInteger(value["maxMessages"]) } : {}), ...(Object.hasOwn(value, "partitions") ? { ["partitions"]: (Array.isArray(value["partitions"]) ? value["partitions"].map((item19: unknown) => normalizeWireInteger(item19)) : value["partitions"]) } : {}) } : value);
+}
+
 function normalizeCreateNotificationBindingRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "targets") ? { ["targets"]: (Array.isArray(value["targets"]) ? value["targets"].map((item16: unknown) => normalizeNotificationBindingTargetInputIntegerJson(item16)) : value["targets"]) } : {}) } : value);
 }
@@ -7410,8 +8330,16 @@ function normalizeCreateWorkflowFormRequestIntegerJson(value: unknown): unknown 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowFormSchemaIntegerJson(value["draft"]) } : {}) } : value);
 }
 
+function normalizeCreateWorkflowWorkCalendarRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowWorkCalendarDraftIntegerJson(value["draft"]) } : {}) } : value);
+}
+
 function normalizeCurrentUserResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profileVersion") ? { ["profileVersion"]: normalizeWireInteger(value["profileVersion"]) } : {}) } : value);
+}
+
+function normalizeCutoverEvidenceResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sampleCount") ? { ["sampleCount"]: normalizeWireInteger(value["sampleCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
 
 function normalizeDataApprovalRequestResponseIntegerJson(value: unknown): unknown {
@@ -7428,6 +8356,10 @@ function normalizeDeactivateAiPromptRequestIntegerJson(value: unknown): unknown 
 
 function normalizeDecideAiAgentApprovalRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeDelegateWorkflowTodoRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeDeleteAdministrativeRegionRequestIntegerJson(value: unknown): unknown {
@@ -7486,6 +8418,18 @@ function normalizeDeleteHostReleaseNoteRequestIntegerJson(value: unknown): unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeDeliveryCutoverResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeDeliveryRollbackResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeDeliveryStatusResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "backlog") ? { ["backlog"]: normalizeIntegerUnion(value["backlog"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOutboxBacklogSummaryResponse(value), normalize: (value: unknown) => normalizeOutboxBacklogSummaryResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "replayExecutionTimeoutSeconds") ? { ["replayExecutionTimeoutSeconds"]: normalizeWireInteger(value["replayExecutionTimeoutSeconds"]) } : {}), ...(Object.hasOwn(value, "replayMaximumSynchronousMessages") ? { ["replayMaximumSynchronousMessages"]: normalizeWireInteger(value["replayMaximumSynchronousMessages"]) } : {}), ...(Object.hasOwn(value, "shadowCapturePolicy") ? { ["shadowCapturePolicy"]: normalizeShadowCapturePolicyResponseIntegerJson(value["shadowCapturePolicy"]) } : {}), ...(Object.hasOwn(value, "streams") ? { ["streams"]: (Array.isArray(value["streams"]) ? value["streams"].map((item16: unknown) => normalizeEventStreamStatusResponseIntegerJson(item16)) : value["streams"]) } : {}), ...(Object.hasOwn(value, "unattributedKafkaDeadLetters") ? { ["unattributedKafkaDeadLetters"]: normalizeWireInteger(value["unattributedKafkaDeadLetters"]) } : {}) } : value);
+}
+
 function normalizeDiagnosticPolicyResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "activeRules") ? { ["activeRules"]: (Array.isArray(value["activeRules"]) ? value["activeRules"].map((item20: unknown) => normalizeDiagnosticPolicyRuleResponseIntegerJson(item20)) : value["activeRules"]) } : {}), ...(Object.hasOwn(value, "configEntryVersion") ? { ["configEntryVersion"]: normalizeWireInteger(value["configEntryVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -7536,6 +8480,10 @@ function normalizeEnumCatalogMemberIntegerJson(value: unknown): unknown {
 
 function normalizeEnumCatalogSummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "memberCount") ? { ["memberCount"]: normalizeWireInteger(value["memberCount"]) } : {}) } : value);
+}
+
+function normalizeEventStreamStatusResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "deliveryOwner") ? { ["deliveryOwner"]: normalizeIntegerUnion(value["deliveryOwner"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isEventDeliveryOwner(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "kafkaProjectedDeadLetterCount") ? { ["kafkaProjectedDeadLetterCount"]: normalizeWireInteger(value["kafkaProjectedDeadLetterCount"]) } : {}), ...(Object.hasOwn(value, "legacyBacklog") ? { ["legacyBacklog"]: normalizeIntegerUnion(value["legacyBacklog"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOutboxBacklogSummaryResponse(value), normalize: (value: unknown) => normalizeOutboxBacklogSummaryResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "retainedEventCount") ? { ["retainedEventCount"]: normalizeWireInteger(value["retainedEventCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
 
 function normalizeExecuteReportingDefinitionRequestIntegerJson(value: unknown): unknown {
@@ -7806,6 +8754,22 @@ function normalizeK3CloudDocumentSyncResponseIntegerJson(value: unknown): unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeKafkaRangeReplayRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "fromOffset") ? { ["fromOffset"]: normalizeWireInteger(value["fromOffset"]) } : {}), ...(Object.hasOwn(value, "maxMessages") ? { ["maxMessages"]: normalizeWireInteger(value["maxMessages"]) } : {}), ...(Object.hasOwn(value, "partitions") ? { ["partitions"]: (Array.isArray(value["partitions"]) ? value["partitions"].map((item19: unknown) => normalizeWireInteger(item19)) : value["partitions"]) } : {}), ...(Object.hasOwn(value, "toOffset") ? { ["toOffset"]: normalizeWireInteger(value["toOffset"]) } : {}) } : value);
+}
+
+function normalizeKafkaRangeReplayResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "alreadyProcessedMessages") ? { ["alreadyProcessedMessages"]: normalizeWireInteger(value["alreadyProcessedMessages"]) } : {}), ...(Object.hasOwn(value, "processedMessages") ? { ["processedMessages"]: normalizeWireInteger(value["processedMessages"]) } : {}), ...(Object.hasOwn(value, "rejectedMessages") ? { ["rejectedMessages"]: normalizeWireInteger(value["rejectedMessages"]) } : {}), ...(Object.hasOwn(value, "scannedMessages") ? { ["scannedMessages"]: normalizeWireInteger(value["scannedMessages"]) } : {}) } : value);
+}
+
+function normalizeKafkaReplayOperationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "alreadyProcessedMessages") ? { ["alreadyProcessedMessages"]: normalizeWireInteger(value["alreadyProcessedMessages"]) } : {}), ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "confirmedMessages") ? { ["confirmedMessages"]: normalizeWireInteger(value["confirmedMessages"]) } : {}), ...(Object.hasOwn(value, "maxMessages") ? { ["maxMessages"]: normalizeWireInteger(value["maxMessages"]) } : {}), ...(Object.hasOwn(value, "partitions") ? { ["partitions"]: (Array.isArray(value["partitions"]) ? value["partitions"].map((item19: unknown) => normalizeKafkaReplayPartitionResponseIntegerJson(item19)) : value["partitions"]) } : {}), ...(Object.hasOwn(value, "processedMessages") ? { ["processedMessages"]: normalizeWireInteger(value["processedMessages"]) } : {}), ...(Object.hasOwn(value, "rejectedAttempts") ? { ["rejectedAttempts"]: normalizeWireInteger(value["rejectedAttempts"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeKafkaReplayPartitionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "partition") ? { ["partition"]: normalizeWireInteger(value["partition"]) } : {}) } : value);
+}
+
 function normalizeLocalePreferenceResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profileVersion") ? { ["profileVersion"]: normalizeWireInteger(value["profileVersion"]) } : {}) } : value);
 }
@@ -7890,6 +8854,10 @@ function normalizeOcrProviderConfigResponseIntegerJson(value: unknown): unknown 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeOperationalDeadLetterResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: normalizeWireInteger(value["attempts"]) } : {}), ...(Object.hasOwn(value, "dlqPartition") ? { ["dlqPartition"]: normalizeWireInteger(value["dlqPartition"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "sourcePartition") ? { ["sourcePartition"]: normalizeWireInteger(value["sourcePartition"]) } : {}) } : value);
+}
+
 function normalizeOperationLogDetailsContextV1IntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "clientPort") ? { ["clientPort"]: normalizeWireInteger(value["clientPort"]) } : {}), ...(Object.hasOwn(value, "requestSummary") ? { ["requestSummary"]: normalizeIntegerUnion(value["requestSummary"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOperationLogExportRequestSummaryV1(value), normalize: (value: unknown) => normalizeOperationLogExportRequestSummaryV1IntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "responseSummary") ? { ["responseSummary"]: normalizeIntegerUnion(value["responseSummary"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOperationLogExportResponseSummaryV1(value), normalize: (value: unknown) => normalizeOperationLogExportResponseSummaryV1IntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "serverPort") ? { ["serverPort"]: normalizeWireInteger(value["serverPort"]) } : {}) } : value);
 }
@@ -7918,6 +8886,14 @@ function normalizeOrganizationPositionResponseIntegerJson(value: unknown): unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeOrganizationReportingLineResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeOrganizationUnitLeadershipResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "unitVersion") ? { ["unitVersion"]: normalizeWireInteger(value["unitVersion"]) } : {}) } : value);
+}
+
 function normalizeOrganizationUnitResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -7932,6 +8908,10 @@ function normalizeOrganizationUserUnitResponseIntegerJson(value: unknown): unkno
 
 function normalizeOutboundCallLogResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "durationMs") ? { ["durationMs"]: normalizeWireInteger(value["durationMs"]) } : {}), ...(Object.hasOwn(value, "retryCount") ? { ["retryCount"]: normalizeWireInteger(value["retryCount"]) } : {}), ...(Object.hasOwn(value, "statusCode") ? { ["statusCode"]: normalizeWireInteger(value["statusCode"]) } : {}) } : value);
+}
+
+function normalizeOutboxBacklogSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "activeLeaseCount") ? { ["activeLeaseCount"]: normalizeWireInteger(value["activeLeaseCount"]) } : {}), ...(Object.hasOwn(value, "deadLetterCount") ? { ["deadLetterCount"]: normalizeWireInteger(value["deadLetterCount"]) } : {}), ...(Object.hasOwn(value, "dueRetryCount") ? { ["dueRetryCount"]: normalizeWireInteger(value["dueRetryCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfAccessLogResponseIntegerJson(value: unknown): unknown {
@@ -8110,6 +9090,10 @@ function normalizePagedResultOfK3CloudDocumentSyncResponseIntegerJson(value: unk
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeK3CloudDocumentSyncResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfKafkaReplayOperationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeKafkaReplayOperationResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfMyReleaseNoteResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeMyReleaseNoteResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -8142,6 +9126,10 @@ function normalizePagedResultOfOcrIdCardTaskResponseIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeOcrIdCardTaskResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfOperationalDeadLetterResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeOperationalDeadLetterResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfOperationLogResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeOperationLogResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -8156,6 +9144,14 @@ function normalizePagedResultOfOrganizationPositionLevelResponseIntegerJson(valu
 
 function normalizePagedResultOfOrganizationPositionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeOrganizationPositionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfOrganizationReportingCandidateIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfOrganizationUnitLeaderCandidateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfOrganizationUnitResponseIntegerJson(value: unknown): unknown {
@@ -8351,11 +9347,19 @@ function normalizePublishWorkflowDefinitionRequestIntegerJson(value: unknown): u
 }
 
 function normalizePublishWorkflowFormRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedBindingRevision") ? { ["expectedBindingRevision"]: normalizeWireInteger(value["expectedBindingRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizePublishWorkflowWorkCalendarRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeReassignWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}), ...(Object.hasOwn(value, "expectedTodoRevision") ? { ["expectedTodoRevision"]: normalizeWireInteger(value["expectedTodoRevision"]) } : {}) } : value);
+}
+
+function normalizeRecallWorkflowTodoDelegationRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeReconcileAiAgentRunRequestIntegerJson(value: unknown): unknown {
@@ -8366,12 +9370,20 @@ function normalizeReconcileNotificationDeliveryRequestIntegerJson(value: unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
+function normalizeReconcileWorkflowConnectorRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedInstanceRevision") ? { ["expectedInstanceRevision"]: normalizeWireInteger(value["expectedInstanceRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
 function normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeReleaseWorkflowTodoRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedPoolRevision") ? { ["expectedPoolRevision"]: normalizeWireInteger(value["expectedPoolRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeReplaceHostRoleFieldGrantsRequestIntegerJson(value: unknown): unknown {
@@ -8438,6 +9450,10 @@ function normalizeReportingQueryPortParameterDefinitionIntegerJson(value: unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximum") ? { ["maximum"]: normalizeWireInteger(value["maximum"]) } : {}), ...(Object.hasOwn(value, "minimum") ? { ["minimum"]: normalizeWireInteger(value["minimum"]) } : {}) } : value);
 }
 
+function normalizeRequestWorkflowManualReminderIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedInstanceRevision") ? { ["expectedInstanceRevision"]: normalizeWireInteger(value["expectedInstanceRevision"]) } : {}), ...(Object.hasOwn(value, "expectedStepRevision") ? { ["expectedStepRevision"]: normalizeWireInteger(value["expectedStepRevision"]) } : {}) } : value);
+}
+
 function normalizeRestoreDiagnosticPolicyRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "configEntryVersion") ? { ["configEntryVersion"]: normalizeWireInteger(value["configEntryVersion"]) } : {}) } : value);
 }
@@ -8467,7 +9483,7 @@ function normalizeRetryWorkflowRecoveryTaskRequestIntegerJson(value: unknown): u
 }
 
 function normalizeReturnWorkflowTodoRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value: unknown): unknown {
@@ -8492,6 +9508,14 @@ function normalizeRevokeNotificationIntentRequestIntegerJson(value: unknown): un
 
 function normalizeRollbackHostDocumentVersionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeRollbackOperationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeSaveWorkflowDesignerAssetRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}), ...(Object.hasOwn(value, "formatVersion") ? { ["formatVersion"]: normalizeWireInteger(value["formatVersion"]) } : {}) } : value);
 }
 
 function normalizeSelectAiPromptVersionRequestIntegerJson(value: unknown): unknown {
@@ -8562,6 +9586,14 @@ function normalizeSetNotificationQuotaPolicyEnabledRequestIntegerJson(value: unk
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeSetOrganizationReportingLineRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeSetOrganizationUnitLeadershipRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}), ...(Object.hasOwn(value, "expectedUnitVersion") ? { ["expectedUnitVersion"]: normalizeWireInteger(value["expectedUnitVersion"]) } : {}) } : value);
+}
+
 function normalizeSetPersonalScheduleStatusRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8572,6 +9604,18 @@ function normalizeSetWorkflowDefinitionStatusRequestIntegerJson(value: unknown):
 
 function normalizeSetWorkflowFormStatusRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeShadowCapturePolicyResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximumEvents") ? { ["maximumEvents"]: normalizeWireInteger(value["maximumEvents"]) } : {}), ...(Object.hasOwn(value, "maximumPayloadBytes") ? { ["maximumPayloadBytes"]: normalizeWireInteger(value["maximumPayloadBytes"]) } : {}), ...(Object.hasOwn(value, "maximumWindowSeconds") ? { ["maximumWindowSeconds"]: normalizeWireInteger(value["maximumWindowSeconds"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeShadowCaptureResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "capturedBytes") ? { ["capturedBytes"]: normalizeWireInteger(value["capturedBytes"]) } : {}), ...(Object.hasOwn(value, "capturedCount") ? { ["capturedCount"]: normalizeWireInteger(value["capturedCount"]) } : {}), ...(Object.hasOwn(value, "maxEvents") ? { ["maxEvents"]: normalizeWireInteger(value["maxEvents"]) } : {}), ...(Object.hasOwn(value, "maxPayloadBytes") ? { ["maxPayloadBytes"]: normalizeWireInteger(value["maxPayloadBytes"]) } : {}), ...(Object.hasOwn(value, "missingMetadataCount") ? { ["missingMetadataCount"]: normalizeWireInteger(value["missingMetadataCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeStartShadowCaptureRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxEvents") ? { ["maxEvents"]: normalizeWireInteger(value["maxEvents"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "windowSeconds") ? { ["windowSeconds"]: normalizeWireInteger(value["windowSeconds"]) } : {}) } : value);
 }
 
 function normalizeStaticImportRowPreviewResultIntegerJson(value: unknown): unknown {
@@ -8600,6 +9644,10 @@ function normalizeTenantSummaryIntegerJson(value: unknown): unknown {
 
 function normalizeTestAiModelEmbeddingResultIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "dimensions") ? { ["dimensions"]: normalizeWireInteger(value["dimensions"]) } : {}), ...(Object.hasOwn(value, "inputCount") ? { ["inputCount"]: normalizeWireInteger(value["inputCount"]) } : {}), ...(Object.hasOwn(value, "inputTokens") ? { ["inputTokens"]: normalizeWireInteger(value["inputTokens"]) } : {}) } : value);
+}
+
+function normalizeTransferWorkflowTodoRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeUpdateAdministrativeRegionRequestIntegerJson(value: unknown): unknown {
@@ -8830,6 +9878,70 @@ function normalizeUpdateWorkflowFormDraftRequestIntegerJson(value: unknown): unk
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowFormSchemaIntegerJson(value["draft"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeUpdateWorkflowWorkCalendarRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowWorkCalendarDraftIntegerJson(value["draft"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeVerifyCutoverRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeVoteWorkflowTodoRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedBallotRevision") ? { ["expectedBallotRevision"]: normalizeWireInteger(value["expectedBallotRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeWithdrawWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowApprovalGroupProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "cancelledCount") ? { ["cancelledCount"]: normalizeWireInteger(value["cancelledCount"]) } : {}), ...(Object.hasOwn(value, "memberCount") ? { ["memberCount"]: normalizeWireInteger(value["memberCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "sequenceNo") ? { ["sequenceNo"]: normalizeWireInteger(value["sequenceNo"]) } : {}) } : value);
+}
+
+function normalizeWorkflowBusinessActionCatalogItemResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "actionVersion") ? { ["actionVersion"]: normalizeWireInteger(value["actionVersion"]) } : {}) } : value);
+}
+
+function normalizeWorkflowBusinessActionCatalogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowBusinessActionCatalogItemResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowClaimPoolPageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowClaimPoolResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "totalCount") ? { ["totalCount"]: normalizeWireInteger(value["totalCount"]) } : {}) } : value);
+}
+
+function normalizeWorkflowClaimPoolResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "claimCycle") ? { ["claimCycle"]: normalizeWireInteger(value["claimCycle"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowClaimProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "claimCycle") ? { ["claimCycle"]: normalizeWireInteger(value["claimCycle"]) } : {}), ...(Object.hasOwn(value, "poolRevision") ? { ["poolRevision"]: normalizeWireInteger(value["poolRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorAttemptResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "httpStatusCode") ? { ["httpStatusCode"]: normalizeWireInteger(value["httpStatusCode"]) } : {}), ...(Object.hasOwn(value, "leaseGeneration") ? { ["leaseGeneration"]: normalizeWireInteger(value["leaseGeneration"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorCallPageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowConnectorCallResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorCallResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "appliedFormRevision") ? { ["appliedFormRevision"]: normalizeWireInteger(value["appliedFormRevision"]) } : {}), ...(Object.hasOwn(value, "applyAttemptCount") ? { ["applyAttemptCount"]: normalizeWireInteger(value["applyAttemptCount"]) } : {}), ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: (Array.isArray(value["attempts"]) ? value["attempts"].map((item17: unknown) => normalizeWorkflowConnectorAttemptResponseIntegerJson(item17)) : value["attempts"]) } : {}), ...(Object.hasOwn(value, "connectorVersion") ? { ["connectorVersion"]: normalizeWireInteger(value["connectorVersion"]) } : {}), ...(Object.hasOwn(value, "inputFormRevision") ? { ["inputFormRevision"]: normalizeWireInteger(value["inputFormRevision"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorCatalogItemResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "connectorVersion") ? { ["connectorVersion"]: normalizeWireInteger(value["connectorVersion"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorCatalogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowConnectorCatalogItemResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowConnectorResolutionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "instanceRevision") ? { ["instanceRevision"]: normalizeWireInteger(value["instanceRevision"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
 function normalizeWorkflowDefinitionDraftIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "nodes") ? { ["nodes"]: (Array.isArray(value["nodes"]) ? value["nodes"].map((item14: unknown) => normalizeWorkflowNodeDraftIntegerJson(item14)) : value["nodes"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
@@ -8840,6 +9952,10 @@ function normalizeWorkflowDefinitionResponseIntegerJson(value: unknown): unknown
 
 function normalizeWorkflowDefinitionVersionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeWorkflowDesignerAssetResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "formatVersion") ? { ["formatVersion"]: normalizeWireInteger(value["formatVersion"]) } : {}) } : value);
 }
 
 function normalizeWorkflowFormComponentCatalogResponseIntegerJson(value: unknown): unknown {
@@ -8863,7 +9979,19 @@ function normalizeWorkflowGatewayJoinResponseIntegerJson(value: unknown): unknow
 }
 
 function normalizeWorkflowInstanceResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "gatewayJoins") ? { ["gatewayJoins"]: (Array.isArray(value["gatewayJoins"]) ? value["gatewayJoins"].map((item21: unknown) => normalizeWorkflowGatewayJoinResponseIntegerJson(item21)) : value["gatewayJoins"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "reminderCount") ? { ["reminderCount"]: normalizeWireInteger(value["reminderCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "gatewayJoins") ? { ["gatewayJoins"]: (Array.isArray(value["gatewayJoins"]) ? value["gatewayJoins"].map((item21: unknown) => normalizeWorkflowGatewayJoinResponseIntegerJson(item21)) : value["gatewayJoins"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "reminderCount") ? { ["reminderCount"]: normalizeWireInteger(value["reminderCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "withdrawal") ? { ["withdrawal"]: normalizeIntegerUnion(value["withdrawal"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowWithdrawalAvailabilityResponse(value), normalize: (value: unknown) => value }]) } : {}) } : value);
+}
+
+function normalizeWorkflowManualReminderResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "instanceRevision") ? { ["instanceRevision"]: normalizeWireInteger(value["instanceRevision"]) } : {}), ...(Object.hasOwn(value, "manualSequence") ? { ["manualSequence"]: normalizeWireInteger(value["manualSequence"]) } : {}), ...(Object.hasOwn(value, "recipientCount") ? { ["recipientCount"]: normalizeWireInteger(value["recipientCount"]) } : {}), ...(Object.hasOwn(value, "stepRevision") ? { ["stepRevision"]: normalizeWireInteger(value["stepRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowManualReminderTargetResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "activeTodoCount") ? { ["activeTodoCount"]: normalizeWireInteger(value["activeTodoCount"]) } : {}), ...(Object.hasOwn(value, "manualCount") ? { ["manualCount"]: normalizeWireInteger(value["manualCount"]) } : {}), ...(Object.hasOwn(value, "stepRevision") ? { ["stepRevision"]: normalizeWireInteger(value["stepRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowManualReminderTargetsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "instanceRevision") ? { ["instanceRevision"]: normalizeWireInteger(value["instanceRevision"]) } : {}), ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowManualReminderTargetResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
 }
 
 function normalizeWorkflowNodeDraftIntegerJson(value: unknown): unknown {
@@ -8875,7 +10003,11 @@ function normalizeWorkflowNodeTypeCatalogResponseIntegerJson(value: unknown): un
 }
 
 function normalizeWorkflowNodeTypeResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "nodeSchemaVersion") ? { ["nodeSchemaVersion"]: normalizeWireInteger(value["nodeSchemaVersion"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximumBranches") ? { ["maximumBranches"]: normalizeWireInteger(value["maximumBranches"]) } : {}), ...(Object.hasOwn(value, "minimumBranches") ? { ["minimumBranches"]: normalizeWireInteger(value["minimumBranches"]) } : {}), ...(Object.hasOwn(value, "nodeSchemaVersion") ? { ["nodeSchemaVersion"]: normalizeWireInteger(value["nodeSchemaVersion"]) } : {}) } : value);
+}
+
+function normalizeWorkflowPositionCandidatePageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizeWorkflowRecipientCandidatePageResponseIntegerJson(value: unknown): unknown {
@@ -8886,8 +10018,40 @@ function normalizeWorkflowRecoveryTaskResponseIntegerJson(value: unknown): unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "leaseGeneration") ? { ["leaseGeneration"]: normalizeWireInteger(value["leaseGeneration"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
+function normalizeWorkflowSignatureUploadResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}) } : value);
+}
+
+function normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximumUsers") ? { ["maximumUsers"]: normalizeWireInteger(value["maximumUsers"]) } : {}) } : value);
+}
+
+function normalizeWorkflowStarterSelectionsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowTaskProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cancelledCount") ? { ["cancelledCount"]: normalizeWireInteger(value["cancelledCount"]) } : {}), ...(Object.hasOwn(value, "completedCount") ? { ["completedCount"]: normalizeWireInteger(value["completedCount"]) } : {}), ...(Object.hasOwn(value, "memberCount") ? { ["memberCount"]: normalizeWireInteger(value["memberCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "requiredCompletionCount") ? { ["requiredCompletionCount"]: normalizeWireInteger(value["requiredCompletionCount"]) } : {}) } : value);
+}
+
+function normalizeWorkflowTodoCountersignChainResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowTodoCountersignItemResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowTodoCountersignItemResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sequenceNo") ? { ["sequenceNo"]: normalizeWireInteger(value["sequenceNo"]) } : {}) } : value);
+}
+
+function normalizeWorkflowTodoDelegationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "formRevision") ? { ["formRevision"]: normalizeWireInteger(value["formRevision"]) } : {}), ...(Object.hasOwn(value, "proxyRevision") ? { ["proxyRevision"]: normalizeWireInteger(value["proxyRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowTodoDelegationStateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "delegation") ? { ["delegation"]: normalizeIntegerUnion(value["delegation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowTodoDelegationResponse(value), normalize: (value: unknown) => normalizeWorkflowTodoDelegationResponseIntegerJson(value) }]) } : {}) } : value);
+}
+
 function normalizeWorkflowTodoDetailResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "submissionRevision") ? { ["submissionRevision"]: normalizeWireInteger(value["submissionRevision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvalGroups") ? { ["approvalGroups"]: (Array.isArray(value["approvalGroups"]) ? value["approvalGroups"].map((item23: unknown) => normalizeWorkflowApprovalGroupProgressResponseIntegerJson(item23)) : value["approvalGroups"]) } : {}), ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "claimProgress") ? { ["claimProgress"]: normalizeIntegerUnion(value["claimProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowClaimProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowClaimProgressResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "submissionRevision") ? { ["submissionRevision"]: normalizeWireInteger(value["submissionRevision"]) } : {}), ...(Object.hasOwn(value, "taskProgress") ? { ["taskProgress"]: normalizeIntegerUnion(value["taskProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowTaskProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowTaskProgressResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "voteForm") ? { ["voteForm"]: normalizeIntegerUnion(value["voteForm"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowVoteFormResponse(value), normalize: (value: unknown) => normalizeWorkflowVoteFormResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "voteProgress") ? { ["voteProgress"]: normalizeIntegerUnion(value["voteProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowVoteProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowVoteProgressResponseIntegerJson(value) }]) } : {}) } : value);
 }
 
 function normalizeWorkflowTodoListItemResponseIntegerJson(value: unknown): unknown {
@@ -8895,7 +10059,47 @@ function normalizeWorkflowTodoListItemResponseIntegerJson(value: unknown): unkno
 }
 
 function normalizeWorkflowTodoRuntimeResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "submissionRevision") ? { ["submissionRevision"]: normalizeWireInteger(value["submissionRevision"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "approvalGroups") ? { ["approvalGroups"]: (Array.isArray(value["approvalGroups"]) ? value["approvalGroups"].map((item23: unknown) => normalizeWorkflowApprovalGroupProgressResponseIntegerJson(item23)) : value["approvalGroups"]) } : {}), ...(Object.hasOwn(value, "approvedCount") ? { ["approvedCount"]: normalizeWireInteger(value["approvedCount"]) } : {}), ...(Object.hasOwn(value, "claimProgress") ? { ["claimProgress"]: normalizeIntegerUnion(value["claimProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowClaimProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowClaimProgressResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "rejectedCount") ? { ["rejectedCount"]: normalizeWireInteger(value["rejectedCount"]) } : {}), ...(Object.hasOwn(value, "requiredApprovalCount") ? { ["requiredApprovalCount"]: normalizeWireInteger(value["requiredApprovalCount"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "submissionRevision") ? { ["submissionRevision"]: normalizeWireInteger(value["submissionRevision"]) } : {}), ...(Object.hasOwn(value, "taskProgress") ? { ["taskProgress"]: normalizeIntegerUnion(value["taskProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowTaskProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowTaskProgressResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "voteForm") ? { ["voteForm"]: normalizeIntegerUnion(value["voteForm"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowVoteFormResponse(value), normalize: (value: unknown) => normalizeWorkflowVoteFormResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "voteProgress") ? { ["voteProgress"]: normalizeIntegerUnion(value["voteProgress"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isWorkflowVoteProgressResponse(value), normalize: (value: unknown) => normalizeWorkflowVoteProgressResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "webRenderJson") ? { ["webRenderJson"]: normalizeIntegerUnion(value["webRenderJson"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isJsonElement(value), normalize: (value: unknown) => value }]) } : {}) } : value);
+}
+
+function normalizeWorkflowVoteFormResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "webRenderJson") ? { ["webRenderJson"]: normalizeIntegerUnion(value["webRenderJson"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isJsonElement(value), normalize: (value: unknown) => value }]) } : {}) } : value);
+}
+
+function normalizeWorkflowVoteProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "abstainCount") ? { ["abstainCount"]: normalizeWireInteger(value["abstainCount"]) } : {}), ...(Object.hasOwn(value, "cancelledCount") ? { ["cancelledCount"]: normalizeWireInteger(value["cancelledCount"]) } : {}), ...(Object.hasOwn(value, "memberCount") ? { ["memberCount"]: normalizeWireInteger(value["memberCount"]) } : {}), ...(Object.hasOwn(value, "noCount") ? { ["noCount"]: normalizeWireInteger(value["noCount"]) } : {}), ...(Object.hasOwn(value, "pendingCount") ? { ["pendingCount"]: normalizeWireInteger(value["pendingCount"]) } : {}), ...(Object.hasOwn(value, "requiredParticipationCount") ? { ["requiredParticipationCount"]: normalizeWireInteger(value["requiredParticipationCount"]) } : {}), ...(Object.hasOwn(value, "submittedCount") ? { ["submittedCount"]: normalizeWireInteger(value["submittedCount"]) } : {}), ...(Object.hasOwn(value, "unsubmittedCount") ? { ["unsubmittedCount"]: normalizeWireInteger(value["unsubmittedCount"]) } : {}), ...(Object.hasOwn(value, "yesCount") ? { ["yesCount"]: normalizeWireInteger(value["yesCount"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "weekdays") ? { ["weekdays"]: (Array.isArray(value["weekdays"]) ? value["weekdays"].map((item17: unknown) => normalizeWorkflowWorkCalendarWeekdayIntegerJson(item17)) : value["weekdays"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarPageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowWorkCalendarSummaryIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowWorkCalendarDraftIntegerJson(value["draft"]) } : {}), ...(Object.hasOwn(value, "latestVersionNumber") ? { ["latestVersionNumber"]: normalizeWireInteger(value["latestVersionNumber"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarSummaryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestVersionNumber") ? { ["latestVersionNumber"]: normalizeWireInteger(value["latestVersionNumber"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarVersionPageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowWorkCalendarVersionSummaryIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "nextBeforeVersionNumber") ? { ["nextBeforeVersionNumber"]: normalizeWireInteger(value["nextBeforeVersionNumber"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "calendar") ? { ["calendar"]: normalizeWorkflowWorkCalendarDraftIntegerJson(value["calendar"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarVersionSummaryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeWorkflowWorkCalendarWeekdayIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "dayOfWeek") ? { ["dayOfWeek"]: normalizeWireInteger(value["dayOfWeek"]) } : {}) } : value);
 }
 
 // 统一失败关闭与错误码，避免每个生成读取器重复携带异常和返回分支。

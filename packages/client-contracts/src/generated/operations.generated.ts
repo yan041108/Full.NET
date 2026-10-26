@@ -76,6 +76,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AssignWorkflowPoolRequest,
   AuthenticationEventCursorPage,
   AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
@@ -106,10 +107,15 @@ import type {
   CachePolicySummary,
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
+  CancelWorkflowTodoCountersignRequest,
+  ChangeDeliveryOwnerRequest,
   ChangeHostJobScheduleStateRequest,
+  ChangeKafkaReplayOperationRequest,
   ChangePasswordRequest,
   ChangePersonalScheduleRequest,
   ChangeSerialNumberRuleStatusRequest,
+  ClaimWorkflowPoolRequest,
+  CloseShadowCaptureRequest,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
@@ -143,6 +149,7 @@ import type {
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
   CopyHostRoleRequest,
+  CountersignWorkflowTodoRequest,
   CreateAdministrativeRegionRequest,
   CreateAiAgentApprovalRequest,
   CreateAiAgentApprovalResponse,
@@ -182,6 +189,7 @@ import type {
   CreateHostUserRequest,
   CreateK3CloudConnectionConfigRequest,
   CreateK3CloudDocumentSyncRequest,
+  CreateKafkaReplayOperationRequest,
   CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
   CreateNotificationProducerSceneRequest,
@@ -206,11 +214,14 @@ import type {
   CreateSerialNumberRuleRequest,
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
+  CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CutoverEvidenceResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
   DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
+  DelegateWorkflowTodoRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
   DeleteCodeGenerationTemplateRequest,
@@ -225,6 +236,9 @@ import type {
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
+  DeliveryCutoverResponse,
+  DeliveryRollbackResponse,
+  DeliveryStatusResponse,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
   DiagnosticPolicyRuleResponse,
@@ -239,6 +253,9 @@ import type {
   EnumCatalogDictGenerationUnmanagedItem,
   EnumCatalogMember,
   EnumCatalogSummary,
+  EventDeliveryOwner,
+  EventDeliveryRollbackPhase,
+  EventStreamStatusResponse,
   ExceptionLogResponse,
   ExecuteReportingDefinitionRequest,
   FieldProjectionDefaultVisibility,
@@ -340,6 +357,10 @@ import type {
   JsonElement,
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
+  KafkaRangeReplayRequest,
+  KafkaRangeReplayResponse,
+  KafkaReplayOperationResponse,
+  KafkaReplayPartitionResponse,
   LocalePreferenceResponse,
   LogCorrelationSnapshot,
   LogFileList,
@@ -377,6 +398,7 @@ import type {
   NotificationTemplateResponse,
   OcrIdCardTaskResponse,
   OcrProviderConfigResponse,
+  OperationalDeadLetterResponse,
   OperationLogDetailsContextV1,
   OperationLogDetailsResponse,
   OperationLogExportRequestSummaryV1,
@@ -385,10 +407,15 @@ import type {
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
   OrganizationPositionResponse,
+  OrganizationReportingCandidate,
+  OrganizationReportingLineResponse,
+  OrganizationUnitLeaderCandidateResponse,
+  OrganizationUnitLeadershipResponse,
   OrganizationUnitResponse,
   OrganizationUserPositionResponse,
   OrganizationUserUnitResponse,
   OutboundCallLogResponse,
+  OutboxBacklogSummaryResponse,
   PagedResultOfAccessLogResponse,
   PagedResultOfAdministrativeRegionResponse,
   PagedResultOfAiAgentToolCallListItem,
@@ -433,6 +460,7 @@ import type {
   PagedResultOfImportExportTaskResponse,
   PagedResultOfInboxMessageResponse,
   PagedResultOfK3CloudDocumentSyncResponse,
+  PagedResultOfKafkaReplayOperationResponse,
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
@@ -441,10 +469,13 @@ import type {
   PagedResultOfNotificationQuotaPolicyResponse,
   PagedResultOfNotificationTemplateResponse,
   PagedResultOfOcrIdCardTaskResponse,
+  PagedResultOfOperationalDeadLetterResponse,
   PagedResultOfOperationLogResponse,
   PagedResultOfOrganizationAssignableUserResponse,
   PagedResultOfOrganizationPositionLevelResponse,
   PagedResultOfOrganizationPositionResponse,
+  PagedResultOfOrganizationReportingCandidate,
+  PagedResultOfOrganizationUnitLeaderCandidateResponse,
   PagedResultOfOrganizationUnitResponse,
   PagedResultOfOrganizationUserPositionResponse,
   PagedResultOfOrganizationUserUnitResponse,
@@ -498,14 +529,21 @@ import type {
   PublishReportingDefinitionRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  PublishWorkflowWorkCalendarRequest,
   ReassignWorkflowInstanceRequest,
+  RecallWorkflowTodoDelegationRequest,
   ReceivedHostAnnouncementDetailResponse,
   ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
   ReconcileNotificationDeliveryRequest,
+  ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
+  RecoverDeadLetterRequest,
+  RecoverDeadLetterResponse,
+  RecoverRollbackRequest,
   RecoverWorkflowInstanceRequest,
+  ReleaseWorkflowTodoRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -526,6 +564,7 @@ import type {
   ReportingParameterSchemaEntry,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
+  RequestWorkflowManualReminder,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
@@ -544,6 +583,8 @@ import type {
   RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
+  RollbackOperationResponse,
+  SaveWorkflowDesignerAssetRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
@@ -569,9 +610,14 @@ import type {
   SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetNotificationQuotaPolicyEnabledRequest,
+  SetOrganizationReportingLineRequest,
+  SetOrganizationUnitLeadershipRequest,
   SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
+  ShadowCapturePolicyResponse,
+  ShadowCaptureResponse,
+  StartShadowCaptureRequest,
   StartWorkflowInstanceRequest,
   StaticImportRowPreviewResult,
   StaticImportSchemaDefinition,
@@ -595,6 +641,7 @@ import type {
   TestReportingDataSourceResult,
   TokenResponse,
   TotpEnrollmentStatusResponse,
+  TransferWorkflowTodoRequest,
   UpdateAdministrativeRegionRequest,
   UpdateAiChatSessionRequest,
   UpdateAiKnowledgeBaseRequest,
@@ -653,13 +700,31 @@ import type {
   UpdateTenantBrandingRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
+  UpdateWorkflowWorkCalendarRequest,
+  VerifyCutoverRequest,
   VerifyRecipientEndpointCodeRequest,
+  VoteWorkflowTodoRequest,
+  WithdrawWorkflowInstanceRequest,
+  WorkflowApprovalGroupProgressResponse,
   WorkflowAssigneePreviewResponse,
+  WorkflowBusinessActionCatalogItemResponse,
+  WorkflowBusinessActionCatalogResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
+  WorkflowClaimPoolPageResponse,
+  WorkflowClaimPoolResponse,
+  WorkflowClaimProgressResponse,
+  WorkflowConnectorAttemptResponse,
+  WorkflowConnectorCallPageResponse,
+  WorkflowConnectorCallResponse,
+  WorkflowConnectorCatalogItemResponse,
+  WorkflowConnectorCatalogResponse,
+  WorkflowConnectorParameterResponse,
+  WorkflowConnectorResolutionResponse,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
+  WorkflowDesignerAssetResponse,
   WorkflowExecutionLogResponse,
   WorkflowFormComponentCatalogResponse,
   WorkflowFormComponentResponse,
@@ -672,16 +737,42 @@ import type {
   WorkflowGatewayJoinResponse,
   WorkflowInstanceListItemResponse,
   WorkflowInstanceResponse,
+  WorkflowManualReminderResponse,
+  WorkflowManualReminderTargetResponse,
+  WorkflowManualReminderTargetsResponse,
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowPositionCandidatePageResponse,
+  WorkflowPositionCandidateResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
   WorkflowRecoveryTaskResponse,
+  WorkflowSignatureUploadResponse,
+  WorkflowStarterSelectionDescriptorResponse,
+  WorkflowStarterSelectionsResponse,
+  WorkflowTaskProgressResponse,
+  WorkflowTodoCountersignChainResponse,
+  WorkflowTodoCountersignItemResponse,
+  WorkflowTodoDelegationResponse,
+  WorkflowTodoDelegationStateResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoListItemResponse,
   WorkflowTodoReturnTargetResponse,
-  WorkflowTodoRuntimeResponse
+  WorkflowTodoRuntimeResponse,
+  WorkflowVoteFormResponse,
+  WorkflowVoteProgressResponse,
+  WorkflowWithdrawalAvailabilityResponse,
+  WorkflowWorkCalendarDraft,
+  WorkflowWorkCalendarException,
+  WorkflowWorkCalendarPageResponse,
+  WorkflowWorkCalendarRange,
+  WorkflowWorkCalendarResponse,
+  WorkflowWorkCalendarSummary,
+  WorkflowWorkCalendarVersionPageResponse,
+  WorkflowWorkCalendarVersionResponse,
+  WorkflowWorkCalendarVersionSummary,
+  WorkflowWorkCalendarWeekday
 } from './models.generated.js';
 import {
   readAccessLogCursorPageResponse,
@@ -761,9 +852,13 @@ import {
   readCreateAiAgentRunResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
+  readCutoverEvidenceResponse,
   readDataApprovalRequestResponse,
   readDataApprovalScenarioResponse,
   readDataApprovalsListScenariosResponse,
+  readDeliveryCutoverResponse,
+  readDeliveryRollbackResponse,
+  readDeliveryStatusResponse,
   readDiagnosticPolicyResponse,
   readDictItemResponse,
   readDictTypeResponse,
@@ -839,6 +934,8 @@ import {
   readK3CloudConnectionConfigResponse,
   readK3CloudDocumentSyncResponse,
   readK3cloudListConnectionConfigsResponse,
+  readKafkaRangeReplayResponse,
+  readKafkaReplayOperationResponse,
   readLocalePreferenceResponse,
   readLogFileList,
   readLogFileTail,
@@ -864,9 +961,12 @@ import {
   readObservabilityListServerInstancesResponse,
   readOcrIdCardTaskResponse,
   readOcrProviderConfigResponse,
+  readOperationalDeadLetterResponse,
   readOperationLogDetailsResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
+  readOrganizationReportingLineResponse,
+  readOrganizationUnitLeadershipResponse,
   readOrganizationUnitResponse,
   readOrganizationUserPositionResponse,
   readOrganizationUserUnitResponse,
@@ -914,6 +1014,7 @@ import {
   readPagedResultOfImportExportTaskResponse,
   readPagedResultOfInboxMessageResponse,
   readPagedResultOfK3CloudDocumentSyncResponse,
+  readPagedResultOfKafkaReplayOperationResponse,
   readPagedResultOfMyReleaseNoteResponse,
   readPagedResultOfNotificationBindingResponse,
   readPagedResultOfNotificationDeliveryResponse,
@@ -922,10 +1023,13 @@ import {
   readPagedResultOfNotificationQuotaPolicyResponse,
   readPagedResultOfNotificationTemplateResponse,
   readPagedResultOfOcrIdCardTaskResponse,
+  readPagedResultOfOperationalDeadLetterResponse,
   readPagedResultOfOperationLogResponse,
   readPagedResultOfOrganizationAssignableUserResponse,
   readPagedResultOfOrganizationPositionLevelResponse,
   readPagedResultOfOrganizationPositionResponse,
+  readPagedResultOfOrganizationReportingCandidate,
+  readPagedResultOfOrganizationUnitLeaderCandidateResponse,
   readPagedResultOfOrganizationUnitResponse,
   readPagedResultOfOrganizationUserPositionResponse,
   readPagedResultOfOrganizationUserUnitResponse,
@@ -958,6 +1062,7 @@ import {
   readPrintingTemplateVersionResponse,
   readReceivedHostAnnouncementDetailResponse,
   readRecipientEndpointResponse,
+  readRecoverDeadLetterResponse,
   readRegionsGetAdministrativeRegionTreeResponse,
   readRegionsListAdministrativeRegionChildrenResponse,
   readReportingDataSourceResponse,
@@ -974,6 +1079,7 @@ import {
   readReportingQueryPortDefinition,
   readRevealHostUserProfileFieldsResponse,
   readRevokeAllHostUserSessionsResponse,
+  readRollbackOperationResponse,
   readSelfServiceProfileResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
@@ -991,6 +1097,7 @@ import {
   readSettingsListHostDictItemsByTypeCodeResponse,
   readSettingsListHostEnumCatalogsResponse,
   readSettingsListTenantDictItemsByTypeCodeResponse,
+  readShadowCaptureResponse,
   readStaticImportSchemaDefinition,
   readSuperAdministratorChangeResponse,
   readTenantBrandingResponse,
@@ -1005,9 +1112,16 @@ import {
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
   readWorkflowAssigneePreviewResponse,
+  readWorkflowBusinessActionCatalogResponse,
   readWorkflowCcReadResponse,
+  readWorkflowClaimPoolPageResponse,
+  readWorkflowConnectorCallPageResponse,
+  readWorkflowConnectorCallResponse,
+  readWorkflowConnectorCatalogResponse,
+  readWorkflowConnectorResolutionResponse,
   readWorkflowDefinitionResponse,
   readWorkflowDefinitionVersionResponse,
+  readWorkflowDesignerAssetResponse,
   readWorkflowFormComponentCatalogResponse,
   readWorkflowFormResponse,
   readWorkflowFormVersionResponse,
@@ -1019,11 +1133,22 @@ import {
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyCcResponse,
   readWorkflowListTodoReturnTargetsResponse,
+  readWorkflowManualReminderResponse,
+  readWorkflowManualReminderTargetsResponse,
   readWorkflowNodeTypeCatalogResponse,
+  readWorkflowPositionCandidatePageResponse,
   readWorkflowRecipientCandidatePageResponse,
   readWorkflowRecoveryTaskResponse,
+  readWorkflowSignatureUploadResponse,
+  readWorkflowStarterSelectionsResponse,
+  readWorkflowTodoCountersignChainResponse,
+  readWorkflowTodoDelegationStateResponse,
   readWorkflowTodoDetailResponse,
-  readWorkflowTodoRuntimeResponse
+  readWorkflowTodoRuntimeResponse,
+  readWorkflowWorkCalendarPageResponse,
+  readWorkflowWorkCalendarResponse,
+  readWorkflowWorkCalendarVersionPageResponse,
+  readWorkflowWorkCalendarVersionResponse
 } from './guards.generated.js';
 
 export type GeneratedJsonOperation<T> = (
@@ -8609,6 +8734,536 @@ export async function k3cloudUpdateConnectionConfig(
   return readK3CloudConnectionConfigResponse(value);
 }
 
+export interface MessagingCancelReplayOperationParameters {
+  readonly id: string;
+  readonly body: ChangeKafkaReplayOperationRequest;
+}
+
+export async function messagingCancelReplayOperation(
+  http: HttpClient,
+  parameters: MessagingCancelReplayOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<KafkaReplayOperationResponse> {
+  const path = `/api/v1/messaging/kafka/replay-operations/${encodeURIComponent(String(parameters.id))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readKafkaReplayOperationResponse(value);
+}
+
+export interface MessagingCloseShadowCaptureParameters {
+  readonly generation: string;
+  readonly body: CloseShadowCaptureRequest;
+}
+
+export async function messagingCloseShadowCapture(
+  http: HttpClient,
+  parameters: MessagingCloseShadowCaptureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ShadowCaptureResponse> {
+  const path = `/api/v1/messaging/delivery/shadow-captures/${encodeURIComponent(String(parameters.generation))}/close`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readShadowCaptureResponse(value);
+}
+
+export interface MessagingCreateReplayOperationParameters {
+  readonly body: CreateKafkaReplayOperationRequest;
+}
+
+export async function messagingCreateReplayOperation(
+  http: HttpClient,
+  parameters: MessagingCreateReplayOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<KafkaReplayOperationResponse> {
+  const path = `/api/v1/messaging/kafka/replay-operations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readKafkaReplayOperationResponse(value);
+}
+
+export interface MessagingCutoverDeliveryOwnerParameters {
+  readonly body: ChangeDeliveryOwnerRequest;
+}
+
+export async function messagingCutoverDeliveryOwner(
+  http: HttpClient,
+  parameters: MessagingCutoverDeliveryOwnerParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DeliveryCutoverResponse> {
+  const path = `/api/v1/messaging/delivery/cutover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDeliveryCutoverResponse(value);
+}
+
+export interface MessagingExecuteReplayOperationParameters {
+  readonly id: string;
+  readonly body: ChangeKafkaReplayOperationRequest;
+}
+
+export async function messagingExecuteReplayOperation(
+  http: HttpClient,
+  parameters: MessagingExecuteReplayOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<KafkaReplayOperationResponse> {
+  const path = `/api/v1/messaging/kafka/replay-operations/${encodeURIComponent(String(parameters.id))}/execute`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readKafkaReplayOperationResponse(value);
+}
+
+export interface MessagingGetCurrentShadowCaptureParameters {
+  readonly eventType: string;
+  readonly schemaVersion: number;
+}
+
+export async function messagingGetCurrentShadowCapture(
+  http: HttpClient,
+  parameters: MessagingGetCurrentShadowCaptureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ShadowCaptureResponse> {
+  const query = new URLSearchParams();
+  query.set('eventType', String(parameters.eventType));
+  query.set('schemaVersion', String(parameters.schemaVersion));
+  const path = query.size === 0 ? `/api/v1/messaging/delivery/shadow-captures/current` : `/api/v1/messaging/delivery/shadow-captures/current?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readShadowCaptureResponse(value);
+}
+
+export interface MessagingGetDeliveryOverviewParameters {
+
+}
+
+export async function messagingGetDeliveryOverview(
+  http: HttpClient,
+  parameters: MessagingGetDeliveryOverviewParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DeliveryStatusResponse> {
+  const path = `/api/v1/messaging/delivery-status`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDeliveryStatusResponse(value);
+}
+
+export interface MessagingGetLatestRollbackOperationParameters {
+  readonly eventType: string;
+  readonly schemaVersion: number;
+}
+
+export async function messagingGetLatestRollbackOperation(
+  http: HttpClient,
+  parameters: MessagingGetLatestRollbackOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RollbackOperationResponse> {
+  const query = new URLSearchParams();
+  query.set('eventType', String(parameters.eventType));
+  query.set('schemaVersion', String(parameters.schemaVersion));
+  const path = query.size === 0 ? `/api/v1/messaging/delivery/rollback-operations` : `/api/v1/messaging/delivery/rollback-operations?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRollbackOperationResponse(value);
+}
+
+export interface MessagingGetReplayOperationParameters {
+  readonly id: string;
+}
+
+export async function messagingGetReplayOperation(
+  http: HttpClient,
+  parameters: MessagingGetReplayOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<KafkaReplayOperationResponse> {
+  const path = `/api/v1/messaging/kafka/replay-operations/${encodeURIComponent(String(parameters.id))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readKafkaReplayOperationResponse(value);
+}
+
+export interface MessagingGetRollbackOperationParameters {
+  readonly generation: string;
+}
+
+export async function messagingGetRollbackOperation(
+  http: HttpClient,
+  parameters: MessagingGetRollbackOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RollbackOperationResponse> {
+  const path = `/api/v1/messaging/delivery/rollback-operations/${encodeURIComponent(String(parameters.generation))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRollbackOperationResponse(value);
+}
+
+export interface MessagingKafkaGetDeadLetterParameters {
+  readonly id: string;
+}
+
+export async function messagingKafkaGetDeadLetter(
+  http: HttpClient,
+  parameters: MessagingKafkaGetDeadLetterParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OperationalDeadLetterResponse> {
+  const path = `/api/v1/messaging/kafka/dead-letters/${encodeURIComponent(String(parameters.id))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOperationalDeadLetterResponse(value);
+}
+
+export interface MessagingKafkaListDeadLettersParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly messageType?: string;
+  readonly schemaVersion?: number;
+  readonly errorCode?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+  readonly consumerName?: string;
+}
+
+export async function messagingKafkaListDeadLetters(
+  http: HttpClient,
+  parameters: MessagingKafkaListDeadLettersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfOperationalDeadLetterResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.messageType !== undefined) {
+    query.set('messageType', String(parameters.messageType));
+  }
+  if (parameters.schemaVersion !== undefined) {
+    query.set('schemaVersion', String(parameters.schemaVersion));
+  }
+  if (parameters.errorCode !== undefined) {
+    query.set('errorCode', String(parameters.errorCode));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  if (parameters.consumerName !== undefined) {
+    query.set('consumerName', String(parameters.consumerName));
+  }
+  const path = query.size === 0 ? `/api/v1/messaging/kafka/dead-letters` : `/api/v1/messaging/kafka/dead-letters?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfOperationalDeadLetterResponse(value);
+}
+
+export interface MessagingKafkaRecoverDeadLetterParameters {
+  readonly id: string;
+  readonly body: RecoverDeadLetterRequest;
+}
+
+export async function messagingKafkaRecoverDeadLetter(
+  http: HttpClient,
+  parameters: MessagingKafkaRecoverDeadLetterParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RecoverDeadLetterResponse> {
+  const path = `/api/v1/messaging/kafka/dead-letters/${encodeURIComponent(String(parameters.id))}/replay`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRecoverDeadLetterResponse(value);
+}
+
+export interface MessagingLegacyGetDeadLetterParameters {
+  readonly id: string;
+}
+
+export async function messagingLegacyGetDeadLetter(
+  http: HttpClient,
+  parameters: MessagingLegacyGetDeadLetterParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OperationalDeadLetterResponse> {
+  const path = `/api/v1/messaging/outbox/dead-letters/${encodeURIComponent(String(parameters.id))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOperationalDeadLetterResponse(value);
+}
+
+export interface MessagingLegacyListDeadLettersParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly messageType?: string;
+  readonly schemaVersion?: number;
+  readonly errorCode?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+  readonly consumerName?: string;
+}
+
+export async function messagingLegacyListDeadLetters(
+  http: HttpClient,
+  parameters: MessagingLegacyListDeadLettersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfOperationalDeadLetterResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.messageType !== undefined) {
+    query.set('messageType', String(parameters.messageType));
+  }
+  if (parameters.schemaVersion !== undefined) {
+    query.set('schemaVersion', String(parameters.schemaVersion));
+  }
+  if (parameters.errorCode !== undefined) {
+    query.set('errorCode', String(parameters.errorCode));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  if (parameters.consumerName !== undefined) {
+    query.set('consumerName', String(parameters.consumerName));
+  }
+  const path = query.size === 0 ? `/api/v1/messaging/outbox/dead-letters` : `/api/v1/messaging/outbox/dead-letters?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfOperationalDeadLetterResponse(value);
+}
+
+export interface MessagingLegacyRecoverDeadLetterParameters {
+  readonly id: string;
+  readonly body: RecoverDeadLetterRequest;
+}
+
+export async function messagingLegacyRecoverDeadLetter(
+  http: HttpClient,
+  parameters: MessagingLegacyRecoverDeadLetterParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RecoverDeadLetterResponse> {
+  const path = `/api/v1/messaging/outbox/dead-letters/${encodeURIComponent(String(parameters.id))}/requeue`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRecoverDeadLetterResponse(value);
+}
+
+export interface MessagingListReplayOperationsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function messagingListReplayOperations(
+  http: HttpClient,
+  parameters: MessagingListReplayOperationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfKafkaReplayOperationResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/messaging/kafka/replay-operations` : `/api/v1/messaging/kafka/replay-operations?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfKafkaReplayOperationResponse(value);
+}
+
+export interface MessagingRecoverRollbackOperationParameters {
+  readonly generation: string;
+  readonly body: RecoverRollbackRequest;
+}
+
+export async function messagingRecoverRollbackOperation(
+  http: HttpClient,
+  parameters: MessagingRecoverRollbackOperationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RollbackOperationResponse> {
+  const path = `/api/v1/messaging/delivery/rollback-operations/${encodeURIComponent(String(parameters.generation))}/recover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRollbackOperationResponse(value);
+}
+
+export interface MessagingReplayKafkaRangeParameters {
+  readonly body: KafkaRangeReplayRequest;
+}
+
+export async function messagingReplayKafkaRange(
+  http: HttpClient,
+  parameters: MessagingReplayKafkaRangeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<KafkaRangeReplayResponse> {
+  const path = `/api/v1/messaging/kafka/replay`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readKafkaRangeReplayResponse(value);
+}
+
+export interface MessagingRollbackDeliveryOwnerParameters {
+  readonly body: ChangeDeliveryOwnerRequest;
+}
+
+export async function messagingRollbackDeliveryOwner(
+  http: HttpClient,
+  parameters: MessagingRollbackDeliveryOwnerParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DeliveryRollbackResponse> {
+  const path = `/api/v1/messaging/delivery/rollback`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDeliveryRollbackResponse(value);
+}
+
+export interface MessagingStartShadowCaptureParameters {
+  readonly body: StartShadowCaptureRequest;
+}
+
+export async function messagingStartShadowCapture(
+  http: HttpClient,
+  parameters: MessagingStartShadowCaptureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ShadowCaptureResponse> {
+  const path = `/api/v1/messaging/delivery/shadow-captures`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readShadowCaptureResponse(value);
+}
+
+export interface MessagingVerifyCutoverEvidenceParameters {
+  readonly body: VerifyCutoverRequest;
+}
+
+export async function messagingVerifyCutoverEvidence(
+  http: HttpClient,
+  parameters: MessagingVerifyCutoverEvidenceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CutoverEvidenceResponse> {
+  const path = `/api/v1/messaging/delivery/cutover-evidence`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCutoverEvidenceResponse(value);
+}
+
 export interface NotificationsArchiveMyInboxMessageParameters {
   readonly messageId: string;
 }
@@ -10700,6 +11355,24 @@ export async function organizationGetHostUserManagementReference(
   return readHostUserManagementOrganizationReferenceResponse(value);
 }
 
+export interface OrganizationGetReportingLineParameters {
+  readonly employeeUserId: string;
+}
+
+export async function organizationGetReportingLine(
+  http: HttpClient,
+  parameters: OrganizationGetReportingLineParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OrganizationReportingLineResponse> {
+  const path = `/api/v1/organization/users/${encodeURIComponent(String(parameters.employeeUserId))}/reporting-line`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOrganizationReportingLineResponse(value);
+}
+
 export interface OrganizationGetTenantPositionParameters {
   readonly positionId: string;
 }
@@ -10752,6 +11425,24 @@ export async function organizationGetTenantUnit(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readOrganizationUnitResponse(value);
+}
+
+export interface OrganizationGetTenantUnitLeadershipParameters {
+  readonly unitId: string;
+}
+
+export async function organizationGetTenantUnitLeadership(
+  http: HttpClient,
+  parameters: OrganizationGetTenantUnitLeadershipParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OrganizationUnitLeadershipResponse> {
+  const path = `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}/leadership`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOrganizationUnitLeadershipResponse(value);
 }
 
 export interface OrganizationImportTenantPositionsParameters {
@@ -10848,6 +11539,33 @@ export async function organizationListAssignableTenantUserUnitUsers(
   return readPagedResultOfOrganizationAssignableUserResponse(value);
 }
 
+export interface OrganizationListReportingCandidatesParameters {
+  readonly employeeUserId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function organizationListReportingCandidates(
+  http: HttpClient,
+  parameters: OrganizationListReportingCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfOrganizationReportingCandidate> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/organization/users/${encodeURIComponent(String(parameters.employeeUserId))}/reporting-line/candidates` : `/api/v1/organization/users/${encodeURIComponent(String(parameters.employeeUserId))}/reporting-line/candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfOrganizationReportingCandidate(value);
+}
+
 export interface OrganizationListTenantPositionLevelsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -10898,6 +11616,33 @@ export async function organizationListTenantPositions(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfOrganizationPositionResponse(value);
+}
+
+export interface OrganizationListTenantUnitLeaderCandidatesParameters {
+  readonly unitId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function organizationListTenantUnitLeaderCandidates(
+  http: HttpClient,
+  parameters: OrganizationListTenantUnitLeaderCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfOrganizationUnitLeaderCandidateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}/leadership/candidates` : `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}/leadership/candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfOrganizationUnitLeaderCandidateResponse(value);
 }
 
 export interface OrganizationListTenantUnitsParameters {
@@ -10992,6 +11737,52 @@ export async function organizationListTenantUserUnits(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfOrganizationUserUnitResponse(value);
+}
+
+export interface OrganizationSetReportingLineParameters {
+  readonly employeeUserId: string;
+  readonly body: SetOrganizationReportingLineRequest;
+}
+
+export async function organizationSetReportingLine(
+  http: HttpClient,
+  parameters: OrganizationSetReportingLineParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OrganizationReportingLineResponse> {
+  const path = `/api/v1/organization/users/${encodeURIComponent(String(parameters.employeeUserId))}/reporting-line`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOrganizationReportingLineResponse(value);
+}
+
+export interface OrganizationSetTenantUnitLeadershipParameters {
+  readonly unitId: string;
+  readonly body: SetOrganizationUnitLeadershipRequest;
+}
+
+export async function organizationSetTenantUnitLeadership(
+  http: HttpClient,
+  parameters: OrganizationSetTenantUnitLeadershipParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OrganizationUnitLeadershipResponse> {
+  const path = `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}/leadership`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOrganizationUnitLeadershipResponse(value);
 }
 
 export interface OrganizationUpdateHostUserManagementUserPositionParameters {
@@ -14596,6 +15387,29 @@ export async function workflowApproveTodo(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowAssignClaimPoolParameters {
+  readonly poolId: string;
+  readonly body: AssignWorkflowPoolRequest;
+}
+
+export async function workflowAssignClaimPool(
+  http: HttpClient,
+  parameters: WorkflowAssignClaimPoolParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/claim-pools/${encodeURIComponent(String(parameters.poolId))}/assign`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowCancelInstanceParameters {
   readonly instanceId: string;
   readonly body: CancelWorkflowInstanceRequest;
@@ -14608,6 +15422,98 @@ export async function workflowCancelInstance(
   options?: RequestOptions
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowCancelTodoCountersignParameters {
+  readonly todoId: string;
+  readonly body: CancelWorkflowTodoCountersignRequest;
+}
+
+export async function workflowCancelTodoCountersign(
+  http: HttpClient,
+  parameters: WorkflowCancelTodoCountersignParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/countersign/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowClaimPoolParameters {
+  readonly poolId: string;
+  readonly body: ClaimWorkflowPoolRequest;
+}
+
+export async function workflowClaimPool(
+  http: HttpClient,
+  parameters: WorkflowClaimPoolParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/claim-pools/${encodeURIComponent(String(parameters.poolId))}/claim`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowCompleteTodoParameters {
+  readonly todoId: string;
+  readonly body: ActWorkflowTodoRequest;
+}
+
+export async function workflowCompleteTodo(
+  http: HttpClient,
+  parameters: WorkflowCompleteTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/complete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowCountersignTodoParameters {
+  readonly todoId: string;
+  readonly body: CountersignWorkflowTodoRequest;
+}
+
+export async function workflowCountersignTodo(
+  http: HttpClient,
+  parameters: WorkflowCountersignTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/countersign`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -14663,6 +15569,51 @@ export async function workflowCreateForm(
   return readWorkflowFormResponse(value);
 }
 
+export interface WorkflowCreateWorkCalendarParameters {
+  readonly body: CreateWorkflowWorkCalendarRequest;
+}
+
+export async function workflowCreateWorkCalendar(
+  http: HttpClient,
+  parameters: WorkflowCreateWorkCalendarParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarResponse> {
+  const path = `/api/v1/workflow/work-calendars`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarResponse(value);
+}
+
+export interface WorkflowDelegateTodoParameters {
+  readonly todoId: string;
+  readonly body: DelegateWorkflowTodoRequest;
+}
+
+export async function workflowDelegateTodo(
+  http: HttpClient,
+  parameters: WorkflowDelegateTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/delegate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowDeleteDefinitionVersionParameters {
   readonly versionId: string;
 }
@@ -14701,6 +15652,64 @@ export async function workflowDeleteFormVersion(
   }
 }
 
+export interface WorkflowDownloadTodoFormAttachmentParameters {
+  readonly todoId: string;
+  readonly fileId: string;
+}
+
+export async function workflowDownloadTodoFormAttachment(
+  http: HttpClient,
+  parameters: WorkflowDownloadTodoFormAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/form-attachments/${encodeURIComponent(String(parameters.fileId))}/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface WorkflowGetBusinessActionCatalogParameters {
+
+}
+
+export async function workflowGetBusinessActionCatalog(
+  http: HttpClient,
+  parameters: WorkflowGetBusinessActionCatalogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowBusinessActionCatalogResponse> {
+  const path = `/api/v1/workflow/definitions/business-action-catalog`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowBusinessActionCatalogResponse(value);
+}
+
+export interface WorkflowGetConnectorCallParameters {
+  readonly instanceId: string;
+  readonly callId: string;
+}
+
+export async function workflowGetConnectorCall(
+  http: HttpClient,
+  parameters: WorkflowGetConnectorCallParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowConnectorCallResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/connector-calls/${encodeURIComponent(String(parameters.callId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowConnectorCallResponse(value);
+}
+
 export interface WorkflowGetDefinitionParameters {
   readonly definitionId: string;
 }
@@ -14717,6 +15726,42 @@ export async function workflowGetDefinition(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowDefinitionResponse(value);
+}
+
+export interface WorkflowGetDefinitionVersionParameters {
+  readonly versionId: string;
+}
+
+export async function workflowGetDefinitionVersion(
+  http: HttpClient,
+  parameters: WorkflowGetDefinitionVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionVersionResponse> {
+  const path = `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionVersionResponse(value);
+}
+
+export interface WorkflowGetDesignerAssetParameters {
+  readonly formId: string;
+}
+
+export async function workflowGetDesignerAsset(
+  http: HttpClient,
+  parameters: WorkflowGetDesignerAssetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDesignerAssetResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/design-asset`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDesignerAssetResponse(value);
 }
 
 export interface WorkflowGetFormParameters {
@@ -14827,6 +15872,24 @@ export async function workflowGetRecoveryTask(
   return readWorkflowRecoveryTaskResponse(value);
 }
 
+export interface WorkflowGetStarterSelectionsParameters {
+  readonly versionId: string;
+}
+
+export async function workflowGetStarterSelections(
+  http: HttpClient,
+  parameters: WorkflowGetStarterSelectionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowStarterSelectionsResponse> {
+  const path = `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}/starter-selections`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowStarterSelectionsResponse(value);
+}
+
 export interface WorkflowGetTodoParameters {
   readonly todoId: string;
 }
@@ -14845,6 +15908,42 @@ export async function workflowGetTodo(
   return readWorkflowTodoDetailResponse(value);
 }
 
+export interface WorkflowGetTodoCountersignChainParameters {
+  readonly todoId: string;
+}
+
+export async function workflowGetTodoCountersignChain(
+  http: HttpClient,
+  parameters: WorkflowGetTodoCountersignChainParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowTodoCountersignChainResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/countersign-chain`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowTodoCountersignChainResponse(value);
+}
+
+export interface WorkflowGetTodoDelegationParameters {
+  readonly todoId: string;
+}
+
+export async function workflowGetTodoDelegation(
+  http: HttpClient,
+  parameters: WorkflowGetTodoDelegationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowTodoDelegationStateResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/delegation`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowTodoDelegationStateResponse(value);
+}
+
 export interface WorkflowGetTodoRuntimeParameters {
   readonly todoId: string;
 }
@@ -14861,6 +15960,113 @@ export async function workflowGetTodoRuntime(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowTodoRuntimeResponse(value);
+}
+
+export interface WorkflowGetWorkCalendarParameters {
+  readonly calendarId: string;
+}
+
+export async function workflowGetWorkCalendar(
+  http: HttpClient,
+  parameters: WorkflowGetWorkCalendarParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarResponse> {
+  const path = `/api/v1/workflow/work-calendars/${encodeURIComponent(String(parameters.calendarId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarResponse(value);
+}
+
+export interface WorkflowGetWorkCalendarVersionParameters {
+  readonly versionId: string;
+}
+
+export async function workflowGetWorkCalendarVersion(
+  http: HttpClient,
+  parameters: WorkflowGetWorkCalendarVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarVersionResponse> {
+  const path = `/api/v1/workflow/work-calendars/versions/${encodeURIComponent(String(parameters.versionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarVersionResponse(value);
+}
+
+export interface WorkflowListClaimPoolsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListClaimPools(
+  http: HttpClient,
+  parameters: WorkflowListClaimPoolsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowClaimPoolPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/claim-pools` : `/api/v1/workflow/claim-pools?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowClaimPoolPageResponse(value);
+}
+
+export interface WorkflowListConnectorCallsParameters {
+  readonly instanceId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListConnectorCalls(
+  http: HttpClient,
+  parameters: WorkflowListConnectorCallsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowConnectorCallPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/connector-calls` : `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/connector-calls?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowConnectorCallPageResponse(value);
+}
+
+export interface WorkflowListConnectorCatalogParameters {
+
+}
+
+export async function workflowListConnectorCatalog(
+  http: HttpClient,
+  parameters: WorkflowListConnectorCatalogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowConnectorCatalogResponse> {
+  const path = `/api/v1/workflow/definitions/connectors`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowConnectorCatalogResponse(value);
 }
 
 export interface WorkflowListDefinitionsParameters {
@@ -14997,6 +16203,24 @@ export async function workflowListInstances(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfWorkflowInstanceListItemResponse(value);
+}
+
+export interface WorkflowListManualReminderTargetsParameters {
+  readonly instanceId: string;
+}
+
+export async function workflowListManualReminderTargets(
+  http: HttpClient,
+  parameters: WorkflowListManualReminderTargetsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowManualReminderTargetsResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/reminder-targets`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowManualReminderTargetsResponse(value);
 }
 
 export interface WorkflowListMyCcParameters {
@@ -15151,6 +16375,32 @@ export async function workflowListMyTodos(
   return readPagedResultOfWorkflowTodoListItemResponse(value);
 }
 
+export interface WorkflowListPositionCandidatesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListPositionCandidates(
+  http: HttpClient,
+  parameters: WorkflowListPositionCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowPositionCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/definitions/position-candidates` : `/api/v1/workflow/definitions/position-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowPositionCandidatePageResponse(value);
+}
+
 export interface WorkflowListRecipientCandidatesParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -15203,6 +16453,88 @@ export async function workflowListRecoveryTasks(
   return readPagedResultOfWorkflowRecoveryTaskResponse(value);
 }
 
+export interface WorkflowListStarterSelectionCandidatesParameters {
+  readonly versionId: string;
+  readonly selectionKey: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListStarterSelectionCandidates(
+  http: HttpClient,
+  parameters: WorkflowListStarterSelectionCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}/starter-selections/${encodeURIComponent(String(parameters.selectionKey))}/candidates` : `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}/starter-selections/${encodeURIComponent(String(parameters.selectionKey))}/candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
+}
+
+export interface WorkflowListTodoCountersignCandidatesParameters {
+  readonly todoId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListTodoCountersignCandidates(
+  http: HttpClient,
+  parameters: WorkflowListTodoCountersignCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/countersign-candidates` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/countersign-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
+}
+
+export interface WorkflowListTodoDelegationCandidatesParameters {
+  readonly todoId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListTodoDelegationCandidates(
+  http: HttpClient,
+  parameters: WorkflowListTodoDelegationCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/delegation-candidates` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/delegation-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
+}
+
 export interface WorkflowListTodoReturnTargetsParameters {
   readonly todoId: string;
   readonly page?: number;
@@ -15228,6 +16560,78 @@ export async function workflowListTodoReturnTargets(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowListTodoReturnTargetsResponse(value);
+}
+
+export interface WorkflowListTodoTransferCandidatesParameters {
+  readonly todoId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListTodoTransferCandidates(
+  http: HttpClient,
+  parameters: WorkflowListTodoTransferCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/transfer-candidates` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/transfer-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
+}
+
+export interface WorkflowListWorkCalendarsParameters {
+  readonly afterId?: string;
+}
+
+export async function workflowListWorkCalendars(
+  http: HttpClient,
+  parameters: WorkflowListWorkCalendarsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/work-calendars` : `/api/v1/workflow/work-calendars?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarPageResponse(value);
+}
+
+export interface WorkflowListWorkCalendarVersionsParameters {
+  readonly calendarId: string;
+  readonly beforeVersionNumber?: number;
+}
+
+export async function workflowListWorkCalendarVersions(
+  http: HttpClient,
+  parameters: WorkflowListWorkCalendarVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarVersionPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.beforeVersionNumber !== undefined) {
+    query.set('beforeVersionNumber', String(parameters.beforeVersionNumber));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/work-calendars/${encodeURIComponent(String(parameters.calendarId))}/versions` : `/api/v1/workflow/work-calendars/${encodeURIComponent(String(parameters.calendarId))}/versions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarVersionPageResponse(value);
 }
 
 export interface WorkflowMarkCcReadParameters {
@@ -15339,6 +16743,29 @@ export async function workflowPublishForm(
   return readWorkflowFormVersionResponse(value);
 }
 
+export interface WorkflowPublishWorkCalendarParameters {
+  readonly calendarId: string;
+  readonly body: PublishWorkflowWorkCalendarRequest;
+}
+
+export async function workflowPublishWorkCalendar(
+  http: HttpClient,
+  parameters: WorkflowPublishWorkCalendarParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarVersionResponse> {
+  const path = `/api/v1/workflow/work-calendars/${encodeURIComponent(String(parameters.calendarId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarVersionResponse(value);
+}
+
 export interface WorkflowReassignInstanceParameters {
   readonly instanceId: string;
   readonly body: ReassignWorkflowInstanceRequest;
@@ -15360,6 +16787,53 @@ export async function workflowReassignInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowRecallTodoDelegationParameters {
+  readonly todoId: string;
+  readonly body: RecallWorkflowTodoDelegationRequest;
+}
+
+export async function workflowRecallTodoDelegation(
+  http: HttpClient,
+  parameters: WorkflowRecallTodoDelegationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/delegation/recall`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowReconcileConnectorCallParameters {
+  readonly instanceId: string;
+  readonly callId: string;
+  readonly body: ReconcileWorkflowConnectorRequest;
+}
+
+export async function workflowReconcileConnectorCall(
+  http: HttpClient,
+  parameters: WorkflowReconcileConnectorCallParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowConnectorResolutionResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/connector-calls/${encodeURIComponent(String(parameters.callId))}/reconcile`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowConnectorResolutionResponse(value);
 }
 
 export interface WorkflowReconcileRecoveryTaskParameters {
@@ -15431,6 +16905,52 @@ export async function workflowRejectTodo(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowReleaseTodoParameters {
+  readonly todoId: string;
+  readonly body: ReleaseWorkflowTodoRequest;
+}
+
+export async function workflowReleaseTodo(
+  http: HttpClient,
+  parameters: WorkflowReleaseTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/release`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowRequestManualReminderParameters {
+  readonly instanceId: string;
+  readonly body: RequestWorkflowManualReminder;
+}
+
+export async function workflowRequestManualReminder(
+  http: HttpClient,
+  parameters: WorkflowRequestManualReminderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowManualReminderResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/remind`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowManualReminderResponse(value);
+}
+
 export interface WorkflowResumeInstanceParameters {
   readonly instanceId: string;
   readonly body: ResumeWorkflowInstanceRequest;
@@ -15498,6 +17018,29 @@ export async function workflowReturnTodo(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowSaveDesignerAssetParameters {
+  readonly formId: string;
+  readonly body: SaveWorkflowDesignerAssetRequest;
+}
+
+export async function workflowSaveDesignerAsset(
+  http: HttpClient,
+  parameters: WorkflowSaveDesignerAssetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDesignerAssetResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/design-asset`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDesignerAssetResponse(value);
 }
 
 export interface WorkflowSetDefinitionStatusParameters {
@@ -15568,6 +17111,29 @@ export async function workflowStartInstance(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowTransferTodoParameters {
+  readonly todoId: string;
+  readonly body: TransferWorkflowTodoRequest;
+}
+
+export async function workflowTransferTodo(
+  http: HttpClient,
+  parameters: WorkflowTransferTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/transfer`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowUpdateDefinitionDraftParameters {
   readonly definitionId: string;
   readonly body: UpdateWorkflowDefinitionDraftRequest;
@@ -15612,4 +17178,99 @@ export async function workflowUpdateFormDraft(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowFormResponse(value);
+}
+
+export interface WorkflowUpdateWorkCalendarDraftParameters {
+  readonly calendarId: string;
+  readonly body: UpdateWorkflowWorkCalendarRequest;
+}
+
+export async function workflowUpdateWorkCalendarDraft(
+  http: HttpClient,
+  parameters: WorkflowUpdateWorkCalendarDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowWorkCalendarResponse> {
+  const path = `/api/v1/workflow/work-calendars/${encodeURIComponent(String(parameters.calendarId))}/draft`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowWorkCalendarResponse(value);
+}
+
+export interface WorkflowUploadTodoSignatureParameters {
+  readonly todoId: string;
+  readonly expectedRevision: number;
+  readonly file?: IFormFile;
+}
+
+export async function workflowUploadTodoSignature(
+  http: HttpClient,
+  parameters: WorkflowUploadTodoSignatureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowSignatureUploadResponse> {
+  const query = new URLSearchParams();
+  query.set('expectedRevision', String(parameters.expectedRevision));
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/signature-uploads` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/signature-uploads?${query.toString()}`;
+  const body = new FormData();
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowSignatureUploadResponse(value);
+}
+
+export interface WorkflowVoteTodoParameters {
+  readonly todoId: string;
+  readonly body: VoteWorkflowTodoRequest;
+}
+
+export async function workflowVoteTodo(
+  http: HttpClient,
+  parameters: WorkflowVoteTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/vote`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowWithdrawInstanceParameters {
+  readonly instanceId: string;
+  readonly body: WithdrawWorkflowInstanceRequest;
+}
+
+export async function workflowWithdrawInstance(
+  http: HttpClient,
+  parameters: WorkflowWithdrawInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/withdraw`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
 }

@@ -1,4 +1,4 @@
-import { NodeType } from './const.js'
+﻿import { NodeType } from './const.js'
 function All() {}
 All.prototype = {
     timer: "",
@@ -60,6 +60,15 @@ All.prototype = {
         arr.splice(includesIndex, 1);
     },
     setApproverStr(nodeConfig) {
+        // 权威定义没有原版展示名单时保持可渲染，不从展示值推导办理权限。
+        const nodeUsers = Array.isArray(nodeConfig?.nodeUserList) ? nodeConfig.nodeUserList : []
+        const approval = nodeConfig?.approvalPolicy
+        if (approval?.modeKey === 'percent' && Number.isInteger(approval.requiredPercentage) &&
+            approval.requiredPercentage >= 1 && approval.requiredPercentage <= 100) {
+            return new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 })
+                .format(approval.requiredPercentage / 100)
+        }
+
         if (nodeConfig.noHanderAction == 3) {
             if (!nodeConfig.emptyNodeUserList || nodeConfig.emptyNodeUserList.length == 0) return ""
         }
@@ -104,8 +113,8 @@ All.prototype = {
                 syncNode: '同步他节点',
             }
             if (['member', 'role', 'post', 'dept'].includes(robSetType)) {
-                if (!nodeConfig.nodeUserList || nodeConfig.nodeUserList.length === 0) return ""
-                return this.arrToStr(nodeConfig.nodeUserList)
+                if (!nodeUsers || nodeUsers.length === 0) return ""
+                return this.arrToStr(nodeUsers)
             }
             if (robSetType === 'starterSelf') return '发起人自己'
             if (robSetType === 'formUser') return nodeConfig.formUserFieldKey ? ('表单字段：' + nodeConfig.formUserFieldKey) : ""
@@ -114,19 +123,19 @@ All.prototype = {
             return labelMap[robSetType] || ""
         }
         if (nodeConfig.settype == 1) {
-            if (nodeConfig.nodeUserList.length == 1) {
-                return nodeConfig.nodeUserList[0].name
-            } else if (nodeConfig.nodeUserList.length > 1) {
+            if (nodeUsers.length == 1) {
+                return nodeUsers[0].name
+            } else if (nodeUsers.length > 1) {
                 if (nodeConfig.examineMode == 1) {
-                    return this.arrToStr(nodeConfig.nodeUserList)
+                    return this.arrToStr(nodeUsers)
                 } else if (nodeConfig.examineMode == 2) {
                     let rate = nodeConfig.countersignPassRate == null ? 100 : Number(nodeConfig.countersignPassRate)
                     if (Number.isNaN(rate) || rate < 1 || rate > 100) return ""
-                    return nodeConfig.nodeUserList.length + "人会签(" + rate + "%)"
+                    return nodeUsers.length + "人会签(" + rate + "%)"
                 } else if (nodeConfig.examineMode == 3) {
-                    return nodeConfig.nodeUserList.length + "人或签"
+                    return nodeUsers.length + "人或签"
                 } else if (nodeConfig.examineMode == 4) {
-                    return nodeConfig.nodeUserList.length + "人并签"
+                    return nodeUsers.length + "人并签"
                 }
             }
         } else if (nodeConfig.settype == 2) {
@@ -141,17 +150,17 @@ All.prototype = {
                 return level + "并签"
             }
         } else if (nodeConfig.settype == 3) {
-            if (!nodeConfig.nodeUserList || nodeConfig.nodeUserList.length == 0) return ""
-            return this.arrToStr(nodeConfig.nodeUserList)
+            if (!nodeUsers || nodeUsers.length == 0) return ""
+            return this.arrToStr(nodeUsers)
         } else if (nodeConfig.settype == 4) {
             if (nodeConfig.selectRange == 1) {
                 return "发起人自选"
             } else {
-                if (nodeConfig.nodeUserList.length > 0) {
+                if (nodeUsers.length > 0) {
                     if (nodeConfig.selectRange == 2) {
                         return "发起人自选"
                     } else {
-                        return '发起人从' + nodeConfig.nodeUserList[0].name + '中自选'
+                        return '发起人从' + nodeUsers[0].name + '中自选'
                     }
                 } else {
                     return "";
@@ -160,13 +169,13 @@ All.prototype = {
         } else if (nodeConfig.settype == 5) {
             return "发起人自己"
         } else if (nodeConfig.settype == 6) {
-            if (!nodeConfig.nodeUserList || nodeConfig.nodeUserList.length == 0) return ""
-            return this.arrToStr(nodeConfig.nodeUserList)
+            if (!nodeUsers || nodeUsers.length == 0) return ""
+            return this.arrToStr(nodeUsers)
         } else if (nodeConfig.settype == 7) {
             return '从直接主管到通讯录中级别最高的第' + nodeConfig.examineEndDirectorLevel + '个层级主管'
         } else if (nodeConfig.settype == 8) {
-            if (!nodeConfig.nodeUserList || nodeConfig.nodeUserList.length == 0) return ""
-            return this.arrToStr(nodeConfig.nodeUserList)
+            if (!nodeUsers || nodeUsers.length == 0) return ""
+            return this.arrToStr(nodeUsers)
         } else if (nodeConfig.settype == 9) {
             return nodeConfig.formUserFieldKey ? ('表单字段：' + nodeConfig.formUserFieldKey) : ""
         }
@@ -187,6 +196,7 @@ All.prototype = {
         if (Number(nodeConfig?.type) === NodeType.ParallelRoute) return '所有分支都会执行'
         var currentNode = nodeConfig.conditionNodes[index];
         if (currentNode?.isDefault) return '其他条件进入此流程'
+        if (currentNode?.condition) return currentNode.condition.operator === 'and' ? '满足全部组合条件' : currentNode.condition.operator === 'or' ? '满足任一组合条件' : '已配置集合条件'
         if (currentNode?.fieldKey && currentNode?.operator) {
             const labels = {
                 equals: '等于', notEquals: '不等于', greaterThan: '大于',

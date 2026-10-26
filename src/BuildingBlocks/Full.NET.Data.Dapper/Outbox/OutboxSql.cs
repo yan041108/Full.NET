@@ -418,4 +418,34 @@ internal static class OutboxSql
           AND DeadLetteredAtUtc IS NULL;
         """,
         SqlDataScope.HostOnly);
+    /// <summary>一次分组读取活动 Legacy 流，保留上限哨兵行，不逐流发出查询。</summary>
+    public static readonly SqlStatement ReadStreamBacklogsSqlServer = new(
+        "outbox.read_stream_backlogs.sql_server",
+        """
+        SELECT TOP (@MaxStreams) MessageType, SchemaVersion,
+               COUNT_BIG(CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 END) AS PendingCount,
+               MIN(CASE WHEN DeadLetteredAtUtc IS NULL THEN OccurredAtUtc END) AS OldestOccurredAtUtc,
+               COUNT_BIG(CASE WHEN DeadLetteredAtUtc IS NULL AND NextAttemptAtUtc <= @Now AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now) THEN 1 END) AS DueRetryCount,
+               COUNT_BIG(CASE WHEN DeadLetteredAtUtc IS NULL AND LockedUntilUtc > @Now THEN 1 END) AS ActiveLeaseCount,
+               COUNT_BIG(CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 END) AS DeadLetterCount,
+               MIN(DeadLetteredAtUtc) AS OldestDeadLetteredAtUtc
+        FROM fn_outbox_message WHERE ProcessedAtUtc IS NULL
+        GROUP BY MessageType, SchemaVersion ORDER BY MessageType, SchemaVersion
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>一次分组读取活动 Legacy 流，保留上限哨兵行，不逐流发出查询。</summary>
+    public static readonly SqlStatement ReadStreamBacklogsMySql = new(
+        "outbox.read_stream_backlogs.my_sql",
+        """
+        SELECT MessageType, SchemaVersion,
+               CAST(SUM(CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 ELSE 0 END) AS SIGNED) AS PendingCount,
+               MIN(CASE WHEN DeadLetteredAtUtc IS NULL THEN OccurredAtUtc END) AS OldestOccurredAtUtc,
+               CAST(SUM(CASE WHEN DeadLetteredAtUtc IS NULL AND NextAttemptAtUtc <= @Now AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now) THEN 1 ELSE 0 END) AS SIGNED) AS DueRetryCount,
+               CAST(SUM(CASE WHEN DeadLetteredAtUtc IS NULL AND LockedUntilUtc > @Now THEN 1 ELSE 0 END) AS SIGNED) AS ActiveLeaseCount,
+               CAST(SUM(CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 ELSE 0 END) AS SIGNED) AS DeadLetterCount,
+               MIN(DeadLetteredAtUtc) AS OldestDeadLetteredAtUtc
+        FROM fn_outbox_message WHERE ProcessedAtUtc IS NULL
+        GROUP BY MessageType, SchemaVersion ORDER BY MessageType, SchemaVersion LIMIT @MaxStreams
+        """, SqlDataScope.HostOnly);
+
 }

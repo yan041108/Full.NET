@@ -23,7 +23,7 @@ internal sealed class WorkflowFormSubmissionAttachmentProbe(IQueryExecutor query
                 .QuerySingleOrDefaultAsync<int>(
                     WorkflowFormSubmissionAttachmentSql.ExistsForProbe,
                     WorkflowSqlParameters.Create(
-                        ("SubmissionId", consumerReferenceId),
+                        ("ReferenceId", consumerReferenceId),
                         ("FileId", fileId)),
                     cancellationToken)
                 .ConfigureAwait(false);

@@ -1,0 +1,9 @@
+DROP INDEX UX_fn_workflow_todo_Step_Assignee ON dbo.fn_workflow_todo;
+ALTER TABLE fn_workflow_todo DROP INDEX UX_fn_workflow_todo_Step_Assignee;
+DROP INDEX UX_fn_workflow_todo_Step_Assignee ON BadTarget;
+DROP INDEX UX_fn_workflow_todo_Step_Assignee;
+DROP INDEX UX_fn_workflow_todo_Step_Assignee ON fn_workflow_todo; DROP TABLE fn_workflow_todo;
+DROP INDEX @IndexName ON fn_workflow_todo;
+DROP INDEX UX_fn_workflow_todo_Step_Assignee ON sys.fn_workflow_todo;
+DROP INDEX UX_fn_workflow_todo_ThisIndexNameIsIntentionallyLongerThanTheSixtyFourCharacterLimit ON fn_workflow_todo;
+EXEC('DROP INDEX UX_fn_workflow_todo_Step_Assignee ON fn_workflow_todo;');

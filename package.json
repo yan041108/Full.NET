@@ -134,11 +134,15 @@
       "postcss-selector-parser": "7.1.6",
       "qs": "6.16.1",
       "dockerode>uuid": "11.1.1",
-      "@dcloudio/uni-mp-weixin>jimp": "1.6.1"
+      "@dcloudio/uni-mp-weixin>jimp": "1.6.1",
+      "vite@8.1.5": "8.1.6",
+      "vitest@4.1.11": "4.1.12"
     },
     "peerDependencyRules": {
       "allowedVersions": {
-        "@dcloudio/vite-plugin-uni>vite": "6.4.4"
+        "@dcloudio/vite-plugin-uni>vite": "6.4.4",
+        "vitest>vite": "6.4.4 || 8.1.6",
+        "@vitest/mocker>vite": "6.4.4 || 8.1.6"
       }
     },
     "patchedDependencies": {

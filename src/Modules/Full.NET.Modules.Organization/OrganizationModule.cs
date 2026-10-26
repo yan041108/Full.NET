@@ -71,6 +71,8 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<TenantUnitQueryService>();
         services.TryAddScoped<TenantUnitManagementService>();
+        services.TryAddScoped<Features.ManageUnitLeadership.OrganizationUnitLeadershipService>();
+        services.TryAddScoped<Features.ManageReportingLines.OrganizationReportingLineService>();
         services.TryAddScoped<TenantUserUnitQueryService>();
         services.TryAddScoped<TenantUserUnitManagementService>();
         services.TryAddScoped<AssignableHostUserQueryService>();
@@ -91,7 +93,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             ITenantOrganizationUserMembershipReader,
             HostDashboard.TenantOrganizationUserMembershipReader>());
-        services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
+        services.TryAddScoped<IWorkflowOrganizationAssigneeDirectory, TenantUnits.WorkflowOrganizationAssigneeDirectory>();
         services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
         services.TryAddScoped<TenantUnits.OrganizationPositionDirectory>();
@@ -132,7 +134,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
-        services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
+        services.TryAddScoped<IWorkflowOrganizationAssigneeDirectory, TenantUnits.WorkflowOrganizationAssigneeDirectory>();
     }
 
     /// <summary>
@@ -142,6 +144,8 @@ public sealed class OrganizationModule : IFullNetModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);
+        Features.ManageUnitLeadership.Endpoint.Map(endpoints);
+        Features.ManageReportingLines.Endpoint.Map(endpoints);
         Features.ManageTenantUserUnits.Endpoint.Map(endpoints);
         Features.ManageTenantPositions.Endpoint.Map(endpoints);
         Features.ManageTenantPositionLevels.Endpoint.Map(endpoints);

@@ -39,7 +39,7 @@ public sealed class SqlServerCdcDebeziumInboxE2ETests
         var connectorConfig = await DebeziumConnectorTemplateFactory.CreateSqlServerShadowConfigAsync(
             connectionString,
             pipeline.HostGateway,
-            pipeline.InternalKafkaBootstrapServers);
+            pipeline.InternalKafkaBootstrapServers, useFormalOutbox: true);
         try
         {
             await CdcDebeziumConnectorTestSupport.RegisterHealthyShadowConnectorAsync(

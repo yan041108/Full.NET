@@ -10,4 +10,6 @@ namespace Full.NET.Hosting.Serialization;
 [JsonSerializable(typeof(ValidationViolation))]
 [JsonSerializable(typeof(ValidationViolation[]))]
 [JsonSerializable(typeof(Dictionary<string, object?>))]
+// ProblemDetails 扩展按具体运行类型序列化；显式登记以消除 IDictionary/IReadOnlyDictionary 最近祖先歧义。
+[JsonSerializable(typeof(Dictionary<string, string[]>))]
 public sealed partial class HostingJsonSerializerContext : JsonSerializerContext;
