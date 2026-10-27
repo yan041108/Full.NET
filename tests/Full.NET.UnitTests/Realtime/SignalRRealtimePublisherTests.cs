@@ -73,7 +73,7 @@ public sealed class SignalRRealtimePublisherTests
             cancellation.Token,
             exception.CancellationToken);
         _ = hubClients.Received(1).Group(
-            RealtimeGroups.User(userId));
+            RealtimeGroups.User(userId, null));
         await clientProxy.Received(1).SendCoreAsync(
             nameof(IFullNetNotificationClient.ReceiveMessageAsync),
             Arg.Is<object?[]>(arguments =>

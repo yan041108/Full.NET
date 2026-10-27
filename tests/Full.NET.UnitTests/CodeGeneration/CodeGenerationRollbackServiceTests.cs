@@ -37,7 +37,9 @@ public sealed class CodeGenerationRollbackServiceTests
         TimeSpan.Zero);
 
     [TestMethod]
-    public async Task Succeeded_apply_restores_workspace_and_persists_rollback_summary()
+    [DataRow(CodeGenerationRunStatuses.Succeeded)]
+    [DataRow(CodeGenerationRunStatuses.Failed)]
+    public async Task Recoverable_apply_restores_workspace_and_persists_rollback_summary(string status)
     {
         using var workspace = new TemporaryDirectory();
         var command = Substitute.For<ICommandExecutor>();
@@ -51,7 +53,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(1);
-        var fixture = await CreatePreparedFixtureAsync(workspace.Path, command);
+        var fixture = await CreatePreparedFixtureAsync(workspace.Path, command, applyStatus: status);
 
         var result = await fixture.Service.RollbackAsync(
             ActorUserId,
@@ -543,7 +545,8 @@ public sealed class CodeGenerationRollbackServiceTests
         string workspaceRoot,
         ICommandExecutor command,
         IQueryExecutor? queryOverride = null,
-        CodeGenerationCheckpointRetentionOptions? retention = null)
+        CodeGenerationCheckpointRetentionOptions? retention = null,
+        string applyStatus = CodeGenerationRunStatuses.Succeeded)
     {
         const string relativePath = "Backend/Product.g.cs";
         const string appliedContent = "applied-product\n";
@@ -575,7 +578,7 @@ public sealed class CodeGenerationRollbackServiceTests
                     CodeGenerationRunSql.FindById,
                     Arg.Any<object?>(),
                     Arg.Any<CancellationToken>())
-                .Returns(CreateSucceededApplyRecord());
+                .Returns(CreateSucceededApplyRecord(ApplyRunId, Now.AddSeconds(-30), applyStatus));
             query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                     CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
                     Arg.Any<object?>(),
@@ -703,14 +706,15 @@ public sealed class CodeGenerationRollbackServiceTests
 
     private static CodeGenerationRunRecord CreateSucceededApplyRecord(
         Guid id,
-        DateTimeOffset finishedAtUtc) =>
+        DateTimeOffset finishedAtUtc,
+        string status = CodeGenerationRunStatuses.Succeeded) =>
         new()
         {
             Id = id,
             TemplateId = Guid.Parse("0198f36e-f7a7-7c52-9cbb-774e67411314"),
             TemplateVersion = 3,
             OperationKind = CodeGenerationRunOperationKinds.Apply,
-            Status = CodeGenerationRunStatuses.Succeeded,
+            Status = status,
             ModuleKey = "catalog",
             EntityKey = "product",
             SchemaSha256 = new string('a', 64),

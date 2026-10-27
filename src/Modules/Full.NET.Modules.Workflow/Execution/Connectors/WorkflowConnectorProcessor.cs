@@ -20,7 +20,7 @@ internal sealed partial class WorkflowConnectorProcessor(IQueryExecutor query, I
     ICommandTransaction transaction, IClock clock, IIdGenerator ids, ICurrentTenantContextWriter tenants,
     IOptions<DatabaseOptions> database, IOptions<WorkflowRecoveryWorkerOptions> options,
     WorkflowConnectorCatalog catalog, WorkflowConnectorHttpClient client, WorkflowAutomaticOutputCoordinator outputs,
-    WorkflowActivityScheduler scheduler)
+    WorkflowActivityScheduler scheduler, IActiveTenantContextResolver activeTenants)
 {
     public async Task<int> ProcessPendingAsync(CancellationToken token)
     {
@@ -45,7 +45,20 @@ internal sealed partial class WorkflowConnectorProcessor(IQueryExecutor query, I
     {
         var instance = await FindInstanceAsync(call, token).ConfigureAwait(false);
         if (!Trusted(instance, call) || instance!.StatusKey != "active") return false;
-        using var tenantScope = new WorkflowExecutionTenantScope(tenants, instance.TenantId);
+        TenantContext? activeTenant = null;
+        if (instance.TenantId is { } tenantId)
+        {
+            activeTenant = await activeTenants.ResolveActiveByIdAsync(tenantId, token).ConfigureAwait(false);
+            if (activeTenant is null)
+            {
+                // 停用只阻止新的副作用；延后候选使其他租户可推进，已发请求仍由结果接纳和恢复路径记账。
+                await commands.ExecuteAsync(WorkflowConnectorSql.DeferInactiveTenant,
+                    Parameters(("Id", call.Id), ("TenantScopeKey", call.TenantScopeKey), ("Revision", call.Revision),
+                        ("DueAtUtc", clock.UtcNow.AddSeconds(30))), token).ConfigureAwait(false);
+                return false;
+            }
+        }
+        using var tenantScope = new WorkflowExecutionTenantScope(tenants, instance.TenantId, activeTenant);
         var runtime = await LoadRuntimeAsync(instance, call, token).ConfigureAwait(false);
         if (runtime is null) return await FaultPendingAsync(call, "workflow.connector.binding_invalid", token).ConfigureAwait(false);
         var owner = ids.NewId().ToString("N"); var attemptId = ids.NewId();

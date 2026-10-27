@@ -81,6 +81,7 @@ internal sealed class FullNetApiFactory(
             if (includeEnterpriseRequest)
             {
                 services.AddFullNetModule(new EnterpriseRequestModule(), hostContext.Configuration);
+                new EnterpriseRequestModule().AddBackgroundServices(services, hostContext.Configuration);
                 services.AddFullNetModuleCatalogSnapshot(module => FullNetModuleDescriptor.Create(
                     module.Name, module.Name, "1.0.0", module.Dependencies, ["Api", "Worker", "Migrator"],
                     module.Name == "EnterpriseRequest" ? FullNetModuleSourceClassification.Application : FullNetModuleSourceClassification.Official,

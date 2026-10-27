@@ -5,6 +5,12 @@ namespace Full.NET.Realtime;
 /// </summary>
 public interface IRealtimePublisher
 {
+    /// <summary>通知账号的所有连接清理指定会话；服务端撤销独立生效，不信任客户端执行。</summary>
+    /// <param name="userId">会话所属用户。</param>
+    /// <param name="sessionId">已在权威源撤销的会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task PublishSessionRevokedAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 向指定用户组推送消息（组名由 <see cref="RealtimeGroups.User"/> 生成）。
     /// </summary>

@@ -57,7 +57,7 @@ internal sealed class CodeGenerationRollbackService(
             .ConfigureAwait(false);
         if (apply is null
             || apply.OperationKind != CodeGenerationRunOperationKinds.Apply
-            || apply.Status != CodeGenerationRunStatuses.Succeeded
+            || apply.Status is not (CodeGenerationRunStatuses.Succeeded or CodeGenerationRunStatuses.Failed)
             || apply.ModuleKey is null
             || apply.EntityKey is null
             || apply.SchemaSha256 is null)
@@ -286,7 +286,7 @@ internal sealed class CodeGenerationRollbackService(
                 .ConfigureAwait(false);
             if (apply is null
                 || apply.OperationKind != CodeGenerationRunOperationKinds.Apply
-                || apply.Status != CodeGenerationRunStatuses.Succeeded
+                || apply.Status is not (CodeGenerationRunStatuses.Succeeded or CodeGenerationRunStatuses.Failed)
                 || apply.ModuleKey is null
                 || apply.EntityKey is null
                 || apply.SchemaSha256 is null)

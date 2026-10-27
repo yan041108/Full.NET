@@ -354,6 +354,10 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
 
         public void Reset() => PublishAttempts = 0;
 
+        public Task PublishSessionRevokedAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default) =>
+            PublishToUserAsync(userId, new RealtimeMessage(RealtimeMessageCodes.SessionRevoked,
+                new Dictionary<string, object?> { ["sessionId"] = sessionId }), cancellationToken);
+
         public Task PublishToUserAsync(
             Guid userId,
             RealtimeMessage message,

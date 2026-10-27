@@ -6,6 +6,8 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.EnterpriseRequest.Persistence;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 
@@ -15,7 +17,9 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
     IClock clock,
     ICurrentTenant currentTenant,
     IWorkflowPublishedDefinitionDirectory definitionDirectory,
-    IWorkflowInstanceStarter workflowStarter)
+    IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer,
+    ICommandTransaction transaction,
+    IOutboxWriter outbox)
 {
     public async Task<Result<EnterpriseRequestResponse>> SubmitAsync(
         Guid requestId,
@@ -43,6 +47,18 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
                 ErrorType.NotFound));
         }
 
+        if (row.ApplicantUserId != actorUserId)
+            return Result<EnterpriseRequestResponse>.Failure(new Error("enterprise_request.submit_forbidden",
+                "Only the applicant may submit this request.", ErrorType.Forbidden));
+        var authorization = await writeAuthorizer.EnsureCanWriteAsync(currentTenant.Id.Value,
+            row.OrganizationUnitId, actorUserId, cancellationToken).ConfigureAwait(false);
+        if (!authorization.IsSuccess) return Result<EnterpriseRequestResponse>.Failure(authorization.Error!);
+        if (!authorization.Value)
+            return Result<EnterpriseRequestResponse>.Failure(new Error("enterprise_request.submit_forbidden",
+                "The request is outside the allowed organization scope.", ErrorType.Forbidden));
+        // 响应丢失后的重复提交不再拒绝；已提交意图由可靠事件继续推进。
+        if (row.Status == EnterpriseRequestStatusKeys.Submitted)
+            return Result<EnterpriseRequestResponse>.Success(Map(row));
         if (!string.Equals(row.Status, EnterpriseRequestStatusKeys.Draft, StringComparison.Ordinal))
         {
             return Result<EnterpriseRequestResponse>.Failure(new Error(
@@ -64,6 +80,8 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
         }
 
         var now = clock.UtcNow;
+        return await transaction.ExecuteResultAsync(async token =>
+        {
         var affected = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestWorkflowSql.ApplySubmittedStatus,
                 new
@@ -76,7 +94,7 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
                     ExpectedStatus = EnterpriseRequestStatusKeys.Draft,
                     ExpectedVersion = row.Version,
                 },
-                cancellationToken)
+                token)
             .ConfigureAwait(false);
         if (affected != 1)
         {
@@ -86,29 +104,15 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
                 ErrorType.Conflict));
         }
 
-        var start = await workflowStarter.StartAsync(
-                actorUserId,
-                new StartWorkflowInstanceCommand(
-                    published.DefinitionVersionId,
-                    EnterpriseRequestWorkflowConstants.BusinessType,
-                    requestId.ToString("D"),
-                    "{}",
-                    $"submit:{requestId:D}:{row.Version}",
-                    row.Title),
-                cancellationToken)
+        // 只提交本模块状态与意图；Workflow 在消费时使用自身事务和固定幂等键。
+        await outbox.AddAsync(EnterpriseRequestSubmittedHandler.MessageType, 1,
+            new EnterpriseRequestSubmitted(requestId, actorUserId, published.DefinitionVersionId, row.Version, row.Title), token)
             .ConfigureAwait(false);
-        if (!start.IsSuccess)
-        {
-            return Result<EnterpriseRequestResponse>.Failure(new Error(
-                EnterpriseRequestWorkflowErrorCodes.WorkflowStartFailed,
-                start.Error?.Message ?? "Workflow start failed.",
-                ErrorType.Conflict));
-        }
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(
                 EnterpriseRequestSql.FindByIdStatement,
                 new { Id = requestId },
-                cancellationToken)
+                token)
             .ConfigureAwait(false);
         return updated is null
             ? Result<EnterpriseRequestResponse>.Failure(new Error(
@@ -116,6 +120,7 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
                 "The resource was not found.",
                 ErrorType.NotFound))
             : Result<EnterpriseRequestResponse>.Success(Map(updated));
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private static EnterpriseRequestResponse Map(EnterpriseRequestRecord record) =>

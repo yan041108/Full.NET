@@ -6,7 +6,14 @@ namespace Full.NET.Realtime;
 public static class RealtimeGroups
 {
     /// <summary>用户私有组：接收个人通知与未读数。</summary>
-    public static string User(Guid userId) => $"user:{userId:D}";
+    /// <param name="userId">当前账号标识。</param>
+    /// <param name="tenantId">可信租户标识；为空时只属于 Host 作用域。</param>
+    public static string User(Guid userId, Guid? tenantId) =>
+        tenantId is { } id ? $"tenant:{id:D}:user:{userId:D}" : $"host:user:{userId:D}";
+
+    /// <summary>账号控制组仅接收会话撤销，不承载任何作用域的业务通知。</summary>
+    /// <param name="userId">被撤销会话所属的账号标识。</param>
+    public static string AccountControl(Guid userId) => $"account:{userId:D}:control";
 
     /// <summary>租户广播组：仅当连接已验证租户上下文时加入。</summary>
     public static string Tenant(Guid tenantId) => $"tenant:{tenantId:D}";

@@ -211,6 +211,16 @@ internal sealed class CodeGenerationApplyService(
 
             try
             {
+                if (request.IntegrationTarget is not null)
+                {
+                    var target = MapIntegrationTarget(request.IntegrationTarget);
+                    plan = await ModuleIntegrationFullPlanner.PlanAsync(options.Value.WorkspaceRoot,
+                        normalized.Value.Schema, target, plan, cancellationToken).ConfigureAwait(false);
+                    var compilation = await ModuleIntegrationFullCompilation.ValidateAsync(options.Value.WorkspaceRoot,
+                        normalized.Value.Schema, target, plan, cancellationToken).ConfigureAwait(false);
+                    if (!compilation.Succeeded)
+                        throw new GenerationWorkspaceConflictException("整链接入编译未通过，未写入工作区。", target.ModuleProjectPath);
+                }
                 await GenerationRollbackCheckpointStore.CreateAsync(
                         options.Value.WorkspaceRoot,
                         runId,
@@ -223,47 +233,7 @@ internal sealed class CodeGenerationApplyService(
                         cancellationToken)
                     .ConfigureAwait(false);
 
-                if (request.IntegrationTarget is not null)
-                {
-                    ModuleIntegrationTarget target;
-                    try
-                    {
-                        target = MapIntegrationTarget(request.IntegrationTarget);
-                    }
-                    catch (ArgumentException exception)
-                    {
-                        await FailAsync(
-                                runId,
-                                CodeGenerationRunErrorCodes.ApplyFailed,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        return Failure(
-                            CodeGenerationRunErrorCodes.InvalidApplyPreview,
-                            exception.Message,
-                            ErrorType.Validation);
-                    }
 
-                    var integration = await ModuleIntegrationHostOrchestrator
-                        .ApplyAsync(
-                            options.Value.WorkspaceRoot,
-                            normalized.Value.Schema,
-                            target,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (!integration.Succeeded)
-                    {
-                        await FailAsync(
-                                runId,
-                                CodeGenerationRunErrorCodes.ApplyFailed,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        return Failure(
-                            CodeGenerationRunErrorCodes.ApplyFailed,
-                            integration.Diagnostics.FirstOrDefault()
-                                ?? "The code generation integration apply failed.",
-                            ErrorType.Unexpected);
-                    }
-                }
             }
             catch (OperationCanceledException)
                 when (cancellationToken.IsCancellationRequested)
@@ -293,10 +263,14 @@ internal sealed class CodeGenerationApplyService(
                     ErrorType.Unexpected);
             }
 
+            // 预览摘要用于防止过期应用；完成摘要必须覆盖实际提交的整链文件。
+            manifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(plan.NextManifest!);
             var completedRows = await commandExecutor.ExecuteAsync(
                     CodeGenerationRunSql.CompleteApply,
                     CodeGenerationSqlParameters.Create(
                         ("Id", runId),
+                        ("ArtifactCount", plan.NextManifest!.Artifacts.Count),
+                        ("ManifestSha256", manifestSha256),
                         ("FinishedAtUtc", clock.UtcNow)),
                     CancellationToken.None)
                 .ConfigureAwait(false);
@@ -314,7 +288,7 @@ internal sealed class CodeGenerationApplyService(
                 new CodeGenerationRunApplyResponse(
                     runId,
                     request.PreviewRunId,
-                    artifacts.Count,
+                    plan.NextManifest!.Artifacts.Count,
                     changedCount,
                     manifestSha256));
         }

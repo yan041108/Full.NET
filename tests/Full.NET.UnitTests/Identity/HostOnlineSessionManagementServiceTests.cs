@@ -107,9 +107,9 @@ public sealed class HostOnlineSessionManagementServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(SessionId, result.Value!.Id);
-        await fixture.RealtimePublisher.DidNotReceive().PublishToUserAsync(
+        await fixture.RealtimePublisher.DidNotReceive().PublishSessionRevokedAsync(
             Arg.Any<Guid>(),
-            Arg.Any<RealtimeMessage>(),
+            Arg.Any<Guid>(),
             Arg.Any<CancellationToken>());
         await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
             IdentitySql.InsertAuthAudit,
@@ -142,11 +142,9 @@ public sealed class HostOnlineSessionManagementServiceTests
             IdentitySql.RevokeAllUserSessions,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
-        await fixture.RealtimePublisher.Received(1).PublishToUserAsync(
+        await fixture.RealtimePublisher.Received(1).PublishSessionRevokedAsync(
             TargetUserId,
-            Arg.Is<RealtimeMessage>(message =>
-                message != null
-                && message.Code == RealtimeMessageCodes.SessionRevoked),
+            Arg.Any<Guid>(),
             Arg.Any<CancellationToken>());
         await fixture.CommandExecutor.Received(1).ExecuteAsync(
             IdentitySql.InsertAuthAudit,

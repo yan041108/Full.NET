@@ -325,6 +325,7 @@ internal static class TenantSql
             Version = Version + 1
         WHERE Id = @TenantId
           AND LogoFileId IS NOT NULL
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 
@@ -337,6 +338,7 @@ internal static class TenantSql
             Version = Version + 1
         WHERE Id = @TenantId
           AND LogoFileId IS NOT NULL
+          AND Version = @Version
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

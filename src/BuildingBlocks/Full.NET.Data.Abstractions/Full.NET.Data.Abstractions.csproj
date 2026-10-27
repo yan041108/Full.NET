@@ -5,4 +5,17 @@
     <ProjectReference Include="..\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="$(IntermediateOutputPath)sqlserver-migrations.txt" LogicalName="Full.NET.Schema.SqlServer" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mysql-migrations.txt" LogicalName="Full.NET.Schema.MySql" />
+  </ItemGroup>
+  <!-- 仅嵌入当前发布的文件名清单；API 不引用或执行 DbUp，也不携带迁移 SQL。 -->
+  <Target Name="GenerateSchemaRequirements" BeforeTargets="PrepareResources">
+    <ItemGroup>
+      <SqlServerSchemaScript Include="../Full.NET.Migrations.DbUp/Migrations/SqlServer/*.sql" />
+      <MySqlSchemaScript Include="../Full.NET.Migrations.DbUp/Migrations/MySql/*.sql" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)sqlserver-migrations.txt" Lines="@(SqlServerSchemaScript->'%(Filename)%(Extension)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)mysql-migrations.txt" Lines="@(MySqlSchemaScript->'%(Filename)%(Extension)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
 </Project>

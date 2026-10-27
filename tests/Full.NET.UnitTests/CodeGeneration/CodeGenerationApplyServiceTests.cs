@@ -62,7 +62,6 @@ public sealed class CodeGenerationApplyServiceTests
         Assert.AreEqual(PreviewRunId, result.Value.PreviewRunId);
         Assert.AreEqual(fixture.ArtifactCount, result.Value.ArtifactCount);
         Assert.IsTrue(result.Value.ChangedArtifactCount > 0);
-        Assert.AreEqual(fixture.ManifestSha256, result.Value.ManifestSha256);
         Assert.IsTrue(File.Exists(Path.Combine(
             workspace.Path,
             GenerationWorkspaceStore.ManifestRelativePath)));
@@ -70,6 +69,7 @@ public sealed class CodeGenerationApplyServiceTests
             workspace.Path,
             ApplyRunId);
         Assert.AreEqual(ApplyRunId, checkpoint.ApplyRunId);
+        Assert.AreEqual(CodeGenerationRunSummary.ComputeManifestSha256(checkpoint.AppliedManifest), result.Value.ManifestSha256);
         Assert.IsNull(checkpoint.PreviousManifest);
         Assert.AreEqual(
             GenerationManifest.Parse(await File.ReadAllTextAsync(Path.Combine(
@@ -96,7 +96,9 @@ public sealed class CodeGenerationApplyServiceTests
             CodeGenerationRunSql.CompleteApply,
             Arg.Is<object>(parameters =>
                 parameters != null
-                && Read<Guid>(parameters, "Id") == ApplyRunId),
+                && Read<Guid>(parameters, "Id") == ApplyRunId
+                && Read<int>(parameters, "ArtifactCount") == checkpoint.AppliedManifest.Artifacts.Count
+                && Read<string>(parameters, "ManifestSha256") == result.Value.ManifestSha256),
             Arg.Any<CancellationToken>());
     }
 

@@ -13,7 +13,7 @@ internal sealed class DataApprovalRequestApplicationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock,
-    IEnumerable<IDataApprovalScenarioHandler> scenarioHandlers)
+    IEnumerable<IDataApprovalScenarioCommandHandler> scenarioHandlers)
 {
     /// <summary>尝试将已批准快照应用到目标实体；失败时保持 in_review 并记录应用状态。</summary>
     /// <param name="row">当前可信作用域内的请求行。</param>
@@ -52,11 +52,19 @@ internal sealed class DataApprovalRequestApplicationService(
 
         row = pendingRow;
         var scenario = scenarioHandlers.SingleOrDefault(handler => handler.Supports(row.ScenarioKey));
-        var apply = scenario is null
+        // 所有重试入口使用审批请求自身身份；操作员和消息投递标识不能改变执行事实。
+        var effect = scenario is null
+            ? null
+            : await scenario.ApplyAsync(new DataApprovalScenarioCommand(row.Id, row.Id, row.ScenarioKey,
+                row.TargetEntityId, row.AfterSnapshotJson, row.SubmittedByUserId), cancellationToken).ConfigureAwait(false);
+        var apply = effect is null
             ? Result<bool>.Failure(new Error(DataApprovalErrorCodes.ScenarioUnsupported,
                 "The approval scenario provider is unavailable.", ErrorType.Validation))
-            : await scenario.ApplyAsync(row.ScenarioKey, row.TargetEntityId, row.AfterSnapshotJson,
-                actorUserId, idempotencyKey, cancellationToken).ConfigureAwait(false);
+            : !effect.IsSuccess ? Result<bool>.Failure(effect.Error!)
+            : effect.Value!.CommandId == row.Id && effect.Value.OutcomeKey == "applied"
+                ? Result<bool>.Success(true)
+                : Result<bool>.Failure(new Error("data_approvals.application_not_applied",
+                    "The command did not confirm an applied effect.", ErrorType.Conflict));
 
         if (apply.IsSuccess)
         {

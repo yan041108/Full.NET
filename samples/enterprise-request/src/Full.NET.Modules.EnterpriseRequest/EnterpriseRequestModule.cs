@@ -38,6 +38,8 @@ public sealed class EnterpriseRequestModule : IFullNetModule
 
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            EnterpriseRequestSubmittedHandler>());
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCompletedSink,

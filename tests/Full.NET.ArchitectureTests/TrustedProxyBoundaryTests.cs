@@ -39,7 +39,12 @@ public sealed class TrustedProxyBoundaryTests
             "Hosts",
             "Full.NET.Host.Api",
             "Program.cs");
-        var source = File.ReadAllText(programPath);
+        var program = File.ReadAllText(programPath);
+        var pipeline = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src", "Composition", "Full.NET.Composition", "FullNetApiPipelineExtensions.cs"));
+        StringAssert.Contains(program, "app.UseFullNetApiPipeline();");
+        var template = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Api", "Program.cs"));
+        StringAssert.Contains(template, "app.UseFullNetApiPipeline();");
+        var source = program.Replace("app.UseFullNetApiPipeline();", pipeline, StringComparison.Ordinal);
         var forwardingIndex = source.IndexOf(
             "app.UseFullNetTrustedProxyForwarding();",
             StringComparison.Ordinal);

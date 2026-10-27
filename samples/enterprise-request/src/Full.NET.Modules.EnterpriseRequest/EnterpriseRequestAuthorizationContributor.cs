@@ -11,6 +11,8 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new PermissionDefinition(Contracts.EnterpriseRequestWorkflowConstants.SubmitPermission,
+            "提交企业申请审批", AuthorizationScope.Tenant),
         new PermissionDefinition(
             EnterpriseRequestPermissions.Read,
             "读取企业申请",

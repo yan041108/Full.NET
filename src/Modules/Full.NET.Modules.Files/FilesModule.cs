@@ -140,6 +140,8 @@ public sealed class FilesModule : IFullNetModule
     /// <summary>跨模块文件引用契约；Worker 后台模块（Notifications/Document 等）依赖，须与 API AddServices 保持一致。</summary>
     private static void RegisterHostFileReferencePorts(IServiceCollection services)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.HostFileReferenceClaims.HostFileReferenceReleaseRequestedHandler>());
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.TryAddScoped<IHostFileDescriptorReader, Features.HostFileReferences.HostFileDescriptorReader>();
         services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();

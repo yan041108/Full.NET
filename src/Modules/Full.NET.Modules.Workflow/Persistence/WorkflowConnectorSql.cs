@@ -5,6 +5,12 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>受控连接器的实例锁、分发租约与不可变尝试；所有普通入口都须由可信实例作用域锚定。</summary>
 internal static partial class WorkflowConnectorSql
 {
+    /// <summary>无效租户候选短暂退让，不改变已发送调用的租约或结果；两种 Provider 使用相同 CAS。</summary>
+    public static readonly SqlStatement DeferInactiveTenant = new("workflow.connector.defer_inactive_tenant", """
+        UPDATE fn_workflow_connector_call SET DueAtUtc=@DueAtUtc,Revision=Revision+1
+        WHERE Id=@Id AND TenantScopeKey=@TenantScopeKey AND Revision=@Revision
+          AND StatusKey IN ('pending','retryable') AND CancelRequestedAtUtc IS NULL
+        """, SqlDataScope.Global);
     private const string Projection = """
         activation.Id,activation.InstanceId,activation.TenantScopeKey,activation.NodeKey,activation.ContinuationNodeKey,
         activation.ConnectorKey,activation.ConnectorVersion,activation.ConnectorHash,activation.ModeKey,

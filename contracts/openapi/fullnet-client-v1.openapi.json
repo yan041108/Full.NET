@@ -62940,6 +62940,10 @@
               "string"
             ]
           },
+          "idempotencyKey": {
+            "format": "uuid",
+            "type": "string"
+          },
           "merchantConfigId": {
             "format": "uuid",
             "type": [
@@ -62962,7 +62966,8 @@
           "amountMinor",
           "currency",
           "subject",
-          "description"
+          "description",
+          "idempotencyKey"
         ],
         "type": "object"
       },

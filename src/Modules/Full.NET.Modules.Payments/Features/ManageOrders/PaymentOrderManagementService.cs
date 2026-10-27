@@ -9,6 +9,9 @@ using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Text.Json;
+using Full.NET.Modules.Payments.Serialization;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
@@ -43,6 +46,8 @@ internal sealed class PaymentOrderManagementService(
         CreatePaymentOrderRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.IdempotencyKey == Guid.Empty)
+            return ValidationFailure<PaymentOrderResponse>("A stable idempotency key is required.");
         var tenantExists = await activeTenants.IsActiveTenantAsync(request.TenantId, cancellationToken)
             .ConfigureAwait(false);
         if (!tenantExists)
@@ -53,10 +58,20 @@ internal sealed class PaymentOrderManagementService(
                 ErrorType.Validation));
         }
 
-        var prepared = await transaction.ExecuteResultAsync(
-                token => PersistOrderIntentAsync(request, token),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var existing = await FindCreatedOrderAsync(request, cancellationToken).ConfigureAwait(false);
+        if (existing is not null) return await ReplayCreatedOrderAsync(request, existing, cancellationToken).ConfigureAwait(false);
+        Result<PreparedPaymentOrder> prepared;
+        try
+        {
+            prepared = await transaction.ExecuteResultAsync(token => PersistOrderIntentAsync(request, token), cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            // 失败事务退出后重读赢家，重试不能创建另一订单或再次调用外部渠道。
+            existing = await FindCreatedOrderAsync(request, cancellationToken).ConfigureAwait(false);
+            if (existing is null) throw;
+            return await ReplayCreatedOrderAsync(request, existing, cancellationToken).ConfigureAwait(false);
+        }
         if (!prepared.IsSuccess)
         {
             return Result<PaymentOrderResponse>.Failure(prepared.Error!);
@@ -123,6 +138,19 @@ internal sealed class PaymentOrderManagementService(
         return await queries.GetByIdAsync(intent.OrderId, cancellationToken).ConfigureAwait(false);
     }
 
+    private Task<PaymentOrderRecord?> FindCreatedOrderAsync(CreatePaymentOrderRequest request, CancellationToken token) =>
+        queryExecutor.QuerySingleOrDefaultAsync<PaymentOrderRecord>(PaymentOrderSql.FindByIdempotencyKey,
+            PaymentSqlParameters.Create(("TenantId", request.TenantId), ("IdempotencyKey", request.IdempotencyKey)), token);
+
+    private Task<Result<PaymentOrderResponse>> ReplayCreatedOrderAsync(CreatePaymentOrderRequest request, PaymentOrderRecord existing, CancellationToken token) =>
+        string.Equals(existing.RequestHash, CreateRequestHash(request), StringComparison.Ordinal)
+            ? queries.GetByIdAsync(existing.Id, token)
+            : Task.FromResult(Result<PaymentOrderResponse>.Failure(new Error("payments.order_idempotency_conflict",
+                "The idempotency key was already used with different input.", ErrorType.Conflict)));
+
+    private static string CreateRequestHash(CreatePaymentOrderRequest request) => Convert.ToHexStringLower(SHA256.HashData(
+        JsonSerializer.SerializeToUtf8Bytes(request, PaymentsJsonSerializerContext.Default.CreatePaymentOrderRequest)));
+
     /// <summary>在短事务中写入渠道幂等键和 created 意图，不调用外部接口。</summary>
     /// <param name="request">创建请求。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -183,6 +211,8 @@ internal sealed class PaymentOrderManagementService(
                 PaymentOrderSql.Insert,
                 PaymentSqlParameters.Create(
                     ("Id", orderId),
+                    ("IdempotencyKey", request.IdempotencyKey),
+                    ("RequestHash", CreateRequestHash(request)),
                     ("TenantId", request.TenantId),
                     ("MerchantConfigId", merchantConfig.Id),
                     ("ChannelKey", merchantConfig.ChannelKey),

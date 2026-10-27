@@ -40,20 +40,7 @@ builder.Services.AddFullNetApplicationModules(
     FullNetHostProfile.Api);
 
 var app = builder.Build();
-app.UseFullNetTrustedProxyForwarding();
-app.UseFullNetLocalization();
-app.UseFullNetRequestLogging();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeExceptionHandler);
-app.UseExceptionHandler();
-app.UseFullNetRequestBodyProblemDetails();
-app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthentication);
-app.UseAuthentication();
-// 限流分区依赖已验证身份；匿名请求仍按原来的来源地址分区。
-app.UseRateLimiter();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthorization);
-app.UseAuthorization();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeEndpoints);
+app.UseFullNetApiPipeline();
 app.MapFullNetOpenApi();
 app.MapScalarApiReference(options =>
 {

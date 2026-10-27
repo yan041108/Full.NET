@@ -10,7 +10,7 @@ namespace Full.NET.Realtime.SignalR;
 /// Host/租户管理端通知 Hub：只负责连接、鉴权与分组，不承载业务规则。
 /// </summary>
 [Authorize]
-public sealed class FullNetNotificationHub(ITenantActivityReadPort tenantActivity) : Hub
+public sealed class FullNetNotificationHub(ITenantActivityReadPort tenantActivity, IRealtimeConnectionLeases leases) : Hub
 {
     private static readonly object ActiveConnectionMarker = new();
     private readonly ITenantActivityReadPort _tenantActivity = tenantActivity;
@@ -36,14 +36,20 @@ public sealed class FullNetNotificationHub(ITenantActivityReadPort tenantActivit
             authorizationOutcome = "rejected_tenant_inactive";
         }
 
+        if (isAuthorized && !await leases.RegisterAsync(Context).ConfigureAwait(false))
+        {
+            isAuthorized = false;
+            authorizationOutcome = "rejected_session_inactive";
+        }
         RealtimeHubTelemetry.RecordAuthorizationDecision(
             authorizationOutcome);
         if (isAuthorized)
         {
             await AddToGroupAsync(
-                    RealtimeGroups.User(userId),
+                    RealtimeGroups.User(userId, tenantId),
                     "user")
                 .ConfigureAwait(false);
+            await AddToGroupAsync(RealtimeGroups.AccountControl(userId), "account_control").ConfigureAwait(false);
             await AddToGroupAsync(
                     broadcastGroup,
                     "broadcast")
@@ -72,6 +78,7 @@ public sealed class FullNetNotificationHub(ITenantActivityReadPort tenantActivit
     /// <returns>表示异步清理完成的任务。</returns>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        leases.Remove(Context.ConnectionId);
         try
         {
             await base.OnDisconnectedAsync(exception).ConfigureAwait(false);

@@ -8,12 +8,12 @@ internal sealed class WorkflowExecutionTenantScope : IDisposable
     private readonly ICurrentTenantContextWriter writer;
     private readonly bool wasHost;
     private readonly TenantContext? previous;
-    public WorkflowExecutionTenantScope(ICurrentTenantContextWriter writer, Guid? tenantId)
+    public WorkflowExecutionTenantScope(ICurrentTenantContextWriter writer, Guid? tenantId, TenantContext? resolvedTenant = null)
     {
         this.writer = writer; wasHost = writer.IsHost;
         previous = writer.Id is { } id && writer.Identifier is { } identifier && writer.Name is { } name
             ? new TenantContext(id, identifier, name) : null;
-        if (tenantId is { } target) writer.SetTenant(new TenantContext(target, target.ToString("N"), target.ToString("D")));
+        if (tenantId is { } target) writer.SetTenant(resolvedTenant ?? new TenantContext(target, target.ToString("N"), target.ToString("D")));
         else writer.SetHost();
     }
     public void Dispose()

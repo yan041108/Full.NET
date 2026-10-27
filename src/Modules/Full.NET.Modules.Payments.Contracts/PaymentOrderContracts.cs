@@ -91,6 +91,7 @@ public sealed record PaymentOrderResponse(
 /// <param name="Currency">货币代码。</param>
 /// <param name="Subject">商品标题。</param>
 /// <param name="Description">商品描述。</param>
+/// <param name="IdempotencyKey">调用方固定的创建 UUID；重试复用，同键不同输入拒绝。</param>
 public sealed record CreatePaymentOrderRequest(
     Guid TenantId,
     Guid? MerchantConfigId,
@@ -98,4 +99,5 @@ public sealed record CreatePaymentOrderRequest(
     long AmountMinor,
     string Currency,
     string Subject,
-    string? Description);
+    string? Description,
+    Guid IdempotencyKey);

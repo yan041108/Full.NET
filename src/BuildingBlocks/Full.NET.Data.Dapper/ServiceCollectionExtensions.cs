@@ -81,6 +81,8 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        services.AddOptions<FrameworkManifestMigrationOptions>()
+            .Bind(configuration.GetSection(FrameworkManifestMigrationOptions.SectionName));
 
 #if !FULLNET_AOT_COMPILE
         // Dapper 内置 Guid 类型映射优先于 TypeHandler，必须先移除才会经过空值门禁。
@@ -230,7 +232,7 @@ public static class ServiceCollectionExtensions
                 tags: ["ready"])
             .AddCheck<DatabaseSchemaHealthCheck>(
                 "database-schema-contract",
-                tags: ["startup"]);
+                tags: ["startup", "ready"]);
         return services;
     }
 

@@ -123,6 +123,8 @@ export interface PaymentOrderPage {
 }
 
 export interface CreatePaymentOrderRequest {
+  /** 一次创建固定一个身份，响应丢失后的重试必须复用。 */
+  idempotencyKey: string;
   tenantId: string;
   merchantConfigId?: string | null;
   channelKey?: string | null;

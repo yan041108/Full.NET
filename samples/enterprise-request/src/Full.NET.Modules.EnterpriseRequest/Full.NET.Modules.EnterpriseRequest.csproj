@@ -24,5 +24,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Migrations/**/*.sql" />
+    <PackageReference Include="MemoryPack" />
   </ItemGroup>
 </Project>

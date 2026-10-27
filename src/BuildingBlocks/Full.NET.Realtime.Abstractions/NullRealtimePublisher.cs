@@ -18,6 +18,9 @@ public sealed class NullRealtimePublisher : IRealtimePublisher
     {
     }
 
+    /// <inheritdoc />
+    public Task PublishSessionRevokedAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>
     /// 静默丢弃向指定用户推送的消息，立即返回完成。
     /// </summary>

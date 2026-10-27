@@ -24,7 +24,7 @@ public static class WebApplicationExtensions
             return app;
         }
 
-        app.MapHub<FullNetNotificationHub>(options.HubPath);
+        app.MapHub<FullNetNotificationHub>(options.HubPath, connection => connection.CloseOnAuthenticationExpiration = true);
         RealtimeProbeEndpoint.Map(app, app.Environment);
         return app;
     }

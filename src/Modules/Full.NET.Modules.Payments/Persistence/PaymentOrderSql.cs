@@ -22,7 +22,9 @@ internal static class PaymentOrderSql
                orders.CreatedAtUtc,
                orders.UpdatedAtUtc,
                orders.PaidAtUtc,
-               orders.Version
+               orders.Version,
+               orders.IdempotencyKey,
+               orders.RequestHash
         """;
 
     public static readonly SqlStatement Insert = new(
@@ -31,12 +33,17 @@ internal static class PaymentOrderSql
         INSERT INTO fn_payment_order
             (Id, TenantId, MerchantConfigId, ChannelKey, OutTradeNo, TradeStateKey, AmountMinor,
              Currency, Subject, Description, CodeUrl, ProviderTransactionId, FailMessage,
-             CreatedAtUtc, UpdatedAtUtc, PaidAtUtc, Version)
+             CreatedAtUtc, UpdatedAtUtc, PaidAtUtc, Version, IdempotencyKey, RequestHash)
         VALUES
             (@Id, @TenantId, @MerchantConfigId, @ChannelKey, @OutTradeNo, @TradeStateKey, @AmountMinor,
              @Currency, @Subject, @Description, @CodeUrl, @ProviderTransactionId, @FailMessage,
-             @CreatedAtUtc, @UpdatedAtUtc, @PaidAtUtc, @Version)
+             @CreatedAtUtc, @UpdatedAtUtc, @PaidAtUtc, @Version, @IdempotencyKey, @RequestHash)
         """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>创建重放读取原订单；唯一键线性化并发请求。</summary>
+    public static readonly SqlStatement FindByIdempotencyKey = new("payments.find_order_by_idempotency_key",
+        $"SELECT {SelectColumns} FROM fn_payment_order AS orders WHERE orders.TenantId=@TenantId AND orders.IdempotencyKey=@IdempotencyKey",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement FindById = new(

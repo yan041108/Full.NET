@@ -10,7 +10,7 @@ public sealed class RealtimeGroupsTests
     public void User_group_uses_lowercase_guid_format()
     {
         var userId = Guid.Parse("01912345-6789-7abc-8def-0123456789ab");
-        Assert.AreEqual("user:01912345-6789-7abc-8def-0123456789ab", RealtimeGroups.User(userId));
+        Assert.AreEqual("host:user:01912345-6789-7abc-8def-0123456789ab", RealtimeGroups.User(userId, null));
     }
 
     [TestMethod]

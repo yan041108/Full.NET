@@ -53,14 +53,9 @@ internal sealed class IdentitySessionRealtimeDelivery(
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await realtimePublisher.PublishToUserAsync(
+                await realtimePublisher.PublishSessionRevokedAsync(
                         userId,
-                        new RealtimeMessage(
-                            RealtimeMessageCodes.SessionRevoked,
-                            new Dictionary<string, object?>
-                            {
-                                ["sessionId"] = sessionId,
-                            }),
+                        sessionId,
                         cancellationToken)
                     .ConfigureAwait(false);
                 IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("success");

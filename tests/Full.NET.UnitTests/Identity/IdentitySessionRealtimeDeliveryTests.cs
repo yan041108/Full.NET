@@ -24,9 +24,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
         var publisher = Substitute.For<IRealtimePublisher>();
         var attempts = 0;
         publisher
-            .PublishToUserAsync(
+            .PublishSessionRevokedAsync(
                 UserId,
-                Arg.Any<RealtimeMessage>(),
+                Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -44,11 +44,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
 
         await delivery.PublishSessionsRevokedAsync(UserId, [SessionId]);
 
-        await publisher.Received(2).PublishToUserAsync(
+        await publisher.Received(2).PublishSessionRevokedAsync(
             UserId,
-            Arg.Is<RealtimeMessage>(message =>
-                message != null
-                && message.Code == RealtimeMessageCodes.SessionRevoked),
+            Arg.Is<Guid>(id => id == SessionId),
             Arg.Any<CancellationToken>());
     }
 
@@ -57,9 +55,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
     {
         var publisher = Substitute.For<IRealtimePublisher>();
         publisher
-            .PublishToUserAsync(
+            .PublishSessionRevokedAsync(
                 UserId,
-                Arg.Any<RealtimeMessage>(),
+                Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("persistent"));
         var delivery = new IdentitySessionRealtimeDelivery(
@@ -68,9 +66,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
 
         await delivery.PublishSessionsRevokedAsync(UserId, [SessionId]);
 
-        await publisher.Received(3).PublishToUserAsync(
+        await publisher.Received(3).PublishSessionRevokedAsync(
             UserId,
-            Arg.Any<RealtimeMessage>(),
+            Arg.Any<Guid>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -81,9 +79,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
         var publisher = Substitute.For<IRealtimePublisher>();
         var attempts = 0;
         publisher
-            .PublishToUserAsync(
+            .PublishSessionRevokedAsync(
                 UserId,
-                Arg.Any<RealtimeMessage>(),
+                Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -111,9 +109,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
         using var capture = new MetricCapture();
         var publisher = Substitute.For<IRealtimePublisher>();
         publisher
-            .PublishToUserAsync(
+            .PublishSessionRevokedAsync(
                 UserId,
-                Arg.Any<RealtimeMessage>(),
+                Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("persistent"));
         var delivery = new IdentitySessionRealtimeDelivery(
@@ -145,9 +143,9 @@ public sealed class IdentitySessionRealtimeDeliveryTests
         throwingListener.Start();
         var publisher = Substitute.For<IRealtimePublisher>();
         publisher
-            .PublishToUserAsync(
+            .PublishSessionRevokedAsync(
                 UserId,
-                Arg.Any<RealtimeMessage>(),
+                Arg.Any<Guid>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
         var delivery = new IdentitySessionRealtimeDelivery(

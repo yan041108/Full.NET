@@ -1661,6 +1661,7 @@ export interface CreatePaymentOrderRequest {
   readonly channelKey: null | string;
   readonly currency: string;
   readonly description: null | string;
+  readonly idempotencyKey: string;
   readonly merchantConfigId: null | string;
   readonly subject: string;
   readonly tenantId: string;

@@ -179,11 +179,9 @@ public sealed class LoginHandlerTests
             IdentitySql.RevokeUserSessionsExcept,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
-        await fixture.RealtimePublisher.Received(1).PublishToUserAsync(
+        await fixture.RealtimePublisher.Received(1).PublishSessionRevokedAsync(
             UserId,
-            Arg.Is<Full.NET.Realtime.RealtimeMessage>(message =>
-                message != null
-                && message.Code == Full.NET.Realtime.RealtimeMessageCodes.SessionRevoked),
+            Arg.Any<Guid>(),
             Arg.Any<CancellationToken>());
     }
 

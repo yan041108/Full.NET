@@ -2501,7 +2501,7 @@ export function readCreatePaymentOrderRequest(value: unknown): CreatePaymentOrde
 }
 
 function isCreatePaymentOrderRequest(value: unknown): value is CreatePaymentOrderRequest {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && ((value["channelKey"] === null) || (typeof value["channelKey"] === 'string')) && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["merchantConfigId"] === null) || (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"]))) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
+  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && ((value["channelKey"] === null) || (typeof value["channelKey"] === 'string')) && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && ((value["merchantConfigId"] === null) || (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"]))) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readCreatePaymentRefundRequest(value: unknown): CreatePaymentRefundRequest {

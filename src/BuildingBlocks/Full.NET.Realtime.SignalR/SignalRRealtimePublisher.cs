@@ -28,12 +28,22 @@ internal sealed class SignalRRealtimePublisher(
     public Task PublishToUserAsync(
         Guid userId,
         RealtimeMessage message,
-        CancellationToken cancellationToken = default) =>
-        PublishAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!currentTenant.IsAvailable || (!currentTenant.IsHost && currentTenant.Id is null))
+            throw new InvalidOperationException("Realtime user target requires an active scope.");
+        return PublishAsync(
             "user",
-            RealtimeGroups.User(userId),
+            RealtimeGroups.User(userId, currentTenant.IsHost ? null : currentTenant.Id),
             message,
             cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task PublishSessionRevokedAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default) =>
+        PublishAsync("account_control", RealtimeGroups.AccountControl(userId),
+            new RealtimeMessage(RealtimeMessageCodes.SessionRevoked,
+                new Dictionary<string, object?> { ["sessionId"] = sessionId }), cancellationToken);
 
     /// <summary>
     /// 向当前租户对应的广播组推送消息。

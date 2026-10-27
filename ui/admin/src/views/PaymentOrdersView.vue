@@ -36,6 +36,8 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
+// 同一创建窗口的网络重试必须复用请求标识，避免重复下单。
+const createIdempotencyKey = ref('');
 const refundOpen = ref(false);
 const refundOrderId = ref('');
 const refundForm = reactive({
@@ -91,6 +93,7 @@ async function load(): Promise<void> {
 }
 
 function openCreate(): void {
+  createIdempotencyKey.value = crypto.randomUUID();
   Object.assign(createForm, {
     tenantId: '',
     channelKey: 'wechat_native',
@@ -112,6 +115,7 @@ async function submitCreate(): Promise<void> {
   changing.value = true;
   try {
     const order = await createPaymentOrder({
+      idempotencyKey: createIdempotencyKey.value,
       tenantId: createForm.tenantId.trim(),
       channelKey: createForm.merchantConfigId.trim() ? null : createForm.channelKey,
       merchantConfigId: createForm.merchantConfigId.trim() || null,

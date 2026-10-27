@@ -72,7 +72,8 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var clock = Substitute.For<IClock>();
-        var applier = Substitute.For<ISerialRuleChangeApprovalApplier>();
+        var applier = Substitute.For<IDataApprovalScenarioCommandHandler>();
+        applier.Supports(Arg.Any<string>()).Returns(true);
         var now = DateTimeOffset.UtcNow;
         clock.UtcNow.Returns(now);
         queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
@@ -94,13 +95,8 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
                 ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
                 Version = row.Version + 1
             });
-        applier.ApplyApprovedUpdateAsync(
-                row.TargetEntityId,
-                row.AfterSnapshotJson,
-                row.SubmittedByUserId,
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Result<SerialNumberRuleResponse>.Failure(new Error(
+        applier.ApplyAsync(Arg.Is<DataApprovalScenarioCommand>(command => command != null && command.CommandId == row.Id && command.ApprovalRequestId == row.Id && command.RequestedByUserId == row.SubmittedByUserId), Arg.Any<CancellationToken>())
+            .Returns(Result<DataApprovalCommandEffect>.Failure(new Error(
                 SerialNumberErrorCodes.RuleVersionConflict,
                 "conflict",
                 ErrorType.Conflict)));
@@ -114,8 +110,7 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), applier,
-                Substitute.For<ISerialRuleDisableApprovalApplier>())]);
+            [applier]);
         var service = new DataApprovalWorkflowOutcomeService(
             queryExecutor,
             commandExecutor,
@@ -153,8 +148,10 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var clock = Substitute.For<IClock>();
-        var updateApplier = Substitute.For<ISerialRuleChangeApprovalApplier>();
-        var disableApplier = Substitute.For<ISerialRuleDisableApprovalApplier>();
+        var updateApplier = Substitute.For<IDataApprovalScenarioCommandHandler>();
+        updateApplier.Supports(DataApprovalScenarioKeys.SerialRuleHostUpdate).Returns(true);
+        var disableApplier = Substitute.For<IDataApprovalScenarioCommandHandler>();
+        disableApplier.Supports(DataApprovalScenarioKeys.SerialRuleHostDisable).Returns(true);
         var now = DateTimeOffset.UtcNow;
         clock.UtcNow.Returns(now);
         queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
@@ -176,29 +173,8 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
                 ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
                 Version = row.Version + 1
             });
-        disableApplier.ApplyApprovedDisableAsync(
-                row.TargetEntityId,
-                row.AfterSnapshotJson,
-                row.SubmittedByUserId,
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Result<SerialNumberRuleResponse>.Success(new SerialNumberRuleResponse(
-                row.TargetEntityId,
-                "rule.key",
-                "Rule",
-                null,
-                SerialNumberRuleScope.Host,
-                SerialNumberResetInterval.Day,
-                "P-{sequence:3}",
-                1,
-                999,
-                1,
-                false,
-                now,
-                row.SubmittedByUserId,
-                now,
-                row.SubmittedByUserId,
-                2)));
+        disableApplier.ApplyAsync(Arg.Is<DataApprovalScenarioCommand>(command => command != null && command.CommandId == row.Id && command.ScenarioKey == DataApprovalScenarioKeys.SerialRuleHostDisable), Arg.Any<CancellationToken>())
+            .Returns(Result<DataApprovalCommandEffect>.Success(new(row.Id, new string('a', 64), "applied", 2, null)));
         commandExecutor.ExecuteAsync(
                 DataApprovalSql.CompleteApprovedApplication,
                 Arg.Any<object?>(),
@@ -219,7 +195,7 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), updateApplier, disableApplier)]);
+            [updateApplier, disableApplier]);
         var service = new DataApprovalWorkflowOutcomeService(
             queryExecutor,
             commandExecutor,
@@ -235,18 +211,8 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
             row.SubmittedByUserId,
             "message-id");
 
-        await disableApplier.Received(1).ApplyApprovedDisableAsync(
-            row.TargetEntityId,
-            row.AfterSnapshotJson,
-            row.SubmittedByUserId,
-            "message-id",
-            Arg.Any<CancellationToken>());
-        await updateApplier.DidNotReceive().ApplyApprovedUpdateAsync(
-            Arg.Any<Guid>(),
-            Arg.Any<string>(),
-            Arg.Any<Guid>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        await disableApplier.Received(1).ApplyAsync(Arg.Is<DataApprovalScenarioCommand>(command => command != null && command.CommandId == row.Id && command.ScenarioKey == DataApprovalScenarioKeys.SerialRuleHostDisable), Arg.Any<CancellationToken>());
+        await updateApplier.DidNotReceive().ApplyAsync(Arg.Any<DataApprovalScenarioCommand>(), Arg.Any<CancellationToken>());
     }
 
     private static DataApprovalRequestRecord CreateInReviewRow(Guid requestId)

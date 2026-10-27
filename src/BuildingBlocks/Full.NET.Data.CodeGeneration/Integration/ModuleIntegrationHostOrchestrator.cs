@@ -4,13 +4,13 @@ using Full.NET.Data.CodeGeneration.Schema;
 namespace Full.NET.Data.CodeGeneration.Integration;
 
 /// <summary>
-/// Host Apply 在检查点之后编排既有接入命令；阶段失败时保留先前已提交的阶段。
+/// Host 与 CLI 的整链接入在全部候选验证后使用一个检查点和一个提交边界。
 /// </summary>
 public static class ModuleIntegrationHostOrchestrator
 {
     /// <summary>
-    /// 按显式目标执行整条接入链：后端→入口→Composition→Vue→AuthorizationContributor；
-    /// 任一子命令失败立即返回，不继续写盘后续文件。
+    /// 按显式目标规划后端、入口、Composition、Vue 与 AuthorizationContributor；
+    /// 全部候选编译通过后统一写入，写盘失败由工作区存储恢复已占用的原文件。
     /// </summary>
     /// <param name="repositoryRoot">仓库根目录绝对路径</param>
     /// <param name="schema">待接入实体的 CRUD Schema</param>
@@ -53,67 +53,22 @@ public static class ModuleIntegrationHostOrchestrator
             return ModuleIntegrationHostApplyResult.Failure(exception.Message);
         }
 
-        var backend = await ModuleIntegrationBackendApplyCommand
-            .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
-            .ConfigureAwait(false);
-        if (!backend.Applied)
+        try
         {
-            return ModuleIntegrationHostApplyResult.Failure(
-                backend.Compilation?.Diagnostics
-                    ?? ["模块后端接入编译失败，未写入业务文件。"]);
+            var plan = await CrudGenerationWorkspace.PlanAsync(repositoryRoot, schema, cancellationToken);
+            plan = await ModuleIntegrationFullPlanner.PlanAsync(repositoryRoot, schema, target, plan, cancellationToken);
+            var compilation = await ModuleIntegrationFullCompilation.ValidateAsync(repositoryRoot, schema, target, plan, cancellationToken);
+            if (!compilation.Succeeded) return ModuleIntegrationHostApplyResult.Failure(compilation.Diagnostics);
+            await GenerationRollbackCheckpointStore.CreateAsync(repositoryRoot, Guid.CreateVersion7(), plan, cancellationToken);
+            await GenerationWorkspaceStore.ApplyAsync(repositoryRoot, plan, cancellationToken);
+            return ModuleIntegrationHostApplyResult.Success();
         }
-
-        var entry = await ModuleEntryIntegrationApplyCommand
-            .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
-            .ConfigureAwait(false);
-        if (!entry.Applied)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or ArgumentException or GenerationWorkspaceConflictException)
         {
-            return ModuleIntegrationHostApplyResult.Failure(
-                entry.Diagnostics.Count > 0
-                    ? entry.Diagnostics
-                    : entry.Compilation?.Diagnostics ?? []);
+            return ModuleIntegrationHostApplyResult.Failure(exception.Message);
         }
-
-        var composition = await CompositionIntegrationApplyCommand
-            .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
-            .ConfigureAwait(false);
-        if (!composition.Applied)
-        {
-            return ModuleIntegrationHostApplyResult.Failure(
-                composition.Diagnostics.Count > 0
-                    ? composition.Diagnostics
-                    : composition.Compilation?.Diagnostics ?? []);
-        }
-
-        if (target.ClientRoute is not null)
-        {
-            try
-            {
-                await WriteVueViewAsync(
-                    repositoryRoot,
-                    schema,
-                    target.ClientRoute,
-                    cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (GenerationWorkspaceConflictException exception)
-            {
-                return ModuleIntegrationHostApplyResult.Failure(exception.Message);
-            }
-            var routes = await ClientRouteIntegrationApplyCommand
-                .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
-                .ConfigureAwait(false);
-            if (!routes.Applied)
-            {
-                return ModuleIntegrationHostApplyResult.Failure(
-                    routes.Diagnostics);
-            }
-        }
-
-        return await ApplyAuthorizationContributorAsync(repositoryRoot, schema, target, cancellationToken)
-            .ConfigureAwait(false);
     }
-
     // 单独保留授权阶段，测试使用内部编译委托，不扩大公共 Host 契约。
     internal static async Task<ModuleIntegrationHostApplyResult> ApplyAuthorizationContributorAsync(
         string repositoryRoot, FullNetCrudSchema schema, ModuleIntegrationTarget target,
@@ -263,7 +218,7 @@ public static class ModuleIntegrationHostOrchestrator
         }
     }
 
-    private static void RejectAuthorizationPending(string root, string relativePath)
+    internal static void RejectAuthorizationPending(string root, string relativePath)
     {
         var target = GenerationWorkspacePath.ResolveFile(root, relativePath);
         var parent = Path.GetDirectoryName(target)!;

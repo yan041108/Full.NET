@@ -30,17 +30,7 @@ builder.Services.AddFullNetRealtimeSignalR(builder.Configuration, builder.Enviro
 builder.Services.AddApplicationModules(builder.Configuration, FullNetHostProfile.Api);
 
 var app = builder.Build();
-app.UseFullNetTrustedProxyForwarding();
-app.UseFullNetLocalization();
-app.UseFullNetRequestLogging();
-app.UseExceptionHandler();
-app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
-app.UseRateLimiter();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthentication);
-app.UseAuthentication();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthorization);
-app.UseAuthorization();
-app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeEndpoints);
+app.UseFullNetApiPipeline();
 app.MapFullNetOpenApi();
 app.MapScalarApiReference(options =>
 {

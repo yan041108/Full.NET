@@ -12,6 +12,7 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Execution;
 using Full.NET.Modules.Workflow.Execution.Connectors;
 using Microsoft.Data.SqlClient;
@@ -81,6 +82,12 @@ public sealed class WorkflowConnectorApiTests
 
         var successful=await Start(version);
         Assert.AreEqual(clock.UtcNow.UtcDateTime,await db.ExecuteScalarAsync<DateTime>("SELECT DueAtUtc FROM fn_workflow_connector_call WHERE InstanceId=@successful",new{successful}));
+        var deferred = await db.QuerySingleAsync<WorkflowConnectorCallRecord>("SELECT Id,InstanceId,TenantScopeKey,NodeKey,ContinuationNodeKey,ConnectorKey,ConnectorVersion,ConnectorHash,ModeKey,InputJson,InputHash,InputFormRevision,RequestJson,RequestHash,ParallelJoinId,ParallelBranchKey,StatusKey,CurrentAttemptId,SelectedAttemptId,LeaseGeneration,LeaseOwnerKey,LeaseExpiresAtUtc,AttemptCount,ApplyAttemptCount,LastErrorKey,DueAtUtc,CancelRequestedAtUtc,Revision,CreatedAtUtc,CompletedAtUtc,AppliedFormRevision FROM fn_workflow_connector_call WHERE InstanceId=@successful", new { successful });
+        var deferInput = new { deferred.Id, deferred.TenantScopeKey, deferred.Revision, DueAtUtc = clock.UtcNow.AddSeconds(30) };
+        Assert.AreEqual(1, await db.ExecuteAsync(WorkflowConnectorSql.DeferInactiveTenant.Text, deferInput));
+        Assert.AreEqual(0, await db.ExecuteAsync(WorkflowConnectorSql.DeferInactiveTenant.Text, deferInput));
+        Assert.AreEqual(0, await ProcessAsync(factory));
+        clock.UtcNow = clock.UtcNow.AddSeconds(31);
         Assert.AreEqual(0,await WorkAsync(factory)); Assert.AreEqual(1,await ProcessAsync(factory));
         Assert.AreEqual("applied",(await Call(successful)).GetProperty("statusKey").GetString()); Assert.AreEqual(1,await WorkAsync(factory));
         Assert.AreEqual("completed",await Status(successful)); Assert.AreEqual(0,await ProcessAsync(factory));

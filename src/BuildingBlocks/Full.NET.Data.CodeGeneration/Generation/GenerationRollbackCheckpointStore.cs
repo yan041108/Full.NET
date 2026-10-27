@@ -71,7 +71,7 @@ public static class GenerationRollbackCheckpointStore
 
         var previousContents = await ReadPreviousContentsAsync(
             fullRoot,
-            plan.PreviousManifest,
+            plan,
             cancellationToken);
         var document = new GenerationRollbackCheckpointDocument
         {
@@ -247,7 +247,7 @@ public static class GenerationRollbackCheckpointStore
         }
         var expectedEntries = previousManifest?.Artifacts
             ?? Array.Empty<GenerationManifestEntry>();
-        if (document.PreviousArtifacts.Length != expectedEntries.Count)
+        if (document.PreviousArtifacts.Length < expectedEntries.Count)
         {
             throw new ArgumentException("回滚检查点旧内容目录与旧清单不一致。");
         }
@@ -284,6 +284,21 @@ public static class GenerationRollbackCheckpointStore
             }
 
             previousContents.Add(entry.RelativePath, content);
+        }
+
+        foreach (var metadata in document.PreviousArtifacts.Where(item =>
+                     !expectedEntries.Any(entry => entry.RelativePath == item.RelativePath)))
+        {
+            var relative = GenerationArtifactPath.Validate(metadata.RelativePath!, nameof(metadata.RelativePath));
+            if (!appliedManifest.TryGetSha256(relative, out _) || !GenerationContentHash.IsValid(metadata.Sha256))
+                throw new ArgumentException("检查点包含未受计划管理的原文件。");
+            if (!includeContents) continue;
+            var path = GenerationWorkspacePath.Resolve(fullRoot,
+                $"{checkpointRelativePath}/{ContentsDirectoryName}/{metadata.Sha256}.txt");
+            var content = await File.ReadAllTextAsync(path, StrictUtf8, cancellationToken);
+            if (GenerationContentHash.Compute(content) != metadata.Sha256)
+                throw new ArgumentException("检查点原文件摘要已变化。");
+            previousContents.Add(relative, content);
         }
 
         return new GenerationRollbackCheckpoint(
@@ -331,16 +346,17 @@ public static class GenerationRollbackCheckpointStore
     private static async Task<IReadOnlyDictionary<string, string>>
         ReadPreviousContentsAsync(
             string fullRoot,
-            GenerationManifest? previousManifest,
+            GenerationWritePlan plan,
             CancellationToken cancellationToken)
     {
         var contents = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (previousManifest is null)
-        {
-            return contents;
-        }
-
-        foreach (var entry in previousManifest.Artifacts)
+        // 首次接入的手写文件同样保留原文。
+        var entries = (plan.PreviousManifest?.Artifacts ?? [])
+            .Concat(plan.Actions.Where(action => action.ExistingSha256 is not null)
+                .Select(action => new GenerationManifestEntry(action.RelativePath, action.ExistingSha256!)))
+            .GroupBy(entry => entry.RelativePath, StringComparer.Ordinal)
+            .Select(group => group.First());
+        foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = GenerationWorkspacePath.Resolve(

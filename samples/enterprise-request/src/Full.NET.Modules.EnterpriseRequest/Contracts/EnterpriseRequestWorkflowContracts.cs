@@ -2,6 +2,8 @@ namespace Full.NET.Modules.EnterpriseRequest.Contracts;
 
 public static class EnterpriseRequestWorkflowConstants
 {
+    /// <summary>自定义提交操作使用独立权限，不能沿用仅登录授权。</summary>
+    public const string SubmitPermission = "enterprise_request.enterprise_requests.submit";
     public const string BusinessType = "demo.enterprise_request";
     public const string DefinitionKey = "demo.enterprise_request.approval";
 }

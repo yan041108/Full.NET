@@ -34,6 +34,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         // 当前会话授权依赖请求上下文；独立宿主无需额外补注册，已有宿主定制仍由 TryAdd 保留。
         services.AddHttpContextAccessor();
         services.TryAddScoped<AccessSessionValidator>();
+        services.TryAddScoped<Full.NET.Realtime.IRealtimeConnectionAuthorizer, RealtimeConnectionAuthorizer>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentSessionAuthorization, CurrentSessionAuthorization>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IIndependentCurrentSessionAuthorization, IndependentCurrentSessionAuthorization>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>();

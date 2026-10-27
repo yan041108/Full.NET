@@ -127,7 +127,7 @@ public sealed class CacheTenantEntryPointAuthorityTests
             http.HttpContext = new DefaultHttpContext { User = principal };
         }
 
-        FullNetNotificationHub Hub() => new(activity) { Context = new ProbeHubContext(principal), Groups = new RecordingGroups() };
+        FullNetNotificationHub Hub() => new(activity, primary.Services.GetRequiredService<IRealtimeConnectionLeases>()) { Context = new ProbeHubContext(principal), Groups = new RecordingGroups() };
 
         async Task RequireAllowedAsync()
         {
@@ -143,7 +143,7 @@ public sealed class CacheTenantEntryPointAuthorityTests
             try
             {
                 Assert.IsFalse(((ProbeHubContext)hub.Context).Aborted);
-                Assert.AreEqual(2, ((RecordingGroups)hub.Groups).Joined.Count);
+                Assert.AreEqual(3, ((RecordingGroups)hub.Groups).Joined.Count);
             }
             finally { await hub.OnDisconnectedAsync(null); }
             Assert.IsTrue(await monitor.RenewOnceAsync(chatScope, session.Id, binding.UserId, generationId, default));

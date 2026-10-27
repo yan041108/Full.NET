@@ -32,7 +32,7 @@ public sealed class FullNetNotificationHubTests
 
         await groups.Received(1).AddToGroupAsync(
             "connection-1",
-            RealtimeGroups.User(UserId),
+            RealtimeGroups.User(UserId, null),
             Arg.Any<CancellationToken>());
         await groups.Received(1).AddToGroupAsync(
             "connection-1",
@@ -55,7 +55,7 @@ public sealed class FullNetNotificationHubTests
 
         await groups.Received(1).AddToGroupAsync(
             "connection-1",
-            RealtimeGroups.User(UserId),
+            RealtimeGroups.User(UserId, TenantId),
             Arg.Any<CancellationToken>());
         await groups.Received(1).AddToGroupAsync(
             "connection-1",
@@ -143,7 +143,7 @@ public sealed class FullNetNotificationHubTests
 
         await groups.DidNotReceive().AddToGroupAsync(
             "connection-1",
-            RealtimeGroups.User(UserId),
+            RealtimeGroups.User(UserId, null),
             Arg.Any<CancellationToken>());
         await groups.DidNotReceive().AddToGroupAsync(
             "connection-1",
@@ -561,7 +561,9 @@ public sealed class FullNetNotificationHubTests
         tenantActivity
             .IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(true);
-        return new FullNetNotificationHub(tenantActivity)
+        var leases = Substitute.For<IRealtimeConnectionLeases>();
+        leases.RegisterAsync(Arg.Any<HubCallerContext>()).Returns(true);
+        return new FullNetNotificationHub(tenantActivity, leases)
         {
             Context = context,
             Groups = groups,

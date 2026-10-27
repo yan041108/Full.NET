@@ -36,10 +36,12 @@ public static class GenerationRollbackWorkspace
             cancellationToken);
         EnsureAppliedManifestAligned(snapshot, checkpoint);
 
-        return GenerationWritePlanner.PlanFromDesiredContents(
+        var inverse = GenerationWritePlanner.PlanFromDesiredContents(
             checkpoint.PreviousContents,
             snapshot.ExistingFiles,
             checkpoint.AppliedManifest);
+        return new GenerationWritePlan(inverse.Actions, inverse.PreviousManifest,
+            inverse.CanApply ? checkpoint.PreviousManifest ?? GenerationManifest.Create([]) : null);
     }
 
     /// <summary>

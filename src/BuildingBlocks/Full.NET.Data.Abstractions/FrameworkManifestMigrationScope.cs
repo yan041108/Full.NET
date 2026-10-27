@@ -1,7 +1,6 @@
 using System.Text.Json;
-using Microsoft.Extensions.Options;
 
-namespace Full.NET.Migrations.DbUp;
+namespace Full.NET.Data.Abstractions;
 
 /// <summary>
 /// 生成应用 <c>framework-manifest.json</c> 的迁移闭包配置。
@@ -20,7 +19,7 @@ public sealed class FrameworkManifestMigrationOptions
 /// <summary>
 /// 从 preset-scoped manifest 解析允许执行的迁移脚本文件名集合。
 /// </summary>
-internal static class FrameworkManifestMigrationScope
+public static class FrameworkManifestMigrationScope
 {
     public static HashSet<string>? TryLoadAllowedScriptNames(
         FrameworkManifestMigrationOptions options)
@@ -98,7 +97,7 @@ internal static class FrameworkManifestMigrationScope
         return allowed;
     }
 
-    internal static void ValidateEmbeddedScriptNames(HashSet<string>? allowed, IEnumerable<string> resourceNames)
+    public static void ValidateEmbeddedScriptNames(HashSet<string>? allowed, IEnumerable<string> resourceNames)
     {
         // 无限定清单的框架兼容模式保持不变；显式子集必须由真实双库资源承载。
         if (allowed is null) return;
@@ -114,7 +113,7 @@ internal static class FrameworkManifestMigrationScope
         }
     }
 
-    internal static string? GetEmbeddedScriptName(string resourceName, string providerSegment)
+    public static string? GetEmbeddedScriptName(string resourceName, string providerSegment)
     {
         var index = resourceName.IndexOf(providerSegment, StringComparison.Ordinal);
         return index < 0 ? null : resourceName[(index + providerSegment.Length)..];

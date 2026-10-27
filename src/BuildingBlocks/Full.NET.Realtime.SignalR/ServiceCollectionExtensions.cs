@@ -46,6 +46,10 @@ public static class ServiceCollectionExtensions
                 environmentName,
                 requireRedisBackplane: false))
         {
+            services.TryAddSingleton(TimeProvider.System);
+            services.TryAddSingleton<RealtimeConnectionLeases>();
+            services.TryAddSingleton<IRealtimeConnectionLeases>(provider => provider.GetRequiredService<RealtimeConnectionLeases>());
+            services.AddHostedService<RealtimeConnectionRevalidationWorker>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<
                 IPostConfigureOptions<JwtBearerOptions>,
                 JwtBearerSignalRAccessTokenPostConfigure>());

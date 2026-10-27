@@ -14,6 +14,7 @@ internal sealed class TenantBrandingMediaService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outbox,
     IClock clock,
     ICurrentTenantContextWriter currentTenantWriter,
     TenantBrandingService brandingService,
@@ -183,12 +184,18 @@ internal sealed class TenantBrandingMediaService(
         var (fileId, idempotencyKey) = claimPhase.Value;
 
         var bindResult = await transaction.ExecuteResultAsync(
-                token => BindLogoAsync(
-                    tenantId,
-                    fileId,
-                    branding.Version,
-                    updateStatement,
-                    token),
+                async token =>
+                {
+                    var bound = await BindLogoAsync(
+                        tenantId,
+                        fileId,
+                        branding.Version,
+                        updateStatement,
+                        token).ConfigureAwait(false);
+                    if (bound.IsSuccess && previousFileId is { } oldId && oldId != fileId)
+                        await ReleaseLogoClaimAsync(tenantId, oldId, token).ConfigureAwait(false);
+                    return bound;
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (!bindResult.IsSuccess)
@@ -207,12 +214,6 @@ internal sealed class TenantBrandingMediaService(
         if (!confirmResult.IsSuccess)
         {
             return Result<TenantBrandingResponse>.Failure(confirmResult.Error!);
-        }
-
-        if (previousFileId is Guid oldFileId && oldFileId != fileId)
-        {
-            await ReleaseLogoClaimAsync(tenantId, oldFileId, useCurrentTenantScope, cancellationToken)
-                .ConfigureAwait(false);
         }
 
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
@@ -247,15 +248,23 @@ internal sealed class TenantBrandingMediaService(
                 .ConfigureAwait(false);
         }
 
-        _ = await commandExecutor.ExecuteAsync(
-                clearStatement,
-                TenancySqlParameters.Create(
-                    ("TenantId", tenantId),
-                    ("UpdatedAtUtc", clock.UtcNow)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        await ReleaseLogoClaimAsync(tenantId, fileId, useCurrentTenantScope, cancellationToken)
-            .ConfigureAwait(false);
+        var deleted = await transaction.ExecuteAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(
+                    clearStatement,
+                    TenancySqlParameters.Create(
+                        ("TenantId", tenantId),
+                        ("Version", branding.Version),
+                        ("UpdatedAtUtc", clock.UtcNow)),
+                    token)
+                .ConfigureAwait(false);
+            if (affected != 1) return false;
+            await ReleaseLogoClaimAsync(tenantId, fileId, token)
+                .ConfigureAwait(false);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
+        if (!deleted) return Result<TenantBrandingResponse>.Failure(new Error(
+            TenancyErrorCodes.VersionConflict, "The tenant record was updated concurrently.", ErrorType.Conflict));
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -355,18 +364,11 @@ internal sealed class TenantBrandingMediaService(
     private Task ReleaseLogoClaimAsync(
         Guid tenantId,
         Guid fileId,
-        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
         var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenantId, fileId);
-        return RunHostFileOpsIfNeededAsync(
-            useCurrentTenantScope,
-            async () =>
-            {
-                _ = await hostFileReferenceClaimService!
-                    .ReleaseAsync(idempotencyKey, cancellationToken)
-                    .ConfigureAwait(false);
-            });
+        return outbox.AddAsync(HostFileReferenceReleaseRequested.EventType, 1,
+            new HostFileReferenceReleaseRequested(idempotencyKey), cancellationToken);
     }
 
     private Task<T> RunHostFileOpsIfNeededAsync<T>(

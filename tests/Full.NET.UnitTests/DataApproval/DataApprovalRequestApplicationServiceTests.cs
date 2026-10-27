@@ -38,7 +38,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var clock = Substitute.For<IClock>();
-        var applier = Substitute.For<ISerialRuleChangeApprovalApplier>();
+        var applier = Substitute.For<IDataApprovalScenarioCommandHandler>();
+        applier.Supports(Arg.Any<string>()).Returns(true);
         clock.UtcNow.Returns(now);
         commandExecutor.ExecuteAsync(
                 DataApprovalSql.MarkApplicationPending,
@@ -50,29 +51,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(pendingRow, completedRow);
-        applier.ApplyApprovedUpdateAsync(
-                row.TargetEntityId,
-                row.AfterSnapshotJson,
-                row.SubmittedByUserId,
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Result<SerialNumberRuleResponse>.Success(new SerialNumberRuleResponse(
-                row.TargetEntityId,
-                "rule.key",
-                "Rule",
-                null,
-                SerialNumberRuleScope.Host,
-                SerialNumberResetInterval.Day,
-                "P-{sequence:3}",
-                1,
-                999,
-                1,
-                false,
-                now,
-                row.SubmittedByUserId,
-                now,
-                row.SubmittedByUserId,
-                2)));
+        applier.ApplyAsync(Arg.Is<DataApprovalScenarioCommand>(command => command != null && command.CommandId == row.Id && command.ApprovalRequestId == row.Id && command.RequestedByUserId == row.SubmittedByUserId), Arg.Any<CancellationToken>())
+            .Returns(Result<DataApprovalCommandEffect>.Success(new(row.Id, new string('a', 64), "applied", 2, null)));
         commandExecutor.ExecuteAsync(
                 DataApprovalSql.CompleteApprovedApplication,
                 Arg.Any<object?>(),
@@ -83,8 +63,7 @@ public sealed class DataApprovalRequestApplicationServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), applier,
-                Substitute.For<ISerialRuleDisableApprovalApplier>())]);
+            [applier]);
 
         var result = await service.TryApplyApprovedChangeAsync(
             row,
@@ -117,7 +96,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var clock = Substitute.For<IClock>();
-        var applier = Substitute.For<ISerialRuleChangeApprovalApplier>();
+        var applier = Substitute.For<IDataApprovalScenarioCommandHandler>();
+        applier.Supports(Arg.Any<string>()).Returns(true);
         var now = DateTimeOffset.UtcNow;
         clock.UtcNow.Returns(now);
         commandExecutor.ExecuteAsync(
@@ -134,13 +114,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
                 ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
                 Version = row.Version + 1
             });
-        applier.ApplyApprovedUpdateAsync(
-                row.TargetEntityId,
-                row.AfterSnapshotJson,
-                row.SubmittedByUserId,
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Result<SerialNumberRuleResponse>.Failure(new Error(
+        applier.ApplyAsync(Arg.Is<DataApprovalScenarioCommand>(command => command != null && command.CommandId == row.Id && command.ApprovalRequestId == row.Id && command.RequestedByUserId == row.SubmittedByUserId), Arg.Any<CancellationToken>())
+            .Returns(Result<DataApprovalCommandEffect>.Failure(new Error(
                 SerialNumberErrorCodes.RuleVersionConflict,
                 "conflict",
                 ErrorType.Conflict)));
@@ -167,8 +142,7 @@ public sealed class DataApprovalRequestApplicationServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            [new SerialRuleApprovalScenarioHandler(Substitute.For<ISerialRuleChangeApprovalSource>(), applier,
-                Substitute.For<ISerialRuleDisableApprovalApplier>())]);
+            [applier]);
 
         var result = await service.TryApplyApprovedChangeAsync(
             row,

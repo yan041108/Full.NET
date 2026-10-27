@@ -19,6 +19,27 @@ namespace Full.NET.UnitTests.Payments;
 [TestClass]
 public sealed class PaymentExternalSideEffectTests
 {
+    /// <summary>响应丢失后的同键重试只返回原订单；改动输入则明确冲突。</summary>
+    [TestMethod]
+    public async Task Order_retry_reuses_intent_and_rejects_changed_payload_async()
+    {
+        var fixture = CreateOrderFixture();
+        fixture.WeChat.CreateNativeOrderAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(WeChatNativePayResult.Success("weixin://once"));
+        var request = CreateRequest(fixture.TenantId, fixture.Merchant.Id);
+        var first = await fixture.Orders.CreateAsync(request);
+        var retry = await fixture.Orders.CreateAsync(request);
+        var changed = await fixture.Orders.CreateAsync(request with { AmountMinor = request.AmountMinor + 1 });
+        Assert.IsTrue(first.IsSuccess);
+        Assert.IsTrue(retry.IsSuccess);
+        Assert.AreEqual(first.Value!.Id, retry.Value!.Id);
+        Assert.AreEqual(1, fixture.Store.Orders.Count);
+        Assert.AreEqual("payments.order_idempotency_conflict", changed.Error!.Code);
+        await fixture.WeChat.Received(1).CreateNativeOrderAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     /// <summary>租户目录读取必须发生在订单意图事务之前。</summary>
     [TestMethod]
     public async Task Order_tenant_directory_is_checked_before_intent_transaction_async()
@@ -277,7 +298,7 @@ public sealed class PaymentExternalSideEffectTests
     /// <param name="merchantId">商户配置标识。</param>
     /// <returns>创建请求。</returns>
     private static CreatePaymentOrderRequest CreateRequest(Guid tenantId, Guid merchantId) =>
-        new(tenantId, merchantId, PaymentChannelKeys.WeChatNative, 100, "CNY", "review-order", null);
+        new(tenantId, merchantId, PaymentChannelKeys.WeChatNative, 100, "CNY", "review-order", null, Guid.CreateVersion7());
 
     /// <summary>构造已支付成功、可退款的订单。</summary>
     /// <param name="orderId">订单标识。</param>
@@ -347,6 +368,10 @@ public sealed class PaymentExternalSideEffectTests
                 return Task.FromResult((T?)(object?)Merchant);
             }
 
+            if (typeof(T) == typeof(PaymentOrderRecord) && statement.Name == PaymentOrderSql.FindByIdempotencyKey.Name)
+                return Task.FromResult((T?)(object?)Orders.Values.SingleOrDefault(row =>
+                    row.TenantId == (Guid)values["TenantId"]! && row.IdempotencyKey == (Guid)values["IdempotencyKey"]!));
+
             if (typeof(T) == typeof(PaymentOrderRecord)
                 && values.TryGetValue("OrderId", out var orderId)
                 && orderId is Guid id
@@ -402,6 +427,8 @@ public sealed class PaymentExternalSideEffectTests
                     Orders[insertedId] = new PaymentOrderRecord
                     {
                         Id = insertedId,
+                        IdempotencyKey = (Guid)values["IdempotencyKey"]!,
+                        RequestHash = (string)values["RequestHash"]!,
                         TenantId = (Guid)values["TenantId"]!,
                         MerchantConfigId = (Guid)values["MerchantConfigId"]!,
                         ChannelKey = (string)values["ChannelKey"]!,
@@ -428,6 +455,8 @@ public sealed class PaymentExternalSideEffectTests
                         current => new PaymentOrderRecord
                         {
                             Id = current.Id,
+                            IdempotencyKey = current.IdempotencyKey,
+                            RequestHash = current.RequestHash,
                             TenantId = current.TenantId,
                             MerchantConfigId = current.MerchantConfigId,
                             ChannelKey = current.ChannelKey,
@@ -454,6 +483,8 @@ public sealed class PaymentExternalSideEffectTests
                             : new PaymentOrderRecord
                             {
                                 Id = current.Id,
+                            IdempotencyKey = current.IdempotencyKey,
+                            RequestHash = current.RequestHash,
                                 TenantId = current.TenantId,
                                 MerchantConfigId = current.MerchantConfigId,
                                 ChannelKey = current.ChannelKey,
@@ -479,6 +510,8 @@ public sealed class PaymentExternalSideEffectTests
                         current => new PaymentOrderRecord
                         {
                             Id = current.Id,
+                            IdempotencyKey = current.IdempotencyKey,
+                            RequestHash = current.RequestHash,
                             TenantId = current.TenantId,
                             MerchantConfigId = current.MerchantConfigId,
                             ChannelKey = current.ChannelKey,

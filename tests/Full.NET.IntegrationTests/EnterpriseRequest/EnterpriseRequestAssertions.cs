@@ -1,3 +1,12 @@
+using System.Data.Common;
+using Dapper;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Migrations;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
+using Microsoft.Extensions.DependencyInjection;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -61,7 +70,7 @@ internal static class EnterpriseRequestAssertions
         submitRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var submitResponse = await client.SendAsync(submitRequest, cancellationToken);
         Assert.IsTrue(
-            submitResponse.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict,
+            submitResponse.StatusCode == HttpStatusCode.Forbidden,
             await submitResponse.Content.ReadAsStringAsync(cancellationToken));
     }
 
@@ -84,7 +93,7 @@ internal static class EnterpriseRequestAssertions
             title = "Submit integration probe",
             status = EnterpriseRequestStatusKeys.Draft,
             totalAmount = 42m,
-            applicantUserId = Guid.NewGuid(),
+            applicantUserId = await GetCurrentUserIdAsync(client, token, cancellationToken),
         };
 
         using var createRequest = new HttpRequestMessage(HttpMethod.Post, BasePath)
@@ -105,6 +114,31 @@ internal static class EnterpriseRequestAssertions
         var submitted = await submitResponse.Content.ReadFromJsonAsync<EnterpriseRequestResponse>(cancellationToken);
         Assert.IsNotNull(submitted);
         Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, submitted!.Status);
+        // 重复 HTTP 提交只返回原状态，不产生第二条启动意图。
+        using var retry = new HttpRequestMessage(HttpMethod.Post, $"{BasePath}/{created.Id:D}/submit-for-approval");
+        retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var retried = await client.SendAsync(retry, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode);
+        await using DbConnection db = factory.Provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(factory.ConnectionString)
+            : new MySqlConnection(Migration114To126RecoveryTestSupport.MySqlQueryConnectionString(factory.ConnectionString));
+        const string messageType = "demo.enterprise_request.request.submitted";
+        var envelopes = (await db.QueryAsync<SubmissionEnvelope>(
+            "SELECT Id, TenantId, Payload FROM fn_outbox_message WHERE MessageType=@messageType", new { messageType })).ToArray();
+        Assert.AreEqual(1, envelopes.Length);
+        var envelope = envelopes[0];
+        await using var scope = factory.Services.CreateAsyncScope();
+        var writer = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        var resolver = scope.ServiceProvider.GetRequiredService<IActiveTenantContextResolver>();
+        writer.SetTenant((await resolver.ResolveActiveByIdAsync(envelope.TenantId, cancellationToken))!);
+        var handler = scope.ServiceProvider.GetServices<IIntegrationEventHandler>().Single(item => item.EventType == messageType);
+        var context = new IntegrationEventContext(envelope.Id, messageType, 1, envelope.TenantId, null, DateTimeOffset.UtcNow);
+        await handler.HandleAsync(context, envelope.Payload, cancellationToken);
+        await handler.HandleAsync(context, envelope.Payload, cancellationToken);
+        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM fn_workflow_instance WHERE BusinessType=@businessType AND BusinessId=@id",
+            new { businessType = EnterpriseRequestWorkflowConstants.BusinessType, id = created.Id.ToString("D") }));
+        writer.Clear();
     }
 
     public static async Task VerifyTenantDemoEnterpriseRequestsCsvImportAsync(
@@ -171,6 +205,13 @@ internal static class EnterpriseRequestAssertions
                 requestNumber,
                 StringComparison.Ordinal));
         Assert.IsTrue(found, "Imported enterprise request should appear in tenant list.");
+    }
+
+    private sealed class SubmissionEnvelope
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public byte[] Payload { get; set; } = [];
     }
 
     private static async Task<Guid> CreateOrganizationUnitAsync(

@@ -3,6 +3,10 @@ namespace Full.NET.Modules.Payments.Persistence;
 /// <summary>支付订单持久化行。</summary>
 internal sealed class PaymentOrderRecord
 {
+    /// <summary>调用方创建身份；历史行可以为空。</summary>
+    public Guid? IdempotencyKey { get; init; }
+    /// <summary>创建输入摘要。</summary>
+    public string? RequestHash { get; init; }
     /// <summary>订单标识。</summary>
     public Guid Id { get; init; }
 

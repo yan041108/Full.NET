@@ -14,6 +14,7 @@ internal sealed class SelfServiceProfileMediaService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outbox,
     SelfServiceProfileService profileService,
     ICurrentTenantContextWriter currentTenantWriter,
     IHostFileUploadWriter? hostFileUploadWriter = null,
@@ -180,23 +181,22 @@ internal sealed class SelfServiceProfileMediaService(
             return Result<SelfServiceProfileResponse>.Failure(claimResult.Error!);
         }
 
-        try
+        var bindResult = await transaction.ExecuteResultAsync(
+                async token =>
+                {
+                    var bound = await BindMediaAsync(userId, kind, fileId, profile?.Version, token).ConfigureAwait(false);
+                    if (bound.IsSuccess && previousFileId is { } oldId && oldId != fileId)
+                        await ReleaseMediaClaimAsync(kind, userId, oldId, token).ConfigureAwait(false);
+                    return bound;
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!bindResult.IsSuccess)
         {
-            var bindResult = await transaction.ExecuteResultAsync(
-                    token => BindMediaAsync(userId, kind, fileId, profile is null, token),
-                    cancellationToken)
+            await hostFileReferenceClaimService
+                .ReleaseAsync(idempotencyKey, cancellationToken)
                 .ConfigureAwait(false);
-            if (!bindResult.IsSuccess)
-            {
-                await hostFileReferenceClaimService
-                    .ReleaseAsync(idempotencyKey, cancellationToken)
-                    .ConfigureAwait(false);
-                return Result<SelfServiceProfileResponse>.Failure(bindResult.Error!);
-            }
-        }
-        catch
-        {
-            throw;
+            return Result<SelfServiceProfileResponse>.Failure(bindResult.Error!);
         }
 
         var confirmResult = await hostFileReferenceClaimService
@@ -207,12 +207,6 @@ internal sealed class SelfServiceProfileMediaService(
             return Result<SelfServiceProfileResponse>.Failure(confirmResult.Error!);
         }
 
-        if (previousFileId is Guid oldFileId && oldFileId != fileId)
-        {
-            await ReleaseMediaClaimAsync(kind, userId, oldFileId, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
         return await profileService.GetAsync(userId, actorScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -221,7 +215,7 @@ internal sealed class SelfServiceProfileMediaService(
         Guid userId,
         SelfServiceProfileMediaKind kind,
         Guid fileId,
-        bool createShell,
+        int? version,
         CancellationToken cancellationToken)
     {
         var statement = kind switch
@@ -234,6 +228,7 @@ internal sealed class SelfServiceProfileMediaService(
                 statement,
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
+                    ("Version", version ?? 0),
                     kind == SelfServiceProfileMediaKind.Avatar
                         ? ("AvatarFileId", fileId)
                         : ("SignatureFileId", fileId)),
@@ -244,7 +239,7 @@ internal sealed class SelfServiceProfileMediaService(
             return Result<bool>.Success(true);
         }
 
-        if (!createShell)
+        if (version.HasValue)
         {
             return Result<bool>.Failure(new Error(
                 IdentityErrorCodes.ProfileVersionConflict,
@@ -304,13 +299,20 @@ internal sealed class SelfServiceProfileMediaService(
         var statement = kind == SelfServiceProfileMediaKind.Avatar
             ? IdentitySql.ClearHostUserProfileAvatar
             : IdentitySql.ClearHostUserProfileSignature;
-        _ = await commandExecutor.ExecuteAsync(
-                statement,
-                IdentitySqlParameters.Create(("UserId", userId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        await ReleaseMediaClaimAsync(kind, userId, fileId.Value, cancellationToken)
-            .ConfigureAwait(false);
+        var deleted = await transaction.ExecuteAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(
+                    statement,
+                    IdentitySqlParameters.Create(("UserId", userId), ("Version", profile!.Version)),
+                    token)
+                .ConfigureAwait(false);
+            if (affected != 1) return false;
+            await ReleaseMediaClaimAsync(kind, userId, fileId.Value, token)
+                .ConfigureAwait(false);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
+        if (!deleted) return Result<SelfServiceProfileResponse>.Failure(new Error(
+            IdentityErrorCodes.ProfileVersionConflict, "The host user profile was updated concurrently.", ErrorType.Conflict));
         return await profileService.GetAsync(userId, actorScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -374,9 +376,8 @@ internal sealed class SelfServiceProfileMediaService(
         CancellationToken cancellationToken)
     {
         var idempotencyKey = BuildIdempotencyKey(kind, userId, fileId);
-        _ = await hostFileReferenceClaimService!
-            .ReleaseAsync(idempotencyKey, cancellationToken)
-            .ConfigureAwait(false);
+        await outbox.AddAsync(HostFileReferenceReleaseRequested.EventType, 1,
+            new HostFileReferenceReleaseRequested(idempotencyKey), cancellationToken).ConfigureAwait(false);
     }
 
     private Task<IdentityUserRecord?> FindActiveUserAsync(

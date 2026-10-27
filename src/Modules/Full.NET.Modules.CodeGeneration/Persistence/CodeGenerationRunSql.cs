@@ -88,6 +88,8 @@ internal static class CodeGenerationRunSql
         """
         UPDATE fn_codegeneration_run
         SET Status = 'succeeded',
+            ArtifactCount = @ArtifactCount,
+            ManifestSha256 = @ManifestSha256,
             FinishedAtUtc = @FinishedAtUtc
         WHERE Id = @Id
           AND OperationKind = 'apply'
@@ -96,18 +98,13 @@ internal static class CodeGenerationRunSql
         SqlDataScope.HostOnly);
 
     /// <summary>
-    /// 将 running Apply 收敛为 failed 并清空 ModuleKey/EntityKey/Schema/Manifest 等字段，仅匹配 running 行避免重复终态；失败后不得保留可被误用的摘要。
+    /// 将 running Apply 收敛为 failed；保留冻结摘要以定位回滚检查点，摘要本身不授予写盘权限。
     /// </summary>
     public static readonly SqlStatement FailApply = new(
         "codegen.run.fail_apply",
         """
         UPDATE fn_codegeneration_run
         SET Status = 'failed',
-            ModuleKey = NULL,
-            EntityKey = NULL,
-            SchemaSha256 = NULL,
-            ArtifactCount = 0,
-            ManifestSha256 = NULL,
             ErrorCode = @ErrorCode,
             FinishedAtUtc = @FinishedAtUtc
         WHERE Id = @Id
@@ -129,7 +126,7 @@ internal static class CodeGenerationRunSql
         SqlDataScope.HostOnly);
 
     /// <summary>
-    /// 将 running Rollback 收敛为 failed 并清空敏感字段，仅匹配 running 行避免重复终态；与 FailApply 对称，防止失败回滚残留可被误用的摘要。
+    /// 将 running Rollback 收敛为 failed 并清空摘要，仅匹配 running 行避免重复终态；恢复依据仍保存在来源 Apply 的检查点中。
     /// </summary>
     public static readonly SqlStatement FailRollback = new(
         "codegen.run.fail_rollback",

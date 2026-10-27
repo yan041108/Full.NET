@@ -154,6 +154,7 @@ public sealed class OptionalFilesConsumerTests
             registrations.AddSingleton(Queries);
             registrations.AddSingleton(Commands);
             registrations.AddSingleton(Transaction);
+            registrations.AddSingleton(Substitute.For<IOutboxWriter>());
             registrations.AddSingleton(Members);
             registrations.AddSingleton(Substitute.For<IClock>());
             registrations.AddSingleton(Substitute.For<IIdGenerator>());
