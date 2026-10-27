@@ -48,6 +48,32 @@ public sealed class RequestBodyProblemDetailsTests
         await pipeline.Build()(context);Assert.AreEqual(status,context.Response.StatusCode);
         Assert.AreEqual(hasBody?"{\"code\":\"existing\"}":"",System.Text.Encoding.UTF8.GetString(body.ToArray()));
     }
+    [TestMethod]
+    [DataRow("/api/v1/me", 401, true)]
+    [DataRow("/api/v1/me", 403, true)]
+    [DataRow("/api/v1/missing", 404, true)]
+    [DataRow("/connect/authorize", 401, false)]
+    [DataRow("/connect/token", 403, false)]
+    public async Task Api_framework_rejections_receive_problem_details_without_taking_over_protocol_endpoints(string path, int status, bool expectedBody)
+    {
+        using var provider = Services("en-US");
+        using var body = new MemoryStream();
+        var context = new DefaultHttpContext { RequestServices = provider };
+        context.Request.Path = path;
+        context.Response.Body = body;
+        var pipeline = new ApplicationBuilder(provider);
+        pipeline.UseFullNetRequestBodyProblemDetails();
+        pipeline.Run(http => { http.Response.StatusCode = status; return Task.CompletedTask; });
+        await pipeline.Build()(context);
+        Assert.AreEqual(status, context.Response.StatusCode);
+        if (expectedBody)
+        {
+            using var json = JsonDocument.Parse(body.ToArray());
+            Assert.AreEqual(status, json.RootElement.GetProperty("status").GetInt32());
+        }
+        else Assert.AreEqual(0, body.Length);
+    }
+
     private static ServiceProvider Services(string locale)
     {
         var resources=new ResourceManager("Full.NET.Hosting.Resources.CommonErrors",typeof(StandardApiResultMapper).Assembly);
