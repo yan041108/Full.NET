@@ -1688,6 +1688,7 @@
         "ConfirmedAtUtc": "确认时间(UTC)",
         "CreatedAtUtc": "创建时间(UTC)",
         "IsEnabled": "是否启用",
+        "LastAcceptedCounter": "最近接受的中心登录 TOTP 步长，阻止重放",
         "SecretProtected": "受保护密钥",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UserId": "用户标识",
@@ -4422,6 +4423,32 @@
         "PayloadHash": "完整清单载荷 SHA256 摘要",
         "Payload": "包含完整解析策略、正文及原生来源坐标的有界计划",
         "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
+    "fn_identity_oidc_signing_key": {
+      "comment": "OIDC 签名公钥指纹与受控生命周期",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "IsRetired": "已退役标志且不可重新激活",
+        "KeyId": "不可重新绑定材料的 kid",
+        "LastActivatedAtUtc": "最近激活时间 UTC",
+        "PublicKeyHash": "规范公钥 DER 的 SHA256",
+        "PublishedAtUtc": "公钥登记时间 UTC",
+        "RetireAfterUtc": "所有合法协议令牌覆盖后的最早退役时间 UTC",
+        "Version": "治理行并发版本"
+      }
+    },
+    "fn_identity_oidc_signing_node": {
+      "comment": "OIDC 签名进程的短期就绪租约",
+      "columns": {
+        "EncryptionFingerprint": "共享协议加密与令牌期限配置摘要",
+        "ExpiresAtUtc": "就绪租约到期时间 UTC",
+        "Id": "进程独立 UUID v7，重启不得继承",
+        "PolicyVersion": "本节点已观察的持久化策略版本",
+        "PrivateKeysJson": "本节点持有私钥的 kid 列表，不含私钥",
+        "RoleKey": "签名角色 api 或 worker",
+        "SigningManifest": "本节点全部公开签名材料摘要",
+        "UpdatedAtUtc": "最近就绪确认时间 UTC"
       }
     }
   }

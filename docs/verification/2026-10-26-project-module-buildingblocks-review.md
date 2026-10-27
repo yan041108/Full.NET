@@ -1,5 +1,7 @@
 # Full.NET 项目模块、基础模板与 BuildingBlocks 设计审查
 
+> **命名整改（2026-10-27）：** 第 9 节保留的 4 项 MySQL 命名违规已修复，具体变更及本轮验证见第 10 节。
+
 > **合并状态（2026-10-27）：** 修复提交 `77af180c8` 已快进合并至原工作区 `main`。原有未提交改动已恢复，冲突处理及组合验证见第 9 节；下方第 8 节的独立工作树状态属于当时交付记录。
 
 > **修复状态（2026-10-26）：** 第 8 节记录本轮实现、针对性验证与剩余限制。修复位于独立开发工作树 `Full.NET-review-remediation` 的 `codex/review-remediation` 分支，基于下述远程提交；原工作区的未提交修改保持原样。第 1～7 节是历史审查证据，不代表修复后仍存在全部问题。
@@ -412,3 +414,22 @@ node --test tests/naming/sql-naming.test.mjs tests/naming/sql-comments.test.mjs 
 - 构建开始曾遇到旧 `obj` 中含 NUL 的生成文件和未恢复的新依赖；只删除已确认损坏的生成文件并恢复依赖后，构建通过。没有通过降低编译规则绕过失败。初次双库运行因 Docker 未启动而在初始化失败；启动本机引擎后，以相同 4 项过滤器重跑全部通过。
 
 未运行全量、Native AOT 发布或容量验证；仍为 `Capacity-not-verified`。本次合并不代表原工作区其他尚未完成的功能已整体验收。
+
+## 10. 剩余 MySQL 迁移命名问题整改（2026-10-27）
+
+用户要求修复第 9 节保留的 4 项 MySQL 迁移命名违规、验证后提交。本轮基线为 `main` 的 `46d9233d705d70c4cf2233911cbda182c1313491`，任务快照为 `mysql-migration-naming-20261027`。
+
+- `301_IdentityOidcMfaCounter.sql`：移除动态 `PREPARE/EXECUTE`，改用无参静态条件过程，只在列不存在时添加 `LastAcceptedCounter`，调用完成后清理过程；重入保留已有 TOTP 消费步长，不新增命名债务豁免。
+- `303_IdentityOidcKeyGovernance.sql`：为两张签名治理表显式声明 `PK_fn_identity_oidc_signing_key` 和 `PK_fn_identity_oidc_signing_node`，保留原有 UUID 存储、唯一键及治理状态语义。
+- 301/303 此前均为未跟踪迁移，本次将其及已具备规范主键的 SQL Server 对应脚本成对纳入提交；同步提交这三处表/列的中文注释目录和覆盖映射，其他未提交目录内容不混入本次提交。
+- 新增 `IdentityMfaSigningMigrationNamingTests`，只按完整名称加载 301/303，使用不记账执行器验证实际 DDL；覆盖首次建列/表、签名首表已存在但第二张表缺失、重复执行保持 TOTP 步长/退役密钥版本/节点策略，以及主键和 KeyId 唯一约束有效、无残留 MySQL 恢复过程。
+- 原工作区未提交的 `IdentityOidcRemediationMigrationTests` 同步适配正式执行器及完整文件名，避免对 `DELIMITER` 原文直接执行，也避免同编号模块脚本误选；该既有功能测试继续随原未提交改动保留。测试矩阵仅增加本轮 2 个新集成场景及 301/303 的精确过滤器。
+
+验证：
+
+- `node --test tests/naming/sql-naming.test.mjs tests/naming/sql-comments.test.mjs tests/naming/uuid-storage-sql-governance.test.mjs`：24/24 通过。
+- `validateRepositorySqlNaming`：实际扫描结果为 0 项违规。
+- Integration Release 构建：通过，0 警告、0 错误。
+- 双库聚焦测试：4/4 通过（SQL Server/MySQL 各 2 项），包括新迁移回归与原有 BFF/TOTP/退出/密钥状态重入调用；0 失败、0 跳过。过滤器为 `FullyQualifiedName~IdentityMfaSigningMigrationNamingTests|FullyQualifiedName~IdentityOidcRemediationMigrationTests.Replayed_browser_mfa_and_logout_schema_preserves_security_state`。
+
+本轮只验证这些迁移及直接受影响的重入调用，不代表全量测试或 Native AOT 验证。其余原有未提交改动继续保留，未推送远程。

@@ -401,6 +401,14 @@
       }
     },
     "migrationSelections": {
+      "301": {
+        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
+        "minimum": 2
+      },
+      "303": {
+        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
+        "minimum": 2
+      },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
       },
@@ -991,7 +999,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1356,
+        "minimum": 1358,
         "timeout": "90m"
       },
       "logging-metrics": {
