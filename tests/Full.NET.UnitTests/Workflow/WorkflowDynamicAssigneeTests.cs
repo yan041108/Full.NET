@@ -72,9 +72,14 @@ public sealed class WorkflowDynamicAssigneeTests
         Assert.IsTrue(plan!.TryResolveAfterHuman("first", out var next));
         var deferred = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7(), completingNodeKey: "first");
         Assert.IsFalse(deferred.TryGet("second", out _)); Assert.AreEqual(0, hosts.ReceivedCalls().Count());
-        var resumed = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7());
+        var unbound = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7());
+        Assert.IsTrue(unbound.TryGet("second",out var missing)); Assert.IsFalse(missing.IsSuccess);
+        Assert.AreEqual(0,query.ReceivedCalls().Count());
+        var epoch=Guid.CreateVersion7();
+        var resumed = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7(), executionEpochId: epoch);
         Assert.IsTrue(resumed.TryGet("second", out var snapshot)); Assert.IsTrue(snapshot.IsSuccess);
         CollectionAssert.AreEqual(new[] { actor }, snapshot.Value!.Task!.MemberUserIds.ToArray());
+        Assert.IsTrue(query.ReceivedCalls().Any(call=>call.GetArguments()[1] is IReadOnlyDictionary<string,object?> values && Equals(values["ExecutionEpochId"],epoch)));
     }
 
     [TestMethod]

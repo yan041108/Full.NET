@@ -19,7 +19,8 @@ internal sealed record WorkflowNodeTypeDefinition(
         "notify.cc" => ["nodeName", "nextNodeKeys", "recipientUserIds", "recipientPolicy"],
         "timer.delay" => ["nodeName", "nextNodeKeys", "delayPolicy"],
         "business.command" => ["nodeName", "nextNodeKeys", "businessCommandPolicy", "boundBusinessActionHash"],
-        "process.subprocess" => ["nodeName", "nextNodeKeys", "fieldPolicies", "subprocessPolicy", "boundSubprocess", "multiInstancePolicy"],
+        "process.subprocess" => ["nodeName", "nextNodeKeys", "fieldPolicies", "subprocessPolicy", "boundSubprocess", "multiInstancePolicy", "starterPolicy", "childTimeoutPolicy"],
+        "control.route" => ["nodeName", "nextNodeKeys", "routePolicy"],
         "data.modify" or "data.clear" => ["nodeName", "nextNodeKeys", "fieldPolicies", "mutationPolicy"],
         "integration.trigger" or "integration.async_trigger" => ["nodeName", "nextNodeKeys", "fieldPolicies", "connectorPolicy", "boundConnectorHash"],
         "gateway.exclusive" => ["nodeName", "nextNodeKeys", "branches", "defaultNextNodeKey"],
@@ -47,6 +48,7 @@ internal static class WorkflowNodeTypeCatalog
         Node("human.claim", supportsFieldPolicies: true),
         Node("notify.cc"),
         Node("control.empty"),
+        Node(WorkflowDynamicRoutePolicy.NodeType),
         Node("timer.delay"),
         Node("business.command"),
         Node(WorkflowSubprocessPolicy.NodeType, supportsFieldPolicies: true),
@@ -64,7 +66,7 @@ internal static class WorkflowNodeTypeCatalog
         Definitions.ToDictionary(definition => definition.NodeTypeKey, StringComparer.Ordinal);
 
     public static WorkflowNodeTypeCatalogSnapshot Current { get; } =
-        new(26, 1, Array.AsReadOnly(Definitions));
+        new(29, 1, Array.AsReadOnly(Definitions));
 
     public static bool TryGet(string? nodeTypeKey, out WorkflowNodeTypeDefinition? definition)
     {
@@ -74,7 +76,7 @@ internal static class WorkflowNodeTypeCatalog
 
     public static bool SupportsConfiguration(WorkflowNodeDraft node) =>
         node.Config.ValueKind == System.Text.Json.JsonValueKind.Object &&
-        (node.NodeTypeKey is not ("start" or "end" or "human.approval" or "human.group_approval" or "human.task" or "human.vote" or "human.claim" or "control.empty" or "timer.delay" or "business.command" or "process.subprocess" or "data.modify" or "data.clear" or "integration.trigger" or "integration.async_trigger") ||
+        (node.NodeTypeKey is not ("start" or "end" or "human.approval" or "human.group_approval" or "human.task" or "human.vote" or "human.claim" or "control.empty" or "control.route" or "timer.delay" or "business.command" or "process.subprocess" or "data.modify" or "data.clear" or "integration.trigger" or "integration.async_trigger") ||
             (TryGet(node.NodeTypeKey, out var type) && node.Config.EnumerateObject().All(property =>
                 type!.ConfigurationProperties.Contains(property.Name, StringComparer.Ordinal))));
 

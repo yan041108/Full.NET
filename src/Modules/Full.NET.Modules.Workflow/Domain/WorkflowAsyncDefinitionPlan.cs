@@ -36,7 +36,7 @@ internal static class WorkflowAsyncDefinitionPlan
             var declared = node.AwaitActivityNodeKeys ?? [];
             if (declared.Count > MaximumDeclaredDependencies || declared.Distinct(StringComparer.Ordinal).Count() != declared.Count ||
                 declared.Any(source => !WorkflowNodeKeyValidator.IsValid(source) || source == key || !producers.ContainsKey(source) || !guaranteed.Contains(source))) return false;
-            var implicitBoundary = node.NodeTypeKey is "end" or "gateway.parallel" or "gateway.inclusive" or "business.command" or WorkflowSubprocessPolicy.NodeType;
+            var implicitBoundary = node.NodeTypeKey is "end" or "gateway.parallel" or "gateway.inclusive" or "business.command" or WorkflowSubprocessPolicy.NodeType or WorkflowDynamicRoutePolicy.NodeType;
             if (!TryReadConsumedFields(node, candidates, out var consumed)) return false;
             var required = pending.Where(source => producers[source].Overlaps(consumed)).ToArray();
             if (!implicitBoundary && required.Any(source => !declared.Contains(source, StringComparer.Ordinal))) return false;
@@ -67,9 +67,11 @@ internal static class WorkflowAsyncDefinitionPlan
         }
         switch (node.NodeTypeKey)
         {
+            // 进入路由前所有实际异步激活均已收敛，不能在换代后采纳旧回执。
+            case WorkflowDynamicRoutePolicy.NodeType: return WorkflowDynamicRoutePolicy.TryRead(node.Config, null, out _);
             case WorkflowSubprocessPolicy.NodeType:
                 if (!WorkflowSubprocessPolicy.TryRead(node.Config, null, out var subprocess)) return false;
-                fields.UnionWith(subprocess.InputFields.Values); fields.UnionWith(subprocess.OutputFields.Keys); return true;
+                fields.UnionWith(subprocess.ReadFields); fields.UnionWith(subprocess.WrittenFields); return true;
             case "start": case "end": case "control.empty": case "gateway.parallel": case "business.command": return true;
             case "integration.trigger": case "integration.async_trigger":
                 if (!WorkflowConnectorPolicy.TryRead(node.Config, null, out var connector)) return false;

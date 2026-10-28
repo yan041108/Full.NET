@@ -561,6 +561,9 @@ internal sealed class WorkflowDefinitionManagementService(
             if (subprocess.Multi?.RoleId is { } roleId && !await assigneePublishValidator.ValidateSourceAsync(
                 new(WorkflowAssigneePolicy.RoleMembers, [], [roleId], null, null), scope, token, allowEmpty: true).ConfigureAwait(false))
                 return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+            if (subprocess.Starter?.UserId is { } starterId && !await assigneePublishValidator.ValidateSourceAsync(
+                new(WorkflowAssigneePolicy.SpecifiedUsers, [starterId], [], null, null), scope, token).ConfigureAwait(false))
+                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
         }
         var voteForms = await PrepareVoteFormsAsync(model, scope, token).ConfigureAwait(false);
         if (!voteForms.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(voteForms.Error!);

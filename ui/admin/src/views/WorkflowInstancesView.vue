@@ -44,6 +44,7 @@ import {
 import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
 import WorkflowManualReminderPanel from '../workflow/WorkflowManualReminderPanel.vue';
 import WorkflowConnectorCallsPanel from '../workflow/WorkflowConnectorCallsPanel.vue';
+import WorkflowRoutesPanel from '../workflow/WorkflowRoutesPanel.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 
 const statusFilterOptions = [
@@ -83,6 +84,8 @@ const resuming = ref(false);
 const recovering = ref(false);
 const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
+const selectedRouteId = ref<string>();
+watch(instanceId, () => { selectedRouteId.value = undefined; });
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 let identityEpoch = 0;
@@ -94,6 +97,7 @@ const identityContext = computed(() => JSON.stringify([session.currentUser?.id, 
 watch(identityContext, () => {
   identityEpoch++; listRequest++; loadController?.abort(); loading.value = false; listLoading.value = false;
   instance.value = undefined; executionLogs.value = []; listItems.value = []; listTotal.value = 0;
+  selectedRouteId.value = undefined;
   pendingWithdrawal = undefined; problem.value = undefined;
   if (!session.switching && session.can('workflow.instances.read')) void loadList();
 }, { flush: 'sync' });
@@ -693,6 +697,8 @@ function toProblem(
     <template v-if="instance">
       <WorkflowManualReminderPanel v-if="session.can('workflow.instances.remind')" :instance-id="instance.id" :revision="instance.revision" :status-key="instance.statusKey" />
       <WorkflowConnectorCallsPanel v-if="session.can('workflow.connector_calls.read')" :instance-id="instance.id" :revision="instance.revision" :status-key="instance.statusKey" :can-reconcile="session.can('workflow.connector_calls.reconcile')" @resolved="load" />
+      <WorkflowRoutesPanel v-if="selectedRouteId && session.can('workflow.routes.read')" :key="instance.id" :instance-id="instance.id" :route-id="selectedRouteId"
+        :revision="instance.revision" :can-reconcile="session.can('workflow.routes.reconcile')" @resolved="load" @close="selectedRouteId = undefined" />
       <section
         class="workflow-instances__summary"
         data-testid="workflow-instance-summary"
@@ -820,6 +826,8 @@ function toProblem(
                 {{ t('workflowInstances.step') }}
                 <code translate="no">{{ log.stepId }}</code>
               </small>
+              <el-button v-if="log.stepId && ['node.control.route.decision_unknown', 'node.control.route.applied'].includes(log.transitionKey) && session.can('workflow.routes.read')"
+                @click="selectedRouteId = log.stepId">{{ t('workflowDesigner.route.operations') }}</el-button>
             </div>
           </li>
         </ol>

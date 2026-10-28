@@ -113,8 +113,12 @@ internal sealed partial class WorkflowConnectorProcessor(IQueryExecutor query, I
                 !catalog.CanBind(instance.TenantScopeKey, wait.Policy, out var connector) || connector!.ContentHash != call.ConnectorHash) return null;
             if(plan.TryGetAsyncWait(call.NodeKey,out var dependency))
             {
+                var dependencyEpoch = await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id,
+                    instance.TenantScopeKey, call.Id, token).ConfigureAwait(false);
+                if (dependencyEpoch is null) return null;
                 var prerequisites=await query.QueryAsync<WorkflowConnectorCallRecord>(WorkflowConnectorSql.FindInFrame,
                     Parameters(("InstanceId",instance.Id),("TenantScopeKey",instance.TenantScopeKey),("NodeKeys",dependency!.ProducerNodeKeys.ToArray()),
+                        ("ExecutionEpochId",dependencyEpoch.Value),
                         ("ParallelJoinId",call.ParallelJoinId),("ParallelBranchKey",call.ParallelBranchKey)),token).ConfigureAwait(false);
                 if(prerequisites.Count!=dependency.ProducerNodeKeys.Count || prerequisites.GroupBy(item=>item.NodeKey,StringComparer.Ordinal).Any(group=>group.Count()!=1) ||
                     prerequisites.Any(item=>item.StatusKey!="applied"))return null;

@@ -26,10 +26,10 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
     }
 
     /// <summary>办理以独立成员事实激活，顺序模式只创建首人的实际待办。</summary>
-    public async Task<WorkflowHumanActivityActivationResult> WriteTaskAsync(Guid instanceId, string tenantScopeKey, string nodeKey,
+    public async Task<WorkflowHumanActivityActivationResult> WriteTaskAsync(Guid instanceId, string tenantScopeKey, Guid executionEpochId, string nodeKey,
         WorkflowTaskActivationPolicy activation, long executionSequence, DateTimeOffset now, WorkflowTodoTimeoutPolicy? timeout,
         string businessType, string businessId, Guid? parallelJoinId, string? branchKey, string? snapshotJson, string? snapshotHash,
-        CancellationToken token)
+        CancellationToken token, WorkflowActivationTrace? trace=null)
     {
         var members = activation.MemberUserIds;
         var required = activation.Policy.RequiredCompletions(members.Count);
@@ -38,14 +38,15 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
             throw new InvalidOperationException("workflow.task.activation_invalid");
         var step = idGenerator.NewId();
         if (await commandExecutor.ExecuteAsync(WorkflowTaskSql.InsertStep,
-            WorkflowSqlParameters.Create(("Id", step), ("InstanceId", instanceId), ("NodeKey", nodeKey),
+            WorkflowSqlParameters.Create(("Id", step), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("NodeKey", nodeKey),
                 ("AssignedUserId", members.Count == 1 ? members[0] : null), ("ExecutionSequence", executionSequence),
                 ("ParallelJoinId", parallelJoinId), ("ParallelBranchKey", branchKey), ("Now", now),
                 ("AssigneeSnapshotJson", snapshotJson), ("AssigneeSnapshotHash", snapshotHash)), token).ConfigureAwait(false) != 1 ||
             await commandExecutor.ExecuteAsync(WorkflowTaskSql.InsertTask,
-                WorkflowSqlParameters.Create(("Id", step), ("InstanceId", instanceId), ("CompletionModeKey", activation.Policy.CompletionModeKey),
+                WorkflowSqlParameters.Create(("Id", step), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("CompletionModeKey", activation.Policy.CompletionModeKey),
                     ("MemberCount", members.Count), ("RequiredCompletionCount", required), ("Now", now)), token).ConfigureAwait(false) != 1)
             throw new InvalidOperationException("workflow.task.step_missing");
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,step,now,token,trace,idGenerator).ConfigureAwait(false);
         var schedule = WorkflowTodoTimeoutSchedule.Create(now, timeout);
         var todos = new List<Guid>();
         for (var index = 0; index < members.Count; index++)
@@ -94,7 +95,7 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
     /// <returns>新步骤及按策略顺序创建的待办标识。</returns>
     public async Task<WorkflowHumanActivityActivationResult> WriteAsync(
         Guid instanceId,
-        string tenantScopeKey,
+        string tenantScopeKey, Guid executionEpochId,
         string nodeKey,
         WorkflowApprovalPolicy? policy,
         Guid fallbackAssigneeUserId,
@@ -105,12 +106,12 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
         string businessId,
         CancellationToken cancellationToken,
         string? assigneeSnapshotJson = null,
-        string? assigneeSnapshotHash = null)
+        string? assigneeSnapshotHash = null, WorkflowActivationTrace? trace=null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantScopeKey);
         if (policy?.Groups is not null)
-            return await WriteGroupedAsync(instanceId, tenantScopeKey, nodeKey, policy, executionSequence, arrivedAtUtc,
-                timeoutPolicy, businessType, businessId, null, null, assigneeSnapshotJson, assigneeSnapshotHash, cancellationToken).ConfigureAwait(false);
+            return await WriteGroupedAsync(instanceId, tenantScopeKey, executionEpochId, nodeKey, policy, executionSequence, arrivedAtUtc,
+                timeoutPolicy, businessType, businessId, null, null, assigneeSnapshotJson, assigneeSnapshotHash, cancellationToken, trace).ConfigureAwait(false);
         var approvers = policy?.ApproverUserIds ?? [fallbackAssigneeUserId];
         var modeKey = policy?.ModeKey ?? "single";
         var requiredApprovals = policy?.RequiredApprovals ?? 1;
@@ -120,13 +121,14 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertApprovalStep,
             WorkflowSqlParameters.Create(
-                ("Id", stepId), ("InstanceId", instanceId), ("NodeKey", nodeKey),
+                ("Id", stepId), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("NodeKey", nodeKey),
                 ("AssignedUserId", approvers.Count == 1 ? approvers[0] : null),
                 ("ApprovalModeKey", modeKey), ("RequiredApprovalCount", requiredApprovals),
                 ("ApprovalSlotCount", approvers.Count), ("ExecutionSequence", executionSequence),
                 ("StartedAtUtc", arrivedAtUtc), ("AssigneeSnapshotJson", assigneeSnapshotJson), ("AssigneeSnapshotHash", assigneeSnapshotHash)),
             cancellationToken).ConfigureAwait(false);
 
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,stepId,arrivedAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
         var todoIds = await WriteSlotsAsync(instanceId, stepId, modeKey, approvers, arrivedAtUtc, schedule,
             businessType, businessId, cancellationToken).ConfigureAwait(false);
         return new WorkflowHumanActivityActivationResult(stepId, todoIds[0], todoIds);
@@ -149,7 +151,7 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
     /// <returns>新步骤及按策略顺序创建的待办标识。</returns>
     public async Task<WorkflowHumanActivityActivationResult> WriteParallelAsync(
         Guid instanceId,
-        string tenantScopeKey,
+        string tenantScopeKey, Guid executionEpochId,
         string nodeKey,
         WorkflowApprovalPolicy? policy,
         Guid fallbackAssigneeUserId,
@@ -162,13 +164,13 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
         string parallelBranchKey,
         CancellationToken cancellationToken,
         string? assigneeSnapshotJson = null,
-        string? assigneeSnapshotHash = null)
+        string? assigneeSnapshotHash = null, WorkflowActivationTrace? trace=null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantScopeKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(parallelBranchKey);
         if (policy?.Groups is not null)
-            return await WriteGroupedAsync(instanceId, tenantScopeKey, nodeKey, policy, executionSequence, arrivedAtUtc,
-                timeoutPolicy, businessType, businessId, parallelJoinId, parallelBranchKey, assigneeSnapshotJson, assigneeSnapshotHash, cancellationToken).ConfigureAwait(false);
+            return await WriteGroupedAsync(instanceId, tenantScopeKey, executionEpochId, nodeKey, policy, executionSequence, arrivedAtUtc,
+                timeoutPolicy, businessType, businessId, parallelJoinId, parallelBranchKey, assigneeSnapshotJson, assigneeSnapshotHash, cancellationToken, trace).ConfigureAwait(false);
         var approvers = policy?.ApproverUserIds ?? [fallbackAssigneeUserId];
         var modeKey = policy?.ModeKey ?? "single";
         var requiredApprovals = policy?.RequiredApprovals ?? 1;
@@ -178,7 +180,7 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertParallelApprovalStep,
             WorkflowSqlParameters.Create(
-                ("Id", stepId), ("InstanceId", instanceId), ("NodeKey", nodeKey),
+                ("Id", stepId), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("NodeKey", nodeKey),
                 ("AssignedUserId", approvers.Count == 1 ? approvers[0] : null),
                 ("ApprovalModeKey", modeKey), ("RequiredApprovalCount", requiredApprovals),
                 ("ApprovalSlotCount", approvers.Count), ("ExecutionSequence", executionSequence),
@@ -186,15 +188,16 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
                 ("StartedAtUtc", arrivedAtUtc), ("AssigneeSnapshotJson", assigneeSnapshotJson), ("AssigneeSnapshotHash", assigneeSnapshotHash)),
             cancellationToken).ConfigureAwait(false);
 
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,stepId,arrivedAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
         var todoIds = await WriteSlotsAsync(instanceId, stepId, modeKey, approvers, arrivedAtUtc, schedule,
             businessType, businessId, cancellationToken).ConfigureAwait(false);
         return new WorkflowHumanActivityActivationResult(stepId, todoIds[0], todoIds);
     }
     /// <summary>一组一条权威事实；所有成员冻结，但每个依次组只建立首人的实际待办。</summary>
-    private async Task<WorkflowHumanActivityActivationResult> WriteGroupedAsync(Guid instanceId, string tenantScopeKey, string nodeKey,
+    private async Task<WorkflowHumanActivityActivationResult> WriteGroupedAsync(Guid instanceId, string tenantScopeKey, Guid executionEpochId, string nodeKey,
         WorkflowApprovalPolicy policy, long executionSequence, DateTimeOffset now, WorkflowTodoTimeoutPolicy? timeoutPolicy,
         string businessType, string businessId, Guid? parallelJoinId, string? parallelBranchKey,
-        string? snapshotJson, string? snapshotHash, CancellationToken token)
+        string? snapshotJson, string? snapshotHash, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
         var groups = policy.Groups!;
         var members = groups.SelectMany(group => group.Policy.ApproverUserIds).ToArray();
@@ -208,12 +211,13 @@ internal sealed partial class WorkflowHumanActivityActivationWriter(
             throw new InvalidOperationException("workflow.approval_group.activation_invalid");
         var stepId = idGenerator.NewId();
         if (await commandExecutor.ExecuteAsync(WorkflowGroupApprovalSql.InsertStep,
-            WorkflowSqlParameters.Create(("Id", stepId), ("InstanceId", instanceId), ("NodeKey", nodeKey),
+            WorkflowSqlParameters.Create(("Id", stepId), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("NodeKey", nodeKey),
                 ("ExecutionSequence", executionSequence), ("RequiredApprovalCount", policy.RequiredApprovals),
                 ("ApprovalSlotCount", members.Length), ("ApprovalGroupCount", groups.Count), ("ParallelJoinId", parallelJoinId),
                 ("ParallelBranchKey", parallelBranchKey), ("StartedAtUtc", now), ("AssigneeSnapshotJson", snapshotJson),
                 ("AssigneeSnapshotHash", snapshotHash)), token).ConfigureAwait(false) != 1)
             throw new InvalidOperationException("workflow.approval_group.step_missing");
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,stepId,now,token,trace,idGenerator).ConfigureAwait(false);
         var schedule = WorkflowTodoTimeoutSchedule.Create(now, timeoutPolicy);
         var todos = new List<Guid>(); var memberSequence = 0;
         for (var index = 0; index < groups.Count; index++)

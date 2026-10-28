@@ -78,8 +78,8 @@ internal sealed partial class WorkflowTodoManagementService
                 return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
             var sequence = await queryExecutor.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-            var execution = await transitionExecutor.ExecuteAsync(instance, scope, runtimePlan, transition, values, sequence, now,
-                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: preparation.Approvals).ConfigureAwait(false);
+            var execution = await transitionExecutor.ExecuteAsync(instance, scope, await WorkflowExecutionEpochScope.ReadForStepAsync(queryExecutor, instance.Id, scope.TenantScopeKey, todo.StepId, token).ConfigureAwait(false) ?? Guid.Empty, runtimePlan, transition, values, sequence, now,
+                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: preparation.Approvals, sourceStepId: todo.StepId).ConfigureAwait(false);
             if (!execution.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(execution.Error!);
             nextTodo = execution.Value!.FirstTodoId;
             status = execution.Value.InstanceStatusKey;

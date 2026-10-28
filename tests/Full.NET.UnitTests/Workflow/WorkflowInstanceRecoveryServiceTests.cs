@@ -26,6 +26,20 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInstanceRecoveryServiceTests
 {
     [TestMethod]
+    public async Task Administrative_recovery_cannot_bypass_an_unknown_route_selection()
+    {
+        var fixture = ReassignFixture.Create();
+        fixture.Query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(fixture.Instance with { StatusKey = "suspended" });
+        fixture.Query.QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var result = await fixture.Service.RecoverAsync(fixture.Instance.Id, fixture.Actor, new(3, "必须处理原路由", "route-recovery-denied"));
+        Assert.IsFalse(result.IsSuccess);
+        await fixture.Query.Received(1).QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.IsFalse(fixture.Command.ReceivedCalls().Any(call => Equals(call.GetArguments()[0], WorkflowSql.ResumeInstanceWithRevision)));
+        Assert.IsFalse(fixture.Command.ReceivedCalls().Any(call => Equals(call.GetArguments()[0], WorkflowActivitySql.RequeueFaultedWork)));
+    }
+
+    [TestMethod]
     [DataRow(false, false)]
     [DataRow(true, false)]
     [DataRow(false, true)]

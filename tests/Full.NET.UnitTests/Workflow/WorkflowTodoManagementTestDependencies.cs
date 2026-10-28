@@ -8,6 +8,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Microsoft.Extensions.Options;
@@ -127,6 +128,17 @@ internal static class WorkflowTodoManagementTestDependencies
         IIdGenerator ids,
         IOutboxWriter outbox)
     {
+        // 普通夹具明确声明来源步骤属于初始根代次；多代次隔离由独立用例提供真实事实。
+        query.QuerySingleOrDefaultAsync<Guid?>(WorkflowExecutionEpochSql.FindForStep, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<Guid?>(call.ArgAt<object?>(1) is IReadOnlyDictionary<string, object?> values &&
+                values.TryGetValue("InstanceId", out var value) && value is Guid id && id != Guid.Empty ? id : null));
+        query.QuerySingleOrDefaultAsync<WorkflowExecutionEpochRecord>(WorkflowExecutionEpochSql.Find, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call => {
+                var values = (IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1);
+                var instance = (Guid)values["InstanceId"]!; var epoch = (Guid)values["ExecutionEpochId"]!;
+                return Task.FromResult<WorkflowExecutionEpochRecord?>(epoch == instance && instance != Guid.Empty
+                    ? new(epoch, instance, (string)values["TenantScopeKey"]!, null, null, "root", 0, 0, "active", 1, DateTimeOffset.UtcNow, null) : null);
+            });
         var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
         var notificationPublisher = new WorkflowNotificationOutboxPublisher(outbox);
         var automaticTransitionWriter = new WorkflowAutomaticTransitionWriter(command, ids, ccWriter);
@@ -136,11 +148,12 @@ internal static class WorkflowTodoManagementTestDependencies
             approvalActivationWriter,
             CreateParallelJoinCoordinator(query, command, ids),
             query,
+            command,
             new WorkflowActivityScheduler(command, ids),
             new WorkflowBranchStateCoordinator(query, command),
             new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), CreateResultCallbacks(query, command, ids),
             new WorkflowBusinessCommandActivationWriter(query, command, ids, new WorkflowBusinessActionCatalog([]), new WorkflowBusinessCommandPublisher(outbox)),
-            new WorkflowSubprocessActivationWriter(query, command, ids));
+            new WorkflowSubprocessActivationWriter(query, command, ids), new WorkflowReturnRoundCoordinator(query, command, ids));
     }
 
     /// <summary>创建默认放行的发布期办理人校验器，供定义发布测试复用。</summary>

@@ -3,17 +3,25 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Diagnostics.CodeAnalysis;
 using Full.NET.Modules.Workflow.Serialization;
+using Full.NET.Modules.Workflow.Persistence;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
 /// <summary>子流程只引用固定版本和显式字段映射；文件仍由真实父子投影及Files授权接纳。</summary>
 internal sealed record WorkflowSubprocessPolicy(Guid DefinitionVersionId, IReadOnlyDictionary<string, string> InputFields,
-    IReadOnlyDictionary<string, string> OutputFields, IReadOnlyDictionary<string, string> FieldPolicies, WorkflowMultiInstancePolicy? Multi = null)
+    IReadOnlyDictionary<string, string> OutputFields, IReadOnlyDictionary<string, string> FieldPolicies, WorkflowMultiInstancePolicy? Multi = null,
+    WorkflowSubprocessStarterPolicy? Starter = null, WorkflowSubprocessTimeoutPolicy? Timeout = null)
 {
     internal const string NodeType = "process.subprocess";
     internal const int MaximumMappings = 32;
     internal const int MaximumInputBytes = 131072;
     internal const int MaximumDepth = 8;
+    // 指定其他业务发起人的单项也经耐久准备，不能在父本地事务中调用身份目录。
+    public WorkflowMultiInstancePolicy? ExecutionSet => Multi ?? (Starter is { SourceKey: not "parent" }
+        ? new("serial", "fixed_count", 1, 1, null, null, null, 100, "reject", OutputFields.Keys.ToDictionary(key => key, _ => "first", StringComparer.Ordinal)) : null);
+    public IReadOnlyCollection<string> WrittenFields => OutputFields.Keys.Concat(Starter?.ResultFieldKey is { } result ? [result] : Array.Empty<string>()).ToArray();
+    public IEnumerable<string> ReadFields => InputFields.Values.Concat(Multi?.FieldKey is { } source ? [source] : Array.Empty<string>())
+        .Concat(Starter?.FieldKey is { } starter ? [starter] : Array.Empty<string>());
 
     public static bool TryRead(JsonElement config, WorkflowFormSchema? parentSchema, [NotNullWhen(true)] out WorkflowSubprocessPolicy? policy)
     {
@@ -40,7 +48,13 @@ internal sealed record WorkflowSubprocessPolicy(Guid DefinitionVersionId, IReadO
              multi.FieldKey is { } source && (!grants.TryGetValue(source, out var sourceGrant) || sourceGrant == "hidden") ||
              multi.ItemFieldKey is { } itemField && inputs.ContainsKey(itemField) ||
              !multi.OutputReducers.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(outputs.Keys))) return false;
-        policy = new(id, inputs, outputs, grants, multi); return true;
+        WorkflowSubprocessStarterPolicy? starter = null;
+        if (config.TryGetProperty("starterPolicy", out var starterJson) &&
+            (!WorkflowSubprocessStarterPolicy.TryRead(starterJson, parentSchema, multi, out starter) ||
+             starter.FieldKey is { } starterField && (!grants.TryGetValue(starterField, out var starterGrant) || starterGrant == "hidden") ||
+             starter.ResultFieldKey is { } resultField && (outputs.ContainsKey(resultField) || !grants.TryGetValue(resultField, out var resultGrant) || resultGrant is not ("editable" or "required")))) return false;
+        if (!WorkflowSubprocessTimeoutPolicy.TryRead(config, out var timeout)) return false;
+        policy = new(id, inputs, outputs, grants, multi, starter, timeout); return true;
     }
 
     /// <summary>发布验证双方字段和必要输入，实际值仍在激活前按固定子Schema完整复核。</summary>
@@ -93,6 +107,24 @@ internal sealed record WorkflowSubprocessPolicy(Guid DefinitionVersionId, IReadO
             result.Add(pair.Key, value.Clone());
         }
         return true;
+    }
+
+    /// <summary>发起人回填只来自已选真实成功项；多项按ItemKey去重，不能把客户端声明作为执行结果。</summary>
+    public bool TryAddStarterOutput(WorkflowFormSchema parentSchema, IReadOnlyDictionary<string, JsonElement> patch,
+        IReadOnlyList<WorkflowSubprocessItemRecord> selected, out IReadOnlyDictionary<string, JsonElement> result)
+    {
+        result = patch;
+        if (Starter?.ResultFieldKey is not { } fieldKey) return true;
+        if (patch.ContainsKey(fieldKey) || selected.Any(item => item.StatusKey != "succeeded" || item.ChildInstanceId is null || item.StarterUserId == Guid.Empty) ||
+            Multi is null && selected.Count != 1) return false;
+        var field = parentSchema.Sections.SelectMany(section => section.Fields).SingleOrDefault(field => field.FieldKey == fieldKey);
+        if (field is null) return false;
+        var users = selected.OrderBy(item => item.ItemKey, StringComparer.Ordinal).Select(item => item.StarterUserId).Distinct().ToArray();
+        var json = WorkflowJsonCanonicalizer.Compile(writer => { if (Multi is null) writer.WriteStringValue(users[0].ToString("D"));
+            else { writer.WriteStartArray(); foreach (var user in users) writer.WriteStringValue(user.ToString("D")); writer.WriteEndArray(); } }).CanonicalJson;
+        using var document = JsonDocument.Parse(json);
+        if (!WorkflowFormValueValidator.IsFieldValueValid(field, document.RootElement)) return false;
+        var copy = patch.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal); copy.Add(fieldKey, document.RootElement.Clone()); result = copy; return true;
     }
 
     private static bool SameSupportedType(WorkflowFormField left, WorkflowFormField right)

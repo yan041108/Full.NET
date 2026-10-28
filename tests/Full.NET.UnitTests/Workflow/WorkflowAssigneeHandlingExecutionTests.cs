@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Persistence;
 using NSubstitute;
 
@@ -12,6 +13,32 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowAssigneeHandlingExecutionTests
 {
+    [TestMethod]
+    [DataRow("tenant", false)]
+    [DataRow("tenant", true)]
+    [DataRow("kind", false)]
+    [DataRow("kind", true)]
+    [DataRow("anchor", false)]
+    [DataRow("anchor", true)]
+    public async Task A_foreign_scope_cannot_dispatch_even_with_an_already_bound_budget(string mismatch, bool bound)
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+            [new("start", "start", 1, JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { "review" } })),
+             new("review", "human.approval", 1, JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { "end" } })),
+             new("end", "end", 1, JsonSerializer.SerializeToElement(new { }))], "automation");
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan)); Assert.IsTrue(plan!.TryResolveStart(out var start));
+        var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>(); var instance = Instance();
+        var executor = WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(query, command, Substitute.For<IIdGenerator>(), Substitute.For<IOutboxWriter>());
+        query.ClearReceivedCalls(); command.ClearReceivedCalls();
+        WorkflowManagementScope scope = mismatch switch { "tenant" => new(Guid.CreateVersion7(), "host", "host"),
+            "kind" => new(null, "tenant", "host"), _ => new(null, "host", "tenant:foreign") };
+        var budget = new WorkflowDispatchBudget { TotalRemaining = 16 };
+        if (bound) Assert.IsTrue(budget.TryBindExecutionEpoch(instance.Id));
+        var result = await executor.ExecuteAsync(instance, scope, instance.Id, plan, start, new Dictionary<string, JsonElement>(), 1,
+            instance.StartedAtUtc, instance.StartedById, budget: budget);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(0, query.ReceivedCalls().Count()); Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
     [TestMethod]
     [DataRow("auto_pass", "completed")]
     [DataRow("skip", "completed")]
@@ -33,10 +60,13 @@ public sealed class WorkflowAssigneeHandlingExecutionTests
         var prepared = new WorkflowPreparedHumanActivities(new Dictionary<string, Result<WorkflowHumanActivityAssignees>>
         { ["review"] = Result<WorkflowHumanActivityAssignees>.Success(new(null, Guid.Empty, "{}", "hash", Handling: new(action, "empty"))) });
         var executor = WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(query, command, ids, Substitute.For<IOutboxWriter>());
-        var result = await executor.ExecuteAsync(instance, new(null, "host", "host"), plan, start, new Dictionary<string, JsonElement>(),
-            3, instance.StartedAtUtc, instance.StartedById, budget: new() { CurrentWorkId = workId }, preparedAssignees: prepared);
+        var result = await executor.ExecuteAsync(instance, new(null, "host", "host"), instance.Id, plan, start, new Dictionary<string, JsonElement>(),
+            3, instance.StartedAtUtc, instance.StartedById, budget: new() { CurrentWorkId = workId }, preparedAssignees: prepared,
+            sourceStepId:Guid.CreateVersion7());
         Assert.IsTrue(result.IsSuccess); Assert.AreEqual(expected, result.Value!.InstanceStatusKey); Assert.IsNull(result.Value.FirstTodoId);
-        Assert.AreEqual(4L, result.Value.NextExecutionSequence);
+        Assert.AreEqual(expected == "completed" ? 5L : 4L, result.Value.NextExecutionSequence);
+        await command.Received(expected == "completed" ? 1 : 0).ExecuteAsync(WorkflowEndSql.InsertStep,
+            Arg.Is<object?>(value => Has(value, "NodeKey", "end")), Arg.Any<CancellationToken>());
         await command.Received(1).ExecuteAsync(WorkflowAssigneeHandlingSql.InsertStep,
             Arg.Is<object?>(value => Has(value, "NodeTypeKey", "human.approval") && Has(value, "NodeKey", "review")), Arg.Any<CancellationToken>());
         Assert.IsFalse(command.ReceivedCalls().Any(call => call.GetArguments()[0] is SqlStatement statement && statement.Name == "workflow.todo.insert"));

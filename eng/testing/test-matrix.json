@@ -11,6 +11,18 @@
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowDefinitionCompilerTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowInclusiveGatewayConfigurationTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowExclusiveGatewayConfigurationTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowParallelGatewayConfigurationTests",
           "minimum": 55
         },
+        "workflow-route-regions": {
+          "filter": "FullyQualifiedName~WorkflowStructuredRegionPlanTests|FullyQualifiedName~WorkflowDynamicRoutePolicyTests|FullyQualifiedName~WorkflowDynamicRoutePlanTests",
+          "minimum": 41
+        },
+        "workflow-region-frames": {
+          "filter": "FullyQualifiedName~WorkflowExecutionFrameScopeTests|FullyQualifiedName~WorkflowRegionEpochCoordinatorTests",
+          "minimum": 38
+        },
+        "workflow-region-guards": {
+          "filter": "FullyQualifiedName~WorkflowAssigneeHandlingExecutionTests|FullyQualifiedName~WorkflowMultiApprovalServiceTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests|FullyQualifiedName~WorkflowRecoveryScanBudgetTests|FullyQualifiedName~WorkflowTodoReturnServiceTests|FullyQualifiedName~WorkflowWithdrawalServiceTests|FullyQualifiedName~WorkflowVoteTodoServiceTests|FullyQualifiedName~WorkflowTodoHistoryViewTests|FullyQualifiedName~WorkflowExecutionFrameScopeTests",
+          "minimum": 93
+        },
         "project-review-remediation": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Document.|FullyQualifiedName~Full.NET.UnitTests.Payments.|FullyQualifiedName~Full.NET.UnitTests.Webhooks.|FullyQualifiedName~DataProtection",
           "minimum": 90
@@ -134,6 +146,42 @@
         "workflow-task-handoff": {
           "filter": "FullyQualifiedName~WorkflowGroupApproval|FullyQualifiedName~WorkflowApprovalActivationWriterTests|FullyQualifiedName~WorkflowDefinitionCompilerTests|FullyQualifiedName~WorkflowRuntimePlanTests|FullyQualifiedName~WorkflowNodeTypeCatalogTests|FullyQualifiedName~WorkflowApprovalAssigneeCoordinatorTests|FullyQualifiedName~WorkflowAssigneeResolverTests|FullyQualifiedName~WorkflowMultiApprovalServiceTests|FullyQualifiedName~WorkflowTodoHistoryViewTests|FullyQualifiedName~WorkflowTodoReturnServiceTests|FullyQualifiedName~WorkflowTask|FullyQualifiedName~WorkflowInstanceRecoveryServiceTests|FullyQualifiedName~WorkflowTodoTransferServiceTests|FullyQualifiedName~WorkflowSignatureUploadTests|FullyQualifiedName~WorkflowTodoListRulesTests|FullyQualifiedName~WorkflowAuthorizationContributorTests",
           "minimum": 190
+        },
+        "workflow-route-decisions": {
+          "filter": "FullyQualifiedName~WorkflowRouteDecisionExecutorTests|FullyQualifiedName~WorkflowRouteRuntimePlanTests|FullyQualifiedName~WorkflowNodeTypeCatalogTests|FullyQualifiedName~WorkflowRecoveryScanBudgetTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests.Route_|FullyQualifiedName~WorkflowInstanceManagementServiceTests.Ordinary_resume_cannot_reevaluate_an_unknown_route_selection",
+          "minimum": 38
+        },
+        "workflow-route-recovery-guard": {
+          "filter": "FullyQualifiedName~WorkflowInstanceRecoveryServiceTests.Administrative_recovery_cannot_bypass_an_unknown_route_selection",
+          "minimum": 1
+        },
+        "workflow-route-join-proof": {
+          "filter": "FullyQualifiedName~WorkflowActivationTraceTests|FullyQualifiedName~WorkflowJoinArrivalIdentityTests",
+          "minimum": 21
+        },
+        "workflow-route-management-input": {
+          "filter": "FullyQualifiedName~WorkflowRouteManagementServiceTests",
+          "minimum": 5
+        },
+        "workflow-return-rounds": {
+          "filter": "FullyQualifiedName~WorkflowReturnRoundCoordinatorTests|FullyQualifiedName~WorkflowReturnAssigneeSnapshotTests|FullyQualifiedName~WorkflowTodoReturnServiceTests|FullyQualifiedName~WorkflowActivationTraceTests|FullyQualifiedName~WorkflowJoinArrivalIdentityTests|FullyQualifiedName~Return_within_branch_keeps_its_actual_exit_and_does_not_close_siblings|FullyQualifiedName~Return_before_an_open_fork_exits_only_after_the_entire_original_region|FullyQualifiedName~WorkflowReturnScopePolicyTests|FullyQualifiedName~WorkflowEndActivationTests",
+          "minimum": 137
+        },
+        "workflow-end-foundation": {
+          "filter": "FullyQualifiedName~WorkflowEndActivationTests|FullyQualifiedName~WorkflowRuntimePlanTests|FullyQualifiedName~WorkflowAsyncRuntimePlanTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests|FullyQualifiedName~WorkflowMultiApprovalServiceTests|FullyQualifiedName~WorkflowAssigneeHandlingExecutionTests|FullyQualifiedName~WorkflowVoteTodoServiceTests|FullyQualifiedName~WorkflowCcTransitionWriterTests",
+          "minimum": 30
+        },
+        "workflow-return-scope": {
+          "filter": "FullyQualifiedName~WorkflowReturnScopePolicyTests|FullyQualifiedName~WorkflowReturnInputCoordinatorTests|FullyQualifiedName~WorkflowTodoReturnServiceTests|FullyQualifiedName~WorkflowReturnRoundCoordinatorTests|FullyQualifiedName~WorkflowReturnAssigneeSnapshotTests|FullyQualifiedName~WorkflowJoinArrivalIdentityTests",
+          "minimum": 123
+        },
+        "workflow-return-route": {
+          "filter": "FullyQualifiedName~WorkflowReturnScopePolicyTests|FullyQualifiedName~WorkflowRegionEpochCoordinatorTests|FullyQualifiedName~WorkflowDynamicRoutePlanTests|FullyQualifiedName~WorkflowRouteRuntimePlanTests",
+          "minimum": 72
+        },
+        "workflow-collaboration-grants": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationGrantPolicyTests",
+          "minimum": 18
         }
       }
     },
@@ -241,6 +289,10 @@
           "filter": "FullyQualifiedName~WorkflowSubprocessProjectionApiTests",
           "minimum": 2
         },
+        "subprocess-starters": {
+          "filter": "FullyQualifiedName~WorkflowSubprocessStarterApiTests",
+          "minimum": 2
+        },
         "activity-sla": {
           "filter": "FullyQualifiedName~WorkflowSlaApiTests",
           "minimum": 2
@@ -265,10 +317,10 @@
           "filter": "FullyQualifiedName~WorkflowDurableDelayApiTests",
           "minimum": 2
         },
-          "field-activities": {
-            "filter": "FullyQualifiedName~WorkflowFieldActivityApiTests",
-            "minimum": 2
-          },
+        "field-activities": {
+          "filter": "FullyQualifiedName~WorkflowFieldActivityApiTests",
+          "minimum": 2
+        },
         "sequential": {
           "filter": "FullyQualifiedName~WorkflowSequentialApprovalApiTests",
           "minimum": 2
@@ -288,6 +340,54 @@
         "human-task-handoff": {
           "filter": "FullyQualifiedName~WorkflowGroupApprovalApiTests|FullyQualifiedName~WorkflowTaskActivityApiTests|FullyQualifiedName~WorkflowTodoTransferApiTests",
           "minimum": 6
+        },
+        "subprocess-timeouts": {
+          "filter": "FullyQualifiedName~WorkflowSubprocessTimeoutApiTests",
+          "minimum": 2
+        },
+        "execution-epochs": {
+          "filter": "FullyQualifiedName~WorkflowExecutionEpochApiTests",
+          "minimum": 2
+        },
+        "region-frames": {
+          "filter": "FullyQualifiedName~WorkflowRegionFrameApiTests",
+          "minimum": 2
+        },
+        "route-decisions": {
+          "filter": "FullyQualifiedName~WorkflowRouteDecisionApiTests.Route_decisions_",
+          "minimum": 2
+        },
+        "route-nesting": {
+          "filter": "FullyQualifiedName~WorkflowRouteDecisionApiTests.Nested_routes_",
+          "minimum": 2
+        },
+        "route-application": {
+          "filter": "FullyQualifiedName~WorkflowRouteDecisionApiTests",
+          "minimum": 4
+        },
+        "workflow-return-rounds": {
+          "filter": "FullyQualifiedName~WorkflowHumanReturnApiTests.Human_return_",
+          "minimum": 2
+        },
+        "workflow-return-end": {
+          "filter": "FullyQualifiedName~WorkflowHumanReturnApiTests.Exclusive_return_",
+          "minimum": 2
+        },
+        "workflow-return-scope": {
+          "filter": "FullyQualifiedName~WorkflowHumanReturnApiTests.Parallel_return_|FullyQualifiedName~WorkflowHumanReturnApiTests.Human_return_",
+          "minimum": 4
+        },
+        "workflow-return-composed": {
+          "filter": "FullyQualifiedName~WorkflowHumanReturnApiTests.Parallel_return_|FullyQualifiedName~WorkflowHumanReturnApiTests.Route_inside_return_",
+          "minimum": 4
+        },
+        "workflow-return-deferred": {
+          "filter": "FullyQualifiedName~WorkflowHumanReturnApiTests.Deferred_return_work_",
+          "minimum": 2
+        },
+        "workflow-collaboration-grants": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationGrantApiTests",
+          "minimum": 2
         }
       }
     }

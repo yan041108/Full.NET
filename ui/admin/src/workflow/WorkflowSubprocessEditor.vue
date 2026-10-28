@@ -5,9 +5,11 @@ import type { WorkflowFormField } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { getSubprocessAsset, listSubprocessDefinitions, listSubprocessVersions, type SubprocessAsset } from '../api/workflow-subprocesses';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { readWorkflowMultiInstance, readWorkflowSubprocess, type WorkflowSubprocessConfiguration } from './workflow-subprocess';
+import { readWorkflowMultiInstance, readWorkflowSubprocess, readWorkflowSubprocessStarter, type WorkflowSubprocessTimeoutPolicy, type WorkflowSubprocessConfiguration } from './workflow-subprocess';
 import WorkflowMultiInstanceEditor from './WorkflowMultiInstanceEditor.vue';
-const props = defineProps<{ modelValue?: unknown; fields: readonly WorkflowFormField[]; disabled: boolean }>();
+import WorkflowSubprocessStarterEditor from './WorkflowSubprocessStarterEditor.vue';
+import WorkflowSubprocessTimeoutEditor from './WorkflowSubprocessTimeoutEditor.vue';
+const props = defineProps<{ modelValue?: unknown; fields: readonly WorkflowFormField[]; targets?: readonly { key: string; label: string }[]; disabled: boolean }>();
 const emit = defineEmits<{ save: [value: WorkflowSubprocessConfiguration]; cancel: [] }>();
 const { t } = useAdminI18n(); const session = useSessionStore();
 const definitions = ref<Awaited<ReturnType<typeof listSubprocessDefinitions>>>([]);
@@ -15,6 +17,8 @@ const versions = ref<Awaited<ReturnType<typeof listSubprocessVersions>>>([]);
 const definitionId = ref(''); const versionId = ref(''); const asset = ref<SubprocessAsset>();
 const inputs = ref<Record<string, string>>({}); const outputs = ref<Record<string, string>>({});
 const multi = ref<unknown>();
+const starter = ref<unknown>();
+const timeout = ref<WorkflowSubprocessTimeoutPolicy | null>();
 const loading = ref(false); const failed = ref(false); let generation = 0; let controller: AbortController | undefined;
 const supported = (field: WorkflowFormField) => ['text', 'textarea', 'integer', 'decimal', 'money', 'date', 'time', 'datetime', 'radio', 'select', 'checkbox', 'switch', 'attachment', 'subtable'].includes(field.fieldTypeKey);
 const childFields = computed(() => asset.value?.fields.filter(supported) ?? []);
@@ -29,7 +33,7 @@ function sameField(left: WorkflowFormField, right: WorkflowFormField): boolean {
   const a = columns(left); const b = columns(right); return a.length > 0 && !a.includes('') && JSON.stringify(a) === JSON.stringify(b);
 }
 const compatible = (target: WorkflowFormField) => parentFields.value.filter(field => sameField(field, target));
-function reset(): void { controller?.abort(); generation++; definitions.value = []; versions.value = []; asset.value = undefined; definitionId.value = ''; versionId.value = ''; inputs.value = {}; outputs.value = {}; multi.value = undefined; }
+function reset(): void { controller?.abort(); generation++; definitions.value = []; versions.value = []; asset.value = undefined; definitionId.value = ''; versionId.value = ''; inputs.value = {}; outputs.value = {}; multi.value = undefined; starter.value = undefined; timeout.value = undefined; }
 async function load(mode: 'initial' | 'definition' | 'version' = 'initial'): Promise<void> {
   controller?.abort(); controller = new AbortController(); const signal = controller.signal; const expected = ++generation;
   loading.value = true; failed.value = false; asset.value = undefined;
@@ -56,21 +60,22 @@ function initialize(): void {
   reset();
   if (props.modelValue && typeof props.modelValue === 'object' && 'subprocessPolicy' in props.modelValue) {
     try { const config = readWorkflowSubprocess(props.modelValue); versionId.value = config.subprocessPolicy.definitionVersionId;
-      inputs.value = { ...config.subprocessPolicy.inputFields }; outputs.value = { ...config.subprocessPolicy.outputFields }; multi.value = config.multiInstancePolicy; }
+      inputs.value = { ...config.subprocessPolicy.inputFields }; outputs.value = { ...config.subprocessPolicy.outputFields }; multi.value = config.multiInstancePolicy; starter.value = config.starterPolicy; timeout.value = config.childTimeoutPolicy; }
     catch { failed.value = true; return; }
   }
   void load();
 }
 watch(() => [props.modelValue, session.currentUser, session.switching] as const, () => { if (session.switching) { reset(); loading.value = true; } else initialize(); }, { immediate: true });
 onBeforeUnmount(reset);
-function chooseDefinition(value: unknown): void { definitionId.value = String(value); versionId.value = ''; versions.value = []; inputs.value = {}; outputs.value = {}; multi.value = undefined; void load('definition'); }
-function chooseVersion(value: unknown): void { versionId.value = String(value); inputs.value = {}; outputs.value = {}; multi.value = undefined; void load('version'); }
+function chooseDefinition(value: unknown): void { definitionId.value = String(value); versionId.value = ''; versions.value = []; inputs.value = {}; outputs.value = {}; multi.value = undefined; starter.value = undefined; timeout.value = undefined; void load('definition'); }
+function chooseVersion(value: unknown): void { versionId.value = String(value); inputs.value = {}; outputs.value = {}; multi.value = undefined; starter.value = undefined; timeout.value = undefined; void load('version'); }
+const multiPolicy = computed(() => { try { return multi.value === undefined ? undefined : readWorkflowMultiInstance(multi.value); } catch { return undefined; } });
 const itemFieldKey = computed(() => { try { return multi.value === undefined ? undefined : readWorkflowMultiInstance(multi.value).source.itemFieldKey; } catch { return undefined; } });
 const configuration = computed(() => {
   if (!asset.value || loading.value || failed.value || session.switching || !definitions.value.some(item => item.id === definitionId.value) ||
       !versions.value.some(item => item.id === versionId.value) || asset.value.fields.some(field => field.required && !supported(field))) return undefined;
   const grants: Record<string, string> = {}; const inputFields: Record<string, string> = {}; const outputFields: Record<string, string> = {};
-  if (multi.value === null) return undefined;
+  if (multi.value === null || starter.value === null || timeout.value === null) return undefined;
   let multiPolicy;
   try { multiPolicy = multi.value === undefined ? undefined : readWorkflowMultiInstance(multi.value); } catch { return undefined; }
   if (multiPolicy?.source.fieldKey) {
@@ -91,8 +96,16 @@ const configuration = computed(() => {
     if (!parent || !child || !sameField(parent, child) || parent.required && !child.required) return undefined;
     outputFields[parentKey] = childKey; grants[parentKey] = parent.required ? 'required' : 'editable';
   }
+  let starterPolicy;
+  try { starterPolicy = starter.value === undefined ? undefined : readWorkflowSubprocessStarter(starter.value, multiPolicy); } catch { return undefined; }
+  if (starterPolicy?.source.fieldKey) grants[starterPolicy.source.fieldKey] ??= 'readOnly';
+  if (starterPolicy?.resultFieldKey) {
+    const field = parentFields.value.find(field => field.fieldKey === starterPolicy.resultFieldKey);
+    if (!field || field.fieldTypeKey !== (multiPolicy ? 'checkbox' : 'text')) return undefined;
+    grants[field.fieldKey] = field.required ? 'required' : 'editable';
+  }
   try { return readWorkflowSubprocess({ subprocessPolicy: { definitionVersionId: versionId.value, inputFields, outputFields }, fieldPolicies: grants,
-    ...(multiPolicy ? { multiInstancePolicy: multiPolicy } : {}) }); }
+    ...(multiPolicy ? { multiInstancePolicy: multiPolicy } : {}), ...(starterPolicy ? { starterPolicy } : {}), ...(timeout.value ? { childTimeoutPolicy: timeout.value } : {}) }); }
   catch { return undefined; }
 });
 </script>
@@ -118,6 +131,8 @@ const configuration = computed(() => {
         </ElSelect>
       </label>
       <WorkflowMultiInstanceEditor v-model="multi" :fields="parentFields" :child-fields="childFields" :output-keys="Object.keys(outputs).filter(key => outputs[key])" :disabled="disabled || loading" />
+      <WorkflowSubprocessTimeoutEditor v-model="timeout" :targets="targets ?? []" :disabled="disabled || loading" />
+      <WorkflowSubprocessStarterEditor v-model="starter" :fields="parentFields" :output-keys="Object.keys(outputs).filter(key => outputs[key])" :multi="multiPolicy" :multiple="multi !== undefined" :disabled="disabled || loading" />
       <h3>{{ t('workflowDesigner.subprocess.outputs') }}</h3>
       <label v-for="field in parentFields" :key="field.fieldKey">{{ field.fieldKey }}
         <ElSelect v-model="outputs[field.fieldKey]" :data-testid="`subprocess-output-${field.fieldKey}`" :disabled="disabled || loading" clearable :aria-label="`${t('workflowDesigner.subprocess.outputs')} ${field.fieldKey}`">

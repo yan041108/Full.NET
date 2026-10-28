@@ -4601,6 +4601,14 @@ export interface ReconcileWorkflowRecoveryTaskRequest {
   readonly reason: null | string;
 }
 
+export interface ReconcileWorkflowRouteRequest {
+  readonly expectedInstanceRevision: number;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+  readonly selectedTargetKey: null | string;
+}
+
 export interface RecoverDeadLetterRequest {
   readonly reason: string;
 }
@@ -6290,6 +6298,40 @@ export interface WorkflowRecoveryTaskResponse {
   readonly statusKey: string;
   readonly stepId: null | string;
   readonly updatedAtUtc: string;
+}
+
+export interface WorkflowRouteDecisionResponse {
+  readonly appliedAtUtc: null | string;
+  readonly continuationWorkId: null | string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly instanceRevision: number;
+  readonly instanceStatusKey: string;
+  readonly nextNodeKey: null | string;
+  readonly nodeKey: string;
+  readonly normalNextNodeKey: string;
+  readonly revision: number;
+  readonly selectedTargetKey: null | string;
+  readonly sourceExecutionEpochId: string;
+  readonly statusKey: string;
+  readonly targetExecutionEpochId: null | string;
+  readonly targets: Array<WorkflowRouteTargetResponse>;
+}
+
+export interface WorkflowRouteResolutionResponse {
+  readonly continuationWorkId: string;
+  readonly executionEpochId: string;
+  readonly nextNodeKey: string;
+  readonly routeId: string;
+}
+
+export interface WorkflowRouteTargetResponse {
+  readonly maximumIterations: number;
+  readonly nodeKey: string;
+  readonly reenters: boolean;
+  readonly regionKey: string;
+  readonly targetKey: string;
 }
 
 export interface WorkflowSignatureUploadResponse {

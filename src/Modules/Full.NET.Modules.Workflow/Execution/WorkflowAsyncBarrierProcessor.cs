@@ -126,8 +126,8 @@ internal sealed class WorkflowAsyncBarrierProcessor(IQueryExecutor query,IComman
             if(!ValidCalls(barrier,runtime,calls) || calls.Any(call=>call.StatusKey!="applied"))return Invalid<bool>();
             var now=clock.UtcNow;var workId=ids.NewId();var json=WorkflowActivityScheduler.SerializeInput(snapshot.Values);var hash=Hash(json);
             var sequence=await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,Parameters(("InstanceId",current.Id)),inner).ConfigureAwait(false);
-            await scheduler.EnqueueAsync(current,barrier.NodeKey,snapshot.Values,snapshot.FormRevision,sequence,barrier.ParallelJoinId,barrier.ParallelBranchKey,now,inner,
-                workId:workId,resumeBarrierId:barrier.Id).ConfigureAwait(false);
+            await scheduler.EnqueueAsync(current, await WorkflowExecutionEpochScope.ReadForStepAsync(query, current.Id, current.TenantScopeKey, barrier.Id, inner).ConfigureAwait(false) ?? Guid.Empty,barrier.NodeKey,snapshot.Values,snapshot.FormRevision,sequence,barrier.ParallelJoinId,barrier.ParallelBranchKey,now,inner,
+                workId:workId,resumeBarrierId:barrier.Id, sourceStepId: barrier.Id).ConfigureAwait(false);
             if(await commands.ExecuteAsync(WorkflowAsyncBarrierSql.Release,Parameters(("Id",barrier.Id),("InstanceId",barrier.InstanceId),("TenantScopeKey",barrier.TenantScopeKey),
                     ("Generation",barrier.LeaseGeneration),("Owner",barrier.LeaseOwnerKey),("WorkId",workId),("NodeKey",barrier.NodeKey),("OutputJson",json),("OutputHash",hash),
                     ("OutputFormRevision",snapshot.FormRevision),("Now",now)),inner).ConfigureAwait(false)!=1 ||

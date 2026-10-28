@@ -81,8 +81,8 @@ internal sealed class WorkflowVoteResultWriter(IQueryExecutor query, ICommandExe
             if (!current.RuntimePlan.TryResolveAfterHuman(todo.NodeKey, values, todo.ParallelJoinNodeKey, out var transition)) return Invalid();
             var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
                 P(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-            var execution = await transitions.ExecuteAsync(instance, scope, current.RuntimePlan, transition, values, sequence, now,
-                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: preparedAssignees).ConfigureAwait(false);
+            var execution = await transitions.ExecuteAsync(instance, scope, await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, scope.TenantScopeKey, todo.StepId, token).ConfigureAwait(false) ?? Guid.Empty, current.RuntimePlan, transition, values, sequence, now,
+                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: preparedAssignees, sourceStepId: todo.StepId).ConfigureAwait(false);
             if (!execution.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(execution.Error!);
             nextTodo = execution.Value!.FirstTodoId;
             status = execution.Value.InstanceStatusKey;

@@ -1,4 +1,4 @@
-﻿import { expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
@@ -3755,7 +3755,65 @@ test('VForm 3 待办抽屉：原版输入、必需意见与手写签名实际提
   expect(requests[0].comment).toBe('确认本次签署');
 });
 
-test('子流程：真实设计器固定版本、字段映射和多实例保存回显', async ({ page }) => {
+test('动态路由：真实设计器保存有界目标引用并回显', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const user = currentUserResponse(); user.permissions.push('workflow.definitions.read', 'workflow.definitions.update', 'workflow.forms.read');
+  await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+  const navigation = navigationResponse(); navigation.push({ id: 'workflow-definitions', parentId: null, routeName: 'workflow-definitions', path: '/workflow/definitions', componentKey: 'workflow-definitions', title: '流程定义', caption: '工作流定义', icon: 'list', order: 81, requiredPermission: 'workflow.definitions.read', children: [] });
+  await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+  const id = '019bc2b1-2a40-7cc3-8992-a80de51bfe40'; const form = '019bc2b1-2a40-7cc3-8992-a80de51bfe41'; const now = '2026-10-27T00:00:00Z';
+  const schema = { schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: [{ fieldKey: 'amount', fieldTypeKey: 'integer', required: false, constraints: {} }] }] };
+  const metadata = { draftRevision: 1, version: 1, statusKey: 'active', businessTitleTemplate: null, createdAtUtc: now, updatedAtUtc: null };
+  const node = (nodeKey, nodeTypeKey, config) => ({ nodeKey, nodeTypeKey, nodeSchemaVersion: 1, config });
+  let definition = { ...metadata, id, definitionKey: 'bounded-route', latestPublishedVersionId: null, draft: { schemaVersion: 1, workflowKindKey: 'automation', nodes: [
+    node('start', 'start', { nextNodeKeys: ['review'] }), node('review', 'control.empty', { nodeName: '原有目标', nextNodeKeys: ['route'] }),
+    node('route', 'control.route', { nodeName: '有界路由', nextNodeKeys: ['end'], routePolicy: { modeKey: 'rules', targets: [{ targetKey: 'retry', nodeKey: 'review', regionKey: 'review-round', maximumIterations: 3, condition: { fieldKey: 'amount', operator: 'greaterThan', value: 0 } }] } }), node('end', 'end', {})] } };
+  await page.route('**/api/v1/workflow/forms', route => route.fulfill({ json: [{ ...metadata, id: form, formKey: 'route-form', latestPublishedVersionId: form, draft: schema }] }));
+  await page.route(`**/api/v1/workflow/form-versions/${form}`, route => route.fulfill({ json: { id: form, formDefinitionId: form, versionNumber: 1, schemaVersion: 1, adapterVersion: 1, componentCatalogVersion: 1, formSchemaJson: JSON.stringify(schema), webRenderSchemaJson: '{}', contentHash: 'a'.repeat(64), publishedById: user.id, publishedAtUtc: now } }));
+  await page.route('**/api/v1/workflow/definitions', route => route.fulfill({ json: [definition] }));
+  await page.route(`**/api/v1/workflow/definitions/${id}`, route => route.fulfill({ json: definition }));
+  const saved = [];
+  await page.route(`**/api/v1/workflow/definitions/${id}/draft`, route => { const body = route.request().postDataJSON(); saved.push(body); definition = { ...definition, draftRevision: definition.draftRevision + 1, draft: body.draft }; return route.fulfill({ json: definition }); });
+  await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: { catalogVersion: 29, definitionSchemaVersion: 1, nodeTypes: ['start', 'control.empty', 'control.route', 'end'].map(nodeTypeKey => ({ nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true, supportsFieldPolicies: false })) } }));
+  await page.goto('/'); await openNavigationLink(page, /工作流定义/); await page.getByTestId('workflow-definition-edit').click();
+  const designer = page.getByTestId('workflow-vue3-designer'); await designer.locator('.node-wrap-box').filter({ hasText: '有界路由' }).click();
+  const drawer = page.getByRole('dialog', { name: '动态路由', exact: true });
+  await expect(drawer.locator('.route-target')).toHaveCount(1);
+  await drawer.locator('.el-input-number input').fill('2'); await drawer.locator('.el-input-number input').press('Tab');
+  await drawer.getByTestId('workflow-save-route').click(); await page.getByTestId('workflow-definition-save').click();
+  await expect.poll(() => saved.length).toBe(1);
+  const route = saved[0].draft.nodes.find(node => node.nodeKey === 'route'); expect(route.config.routePolicy.targets[0]).toMatchObject({ nodeKey: 'review', maximumIterations: 2 });
+  expect(saved[0].draft.nodes.filter(node => node.nodeKey === 'review')).toHaveLength(1);
+  await page.getByTestId('workflow-definition-close-editor').click(); await page.getByTestId('workflow-definition-edit').click();
+  await designer.locator('.node-wrap-box').filter({ hasText: '有界路由' }).click();
+  await expect(drawer.locator('.el-input-number input')).toHaveValue('2'); await expect(drawer.locator('.route-target')).toHaveCount(1);
+});
+
+test('动态路由：执行轨迹进入精确授权恢复并显示唯一后继', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const user = currentUserResponse(); user.permissions.push('workflow.instances.read', 'workflow.routes.read', 'workflow.routes.reconcile');
+  await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
+  const navigation = navigationResponse(); navigation.push({ id: 'workflow-instances', parentId: null, routeName: 'workflow-instances', path: '/workflow/instances', componentKey: 'workflow-instances', title: '流程实例', caption: '工作流实例', icon: 'list', order: 82, requiredPermission: 'workflow.instances.read', children: [] });
+  await page.route('**/api/v1/navigation', route => route.fulfill({ json: navigation }));
+  const id = '019bc2b1-2a40-7cc3-8992-a80de51bfe50'; const routeId = '019bc2b1-2a40-7cc3-8992-a80de51bfe51'; const workId = '019bc2b1-2a40-7cc3-8992-a80de51bfe52'; const now = '2026-10-27T00:00:00Z';
+  const requests = [];
+  await page.route('**/api/v1/workflow/instances/mine?*', route => route.fulfill({ json: { items: [], page: 1, pageSize: 20, total: 0 } }));
+  await page.route(`**/api/v1/workflow/instances/${id}`, route => route.fulfill({ json: { id, definitionVersionId: id, formVersionId: id, businessType: 'route.test', businessId: 'browser', businessTitle: '路由恢复', statusKey: requests.length ? 'active' : 'suspended', revision: requests.length ? 10 : 9, activeTodoId: null, startedAtUtc: now } }));
+  await page.route(`**/api/v1/workflow/instances/${id}/execution-logs`, route => route.fulfill({ json: [{ id: routeId, instanceId: id, stepId: routeId, transitionKey: 'node.control.route.decision_unknown', fromStatusKey: 'active', toStatusKey: 'suspended', createdAtUtc: now }] }));
+  await page.route(`**/api/v1/workflow/instances/${id}/routes/${routeId}`, route => route.fulfill({ json: { id: routeId, instanceId: id, nodeKey: 'route', statusKey: requests.length ? 'applied' : 'decision_unknown', revision: requests.length ? 4 : 1, instanceStatusKey: requests.length ? 'active' : 'suspended', instanceRevision: requests.length ? 10 : 9, sourceExecutionEpochId: id, targetExecutionEpochId: requests.length ? id : null, selectedTargetKey: null, nextNodeKey: requests.length ? 'end' : null, continuationWorkId: requests.length ? workId : null, normalNextNodeKey: 'end', targets: [{ targetKey: 'retry', nodeKey: 'review', regionKey: 'review-round', reenters: true, maximumIterations: 3 }], createdAtUtc: now, appliedAtUtc: requests.length ? now : null } }));
+  await page.route(`**/api/v1/workflow/instances/${id}/routes/${routeId}/reconcile`, route => { requests.push(route.request().postDataJSON()); return route.fulfill({ json: { routeId, continuationWorkId: workId, executionEpochId: id, nextNodeKey: 'end' } }); });
+  await page.goto('/#/workflow/instances'); const view = page.locator('.workflow-instances');
+  await view.getByTestId('workflow-instance-id').fill(id); await view.getByTestId('workflow-instance-search').click();
+  await view.getByRole('button', { name: '路由决策', exact: true }).click();
+  const panel = view.locator('.route-panel'); await expect(panel.getByText('选择未知，需要人工恢复', { exact: false })).toBeVisible();
+  await panel.getByRole('textbox', { name: '处理原因', exact: true }).fill('核对固定输入后采用正常出口');
+  await panel.getByTestId('workflow-resolve-route').click(); await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({ expectedInstanceRevision: 9, expectedRevision: 1, selectedTargetKey: null, reason: '核对固定输入后采用正常出口' });
+  expect(Object.keys(requests[0]).sort()).toEqual(['expectedInstanceRevision', 'expectedRevision', 'idempotencyKey', 'reason', 'selectedTargetKey']);
+  await expect(panel.getByText(workId, { exact: true })).toBeVisible();
+});
+
+test('子流程：真实设计器固定版本、字段映射、多实例、发起人和超时保存回显', async ({ page }) => {
   await mockAuthenticatedSession(page);
   const user = currentUserResponse(); user.permissions.push('workflow.definitions.read', 'workflow.definitions.update', 'workflow.definitions.publish', 'workflow.forms.read');
   await page.route('**/api/v1/me', route => route.fulfill({ json: user }));
@@ -3764,9 +3822,13 @@ test('子流程：真实设计器固定版本、字段映射和多实例保存�
   const parentId = '019bc2b1-2a40-7cc3-8992-a80de51bfd40'; const childId = '019bc2b1-2a40-7cc3-8992-a80de51bfd41';
   const versionId = '019bc2b1-2a40-7cc3-8992-a80de51bfd42'; const parentFormId = '019bc2b1-2a40-7cc3-8992-a80de51bfd43'; const childFormId = '019bc2b1-2a40-7cc3-8992-a80de51bfd44';
   const actorId = '019bc2b1-2a40-7cc3-8992-a80de51bfd45'; const now = '2026-10-26T00:00:00Z';
+  await page.route('**/api/v1/workflow/definitions/recipient-candidates**', route => route.fulfill({ json: {
+    items: [{ id: actorId, username: 'child-starter', displayName: '委托发起人' }], page: 1, pageSize: 50, total: 1
+  } }));
   const node = (nodeKey, nodeTypeKey, config) => ({ nodeKey, nodeTypeKey, nodeSchemaVersion: 1, config });
   const schema = names => ({ schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: names.map(fieldKey => ({ fieldKey, fieldTypeKey: 'text', required: false, constraints: {} })) }] });
   const parentSchema = schema(['title', 'result']); const childSchema = schema(['subject', 'answer']);
+  parentSchema.sections[0].fields.push({ fieldKey: 'starters', fieldTypeKey: 'checkbox', required: false, constraints: { options: [actorId] } });
   const detail = { maxRows: 4, columns: [{ columnKey: 'label', fieldTypeKey: 'text', required: true, constraints: {} }] };
   parentSchema.sections[0].fields.push({ fieldKey: 'documents', fieldTypeKey: 'attachment', required: false, constraints: { maxCount: 2, maxSizeBytes: 1024, allowedExtensions: ['png'] } }, { fieldKey: 'rows', fieldTypeKey: 'subtable', required: false, constraints: detail });
   childSchema.sections[0].fields.push({ fieldKey: 'evidence', fieldTypeKey: 'attachment', required: false, constraints: { maxCount: 2, maxSizeBytes: 1024, allowedExtensions: ['png'] } }, { fieldKey: 'childRows', fieldTypeKey: 'subtable', required: false, constraints: detail });
@@ -3786,7 +3848,7 @@ test('子流程：真实设计器固定版本、字段映射和多实例保存�
   await page.route(`**/api/v1/workflow/definition-versions/${versionId}`, route => route.fulfill({ json: childVersion }));
   const saved = [];
   await page.route(`**/api/v1/workflow/definitions/${parentId}/draft`, route => { const body = route.request().postDataJSON(); saved.push(body); parent = { ...parent, draftRevision: parent.draftRevision + 1, draft: body.draft }; return route.fulfill({ json: parent }); });
-  await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: { catalogVersion: 25, definitionSchemaVersion: 1, nodeTypes: ['start', 'process.subprocess', 'end'].map(nodeTypeKey => ({ nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true, supportsFieldPolicies: nodeTypeKey === 'process.subprocess' })) } }));
+  await page.route('**/api/v1/workflow/definitions/node-type-catalog', route => route.fulfill({ json: { catalogVersion: 28, definitionSchemaVersion: 1, nodeTypes: ['start', 'process.subprocess', 'end'].map(nodeTypeKey => ({ nodeTypeKey, nodeSchemaVersion: 1, designable: true, publishable: true, executable: true, supportsFieldPolicies: nodeTypeKey === 'process.subprocess' })) } }));
   await page.goto('/'); await openNavigationLink(page, /工作流定义/); await page.getByTestId('workflow-definition-edit').first().click();
   const designer = page.getByTestId('workflow-vue3-designer'); await designer.locator('.node-wrap-box').filter({ hasText: '固定子流程' }).click();
   const drawer = page.getByRole('dialog', { name: '子流程', exact: true }); await expect(drawer.getByRole('combobox', { name: '固定发布版本', exact: true })).toBeVisible();
@@ -3797,9 +3859,18 @@ test('子流程：真实设计器固定版本、字段映射和多实例保存�
   await drawer.getByTestId('subprocess-multi-count').locator('input').fill('3'); await drawer.getByTestId('subprocess-multi-count').locator('input').press('Tab');
   await drawer.getByTestId('subprocess-multi-percentage').locator('input').fill('67'); await drawer.getByTestId('subprocess-multi-percentage').locator('input').press('Tab');
   await drawer.getByRole('combobox', { name: 'rows 结果归约', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: '按项顺序追加（受字段上限约束）', exact: true }).click();
+  await drawer.getByTestId('subprocess-starter-source').click(); await page.getByRole('option', { name: '指定当前作用域用户', exact: true }).click();
+  await drawer.getByRole('combobox', { name: '业务发起人', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: '委托发起人 (child-starter)', exact: true }).click();
+  await drawer.getByTestId('subprocess-starter-result').click(); await page.getByRole('option', { name: 'starters', exact: true }).click();
+  await drawer.getByTestId('subprocess-timeout-enabled').click();
+  await drawer.getByTestId('subprocess-timeout-minutes').locator('input').fill('7'); await drawer.getByTestId('subprocess-timeout-minutes').locator('input').press('Tab');
+  await drawer.getByRole('combobox', { name: '到期处置', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: '跳转指定节点', exact: true }).click();
+  await drawer.getByRole('combobox', { name: '超时后继节点', exact: true }).press('ArrowDown'); await page.getByRole('option', { name: 'end', exact: true }).click();
   await drawer.getByTestId('subprocess-save').click(); await page.getByTestId('workflow-definition-save').click(); await expect.poll(() => saved.length).toBe(1);
   expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.subprocessPolicy).toEqual({ ...configuration.subprocessPolicy, inputFields: { subject: 'title', evidence: 'documents' }, outputFields: { result: 'subject', rows: 'childRows' } });
   expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.multiInstancePolicy).toEqual({ modeKey: 'parallel', source: { kindKey: 'fixed_count', count: 3 }, requiredPercentage: 67, emptyModeKey: 'reject', outputReducers: { result: 'first', rows: 'append' } });
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.starterPolicy).toEqual({ source: { kindKey: 'specified_user', userId: actorId }, resultFieldKey: 'starters' });
+  expect(saved[0].draft.nodes.find(item => item.nodeKey === 'child').config.childTimeoutPolicy).toEqual({ dueAfterMinutes: 7, pauseModeKey: 'freeze', actionKey: 'route', nextNodeKey: 'end' });
   await page.getByTestId('workflow-definition-close-editor').click(); await page.getByTestId('workflow-definition-edit').first().click(); await designer.locator('.node-wrap-box').filter({ hasText: '固定子流程' }).click();
   await expect(drawer.getByTestId('subprocess-output-result')).toContainText('subject');
   await expect(drawer.getByTestId('subprocess-output-rows')).toContainText('childRows');
@@ -3807,6 +3878,12 @@ test('子流程：真实设计器固定版本、字段映射和多实例保存�
   await expect(drawer.getByTestId('subprocess-multi-mode')).toContainText('并行多实例');
   await expect(drawer.getByTestId('subprocess-multi-count').locator('input')).toHaveValue('3');
   await expect(drawer.getByTestId('subprocess-multi-percentage').locator('input')).toHaveValue('67');
+  await expect(drawer.getByTestId('subprocess-starter-source')).toContainText('指定当前作用域用户');
+  await expect(drawer.locator('.starter-editor .el-select').filter({ has: page.getByRole('combobox', { name: '业务发起人', exact: true }) })).toContainText('委托发起人 (child-starter)');
+  await expect(drawer.getByTestId('subprocess-starter-result')).toContainText('starters');
+  await expect(drawer.getByRole('switch', { name: '子流程超时处置', exact: true })).toBeChecked();
+  await expect(drawer.getByTestId('subprocess-timeout-minutes').locator('input')).toHaveValue('7');
+  await expect(drawer.locator('.child-timeout .el-select').filter({ has: page.getByRole('combobox', { name: '超时后继节点', exact: true }) })).toContainText('end');
 });
 
 test('比例会签：真实设计器保存与重新打开保留百分比和成员', async ({ page }) => {

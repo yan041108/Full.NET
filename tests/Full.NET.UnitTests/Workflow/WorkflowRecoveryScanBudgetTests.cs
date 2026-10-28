@@ -59,7 +59,11 @@ public sealed class WorkflowRecoveryScanBudgetTests
             new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
             new WorkflowAutomaticOutputCoordinator(queries, provider.GetRequiredService<ICommandExecutor>(), clock,
                 new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
-                WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator())));
+                WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator()),
+            new WorkflowRouteDecisionExecutor(queries, provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>(),
+                new WorkflowActivityScheduler(provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>()),
+                new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
+                new WorkflowRegionEpochCoordinator(queries, provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>()))));
         await using var provider = services.BuildServiceProvider();
         var hosted = new WorkflowRecoveryHostedProcessor(provider.GetRequiredService<IServiceScopeFactory>(), clock, options,
             NullLogger<WorkflowRecoveryHostedProcessor>.Instance);

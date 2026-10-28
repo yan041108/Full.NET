@@ -44,7 +44,7 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
         if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType && !WorkflowSubprocessPolicy.TryRead(node.Config, null, out _) ||
             node.NodeTypeKey != WorkflowSubprocessPolicy.NodeType && node.Config.ValueKind == JsonValueKind.Object &&
-            (node.Config.TryGetProperty("subprocessPolicy", out _) || node.Config.TryGetProperty("boundSubprocess", out _) || node.Config.TryGetProperty("multiInstancePolicy", out _))))
+            (node.Config.TryGetProperty("subprocessPolicy", out _) || node.Config.TryGetProperty("boundSubprocess", out _) || node.Config.TryGetProperty("multiInstancePolicy", out _) || node.Config.TryGetProperty("starterPolicy", out _) || node.Config.TryGetProperty("childTimeoutPolicy", out _))))
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionSubprocessInvalid);
         if (draft.Nodes.Any(node => !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
             draft.Nodes.Count(node => node.NodeTypeKey == "business.command") > 1 ||
@@ -184,6 +184,8 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionReferenceDangling);
         }
 
+        if (!WorkflowSubprocessTimeoutPolicy.ValidateTargets(nodeByKey, edges))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionSubprocessInvalid);
         if (ContainsCycle(starts[0].NodeKey, edges))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionBackEdgeIllegal);
@@ -447,11 +449,13 @@ internal static class WorkflowDefinitionCompiler
             return [];
         }
 
-        return next.EnumerateArray()
+        var successors = next.EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.String)
             .Select(item => item.GetString()!)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+        return node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType && WorkflowSubprocessTimeoutPolicy.TryRead(node.Config, out var timeout) && timeout?.NextNodeKey is { } target
+            ? successors.Append(target).Distinct(StringComparer.Ordinal).ToArray() : successors;
     }
 
     private static HashSet<string> CollectReachable(

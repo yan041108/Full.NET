@@ -538,6 +538,7 @@ import type {
   ReconcileNotificationDeliveryRequest,
   ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
+  ReconcileWorkflowRouteRequest,
   RecoverDeadLetterRequest,
   RecoverDeadLetterResponse,
   RecoverRollbackRequest,
@@ -747,6 +748,9 @@ import type {
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
   WorkflowRecoveryTaskResponse,
+  WorkflowRouteDecisionResponse,
+  WorkflowRouteResolutionResponse,
+  WorkflowRouteTargetResponse,
   WorkflowSignatureUploadResponse,
   WorkflowStarterSelectionDescriptorResponse,
   WorkflowStarterSelectionsResponse,
@@ -5453,6 +5457,15 @@ function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is Reconc
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
+export function readReconcileWorkflowRouteRequest(value: unknown): ReconcileWorkflowRouteRequest {
+  const normalizedValue = normalizeReconcileWorkflowRouteRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReconcileWorkflowRouteRequest(normalizedValue), 'reconcile_workflow_route_request') as ReconcileWorkflowRouteRequest;
+}
+
+function isReconcileWorkflowRouteRequest(value: unknown): value is ReconcileWorkflowRouteRequest {
+  return isRecord(value) && (typeof value["expectedInstanceRevision"] === 'number' && Number.isSafeInteger(value["expectedInstanceRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string') && ((value["selectedTargetKey"] === null) || (typeof value["selectedTargetKey"] === 'string'));
+}
+
 export function readRecoverDeadLetterRequest(value: unknown): RecoverDeadLetterRequest {
   return requireValidResponse(value, isRecoverDeadLetterRequest(value), 'recover_dead_letter_request') as RecoverDeadLetterRequest;
 }
@@ -7283,6 +7296,32 @@ export function readWorkflowRecoveryTaskResponse(value: unknown): WorkflowRecove
 
 function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecoveryTaskResponse {
   return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["leaseGeneration"] === 'number' && Number.isSafeInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
+}
+
+export function readWorkflowRouteDecisionResponse(value: unknown): WorkflowRouteDecisionResponse {
+  const normalizedValue = normalizeWorkflowRouteDecisionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowRouteDecisionResponse(normalizedValue), 'workflow_route_decision_response') as WorkflowRouteDecisionResponse;
+}
+
+function isWorkflowRouteDecisionResponse(value: unknown): value is WorkflowRouteDecisionResponse {
+  return isRecord(value) && ((value["appliedAtUtc"] === null) || (typeof value["appliedAtUtc"] === 'string')) && ((value["continuationWorkId"] === null) || (typeof value["continuationWorkId"] === 'string' && guidPattern.test(value["continuationWorkId"]))) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceRevision"] === 'number' && Number.isSafeInteger(value["instanceRevision"])) && (typeof value["instanceStatusKey"] === 'string') && ((value["nextNodeKey"] === null) || (typeof value["nextNodeKey"] === 'string')) && (typeof value["nodeKey"] === 'string') && (typeof value["normalNextNodeKey"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["selectedTargetKey"] === null) || (typeof value["selectedTargetKey"] === 'string')) && (typeof value["sourceExecutionEpochId"] === 'string' && guidPattern.test(value["sourceExecutionEpochId"])) && (typeof value["statusKey"] === 'string') && ((value["targetExecutionEpochId"] === null) || (typeof value["targetExecutionEpochId"] === 'string' && guidPattern.test(value["targetExecutionEpochId"]))) && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isWorkflowRouteTargetResponse(item16)));
+}
+
+export function readWorkflowRouteResolutionResponse(value: unknown): WorkflowRouteResolutionResponse {
+  return requireValidResponse(value, isWorkflowRouteResolutionResponse(value), 'workflow_route_resolution_response') as WorkflowRouteResolutionResponse;
+}
+
+function isWorkflowRouteResolutionResponse(value: unknown): value is WorkflowRouteResolutionResponse {
+  return isRecord(value) && (typeof value["continuationWorkId"] === 'string' && guidPattern.test(value["continuationWorkId"])) && (typeof value["executionEpochId"] === 'string' && guidPattern.test(value["executionEpochId"])) && (typeof value["nextNodeKey"] === 'string') && (typeof value["routeId"] === 'string' && guidPattern.test(value["routeId"]));
+}
+
+export function readWorkflowRouteTargetResponse(value: unknown): WorkflowRouteTargetResponse {
+  const normalizedValue = normalizeWorkflowRouteTargetResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowRouteTargetResponse(normalizedValue), 'workflow_route_target_response') as WorkflowRouteTargetResponse;
+}
+
+function isWorkflowRouteTargetResponse(value: unknown): value is WorkflowRouteTargetResponse {
+  return isRecord(value) && (typeof value["maximumIterations"] === 'number' && Number.isSafeInteger(value["maximumIterations"])) && (typeof value["nodeKey"] === 'string') && (typeof value["reenters"] === 'boolean') && (typeof value["regionKey"] === 'string') && (typeof value["targetKey"] === 'string');
 }
 
 export function readWorkflowSignatureUploadResponse(value: unknown): WorkflowSignatureUploadResponse {
@@ -9378,6 +9417,10 @@ function normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value: unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeReconcileWorkflowRouteRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedInstanceRevision") ? { ["expectedInstanceRevision"]: normalizeWireInteger(value["expectedInstanceRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
 function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
@@ -10016,6 +10059,14 @@ function normalizeWorkflowRecipientCandidatePageResponseIntegerJson(value: unkno
 
 function normalizeWorkflowRecoveryTaskResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "leaseGeneration") ? { ["leaseGeneration"]: normalizeWireInteger(value["leaseGeneration"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowRouteDecisionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "instanceRevision") ? { ["instanceRevision"]: normalizeWireInteger(value["instanceRevision"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "targets") ? { ["targets"]: (Array.isArray(value["targets"]) ? value["targets"].map((item16: unknown) => normalizeWorkflowRouteTargetResponseIntegerJson(item16)) : value["targets"]) } : {}) } : value);
+}
+
+function normalizeWorkflowRouteTargetResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximumIterations") ? { ["maximumIterations"]: normalizeWireInteger(value["maximumIterations"]) } : {}) } : value);
 }
 
 function normalizeWorkflowSignatureUploadResponseIntegerJson(value: unknown): unknown {

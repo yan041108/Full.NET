@@ -34,11 +34,13 @@ internal static class WorkflowSubprocessStartGuard
         var item = await query.QuerySingleOrDefaultAsync<WorkflowSubprocessItemRecord>(WorkflowSubprocessSql.FindItem,
             WorkflowSqlParameters.Create(("Id", context.ItemId), ("CallId", context.CallId), ("InstanceId", context.ParentInstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         if (root?.StatusKey != "active" || call is null || item is null || call.StatusKey is not ("requested" or "running") || call.CancellationRequested ||
-            item.StatusKey != "pending" || item.ChildInstanceId is not null || item.StarterUserId != actorId || item.StarterUserId != root.StartedById || item.InputHash != context.InputHash ||
+            item.StatusKey != "pending" || item.ChildInstanceId is not null || item.StarterUserId != actorId || item.InputHash != context.InputHash ||
             WorkflowSubprocessBindings.Hash(item.InputJson) != item.InputHash || request.InitialValues.GetRawText() != item.InputJson ||
             call.ChildDefinitionVersionId != childAsset.DefinitionVersionId || call.ChildFormVersionId != childAsset.FormVersionId ||
             call.DefinitionHash != WorkflowSubprocessBindings.Hash(childAsset.CanonicalJson) || call.FormHash != WorkflowSubprocessBindings.Hash(childAsset.FormSchemaJson) ||
             call.Depth is < 1 or > WorkflowSubprocessPolicy.MaximumDepth || call.ChildActivityBudget is < 2 or > WorkflowActivityScheduler.InstanceActivityBudget) return Invalid();
+        if (await WorkflowExecutionEpochScope.ReadForStepAsync(query, root.Id, scope.TenantScopeKey, call.Id, token).ConfigureAwait(false) != call.ExecutionEpochId)
+            return Invalid();
         var asset = await query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
             WorkflowSqlParameters.Create(("DefinitionVersionId", root.DefinitionVersionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         WorkflowDefinitionDraft? draft; WorkflowFormSchema? parentSchema; Dictionary<string, JsonElement>? original;
@@ -53,7 +55,7 @@ internal static class WorkflowSubprocessStartGuard
             bound!.FormVersionId != childAsset.FormVersionId || bound.DefinitionHash != call.DefinitionHash || bound.FormHash != call.FormHash || bound.ActivityBudget != call.ChildActivityBudget ||
             call.Depth + bound.MaximumDepth - 1 > WorkflowSubprocessPolicy.MaximumDepth ||
             !policy!.MatchesSchemas(parentSchema, childSchema)) return Invalid();
-        if (policy.Multi is { } multi)
+        if (policy.ExecutionSet is { } multi)
         {
             var set = await query.QuerySingleOrDefaultAsync<WorkflowMultiInstanceSetRecord>(WorkflowMultiInstanceSql.Find,
                 WorkflowSqlParameters.Create(("CallId", call.Id), ("InstanceId", root.Id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
@@ -65,13 +67,13 @@ internal static class WorkflowSubprocessStartGuard
                 multi.ModeKey == "serial" && items.Any(other => other.SequenceNo < item.SequenceNo && other.StatusKey is "pending" or "running") ||
                 WorkflowMultiInstanceDecision.Evaluate(multi, items.Select(value => new WorkflowMultiInstanceFact(value.Id, value.ItemKey, value.SequenceNo, value.StatusKey)).ToArray()).StateKey != "wait") return Invalid();
         }
-        else if (!policy.TryCreateInput(original, childSchema, out var expectedInput) || expectedInput != item.InputJson) return Invalid();
+        else if (item.StarterUserId != root.StartedById || !policy.TryCreateInput(original, childSchema, out var expectedInput) || expectedInput != item.InputJson) return Invalid();
         var revision = await query.QuerySingleOrDefaultAsync<long?>(WorkflowSubprocessSql.ActiveStepRevision,
             WorkflowSqlParameters.Create(("Id", call.Id), ("InstanceId", root.Id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         var budget = await query.QuerySingleOrDefaultAsync<WorkflowExecutionBudgetRecord>(WorkflowSubprocessSql.FindBudget,
             WorkflowSqlParameters.Create(("InstanceId", root.Id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
-        if (revision is null || budget is null || budget.Reserved < call.ChildActivityBudget * (policy.Multi?.MaximumCount ?? 1) || budget.Granted > WorkflowActivityScheduler.InstanceActivityBudget) return Invalid();
-        return Result<WorkflowSubprocessStartReservation>.Success(new(call, item));
+        if (revision is null || budget is null || budget.Reserved < call.ChildActivityBudget * (policy.ExecutionSet?.MaximumCount ?? 1) || budget.Granted > WorkflowActivityScheduler.InstanceActivityBudget) return Invalid();
+        return Result<WorkflowSubprocessStartReservation>.Success(new(call, item, policy.Starter?.SourceKey ?? "parent"));
     }
 
     public static async Task<Result<bool>> LinkCreatedAsync(WorkflowSubprocessStartReservation reservation, Guid childId,
@@ -94,4 +96,4 @@ internal static class WorkflowSubprocessStartGuard
 }
 
 /// <summary>持有父根锁时读取的原项修订，不接受客户端生成的关联凭据。</summary>
-internal sealed record WorkflowSubprocessStartReservation(WorkflowSubprocessCallRecord Call, WorkflowSubprocessItemRecord Item);
+internal sealed record WorkflowSubprocessStartReservation(WorkflowSubprocessCallRecord Call, WorkflowSubprocessItemRecord Item, string StarterSourceKey);

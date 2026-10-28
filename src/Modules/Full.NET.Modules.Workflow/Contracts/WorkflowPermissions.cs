@@ -3,6 +3,18 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <summary>工作流管理页面与业务操作使用的精确权限码。</summary>
 public static class WorkflowPermissions
 {
+    /// <summary>读取自己参与的双边协作授权。</summary>
+    public const string CollaborationGrantsRead="workflow.collaboration_grants.read";
+    /// <summary>以当前可信作用域提出协作同意。</summary>
+    public const string CollaborationGrantsPropose="workflow.collaboration_grants.propose";
+    /// <summary>以目标方身份接受固定版本和本地成员。</summary>
+    public const string CollaborationGrantsAccept="workflow.collaboration_grants.accept";
+    /// <summary>撤销自己一方的协作同意。</summary>
+    public const string CollaborationGrantsRevoke="workflow.collaboration_grants.revoke";
+    /// <summary>读取当前作用域路由状态及固定版本目标。</summary>
+    public const string RoutesRead = "workflow.routes.read";
+    /// <summary>人工恢复选择未知的固定路由。</summary>
+    public const string RoutesReconcile = "workflow.routes.reconcile";
     /// <summary>读取当前作用域工作日历及固定版本。</summary>
     public const string CalendarsRead="workflow.calendars.read";
     /// <summary>创建当前作用域工作日历。</summary>
@@ -107,6 +119,8 @@ public static class WorkflowPermissions
         CalendarsPublish,
         ConnectorCallsRead,
         ConnectorCallsReconcile,
+        RoutesRead,
+        RoutesReconcile,
         DefinitionsRead,
         DefinitionsCreate,
         DefinitionsUpdate,

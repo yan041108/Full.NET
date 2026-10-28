@@ -6,6 +6,12 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class WorkflowErrorCodes
 {
+    /// <summary>双边政策、目标版本或本地活动成员无效。</summary>
+    public const string CollaborationGrantInvalid="workflow.collaboration_grant.invalid";
+    /// <summary>当前可信作用域不是授权参与方或授权不存在。</summary>
+    public const string CollaborationGrantNotFound="workflow.collaboration_grant.not_found";
+    /// <summary>授权修订、状态或幂等载荷冲突。</summary>
+    public const string CollaborationGrantConflict="workflow.collaboration_grant.conflict";
     /// <summary>业务所有者保留类型只能从实际业务入口经受信端口发起。</summary>
     public const string BusinessOwnerRequired = "workflow.business_owner_required";
     /// <summary>实际业务动作不在当前目录或不符合受控根审批最终提交位置。</summary>

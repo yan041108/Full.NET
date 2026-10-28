@@ -50,6 +50,7 @@
           <button v-if="enabledNodeTypes.has('data.modify')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.ModifyData)"><span>{{ t('workflowDesigner.fieldActivity.modify') }}</span></button>
           <button v-if="enabledNodeTypes.has('data.clear')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.DeleteData)"><span>{{ t('workflowDesigner.fieldActivity.clear') }}</span></button>
           <button v-if="enabledNodeTypes.has('integration.trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.Trigger)"><span>{{ t('workflowDesigner.connector.title') }}</span></button>
+          <button v-if="enabledNodeTypes.has('control.route')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.DynamicRoute)"><span>{{ t('workflowDesigner.route.title') }}</span></button>
           <button v-if="enabledNodeTypes.has('business.command')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.BusinessCommand)"><span>{{ t('workflowDesigner.businessCommand.title') }}</span></button>
           <button v-if="enabledNodeTypes.has('integration.async_trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.AsyncTrigger)"><span>{{ t('workflowDesigner.connector.asyncTitle') }}</span></button>
         </div>

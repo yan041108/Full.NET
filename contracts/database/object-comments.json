@@ -3457,6 +3457,19 @@
         "TodoId": "待办标识"
       }
     },
+    "fn_workflow_activation_binding": {
+      "comment": "工作流有效活动绑定；区域继承保留实际来源步骤身份",
+      "columns": {
+        "CreatedAtUtc": "绑定创建UTC时间",
+        "ExecutionEpochId": "消费此绑定的真实执行代次",
+        "Id": "绑定UUID v7身份",
+        "InstanceId": "实际根实例身份",
+        "NodeKey": "固定定义节点引用",
+        "SourceEpochId": "实际步骤原始执行代次；继承不得改写",
+        "StepId": "唯一有效的实际活动步骤",
+        "TenantScopeKey": "根实例可信作用域"
+      }
+    },
     "fn_workflow_activity_result": {
       "comment": "工作流自动字段活动的不可变输入、输出与补丁事实",
       "columns": {
@@ -3478,8 +3491,10 @@
       "comment": "工作流activity work表",
       "columns": {
         "AttemptCount": "尝试次数",
+        "CauseKindKey": "显式推进因果类型；旧工作未知时为空，不按来源状态推断",
         "CompletedAtUtc": "完成时间(UTC)",
         "DueAtUtc": "Due At(UTC)",
+        "ExecutionEpochId": "真实执行代次；续办沿来源传递，重入不能复用旧同名活动",
         "ExecutionSequence": "执行序号",
         "Id": "逻辑主键",
         "InputFormRevision": "Input Form Revision",
@@ -3495,6 +3510,9 @@
         "ResultStatusKey": "结果状态键",
         "ResultTodoId": "结果待办标识",
         "ResumeBarrierId": "服务器原屏障续办证明；普通工作项为空，不能由客户端提供",
+        "ReturnRoundId": "原退回轮次入出收据；普通工作为空",
+        "RouteDecisionId": "实际路由应用收据；普通工作为空",
+        "SourceStepId": "续办输入的真实来源步骤；旧记录缺少证明时为空",
         "StatusKey": "状态键",
         "TenantScopeKey": "租户作用域唯一键"
       }
@@ -3702,6 +3720,53 @@
         "UserId": "用户标识"
       }
     },
+    "fn_workflow_collaboration_grant": {
+      "comment": "工作流双边共享授权控制面；业务执行各在自己租户事务内",
+      "columns": {
+        "AcceptanceJson": "目标方固定映射人员及版本政策",
+        "AcceptedAtUtc": "目标接受时间",
+        "CreatedAtUtc": "源提出时间",
+        "ExpiresAtUtc": "授权绝对期限；微秒UTC",
+        "Id": "双边协作授权UUID v7",
+        "OfferJson": "源方固定字段及执行额度政策",
+        "PolicyHash": "绑定双方身份及完整政策的SHA256摘要",
+        "ProposalHash": "源提出请求的规范摘要",
+        "ProposalKey": "源操作人的提出幂等键",
+        "Revision": "不可变同意及撤销的CAS修订",
+        "RevocationReason": "撤销或拒绝的审计原因",
+        "RevokedAtUtc": "任一参与方撤销时间",
+        "RevokedById": "实际撤销操作人",
+        "RevokedByScopeKey": "实际撤销操作的可信参与方作用域",
+        "SourceActorId": "源方提出同意的真实操作人",
+        "SourceDefinitionId": "源方同意的流程定义",
+        "SourceFormVersionId": "源方同意的固定表单版本",
+        "SourceTenantId": "源租户；Host为空",
+        "SourceTenantScopeKey": "源方可信规范作用域",
+        "StatusKey": "proposed或active或revoked",
+        "TargetActorId": "目标方接受同意的真实操作人",
+        "TargetDefinitionVersionId": "目标方接受时固定的已发布版本",
+        "TargetSummaryHash": "目标版本安全摘要的SHA256",
+        "TargetSummaryJson": "仅含获准投影的目标版本安全摘要",
+        "TargetTenantId": "目标租户；Host为空",
+        "TargetTenantScopeKey": "目标方可信规范作用域"
+      }
+    },
+    "fn_workflow_collaboration_grant_action": {
+      "comment": "工作流授权同意撤销审计及稳定幂等响应",
+      "columns": {
+        "ActorTenantScopeKey": "实际操作人的可信作用域",
+        "ActorUserId": "实际操作人",
+        "CreatedAtUtc": "收据提交时间",
+        "GrantId": "所属双边授权",
+        "Id": "授权操作收据UUID v7",
+        "IdempotencyKey": "本授权内操作人的请求幂等键",
+        "OperationKey": "propose或accept或revoke",
+        "RequestHash": "包含动作及修订的规范请求摘要",
+        "ResponseJson": "首次成功响应原文；重放不读取后续状态",
+        "ResultRevision": "首次成功响应修订",
+        "ResultStatusKey": "首次成功响应状态"
+      }
+    },
     "fn_workflow_connector_attempt": {
       "comment": "工作流连接器每次外部调用的不可变请求与迟到响应事实",
       "columns": {
@@ -3898,6 +3963,23 @@
         "Revision": "预算乐观并发修订"
       }
     },
+    "fn_workflow_execution_epoch": {
+      "comment": "工作流真实执行代次与区域因果身份；租约不能替代代次",
+      "columns": {
+        "CauseStepId": "产生新代次的实际因果步骤",
+        "ClosedAtUtc": "代次关闭UTC时间；存量缺时间时为迁移观察时间",
+        "CreatedAtUtc": "代次创建UTC时间",
+        "Depth": "有界嵌套深度；初始为零",
+        "Id": "执行代次UUID v7；初始代次复用根UUID",
+        "InstanceId": "实际根实例身份",
+        "IterationNumber": "区域内固化迭代序号；初始为零",
+        "ParentEpochId": "外层真实代次；初始代次为空",
+        "RegionKey": "编译固定的执行区域键；初始为root",
+        "Revision": "乐观并发修订",
+        "StatusKey": "活动或已关闭；暂停不关闭",
+        "TenantScopeKey": "根实例可信作用域"
+      }
+    },
     "fn_workflow_execution_log": {
       "comment": "工作流执行日志表",
       "columns": {
@@ -4052,7 +4134,9 @@
         "ArrivedAtUtc": "Arrived At(UTC)",
         "BranchKey": "分支键",
         "Id": "逻辑主键",
-        "ParallelJoinId": "并行汇合标识"
+        "InstanceId": "从真实分叉回填的根实例身份",
+        "ParallelJoinId": "并行汇合标识",
+        "SourceStepId": "该次分支到达的真实来源步骤；旧记录缺少证明时为空"
       }
     },
     "fn_workflow_parallel_join": {
@@ -4061,7 +4145,9 @@
         "ArrivedBranchCount": "已到达分支数",
         "CompletedAtUtc": "完成时间(UTC)",
         "CreatedAtUtc": "创建时间(UTC)",
+        "ExecutionEpochId": "真实分叉执行代次；Id即该次ForkActivationId，旧到达不得跨代次",
         "ForkNodeKey": "分叉节点键",
+        "ForkStepId": "该次实际分叉步骤；旧记录缺少证明时为空",
         "GatewayTypeKey": "网关类型键",
         "Id": "逻辑主键",
         "InstanceId": "实例标识",
@@ -4092,6 +4178,95 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "TenantScopeKey": "租户作用域唯一键",
         "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
+    "fn_workflow_region_frame": {
+      "comment": "工作流区域代次固定边界及真实外层分支身份",
+      "columns": {
+        "CreatedAtUtc": "区域帧创建UTC时间",
+        "DefinitionVersionId": "与所属根相同的固定定义版本",
+        "EntryNodeKey": "编译验证的区域唯一入口节点引用",
+        "ExecutionEpochId": "区域实际执行代次UUID v7",
+        "ExitNodeKey": "编译验证的区域唯一出口节点引用",
+        "InstanceId": "区域所属真实根实例",
+        "ParentBranchKey": "外层分叉固化的实际分支键",
+        "ParentForkActivationId": "区域外层真实分叉激活；根区域为空",
+        "TenantScopeKey": "从真实根绑定的可信作用域"
+      }
+    },
+    "fn_workflow_return_round": {
+      "comment": "工作流退回新代次及不可变目标、区域和唯一入出工作收据",
+      "columns": {
+        "CreatedAtUtc": "进入本轮UTC时间",
+        "DefinitionVersionId": "根固定定义版本",
+        "EntryNodeKey": "固定重入入口节点引用",
+        "EntrySourceEpochId": "原退回操作来源的真实代次；可随旧fork关闭，与存活父代次分离",
+        "EntryWorkId": "进入新代次的唯一工作身份",
+        "ExitInputFormRevision": "退出工作固定输入修订",
+        "ExitInputHash": "退出工作固定输入SHA256摘要",
+        "ExitNodeKey": "固定本轮唯一正常出口",
+        "ExitSourceEpochId": "真实完成出口来源代次；级联退出保留原子代次",
+        "ExitStepId": "本轮真实完成出口步骤",
+        "ExitWorkId": "退出到外层代次的唯一工作身份",
+        "ExitedAtUtc": "本轮正常退出UTC时间",
+        "Id": "退回轮次与新子代次UUID v7",
+        "InputFormRevision": "原进入工作固定输入修订",
+        "InputHash": "原进入工作固定输入SHA256摘要",
+        "InstanceId": "所属真实根实例",
+        "NextNodeKey": "正常出口后的真实后继引用",
+        "ParallelBranchKey": "本轮真实外层分支键",
+        "ParallelJoinId": "本轮真实外层分叉身份",
+        "ParentEpochId": "退回进入前的实际外层代次",
+        "RegionHash": "结构区域节点集合SHA256摘要",
+        "RegionNodesJson": "有界结构区域固定节点集合",
+        "Revision": "轮次唯一退出CAS修订",
+        "SourceParallelBranchKey": "原已退回来源步骤的真实分支键",
+        "SourceParallelJoinId": "原已退回来源步骤的真实分叉身份",
+        "SourceStepId": "原已退回来源步骤",
+        "TargetSnapshotHash": "原目标人员及分组快照SHA256摘要",
+        "TargetStepId": "原已完成目标及其不可变人员快照",
+        "TenantScopeKey": "根实例可信作用域"
+      }
+    },
+    "fn_workflow_route_decision": {
+      "comment": "工作流耐久路由固定输入、选择与唯一后继工作身份",
+      "columns": {
+        "AppliedAtUtc": "决策与后继同事务应用UTC时间",
+        "CreatedAtUtc": "原路由激活UTC时间",
+        "DefinitionVersionId": "原根固定发布版本",
+        "ExecutionEpochId": "实际来源执行代次",
+        "Id": "真实路由步骤及决策UUID v7身份",
+        "InputFormRevision": "原输入修订",
+        "InputHash": "固定输入SHA256摘要",
+        "InputJson": "原分支或主表单固定输入",
+        "InstanceId": "所属实际根实例",
+        "NextNodeKey": "固定实际后继节点引用",
+        "NextWorkId": "应用事务预留的唯一后继Work身份",
+        "NodeKey": "发布路由节点引用",
+        "ParallelBranchKey": "来源真实分支键",
+        "ParallelJoinId": "来源真实分叉身份",
+        "PolicyHash": "固定发布路由策略SHA256摘要",
+        "Revision": "决策乐观并发修订",
+        "SelectedTargetKey": "已发布目标机器键；正常后继为空",
+        "StatusKey": "decision_unknown或ready或applied或cancelled",
+        "TargetEpochId": "应用决策后实际后继代次",
+        "TargetParallelBranchKey": "后继真实分支键",
+        "TargetParallelJoinId": "后继恢复的真实分叉身份",
+        "TenantScopeKey": "根实例可信作用域"
+      }
+    },
+    "fn_workflow_route_resolution": {
+      "comment": "工作流不确定路由的精确授权修复幂等收据",
+      "columns": {
+        "ActorUserId": "实际授权修复操作者；不跨模块外键",
+        "CreatedAtUtc": "首次修复UTC时间",
+        "Id": "修复收据UUID v7身份",
+        "IdempotencyKey": "操作者修复幂等键",
+        "InstanceId": "所属实际根实例",
+        "Reason": "实际修复理由",
+        "RequestHash": "目标及原因固定请求摘要",
+        "RouteId": "原真实路由决策身份",
+        "TenantScopeKey": "根实例可信作用域"
       }
     },
     "fn_workflow_sla": {
@@ -4143,6 +4318,7 @@
         "AttemptCount": "尝试次数",
         "CompletedAtUtc": "完成时间(UTC)",
         "DueAtUtc": "处理截止时间(UTC)",
+        "ExecutionEpochId": "真实执行代次；续办沿来源传递，重入不能复用旧同名活动",
         "ExecutionSequence": "执行序号",
         "Id": "逻辑主键",
         "InstanceId": "流程实例标识",
@@ -4154,6 +4330,18 @@
         "Revision": "步骤修订号",
         "StartedAtUtc": "开始时间(UTC)",
         "StatusKey": "步骤状态键"
+      }
+    },
+    "fn_workflow_step_cause": {
+      "comment": "工作流不可变实际步骤因果事实",
+      "columns": {
+        "CreatedAtUtc": "因果事实创建UTC时间",
+        "Id": "因果边UUID v7身份",
+        "InstanceId": "所属实际根实例",
+        "KindKey": "顺序分叉汇合区域或退回因果类型",
+        "ParentStepId": "明确因果父步骤；不得按时间推断",
+        "StepId": "本次新建实际步骤",
+        "TenantScopeKey": "根实例可信作用域"
       }
     },
     "fn_workflow_subprocess_call": {
@@ -4168,6 +4356,7 @@
         "DefinitionHash": "子定义内容摘要",
         "Depth": "当前子根在整组实例中的深度",
         "ErrorCode": "不包含业务快照的稳定故障码",
+        "ExecutionEpochId": "真实父活动代次；同名节点只有同代次才能复用调用",
         "FormHash": "子表单内容摘要",
         "Id": "复用真实父步骤的应用端UUID v7标识",
         "InputFormRevision": "父输入表单或分支修订",
@@ -4245,6 +4434,20 @@
         "StatusKey": "准备、运行、收尾、结果停车及终态",
         "TenantScopeKey": "父实例可信作用域",
         "UpdatedAtUtc": "最近集合更新UTC时间"
+      }
+    },
+    "fn_workflow_subprocess_timeout": {
+      "comment": "工作流子流程截止、冻结剩余时长及清理收敛状态",
+      "columns": {
+        "CallId": "实际父调用UUID v7身份",
+        "DueAtUtc": "固定或恢复后的截止UTC时间",
+        "InstanceId": "父实例身份",
+        "PauseModeKey": "暂停时freeze冻结或elapsed流逝",
+        "PausedAtUtc": "冻结UTC时间",
+        "RemainingMilliseconds": "冻结剩余毫秒",
+        "Revision": "乐观并发修订",
+        "StatusKey": "等待清理就绪及关闭状态",
+        "TenantScopeKey": "父实例可信作用域"
       }
     },
     "fn_workflow_task": {

@@ -18,6 +18,7 @@ public sealed class WorkflowCcTransitionWriterTests
         var newRecipient = Guid.CreateVersion7();
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(WorkflowActivationBindingSql.BindStep, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         command.ExecuteAsync(WorkflowSql.InsertCompletedCcStep, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var ids = Substitute.For<IIdGenerator>();
         query.QueryAsync<Guid>(
@@ -33,7 +34,7 @@ public sealed class WorkflowCcTransitionWriterTests
 
         await writer.WriteAsync(
             instanceId,
-            "host",
+            "host", Guid.CreateVersion7(),
             [new WorkflowCcRuntimeNode("copy", [existingRecipient, newRecipient])],
             2,
             DateTimeOffset.UtcNow);
@@ -56,6 +57,7 @@ public sealed class WorkflowCcTransitionWriterTests
     public async Task Automatic_writer_persists_gateway_step_and_branch_execution_log()
     {
         var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(WorkflowActivationBindingSql.BindStep, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(Guid.CreateVersion7(), Guid.CreateVersion7());
         var ccWriter = new WorkflowCcTransitionWriter(
@@ -66,7 +68,7 @@ public sealed class WorkflowCcTransitionWriterTests
 
         await writer.WriteAsync(
             Guid.CreateVersion7(),
-            "host",
+            "host", Guid.CreateVersion7(),
             [new WorkflowAutomaticRuntimeNode(
                 "route",
                 "gateway.exclusive",

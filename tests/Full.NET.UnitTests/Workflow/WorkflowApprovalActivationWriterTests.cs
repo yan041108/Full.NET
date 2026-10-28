@@ -21,7 +21,7 @@ public sealed class WorkflowApprovalActivationWriterTests
         var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7()); var outbox = Substitute.For<IOutboxWriter>();
         var members = Enumerable.Range(0, 3).Select(_ => Guid.CreateVersion7()).ToArray();
         var writer = new WorkflowHumanActivityActivationWriter(command, ids, new(outbox));
-        var result = await writer.WriteTaskAsync(Guid.CreateVersion7(), "host", "task", new(new(mode), members), 1,
+        var result = await writer.WriteTaskAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "task", new(new(mode), members), 1,
             DateTimeOffset.UtcNow, null, "test", "task", null, null, "{}", new string('a', 64), default);
         Assert.HasCount(realTodos, result.TodoIds);
         await command.Received(3).ExecuteAsync(WorkflowTaskSql.InsertMember, Arg.Any<object?>(), Arg.Any<CancellationToken>());
@@ -47,9 +47,9 @@ public sealed class WorkflowApprovalActivationWriterTests
             [new("first", "首组", new("any", members.Take(2).ToArray(), 1)),
              new("second", "顺序组", new("sequential", members.Skip(2).ToArray(), 3))]);
         var result = parallel
-            ? await writer.WriteParallelAsync(Guid.CreateVersion7(), "host", "review", policy, Guid.Empty, 1,
+            ? await writer.WriteParallelAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "review", policy, Guid.Empty, 1,
                 DateTimeOffset.UtcNow, null, "test", "group", Guid.CreateVersion7(), "left", default, "{}", new string('a', 64))
-            : await writer.WriteAsync(Guid.CreateVersion7(), "host", "review", policy, Guid.Empty, 1,
+            : await writer.WriteAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "review", policy, Guid.Empty, 1,
                 DateTimeOffset.UtcNow, null, "test", "group", default, "{}", new string('a', 64));
         Assert.HasCount(3, result.TodoIds);
         await command.Received(2).ExecuteAsync(WorkflowGroupApprovalSql.InsertGroup, Arg.Any<object?>(), Arg.Any<CancellationToken>());
@@ -103,9 +103,9 @@ public sealed class WorkflowApprovalActivationWriterTests
         var users = Enumerable.Range(0, 3).Select(_ => Guid.CreateVersion7()).ToArray();
         var instance = Guid.CreateVersion7(); var now = DateTimeOffset.UtcNow;
         var result = parallel
-            ? await writer.WriteParallelAsync(instance, "host", "review", new("sequential", users, 3), Guid.Empty,
+            ? await writer.WriteParallelAsync(instance, "host", Guid.CreateVersion7(), "review", new("sequential", users, 3), Guid.Empty,
                 1, now, null, "test", "one", Guid.CreateVersion7(), "left", default)
-            : await writer.WriteAsync(instance, "host", "review", new("sequential", users, 3), Guid.Empty,
+            : await writer.WriteAsync(instance, "host", Guid.CreateVersion7(), "review", new("sequential", users, 3), Guid.Empty,
                 1, now, null, "test", "one", default);
         Assert.HasCount(1, result.TodoIds);
         await command.Received(1).ExecuteAsync(WorkflowSql.InsertTodo,
@@ -140,7 +140,7 @@ public sealed class WorkflowApprovalActivationWriterTests
 
         var result = await writer.WriteAsync(
             Guid.CreateVersion7(),
-            "tenant:sample",
+            "tenant:sample", Guid.CreateVersion7(),
             "finance-review",
             new WorkflowApprovalPolicy("nOfM", users, 2),
             Guid.CreateVersion7(),

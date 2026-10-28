@@ -13,7 +13,7 @@ internal sealed partial class WorkflowSubprocessProcessor
 {
     private async Task<bool> ProcessMultiAsync(SubprocessContext context, CancellationToken token)
     {
-        var call = context.Call; var parent = context.Parent; var policy = context.Policy.Multi!; var set = context.Set!;
+        var call = context.Call; var parent = context.Parent; var policy = context.Policy.ExecutionSet!; var set = context.Set!;
         var step = await query.QuerySingleOrDefaultAsync<long?>(WorkflowSubprocessSql.ActiveStepRevision, P(call, ("Id", call.Id)), token).ConfigureAwait(false);
         var cancelled = parent.StatusKey is "cancelled" or "rejected" || step is null || call.CancellationRequested;
         if (cancelled && !call.CancellationRequested) return await MarkCancellationAsync(call, token).ConfigureAwait(false);
@@ -33,8 +33,8 @@ internal sealed partial class WorkflowSubprocessProcessor
             try { if (set.OutputJson is not null && set.OutputHash == WorkflowSubprocessBindings.Hash(set.OutputJson))
                 patch = JsonSerializer.Deserialize(set.OutputJson, WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement); }
             catch (JsonException) { }
-            if (patch is null || set.ItemCount != 0 && !patch.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(context.Policy.OutputFields.Keys) ||
-                set.ItemCount == 0 && patch.Count != 0) return await MultiFaultAsync(context, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
+            var expectedFields = set.ItemCount == 0 ? context.Policy.Starter?.ResultFieldKey is { } result ? new[] { result } : Array.Empty<string>() : context.Policy.WrittenFields;
+            if (patch is null || !patch.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(expectedFields)) return await MultiFaultAsync(context, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
             return await ApplyPatchAsync(context, patch, set, token).ConfigureAwait(false);
         }
         if (cancelled || set.StatusKey is "closing" or "faulted") return await CloseMultiAsync(context, cancelled, token).ConfigureAwait(false);
@@ -71,6 +71,13 @@ internal sealed partial class WorkflowSubprocessProcessor
 
     private async Task<bool> FreezeMultiAsync(SubprocessContext context, WorkflowMultiInstancePreparedSource source, CancellationToken token)
     {
+        WorkflowSubprocessPreparedStarters? starters = null;
+        if (context.Policy.Starter is { SourceKey: not "parent" } starter)
+        {
+            starters = await starterPreparation.PrepareAsync(starter, context.Parent.StartedById, context.Original, source,
+                new(context.Parent.TenantId, context.Parent.ScopeKey, context.Parent.TenantScopeKey), token).ConfigureAwait(false);
+            if (starters is null) return await MultiFaultAsync(context, "workflow.subprocess.starter_unavailable", token).ConfigureAwait(false);
+        }
         var inputs = new List<(WorkflowMultiInstanceSeed Seed, string Json)>();
         foreach (var seed in source.Items)
         {
@@ -78,7 +85,7 @@ internal sealed partial class WorkflowSubprocessProcessor
                 return await MultiFaultAsync(context, "workflow.subprocess.input_invalid", token).ConfigureAwait(false);
             inputs.Add((seed, json!));
         }
-        var jsonSource = JsonSerializer.Serialize(new WorkflowMultiInstanceSnapshot(source, clock.UtcNow), WorkflowJsonSerializerContext.Default.WorkflowMultiInstanceSnapshot);
+        var jsonSource = JsonSerializer.Serialize(new WorkflowMultiInstanceSnapshot(source, clock.UtcNow, starters), WorkflowJsonSerializerContext.Default.WorkflowMultiInstanceSnapshot);
         if (Encoding.UTF8.GetByteCount(jsonSource) > WorkflowSubprocessPolicy.MaximumInputBytes) return await MultiFaultAsync(context, "workflow.subprocess.source_invalid", token).ConfigureAwait(false);
         var result = await transaction.ExecuteResultAsync(async inner => {
             var state = await LockAsync(context.Call, inner).ConfigureAwait(false); if (state is null) return Invalid();
@@ -87,9 +94,9 @@ internal sealed partial class WorkflowSubprocessProcessor
             if (await query.QuerySingleOrDefaultAsync<long?>(WorkflowSubprocessSql.ActiveStepRevision, P(call, ("Id", call.Id)), inner).ConfigureAwait(false) is null) return Result<bool>.Success(false);
             foreach (var (seed, input) in inputs)
                 if (await commands.ExecuteAsync(WorkflowSubprocessSql.InsertItem, P(call, ("Id", ids.NewId()), ("CallId", call.Id), ("ItemKey", seed.ItemKey),
-                    ("SequenceNo", seed.SequenceNo), ("StarterUserId", root.StartedById), ("InputJson", input), ("InputHash", WorkflowSubprocessBindings.Hash(input)),
+                    ("SequenceNo", seed.SequenceNo), ("StarterUserId", starters?.ByItemKey[seed.ItemKey] ?? root.StartedById), ("InputJson", input), ("InputHash", WorkflowSubprocessBindings.Hash(input)),
                     ("Now", clock.UtcNow)), inner).ConfigureAwait(false) != 1) return Invalid();
-            var next = set with { ItemCount = inputs.Count, RequiredSuccesses = context.Policy.Multi!.RequiredSuccesses(inputs.Count),
+            var next = set with { ItemCount = inputs.Count, RequiredSuccesses = context.Policy.ExecutionSet!.RequiredSuccesses(inputs.Count),
                 SourceJson = jsonSource, SourceHash = WorkflowSubprocessBindings.Hash(jsonSource), StatusKey = "running" };
             return await UpdateSetAsync(next, inner).ConfigureAwait(false) ? Result<bool>.Success(true) : Invalid();
         }, token).ConfigureAwait(false);
@@ -128,7 +135,7 @@ internal sealed partial class WorkflowSubprocessProcessor
             if (set?.StatusKey == "running" && !call.CancellationRequested && root.StatusKey is "active" or "suspended")
             {
                 var items = await query.QueryAsync<WorkflowSubprocessItemRecord>(WorkflowSubprocessSql.Items, P(call, ("CallId", call.Id)), inner).ConfigureAwait(false);
-                var selection = WorkflowMultiInstanceDecision.Evaluate(context.Policy.Multi!, Facts(items));
+                var selection = WorkflowMultiInstanceDecision.Evaluate(context.Policy.ExecutionSet!, Facts(items));
                 // 与首个达标结果同事务封口；并发迟到成功只能补自己的项，不能追加原选择。
                 if (selection.StateKey == "select" && !await SealWithinAsync(call, set, items, selection.SelectedIds, inner).ConfigureAwait(false)) return Invalid();
             }
@@ -144,7 +151,7 @@ internal sealed partial class WorkflowSubprocessProcessor
             var (root, call) = state.Value; var set = await ReadSetAsync(call, inner).ConfigureAwait(false);
             if (root.StatusKey is not ("active" or "suspended") || call.CancellationRequested || set?.StatusKey != "running") return Result<bool>.Success(false);
             var items = await query.QueryAsync<WorkflowSubprocessItemRecord>(WorkflowSubprocessSql.Items, P(call, ("CallId", call.Id)), inner).ConfigureAwait(false);
-            var selection = WorkflowMultiInstanceDecision.Evaluate(context.Policy.Multi!, Facts(items));
+            var selection = WorkflowMultiInstanceDecision.Evaluate(context.Policy.ExecutionSet!, Facts(items));
             if (selection.StateKey != "select" || !selection.SelectedIds.SequenceEqual(observed)) return Result<bool>.Success(false);
             return await SealWithinAsync(call, set, items, selection.SelectedIds, inner).ConfigureAwait(false)
                 ? Result<bool>.Success(true) : Invalid();
@@ -176,7 +183,7 @@ internal sealed partial class WorkflowSubprocessProcessor
         if (unknown) return await MultiFaultAsync(context, "workflow.subprocess.child_outcome_unknown", token).ConfigureAwait(false);
         if (cancelled) return await FinishMultiCancellationAsync(context, token).ConfigureAwait(false);
         if (set.StatusKey == "faulted") return await FinishMultiFaultAsync(context, token).ConfigureAwait(false);
-        if (!WorkflowMultiInstanceDecision.TryReadSealedSelection(context.Policy.Multi!, selected, Facts(context.Items), out _) ||
+        if (!WorkflowMultiInstanceDecision.TryReadSealedSelection(context.Policy.ExecutionSet!, selected, Facts(context.Items), out _) ||
             set.SelectionHash != WorkflowMultiInstanceSnapshotRules.SelectionHash(context.Items.Where(item => selected.Contains(item.Id))))
             return await MultiFaultAsync(context, "workflow.subprocess.selection_invalid", token).ConfigureAwait(false);
         var outputs = new List<WorkflowMultiInstanceOutput>();
@@ -192,7 +199,9 @@ internal sealed partial class WorkflowSubprocessProcessor
             outputs.Add(new(item.Id, item.ItemKey, patch));
         }
         IReadOnlyDictionary<string, JsonElement> merged = new Dictionary<string, JsonElement>();
-        if (context.Items.Count > 0 && !WorkflowMultiInstanceOutputReducer.TryMerge(context.ParentSchema, context.Policy.OutputFields.Keys.ToArray(), context.Policy.Multi!.OutputReducers, outputs, out merged))
+        if (context.Items.Count > 0 && !WorkflowMultiInstanceOutputReducer.TryMerge(context.ParentSchema, context.Policy.OutputFields.Keys.ToArray(), context.Policy.ExecutionSet!.OutputReducers, outputs, out merged))
+            return await MultiFaultAsync(context, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
+        if (!context.Policy.TryAddStarterOutput(context.ParentSchema, merged, context.Items.Where(item => selected.Contains(item.Id)).ToArray(), out merged))
             return await MultiFaultAsync(context, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
         var json = JsonSerializer.Serialize(merged.ToDictionary(pair => pair.Key, pair => pair.Value), WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
         var result = await transaction.ExecuteResultAsync(async inner => {
@@ -212,6 +221,7 @@ internal sealed partial class WorkflowSubprocessProcessor
             var state = await LockAsync(context.Call, inner).ConfigureAwait(false); if (state is null) return Invalid();
             var (root, call) = state.Value; var set = await ReadSetAsync(call, inner).ConfigureAwait(false);
             if (set is null || call.StatusKey is "applied" or "cancelled") return Result<bool>.Success(false);
+            if (await TimeoutOwnsClosingAsync(call, inner).ConfigureAwait(false)) return Result<bool>.Success(false);
             if (set.StatusKey == "faulted" && call.ErrorCode == code) return Result<bool>.Success(false);
             if (!await UpdateSetAsync(set with { StatusKey = "faulted" }, inner).ConfigureAwait(false) ||
                 !await SetStatusAsync(call, "running", call.CancellationRequested, code, inner).ConfigureAwait(false) ||
@@ -235,6 +245,7 @@ internal sealed partial class WorkflowSubprocessProcessor
             var state = await LockAsync(context.Call, inner).ConfigureAwait(false); if (state is null) return Invalid();
             var (root, call) = state.Value; var set = await ReadSetAsync(call, inner).ConfigureAwait(false);
             if (set is null || call.StatusKey is "applied" or "cancelled") return Result<bool>.Success(false);
+            if (root.StatusKey is not ("cancelled" or "rejected") && await TimeoutOwnsClosingAsync(call, inner).ConfigureAwait(false)) return Result<bool>.Success(false);
             if (cancel && root.StatusKey is not ("cancelled" or "rejected") && !call.CancellationRequested) return Result<bool>.Success(false);
             var items = await query.QueryAsync<WorkflowSubprocessItemRecord>(WorkflowSubprocessSql.Items, P(call, ("CallId", call.Id)), inner).ConfigureAwait(false);
             if (items.Any(item => item.StatusKey is "pending" or "running")) return Result<bool>.Success(false);

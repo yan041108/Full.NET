@@ -130,8 +130,8 @@ internal static class WorkflowSubprocessBindings
         {
             if (!WorkflowSubprocessPolicy.TryRead(node.Config, null, out var policy) || !node.Config.TryGetProperty("boundSubprocess", out var data) ||
                 !WorkflowBoundSubprocess.TryRead(data, policy!.DefinitionVersionId, out var bound) ||
-                budget > WorkflowActivityScheduler.InstanceActivityBudget - bound!.ActivityBudget * (policy.Multi?.MaximumCount ?? 1)) return false;
-            budget += bound.ActivityBudget * (policy.Multi?.MaximumCount ?? 1); depth = Math.Max(depth, 1 + bound.MaximumDepth);
+                budget > WorkflowActivityScheduler.InstanceActivityBudget - bound!.ActivityBudget * (policy.ExecutionSet?.MaximumCount ?? 1)) return false;
+            budget += bound.ActivityBudget * (policy.ExecutionSet?.MaximumCount ?? 1); depth = Math.Max(depth, 1 + bound.MaximumDepth);
         }
         budget = Math.Max(64, budget);
         return budget <= WorkflowActivityScheduler.InstanceActivityBudget && depth <= WorkflowSubprocessPolicy.MaximumDepth;

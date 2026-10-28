@@ -16,21 +16,23 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
     internal const int InstanceActivityBudget = 4096;
 
     /// <summary>HTTP尚未发送时先建立真实激活和固定请求；事务提交前Worker无法观察到待分发状态。</summary>
-    public async Task EnqueueConnectorAsync(WorkflowInstanceRecord instance, WorkflowConnectorWaitPlan wait,
+    public async Task EnqueueConnectorAsync(WorkflowInstanceRecord instance, Guid executionEpochId, WorkflowConnectorWaitPlan wait,
         WorkflowBoundHttpConnector connector, IReadOnlyDictionary<string, JsonElement> values, string requestJson,
-        long formRevision, long sequence, Guid? joinId, string? branchKey, DateTimeOffset now, CancellationToken token)
+        long formRevision, long sequence, Guid? joinId, string? branchKey, DateTimeOffset now, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
+        if (executionEpochId == Guid.Empty) throw new InvalidOperationException("workflow.execution_epoch.missing");
         var id = ids.NewId();
         var input = SerializeInput(values);
         var inputHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
         var requestHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(requestJson)));
-        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
+        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId), ("TenantScopeKey", instance.TenantScopeKey),
             ("NodeKey", wait.NodeKey), ("NodeTypeKey", wait.IsAsync ? "integration.async_trigger" : "integration.trigger"), ("ContinuationNodeKey", wait.ContinuationNodeKey),
             ("ConnectorKey", connector.Definition.ConnectorKey), ("ConnectorVersion", connector.Definition.Version), ("ConnectorHash", connector.ContentHash),
             ("ModeKey", wait.IsAsync ? "async" : "sync"), ("InputJson", input), ("InputHash", inputHash), ("InputFormRevision", formRevision),
             ("RequestJson", requestJson), ("RequestHash", requestHash), ("ExecutionSequence", sequence),
             ("ParallelJoinId", joinId), ("ParallelBranchKey", branchKey), ("Now", now));
         await command.ExecuteAsync(WorkflowConnectorSql.InsertStep, parameters, token).ConfigureAwait(false);
+        await WorkflowActivationBindingWriter.BindAsync(command,instance.Id,instance.TenantScopeKey,executionEpochId,id,now,token,trace,ids).ConfigureAwait(false);
         await command.ExecuteAsync(WorkflowConnectorSql.Insert, parameters, token).ConfigureAwait(false);
         var detail = WorkflowJsonCanonicalizer.Compile(writer =>
         {
@@ -51,13 +53,14 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
     }
 
     /// <summary>激活等待时保存原输入、时区和已解析截止；实际到期只生成一次普通续办工作。</summary>
-    public async Task EnqueueDelayAsync(WorkflowInstanceRecord instance, WorkflowDelayWaitPlan wait,
+    public async Task EnqueueDelayAsync(WorkflowInstanceRecord instance, Guid executionEpochId, WorkflowDelayWaitPlan wait,
         IReadOnlyDictionary<string, JsonElement> values, long formRevision, long sequence,
-        Guid? joinId, string? branchKey, DateTimeOffset due, DateTimeOffset now, CancellationToken token)
+        Guid? joinId, string? branchKey, DateTimeOffset due, DateTimeOffset now, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
+        if (executionEpochId == Guid.Empty) throw new InvalidOperationException("workflow.execution_epoch.missing");
         var id = ids.NewId();
         var input = SerializeInput(values);
-        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id),
+        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId),
             ("TenantScopeKey", instance.TenantScopeKey), ("NodeKey", wait.NodeKey), ("ContinuationNodeKey", wait.ContinuationNodeKey),
             ("InputJson", input), ("InputHash", Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)))),
             ("InputFormRevision", formRevision), ("ExecutionSequence", sequence), ("ParallelJoinId", joinId),
@@ -65,6 +68,7 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
             ("CalendarVersionId",wait.DelayPolicy.CalendarVersionId),("CalendarHash",wait.DelayPolicy.CalendarHash),("CalendarJson",wait.DelayPolicy.Calendar?.CanonicalJson),
             ("DueAtUtc", due), ("Now", now));
         await command.ExecuteAsync(WorkflowDelaySql.InsertStep, parameters, token).ConfigureAwait(false);
+        await WorkflowActivationBindingWriter.BindAsync(command,instance.Id,instance.TenantScopeKey,executionEpochId,id,now,token,trace,ids).ConfigureAwait(false);
         await command.ExecuteAsync(WorkflowDelaySql.Insert, parameters, token).ConfigureAwait(false);
         await command.ExecuteAsync(WorkflowSql.InsertExecutionLog,
             WorkflowSqlParameters.Create(("Id", ids.NewId()), ("InstanceId", instance.Id), ("StepId", id),
@@ -73,18 +77,22 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
                 ("IdempotencyKey", null), ("Summary", wait.DelayPolicy.ModeKey), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
     }
 
-    public async Task EnqueueAsync(WorkflowInstanceRecord instance, string nodeKey,
+    public async Task EnqueueAsync(WorkflowInstanceRecord instance, Guid executionEpochId, string nodeKey,
         IReadOnlyDictionary<string, JsonElement> values, long formRevision, long sequence,
         Guid? joinId, string? branchKey, DateTimeOffset now, CancellationToken token, bool budgetExhausted = false,
-        Guid? workId = null, Guid? resumeBarrierId = null)
+        Guid? workId = null, Guid? resumeBarrierId = null, Guid? sourceStepId = null, string causeKindKey = "sequence", Guid? routeDecisionId = null)
     {
+        if (executionEpochId == Guid.Empty) throw new InvalidOperationException("workflow.execution_epoch.missing");
+        if (sourceStepId is null || sourceStepId==Guid.Empty) throw new InvalidOperationException("workflow.causality.work_source_missing");
+        if(!WorkflowActivationTrace.IsKnownKind(causeKindKey))throw new InvalidOperationException("workflow.causality.kind_unknown");
         var input = SerializeInput(values);
-        await command.ExecuteAsync(WorkflowActivitySql.InsertWork,
-            WorkflowSqlParameters.Create(("Id", workId ?? ids.NewId()), ("InstanceId", instance.Id),
+        if (await command.ExecuteAsync(routeDecisionId is null ? WorkflowActivitySql.InsertWork : WorkflowRouteSql.InsertWork,
+            WorkflowSqlParameters.Create(("Id", workId ?? ids.NewId()), ("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId),
                 ("TenantScopeKey", instance.TenantScopeKey), ("NodeKey", nodeKey),
                 ("InputJson", input), ("InputHash", Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)))),
                 ("InputFormRevision", formRevision), ("ExecutionSequence", sequence),
-                ("ParallelJoinId", joinId), ("ParallelBranchKey", branchKey), ("DueAtUtc", now), ("ResumeBarrierId", resumeBarrierId)), token).ConfigureAwait(false);
+                ("ParallelJoinId", joinId), ("ParallelBranchKey", branchKey), ("DueAtUtc", now), ("ResumeBarrierId", resumeBarrierId),("SourceStepId",sourceStepId),("CauseKindKey",causeKindKey),("RouteDecisionId",routeDecisionId)), token).ConfigureAwait(false) != 1)
+            throw new InvalidOperationException("workflow.execution_epoch.missing");
         if (budgetExhausted)
             await command.ExecuteAsync(WorkflowSql.InsertExecutionLog,
                 WorkflowSqlParameters.Create(("Id", ids.NewId()), ("InstanceId", instance.Id), ("StepId", null),
@@ -97,17 +105,19 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
         values.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal), WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
 
     /// <summary>等待绑定真实原CallId；即使当前依赖为空，续办也只由服务器屏障回执释放。</summary>
-    public async Task EnqueueBarrierAsync(WorkflowInstanceRecord instance, WorkflowAsyncBarrierWaitPlan wait, Guid[] dependencies,
+    public async Task EnqueueBarrierAsync(WorkflowInstanceRecord instance, Guid executionEpochId, WorkflowAsyncBarrierWaitPlan wait, Guid[] dependencies,
         IReadOnlyDictionary<string, JsonElement> values, long formRevision, long sequence, Guid? joinId, string? branchKey,
-        DateTimeOffset now, CancellationToken token)
+        DateTimeOffset now, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
+        if (executionEpochId == Guid.Empty) throw new InvalidOperationException("workflow.execution_epoch.missing");
         var id = ids.NewId(); var input = SerializeInput(values);
         var dependencyJson = JsonSerializer.Serialize(dependencies.Order().ToArray(), WorkflowJsonSerializerContext.Default.GuidArray);
         static string Hash(string json) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
-        var parameters = WorkflowSqlParameters.Create(("Id",id),("InstanceId",instance.Id),("TenantScopeKey",instance.TenantScopeKey),
+        var parameters = WorkflowSqlParameters.Create(("Id",id),("InstanceId",instance.Id),("ExecutionEpochId",executionEpochId),("TenantScopeKey",instance.TenantScopeKey),
             ("NodeKey",wait.NodeKey),("DependencyCallIdsJson",dependencyJson),("DependencyHash",Hash(dependencyJson)),("InputJson",input),("InputHash",Hash(input)),
             ("InputFormRevision",formRevision),("ExecutionSequence",sequence),("ParallelJoinId",joinId),("ParallelBranchKey",branchKey),("Now",now));
         await command.ExecuteAsync(WorkflowAsyncBarrierSql.InsertStep,parameters,token).ConfigureAwait(false);
+        await WorkflowActivationBindingWriter.BindAsync(command,instance.Id,instance.TenantScopeKey,executionEpochId,id,now,token,trace,ids).ConfigureAwait(false);
         await command.ExecuteAsync(WorkflowAsyncBarrierSql.Insert,parameters,token).ConfigureAwait(false);
         var detail = WorkflowJsonCanonicalizer.Compile(writer => {
             writer.WriteStartObject(); writer.WriteString("nodeTypeKey","internal.await"); writer.WriteString("phaseKey","waiting");
@@ -125,6 +135,12 @@ internal sealed class WorkflowActivityScheduler(ICommandExecutor command, IIdGen
 /// <summary>同一事务中分叉共享预算；下一次耐久调度获得新的有限预算。</summary>
 internal sealed class WorkflowDispatchBudget
 {
+    public Guid ExecutionEpochId { get; private set; }
+    public bool TryBindExecutionEpoch(Guid id)
+    {
+        if (id == Guid.Empty || ExecutionEpochId != Guid.Empty && ExecutionEpochId != id) return false;
+        ExecutionEpochId = id; return true;
+    }
     private readonly long startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
     internal static readonly TimeSpan DispatchTimeBudget = TimeSpan.FromSeconds(5);
     public bool TimeExpired => System.Diagnostics.Stopwatch.GetElapsedTime(startedAt) >= DispatchTimeBudget;

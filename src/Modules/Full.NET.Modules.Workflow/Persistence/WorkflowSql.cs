@@ -496,10 +496,10 @@ internal static class WorkflowSql
         "workflow.step.insert",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
-            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+            (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
              NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, NULL)
         """,
         SqlDataScope.Global);
@@ -509,12 +509,12 @@ internal static class WorkflowSql
         "workflow.approval_step.insert",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
              StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
         VALUES
-            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+            (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
              NULL, 0, 1, @ExecutionSequence,
              @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
              @StartedAtUtc, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
@@ -526,10 +526,10 @@ internal static class WorkflowSql
         "workflow.step.insert_completed_cc",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
-        SELECT @Id, instance.Id, @NodeKey, 'notify.cc', 'completed', NULL,
-             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc, @AssigneeSnapshotJson, @AssigneeSnapshotHash
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash, ParallelJoinId, ParallelBranchKey)
+        SELECT @Id, instance.Id, @ExecutionEpochId, @NodeKey, 'notify.cc', 'completed', NULL,
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc, @AssigneeSnapshotJson, @AssigneeSnapshotHash, @ParallelJoinId, @ParallelBranchKey
         FROM fn_workflow_instance AS instance
         WHERE instance.Id=@InstanceId AND instance.TenantScopeKey=@TenantScopeKey
         """,
@@ -540,21 +540,21 @@ internal static class WorkflowSql
         "workflow.step.insert_completed_gateway",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, ParallelJoinId, ParallelBranchKey)
         VALUES
-            (@Id, @InstanceId, @NodeKey, 'gateway.exclusive', 'completed', NULL,
-             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
+            (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'gateway.exclusive', 'completed', NULL,
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc, @ParallelJoinId, @ParallelBranchKey)
         """,
         SqlDataScope.Global);
 
     /// <summary>空活动保留独立激活步骤，不产生表单或外部副作用。</summary>
     public static readonly SqlStatement InsertCompletedEmptyStep = new("workflow.step.insert_completed_empty", """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
-        VALUES (@Id, @InstanceId, @NodeKey, 'control.empty', 'completed', NULL,
-            NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, ParallelJoinId, ParallelBranchKey)
+        VALUES (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'control.empty', 'completed', NULL,
+            NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc, @ParallelJoinId, @ParallelBranchKey)
         """, SqlDataScope.Global);
 
     /// <summary>读取同一实例已经产生的抄送人，用于满足既有实例级唯一约束。</summary>
@@ -947,21 +947,13 @@ internal static class WorkflowSql
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.InstanceId = @InstanceId
+          AND step.Id IN @AncestorStepIds
           AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
-              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
-                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
-              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
-              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
-                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         ORDER BY step.ExecutionSequence DESC, step.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -977,21 +969,13 @@ internal static class WorkflowSql
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.InstanceId = @InstanceId
+          AND step.Id IN @AncestorStepIds
           AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
-              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
-                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
-              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
-              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
-                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         ORDER BY step.ExecutionSequence DESC, step.Id DESC
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -1008,21 +992,13 @@ internal static class WorkflowSql
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE step.Id = @TargetStepId
           AND step.InstanceId = @InstanceId
+          AND step.Id IN @AncestorStepIds
           AND step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')
           AND step.StatusKey = 'completed'
           AND step.ExecutionSequence IS NOT NULL
-          AND step.ParallelJoinId IS NULL
           AND step.CompletedAtUtc IS NOT NULL
           AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS frontier
-              WHERE frontier.InstanceId = step.InstanceId AND frontier.StatusKey = 'active'
-                AND (frontier.Id <> @CurrentStepId OR frontier.ParallelJoinId IS NOT NULL))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work AS work
-              WHERE work.InstanceId = step.InstanceId AND work.StatusKey IN ('pending', 'leased', 'faulted'))
-          AND NOT EXISTS (SELECT 1 FROM fn_workflow_step AS boundary
-              WHERE boundary.InstanceId = step.InstanceId AND boundary.ExecutionSequence > step.ExecutionSequence
-                AND boundary.NodeTypeKey NOT IN ('start', 'end', 'human.approval', 'human.group_approval', 'human.task', 'control.empty', 'notify.cc', 'gateway.exclusive'))
         """,
         SqlDataScope.Global);
 
@@ -1243,19 +1219,6 @@ internal static class WorkflowSql
           AND InstanceId = @InstanceId
           AND StatusKey = 'active'
           AND Revision = @Revision
-        """,
-        SqlDataScope.Global);
-
-    /// <summary>从目标开始失效旧执行链，避免旧目标完成记录与新步骤尝试重复成为候选。</summary>
-    public static readonly SqlStatement RollBackCompletedStepsFromTarget = new(
-        "workflow.step.rollback_completed_from_target",
-        """
-        UPDATE fn_workflow_step
-        SET StatusKey = 'rolled_back',
-            Revision = Revision + 1
-        WHERE InstanceId = @InstanceId
-          AND StatusKey = 'completed'
-          AND ExecutionSequence >= @TargetExecutionSequence
         """,
         SqlDataScope.Global);
 
@@ -1625,11 +1588,13 @@ internal static class WorkflowSql
         "workflow.parallel_join.insert",
         """
         INSERT INTO fn_workflow_parallel_join
-            (Id, InstanceId, ForkNodeKey, JoinNodeKey, GatewayTypeKey, RequiredBranchCount,
-             ArrivedBranchCount, StatusKey, Revision, CreatedAtUtc, CompletedAtUtc)
-        VALUES
-            (@Id, @InstanceId, @ForkNodeKey, @JoinNodeKey, @GatewayTypeKey, @RequiredBranchCount,
-             0, 'waiting', 1, @CreatedAtUtc, NULL)
+            (Id, InstanceId, ExecutionEpochId, ForkNodeKey, JoinNodeKey, GatewayTypeKey, RequiredBranchCount,
+             ArrivedBranchCount, StatusKey, Revision, CreatedAtUtc, CompletedAtUtc, ForkStepId)
+        SELECT @Id, @InstanceId, @ExecutionEpochId, @ForkNodeKey, @JoinNodeKey, @GatewayTypeKey, @RequiredBranchCount,
+             0, 'waiting', 1, @CreatedAtUtc, NULL, step.Id
+        FROM fn_workflow_execution_epoch AS epoch
+        INNER JOIN fn_workflow_step AS step ON step.Id=@ForkStepId AND step.InstanceId=epoch.InstanceId AND step.ExecutionEpochId=epoch.Id AND step.NodeKey=@ForkNodeKey
+        WHERE epoch.Id=@ExecutionEpochId AND epoch.InstanceId=@InstanceId AND epoch.StatusKey='active'
         """,
         SqlDataScope.Global);
 
@@ -1638,9 +1603,9 @@ internal static class WorkflowSql
         "workflow.parallel_branch_arrival.insert",
         """
         INSERT INTO fn_workflow_parallel_branch_arrival
-            (Id, ParallelJoinId, BranchKey, ArrivedAtUtc)
+            (Id, ParallelJoinId, BranchKey, ArrivedAtUtc, InstanceId, SourceStepId)
         VALUES
-            (@Id, @ParallelJoinId, @BranchKey, @ArrivedAtUtc)
+            (@Id, @ParallelJoinId, @BranchKey, @ArrivedAtUtc, @InstanceId, @SourceStepId)
         """,
         SqlDataScope.Global);
 
@@ -1670,7 +1635,7 @@ internal static class WorkflowSql
         """
         SELECT joinState.Id, joinState.InstanceId, joinState.ForkNodeKey, joinState.JoinNodeKey,
                joinState.GatewayTypeKey, joinState.RequiredBranchCount, joinState.ArrivedBranchCount,
-               joinState.StatusKey, joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc
+               joinState.StatusKey, joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc, joinState.ExecutionEpochId, joinState.ForkStepId
         FROM fn_workflow_parallel_join AS joinState
         WHERE joinState.Id = @Id
           AND joinState.InstanceId = @InstanceId
@@ -1710,11 +1675,11 @@ internal static class WorkflowSql
         "workflow.step.insert_completed_parallel_gateway",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
         VALUES
-            (@Id, @InstanceId, @NodeKey, @NodeTypeKey, 'completed', NULL,
+            (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, @NodeTypeKey, 'completed', NULL,
              NULL, 0, 1, @ExecutionSequence,
              @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, @CompletedAtUtc)
         """,
@@ -1725,25 +1690,26 @@ internal static class WorkflowSql
         "workflow.parallel_approval_step.insert",
         """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
              DueAtUtc, AttemptCount, Revision, ExecutionSequence,
              ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
              ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
         VALUES
-            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+            (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
              NULL, 0, 1, @ExecutionSequence,
              @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
              @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """,
         SqlDataScope.Global);
 
-    /// <summary>按实例和汇合节点键查找仍在等待的并行汇合状态。</summary>
+    /// <summary>按实例、实际代次和汇合节点键查找等待状态；不能跨轮次猜测最新同名分叉。</summary>
     public static readonly SqlStatement FindWaitingParallelJoinByInstanceAndJoinNode = new(
         "workflow.parallel_join.find_waiting_by_instance_and_join_node",
         """
         SELECT joinState.Id
         FROM fn_workflow_parallel_join AS joinState
         WHERE joinState.InstanceId = @InstanceId
+          AND joinState.ExecutionEpochId = @ExecutionEpochId
           AND joinState.JoinNodeKey = @JoinNodeKey
           AND joinState.StatusKey = 'waiting'
         """,

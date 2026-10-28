@@ -58,6 +58,9 @@ public sealed class WorkflowDynamicAssigneeApiTests
         var completed = await CompleteAsync(handler, moved.GetProperty("activeTodoId").GetGuid(), "actual-first-handler");
         Assert.AreEqual(JsonValueKind.Null, completed.GetProperty("activeTodoId").ValueKind);
         Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_activity_work WHERE InstanceId=@previous AND StatusKey='pending'", new { previous }));
+        var actualStep=await db.ExecuteScalarAsync<Guid>("SELECT StepId FROM fn_workflow_activation_binding WHERE InstanceId=@previous AND ExecutionEpochId=@previous AND NodeKey='first'",new { previous });
+        // 更晚的同名完成记录没有被本轮实际激活绑定，不能挤掉转办后真实办理人的步骤。
+        await db.ExecuteAsync("INSERT INTO fn_workflow_step (Id,InstanceId,ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey) SELECT @id,InstanceId,ExecutionEpochId,NodeKey,NodeTypeKey,'completed',NULL,NULL,0,1,ExecutionSequence+100,@now,@now,NULL,NULL FROM fn_workflow_step WHERE Id=@actualStep",new { id=Guid.CreateVersion7(),actualStep,now=DateTimeOffset.UtcNow });
         await using (var scope = factory.Services.CreateAsyncScope()) Assert.AreEqual(1, await scope.ServiceProvider.GetRequiredService<WorkflowActivityWorkProcessor>().ProcessPendingAsync(default));
         var next = await db.QuerySingleAsync<ActualTodo>("SELECT Id, AssigneeUserId FROM fn_workflow_todo WHERE InstanceId=@previous AND StatusKey='active'", new { previous });
         Assert.AreEqual(second.UserId, next.AssigneeUserId); Assert.AreNotEqual(first.UserId, next.AssigneeUserId);

@@ -34,9 +34,9 @@ internal static partial class WorkflowConnectorSql
 
     public static readonly SqlStatement InsertStep = new("workflow.connector.insert_step", """
         INSERT INTO fn_workflow_step
-          (Id,InstanceId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,
+          (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,
            ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
-        VALUES (@Id,@InstanceId,@NodeKey,@NodeTypeKey,'active',NULL,NULL,0,1,
+        VALUES (@Id,@InstanceId, @ExecutionEpochId,@NodeKey,@NodeTypeKey,'active',NULL,NULL,0,1,
            @ExecutionSequence,@Now,NULL,@ParallelJoinId,@ParallelBranchKey)
         """, SqlDataScope.Global);
     public static readonly SqlStatement Insert = new("workflow.connector.insert", """

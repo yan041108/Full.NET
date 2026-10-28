@@ -79,8 +79,8 @@ internal sealed class WorkflowApprovalStepResolutionCoordinator(IQueryExecutor q
         {
             var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
                 P(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-            var executed = await executor.ExecuteAsync(instance, scope, plan, transition, values, sequence, now,
-                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: prepared).ConfigureAwait(false);
+            var executed = await executor.ExecuteAsync(instance, scope, await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, scope.TenantScopeKey, todo.StepId, token).ConfigureAwait(false) ?? Guid.Empty, plan, transition, values, sequence, now,
+                instance.StartedById, todo.ParallelJoinId, todo.ParallelBranchKey, token, preparedAssignees: prepared, sourceStepId: todo.StepId).ConfigureAwait(false);
             if (!executed.IsSuccess) return Result<WorkflowApprovalStepResolution>.Failure(executed.Error!);
             nextTodo = executed.Value!.FirstTodoId; status = executed.Value.InstanceStatusKey;
         }

@@ -26,10 +26,10 @@ internal static class WorkflowAssigneeHandlingSql
 
     public static readonly SqlStatement InsertStep = new("workflow.assignee_handling.insert_step", """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc,
              AttemptCount, Revision, ExecutionSequence, ParallelJoinId, ParallelBranchKey,
              StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
-        SELECT @Id, instance.Id, @NodeKey, @NodeTypeKey, 'completed', NULL, NULL,
+        SELECT @Id, instance.Id, @ExecutionEpochId, @NodeKey, @NodeTypeKey, 'completed', NULL, NULL,
             0, 1, @ExecutionSequence, @ParallelJoinId, @ParallelBranchKey,
             @Now, @Now, @AssigneeSnapshotJson, @AssigneeSnapshotHash
         FROM fn_workflow_instance AS instance

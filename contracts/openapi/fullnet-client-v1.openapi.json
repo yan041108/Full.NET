@@ -51660,6 +51660,212 @@
         ]
       }
     },
+    "/api/v1/workflow/instances/{instanceId}/routes/{routeId}": {
+      "get": {
+        "operationId": "workflowGetRouteDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "routeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRouteDecisionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowInstances"
+        ]
+      }
+    },
+    "/api/v1/workflow/instances/{instanceId}/routes/{routeId}/reconcile": {
+      "post": {
+        "operationId": "workflowReconcileRouteDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "routeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileWorkflowRouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRouteResolutionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowInstances"
+        ]
+      }
+    },
     "/api/v1/workflow/instances/{instanceId}/withdraw": {
       "post": {
         "operationId": "workflowWithdrawInstance",
@@ -78073,6 +78279,46 @@
         ],
         "type": "object"
       },
+      "ReconcileWorkflowRouteRequest": {
+        "properties": {
+          "expectedInstanceRevision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "selectedTargetKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "expectedInstanceRevision",
+          "expectedRevision",
+          "selectedTargetKey",
+          "reason",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
       "RecoverDeadLetterRequest": {
         "properties": {
           "reason": {
@@ -86175,6 +86421,170 @@
           "lastError",
           "createdAtUtc",
           "updatedAtUtc"
+        ],
+        "type": "object"
+      },
+      "WorkflowRouteDecisionResponse": {
+        "properties": {
+          "appliedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "continuationWorkId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "instanceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "instanceRevision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "instanceStatusKey": {
+            "type": "string"
+          },
+          "nextNodeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nodeKey": {
+            "type": "string"
+          },
+          "normalNextNodeKey": {
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "selectedTargetKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceExecutionEpochId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "statusKey": {
+            "type": "string"
+          },
+          "targetExecutionEpochId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRouteTargetResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "instanceId",
+          "nodeKey",
+          "statusKey",
+          "revision",
+          "instanceStatusKey",
+          "instanceRevision",
+          "sourceExecutionEpochId",
+          "targetExecutionEpochId",
+          "selectedTargetKey",
+          "nextNodeKey",
+          "continuationWorkId",
+          "targets",
+          "normalNextNodeKey",
+          "createdAtUtc",
+          "appliedAtUtc"
+        ],
+        "type": "object"
+      },
+      "WorkflowRouteResolutionResponse": {
+        "properties": {
+          "continuationWorkId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "executionEpochId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nextNodeKey": {
+            "type": "string"
+          },
+          "routeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "routeId",
+          "continuationWorkId",
+          "executionEpochId",
+          "nextNodeKey"
+        ],
+        "type": "object"
+      },
+      "WorkflowRouteTargetResponse": {
+        "properties": {
+          "maximumIterations": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "nodeKey": {
+            "type": "string"
+          },
+          "reenters": {
+            "type": "boolean"
+          },
+          "regionKey": {
+            "type": "string"
+          },
+          "targetKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetKey",
+          "nodeKey",
+          "regionKey",
+          "reenters",
+          "maximumIterations"
         ],
         "type": "object"
       },

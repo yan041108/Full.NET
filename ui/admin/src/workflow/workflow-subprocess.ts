@@ -3,6 +3,13 @@ export interface WorkflowSubprocessConfiguration {
   fieldPolicies: Record<string, string>;
   boundSubprocess?: Record<string, unknown>;
   multiInstancePolicy?: WorkflowMultiInstancePolicy;
+  starterPolicy?: WorkflowSubprocessStarterPolicy;
+  childTimeoutPolicy?: WorkflowSubprocessTimeoutPolicy;
+}
+export interface WorkflowSubprocessTimeoutPolicy { dueAfterMinutes: number; pauseModeKey: 'freeze' | 'elapsed'; actionKey: 'continue' | 'route'; nextNodeKey?: string }
+export interface WorkflowSubprocessStarterPolicy {
+  source: { kindKey: 'parent' | 'specified_user' | 'item_user' | 'field_user'; userId?: string; fieldKey?: string };
+  resultFieldKey?: string;
 }
 export interface WorkflowMultiInstancePolicy {
   modeKey: 'serial' | 'parallel';
@@ -42,6 +49,13 @@ export function readWorkflowSubprocess(value: unknown): WorkflowSubprocessConfig
         Object.keys(multi.outputReducers).length !== Object.keys(outputFields).length ||
         Object.keys(outputFields).some(field => !multi.outputReducers[field])) return invalid();
   }
+  if (value.starterPolicy !== undefined) {
+    const starter = readWorkflowSubprocessStarter(value.starterPolicy, result.multiInstancePolicy);
+    if (starter.source.fieldKey && (!grants[starter.source.fieldKey] || grants[starter.source.fieldKey] === 'hidden') ||
+        starter.resultFieldKey && (outputFields[starter.resultFieldKey] || !['editable', 'required'].includes(grants[starter.resultFieldKey] ?? ''))) return invalid();
+    result.starterPolicy = starter;
+  }
+  if (value.childTimeoutPolicy !== undefined) result.childTimeoutPolicy = readWorkflowSubprocessTimeout(value.childTimeoutPolicy);
   if (value.boundSubprocess !== undefined) {
     const bound = value.boundSubprocess;
     if (!object(bound) || Object.keys(bound).length !== 7 || Object.keys(bound).some(name => !['definitionVersionId', 'formVersionId', 'definitionHash', 'formHash', 'activityBudget', 'maximumDepth', 'hasHumanApproval'].includes(name)) ||
@@ -75,4 +89,24 @@ export function readWorkflowMultiInstance(value: unknown): WorkflowMultiInstance
   }
   return { modeKey: value.modeKey as WorkflowMultiInstancePolicy['modeKey'], source: { ...source } as WorkflowMultiInstancePolicy['source'],
     requiredPercentage: Number(value.requiredPercentage), emptyModeKey: value.emptyModeKey as WorkflowMultiInstancePolicy['emptyModeKey'], outputReducers: reducers };
+}
+
+/** 发起人来源闭合为当前作用域身份，不能夹带任意用户数组或租户标识。 */
+export function readWorkflowSubprocessStarter(value: unknown, multi?: WorkflowMultiInstancePolicy): WorkflowSubprocessStarterPolicy {
+  if (!object(value) || Object.keys(value).length < 1 || Object.keys(value).length > 2 || Object.keys(value).some(name => !['source', 'resultFieldKey'].includes(name)) || !object(value.source)) return invalid();
+  const source = value.source; const expected = source.kindKey === 'specified_user' ? ['kindKey', 'userId'] : source.kindKey === 'field_user' ? ['kindKey', 'fieldKey'] : ['parent', 'item_user'].includes(String(source.kindKey)) ? ['kindKey'] : [];
+  if (!expected.length || Object.keys(source).length !== expected.length || Object.keys(source).some(name => !expected.includes(name)) ||
+      source.kindKey === 'specified_user' && !id(source.userId) || source.kindKey === 'field_user' && !key(source.fieldKey) ||
+      source.kindKey === 'item_user' && multi?.source.kindKey !== 'role_members' || value.resultFieldKey !== undefined && !key(value.resultFieldKey)) return invalid();
+  return { source: { ...source } as WorkflowSubprocessStarterPolicy['source'], ...(value.resultFieldKey ? { resultFieldKey: String(value.resultFieldKey) } : {}) };
+}
+
+/** 超时只选择固定路径，不接受表达式、脚本或未声明的暂停语义。 */
+export function readWorkflowSubprocessTimeout(value: unknown): WorkflowSubprocessTimeoutPolicy {
+  if (!object(value) || Object.keys(value).some(name => !['dueAfterMinutes', 'pauseModeKey', 'actionKey', 'nextNodeKey'].includes(name)) ||
+      !Number.isInteger(value.dueAfterMinutes) || Number(value.dueAfterMinutes) < 1 || Number(value.dueAfterMinutes) > 525600 ||
+      !['freeze', 'elapsed'].includes(String(value.pauseModeKey)) || !['continue', 'route'].includes(String(value.actionKey)) ||
+      (value.actionKey === 'route' ? !key(value.nextNodeKey) : value.nextNodeKey !== undefined)) return invalid();
+  return { dueAfterMinutes: Number(value.dueAfterMinutes), pauseModeKey: value.pauseModeKey as 'freeze' | 'elapsed', actionKey: value.actionKey as 'continue' | 'route',
+    ...(value.actionKey === 'route' ? { nextNodeKey: String(value.nextNodeKey) } : {}) };
 }

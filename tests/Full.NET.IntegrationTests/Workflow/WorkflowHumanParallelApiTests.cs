@@ -9,6 +9,8 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Execution;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 
@@ -95,6 +97,10 @@ public sealed class WorkflowHumanParallelApiTests
         Assert.AreEqual("initial", lastRuntime.GetProperty("submission").GetProperty("rightText").GetString());
         var final = await PostAsync(second, $"/api/v1/workflow/todos/{secondTodo:D}/vote", Cast(lastRuntime, "second-private", fileB, "private-b"));
         Assert.AreEqual("completed", final.GetProperty("statusKey").GetString());
+        await WorkflowCausalityAssertions.CompleteRootAsync(db,instance);
+        var foreignRoot=(await PostAsync(owner,"/api/v1/workflow/instances",new { definitionVersionId=version,businessType="human.parallel",
+            businessId="causality-foreign",initialValues=new { title="foreign",leftAccepted=false,rightText="initial" },idempotencyKey="causality-foreign" },HttpStatusCode.Created)).GetProperty("id").GetGuid();
+        await WorkflowCausalityAssertions.RecoverAsync(provider,connection,db,instance,foreignRoot);
         using (var shared = JsonDocument.Parse((await db.ExecuteScalarAsync<string>("SELECT SubmissionJson FROM fn_workflow_form_submission WHERE InstanceId=@instance", new { instance }))!))
         {
             Assert.AreEqual("shared-main", shared.RootElement.GetProperty("title").GetString());
@@ -110,6 +116,46 @@ public sealed class WorkflowHumanParallelApiTests
         await StatusAsync(owner, Attachment(fileB), HttpStatusCode.Forbidden);
         await StatusAsync(winner, Attachment(winner == first ? fileA : fileB, claimTodo), HttpStatusCode.Forbidden);
         Assert.AreEqual(receiptA.GetRawText(), (await PostAsync(first, $"/api/v1/workflow/todos/{firstTodo:D}/vote", requestA)).GetRawText());
+        await VerifyNestedCausalityAsync(factory,db,owner,first,people[0].UserId,main);
+    }
+
+    /// <summary>内层汇合回到外层分支，外层兄弟活动仍直接以原fork为因果来源。</summary>
+    private static async Task VerifyNestedCausalityAsync(FullNetApiFactory ownerFactory,DbConnection db,HttpClient owner,HttpClient actor,Guid user,Guid form)
+    {
+        var definition=await PostAsync(owner,"/api/v1/workflow/definitions",new { definitionKey="causality.nested."+Guid.NewGuid().ToString("N"),
+            draft=new { schemaVersion=1,workflowKindKey="automation",nodes=new[]{Node("start","start",new { nextNodeKeys=new[]{"prefix0"} })}
+                .Concat(Enumerable.Range(0,31).Select(index=>Node("prefix"+index,"control.empty",new { nextNodeKeys=new[]{index==30?"outer":"prefix"+(index+1)} })))
+                .Concat(new[]{Node("outer","gateway.parallel",new { gatewayRoleKey="fork",joinNodeKey="outerJoin",branches=new[]{new { branchKey="nested",nextNodeKey="inner" },new { branchKey="sibling",nextNodeKey="task" }} }),
+                Node("inner","gateway.parallel",new { gatewayRoleKey="fork",joinNodeKey="innerJoin",branches=new[]{new { branchKey="left",nextNodeKey="left" },new { branchKey="right",nextNodeKey="right" }} }),
+                Node("left","control.empty",new { nextNodeKeys=new[]{"innerJoin"} }),
+                Node("right","control.empty",new { nextNodeKeys=new[]{"innerJoin"} }),
+                Node("innerJoin","gateway.parallel",new { gatewayRoleKey="join",forkNodeKey="inner",nextNodeKeys=new[]{"outerJoin"} }),
+                Node("task","human.task",new { nextNodeKeys=new[]{"outerJoin"},taskPolicy=new { completionModeKey="all" },
+                    assigneePolicy=new { sources=new[]{new { resolverKindKey="specified_users",userIds=new[]{user} }} },
+                    fieldPolicies=new { title="readOnly",leftAccepted="readOnly",rightText="readOnly" } }),
+                Node("outerJoin","gateway.parallel",new { gatewayRoleKey="join",forkNodeKey="outer",nextNodeKeys=new[]{"end"} }),
+                Node("end","end",new { }) }).ToArray() } },HttpStatusCode.Created);
+        var version=(await PostAsync(owner,$"/api/v1/workflow/definitions/{definition.GetProperty("id").GetGuid():D}/publish",new { expectedRevision=1,formVersionId=form })).GetProperty("id").GetGuid();
+        var root=(await PostAsync(owner,"/api/v1/workflow/instances",new { definitionVersionId=version,businessType="causality.nested",businessId="nested",
+            initialValues=new { title="nested",leftAccepted=false,rightText="initial" },idempotencyKey="nested" },HttpStatusCode.Created)).GetProperty("id").GetGuid();
+        // 31个前缀加fork耗尽单轮32活动预算，实际分支必须先写Work，再由Worker恢复原fork因果。
+        Assert.AreEqual(2,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_activity_work WHERE InstanceId=@root AND StatusKey='pending'",new { root }));
+        Assert.AreEqual(2,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_activity_work WHERE InstanceId=@root AND StatusKey='pending' AND CauseKindKey='fork'",new { root }));
+        for(var attempt=0;attempt<8;attempt++)
+        {
+            await using var scope=ownerFactory.Services.CreateAsyncScope();
+            if(await scope.ServiceProvider.GetRequiredService<WorkflowActivityWorkProcessor>().ProcessPendingAsync(default)==0)break;
+        }
+        var todo=await db.ExecuteScalarAsync<Guid>("SELECT Id FROM fn_workflow_todo WHERE InstanceId=@root AND StatusKey='active'",new { root });
+        var runtime=await RuntimeAsync(actor,todo);
+        var completed=await PostAsync(actor,$"/api/v1/workflow/todos/{todo:D}/complete",new { expectedRevision=runtime.GetProperty("revision").GetInt64(),
+            expectedFormRevision=runtime.GetProperty("submissionRevision").GetInt64(),fieldPatch=new { },idempotencyKey="nested-complete" });
+        Assert.AreEqual("completed",completed.GetProperty("statusKey").GetString());
+        await WorkflowCausalityAssertions.CompleteRootAsync(db,root);
+        var outer=await db.ExecuteScalarAsync<Guid>("SELECT Id FROM fn_workflow_parallel_join WHERE InstanceId=@root AND ForkNodeKey='outer'",new { root });
+        var innerFinal=await db.ExecuteScalarAsync<Guid>("SELECT StepId FROM fn_workflow_activation_binding WHERE InstanceId=@root AND ExecutionEpochId=@root AND NodeKey='innerJoin'",new { root });
+        Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_step WHERE Id=@innerFinal AND ParallelJoinId=@outer AND ParallelBranchKey='nested'",new { innerFinal,outer }));
+        Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_step_cause AS cause INNER JOIN fn_workflow_step AS child ON child.Id=cause.StepId INNER JOIN fn_workflow_parallel_join AS fork ON fork.ForkStepId=cause.ParentStepId WHERE cause.InstanceId=@root AND child.NodeKey='task' AND fork.Id=@outer AND cause.KindKey='fork'",new { root,outer }));
     }
 
     private static object Field(string key, string kind) => new { fieldKey = key, fieldTypeKey = kind, required = false, constraints = new { } };

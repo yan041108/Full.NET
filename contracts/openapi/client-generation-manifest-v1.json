@@ -4269,6 +4269,18 @@
       "apiModule": "ui/admin/src/api/workflow-calendars.ts",
       "generatedGroup": "workflow-calendars",
       "status": "generated"
+    },
+    {
+      "operationId": "workflowGetRouteDecision",
+      "apiModule": "ui/admin/src/api/workflow-routes.ts",
+      "generatedGroup": "workflow-routes",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReconcileRouteDecision",
+      "apiModule": "ui/admin/src/api/workflow-routes.ts",
+      "generatedGroup": "workflow-routes",
+      "status": "generated"
     }
   ]
 }

@@ -30,7 +30,12 @@ internal sealed record WorkflowSubprocessStarterPolicy(string SourceKey, Guid? U
                 if (source.EnumerateObject().Count() != 2 || !source.TryGetProperty("fieldKey", out var fieldJson) || fieldJson.ValueKind != JsonValueKind.String ||
                     !WorkflowSubprocessPolicy.Key(fieldJson.GetString())) return false;
                 field = fieldJson.GetString();
-                if (parent is not null && !parent.Sections.SelectMany(section => section.Fields).Any(item => item.FieldKey == field && item.FieldTypeKey is "select" or "radio")) return false;
+                if (parent is not null)
+                {
+                    var selectedField = parent.Sections.SelectMany(section => section.Fields).SingleOrDefault(item => item.FieldKey == field);
+                    if (selectedField?.FieldTypeKey is not ("select" or "radio") || !WorkflowFormChoiceOptions.TryRead(selectedField, out var options) ||
+                        options.Any(option => !Guid.TryParseExact(option, "D", out var candidate) || candidate == Guid.Empty)) return false;
+                }
                 break;
             default: return false;
         }
@@ -38,7 +43,13 @@ internal sealed record WorkflowSubprocessStarterPolicy(string SourceKey, Guid? U
         {
             if (resultJson.ValueKind != JsonValueKind.String || !WorkflowSubprocessPolicy.Key(resultJson.GetString())) return false;
             result = resultJson.GetString();
-            if (parent is not null && !parent.Sections.SelectMany(section => section.Fields).Any(item => item.FieldKey == result && item.FieldTypeKey == (multi is null ? "text" : "checkbox"))) return false;
+            if (parent is not null)
+            {
+                var target = parent.Sections.SelectMany(section => section.Fields).SingleOrDefault(item => item.FieldKey == result);
+                if (target?.FieldTypeKey != (multi is null ? "text" : "checkbox")) return false;
+                if (multi is not null && (!WorkflowFormChoiceOptions.TryRead(target, out var options) || options.Any(option =>
+                        !Guid.TryParseExact(option, "D", out var candidate) || candidate == Guid.Empty || candidate.ToString("D") != option))) return false;
+            }
         }
         policy = new(sourceKey!, user, field, result); return true;
     }

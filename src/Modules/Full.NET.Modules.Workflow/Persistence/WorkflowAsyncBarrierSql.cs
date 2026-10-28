@@ -27,8 +27,8 @@ internal static class WorkflowAsyncBarrierSql
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertStep = new("workflow.async_barrier.insert_step", """
         INSERT INTO fn_workflow_step
-          (Id,InstanceId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
-        VALUES (@Id,@InstanceId,@NodeKey,'internal.await','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,@ParallelJoinId,@ParallelBranchKey)
+          (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
+        VALUES (@Id,@InstanceId, @ExecutionEpochId,@NodeKey,'internal.await','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,@ParallelJoinId,@ParallelBranchKey)
         """, SqlDataScope.Global);
     public static readonly SqlStatement Insert = new("workflow.async_barrier.insert", """
         INSERT INTO fn_workflow_async_barrier

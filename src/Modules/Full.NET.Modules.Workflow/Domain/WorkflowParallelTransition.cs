@@ -33,7 +33,8 @@ internal sealed record WorkflowParallelBranchPlan(
     WorkflowTaskPolicy? TaskPolicy = null,
     WorkflowVotePolicy? VotePolicy = null,
     WorkflowClaimPolicy? ClaimPolicy = null,
-    WorkflowAutomaticWaitPlan? AutomaticWait = null);
+    WorkflowAutomaticWaitPlan? AutomaticWait = null,
+    string? TerminalNodeKey = null);
 
 /// <summary>描述单个并行分支到达汇合点时的同步计划。</summary>
 /// <param name="JoinNodeKey">汇合节点键。</param>

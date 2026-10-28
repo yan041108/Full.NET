@@ -53,11 +53,11 @@ public sealed class WorkflowGroupApprovalApiTests
                 Assert.AreEqual(6, await CountAsync(db, "fn_workflow_approval_slot", instance));
                 Assert.AreEqual(5, await CountAsync(db, "fn_workflow_todo", instance));
                 Assert.AreEqual(mode == "any" ? 1 : mode == "nOfM" ? 2 : 3,
-                    await db.ExecuteScalarAsync<int>("SELECT RequiredApprovalCount FROM fn_workflow_step WHERE InstanceId=@instance", new { instance }));
+                    await db.ExecuteScalarAsync<int>("SELECT RequiredApprovalCount FROM fn_workflow_step WHERE InstanceId=@instance AND NodeTypeKey='human.group_approval'", new { instance }));
                 Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_todo WHERE InstanceId=@instance AND AssigneeUserId=@actor", new { instance, actor = people[1].UserId }));
                 var first = await TodoAsync(db, instance, people[0].UserId);
                 using (var foreign = await clients[2].GetAsync($"/api/v1/workflow/todos/{first:D}/runtime")) Assert.AreEqual(HttpStatusCode.Forbidden, foreign.StatusCode);
-                var frozen = await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance", new { instance });
+                var frozen = await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance AND NodeTypeKey='human.group_approval'", new { instance });
                 using (var snapshot = JsonDocument.Parse(frozen!)) Assert.AreEqual(2, snapshot.RootElement.GetProperty("schemaVersion").GetInt32());
 
                 async Task<JsonElement> ActAsync(int actor, string action = "approve", string? title = null)
@@ -104,7 +104,7 @@ public sealed class WorkflowGroupApprovalApiTests
                 }
                 Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_todo WHERE InstanceId=@instance AND StatusKey='active'", new { instance }));
                 Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_approval_slot WHERE InstanceId=@instance AND DecisionKey IS NULL", new { instance }));
-                Assert.AreEqual(frozen, await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance", new { instance }));
+                Assert.AreEqual(frozen, await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance AND NodeTypeKey='human.group_approval'", new { instance }));
                 var history = await clients[0].GetFromJsonAsync<JsonElement>($"/api/v1/workflow/todos/{first:D}/runtime");
                 Assert.AreEqual(mode == "any" ? "initial" : "after-first", history.GetProperty("submission").GetProperty("title").GetString());
                 using (var input = JsonDocument.Parse((await db.ExecuteScalarAsync<string>("SELECT InputJson FROM fn_workflow_todo_view WHERE Id=@first", new { first }))!))
@@ -190,7 +190,7 @@ public sealed class WorkflowGroupApprovalApiTests
         var version = await PublishAsync(owner, formVersion, people.Select(person => person.UserId).ToArray(), "all");
         var instance = (await PostAsync(owner, "/api/v1/workflow/instances", new { definitionVersionId = version, businessType = "group",
             businessId = "handoff", initialValues = new { title = "initial" }, idempotencyKey = "group-handoff" }, HttpStatusCode.Created)).GetProperty("id").GetGuid();
-        var frozen = await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance", new { instance });
+        var frozen = await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance AND NodeTypeKey='human.group_approval'", new { instance });
         var first = await TodoAsync(db, instance, people[0].UserId);
         var transferred = (await PostAsync(clients[0], $"/api/v1/workflow/todos/{first:D}/transfer", new {
             assigneeUserId = spares[0].UserId, expectedRevision = 1, expectedFormRevision = 1, idempotencyKey = "group-personal" })).GetProperty("activeTodoId").GetGuid();
@@ -219,7 +219,7 @@ public sealed class WorkflowGroupApprovalApiTests
             await PostAsync(clients[actor], $"/api/v1/workflow/todos/{todo:D}/approve", Vote(1, runtime.GetProperty("submissionRevision").GetInt64(), "group-remaining-" + actor, null));
         }
         Assert.AreEqual("completed", await StatusAsync(db, instance));
-        Assert.AreEqual(frozen, await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance", new { instance }));
+        Assert.AreEqual(frozen, await db.ExecuteScalarAsync<string>("SELECT AssigneeSnapshotJson FROM fn_workflow_step WHERE InstanceId=@instance AND NodeTypeKey='human.group_approval'", new { instance }));
         Assert.AreEqual(reassignment.GetRawText(), (await PostAsync(owner, $"/api/v1/workflow/instances/{instance:D}/reassign", reassignRequest)).GetRawText());
         var history = await clients[1].GetFromJsonAsync<JsonElement>($"/api/v1/workflow/todos/{second:D}/runtime");
         Assert.AreEqual("after-transfer", history.GetProperty("submission").GetProperty("title").GetString());
