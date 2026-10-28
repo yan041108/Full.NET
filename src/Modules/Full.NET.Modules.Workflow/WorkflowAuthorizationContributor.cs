@@ -15,6 +15,10 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
     /// <summary>获取工作流精确权限目录，包含暂停与普通恢复。</summary>
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        Permission(WorkflowPermissions.CollaborationGrantsRead,"读取双边协作授权"),
+        Permission(WorkflowPermissions.CollaborationGrantsPropose,"提出双边协作同意"),
+        Permission(WorkflowPermissions.CollaborationGrantsAccept,"接受双边协作同意"),
+        Permission(WorkflowPermissions.CollaborationGrantsRevoke,"撤销双边协作同意"),
         Permission(WorkflowPermissions.CalendarsRead,"读取工作日历及版本"),
         Permission(WorkflowPermissions.CalendarsCreate,"创建工作日历"),
         Permission(WorkflowPermissions.CalendarsUpdate,"编辑工作日历草稿"),
@@ -34,6 +38,8 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Permission(WorkflowPermissions.InstancesRead, "查询工作流实例与轨迹"),
         Permission(WorkflowPermissions.ConnectorCallsReconcile, "对账工作流连接器结果"),
         Permission(WorkflowPermissions.ConnectorCallsRead, "查询工作流连接器运维状态"),
+        Permission(WorkflowPermissions.RoutesRead, "查询工作流路由状态"),
+        Permission(WorkflowPermissions.RoutesReconcile, "恢复工作流路由选择"),
         Permission(WorkflowPermissions.InstancesList, "分页查询全部工作流实例"),
         Permission(WorkflowPermissions.InstancesStart, "启动工作流实例"),
         Permission(WorkflowPermissions.InstancesCancel, "取消工作流实例"),
@@ -117,6 +123,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.cc.mark-read", "workflow-cc", WorkflowPermissions.CcMarkRead, "标记已读", "mark-read", 10),
         Action("workflow.recovery_tasks.retry", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksRetry, "重试恢复任务", "retry", 10),
         Action("workflow.connector_calls.reconcile", "workflow-instances", WorkflowPermissions.ConnectorCallsReconcile, "对账连接器结果", "reconcile_connector", 80),
+        Action("workflow.routes.reconcile", "workflow-instances", WorkflowPermissions.RoutesReconcile, "恢复路由选择", "reconcile_route", 81),
         Action("workflow.recovery_tasks.reconcile", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksReconcile, "对账恢复任务", "reconcile", 20),
     ];
 

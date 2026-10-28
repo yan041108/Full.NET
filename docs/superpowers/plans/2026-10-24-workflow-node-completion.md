@@ -7,9 +7,30 @@
 
 2026-10-26用户追加授权：选取当前无编译错误节点，将仓库所有现有代码一并提交并同步远程，然后连续实施；该次全仓开发检查点包含Workflow、Messaging和VForm既有改动，不把未接线策略标为完成，不形成以后逐小任务自动提交的要求。
 
-当前执行点（2026-10-26）：WF-R4单项、多实例和设计器已有定向证据，321真实双库及恢复通过，新增并发固化/故障审计双库2/2通过（2分21.305秒）。320固定版本依赖及Dapper查询死锁缺陷已修正，两库分别通过。WF-R2抢单并行最终双库2/2通过（2分10.751秒）。父子文件/明细与确定性append已接线，关联Unit57/57、零跳过（2.527秒）、Release零警告零错误（2分51.70秒）；当前在集中构建/验收真实Host+Tenant双库，尚未报告该增量可用。其他发起人来源、子超时、动态路由/重入、协作及WF-R5仍连续按依赖推进；当前AOT尚未覆盖320以后增量。本段为当前状态，下面保留各轮实际失败和有效验证范围。
+检查点已完成：ce2539cb0fb46bcd3b3801610bf4ba07147887a2（main），普通push到原origin/main，ls-remote精确一致；1324文件，提交后工作区干净。后续基线切换为该提交，任务快照workflow-r4-starters-20261026已创建，继续原WF-R1→R5授权。发起人接线期间，不再为小检查项自动提交。新的子发起人须在真实父锁下绑定已发布来源与固定项，私有子根不写伪造的个人启动动作；用父步骤系统审计记录真实子根、业务发起人与来源。自动依赖计划还须包含多实例数字/集合来源字段、发起人字段及回填字段，不能只扫描显式子表单映射。
+
+当前执行点（2026-10-26）：检查点ce2539cb0已推送origin/main，后续继续实施。WF-R2分组/办理/转办与并行抢单已有实际双库证据；WF-R4单项、多实例、父子附件/明细已验证。新增四种业务发起人来源及成功回填已接线，定向Unit109/109、真实双库4/4（含默认子流程复验）、前端15/15、类型检查和真实Edge1/1通过。检查点AOT覆盖320/321和文件映射；发起人和322子超时的精确架构13/13及Host.Api AOT零警告零错误、JIT恢复已通过。三方身份附件组合最终双库2/2通过；继续执行代次、动态路由/重入、协作及WF-R5，不在小任务边界等待确认。下面保留各轮实际失败和有效验证范围。
 
 ## 依赖顺序与验收
+
+
+2026-10-27 328 收口进度：实际 RouteDecision 四项双库 4/4、0 跳过（5m57.329s，`fullnet-workflow-route-application-databases-20261027.log/.trx`），每项均含 Host/Tenant；包含局部分支退出、内外嵌套区域、真实来源拒绝、人工恢复/终态重放、唯一后继、跨根约束及迁移部分重跑。协议首次导出遇可选 SQL 模板缓存孤立文件失败，未删除其数据库文件；使用项目已有 `FULLNET_API_SCHEMA_TEMPLATE=0` 后复用已核对 DLL，SQL Server 1/1（1m19.642s）、MySQL 1/1（2m42.346s），实际 OpenAPI 规范化一致并生成客户端。保留首次失败日志；不将失败轮次改写成通过。
+
+前端策略/树往返/编辑器 50/50（7.03s），API 边界与恢复面板 5/5（6.67s）；自定义结束节点身份在树往返中保持，单树的多个不同隐式结束身份失败关闭。类型检查首轮失败于未知 config 的测试访问、字段字面量类型以及 vendor store 声明缺项；修正后 `pnpm --filter @fullnet/admin typecheck` 退出 0。命名首次 36/37 遇临时 UNKNOWN(-4094) 文件读取，原命令重试 37/37（2.5449s）；客户端生成就绪 7/7（188ms）。真实 Edge 选择器首轮因全标题前缀导致锚定 grep 未发现用例；去除错误锚点后两个既有聚焦用例 2/2（22.7s，`fullnet-workflow-route-browser-selected-20261027.log`），覆盖设计器保存重开和轨迹人工恢复唯一后继。当前精确架构 13/13、0 跳过（28.825s），Host.Api AOT/Trim 0 警告/0 错误（4m15.76s，`fullnet-workflow-route-aot-20261027.log`），默认 JIT restore 与外层驱动均退出 0；源码/共享输出稳定窗口已释放。该证据为 Aot-analysis-clean，不代表原生发布。
+
+下一批增强 Return 连续实施：先从原已完成 Step 的摘要校验快照重建成员、分组、门槛及新零票，不以当前角色重新展开历史名单；事务外批量复核活动身份，不可用则保留可恢复挂起。候选与提交均以当前有效绑定和真实祖先关系授权，分支内只操作该分支的输入及待办；退到当前未汇合区域之前须关闭整个原 fork 和到达事实并重新建 fork。每次 Return 建立新执行代次及唯一入/出后继收据，普通来源校验不放宽；正常出口核对真实新尝试、同根固定版本、输入修订和未收敛活动后再回到实际外层。已应用外部/数据副作用及未收敛子调用继续成为明确屏障。按冻结快照/新代次、分支局部、整体重开三个相互依赖的内部检查项集中完成，不设置用户确认、逐项提交或重复全量测试。329 已核对两库未占用且 Messaging 未使用，实际落盘前再次确认。完整 WF-R4、双边协作及 WF-R5 未完成，独立审查缺口继续保留。
+
+2026-10-27 接续状态：327 因果来源批次最后定向双库 6/6、0 跳过通过，Host.Api AOT/Trim 分析 0 警告/0 错误（3m56.67s），默认 JIT 恢复与外层退出码均为 0。架构首轮 13 项为 12 通过/1 失败；修正 Global SQL 元数据的声明归属后仅重跑失败项，1/1 通过，不能把首轮写成全绿。保留全部原始失败证据，公共目录仍为 28/19 类。
+
+328_WorkflowRouteDecisions 已与 Messaging 协调保留编号，成对迁移及对象注释已生成（274 表），命名 37/37 通过。当前实施固定输入/策略摘要、真实路由步骤、唯一跨代次后继收据、Worker 来源校验、普通 Resume 未知选择屏障，以及精确授权的人工目标选择、双修订、幂等回执和同事务回滚。内部区域协议继续复用 325–327 已验证不变量；公共 control.route 尚未开放。新增路由协议定向 Unit 构建进行中，未声明 328 编译、双库或客户端通过；后续先闭合当前批次再继续增强退回、双边协作及 WF-R5。
+
+328 接线后首轮实际 Release 0 警告/0 错误（9m26.98s）；定向 Unit 22 项为 18 通过/4 失败、0 跳过（1.690s，`fullnet-workflow-route-decision-unit-20261027.log`）。共同原因是正常出口夹具未绑定条件字段类型，求值器正确返回未知，后续存储冲突未到达；修正夹具为真实 Schema 绑定，没有放宽求值器。进一步补路由独立 Worker 的根/子额度守卫，区域轮次/深度耗尽或尚未收敛时在同一激活事务内保持未知并挂起，拒绝普通 Resume 重算；未发生区域写入时才允许此挂起转换，原输入及审计保留。
+
+路由引用往返首轮 6/7（缺省名称投影导致夹具比较失败），补齐夹具显式名称后，策略/往返、配置组件和恢复面板共 12/12 通过（6.04s，`fullnet-workflow-route-frontend-ui-20261027.log`）。新增专用抽屉及轨迹入口，目标保持引用，不递归展开；恢复重试保留原目标、双修订和幂等键，读取/恢复分别授权，切换路由拒绝迟到响应。目录 29 的 control.route 已进入本批待验收代码，尚无双库、类型检查、真实浏览器或当前 AOT 结论。当前冻结同一输入执行精确 Unit 37 项，成功后只运行新 RouteDecision 双库两项（每库 Host/Tenant）；生成客户端、架构/AOT 与浏览器检查在该批收口，不借此重复既有无关矩阵。
+
+328 协议定向 Unit 实际发现并通过 38/38、0 跳过（3.519s，Release0警告0错误2m43.88s，`fullnet-workflow-route-decision-unit-fixed-20261027.log`），矩阵最低数由37同步为实际38。首轮真实双库0/2、0跳过（2m45.767s，构建0/0 1m37.11s，`fullnet-workflow-route-decision-databases-20261027.log`，失败上下文MzB9uq）：两库已通过激活事务中段回滚、局部分支首次重入及伪造同根Start来源拒绝，随后夹具误用Resume重排faulted Work，缺新Todo导致Guid.Empty查询异常；改为精确权限Recover并增加空Todo断言。同步发现高权限Recover缺路由未知屏障，已补；人工路由恢复在根事务内重新校验当前发布绑定。该新增Recover守卫1/1、0跳过通过（1.501s，Release0/0 2m39.27s，`fullnet-workflow-route-recovery-guard-unit-20261027.log`）。客户端发送/读取边界与恢复面板增量5/5通过（6.67s，`fullnet-workflow-route-client-boundary-20261027.log`）；浏览器两个用例已编写，尚未运行。
+
+第二轮真实双库0/2、0跳过（2m45.138s，构建0/0 1m35.12s，`fullnet-workflow-route-decision-databases-fixed-20261027.log`，失败上下文CuPmx6）：修复夹具后推进到子区域合法退出，但根仍active。定位实际缺陷为汇合协调器再次仅查普通同代次来源，拒绝了已通过Work路由收据校验的关闭子代次来源。新增只供原后继直接汇合的RouteContinuationProof，绑定RouteId、WorkId、目标节点和输入摘要；在汇合根锁内额外核对真实leased Work、原路由、目标代次和分叉/分支；写出任何真实目标步骤、执行Join或Fork后清除/不继承证明，普通来源规则不放宽。该修复正定向验证Trace/Join 21项，成功后复验同一双库两项，未将局部执行升级为328验收通过。
 
 1. **WF-R1 图与能力基础**：修复 `workflow-vue3-adapter.ts` 的公共后继、嵌套图往返和包容分支上限；统一目录、设计器及编译器实际能力。先以最小失败回归确认缺陷，再集中检查转换及真实设计器操作。随后补激活身份、耐久工作项/结果、独立表单修订、分叉输入/输出事实及无需首待办的启动。涉及后端数据行为时只验证实际变更场景的双库、重复/并发及 AOT 边界。
 2. **WF-R2 人工活动**：在活动基础完成后补条件 AST、空节点、受信选人、审批配置、签名/意见、分组/办理/投票/抢单及代理撤回；同步精确权限、客户端配置和动作。覆盖席位快照、竞争、权限、隔离及对应客户端场景，不提前放行外部监听器。
@@ -87,6 +108,12 @@
 
 ## WF-R4 连续实现顺序
 
+2026-10-26发起人接线实际结果：`fullnet-workflow-starter-unit-20261026.log`记录109/109、0跳过（4.885秒），Release0警告0错误（6分36.63秒）；`fullnet-workflow-starter-databases-20261026.log`记录4/4、0跳过（4分33.253秒），Release0警告0错误（1分19.66秒）。每库真实Host/Tenant覆盖继承父发起人、指定用户、表单单选用户、角色项成员、50%成功集合回填、剩余子根取消、停用身份/非成员失败关闭；默认单项路径同时复验。系统创建子根不生成被委托用户个人start动作，父审计保存真实来源。前端4文件15/15（18.27秒）、类型检查退出0；真实Edge1/1（22秒）覆盖选用户及多选发起人回填字段保存/重开。浏览器首轮错误地断言ElSelect搜索input.value，修正为真实选中项显示后通过，原始失败保留。目录27；无新迁移。未将以上证据外推为当前增量AOT、原生发布或完整WF-R4完成。
+
+322超时实施进展：截止事实9列复用CallId，waiting/closing/ready/applied/cancelled区分封口、外部确认与暂停待恢复；暂停冻结及elapsed分别处理。首轮Unit99项全通过但最低100误配造成门禁失败，补入实际受影响AsyncDefinitionPlan后同构建111/111；随后加入作用域/冻结/CAS及实际启动解析回归，114/114、0跳过（2.173秒），Release0/0（1分41.21秒）。命名注释目录补齐后37/37，前端15/15及类型检查通过。真实Edge静态目标保存/重开1/1（24.2秒）；前轮开关wrapper不是checkbox的测试定位失败已修正。首轮双库6项中默认/多实例4项通过、超时2项在静态跳转启动400失败（总6分27.871秒）；根因为运行仍对加入超时边的outgoing要求单元素，现读取配置中的正常后继。静态跳转进一步只允许正常路径已有后继，避免设计器丢弃独立分支，不能据此宣称任意路由/重入。修正后仅超时两库2/2、0跳过（2分22.875秒），Release0/0（1分09.23秒）；每库执行Host/Tenant，新增真实子根上的持久未知Connector事实故障注入、禁止盲恢复、明确对账后ready/手工恢复及322丢失CHECK/DbUp未记账的重复恢复；不把故障注入表述为实际HTTP出站。日志fullnet-workflow-timeout-final-unit-20261026.log、fullnet-workflow-timeout-databases-20261026.log、fullnet-workflow-timeout-fixed-databases-20261026.log。随后收紧多项发起人回填为规范小写UUID选项，避免发布后只能运行失败的显示文字字段；新增精确纯规则及UI拒绝回归，前端5文件18/18（25.55秒）、类型检查通过。该纯发布校验在上述双库DLL登记后加入，有效双库场景均使用规范UUID，未据此声称新增拒绝用例在两库实际运行。当前增量架构/AOT仍待下一集成边界核对。
+
+子超时后续实施设计：新增调用自有截止事实，固定相对分钟数、暂停freeze/elapsed及继续/静态跳转，激活原子创建。根锁内决定成功接纳或超时关闭，超时一旦封口禁止启动/回填；事务外取消所有真实子项，未知外部结果与嵌套未收敛必须阻断并挂起。确认全部已结束后仅使用当前父表单、不回填未成功子输出，关闭原步骤并从发布时验证的目标续办。暂停冻结保存剩余量，恢复重算同一截止，取消关闭事实。静态跳转边必须纳入发布图与人审屏障，不能让超时绕过必须人工审批。补双库到期/成功竞争、暂停恢复、并行剩余取消、未知结果阻断及迁移部分恢复；目录/设计器在真实闭环后开放。最高迁移当前321，后续实际保留322。
+
 父子文件/明细接线（同一授权连续实施）：附件值不能仅按UUID透传。输入复用只从真实父调用、父版本中可读的显式映射字段及父提交历史引用派生；子启动事务外准备Files引用，最终仍在父锁下复核原项、作用域、输入摘要和预算，失败释放本次临时claim。输出复用只从该调用已接纳的真实成功子项与显式回填字段派生，按原子固化集合选择来源，目标仍执行现行Files尺寸/扩展名/可读所有者与表单CAS检查。Files端口不进入Workflow事务，跨租户不继承文件授权。明细先按明确字段映射复制闭合列集合，声明类型/必要列在发布校验，运行对真实目标Schema及行数再验证；多实例仅允许明确的first/last或有界append，不采用最后完成者覆盖。补不同上传者的真实Host文件、Tenant所有权、字段隐藏/伪造引用拒绝、失败claim释放及双向明细场景，集中到同一后端/前端批次验证。
 
 父子投影实际验证过程：首轮关联4项为多实例两库通过、文件投影两库在签名上传403失败，零跳过，总5分42.843秒；查明测试身份缺workflow.todos.sign，仅补夹具。两项复验0/2、零跳过（2分16.282秒），SQL Server暴露原附件表TenantScopeKey为SQL_Latin1_General_CP1_CI_AS而实例表为Latin1_General_100_BIN2，JOIN比较报468；修正为分别参数锚定两侧作用域，并返回原FieldKey在C#做Ordinal复核，防止旧CI排序把大小写不同字段当作同一授权来源。MySQL已完成Host实际文件/双向明细、append与失败claim释放，停在夹具缺tenancy.tenants.switch；仅补测试权限。新两列行投影补静态AOT物化器，缺少引用/错字段大小写均在Files claim前拒绝。日志fullnet-workflow-projection-databases-20261026.log与fullnet-workflow-projection-permission-fixed-databases-20261026.log保留，不把部分场景通过等同整项通过；当前继续定向Unit与仅文件投影双库复验。
@@ -118,6 +145,105 @@ WF-R2并行抢单最终日志fullnet-workflow-claim-parallel-fixed-20261026.log�
 
 验收按完整关联功能集中进行；仅运行本批新增/修改行为及直接边界，不增加全量测试、按小项提交或用户确认门。
 ## 实施记录
+收口实际证据：发起人规范UUID选项增量Unit8/8、0跳过（2.164秒），Release0/0（2分34.44秒）；精确Architecture13/13、0跳过（22.646秒），Release0/0（29.69秒）；Host.Api AOT/Trim闭包0警告0错误（3分22.28秒），JIT依赖恢复退出0，源码窗口已释放。前端18/18（25.55秒）、类型检查退出0，目录28真实Edge固定版本/映射/多实例/委托身份/静态超时目标保存重开1/1（25.6秒）。日志fullnet-workflow-starter-choice-unit-20261026.log、fullnet-workflow-timeout-architecture-20261026.log、fullnet-workflow-timeout-aot-20261026.log、fullnet-workflow-timeout-final-browser-20261026.log；仅声明Aot-analysis-clean，非原生发布或全部WF-R4完成。
+
+三方身份组合补验：父发起人、指定委托业务发起人及签名/附件上传者各不相同。首轮真实双库0/2（2分11.193秒），Release0/0（5分54.61秒，AOT后首次JIT重建）；真实委托子根及输入附件已创建，失败仅为新增Host OwnerResourceId断言误按Tenant资源所有权预期用户UUID。现按正式契约验证Host OwnerResourceId为NULL且实际ConsumerReferenceId对应active claim，Tenant保留原上传者且没有Host claim，修正后两库2/2、0跳过（2分15.505秒），Release0/0（57.36秒）；每库Host/Tenant均执行三方身份、输入/输出附件和明细、原有多项归约/回滚/缺失来源拒绝。生产代码未为这次失败改变。日志fullnet-workflow-delegated-projection-databases-20261026.log及fullnet-workflow-delegated-projection-fixed-databases-20261026.log。执行代次前已按ce2539cb0基线创建任务快照workflow-r4-epochs-20261026；2026-10-26重新核对后保留并开始323_WorkflowExecutionEpochs，尚未开放回边。两个已修复UI断言的临时浏览器输出（约57MB）清理被命令策略拒绝，保留原命令和拒绝记录fullnet-workflow-browser-output-cleanup-policy-denied-20261026.log，未换入口重试。
+
+### WF-R4 执行代次接续实施（2026-10-26，设计已明确、尚未开放重入）
+
+
+2026-10-27 03:00 接续：连接器链缺少 `@ExecutionEpochId` 的最小真实双库复现先得到 0/2；按实际 Call.Step 读取代次并显式传参后，仅复验该链 SQL Server/MySQL 2/2、0 跳过（2m41.403s），Release 0 警告 0 错误（2m33.68s）。每库仍覆盖 Host/Tenant 和第二个异步调用等待首个原 CallId，日志 `fullnet-workflow-connector-chain-fixed-databases-20261027.log`；连同上一轮 Epoch+HumanParallel 4/4，六项直接边界现均有各自通过证据。
+
+当前以 ce2539cb0 为基线创建 `workflow-r4-activation-bindings-20261027` 快照，实施成对 326_WorkflowActivationBindings：在根锁及步骤同一事务内按 (ExecutionEpochId,NodeKey) 维护明确 StepId/SourceEpochId。定义节点键全图唯一，实际分叉/分支身份仍从原 Step/Call 校验，不把第二份可变帧键当身份来源。动态选人取消 MAX(ExecutionSequence)，所有已存在实例的选人准备均传入真实来源代次；连接器依赖同样解析有效绑定且保留原 CallId 及原分叉过滤。区域进入只继承区域外已完成绑定；退出清除父代次整个区域的旧绑定后，仅导出本轮实际走过的完成步骤，未命中节点不得沿用旧轮。既有 DAG Return 通过新实际激活显式替换绑定，历史 Step/Action 不改写。本批 Release 已编译0警告0错误；初轮单测58/62（4个旧夹具未模拟绑定写入/命令总数/来源代次），修正夹具后62/62、0跳过（1.773s），Release0/0（1m43.19s）。第一组真实双库4/4、0跳过（5m20.864s）：动态参与人添加更晚未绑定同名步骤干扰后仍选择转办后的实际办理人；区域实际验证进入继承外部fork绑定、两轮排除区域内旧节点、退出导出第二轮SourceEpochId、跨根绑定外键和325/326部分迁移恢复。第二组异步链/字段消费4/4、0跳过（5m36.648s）亦通过；两组共8/8，登记Release0/0（1m33.14s），身份5fe8b268d7bb48bf512ace94d6dd18ae5d756d3e33f64fc7d95822265d18fff8，组前后产物摘要均一致。日志fullnet-workflow-activation-bindings-databases-20261027.log；增量架构/AOT将与下段实际因果接线合并验证。命名门禁实际37/37（2.795s）。完整因果链、耐久路由决策/修复、增强 Return、跨租户协作及 WF-R5 仍待接续；公共目录仍关闭 control.route。
+
+327接续实施：已创建workflow-r4-causality-20261027快照；成对327_WorkflowCausality、WorkflowCausalitySql、WorkflowActivationTrace已落盘但运行时尚未接线，禁止报为可用。新增真实Start步骤（Id复用根UUID、序号0）、不可变Step→ParentStep因果边，Work.SourceStepId、Join.ForkStepId及Arrival.SourceStepId/InstanceId。Arrival根可从实际Join无歧义回填；旧Source/Fork来源保持NULL，不猜测。命名初轮36/37，SQL Server别名UPDATE被FNDB001门禁识别为非规范表名；改为显式物理表目标后37/37（2.878s）。尚未编译或双库验证327。
+
+327主路径接线已集中完成：17类实际步骤在绑定同事务推进显式Trace；Root启动先创建真实Start，人工和自动续办均保存真实Work.SourceStepId，Worker在准备与根锁内复核同代次实际来源帧；首个分支活动只能引用本次ForkStepId。最终Join从全部持久到达来源构建多父因果边，兄弟分支复制Trace，自动/抄送步骤保存真实帧而不再把joined展示值写入分支列。定向Unit161/161、0跳过（3.847s），Release0警告0错误（2m27.92s）。当前四组18项直接双库使用同一Release，0/0构建1m27.72s，身份2a75d890941a8e79db6842c87568282384265a0b23fbb68370f40ca82fcd17af；运行尚未结束，不提前报通过。公开并行与异步流程已加入全路径因果、汇合父集合、327部分迁移恢复/旧来源不猜测及跨根FK断言。登记后另补公开嵌套分叉与Host/Tenant未知Work来源挂起场景，只需在当前矩阵结束后重验这两个新增类（4项），不重复18项；架构/AOT亦待集中验证。
+
+
+
+327固定输入前三组真实双库分别4/4（5m25.079s）、4/4（5m26.727s）、4/4（5m20.225s），总12/12且摘要一致。第四组动态选人两库、SLA SQL已通过，分组审批两库复现夹具缺少步骤类型过滤：按InstanceId标量读取RequiredApprovalCount/冻结快照时被真实Start行干扰。已把该类5处标量查询限定human.group_approval，待仅复验此类2项；整轮尚未全通过。额外公开嵌套场景使用31个空前缀加fork强制32预算边界，预期可检测Worker恢复时丢失fork因果类型的问题（代码目前Trace只恢复SourceStepId，未保存KindKey），先取得最小实际复现再修复，不靠同名节点或来源状态猜测类型。Host/Tenant缺失来源挂起负例也已补，尚未跑新场景。
+
+Return读取接续：WorkflowCausalGraph与目标列表/提交已接线为真实祖先∩当前代次已完成有效绑定，最多128候选参数，展示仍按序号排序但不以序号选路径；缺边、环、跨根/作用域及未知历史拒绝，不重建猜测。新增Graph8项与Return2项负例、更新原Return夹具，并在实际双库Return场景加入更晚同名但未绑定记录干扰，尚未编译/验证。此阶段仍保留既有退回能力边界，不宣称增强Return的新代次、重开分叉或补偿协议已完成。
+
+
+分组夹具修正及实际因果Return补验：两类真实SQL Server/MySQL共4/4、0跳过（5m33.574s），固定Release0/0（1m36.62s），身份370a19040560654f74ecedbcb1035cf5f1c67107bd068e61327faf9a4215c9cf，摘要不变。分组5处标量查询修正后两库均通过；Return每库覆盖Host/Tenant、完整多人/依次/分组/办理重建、实际祖先与有效绑定交集、未绑定同名历史拒绝、并发回执与并行边界。故此前18矩阵的各实际场景均有各自通过证据（保留最初16/18失败记录，不改写整轮结果）。嵌套/未知来源4项仍在固定DLL运行。
+
+预算续办最小实际复现已在固定旧协议DLL的SQL Server取得RED：公开31前缀耗尽32预算，嵌套流程可完成、父步骤身份正确，但外层task到fork的KindKey=fork边计数为0（预期1），明确证明Work丢失种类；原始日志fullnet-workflow-causal-return-databases-20261027.log保留。MySQL同场景仍在运行，不能预报结果。Host/Tenant缺SourceStepId挂起负例已在该DLL两库通过。
+
+在源码检查中发现耐久Work只保存SourceStepId而没有推进种类，Worker重建Trace会将fork/return丢为sequence；未发布327现补可空CauseKindKey（旧记录保持未知）、闭合CHECK、显式入队/投影/AOT/Worker恢复。预算分支保存trace.KindKey，缺种类与缺来源均挂起；Return以实际发起退回的当前Todo.Step而非旧目标作为来源并显式return种类。命名37/37（3.298s）。补充Trace恢复3项、Root预算边界1项和Return实际source/return边、Host/Tenant缺Kind负例，待定向单测和新增6项双库；当前旧DLL仍用于捕获预算fork种类最小复现，不能预报该增量通过。
+
+接下来的路由实际闭环：control.route作为固定输入的耐久等待；先持久化唯一来源步骤/输入摘要/修订/允许目标及明确decision_unknown或ready状态，普通Resume不重算不确定选择，精确授权Reconcile只选发布允许目标且审计幂等。在同一根事务中完成route步骤、唯一决策CAS、Enter/Exit真实区域、最终E/帧/下一Work身份及根修订；跨代次Work来源只有匹配该决策的SourceStepId、目标Epoch、NextWorkId及真实帧才可接纳，当前严格同代次守卫不能提前放宽。路由是隐式异步屏障，入区只带外部已完成绑定，出区仅导出末轮实际绑定；4096预算不重置。公开目录/编辑器/目标引用回显与实际双库在该闭环后一起开放，不仅解除DAG环检测。增强Return另以当前因果链和有效绑定定位目标，重新校验原冻结成员资格、新Epoch/新席位/零票；跨fork整体重建且外部/字段/未知子流程须先有明确补偿否则拒绝。跨租户协作仍按§8.3独立双边授权/投影/Outbox协议，WF-R5仍待依赖闭合。
+
+
+预算续办RED双库已完整结束：嵌套两库均预期fork因果边1实际0，Async未知来源负例两库通过，本组2成功2失败、0跳过（5m30.703s），失败最小记录fullnet-test-run-iYHDFv。CauseKindKey修复的定向Unit34/34、0跳过（2.558s），Release0/0（2m30.20s），命名37/37（3.298s）已通过。当前仅运行更新的HumanParallel/AsyncConnector/HumanReturn 6项双库，新增两库Host/Tenant缺Source/缺Kind均挂起、实际Return工作来源为当前步骤且新目标边Kind=return，以及强制预算的嵌套fork恢复。结果尚未取得；增量架构13和Host.Api AOT/Trim仍待合并执行，不能复用325的分析作为当前新代码证据。
+
+
+CauseKind修复实际双库最终6/6、0跳过（7m44.617s），Release0警告0错误（1m32.64s），日志fullnet-workflow-cause-kind-databases-20261027.log；公开嵌套预算边界两库由RED转GREEN，Host/Tenant缺SourceStepId或CauseKindKey均挂起、实际Return工作来源当前步骤和return因果边都已验证。精确架构首轮12/13（27.878s），唯一global-sql partial归档路径曾误改Management.cs；按扫描器统一主声明文件WorkflowConnectorSql.cs修正元数据后，仅重验该1项1/1（26.394s），保留初轮失败5kqj9M，不重复12项。Host.Api AOT/Trim已准入并在共享输出互斥运行，必须等JIT恢复最终退出0后才能登记新证据；当前尚未完成。
+
+接线方案：显式WorkflowActivationTrace按路径持有当前前驱，每个实际步骤与有效绑定同事务记录因果边并前移；自动写入器可保持long序号返回值，Trace携带实际LastStepId，无须再查询同名节点。分叉为各分支复制Trace，不能共享兄弟分支可变前驱；Join固化真实ForkStepId，每条到达记录实际SourceStepId，最终Join的因果前驱来自完整到达集合，空分支可共用fork前驱而因果边去重。普通自动步骤/抄送要带真实ParallelJoinId/BranchKey，不能把joined展示值写作真实BranchKey。所有API、Worker续办从实际Todo/Call/Delay/Barrier/Work.SourceStepId提供前驱；新Work必须显式来源，Worker不把来源缺失回退根。原始Root启动先写Start事实后激活，旧缺失来源禁止增强Return。区域换代的跨代次来源只能待实际Route决策事实证明后开放，不先放宽Work来源守卫。
+
+
+2026-10-27接续：成对323_WorkflowExecutionEpochs已落盘，初始根代次、Step/Work/子调用代次传递、真实来源续办和成功/取消关闭已接线。迁移以同根复合外键保护父代次、因果步骤及调用所属步骤；319重跑检测新列后不重建旧的全根节点唯一索引。定向Unit此前201/201、0跳过（4.217s），Release0警告0错误（1m24.96s）；增加活动代次准入及两项负例后，203/203、0跳过（3.962s），Release0警告0错误（2m16.45s）。活动Work在根锁内、字段写入前复核代次仍活动。真实双库新用例2/2、0跳过（2m29.420s），Release0警告0错误（1m24.69s），每库实际覆盖Host/Tenant同名节点的新子调用、旧结果不能推进、关闭/跨根拒绝以及319/323未记账重跑；日志fullnet-workflow-epoch-databases-20261027.log。当前AOT有效证据仅覆盖322，323及后续324分叉绑定待合并验证。不得据此宣称公开循环、增强Return或协作已可用。
+
+当前静态超时跳转仅到正常路径已有后继，不构成循环。实际检查发现 `WorkflowSubprocessSql.FindAtNode` 和319的子调用唯一索引仍以 InstanceId/NodeKey定位；业务命令同样按节点唯一；`WorkflowConnectorSql.FindInFrame`只区分ParallelJoinId/BranchKey，不能区分同一分支的新一轮。当前DAG约束下这些事实有效，开放回边前必须整体消除复用，不能仅放宽环检测。既有Return限定无并行、无在途工作、无跨越外部/字段修改/子流程的单人工前沿，增强范围仍未开放。
+
+1. 先接执行代次基础：Workflow自有Epoch事实以应用UUID v7为身份，初始代次复用真实根UUID；Step与耐久Work显式携带ExecutionEpochId，根创建、人工激活、自动等待、续办、分叉和恢复均沿真实来源传递。不能用可变根级“当前代次”替代并行分支自己的上下文，也不能在持久化参数层默默回退根ID。迁移须先建初始事实、只回填空值、再收紧NOT NULL/FK，覆盖DDL未记账重复恢复。
+2. 子调用及业务命令按实际代次/节点定位，等待及异步生产者读取限定实际代次、分支和已固化CallId；新一轮的隐式屏障不得接纳旧同名结果。静态CallId、StepId与租约代次继续保留各自职责。并行汇合绑定真实ForkActivationId，重开分叉建立新命中集合及到达事实。
+3. 有界重入限定编译验证的单入口/出口区域，保存区域引用与父代次，不递归展开画布；每次重入建立新Epoch和因果边，继承的区域外依赖只允许显式固化原CallId，区域内生产者必须新建。有限目标、循环次数、调用深度与全根4096活动预算同时校验；不以另建子根绕过同一根内的代次隔离。任意回边仍拒绝。
+4. 增强Return使用当前有效因果链上的真实已完成StepId，新代次重建成员/分组席位及零票；分支内只回本分支，跨分叉必须先整体关闭旧范围。跨越已生效的外部活动、字段修改或未收敛子调用时继续拒绝，除非已有明确完成的补偿协议，不能按ExecutionSequence大小推断因果。
+5. 将旧结果迟到、Worker重领、暂停/取消、串并行嵌套与新旧分叉同名节点作为同一批行为覆盖；必要的SQL/事务场景成对验证。先完成所有实际消费者接线，再集中运行受影响边界，目录/设计器只在闭环后开放。执行代次基础已使用323并同步Messaging；后续迁移须实际开始时重新检查并协调。
+
+后续分叉切片继续复用每次新建的ParallelJoinId作为真实ForkActivationId，不再创建含义相同的第二身份；将其显式绑定ExecutionEpochId，并在分支到达前核对根、代次、发布的ForkNodeKey/JoinNodeKey及实际选定BranchKey。嵌套分叉返回外层时继续使用外层的真实身份，不按同名节点查最新记录。已有到达唯一键仍包含该次分叉身份；新增负例须证明旧一轮相同BranchKey不能增加新一轮计数。绑定收敛后才开放受控区域重入与新的Return范围。
+
+324分叉接线已完成、待验收：成对324_WorkflowForkEpochs给真实汇合状态绑定代次，以同根复合FK收紧并只补空值；创建仅接受活动代次。到达复核真实根/代次/分叉身份及固定节点对，再查命中分支及去重。Work执行拒绝引用其他代次的汇合。Unit增加六种错误帧负例，双库在原Epoch场景追加Host/Tenant两轮同名分叉、旧帧拒绝、旧待办409、新一轮零到达逐支收敛和324缺FK/索引未记账重跑。命名首轮因列注释目录未登记失败，补自有override并用官方生成器恢复37/37（2.258s），未放宽规则；当前正在定向Unit构建。通过前不更新能力目录，也不将这些内部数据注入当作公开循环接口证据。
+
+324定向Unit已211/211、0跳过（4.204s），Release0警告0错误（2m14.84s）；追加跨根FK真实拒绝后，Integration Release0警告0错误（1m21.22s），原Epoch两库选择器正在包含新增分叉场景运行，尚无通过结论。后续直接受影响边界选择GroupApproval、TaskActivity、TodoTransfer、HumanParallel、MultiInstanceSubprocess、SubprocessTimeout、BusinessCommand、DurableDelay、AsyncConnector、FieldActivity这十个实际调用场景；覆盖已修改的Step写入、来源续办和终态关闭，不执行整个Workflow或全仓矩阵。
+
+路由区域下一实施方案：保留正常出口DAG，跳转引用不加入正常出口的递归树；先编译每个节点包含BranchKey的结构作用域，汇合只在匹配成对边界弹出分支帧。前跳目标须在正常后继可达路径且同作用域；回边入口须支配路由点、路由点须后支配入口，区域只能单入口/单出口，完整包含重开的成对分叉。引用数、迭代次数、嵌套深度和全根活动额度分别有界。区域身份使用显式全定义唯一稳定regionKey（长度适配Epoch列），不拼接两个128字符节点键后截断；退出区域显式关闭子代次并恢复真实父代次，不能把局部分支切到可变根级当前代次。外部异步依赖携带已固化CallId，不能复制旧轮的区域内结果；尚未接线前继续拒绝发布路由节点。
+
+324双库2/2、0跳过（2m32.653s）已通过，包含上述新分叉及恢复场景。复用同一登记Release开始20项直接调用边界验收，日志fullnet-workflow-epoch-boundaries-20261027.log；运行期间新增内部WorkflowStructuredRegionPlan、DynamicRoutePolicy/Plan及34项规则回归，尚未编译或运行。正常图复制、128节点/512边及深度预算、包含BranchKey的作用域、成对汇合、排他公共后支配点、单入口/出口区域、部分交叉拒绝、固定规则优先级/无命中正常出口及闭合选择字段的未知值拒绝已编码。人审证明同时遍历正常出口与所有目标引用，不能借一条正常路径掩盖跳转绕过；状态遍历有界且不解除正常DAG环检查。决策字段模式只证明本地固定字段求值，不代表远程决策服务已接线；control.route没有加入目录，当前仍不可发布。下一步须完成真实路由激活/选择事实、区域代次进出、固定外部CallId继承、全根预算及因果Return后再开放，不以这些纯规则替代运行证据。
+
+20项边界首轮触发MTP入口15分钟全局时限，16m25.338s后中止，退出3：实际13成功、0失败、0跳过，余项未完成；原日志没有逐项名称，不能推定具体哪些边界已验收。保留fullnet-test-run-KJ7UCY与原始日志。后续收敛为互不重叠的human8项、automatic8项、composite4项，仍覆盖原来十个直接场景，不扩展全量；任务临时驱动开启逐项Detailed与独立TRX，保持每组原发现数及15分钟时限，不以增加全局超时换绿。新增34项纯规则先使用独立精确选择器编译验证。
+
+路由基础34/34、0跳过（1.258s），Release0警告0错误（2m18.32s），实际逐项/TRX已保存。源码核对发现网关角色或fork引用的错误JSON类型会在区域识别处先GetString抛异常，现增加类型判定及四项畸形值回归，另补包容默认分支作用域一项；39项定向Unit正在构建，不能沿用34项结果声称后补已通过。
+
+真实路由代次接线必须保留以下约束：
+
+- 同区域再次进入创建同一真实父代次下的新兄弟Epoch，迭代序号不可通过关闭/恢复或重新引用而重置；嵌套区域建立子Epoch，正常出口显式关闭该区域并恢复父Epoch。根级4096活动计数不因工作事务或代次重建归零。
+- 分支局部区域持久保存实际外层ForkActivationId/BranchKey及固定区域入口/出口；324的严格同代次帧校验不能简单放宽为“同根即可”。若局部Epoch沿用外层分叉，只能通过本次不可变区域帧及有界真实父链授权；兄弟分支和旧帧仍拒绝。正常离开区域后必须先恢复父代次再向外层汇合到达。
+- 路由本身作为异步结果边界，先收敛本次实际依赖。新区域只继承明确在区域外且已应用的真实CallId，区域内生产者必须新建；继承事实独立保存并绑定新Epoch，不能回退查询旧“最新同名”调用。已应用结果不重复回填，未知/未收敛事实不能被关闭代次绕过。
+- 路由激活、固定输入/摘要、选择及错误事实、Epoch进出、耐久续办与根修订同一Workflow事务提交；换代后入队新工作，不用重绑已绑定的本事务DispatchBudget来递归执行另一代次。租约重领、旧结果和暂停/取消仍由实际来源与CAS裁决。
+- 增强Return另补实际步骤因果边及有效区域/分支证明，不能把Epoch存在或ExecutionSequence大小当作完整因果链；跨已应用外部/字段副作用、未收敛子流程仍按补偿边界拒绝。
+
+当前接续（2026-10-27）：39项路由规则Unit最终39/39、0跳过（1.292s），Release0警告0错误（2m09.82s）；精确架构13/13、0跳过（27.416s），Release0警告0错误（30.10s）。固定Release构建身份f06d08784025a7353be9b6c95b9dbd70cff5eb5c6401b50859083822e85418ed，Integration Release0/0（1m31.05s）；一次登记后各组运行前后校验全部产物摘要，保存独立Detailed/TRX，源码继续开放。human8/8、0跳过（9m45.450s）已通过，automatic8与composite4仍在顺序运行，日志fullnet-workflow-epoch-boundaries-final-20261027.log；不得把尚未结束两组计为通过。
+
+并行于固定DLL验收的源码进展：325_WorkflowRegionFrames双库实际落盘，新增固定区域入口/出口、根版本及外层ForkActivationId/BranchKey，同根/同版本复合FK、父区域迭代唯一键和幂等恢复；命名37/37（2.658s）。新增WorkflowRegionSql八项静态SQL及对应Global目录、两项AOT物化器、WorkflowExecutionFrameScope沿活动真实父链与不可变分支帧校验（有界8层）及20项回归；现有Work/汇合仍保持324的严格保护，尚未切换新守卫。新增WorkflowRegionEpochCoordinator进入/退出骨架，包含区域嵌套/包含关系、同一区域兄弟代次、不同目标切换不能重置计数、关闭前无其他活动事实/子代次、逐层CAS关闭与失败整事务回滚；尚未编译、没有对应真实运行证据，未注册/开放公开路由。待补协调器定向用例、真实激活与选择事实、外部CallId继承、后台及客户端接线。还补两项跨区域额外入口/出口的目标引用负例，路由规则选择器现为41项待复验；先前39项证据不覆盖这两项后补。
+
+固定Release后续automatic8/8、0跳过（9m41.413s）已通过，产物摘要未改变；composite4项正在运行。源码325后补：静态SQL现十项，新增活动区域重复检查和已应用CauseStepId检查；成对唯一因果索引保证同一真实步骤不能在旧区域关闭后再次创建代次。Epoch基础夹具的关闭探针改用另一条真实同根步骤作为独立因果，不复用主换代来源。区域帧20项加协调器18项用例已编写，选择器38项；与路由41项合计79项待编译验证，不能计通过。新增代码仍未改变当前公共节点目录及现有严格Work/汇合守卫。
+
+固定Release最终composite4/4、0跳过（5m28.312s）通过，全部三组20项直接边界均通过且各组产物摘要精确未变。325关联Unit79/79、0跳过（1.477s）通过；包括路由额外入口/出口拒绝、活动父链/分支帧、迭代与旧来源拒绝、进入/退出和存储失败抛异常。新增WorkflowRegionFrameApiTests成对真实库用例，实际发布普通平行根保留真实Fork/Branch，固定测试IR及已完成路由来源属于内部受控注入，不代表公共路由准入已实现；计划验证Host/Tenant局部区域、错误分支拒绝、换代中段失败整事务回滚、兄弟轮次/退出、旧来源拒绝、版本/根/分叉复合FK、唯一因果/迭代及325未记账恢复。与受325唯一因果约束影响的Epoch基础双库合计4项正在构建；尚未计为通过。新SQL/物化器的AOT和新一轮精确架构仍待验证。
+
+325首两轮Integration未执行测试：首轮0警告1编译错误（47.84s），新测试引用未安装的NSubstitute；替换为只拦截InsertFrame的本地ICommandExecutor包装器，不新增依赖，其余命令保持真实事务。第二轮0警告3编译错误（1m26.21s），缺ICommandTransaction所在Abstractions.Messaging命名空间及连带参数推断错误；已补引用，再次构建同4项。原始失败日志fullnet-workflow-region-frames-databases-20261027.log、fullnet-workflow-region-frames-fixed-databases-20261027.log保留，不计为业务验收。
+
+325第三轮Integration Release0警告0错误（1m33.65s）已登记，固定DLL的区域帧+Epoch基础四项正在执行，日志fullnet-workflow-region-frames-compiled-databases-20261027.log。Unit79对应Release实际0/0（2m38.00s）；命名后补唯一因果索引后37/37（2.771s）仍通过。源码窗口已释放；325数据协议、更新架构/AOT仍待完成，公共路由仍关闭。
+
+325第三轮实际4/4、0失败0跳过（5m18.770s）通过。区域内部协议每库均含Host/Tenant，真实根/分叉/选定分支来自API发布；内部固定IR及路由准入仍为受控测试输入，不代表完整路由节点已发布。中段帧写入失败后实际旧Epoch仍活动、新Epoch整事务回滚；重试同来源成功、兄弟迭代/正常退出/旧来源拒绝、错误分支及版本/根/分叉FK、唯一因果/迭代和325恢复均覆盖。现集中运行新一轮精确架构13项与Host.Api AOT/Trim分析及JIT恢复；此前AOT只覆盖322，完成前不升级325状态。
+
+真实运行下一接线采用一个有效激活绑定事实（按Epoch/节点/真实分叉上下文绑定StepId），不分别建设可相互漂移的“最新异步调用”和“最新前序成员”目录。实际消费者是异步等待、动态前序办理人来源与增强Return；CallId由真实Step关联取得，不以节点名检索历史最新行。每次新激活写入当前代次的绑定，进入区域只固化区域外已完成/已应用的实际来源，区域内绑定必须重新建立；退出把最后一轮的有效结果显式导出给真实父上下文，已建立的屏障仍保留原CallId快照，不因绑定更新重复应用或改变原等待。
+
+该切片同时补不可变步骤因果边及耐久Work来源StepId，串行后继、分叉和汇合均携带实际来源；跨分支汇合须保留所有真实到达前驱。现有ExecutionSequence只用于排序，不能回填未知因果。新根建立可证明的真实开始事实；存量不能确定的旧链阻止增强退回并进入显式修复，不按时间猜测。所有Step写入、绑定、因果及续办仍在同一Workflow本地事务中，完整相关写入接线后按直接影响集中验证，不逐成员设审批门。
+
+路由本身需耐久保存固定输入/摘要/修订、实际来源、选择、代次进出、下一工作及失败事实；未知决策挂起，专用精确权限的对账选择绑定已发布目标并保留幂等和审计，普通Resume不能盲重算未知值。恢复工作携带服务器生成的原路由身份，旧Work、旧选择或旧Step不能接纳为新一次激活。先完成这些消费者及Frame守卫接线，再加入control.route目录/专用抽屉并做真实公开节点验收；决策字段本地模式不冒充远程决策服务。
+
+325架构与AOT实际完成：精确架构13/13、0跳过（27.331s），Release0警告0错误（28.29s）；Host.Api AOT/Trim0警告0错误（4m07.39s），默认JIT恢复及外层脚本退出0。仅为Aot-analysis-clean，不是原生发布/运行或整个R4验收。任务快照workflow-r4-region-guards-20261027后继续把Worker准备阶段/根锁内及迁移执行入口切换到已验证的WorkflowExecutionFrameScope，沿真实活动父链及固定区域帧授权外层分支；旧的“所有分叉必须与当前Epoch相同”不再代替合法局部区域证明。汇合到达仍保留实际Fork/Join节点对及真实分支验证，跨区域正常退出须显式恢复父代次，未开放裸跨代次到达。基础Epoch内部夹具补真实区域帧，未知/缺帧不回退根。新接线的直接调用Unit/双库与增量AOT尚待验证；公共路由仍关闭。
+
+实际入口守卫接线定向93/93、0跳过（3.454s）通过，Release0警告0错误（9m11.07s，为AOT后首次JIT完整依赖重建）。选择器沿直接调用链发现87项，增加6项Scope与实例三元作用域不一致的负例，覆盖预算已/未绑定时均在任何查询写入前拒绝。当前仅Epoch基础、实际平行投票/领取及异步连接器的直接双库边界6项进入构建。静态核对另外发现WorkflowConnectorProcessor.LoadRuntimeAsync的第二个FindInFrame调用遗漏323起必需的ExecutionEpochId；新增Host/Tenant两个异步连接器相互依赖回归，先运行原实现复现，不能用之前单异步/普通消费者的已通过结果代替此分支证据。公共路由尚未开放，前序成员的MAX(ExecutionSequence)定位仍须由后续有效激活绑定替换。
+
+新增链式夹具首轮因一个花括号缺失在编译处失败（0警告1错误、22.39s），修正后第二轮Release0警告0错误（1m30.69s），6项正使用修复前固定DLL运行。源码已给ConnectorProcessor第二处FindInFrame补真实Call.Step来源代次；缺失来源返回无效绑定，不回退根。待原固定DLL复现后仅复验受影响AsyncConnector两库，其余守卫数据范围按实际结果保留。独立代码审查仍未执行：requesting-code-review技能要求独立渠道且明确不自行授权代理，当前没有已授权独立审查渠道；继续本地实现和验证，不把自查/架构测试标作独立审查，不以此为中途确认门。
+
+修复前固定DLL实际6项：4成功、2失败、0跳过（7m38.593s）。Epoch基础SQL Server/MySQL及实际并行投票/领取两库全部通过，证明实际Frame入口接线；两项新增异步连接器链均在第二个连接器的LoadRuntime.FindInFrame失败，SQL Server明确Must declare the scalar variable @ExecutionEpochId，MySQL明确Parameter @ExecutionEpochId must be defined。没有启用MySQL用户变量等绕过，已按实际源步骤传参；原始失败日志/TRX/fullnet-test-run-KU99oL保留。接着只复验WorkflowAsyncConnectorApiTests两库，不重跑已通过的四项。
+
 ### WF-R4 多实例后续接线设计（2026-10-26，尚未开放）
 
 1. 已新增未接线纯规则`WorkflowMultiInstancePolicy/Decision`：串行/并行，固定数量、整数域、复选集合、受信角色成员快照；最多32项，不截断、文本不转数量、空集合仅显式skip。百分比按固化N向上取整；首次达标固化当时成功项集合，晚到成功不能改变输出。该代码与回归尚未取得测试结论，不代表目录可接受多实例配置。
@@ -832,3 +958,124 @@ Remove-Item -LiteralPath $workflowResolvedBrowserRoot -Recurse -Force
 - 回填复验环境恢复：Release0警告/0错误（1m19.41s）已登记；两项均在Testcontainers连接Docker前失败（10.858s），未进入业务断言。backend只读doctor仅Docker失败；系统近期重启，Docker Desktop未运行。隐藏启动已有Docker Desktop后客户端/服务端29.6.2退出0，未改配置或数据库断言；正式--reuse-build已核对源码/产物并直接复用，当前仅重试回填两库，尚无新业务结果。
 
 - 引擎恢复后结果回填双库2/2成功、0跳过（4m37.823s），正式核对源码/产物后直接复用已登记Release；日志fullnet-workflow-result-callback-docker-recovered-20261026.log。覆盖真实签名哈希与个人输出修订/附件保留、重放、多人/分组/办理最终收敛、领取后完成、后加签未闭合不提前写、投票原结果与通用字段、并行分支隔离合并、正式Tenant与Host拒绝、系统跳过及SLA。该结果与前轮SLA2项成功分别记录，不伪称一次4/4；当前CB相关架构/AOT等待与后续静态钩子/所有者命令集中验证。共享输出已释放，连续推进R3，R4–R5未完成。
+
+
+## 329 增强 Return 接线设计（实施中，不代表验收）
+
+当前新增的纯规则为 `WorkflowReturnAssigneeSnapshot`（原 Step 的 SHA256/Schema/发起人及各组成员一致性）与 `TryDescribeReturnRegion`（同分支原出口，跨出分支提升到实际外层汇合；不允许兄弟跳转）。尚未替换现有 ReturnCore 或扩展其候选；27 个新聚焦规则用例正在构建，不能将未接线规则标为支持并行退回。
+
+持久化拟使用单个 `fn_workflow_return_round`：Id 复用新子代次 Id；固定真实根/作用域/版本、父代次、原 Returned 来源步骤、原目标步骤及其成员摘要、唯一入口/出口/正常后继、区域节点 JSON/摘要、实际外层 fork/branch、唯一 EntryWorkId/输入摘要/修订；退出时 CAS 一次绑定真实完成 ExitStepId、唯一 ExitWorkId/输入摘要/修订及退出时间。取消状态由实际执行代次和根终态裁定，不再增加可与其漂移的第二份轮次状态。新 Work 仅增加 ReturnRoundId，入/出身份由原 WorkId 精确裁定；与 RouteDecisionId/ResumeBarrierId 互斥，不按目标同名或输入碰巧一致猜测阶段。
+
+入口与出口都在同一根锁事务登记后继并切换代次，Worker 普通同代次来源协议保持严格；仅已登记 Return Work 的精确收据允许跨代次。入口必须是原 Returned 来源、目标已失效但原快照仍可验证，人员资格在事务外批量复核后消费固定结果；新写入器创建全新成员/组/票事实。出口在 RuntimeTransitionExecutor 执行任何后继之前检查：真实本轮完成步骤匹配固定出口、固定版本/区域摘要/外层帧仍一致、无其他未收敛活动或子代次，导出本轮有效绑定、关闭子代次并登记唯一外层 Work；直接到外层 join 使用专门 ReturnContinuationProof 复核真实 leased Work，不放宽普通 join 来源。原终态/租约 CAS 仍回滚整笔推进。既有 WorkflowDispatchBudget.CurrentWorkId 可排除本次 Work，不另建环境游标。
+
+先接入既有线性 Return 的新轮次与冻结名单，再连续完成同分支局部关闭和越界整体重开。整体重开沿真实 fork context 向上找到目标外层，关闭所涉及旧 fork 子树、实际活动和待办，保留旧到达历史且使旧租约失效；只取消作用域内事实。候选与提交复用同一准入服务；实际因果祖先差集和受影响 fork 子树确定屏障，不继续以 ExecutionSequence 大小推断跨分支历史。当前已应用外部/数据效果、未收敛子流程和未知副作用继续拒绝。完成接线后集中验证原目标名单变化、资格失效、零票、分支保留、整体新 fork/迟到拒绝、并发重放、事务中段失败、双库约束和迁移部分重跑。
+
+
+2026-10-27 329 接线进度：退回快照/结构规则首批27/27、0跳过（1.598s），Release0警告0错误（7m46.64s，`fullnet-workflow-return-planning-unit-20261027.log/.trx`）通过；仅证明当时纯规则，不代表后续运行接线已验收。实际创建配对 `329_WorkflowReturnRounds.sql`，目录275表。单轮记录含原来源及目标、父/子代次、结构集合/摘要、原人员摘要、来源与恢复外层帧、入/出唯一Work及固定输入修订；为嵌套Return级联退出增加真实ExitSourceEpochId，不能把关闭子代次的完成步骤冒充父代次步骤。脚本临时生成器 `fullnet-workflow-return-migration-20261027.py` 只供首次生成，后续已补来源帧/退出来源字段，不得重跑它覆盖现行迁移。
+
+329命名首轮36/37、0跳过失败：MySQL恢复过程末尾未带IF EXISTS，静态扫描器不能确认完整有界恢复过程；改成项目已有的完整DROP IF EXISTS模式，没有放宽扫描器。复验37/37、0跳过（1.915s，`fullnet-workflow-return-naming-fixed-20261027.log`）。首轮集中Unit构建失败（0警告/2错误，2m19.64s，`fullnet-workflow-return-rounds-unit-20261027.log`，上下文Vl7wFm），错误均在新测试NSubstitute可空集合匹配，测试未执行；补空值守卫并按集合核对资格批次，原席位顺序仍由返回策略独立断言。修正批正在运行，尚无本批运行接线通过结论。
+
+当前ReturnCore已将旧同代次普通入队替换为原目标快照校验及新代次/唯一入队收据；Worker在事务外只复核原名单当前资格，不按当前角色重新选人，资格失效则原工作faulted并挂起。正常出口在任何后继写入前导出实际有效绑定、CAS登记出口、关闭本轮并排入真实外层；直接汇合使用专用ReturnContinuationProof，普通路由/普通来源规则保持。Trace证明写出真实步骤后清除，分叉不继承。级联退出再次验证原leased Work后记录真实完成步骤原代次，不另造人工步骤。当前候选及闭合仍保留原线性范围，whole-region入口显式拒绝；并行局部和整体重开未放行。增强后的WorkflowHumanReturnApiTests仍为两库两项，每项有Host/Tenant、四种目标、嵌套级联、双根外键和329部分迁移恢复；须在当前聚焦Unit通过后实际执行，不能预写为通过。
+
+329修正后集中Unit实际107/107、0跳过（2.743s，Release0/0 1m37.78s，`fullnet-workflow-return-rounds-unit-fixed-20261027.log/.trx`）。定向范围为退回轮次32项、原快照/当前资格、Return服务、Trace证明、Join证明及两个新结构Return用例，未运行全量。随后HumanReturn双库程序集Release0/0（1m36.31s）已登记固定源码/产物，进入两项真实数据库验收；此刻仅释放源码窗口，DB/AOT重型互斥仍保持。当前无双库成功结论。
+
+329首轮实际双库2/2、0跳过（2m44.823s，SQL1m41.800s、MySQL2m41.987s，`fullnet-workflow-return-rounds-databases-20261027.log/.trx`），每库包含Host/Tenant、多人/顺序/分组/办理、同一出口再次Return后的两轮级联、精确因果及原快照、双根FK拒绝和329未记账部分约束恢复。该轮未包含后来补入的真实事务中段异常探针；探针在同一根锁事务内真实写入Epoch/Frame/Bindings/Round/Work后抛特定异常，随后核对所有事实及原步骤状态/修订回滚，正在只复验相同两项。107Unit输入未变，矩阵最低数已由90收紧为实际107。并行局部与整体重开、当前329架构/AOT仍未验收，不把该2/2外推为完整增强Return完成。
+
+
+### 并行 Return 后续实施约束（尚未接线）
+
+- 现行 List/Find 仍拒绝并行，并以序号边界和全根关闭执行；扩展时必须共同替换候选与提交，不能只删 SQL 限制。建议一次读取有界实际 Step/原因图、有效绑定、fork/context、未结束工作，依据当前 SourceStep 的实际祖先减去 TargetStep 以前祖先确定跨越事实；整体重开额外包含实际受影响 fork 子树。分页在有界合法候选过滤后完成，避免过滤 SQL 分页后漏项。禁止以全根序号或同名节点推断分支。
+- 同分支回到目标：target实际fork/branch等于source，保留兄弟待办、到达和局部输出；只结束当前源Step所属席位/任务/加签。新轮次ParentEpoch沿实际当前E，Frame保留真实外层fork/branch，正常Exit仍为原source节点。
+- 回到开放fork之前：沿source的真实parallel_context向上找到target实际外层帧，选择最外层受影响fork，关闭该fork子树的旧活动、待办、工作和waiting joins，旧到达保留历史但永不授权新fork。结构出口提升到该fork真实join，新轮次重新生成fork/分支命中和arrival。源工作租约统一失效，旧Worker须在根锁后帧守卫或最终租约CAS处回滚。
+- 若source位于嵌套Return/路由子代次而目标在更外层fork之前，不能把新轮次挂到将被关闭的source E。须先以实际帧证明关闭涉及的子代次，ParentEpoch使用仍存活的目标外层E；329需要另存EntrySourceEpochId（当前28列版尚未增加），与ParentEpoch分离并加同根FK，入队和Worker精确证明同时更新。不可把关闭子代次步骤伪装成parent步骤或默认回Root。当前SourceParallelJoinId/Branch已独立保存，为该语义准备。
+- 分支Return先以branchStates.ReadAsync取得实际视图/修订并按source权限校验补丁，局部写入branch CAS。整体重开需将source分支已授权输出投影回目标外层：以最外层受影响fork的真实共同输入为基线，比较source有效视图产生差量；在当前parent视图上只合并这些差量，保留无关变化；同字段自基线已变化且与提交不同则冲突。parent主表单或外层branch各自CAS。原Todo输出/签名仍记录source视图和source修订，Round工作保存实际合并后parent输入/修订，两者不能混淆。Files沿现有事务外准备和当前根引用确认，不能遗漏保留的无关附件，也不能将跨租户FileId当凭证。
+- 实际已应用连接器/命令/字段修改清除、未知外部结果和未收敛子调用继续作为屏障；不以取消待办证明已补偿。还须检查本轮区域对外部未完成生产者的依赖：新E只继承完成事实，不能让稍后消费的未完成旧Call在新E永久失联。静态来源/字段/异步依赖与已完成有效绑定共同裁定，不重新按最新同名激活补猜。
+
+原子探针增量首次构建0警告/1错误（1m26.35s，`fullnet-workflow-return-rounds-atomic-databases-20261027.log`，上下文jec9gr），缺少ICommandTransaction所在Abstractions.Messaging导入，测试未运行；补齐后正在复验相同两项，未据首轮2/2声称此探针已通过。
+
+
+329原子探针修正后实际双库2/2、0跳过（2m45.741s，SQL1m39.423s、MySQL2m45.284s，Release0/0 1m34.23s，`fullnet-workflow-return-rounds-atomic-fixed-databases-20261027.log/.trx`），每库包含Host/Tenant。真实根锁事务内写出Epoch/Frame/Binding/Round/Work后抛特定异常，旧Source状态/修订、Target完成状态、唯一根E、绑定数及零Round/Work全部恢复；不能用不同的存储异常冒充探针通过。此前107Unit对应运行接线保持有效；之后新增ScopePolicy尚未接线且未编译/测试，不把该双库证据外推给它。当前无后台构建/数据库验收占用，Messaging已同步释放。
+
+新建`WorkflowReturnScopePolicy`纯范围选择（尚未接线/测试）：真实祖先差集加fork/context子树确定范围；只失效受影响的当前有效完成绑定（最多128节点），保留更早历史事实；活动关闭集合也有界，兄弟分支不入集合。当前暂拒绝source E与被整体关闭fork所属E不同的跨活动代次关闭，后续须用独立EntrySourceEpochId协议消除该限制，不能默认父E。现阶段副作用及未知节点失败关闭。实际读写方仍须在根锁内复核Frame/branch和输入修订，不能把纯选择器当成运行交付。
+
+发现必须补的既有范围：旧Return允许从exclusive分支里的人工源回到分支之前，纯线性新轮次不能因结构scope不同而静默拒绝该场景。闭合区域可能以End为共同出口，尚未执行的终点必须由固定定义识别（已补IsTerminalNode），不能查历史End步骤判断。拟在本轮真实End步骤写出后、根终态提交前登记轮次退出，令唯一外层End Work再完成根终态；NextNodeKey可等于本轮Exit End，实际Step/代次各异且根终态只发布一次。不向正常DAG加自环。还需接入并验证普通/嵌套End出口、两条条件分支切换和迟到/重复，当前Coordinator仍要求普通唯一正常后继，尚未支持此终点接线。
+
+
+End出口第一次集中Unit128/128、0跳过（2.617s，Release0/0 2m39.46s，`fullnet-workflow-return-end-unit-20261027.log/.trx`）通过。随后新增Exclusive_return双库0/2、0跳过（2m31.950s，Release0/0 1m36.84s，`fullnet-workflow-return-end-databases-20261027.log/.trx`，上下文nzXLmL），两库首个Host非嵌套场景最终审批后根已completed而预期等待外层End。初步怀疑单人状态预判，代码核对已排除：ApproveCore已使用execution.InstanceStatusKey。实际根因是RuntimePlan以bool表达End且AutomaticWriter没有End步骤；新增出口钩子看不到真实End，因而未能闭合轮次便进入根终态。纯规则及mock完成End单测未覆盖该真实缺口，保留失败证据。
+
+据此补实际End基础：WorkflowRuntimeTransition/ParallelBranchPlan显式TerminalNodeKey，固定路径TryTraverse选择终点并在branch/preparation/worker复制时传递，禁止只凭bool猜多个终点；RuntimeExecutor在活动预算内追加该明确End，预算不足保存精确End工作，缺失/不匹配终点在写入前失败。WorkflowEndSql.InsertStep（已入Global SQL目录）将真实End锚定活跃根及代次；AutomaticWriter同事务写Step/Binding/因果/轨迹，然后才运行Return出口或根终态。没有变更DDL/公开DTO。新增EndActivationTests9项覆盖多终点、实际来源、存储失败、缺来源、非法bool结束、预算延后及普通根终点。此变化影响真实终态基础，集中验证扩大到直接相关的RuntimePlan/AsyncPlan、Instance管理、多人/系统处置、Vote/CC等边界，而非自动全量。当前`fullnet-workflow-end-activation-unit-20261027.log`构建执行中；成功后仅复验Exclusive_return两库两项，原Human_return两库有效证据不无故重复。
+
+并行Scope接线前确认：ApproveCore约672行已无条件先LockInstanceForMultiApproval；ReturnCore仍只对ApprovalMode非空时先锁，旧“snapshot先于根锁”注释不能作为当前所有写入方真相。后续统一Return根锁后读取/复核范围并写实际branch/main CAS，需要继续核对Cancel/其他动作实际锁顺序，不从旧注释猜测。ScopePolicy19项已包含在128Unit通过范围，但读取/作用域取消尚未接线，不能开放公开并行Return。
+
+
+真实End基础集中Unit实际199项为197通过/2失败、0跳过（4.206s，Release0/0 2m30.10s，`fullnet-workflow-end-activation-unit-20261027.log/.trx`，上下文kyntd1）；两项为系统auto_pass/skip仍断言旧NextExecutionSequence=4，真实End写入后应为5。修正同一方法，明确completed才多写一个End，suspend/auto_reject不写；仅复验该方法四种状态4/4、0跳过（1.281s，`fullnet-workflow-end-sequence-unit-fixed-20261027.log/.trx`），没有无理由重跑其余197项。该批合并覆盖199项，不能称第一次199全绿。随后正重新构建Exclusive_return两库两项；共同End实际修复尚无新双库结论。
+
+实际End修复后的Exclusive_return双库2/2、0跳过（2m35.970s，SQL1m34.469s、MySQL2m35.028s，Release0/0 1m37.29s，`fullnet-workflow-end-activation-databases-20261027.log/.trx`）通过；每库Host/Tenant均覆盖左右条件切换、嵌套共同End级联、私有真实End及唯一根E真实End、终态后幂等回执和完整因果。纯计划的TerminalNodeKey也验证多终点身份，9项End回归与其他直接终态边界已通过。199Unit以首轮197通过加修正方法4/4合并，不改写首轮失败。当前无后台构建/DB占用，开始`workflow-r4-return-scope-20261027`快照后的实际并行Scope接线，不在此边界等待确认。
+
+
+并行Return接线已进入集中验证（2026-10-27）：候选与提交共用有界ScopeReader/Policy，读取真实Step、fork_context、未结束Work、因果图及当前有效绑定；候选合法过滤后再分页。修正新读SQL最初误用parallel_context为实际fork_context。Return经ExecutePreparedAsync已有的可信根锁重读事实，移除额外只对多人加锁的旧分支。闭合改为精确Step/Fork/Work集合，覆盖待办/加签/席位/组/办理/投票/领取/延时/SLA及实际子代次；只失效当前受影响完成身份，删除其有效绑定，旧全根序号回滚SQL及未消费的祖先助手已删除。
+
+来源表单按实际branch视图和修订提交，签名/输出继续绑定来源；整体重开以最外层受影响fork共同输入为基线，仅将来源差量合入存活外层main/branch，保留无关字段，同字段不同变化冲突。附件仍走原事务外准备及来源摘要确认，已存在引用保留。Round分别保存原来源fork与恢复外层fork，整体关闭旧fork后在新E重建；本轮暂拒绝SourceE不同于存活ParentE、以及区域内含control.route的未接线组合，不虚报任意组合支持。新增Scope工作/祖先生产者守卫、差量合并回归及Host/Tenant局部/整体并行真实API用例，正在运行聚焦Unit（fullnet-workflow-return-scope-unit-20261027.log/.trx），当前无新通过结论。
+
+Scope首批定向Unit实际122/122、0跳过（2.810s，Release0警告0错误2m04.35s，fullnet-workflow-return-scope-unit-20261027.log/.trx）。随后Integration Release0/0（1m13.31s）已登记，正在固定程序集跑新增Parallel_return与受影响Human_return共四项双库，尚无完成结论。登记后复核继承绑定又补父区域包含守卫：外部已完成绑定不能授权子Return吞并仍活动的更大父区域；候选共享State及Coordinator均重验固定Frame入口/出口集合，新增一项明确先证明纯Scope原本允许、再证明实际父区域拒绝的回归。该增量未包含在122Unit及当前固定DLL的双库中，后续集中验证，不外推当前证据。
+
+并行Scope首轮真实数据库总计4项为2成功/2失败、0跳过（5m06.258s，Release0/0 1m13.31s，fullnet-workflow-return-scope-databases-20261027.log/.trx，失败上下文TqelW7）。Human_return SQL1m34.576s/MySQL2m48.264s均通过，包含原冻结名单、嵌套级联及329恢复；Parallel_return SQL1m29.065s/MySQL2m17.476s均在Host整体场景末尾通用因果助手失败：旧助手把cancelled fork当completed，强求2条arrival，实际正确保留0条。此前局部及整体的闭合、新fork、唯一退出、最终完成均已走到，不将未到达Tenant升级通过。助手改为取消fork仅验证到达数边界，完成fork则按原arrival集合核对唯一实际同代次Join，不从当前同名有效绑定取历史Join。
+
+增量用例还补整体外层同字段冲突409后无Return事实、修复冲突后保留无关外层字段、来源输出与Round输入/修订区分；新增Host/Tenant的分组/办理/投票/领取/延时旧事实及来源SLA取消，并核对新fork成员/零票/独立等待，最后走正式取消关闭测试资源。父区域守卫的Scope/Round/Return服务聚焦Unit正在fullnet-workflow-return-scope-bound-unit-20261027.log/.trx执行，随后复验实际受影响四项双库；不运行全量。
+
+父区域守卫与直接受影响Scope/Round/Return服务Unit75/75、0跳过（2.416s，Release0/0 2m00.67s，fullnet-workflow-return-scope-bound-unit-20261027.log/.trx）通过；之前未变的差量和快照/Join证明沿用122批真实证据。修正四项双库的Integration Release0/0（1m30.08s）已登记，正在固定DLL验收，暂无新通过结论。
+
+下一项329协议增量（尚未实施）：为关闭来源子轮次后跨出旧fork的整体退回添加EntrySourceEpochId，同根FK与实际SourceStep.ExecutionEpochId相符；ParentEpochId保持实际存活外层。Scope读取方保留实际epoch祖先/Frame并复核每层真实fork外框，选择器不再把来源E和父E强行等同；候选按选择后的存活父Frame做包含约束，不以来源子Frame阻止已被整体关闭的合法跨出。关闭原fork子树/实际子E后，新轮次挂存活父E；入队及Worker只以唯一原收据和EntrySourceE接受已关闭的原Returned来源，普通来源守卫不放宽。旧被整体取消的Return记录保持rev1而实际E关闭，不伪造正常出口。增加从局部Return内再次整体退回的Host/Tenant双库、跨根FK与329恢复，完成后再集中架构/AOT。
+
+第二轮Scope双库仍为2成功/2失败、0跳过（5m09.170s，fullnet-workflow-return-scope-fixed-databases-20261027.log/.trx，bXRmve）；原Human_return SQL1m39.139s/MySQL2m43.780s通过。Parallel SQL1m26.732s/MySQL2m24.791s已走完原局部/整体及新增字段冲突409、无关外层字段保留、来源输出与轮次输入区分，随后新WaitingScope的首个group夹具发布400：只定义一组，正式分组要求2–8组。已创建真实第二用户，Host使用独立成员，Tenant经正式邀请加入，不改生产门槛；group计数断言改为两组/两席。Tenant场景尚未走到，不计通过。
+
+329来源代次接线已实现为29列：EntrySourceEpochId保存真实原SourceStep.ExecutionEpochId，成对迁移对既有半批表先补可空列、依据同根真实SourceStep回填，再NOT NULL及同根FK，不能猜ParentE。原入队及Worker收据只在SourceE=ParentE且active，或SourceE不同、实际closed且原fork已cancelled时接纳；目标E仍必须active，普通来源不放宽。读取方保留实际epoch祖先和Frame并逐层复核fork真实外框，选择后的存活父Frame限制新区域；关闭来源子E后新轮次挂真实存活父E。被整体取消的原Return仅关闭E、保持rev1无伪造退出。新增从局部Return内再整体退回的Host/Tenant用例及新字段跨根拒绝/半迁移回填。
+
+该来源协议命名37/37、0跳过（2.548s，fullnet-workflow-return-source-naming-20261027.log）；聚焦Unit81/81、0跳过（2.699s，Release0/0 1m56.43s，fullnet-workflow-return-source-unit-20261027.log/.trx）。现在fullnet-workflow-return-source-databases-20261027.log/.trx构建四项实际双库，未执行结果不升级；新快照workflow-r4-return-source-epoch-20261027。329当前架构/AOT与Return/Route组合仍未验收。
+
+Return与Route组合的后续边界（设计，未接线）：Route Coordinator必须能够从已验证Return记录/固定Frame解析当前父区域；只允许Route回边区域严格包含于Return区域，前向目标仍留在该区域，禁止Route关闭Return父E。退出自身Route子E后导出回Return父E，最终仍由Return专用出口收据关闭Return轮次。Return候选需核对区域中所有Route的正常/允许目标及回边区域均被包含；已完成/明确应用的Route可作为逻辑因果，活动或未知决策不能被取消待办冒充结果确认。不能仅将control.route加入Benign或删除现有拒绝条件。
+
+2026-10-27 10:41恢复检查：机器于10:00:35重启，之前return-source-databases日志停在09:22:34，后台句柄49780已失效且无存活dotnet。仅有Human_return SQL1m35.144s、MySQL2m42.876s两项通过、Parallel SQL1m22.472s失败；Parallel MySQL及总摘要未产出，按中断未完成，不伪报四项2/2或0跳过。失败是新增escalated夹具要求两个独立修订计数数值不同，但都为5合法；改为来源OutputRevision=来源提交修订+1、整体Round.InputFormRevision=实际外层main修订，同时用不同untouched字段值核对两份内容。
+
+重启doctor/backend仅Docker失败；隐藏启动已有Docker Desktop后29.6.2及backend doctor全部通过。初次return-route-unit未构建：正式入口发现旧PID39668退出后残留资源锁，失败上下文jic6US。核对原进程/子测试进程均不存在、docker ps为空，保存五把原锁的路径/pid/token到fullnet-workflow-reboot-stale-locks-20261027.json后，仅删除该进程的workspace/heavy/build-1~3五把锁，未动其他会话或历史锁。恢复正式资源入口后Release0/0（1m59.93s），ReturnScope/RegionCoordinator/DynamicRoutePlan/RouteRuntime聚焦Unit72/72、0跳过（3.586s，fullnet-workflow-return-route-unit-recovered-20261027.log/.trx）。
+
+Route组合代码已接线：固定正常图保留在编译路由计划；RegionCoordinator从真实Return记录/Frame/根版本/来源及区域摘要解析父区域，Route只建立严格更小子区并退出自身区域，不关闭Return父E。候选要求区域内所有正常/允许路由目标及回边区域都被包含，活动/未知决策继续拒绝；已完成或已失效完成的路由按真实因果参与。路由配置保留return.*机器命名空间，前后端共同拒绝占用，未以删除单一限制开放任意跨区。新增7项Return父Frame正负规则、3项候选路由包含与1项命名冲突；Host/Tenant的真实Route-inside-Return用例已写，待验收。当前fullnet-workflow-return-composed-databases-20261027.log/.trx正在构建/执行Parallel_return及Route_inside_return两库四项，原Human_return两库有效证据复用；不运行全量。
+
+329并行与Route组合实际双库4/4、0跳过（8m11.305s，Release0/0 59.28s，fullnet-workflow-return-composed-databases-20261027.log/.trx）通过。Parallel SQL4m17.956s/MySQL6m12.069s，每库Host/Tenant局部、整体、局部子E再整体、外层字段冲突及独立输入/输出、group/task/vote/claim/delay与来源SLA关闭/新建；Route-inside-Return SQL1m22.751s/MySQL2m28.252s，每库Host/Tenant严格更小路由子E进入、正常退出回ReturnE、Return专用出口后根终态且完整因果。前端保留命名空间9/9通过（3.16s，fullnet-workflow-return-route-client-20261027.log）。未把这些定向证据写成完整WF-R4或R5完成。
+
+最后补实际Work关闭边界：40个正常Empty节点超过单次32活动预算，由公开API自然产生真实右分支Pending Work；分别保留pending或通过正式ClaimWork领取为leased，再从左分支整体退回。核对原工作cancelled、generation仅加一次、owner/expiry清空、实际旧Frame不可用；原leased token经正式FinishWork必须返回0，幂等重放不再加generation。随后新fork正常续办右分支，旧fork没有执行原待续节点，最后正式取消新资源。该新增Deferred_return_work两库用例尚未运行；源类型/守卫协议保持，不把CountSourceFrame这个局部事实当成完整Frame授权。
+
+Deferred_return_work实际双库2/2、0跳过（2m35.530s，SQL1m35.638s/MySQL2m35.149s，Release0/0 1m01.77s，fullnet-workflow-return-deferred-databases-20261027.log/.trx）通过。每库Host/Tenant含pending/leased，原工作由正常32预算分派生成，正式Claim/Finish边界、旧Frame失效、重放不二次递增及新fork实际续办均已验证。
+
+当前329精确架构首轮12/13、0跳过（20.412s，Release0/0 19.75s，fullnet-workflow-return-architecture-20261027.log/.trx，dA3n92）：唯一失败为全局SQL目录三条Return候选/目标声明仍要求旧frontier、主路径及全实例Work屏障等四个片段，共12条过期断言；实际授权已改为共享ScopeReader/Policy且各双库场景通过。计划仅将三条声明改为实际可信根/作用域、完成类型及有界AncestorStepIds要求，并更新理由，保留目录精确门禁；开始中的AOT仅分析运行代码，与该目录数据校验独立，保持源码窗口至JIT恢复，结束后补验这一个门禁，不无故复跑其余12项。
+
+### WF-R4 双边协作下一批边界设计（已授权范围，尚未实现）
+
+现有能力核对：Workflow已有ICurrentTenantContextWriter/IActiveTenantContextResolver后台入口及WorkflowExecutionTenantScope；Identity的ITenantMemberSelectionDirectory只允许当前可信Tenant，不接收TenantId。Files现有Host/Tenant内容Port均不提供跨作用域能力，不能把源FileId送给目标作为下载凭证。后续继续在Workflow主项目内建设，不引入第二引擎或新通用仓储。
+
+1. 协作授权由Workflow拥有独立控制面记录，固定源定义/表单、目标当前作用域所选的已发布定义版本、源输入/目标输出字段映射、目标人员允许集和期限；源提出、目标接受分别检查当前可信参与方与精确权限，不能由源用户指定外租户办理人。双方接受后政策摘要不可改写，修改需新授权；撤销CAS推进权威修订并审计。该授权控制面是显式双边共享权威，不将它当作关闭业务租户过滤的理由；业务根/步骤/待办仍只写当前一方作用域。
+2. 源活动在原根事务保存真实Activation/Epoch/Fork及固定输入/授权摘要，并写Outbox请求。事件Handler只保存当前信封作用域的本地Inbox/交付事实；不在可能已有消费者事务内切换Tenant。独立Relay在事务外核对信封Tenant、受信持久授权/交付身份和活动租户，另建作用域后只执行目标本地事务；目标创建与源关联确认分两个事务，源请求稳定键/目标唯一相关身份使崩溃重放回到原目标。创建、结果和取消均通过同样的Outbox/Inbox边界，不能源/目标同一事务写入。
+3. 目标复用R1–R3的真实独立Workflow实例及人工活动，不构造源租户Todo。目标版本/发起主体由目标同意固化，激活与办理继续校验当前活动成员，并把被同意的人/字段范围贯穿转办、代理、加签及子流程。目标根保存协作来源身份，普通业务结果发布与协作结果发布互斥，源根仍是原业务最终结果唯一发布者。未知结果沿R3对账语义，不能通过撤销或高权限Recover隐式认定成功。
+4. 每次目标读取/办理及源结果接纳实时复核权威授权修订和双方有效状态；控制面锁与修订决定撤销/完成竞争，撤销后不消费旧缓存许可。原租户API、文件、转办候选和高权限生命周期入口都须经过同一协作来源守卫，不能只隐藏界面。取消为各自本地事实和可靠消息；未确认副作用必须保留待取消/对账状态，不能提前续办源或伪造目标已取消。
+5. Files新增有真实消费者的最小不透明读取能力Port：签发只在已有源文件所有权/引用授权后，固定接收作用域、Workflow相关资源、内容摘要、期限和幂等身份；目标仅获得能力Id及安全元数据。能力Id不是普通FileId，通用Files下载接口不能解析它；Workflow先检查当前人/资源/实时协作授权，再由Files验证能力并打开原内容。源/目标不跨模块读表，所有Files准备在Workflow事务外，失败回收/确认沿已有claim模式；撤销消息清理Files能力，实时Workflow守卫先禁止新的读取。回传附件使用反向能力和同样所有权证明，不复制裸外租户FileId。
+6. 结果固定源活动/请求、授权版本/摘要、目标实例/版本及最小返回字段；源租户在自己根锁内验证真实E/分支、输入修订、唯一收据和终态，迟到/重复不推进旧尝试。返回值按源Schema和发布映射验证，不采用最后写入者覆盖。权限、双边审计、拒绝/撤销/未知结果对账、取消与幂等场景和Files能力一起实现，再集中做对应双库、协议/AOT与Vue真实操作。协作节点类型20在这些路径闭合后才加入公共目录；随后按依赖继续WF-R5深链、仿真/版本对比及停留/SLA/积压运营。
+
+跨模块归属清单：Workflow只读写自身授权/调用/交付/运行表；Identity/Tenancy经既有最小目录/活动租户Port读取；Files拥有能力及原内容，不引入跨模块FK或表JOIN。外部Port不进入Workflow本地事务；会失败的业务路径使用ExecuteResultAsync；可靠请求/创建/结果/取消各有唯一发布所有者及相关键去重；投递上下文必须与声明的发送方匹配。新增Files公共Port有Workflow真实消费者，并以架构和实际双库证明边界。独立审查尚未执行，不能把本设计或内部自检当成独立审查通过。
+
+329集中收尾的实际结果补记：仅修复三条全局SQL目录的过期片段要求，单项精确门禁1/1、0跳过（22.753s，Release0/0 4m55.38s，fullnet-workflow-return-catalog-fixed-20261027.log/.trx），与原未变12项合并覆盖13项，不改写首轮12/13。329 AOT分析0警告0错误（3m21.36s，fullnet-workflow-return-aot-20261027.log），随后默认JIT恢复及外层退出0；只计Aot-analysis-clean，无原生发布证据。全部窗口已释放。
+
+330_WorkflowCollaborationGrants成对迁移及两张自身控制面表已创建：固定源定义/表单、两方规范作用域、目标接受版本/人员/字段和安全摘要、修订/状态CAS及逐操作人幂等原响应。源提出只验证自己的资产，目标接受只验证自己的版本与活动目录，不跨租户读取业务表。政策摘要包含双方操作人、执行预算及微秒归一化期限；摘要不是数字签名。公开四接口与read/propose/accept/revoke精确权限、显式Dapper物化和JSON源生成已接线；协作执行节点仍未开放，调用/投递/独立目标根、Files能力及前端尚待实施，不宣称WF-R4完整完成。
+
+2026-10-27协作控制面首轮Unit构建失败于新服务缺少ICommandTransaction所在Full.NET.Abstractions.Messaging命名空间（CS0246，23.40s，上下文nW7fm0，fullnet-workflow-collaboration-grant-unit-20261027.log），未运行测试；已补引用。实际双库控制面用例已写，含Host→Tenant和反向、第三租户拒绝、非法目标成员/版本/映射、两方修订CAS竞争、撤销后原接受/提出回执及迁移双重重跑保留事实。当前仅重新登记Unit，不将未运行用例计为通过。
+
+协作控制面命名及注释检查37/37、0跳过（3.537s，fullnet-workflow-collaboration-grant-naming-20261027.log）。修正引用后的Unit Release0警告0错误（1m54.35s），但我并行运行命名测试时其generate-object-comments用例重写了contracts/database/object-comments.json，正式入口检测构建期间输入变化并拒绝登记/测试（上下文2yAO7D）；不算通过。按实际原因停止构建期间的产物生成操作，固定当前规范目录后再登记，不绕过输入指纹。
+
+固定规范目录后协作政策Unit18/18、0跳过（801ms，Release0/0 14.52s，fullnet-workflow-collaboration-grant-unit-stable-20261027.log/.trx）。控制面首轮Integration Release0/0（1m19.47s）已登记，但双库0成功/2失败、0跳过（12.913s，fullnet-workflow-collaboration-grant-databases-20261027.log/.trx，上下文Ta6LPR），均DockerUnavailableException，未执行330迁移及业务断言。OS只读检查确认再次于14:21:26重启，Docker进程/服务未运行；backend doctor失败，正在隐藏启动已有Docker Desktop并复用未变程序集重跑两项。
+
+恢复Docker29.6.2后backend doctor全通过（fullnet-workflow-collaboration-doctor-recovered-20261027.log）。重跑控制面双库已由正式入口核对源码及产物明确复用既有2核/3GiB Release（fullnet-workflow-collaboration-grant-databases-recovered-20261027.log），原环境失败TRX另保存为fullnet-workflow-collaboration-grant-databases-environment-failed-20261027.trx；当前尚无业务通过结果，固定程序集验收中允许继续独立源码工作。
+
+## 2026-10-28 跨电脑交接检查点
+
+用户要求提交当前全部代码并交给其它电脑接续，本机停止继续功能开发。中断后台已实际结束：sessions轮Integration Release0警告0错误（1m08.01s），真实双库0/2、0跳过（2m34.332s；SQL1m24.093s/MySQL2m33.965s，fullnet-workflow-collaboration-grant-databases-sessions-20261027.log/.trx，上下文0aAdr3）。夹具再次以同admin/client登录第三租户，使目标会话在AssetAsync(target)创建表单时401 identity.session_not_active（VerifyAsync第51行）；默认IdentityOptions.SessionLoginPolicy=SingleSessionPerClient，下一步必须独立真实用户或确实受支持的独立客户端，禁止放宽生产会话保护。尚未到授权业务断言，不计330通过。
+
+完整接续入口、有效证据、未验证项、边界和可复制执行指令已保存于2026-10-28-workflow-cross-machine-handoff.md；原系统临时driver/原始日志不随Git移动，接收方使用本机正式入口重建必要证据。331只同步拟用编号，尚未创建；迁移最高330。330公开契约导出/客户端生成、增量架构/AOT及独立审查缺口保留。

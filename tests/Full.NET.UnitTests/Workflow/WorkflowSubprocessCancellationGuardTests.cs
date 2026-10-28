@@ -51,7 +51,7 @@ public sealed class WorkflowSubprocessCancellationGuardTests
             var parent = new WorkflowInstanceRecord(parentId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(), "order", "request", null,
                 parentStatus, 3, starter, now, null, null, null, null, null, null);
             var call = new WorkflowSubprocessCallRecord(callId, parentId, "host", "child", "end", definition, form, hash, hash, "{}", "{}", 1,
-                null, null, 1, 64, "running", false, null, 1, now, now);
+                null, null, 1, 64, "running", false, null, 1, now, now, parentId);
             var item = new WorkflowSubprocessItemRecord(itemId, callId, parentId, "host", "single", 1, starter, "{}", hash, childId, "running", null, null, null, 1, now, now);
             Query.QuerySingleOrDefaultAsync<WorkflowSubprocessCallRecord>(WorkflowSubprocessSql.Find, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call);
             Query.QuerySingleOrDefaultAsync<WorkflowSubprocessItemRecord>(WorkflowSubprocessSql.FindItem, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(item);

@@ -31,6 +31,26 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInstanceManagementServiceTests
 {
     [TestMethod]
+    public async Task Route_read_requires_its_own_permission() =>
+        await AssertEndpointPermissionAsync("/api/v1/workflow/instances/{instanceId:guid}/routes/{routeId:guid}", WorkflowPermissions.RoutesRead);
+
+    [TestMethod]
+    public async Task Route_resolution_requires_its_own_permission() =>
+        await AssertEndpointPermissionAsync("/api/v1/workflow/instances/{instanceId:guid}/routes/{routeId:guid}/reconcile", WorkflowPermissions.RoutesReconcile);
+
+    [TestMethod]
+    public async Task Ordinary_resume_cannot_reevaluate_an_unknown_route_selection()
+    {
+        var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7();
+        var query = CreateQuery(id, actor, "suspended", 3, Guid.CreateVersion7(), null);
+        query.QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var command = Substitute.For<ICommandExecutor>(); command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var result = await CreateService(query, command, actor, Substitute.For<IOutboxWriter>()).ResumeAsync(id, actor, new(3, null, "unknown-route"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsFalse(command.ReceivedCalls().Any(call => Equals(call.GetArguments()[0], WorkflowSql.ResumeInstanceWithRevision)));
+    }
+
+    [TestMethod]
     public async Task Withdraw_endpoint_requires_its_own_permission() =>
         await AssertEndpointPermissionAsync("/api/v1/workflow/instances/{instanceId:guid}/withdraw", WorkflowPermissions.InstancesWithdraw);
     [TestMethod]

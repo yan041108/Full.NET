@@ -19,6 +19,8 @@ using Full.NET.Modules.Workflow.Execution.Connectors;
 using Full.NET.Modules.Workflow.Execution.BusinessCommands;
 using ConnectorEndpoint = Full.NET.Modules.Workflow.Features.ManageConnectorCalls.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageConnectorCalls;
+using Full.NET.Modules.Workflow.Features.ManageRoutes;
+using RouteEndpoint = Full.NET.Modules.Workflow.Features.ManageRoutes.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageWorkCalendars;
 using CalendarEndpoint = Full.NET.Modules.Workflow.Features.ManageWorkCalendars.Endpoint;
 using CcEndpoint = Full.NET.Modules.Workflow.Features.ManageMyCc.Endpoint;
@@ -92,7 +94,11 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowBusinessCommandPublisher>();
         services.AddScoped<WorkflowBusinessCommandActivationWriter>();
         services.AddScoped<WorkflowSubprocessActivationWriter>();
+        services.AddScoped<WorkflowRegionEpochCoordinator>();
+        services.AddScoped<WorkflowRouteDecisionExecutor>();
+        services.AddScoped<WorkflowReturnRoundCoordinator>();
         services.AddScoped<WorkflowMultiInstanceSourcePreparation>();
+        services.AddScoped<WorkflowSubprocessStarterPreparation>();
         services.AddScoped<WorkflowSubprocessProcessor>();
         services.TryAddSingleton<WorkflowSubprocessScanCursor>();
         services.AddScoped<IWorkflowBusinessCommandProofReader, WorkflowBusinessCommandProofReader>();
@@ -103,6 +109,8 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowWorkCalendarService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
         services.AddScoped<WorkflowConnectorManagementService>();
+        services.AddScoped<WorkflowRouteManagementService>();
+        services.AddScoped<Features.ManageCollaborationGrants.WorkflowCollaborationGrantService>();
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
         services.AddScoped<WorkflowTodoAssigneeCandidateQueryService>();
         services.AddScoped<WorkflowRoleCandidateQueryService>();
@@ -179,6 +187,8 @@ public sealed class WorkflowModule : IFullNetModule
         CcEndpoint.Map(endpoints);
         RecoveryEndpoint.Map(endpoints);
         ConnectorEndpoint.Map(endpoints);
+        RouteEndpoint.Map(endpoints);
+        Features.ManageCollaborationGrants.Endpoint.Map(endpoints);
         CalendarEndpoint.Map(endpoints);
     }
 

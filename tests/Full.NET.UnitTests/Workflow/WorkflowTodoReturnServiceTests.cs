@@ -27,6 +27,34 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowTodoReturnServiceTests
 {
     [TestMethod]
+    public async Task A_missing_or_corrupt_target_member_snapshot_cannot_fall_back_to_current_role_resolution()
+    {
+        var target = new WorkflowTodoReturnTargetRecord(Guid.CreateVersion7(), "manager", Guid.CreateVersion7(), 1, DateTimeOffset.UtcNow.AddHours(-2), DateTimeOffset.UtcNow.AddHours(-1));
+        var f = CreateFixture(target);
+        f.Query.QuerySingleOrDefaultAsync<WorkflowAssigneeSnapshotRecord>(WorkflowReturnRoundSql.FindCompletedSnapshot,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowAssigneeSnapshotRecord("{}", new string('a', 64)));
+        var result = await f.Service.ReturnAsync(f.TodoId, f.ActorId, new(target.StepId, 3, JsonSerializer.SerializeToElement(new { }), "保留原成员", "bad-snapshot", 2));
+        Assert.AreEqual(WorkflowErrorCodes.TodoReturnTargetInvalid, result.Error?.Code);
+        await f.Command.DidNotReceive().ExecuteAsync(WorkflowSql.ReturnStepWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await f.Command.DidNotReceive().ExecuteAsync(WorkflowReturnRoundSql.InsertWork, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("missingCause")]
+    [DataRow("unbound")]
+    public async Task A_completed_history_record_without_actual_ancestry_and_effective_binding_cannot_be_returned_to(string fault)
+    {
+        var target=new WorkflowTodoReturnTargetRecord(Guid.CreateVersion7(),"manager",Guid.CreateVersion7(),1,DateTimeOffset.UtcNow.AddHours(-2),DateTimeOffset.UtcNow.AddHours(-1));
+        var f=CreateFixture(target);
+        if(fault=="missingCause")f.Query.QueryAsync<WorkflowStepCauseRecord>(WorkflowCausalitySql.ListEdges,Arg.Any<object?>(),Arg.Any<CancellationToken>()).Returns(Array.Empty<WorkflowStepCauseRecord>());
+        else f.Query.QueryAsync<WorkflowActivationBindingRecord>(WorkflowActivationBindingSql.List,Arg.Any<object?>(),Arg.Any<CancellationToken>()).Returns(Array.Empty<WorkflowActivationBindingRecord>());
+        var result=await f.Service.ReturnAsync(f.TodoId,f.ActorId,new(target.StepId,3,JsonSerializer.SerializeToElement(new { }),"实际链校验","unproven-return",2));
+        Assert.AreEqual(WorkflowErrorCodes.TodoReturnTargetInvalid,result.Error?.Code);
+        await f.Command.DidNotReceive().ExecuteAsync(WorkflowSql.ReturnStepWithRevision,Arg.Any<object?>(),Arg.Any<CancellationToken>());
+        await f.Command.DidNotReceive().ExecuteAsync(WorkflowActivitySql.InsertWork,Arg.Any<object?>(),Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task Supplemental_signer_cannot_query_or_submit_route_changes()
     {
         var f = CreateFixture(new(Guid.CreateVersion7(), "manager", null, 1, DateTimeOffset.UtcNow.AddHours(-2), DateTimeOffset.UtcNow.AddHours(-1)));
@@ -105,7 +133,7 @@ public sealed class WorkflowTodoReturnServiceTests
                 "资料不完整", "return-001", ExpectedFormRevision: 2));
 
         Assert.IsTrue(result.IsSuccess);
-        await fixture.Command.Received(grouped ? 1 : 0).ExecuteAsync(WorkflowGroupApprovalSql.CancelActiveByStep,
+        await fixture.Command.Received(1).ExecuteAsync(WorkflowReturnClosureSql.CancelGroups,
             Arg.Any<object?>(), Arg.Any<CancellationToken>());
         Assert.AreEqual("active", result.Value!.StatusKey);
         Assert.AreEqual(8, result.Value.Revision);
@@ -113,8 +141,8 @@ public sealed class WorkflowTodoReturnServiceTests
         await fixture.Command.Received().ExecuteAsync(
             WorkflowSql.ReturnStepWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await fixture.Command.Received().ExecuteAsync(
-            WorkflowSql.RollBackCompletedStepsFromTarget, Arg.Any<object?>(), Arg.Any<CancellationToken>());
-        await fixture.Command.Received(1).ExecuteAsync(WorkflowActivitySql.InsertWork,
+            WorkflowReturnClosureSql.InvalidateSteps, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await fixture.Command.Received(1).ExecuteAsync(WorkflowReturnRoundSql.InsertWork,
             Arg.Is<object?>(value => HasValue(value, "NodeKey", target.NodeKey) && HasValue(value, "InputFormRevision", 3L)), Arg.Any<CancellationToken>());
         await fixture.Command.DidNotReceive().ExecuteAsync(WorkflowSql.InsertStep, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await fixture.Command.DidNotReceive().ExecuteAsync(WorkflowSql.InsertTodo, Arg.Any<object?>(), Arg.Any<CancellationToken>());
@@ -303,6 +331,33 @@ public sealed class WorkflowTodoReturnServiceTests
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var outbox = Substitute.For<IOutboxWriter>();
+        if (returnTarget is not null)
+        {
+            var snapshot = JsonSerializer.Serialize(new WorkflowAssigneeResolutionSnapshot(1, resolvedActorId,
+                    [returnTarget.AssigneeUserId ?? resolvedActorId], []),
+                Full.NET.Modules.Workflow.Serialization.WorkflowJsonSerializerContext.Default.WorkflowAssigneeResolutionSnapshot);
+            query.QuerySingleOrDefaultAsync<WorkflowAssigneeSnapshotRecord>(WorkflowReturnRoundSql.FindCompletedSnapshot,
+                Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowAssigneeSnapshotRecord(snapshot,
+                    Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot)))));
+        }
+        query.QuerySingleOrDefaultAsync<WorkflowRegionRouteSourceRecord>(WorkflowReturnRoundSql.FindStep,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new WorkflowRegionRouteSourceRecord(stepId, instanceId, instanceId,
+                "finance", grouped ? "human.group_approval" : "human.approval", "returned", null, null, definitionVersionId));
+        query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(6L);
+        query.QuerySingleOrDefaultAsync<int>(WorkflowRegionSql.NextIteration, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        query.QueryAsync<WorkflowStepCauseRecord>(WorkflowCausalitySql.ListEdges,Arg.Any<object?>(),Arg.Any<CancellationToken>())
+            .Returns(returnTarget is null ? new WorkflowStepCauseRecord[]{ new(Guid.CreateVersion7(),instanceId,"host",stepId,instanceId,"sequence",now) }
+                : new WorkflowStepCauseRecord[]{new(Guid.CreateVersion7(),instanceId,"host",stepId,returnTarget.StepId,"sequence",now),
+                    new(Guid.CreateVersion7(),instanceId,"host",returnTarget.StepId,instanceId,"sequence",now)});
+        query.QueryAsync<WorkflowActivationBindingRecord>(WorkflowActivationBindingSql.List,Arg.Any<object?>(),Arg.Any<CancellationToken>())
+            .Returns(returnTarget is null ? Array.Empty<WorkflowActivationBindingRecord>() : new[]{new WorkflowActivationBindingRecord(Guid.CreateVersion7(),instanceId,
+                "host",instanceId,returnTarget.NodeKey,returnTarget.StepId,instanceId,now)});
+        query.QueryAsync<WorkflowReturnStepFact>(WorkflowReturnScopeSql.ListStepsSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(returnTarget is null ? new[] { new WorkflowReturnStepFact(instanceId, instanceId, instanceId, "start", "start", "completed", null, null),
+                new WorkflowReturnStepFact(stepId, instanceId, instanceId, "finance", grouped ? "human.group_approval" : "human.approval", "active", null, null) }
+                : new[] { new WorkflowReturnStepFact(instanceId, instanceId, instanceId, "start", "start", "completed", null, null),
+                    new WorkflowReturnStepFact(returnTarget.StepId, instanceId, instanceId, returnTarget.NodeKey, "human.approval", "completed", null, null),
+                    new WorkflowReturnStepFact(stepId, instanceId, instanceId, "finance", grouped ? "human.group_approval" : "human.approval", "active", null, null) });
         var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
         var notificationPublisher = new WorkflowNotificationOutboxPublisher(outbox);
         var service = new WorkflowTodoManagementService(

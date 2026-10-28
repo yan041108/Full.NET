@@ -40,12 +40,13 @@ public sealed class WorkflowSubprocessProjectionApiTests
             WorkflowPermissions.DefinitionsCreate, WorkflowPermissions.DefinitionsPublish, WorkflowPermissions.DefinitionsRead, WorkflowPermissions.InstancesStart,
             WorkflowPermissions.InstancesRead, WorkflowPermissions.InstancesCancel, "tenancy.tenants.switch"]);
         var reviewer = await factory.CreateHostIdentityAsync("projection.reviewer." + Guid.NewGuid().ToString("N"), [WorkflowPermissions.TodosRead, WorkflowPermissions.TodosApprove, WorkflowPermissions.TodosSign, "tenancy.tenants.switch"]);
+        var delegated = await factory.CreateHostIdentityAsync("projection.delegated." + Guid.NewGuid().ToString("N"), [WorkflowPermissions.TodosRead]);
         using var ownerClient = factory.CreateClientForHost("localhost"); ownerClient.DefaultRequestHeaders.Authorization = new("Bearer", owner.AccessToken);
         using var reviewerClient = factory.CreateClientForHost("localhost"); reviewerClient.DefaultRequestHeaders.Authorization = new("Bearer", reviewer.AccessToken);
         await using DbConnection db = provider == DatabaseProvider.SqlServer ? new SqlConnection(connection) : new MySqlConnection(Migration114To126RecoveryTestSupport.MySqlQueryConnectionString(connection));
-        await VerifyScopeAsync(factory, db, ownerClient, reviewerClient, owner.UserId, reviewer.UserId, "host", fault);
+        await VerifyScopeAsync(factory, db, ownerClient, reviewerClient, owner.UserId, reviewer.UserId, delegated.UserId, "host", fault);
         using var probe = factory.CreateClientForHost("acme.localhost"); var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(probe);
-        foreach (var user in new[] { owner.UserId, reviewer.UserId })
+        foreach (var user in new[] { owner.UserId, reviewer.UserId, delegated.UserId })
         {
             var hostRole = await db.ExecuteScalarAsync<Guid>("SELECT RoleId FROM fn_identity_user_role WHERE UserId=@user", new { user });
             var role = Guid.CreateVersion7();
@@ -62,10 +63,10 @@ public sealed class WorkflowSubprocessProjectionApiTests
         var reviewerToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(reviewerClient, reviewer.AccessToken, tenant.Id);
         using var tenantOwner = factory.CreateClientForHost("localhost"); tenantOwner.DefaultRequestHeaders.Authorization = new("Bearer", ownerToken);
         using var tenantReviewer = factory.CreateClientForHost("localhost"); tenantReviewer.DefaultRequestHeaders.Authorization = new("Bearer", reviewerToken);
-        await VerifyScopeAsync(factory, db, tenantOwner, tenantReviewer, owner.UserId, reviewer.UserId, $"tenant:{tenant.Id:N}", fault);
+        await VerifyScopeAsync(factory, db, tenantOwner, tenantReviewer, owner.UserId, reviewer.UserId, delegated.UserId, $"tenant:{tenant.Id:N}", fault);
     }
 
-    private static async Task VerifyScopeAsync(FullNetApiFactory factory, DbConnection db, HttpClient owner, HttpClient reviewer, Guid ownerId, Guid reviewerId, string scopeKey, LinkFault fault)
+    private static async Task VerifyScopeAsync(FullNetApiFactory factory, DbConnection db, HttpClient owner, HttpClient reviewer, Guid ownerId, Guid reviewerId, Guid delegatedId, string scopeKey, LinkFault fault)
     {
         object Node(string key, string kind, object config) => new { nodeKey = key, nodeTypeKey = kind, nodeSchemaVersion = 1, config };
         object File(string key) => new { fieldKey = key, fieldTypeKey = "attachment", required = false, constraints = new { maxCount = 2, maxSizeBytes = 1024, allowedExtensions = new[] { "png" } } };
@@ -83,10 +84,11 @@ public sealed class WorkflowSubprocessProjectionApiTests
             nextNodeKeys = new[] { "end" }, signRequired = true, fieldPolicies = new { inputDocs = "readOnly", inputRows = "readOnly", outputDocs = "editable", outputRows = "editable" },
             assigneePolicy = new { sources = new[] { new { resolverKindKey = "specified_users", userIds = new[] { reviewerId } } } } }), Node("end", "end", new { })]);
         var parentForm = await Form([File("sourceDocs"), File("targetDocs"), Table("sourceRows"), Table("targetRows")]);
-        async Task<Guid> Publish(bool multi)
+        async Task<Guid> Publish(bool multi, bool delegateStarter = false)
         {
             var config = new Dictionary<string, object> { ["nextNodeKeys"] = new[] { "end" }, ["fieldPolicies"] = new { sourceDocs = "readOnly", sourceRows = "readOnly", targetDocs = "editable", targetRows = "editable" },
                 ["subprocessPolicy"] = new { definitionVersionId = child, inputFields = new { inputDocs = "sourceDocs", inputRows = "sourceRows" }, outputFields = new { targetDocs = "outputDocs", targetRows = "outputRows" } } };
+            if (delegateStarter) config["starterPolicy"] = new { source = new { kindKey = "specified_user", userId = delegatedId } };
             if (multi) config["multiInstancePolicy"] = new { modeKey = "parallel", source = new { kindKey = "fixed_count", count = 2 }, requiredPercentage = 100, emptyModeKey = "reject", outputReducers = new { targetDocs = "append", targetRows = "append" } };
             return await PublishNodesAsync(owner, parentForm, [Node("start", "start", new { nextNodeKeys = new[] { "review" } }), Node("review", "human.approval", new {
                 nextNodeKeys = new[] { "children" }, signRequired = true, fieldPolicies = new { sourceDocs = "editable", sourceRows = "editable" },
@@ -133,6 +135,33 @@ public sealed class WorkflowSubprocessProjectionApiTests
         Assert.AreEqual(outputFile, result.GetProperty("targetDocs")[0].GetGuid()); Assert.AreEqual(7, result.GetProperty("targetRows")[0].GetProperty("amount").GetInt32());
         Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_form_submission_attachment WHERE InstanceId=@id AND FieldKey='targetDocs' AND FileId=@file AND TenantScopeKey=@scopeKey", new { id = success.Instance, file = outputFile, scopeKey }));
         if (scopeKey != "host") Assert.AreEqual(reviewerId, await db.ExecuteScalarAsync<Guid>("SELECT OwnerResourceId FROM fn_workflow_form_submission_attachment WHERE InstanceId=@id AND FieldKey='targetDocs'", new { id = success.Instance }));
+
+        var delegated = await Start(await Publish(false, delegateStarter: true));
+        await Until(async () => await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_subprocess_item WHERE InstanceId=@id AND ChildInstanceId IS NOT NULL", new { id = delegated.Instance }) == 1, "不同委托身份的文件子根没有启动");
+        var delegatedChild = await db.ExecuteScalarAsync<Guid>("SELECT ChildInstanceId FROM fn_workflow_subprocess_item WHERE InstanceId=@id", new { id = delegated.Instance });
+        Assert.AreNotEqual(ownerId, delegatedId); Assert.AreNotEqual(reviewerId, delegatedId);
+        Assert.AreEqual(delegatedId, await db.ExecuteScalarAsync<Guid>("SELECT StartedById FROM fn_workflow_instance WHERE Id=@id", new { id = delegatedChild }));
+        var delegatedValues = JsonSerializer.Deserialize<JsonElement>((await db.ExecuteScalarAsync<string>("SELECT SubmissionJson FROM fn_workflow_form_submission WHERE InstanceId=@id", new { id = delegatedChild }))!);
+        Assert.AreEqual(delegated.File, delegatedValues.GetProperty("inputDocs")[0].GetGuid());
+        if (scopeKey == "host")
+        {
+            Assert.IsNull(await db.ExecuteScalarAsync<Guid?>("SELECT OwnerResourceId FROM fn_workflow_form_submission_attachment WHERE InstanceId=@id AND FieldKey='inputDocs'", new { id = delegatedChild }));
+            Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("""
+                SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE ConsumerModule='workflow' AND State='active' AND FileId=@file
+                    AND ConsumerReferenceId=(SELECT ClaimReferenceId FROM fn_workflow_form_submission_attachment WHERE InstanceId=@id AND FieldKey='inputDocs')
+                """, new { id = delegatedChild, file = delegated.File }));
+        }
+        else
+        {
+            Assert.AreEqual(reviewerId, await db.ExecuteScalarAsync<Guid>("SELECT OwnerResourceId FROM fn_workflow_form_submission_attachment WHERE InstanceId=@id AND FieldKey='inputDocs'", new { id = delegatedChild }));
+            Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE FileId=@file", new { file = delegated.File }));
+        }
+        var delegatedOutput = await Upload(await Todo(delegatedChild));
+        await Approve(delegatedChild, delegatedOutput, new { outputDocs = new[] { delegatedOutput }, outputRows = new[] { new { label = "delegated", amount = 9 } } });
+        await Until(async () => await db.ExecuteScalarAsync<string>("SELECT StatusKey FROM fn_workflow_instance WHERE Id=@id", new { id = delegated.Instance }) == "completed", "委托身份结果没有回到原父根");
+        var delegatedResult = JsonSerializer.Deserialize<JsonElement>((await db.ExecuteScalarAsync<string>("SELECT SubmissionJson FROM fn_workflow_form_submission WHERE InstanceId=@id", new { id = delegated.Instance }))!);
+        Assert.AreEqual(delegatedOutput, delegatedResult.GetProperty("targetDocs")[0].GetGuid());
+        Assert.AreEqual(9, delegatedResult.GetProperty("targetRows")[0].GetProperty("amount").GetInt32());
 
         var multiple = await Start(await Publish(true));
         await Until(async () => await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_subprocess_item WHERE InstanceId=@id AND ChildInstanceId IS NOT NULL", new { id = multiple.Instance }) == 2, "多项文件子根未启动");

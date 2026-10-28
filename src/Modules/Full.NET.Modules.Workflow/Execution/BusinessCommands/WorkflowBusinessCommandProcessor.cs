@@ -97,7 +97,7 @@ internal sealed class WorkflowBusinessCommandProcessor(IQueryExecutor query, ICo
                 ("TenantScopeKey", row.TenantScopeKey), ("Revision", row.Revision), ("Now", clock.UtcNow)), token).ConfigureAwait(false) != 1) return Invalid();
         var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-        await scheduler.EnqueueAsync(instance, row.ContinuationNodeKey, snapshot.Values, snapshot.FormRevision, sequence, null, null, clock.UtcNow, token).ConfigureAwait(false);
+        await scheduler.EnqueueAsync(instance, await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, instance.TenantScopeKey, row.Id, token).ConfigureAwait(false) ?? Guid.Empty, row.ContinuationNodeKey, snapshot.Values, snapshot.FormRevision, sequence, null, null, clock.UtcNow, token, sourceStepId: row.Id).ConfigureAwait(false);
         if (await commands.ExecuteAsync(WorkflowSql.AdvanceInstanceWithRevision, WorkflowSqlParameters.Create(("Id", instance.Id),
                 ("TenantScopeKey", row.TenantScopeKey), ("Revision", instance.Revision)), token).ConfigureAwait(false) != 1) return Invalid();
         await commands.ExecuteAsync(WorkflowSql.InsertExecutionLog, WorkflowSqlParameters.Create(("Id", ids.NewId()), ("InstanceId", instance.Id),

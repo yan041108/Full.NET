@@ -67,7 +67,7 @@ internal sealed class WorkflowVoteDeadlineProcessor(IQueryExecutor query, IComma
             if (values is null || !prepared.RuntimePlan.TryResolveAfterHuman(prepared.Todo.NodeKey, values,
                 prepared.Todo.ParallelJoinNodeKey, out var transition)) return;
             var next = await assignees.PrepareAsync(transition, scope, instance.StartedById, token, values, instance.Id, prepared.Todo.NodeKey,
-                flowAdministratorUserIds: prepared.RuntimePlan.FlowAdministratorUserIds).ConfigureAwait(false);
+                flowAdministratorUserIds: prepared.RuntimePlan.FlowAdministratorUserIds, executionEpochId: await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, scope.TenantScopeKey, prepared.Todo.StepId, token).ConfigureAwait(false)).ConfigureAwait(false);
             var outcome = await transaction.ExecuteResultAsync(async inner =>
             {
                 if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,

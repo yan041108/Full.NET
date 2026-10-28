@@ -268,7 +268,9 @@ internal sealed class WorkflowInstanceRecoveryService(
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false) > 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         // 管理员恢复不能越过未知外部结果或失败屏障，须先完成原活动的显式对账。
-        if (await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowConnectorSql.CountBlocked,
+        if (await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false)>0 ||
+            await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowConnectorSql.CountBlocked,
                 Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false)>0 ||
             await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowAsyncBarrierSql.CountBlocked,
                 Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false)>0)

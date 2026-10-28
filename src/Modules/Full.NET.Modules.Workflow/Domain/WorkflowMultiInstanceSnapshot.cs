@@ -1,13 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Serialization;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
 /// <summary>来源快照记录一次捕获时间；恢复只使用快照内成员，不能再次查询并替换原分母。</summary>
-internal sealed record WorkflowMultiInstanceSnapshot(WorkflowMultiInstancePreparedSource Source, DateTimeOffset CapturedAtUtc);
+internal sealed record WorkflowMultiInstanceSnapshot(WorkflowMultiInstancePreparedSource Source, DateTimeOffset CapturedAtUtc,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkflowSubprocessPreparedStarters? Starters = null);
 
 internal static class WorkflowMultiInstanceSnapshotRules
 {
@@ -33,10 +35,16 @@ internal static class WorkflowMultiInstanceSnapshotRules
         IReadOnlyList<WorkflowSubprocessItemRecord> items, Guid starter)
     {
         if (items.Count != snapshot.Source.Items.Count || items.Select(item => item.Id).Distinct().Count() != items.Count) return false;
+        var delegated = policy.Starter is { SourceKey: not "parent" };
+        var captured = snapshot.Starters?.ByItemKey;
+        if (delegated && (captured is null || captured.Count != items.Count) || !delegated && snapshot.Starters is not null) return false;
         foreach (var seed in snapshot.Source.Items)
         {
+            var expectedStarter = starter;
+            if (policy.Starter is not null && !policy.Starter.TryResolve(starter, input, seed, out expectedStarter) ||
+                delegated && (captured is null || !captured.TryGetValue(seed.ItemKey, out var stored) || stored != expectedStarter)) return false;
             var matching = items.Where(item => item.SequenceNo == seed.SequenceNo && item.ItemKey == seed.ItemKey).ToArray();
-            if (matching is not [var item] || item.StarterUserId != starter ||
+            if (matching is not [var item] || item.StarterUserId != expectedStarter ||
                 !policy.TryCreateInput(input, child, out var expected, seed) || item.InputJson != expected ||
                 item.InputHash != WorkflowSubprocessBindings.Hash(item.InputJson)) return false;
         }

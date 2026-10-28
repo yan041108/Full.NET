@@ -7,10 +7,10 @@ internal static class WorkflowGroupApprovalSql
 {
     public static readonly SqlStatement InsertStep = new("workflow.approval_group.insert_step", """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc, AttemptCount, Revision,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc, AttemptCount, Revision,
              ExecutionSequence, ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount, ApprovalGroupCount,
              ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
-        VALUES (@Id, @InstanceId, @NodeKey, 'human.group_approval', 'active', NULL, NULL, 0, 1,
+        VALUES (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.group_approval', 'active', NULL, NULL, 0, 1,
             @ExecutionSequence, 'group', @RequiredApprovalCount, @ApprovalSlotCount, @ApprovalGroupCount,
             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """, SqlDataScope.Global);

@@ -19,6 +19,43 @@ internal sealed class WorkflowRuntimePlan
         listeners = [];
         return nodes.TryGetValue(nodeKey, out var node) && WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out listeners);
     }
+
+    /// <summary>退回的历史目标仍须属于本根固定版本，不能用快照声明任意活动种类。</summary>
+    public bool TryGetReturnNode(string nodeKey, out WorkflowNodeDraft? node)
+    {
+        node = null;
+        if (!nodes.TryGetValue(nodeKey, out var candidate) || candidate.NodeTypeKey is not ("human.approval" or "human.group_approval" or "human.task")) return false;
+        node = candidate;
+        return true;
+    }
+
+    /// <summary>将实际退回来源绑定结构区域；越出当前分支时必须整体重开对应外层区域。</summary>
+    public bool TryDescribeReturnRegion(string entry, string source, out WorkflowStructuredRegion? region, out bool closesWholeRegion)
+    {
+        region = null; closesWholeRegion = false;
+        return WorkflowStructuredRegionPlan.TryCreate(new(1, nodes.Values.ToArray()), outgoing, out var structure) &&
+            structure!.TryDescribeReturnRegion(entry, source, out region, out closesWholeRegion);
+    }
+
+    /// <summary>恢复轮次时重新验证原入口及出口，不从已变化的历史状态推测边界。</summary>
+    public bool TryDescribeFixedReturnRegion(string entry, string exit, out WorkflowStructuredRegion? region)
+    {
+        region = null;
+        return WorkflowStructuredRegionPlan.TryCreate(new(1, nodes.Values.ToArray()), outgoing, out var structure) &&
+            structure!.TryDescribeRegion(entry, exit, out region);
+    }
+
+    /// <summary>退回正常退出只使用固定定义的唯一后继，不接受请求指定目的节点。</summary>
+    public bool TryGetNormalSuccessor(string nodeKey, out string? successor)
+    {
+        successor = null;
+        if (!outgoing.TryGetValue(nodeKey, out var next) || next is not [var key]) return false;
+        successor = key;
+        return true;
+    }
+
+    /// <summary>未执行的终点也由固定定义识别，不能用历史是否已有End步骤决定出口。</summary>
+    public bool IsTerminalNode(string nodeKey) => nodes.TryGetValue(nodeKey, out var node) && node.NodeTypeKey == "end";
     private static readonly IReadOnlyDictionary<string, JsonElement> EmptyValues =
         new Dictionary<string, JsonElement>(StringComparer.Ordinal);
 
@@ -32,6 +69,7 @@ internal sealed class WorkflowRuntimePlan
     private readonly string startNextNodeKey;
     private readonly WorkflowFormSchema? formSchema;
     private readonly IReadOnlyDictionary<string, WorkflowAsyncWaitDefinition> asynchronousWaits;
+    public WorkflowDynamicRoutePlan DynamicRoutes { get; }
     public IReadOnlyList<Guid> FlowAdministratorUserIds { get; }
     public bool HasBusinessCommands { get; }
     public bool HasSubprocess { get; }
@@ -55,7 +93,7 @@ internal sealed class WorkflowRuntimePlan
         IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins,
         string startNextNodeKey,
         IReadOnlyList<Guid> flowAdministratorUserIds, WorkflowFormSchema? formSchema,
-        IReadOnlyDictionary<string, WorkflowAsyncWaitDefinition> asynchronousWaits)
+        IReadOnlyDictionary<string, WorkflowAsyncWaitDefinition> asynchronousWaits, WorkflowDynamicRoutePlan dynamicRoutes)
     {
         this.nodes = nodes;
         this.outgoing = outgoing;
@@ -67,6 +105,7 @@ internal sealed class WorkflowRuntimePlan
         this.startNextNodeKey = startNextNodeKey;
         this.formSchema = formSchema;
         this.asynchronousWaits = asynchronousWaits;
+        DynamicRoutes = dynamicRoutes;
         FlowAdministratorUserIds = flowAdministratorUserIds;
         HasBusinessCommands = nodes.Values.Any(node => node.NodeTypeKey == "business.command");
         HasSubprocess = nodes.Values.Any(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType);
@@ -132,7 +171,8 @@ internal sealed class WorkflowRuntimePlan
             return false;
         }
 
-        if (!WorkflowDynamicAssigneeDefinitionRules.ValidateGraph(draft, outgoing, start.NodeKey) ||
+        if (!WorkflowSubprocessTimeoutPolicy.ValidateTargets(nodes, outgoing) ||
+            !WorkflowDynamicAssigneeDefinitionRules.ValidateGraph(draft, outgoing, start.NodeKey) ||
             formSchema is not null && !WorkflowDynamicAssigneeDefinitionRules.ValidateFields(draft, formSchema)) return false;
 
         if (!ValidateParallelPairs(parallelForks, parallelJoins) ||
@@ -161,6 +201,9 @@ internal sealed class WorkflowRuntimePlan
         }
 
         if (!WorkflowAsyncDefinitionPlan.TryCompile(draft, outgoing, out var asynchronousWaits)) return false;
+        var dynamicRoutes = new WorkflowDynamicRoutePlan(new Dictionary<string, WorkflowCompiledRoute>(StringComparer.Ordinal));
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowDynamicRoutePolicy.NodeType) &&
+            !WorkflowDynamicRoutePlan.TryCompile(draft, outgoing, formSchema, out dynamicRoutes)) return false;
         plan = new WorkflowRuntimePlan(
             nodes,
             outgoing,
@@ -169,7 +212,7 @@ internal sealed class WorkflowRuntimePlan
             parallelJoins,
             inclusiveForks,
             inclusiveJoins,
-            startNextNodeKey!, flowAdministrators, formSchema, asynchronousWaits);
+            startNextNodeKey!, flowAdministrators, formSchema, asynchronousWaits, dynamicRoutes!);
         return true;
     }
 
@@ -352,12 +395,17 @@ internal sealed class WorkflowRuntimePlan
             acknowledgedAwaitNodeKey = null;
             switch (node.NodeTypeKey)
             {
+                case WorkflowDynamicRoutePolicy.NodeType:
+                    if (!DynamicRoutes.Routes.TryGetValue(node.NodeKey, out var route)) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowRouteWaitPlan(node.NodeKey, route.NormalNextNodeKey, node.Config.Clone()));
+                    return true;
                 case WorkflowSubprocessPolicy.NodeType:
                     if (formSchema is null || !WorkflowSubprocessPolicy.TryRead(node.Config, formSchema, out var childPolicy) ||
                         !node.Config.TryGetProperty("boundSubprocess", out var childBoundJson) || !WorkflowBoundSubprocess.TryRead(childBoundJson, childPolicy.DefinitionVersionId, out var childBound) ||
-                        outgoing[node.NodeKey] is not [var childNext]) return false;
+                        !TryReadSingleNext(node.Config, out var childNext)) return false;
                     transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
-                        automaticWait: new WorkflowSubprocessWaitPlan(node.NodeKey, childNext, childPolicy, childBound, formSchema, node.Config.Clone()));
+                        automaticWait: new WorkflowSubprocessWaitPlan(node.NodeKey, childNext!, childPolicy, childBound, formSchema, node.Config.Clone()));
                     return true;
                 case "business.command":
                     if (!WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out var businessPolicy) || businessPolicy is null ||
@@ -422,7 +470,7 @@ internal sealed class WorkflowRuntimePlan
                         node.NodeKey, false, automaticNodes, timeoutPolicy, approvalPolicy, assigneePolicy);
                     return true;
                 case "end":
-                    transition = new WorkflowRuntimeTransition(null, true, automaticNodes, null);
+                    transition = new WorkflowRuntimeTransition(null, true, automaticNodes, null, terminalNodeKey: node.NodeKey);
                     return true;
                 case "notify.cc":
                     if (!WorkflowCcNodeConfiguration.TryReadPolicy(node.Config, out var recipientPolicy) ||
@@ -649,7 +697,7 @@ internal sealed class WorkflowRuntimePlan
             transition.AssigneePolicy,
             ParallelFork: transition.ParallelFork,
             TaskPolicy: transition.TaskPolicy, VotePolicy: transition.VotePolicy, ClaimPolicy: transition.ClaimPolicy,
-            AutomaticWait: transition.AutomaticWait);
+            AutomaticWait: transition.AutomaticWait, TerminalNodeKey: transition.TerminalNodeKey);
         return true;
     }
 
@@ -719,9 +767,12 @@ internal sealed class WorkflowRuntimePlan
     {
         switch (node.NodeTypeKey)
         {
+            case WorkflowDynamicRoutePolicy.NodeType:
+                if (!TryReadSingleNext(node.Config, out var routeNext) || !WorkflowDynamicRoutePolicy.TryRead(node.Config, formSchema, out _)) return false;
+                outgoing.Add(node.NodeKey, [routeNext!]); return true;
             case WorkflowSubprocessPolicy.NodeType:
-                if (!TryReadSingleNext(node.Config, out var childNext) || !WorkflowSubprocessPolicy.TryRead(node.Config, formSchema, out _)) return false;
-                outgoing.Add(node.NodeKey, [childNext!]); return true;
+                if (!TryReadSingleNext(node.Config, out var childNext) || !WorkflowSubprocessPolicy.TryRead(node.Config, formSchema, out var childPolicy)) return false;
+                outgoing.Add(node.NodeKey, childPolicy.Timeout?.NextNodeKey is { } timeoutNext ? new[] { childNext!, timeoutNext }.Distinct(StringComparer.Ordinal).ToArray() : [childNext!]); return true;
             case "business.command":
                 if (!TryReadSingleNext(node.Config, out var businessNext) || !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) return false;
                 outgoing.Add(node.NodeKey, [businessNext!]); return true;
@@ -907,11 +958,11 @@ internal sealed class WorkflowRuntimePlan
     }
 
     /// <summary>成功路径可能自动通过或跳过的审批不能满足人审屏障；投票零有效成员只挂起或拒绝。</summary>
-    private static bool GuaranteesHumanDecision(WorkflowNodeDraft node)
+    internal static bool GuaranteesHumanDecision(WorkflowNodeDraft node)
     {
         if (node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType)
             return WorkflowSubprocessPolicy.TryRead(node.Config, null, out var child) &&
-                child.Multi?.EmptyModeKey != "skip" && node.Config.TryGetProperty("boundSubprocess", out var data) && WorkflowBoundSubprocess.TryRead(data, child.DefinitionVersionId, out var binding) && binding.HasHumanApproval;
+                child.Timeout is null && child.Multi?.EmptyModeKey != "skip" && node.Config.TryGetProperty("boundSubprocess", out var data) && WorkflowBoundSubprocess.TryRead(data, child.DefinitionVersionId, out var binding) && binding.HasHumanApproval;
         if (!WorkflowHumanActivityKinds.IsHumanDecision(node.NodeTypeKey)) return false;
         if (node.NodeTypeKey == WorkflowHumanActivityKinds.Vote) return true;
         if (node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval)
@@ -998,6 +1049,7 @@ internal readonly record struct WorkflowRuntimeTransition
     /// <param name="assigneePolicy">下一人工审批节点发布时固化的办理人解析策略。</param>
     /// <param name="parallelFork">并行分叉计划；存在时表示需要同时激活多个分支。</param>
     /// <param name="joinArrival">并行分支到达汇合点计划；存在时表示当前分支需要等待其他分支。</param>
+    /// <param name="terminalNodeKey">本条实际路径选中的终点身份；非结束迁移为空。</param>
     public WorkflowRuntimeTransition(
         string? nextHumanNodeKey,
         bool completesInstance,
@@ -1010,7 +1062,8 @@ internal readonly record struct WorkflowRuntimeTransition
         WorkflowTaskPolicy? taskPolicy = null,
         WorkflowVotePolicy? votePolicy = null,
         WorkflowClaimPolicy? claimPolicy = null,
-        WorkflowAutomaticWaitPlan? automaticWait = null)
+        WorkflowAutomaticWaitPlan? automaticWait = null,
+        string? terminalNodeKey = null)
     {
         NextHumanNodeKey = nextHumanNodeKey;
         CompletesInstance = completesInstance;
@@ -1024,6 +1077,7 @@ internal readonly record struct WorkflowRuntimeTransition
         VotePolicy = votePolicy;
         ClaimPolicy = claimPolicy;
         AutomaticWait = automaticWait;
+        TerminalNodeKey = terminalNodeKey;
     }
 
     /// <summary>获取下一人工审批节点；流程结束时为空。</summary>
@@ -1031,6 +1085,9 @@ internal readonly record struct WorkflowRuntimeTransition
 
     /// <summary>获取迁移完成后是否结束实例。</summary>
     public bool CompletesInstance { get; }
+
+    /// <summary>由固定定义选中的真实终点；不能只凭布尔结束标记猜测多个终点中的身份。</summary>
+    public string? TerminalNodeKey { get; }
 
     /// <summary>获取到达下一等待点前按顺序执行的自动节点。</summary>
     public IReadOnlyList<WorkflowAutomaticRuntimeNode> AutomaticNodes { get; }

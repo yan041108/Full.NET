@@ -16,6 +16,10 @@ declare module '*workflow-vue3/src/stores/index.js' {
     triggerConfig1: unknown;
     subProcessDrawer: boolean;
     subProcessConfig1: unknown;
+    dynamicRouteDrawer: boolean;
+    dynamicRouteConfig1: unknown;
+    setDynamicRoute: (visible: boolean) => void;
+    setDynamicRouteConfig: (value: unknown) => void;
     setSubProcess: (visible: boolean) => void;
     setSubProcessConfig: (value: unknown) => void;
     setTrigger: (visible: boolean) => void;

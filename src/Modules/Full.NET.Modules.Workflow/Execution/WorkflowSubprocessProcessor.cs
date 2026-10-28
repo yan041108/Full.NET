@@ -21,7 +21,8 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
     ICurrentTenantContextWriter tenantWriter, IActiveTenantContextResolver tenants, IOptions<DatabaseOptions> database,
     IOptions<WorkflowRecoveryWorkerOptions> options, IClock clock, IIdGenerator ids, WorkflowSubprocessScanCursor cursor,
     WorkflowInstanceManagementService instances, WorkflowAutomaticOutputCoordinator outputs, WorkflowActivityScheduler scheduler,
-    IHostUserBatchSelectionDirectory hostUsers, ITenantMemberSelectionDirectory tenantMembers, WorkflowMultiInstanceSourcePreparation sourcePreparation)
+    IHostUserBatchSelectionDirectory hostUsers, ITenantMemberSelectionDirectory tenantMembers, WorkflowMultiInstanceSourcePreparation sourcePreparation,
+    WorkflowSubprocessStarterPreparation starterPreparation)
 {
     public async Task<int> ProcessPendingAsync(CancellationToken token)
     {
@@ -49,7 +50,8 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
         if (call is null || call.StatusKey is "applied" or "cancelled") return false;
         var context = await LoadAsync(parent, call, token).ConfigureAwait(false);
         if (context is null) return await FaultAsync(call, "workflow.subprocess.binding_invalid", token).ConfigureAwait(false);
-        if (context.Policy.Multi is not null) return await ProcessMultiAsync(context, token).ConfigureAwait(false);
+        if (await ProcessTimeoutAsync(context, token).ConfigureAwait(false) is { } timed) return timed;
+        if (context.Policy.ExecutionSet is not null) return await ProcessMultiAsync(context, token).ConfigureAwait(false);
         var item = context.Item!;
         var stepRevision = await query.QuerySingleOrDefaultAsync<long?>(WorkflowSubprocessSql.ActiveStepRevision, P(call, ("Id", call.Id)), token).ConfigureAwait(false);
         if (parent.StatusKey is "cancelled" or "rejected" || stepRevision is null)
@@ -136,7 +138,7 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
                 bound.FormVersionId != call.ChildFormVersionId || bound.ActivityBudget != call.ChildActivityBudget ||
                 bound.DefinitionHash != call.DefinitionHash || bound.FormHash != call.FormHash) return null;
             var set = await ReadSetAsync(call, token).ConfigureAwait(false);
-            if (policy.Multi is null)
+            if (policy.ExecutionSet is null)
             {
                 if (set is not null || items.Count != 1 || items[0].SequenceNo != 1 || items[0].ItemKey != "single" || items[0].StarterUserId != parent.StartedById ||
                     WorkflowSubprocessBindings.Hash(items[0].InputJson) != items[0].InputHash ||
@@ -144,7 +146,7 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
             }
             else if (set is null || set.StatusKey == "preparing" && items.Count != 0 || set.StatusKey != "preparing" &&
                 !(set.StatusKey == "faulted" && set.SourceJson is null && items.Count == 0) &&
-                (!WorkflowMultiInstanceSnapshotRules.TryRead(set, policy.Multi, original, out var snapshot) ||
+                (!WorkflowMultiInstanceSnapshotRules.TryRead(set, policy.ExecutionSet, original, out var snapshot) ||
                  !WorkflowMultiInstanceSnapshotRules.MatchesItems(policy, childSchema, original, snapshot, items, parent.StartedById))) return null;
             return new(parent, call, items.FirstOrDefault(), policy, schema, childSchema, original, items, set);
         }
@@ -166,6 +168,7 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
             var (root, call) = state.Value; var item = await ReadItemAsync(call, context.Item!.Id, inner).ConfigureAwait(false);
             if (item is null || item.ChildInstanceId != context.Item!.ChildInstanceId || call.StatusKey is "applied" or "cancelled") return Result<bool>.Success(false);
             var failedRoot = root.StatusKey is "cancelled" or "rejected"; var hash = json is null ? null : WorkflowSubprocessBindings.Hash(json);
+            if (!failedRoot && await TimeoutOwnsClosingAsync(call, inner).ConfigureAwait(false)) return Result<bool>.Success(false);
             if (closing && !failedRoot && await query.QuerySingleOrDefaultAsync<long?>(WorkflowSubprocessSql.ActiveStepRevision, P(call, ("Id", call.Id)), inner).ConfigureAwait(false) is not null) return Result<bool>.Success(false);
             if (item.StatusKey is "succeeded" or "rejected" or "cancelled") return item.StatusKey == status && item.ResultHash == hash ? Result<bool>.Success(false) : Invalid();
             if (await commands.ExecuteAsync(WorkflowSubprocessSql.RecordItemResult, P(call, ("Id", item.Id), ("CallId", call.Id), ("Revision", item.Revision),
@@ -187,7 +190,8 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
         try { patch = JsonSerializer.Deserialize(item.ResultJson, WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement); }
         catch (JsonException) { patch = null; }
         if (patch is null || !patch.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(context.Policy.OutputFields.Keys)) return await FaultAsync(call, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
-        return await ApplyPatchAsync(context, patch, null, token).ConfigureAwait(false);
+        if (!context.Policy.TryAddStarterOutput(context.ParentSchema, patch, context.Items, out var completedPatch)) return await FaultAsync(call, "workflow.subprocess.output_invalid", token).ConfigureAwait(false);
+        return await ApplyPatchAsync(context, completedPatch, null, token).ConfigureAwait(false);
     }
 
     private async Task<bool> ApplyPatchAsync(SubprocessContext context, IReadOnlyDictionary<string, JsonElement> patch,
@@ -218,6 +222,11 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
                 var state = await LockAsync(call, inner).ConfigureAwait(false); if (state is null) return Invalid();
                 var (root, current) = state.Value;
                 if (root.StatusKey != "active" || current.StatusKey != "result_ready" || current.CancellationRequested || current.Revision != call.Revision) return Result<bool>.Success(false);
+                if (context.Policy.Timeout is not null)
+                {
+                    var deadline = await ReadTimeoutAsync(current, inner).ConfigureAwait(false);
+                    if (deadline?.StatusKey != "waiting" || !await WorkflowSubprocessTimeoutLifecycle.UpdateAsync(deadline with { StatusKey = "applied" }, commands, inner).ConfigureAwait(false)) return Invalid();
+                }
                 if (expectedSet is not null)
                 {
                     var currentSet = await ReadSetAsync(current, inner).ConfigureAwait(false);
@@ -230,8 +239,8 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
                         ("Revision", revision.Value), ("StatusKey", "completed"), ("CompletedAtUtc", clock.UtcNow)), inner).ConfigureAwait(false) != 1 ||
                     !await SetStatusAsync(current, "applied", false, null, inner).ConfigureAwait(false)) return Invalid();
                 var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence, WorkflowSqlParameters.Create(("InstanceId", root.Id)), inner).ConfigureAwait(false);
-                await scheduler.EnqueueAsync(root, current.ContinuationNodeKey, nextValues, snapshot.FormRevision + (output.Matched ? 1 : 0), sequence,
-                    current.ParallelJoinId, current.ParallelBranchKey, clock.UtcNow, inner).ConfigureAwait(false);
+                await scheduler.EnqueueAsync(root, await WorkflowExecutionEpochScope.ReadForStepAsync(query, root.Id, root.TenantScopeKey, current.Id, inner).ConfigureAwait(false) ?? Guid.Empty, current.ContinuationNodeKey, nextValues, snapshot.FormRevision + (output.Matched ? 1 : 0), sequence,
+                    current.ParallelJoinId, current.ParallelBranchKey, clock.UtcNow, inner, sourceStepId: current.Id).ConfigureAwait(false);
                 if (await commands.ExecuteAsync(WorkflowSql.AdvanceInstanceWithRevision, WorkflowSqlParameters.Create(("Id", root.Id), ("TenantScopeKey", current.TenantScopeKey), ("Revision", root.Revision)), inner).ConfigureAwait(false) != 1) return Invalid();
                 await commands.ExecuteAsync(WorkflowSql.InsertDomainAudit, WorkflowSqlParameters.Create(("Id", ids.NewId()), ("TenantId", root.TenantId), ("ScopeKey", root.ScopeKey),
                     ("InstanceId", root.Id), ("OperationKey", "activity.execute"), ("ActorUserId", null), ("ResourceTypeKey", "step"), ("ResourceId", current.Id),
@@ -263,6 +272,7 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
             var state = await LockAsync(candidate, inner).ConfigureAwait(false); if (state is null) return Invalid();
             var (root, call) = state.Value;
             if (call.StatusKey is "applied" or "cancelled") return Result<bool>.Success(false);
+            if (await TimeoutOwnsClosingAsync(call, inner).ConfigureAwait(false)) return Result<bool>.Success(false);
             if (call.StatusKey == "faulted" && call.ErrorCode == code && root.StatusKey != "active") return Result<bool>.Success(false);
             if (!await SetStatusAsync(call, "faulted", call.CancellationRequested, code, inner).ConfigureAwait(false) ||
                 root.StatusKey == "active" && !await SuspendAsync(root, inner).ConfigureAwait(false)) return Invalid();

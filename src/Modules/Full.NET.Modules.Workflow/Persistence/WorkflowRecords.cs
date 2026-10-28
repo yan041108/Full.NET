@@ -195,7 +195,12 @@ internal sealed record WorkflowParallelJoinRecord(
     string StatusKey,
     long Revision,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? CompletedAtUtc);
+    DateTimeOffset? CompletedAtUtc,
+    Guid ExecutionEpochId, Guid? ForkStepId = null)
+{
+    // 每次分叉独立创建本记录；主键就是该次分叉激活身份，不能按节点名复用。
+    public Guid ForkActivationId => Id;
+}
 
 /// <summary>实例详情页使用的并行或包容分支状态投影。</summary>
 internal sealed record WorkflowParallelJoinStatusRecord(

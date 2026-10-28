@@ -6,10 +6,10 @@ namespace Full.NET.Modules.Workflow.Persistence;
 internal static class WorkflowClaimSql
 {
     public static readonly SqlStatement InsertStep = new("workflow.claim.insert_step", """
-        INSERT INTO fn_workflow_step (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+        INSERT INTO fn_workflow_step (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
             DueAtUtc, AttemptCount, Revision, ExecutionSequence, ParallelJoinId, ParallelBranchKey,
             StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
-        VALUES (@Id, @InstanceId, @NodeKey, 'human.claim', 'active', NULL,
+        VALUES (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.claim', 'active', NULL,
             @DueAtUtc, 0, 1, @ExecutionSequence, @ParallelJoinId, @ParallelBranchKey, @Now, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertPool = new("workflow.claim.insert_pool", """

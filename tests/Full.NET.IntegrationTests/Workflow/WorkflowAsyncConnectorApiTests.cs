@@ -59,15 +59,17 @@ public sealed class WorkflowAsyncConnectorApiTests
             WorkflowPermissions.InstancesCancel,WorkflowPermissions.ConnectorCallsRead]);
         client.DefaultRequestHeaders.Authorization=new("Bearer",identity.AccessToken);
 
-        async Task<Guid> Version(HttpClient owner,bool independent,bool mapped=true)
+        async Task<Guid> Version(HttpClient owner,bool independent,bool mapped=true,bool chain=false)
         {
             var form=await PostAsync(owner,"/api/v1/workflow/forms",new{formKey="async."+Guid.NewGuid().ToString("N"),draft=new{
                 schemaVersion=1,adapterVersion=1,sections=new[]{new{sectionKey="main",fields=new object[]{
                     new{fieldKey="title",fieldTypeKey="text",required=true,constraints=new{}},new{fieldKey="count",fieldTypeKey="integer",required=false,constraints=new{}}}}}}},HttpStatusCode.Created);
             var formVersion=(await PostAsync(owner,$"/api/v1/workflow/forms/{form.GetProperty("id").GetGuid():D}/publish",new{expectedRevision=1})).GetProperty("id").GetGuid();
             var nodes=new List<object>{Node("start","start",new{nextNodeKeys=new[]{"call"}}),
-                Node("call","integration.async_trigger",new{nextNodeKeys=new[]{independent?"modify":"end"},fieldPolicies=new{title="readOnly",count="editable"},
+                Node("call","integration.async_trigger",new{nextNodeKeys=new[]{chain?"second":independent?"modify":"end"},fieldPolicies=new{title="readOnly",count="editable"},
                     connectorPolicy=new{connectorKey="async.check",connectorVersion=1,inputFields=new{subject="title"},outputFields=mapped?new Dictionary<string,string>{{"count","score"}}:new Dictionary<string,string>()}})};
+            if(chain) nodes.Add(Node("second","integration.async_trigger",new{nextNodeKeys=new[]{"end"},fieldPolicies=new{title="readOnly",count="editable"},
+                connectorPolicy=new{connectorKey="async.check",connectorVersion=1,inputFields=new{subject="title"},outputFields=new Dictionary<string,string>{{"count","score"}}}},["call"]));
             if(independent)nodes.AddRange([
                 Node("modify","data.modify",new{nextNodeKeys=new[]{"consumer"},fieldPolicies=new{title="editable"},mutationPolicy=new{
                     assignments=new[]{new{fieldKey="title",value="independent"}}}}),
@@ -136,6 +138,32 @@ public sealed class WorkflowAsyncConnectorApiTests
         Assert.AreEqual(1,await Connector(factory)); Assert.AreEqual(1,await Barrier(factory)); await DrainWork();
         Assert.AreEqual("completed",await Status(tenantId));
         Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_connector_call WHERE InstanceId=@tenantId AND TenantScopeKey=@scope AND StatusKey='applied'",new{tenantId,scope="tenant:"+tenant.Id.ToString("N")}));
+
+        // 后一个连接器本身消费前一个异步结果，分发阶段也必须按真实来源代次复核原调用。
+        foreach(var owner in new[]{client,tenantClient})
+        {
+            var chained=await Start(owner,await Version(owner,false,chain:true)); var requests=transport.Bodies.Count;
+            for(var attempt=0;attempt<32 && await Status(chained)!="completed";attempt++)
+            {await DrainWork();await Connector(factory);await Barrier(factory);await DrainWork();clock.UtcNow=clock.UtcNow.AddSeconds(2);}
+            Assert.AreEqual("completed",await Status(chained)); Assert.AreEqual(requests+2,transport.Bodies.Count);
+            Assert.AreEqual(2,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_connector_call WHERE InstanceId=@chained AND StatusKey='applied'",new{chained}));
+            Assert.AreEqual(2,await db.ExecuteScalarAsync<int>("SELECT COUNT(DISTINCT Id) FROM fn_workflow_connector_call WHERE InstanceId=@chained",new{chained}));
+            Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_async_barrier WHERE InstanceId=@chained AND NodeKey='second' AND StatusKey='released'",new{chained}));
+            await WorkflowCausalityAssertions.CompleteRootAsync(db,chained);
+        }
+
+        foreach(var owner in new[]{client,tenantClient})
+        foreach(var missing in new[]{"SourceStepId","CauseKindKey"})
+        {
+            var missingSource=await Start(owner,await Version(owner,false));
+            Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_activity_work WHERE InstanceId=@missingSource AND StatusKey='pending' AND SourceStepId IS NOT NULL",new { missingSource }));
+            // 模拟旧记录或损坏来源；普通恢复不能把未知来源猜成根步骤。
+            await db.ExecuteAsync($"UPDATE fn_workflow_activity_work SET {missing}=NULL WHERE InstanceId=@missingSource AND StatusKey='pending'",new { missingSource });
+            await DrainWork();
+            Assert.AreEqual("suspended",await Status(missingSource));
+            Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_activity_work WHERE InstanceId=@missingSource AND StatusKey='faulted'",new { missingSource }));
+            Assert.AreEqual(1,await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_execution_log WHERE InstanceId=@missingSource AND TransitionKey='activity.causality.invalid_source' AND Summary='workflow.causality.source_missing'",new { missingSource }));
+        }
 
         var retained=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_async_barrier");
         await db.ExecuteAsync("DROP INDEX ix_fn_workflow_async_barrier_due ON fn_workflow_async_barrier");

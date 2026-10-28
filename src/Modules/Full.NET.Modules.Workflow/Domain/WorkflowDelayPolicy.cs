@@ -83,6 +83,10 @@ internal sealed record WorkflowDelayPolicy(string ModeKey, string TimeZoneKey, l
 /// <summary>自动等待与人工待办分离，等待结束后才解析发布版本的后继。</summary>
 internal abstract record WorkflowAutomaticWaitPlan(string NodeKey, string ContinuationNodeKey);
 
+/// <summary>路由先落库固定输入，由独立根事务冻结选择并建立唯一跨代次后继。</summary>
+internal sealed record WorkflowRouteWaitPlan(string NodeKey, string ContinuationNodeKey, JsonElement Configuration)
+    : WorkflowAutomaticWaitPlan(NodeKey, ContinuationNodeKey);
+
 /// <summary>子流程等待固定版本、父Schema和原配置，启动在独立短事务中完成。</summary>
 internal sealed record WorkflowSubprocessWaitPlan(string NodeKey, string ContinuationNodeKey, WorkflowSubprocessPolicy Policy,
     WorkflowBoundSubprocess Binding, WorkflowFormSchema ParentSchema, JsonElement Configuration) : WorkflowAutomaticWaitPlan(NodeKey, ContinuationNodeKey);

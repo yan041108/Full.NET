@@ -106,7 +106,7 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.fn_workflow_subprocess_call') AND name=N'ck_fn_workflow_subprocess_call_parentinputjson')
  ALTER TABLE dbo.fn_workflow_subprocess_call ADD CONSTRAINT ck_fn_workflow_subprocess_call_parentinputjson CHECK (ParentInputJson IS NULL OR ISJSON(ParentInputJson)=1);
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.fn_workflow_subprocess_call') AND name=N'ux_fn_workflow_subprocess_call_node')
+IF COL_LENGTH(N'dbo.fn_workflow_subprocess_call',N'ExecutionEpochId') IS NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.fn_workflow_subprocess_call') AND name=N'ux_fn_workflow_subprocess_call_node')
  CREATE UNIQUE INDEX ux_fn_workflow_subprocess_call_node ON dbo.fn_workflow_subprocess_call(InstanceId,NodeKey);
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.fn_workflow_subprocess_call') AND name=N'ix_fn_workflow_subprocess_call_pending')

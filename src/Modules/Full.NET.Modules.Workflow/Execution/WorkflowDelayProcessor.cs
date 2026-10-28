@@ -59,8 +59,8 @@ internal sealed class WorkflowDelayProcessor(IQueryExecutor query, ICommandExecu
                     ("StatusKey", "completed"), ("CompletedAtUtc", now)), token).ConfigureAwait(false) != 1) return Invalid();
         var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-        await scheduler.EnqueueAsync(instance, delay.ContinuationNodeKey, values, delay.InputFormRevision, sequence,
-            delay.ParallelJoinId, delay.ParallelBranchKey, now, token).ConfigureAwait(false);
+        await scheduler.EnqueueAsync(instance, await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, instance.TenantScopeKey, delay.Id, token).ConfigureAwait(false) ?? Guid.Empty, delay.ContinuationNodeKey, values, delay.InputFormRevision, sequence,
+            delay.ParallelJoinId, delay.ParallelBranchKey, now, token, sourceStepId: delay.Id).ConfigureAwait(false);
         if (await commands.ExecuteAsync(WorkflowSql.AdvanceInstanceWithRevision,
                 WorkflowSqlParameters.Create(("Id", instance.Id), ("TenantScopeKey", delay.TenantScopeKey), ("Revision", instance.Revision)), token).ConfigureAwait(false) != 1)
             return Invalid();

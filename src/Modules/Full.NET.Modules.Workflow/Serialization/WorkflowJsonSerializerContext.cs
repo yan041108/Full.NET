@@ -9,6 +9,8 @@ using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
 using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
 using Full.NET.Modules.Workflow.Features.ManageConnectorCalls;
+using Full.NET.Modules.Workflow.Features.ManageRoutes;
+using Full.NET.Modules.Workflow.Features.ManageCollaborationGrants;
 using Full.NET.Modules.Workflow.Features.ManageWorkCalendars;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Workflow.Contracts;
@@ -17,11 +19,22 @@ namespace Full.NET.Modules.Workflow.Serialization;
 
 /// <summary>为工作流静态闭包类型提供 Native AOT JSON 元数据。</summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(ProposeWorkflowCollaborationGrantRequest))]
+[JsonSerializable(typeof(AcceptWorkflowCollaborationGrantRequest))]
+[JsonSerializable(typeof(RevokeWorkflowCollaborationGrantRequest))]
+[JsonSerializable(typeof(WorkflowCollaborationGrantResponse))]
+[JsonSerializable(typeof(WorkflowCollaborationTargetSummary))]
+[JsonSerializable(typeof(WorkflowCollaborationOfferPolicy))]
+[JsonSerializable(typeof(WorkflowCollaborationAcceptancePolicy))]
 [JsonSerializable(typeof(long))]
 [JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(ReconcileWorkflowRouteRequest))]
+[JsonSerializable(typeof(WorkflowRouteResolutionResponse))]
+[JsonSerializable(typeof(WorkflowRouteDecisionResponse))]
 [JsonSerializable(typeof(WorkflowBusinessActionDefinition))]
 [JsonSerializable(typeof(WorkflowBoundSubprocess))]
 [JsonSerializable(typeof(WorkflowMultiInstanceSnapshot))]
+[JsonSerializable(typeof(WorkflowSubprocessPreparedStarters))]
 [JsonSerializable(typeof(WorkflowBusinessActionCatalogResponse))]
 [JsonSerializable(typeof(WorkflowBoundBusinessAction[]))]
 [JsonSerializable(typeof(WorkflowBusinessCommandBinding))]

@@ -19,6 +19,8 @@ import WorkflowFieldMutationEditor from './WorkflowFieldMutationEditor.vue';
 import WorkflowConnectorEditor from './WorkflowConnectorEditor.vue';
 import WorkflowBusinessCommandEditor from './WorkflowBusinessCommandEditor.vue';
 import WorkflowSubprocessEditor from './WorkflowSubprocessEditor.vue';
+import WorkflowRouteEditor from './WorkflowRouteEditor.vue';
+import { readWorkflowRoutePolicy, type WorkflowRoutePolicy } from './workflow-route';
 import { readWorkflowSubprocess, type WorkflowSubprocessConfiguration } from './workflow-subprocess';
 import { readWorkflowBusinessCommand, type WorkflowBusinessCommandConfiguration } from './workflow-business-command';
 import { readWorkflowConnector, type WorkflowConnectorConfiguration } from './workflow-connector';
@@ -58,6 +60,35 @@ const administratorDrawer = ref(false);
 const administratorUserIds = ref<string[]>([]);
 const withdrawalMode = ref<'disabled' | 'before_any_human_action' | 'at_active_nodes'>('disabled');
 const withdrawalNodeKeys = ref<string[]>([]);
+const subprocessTimeoutTargets = computed(() => {
+  const current = (store.subProcessConfig1 as { value?: WorkflowVue3Node }).value?.id;
+  if (!current) return [];
+  const root = cloneWorkflowTree(nodeConfig.value);
+  // 新增节点尚未保存固定资产，临时最小策略仅用于读取既有拓扑，不写入草稿。
+  function prepare(node: WorkflowVue3Node): void {
+    if (node.id === current) {
+      const value = node as Record<string, unknown>;
+      value.subprocessPolicy = { definitionVersionId: '11111111-1111-4111-8111-111111111111', inputFields: {}, outputFields: {} }; value.fieldPolicies = {};
+      for (const key of ['boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy']) delete value[key];
+    }
+    if (node.childNode) prepare(node.childNode); for (const branch of node.conditionNodes ?? []) prepare(branch);
+  }
+  prepare(root);
+  try {
+    const nodes = fromWorkflowVue3Tree(root).nodes; const byKey = new Map(nodes.map(node => [node.nodeKey, node]));
+    const seen = new Set<string>(); const pending = [current];
+    while (pending.length) {
+      const key = pending.pop()!; if (seen.has(key)) continue; seen.add(key);
+      const config = byKey.get(key)?.config; if (!isRecord(config)) continue;
+      if (Array.isArray(config.nextNodeKeys)) for (const next of config.nextNodeKeys) if (typeof next === 'string') pending.push(next);
+      if (Array.isArray(config.branches)) for (const branch of config.branches) if (isRecord(branch) && typeof branch.nextNodeKey === 'string') pending.push(branch.nextNodeKey);
+      if (typeof config.defaultNextNodeKey === 'string') pending.push(config.defaultNextNodeKey);
+    }
+    return nodes.filter(node => seen.has(node.nodeKey) && node.nodeKey !== current && !['start', 'gateway.parallel', 'gateway.inclusive'].includes(node.nodeTypeKey))
+      .map(node => ({ key: node.nodeKey, label: isRecord(node.config) && typeof node.config.nodeName === 'string' ? node.config.nodeName : node.nodeKey }));
+  }
+  catch { return []; }
+});
 const withdrawalNodes = computed(() => {
   try { return fromWorkflowVue3Tree(nodeConfig.value).nodes.filter(node => ['human.approval', 'human.group_approval', 'human.task', 'human.vote', 'human.claim'].includes(node.nodeTypeKey))
     .map(node => ({ key: node.nodeKey, label: isRecord(node.config) && typeof node.config.nodeName === 'string' ? node.config.nodeName : node.nodeKey })); }
@@ -197,6 +228,7 @@ provide('fullnetWorkflowDelayPresentation', delayPresentation);
 provide('fullnetWorkflowFieldPresentation', fieldPresentation);
 provide('fullnetWorkflowConnectorPresentation', connectorPresentation);
 provide('fullnetWorkflowSubprocessPresentation', subprocessPresentation);
+provide('fullnetWorkflowRoutePresentation', routePresentation);
 const nodeConfig = ref<WorkflowVue3Node>(cloneWorkflowTree(props.modelValue));
 const dependencyNodeKey = ref('');
 const dependencyKeys = ref<string[]>([]);
@@ -546,11 +578,34 @@ function subprocessPresentation(node: WorkflowVue3Node): { text: string; error: 
   try { const config = readWorkflowSubprocess(node); return { text: config.subprocessPolicy.definitionVersionId, error: false, tip: '' }; }
   catch { const text = t('workflowDesigner.subprocess.invalid'); return { text, error: true, tip: text }; }
 }
+function routePresentation(node: WorkflowVue3Node): { text: string; error: boolean; tip: string } {
+  try { const policy = readWorkflowRoutePolicy(node.routePolicy); return { text: `${t(policy.modeKey === 'rules' ? 'workflowDesigner.route.rules' : 'workflowDesigner.route.decisionField')} · ${policy.targets.length}`, error: false, tip: '' }; }
+  catch { const text = t('workflowDesigner.route.invalid'); return { text, error: true, tip: text }; }
+}
+const routeTargets = computed(() => {
+  const current = (store.dynamicRouteConfig1 as { value?: WorkflowVue3Node }).value?.id;
+  const nodes: { key: string; label: string }[] = [];
+  const visit = (node: WorkflowVue3Node): void => {
+    if (node.id && node.id !== current && node.type !== undefined && ![0, 3, 4, 12, 13].includes(node.type)) nodes.push({ key: node.id, label: `${node.nodeName ?? node.id} · ${node.id}` });
+    if (node.childNode) visit(node.childNode); for (const branch of node.conditionNodes ?? []) visit(branch);
+  };
+  visit(nodeConfig.value);
+  const endKey = nodeConfig.value.endNodeKey ?? 'end';
+  nodes.push({ key: endKey, label: `${t('workflowDesigner.route.endTarget')} · ${endKey}` });
+  return nodes;
+});
+function saveRoute(value: WorkflowRoutePolicy): void {
+  if (props.disabled) return;
+  const envelope = store.dynamicRouteConfig1 as { value?: WorkflowVue3Node; id?: number | string };
+  store.setDynamicRouteConfig({ ...envelope, flag: true, value: { ...envelope.value, routePolicy: readWorkflowRoutePolicy(value) } }); store.setDynamicRoute(false);
+}
 function saveSubprocess(value: WorkflowSubprocessConfiguration): void {
   if (props.disabled) return;
   const envelope = store.subProcessConfig1 as { value?: WorkflowVue3Node; id?: number | string }; const node: Record<string, unknown> = { ...envelope.value };
   delete node.boundSubprocess;
   delete node.multiInstancePolicy;
+  delete node.starterPolicy;
+  delete node.childTimeoutPolicy;
   store.setSubProcessConfig({ ...envelope, flag: true, value: { ...node, ...readWorkflowSubprocess(value) } }); store.setSubProcess(false);
 }
 function saveConnector(value: WorkflowConnectorConfiguration): void {
@@ -1076,8 +1131,12 @@ defineExpose({ readDraft });
     <WorkflowBusinessCommandEditor v-if="store.triggerDrawer && editingBusinessCommand" :model-value="(store.triggerConfig1 as { value?: WorkflowVue3Node }).value" :disabled="disabled" @save="saveBusinessCommand" @cancel="store.setTrigger(false)" />
     <WorkflowConnectorEditor v-else-if="store.triggerDrawer" :model-value="(store.triggerConfig1 as { value?: WorkflowVue3Node }).value" :fields="gatewayFields" :disabled="disabled" @save="saveConnector" @cancel="store.setTrigger(false)" />
   </ElDrawer>
+  <ElDrawer :model-value="store.dynamicRouteDrawer" :title="t('workflowDesigner.route.title')" size="min(760px, 94vw)" @update:model-value="store.setDynamicRoute($event)">
+    <WorkflowRouteEditor v-if="store.dynamicRouteDrawer" :model-value="(store.dynamicRouteConfig1 as { value?: WorkflowVue3Node }).value?.routePolicy"
+      :fields="gatewayFields" :nodes="routeTargets" :disabled="disabled" @save="saveRoute" @cancel="store.setDynamicRoute(false)" />
+  </ElDrawer>
   <ElDrawer :model-value="store.subProcessDrawer" :title="t('workflowDesigner.subprocess.title')" size="min(760px, 94vw)" @update:model-value="store.setSubProcess($event)">
-    <WorkflowSubprocessEditor v-if="store.subProcessDrawer" :model-value="(store.subProcessConfig1 as { value?: WorkflowVue3Node }).value" :fields="gatewayFields" :disabled="disabled" @save="saveSubprocess" @cancel="store.setSubProcess(false)" />
+    <WorkflowSubprocessEditor v-if="store.subProcessDrawer" :model-value="(store.subProcessConfig1 as { value?: WorkflowVue3Node }).value" :fields="gatewayFields" :targets="subprocessTimeoutTargets" :disabled="disabled" @save="saveSubprocess" @cancel="store.setSubProcess(false)" />
   </ElDrawer>
   <ElDrawer :model-value="store.delayDrawer" :title="t('workflowDesigner.delay.title')" size="min(560px, 94vw)" @update:model-value="store.setDelay($event)">
     <WorkflowDelayPolicyEditor v-if="store.delayDrawer" :model-value="(store.delayConfig1 as { value?: WorkflowVue3Node }).value?.delayPolicy"

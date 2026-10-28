@@ -539,6 +539,7 @@ import type {
   ReconcileNotificationDeliveryRequest,
   ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
+  ReconcileWorkflowRouteRequest,
   RecoverDeadLetterRequest,
   RecoverDeadLetterResponse,
   RecoverRollbackRequest,
@@ -748,6 +749,9 @@ import type {
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
   WorkflowRecoveryTaskResponse,
+  WorkflowRouteDecisionResponse,
+  WorkflowRouteResolutionResponse,
+  WorkflowRouteTargetResponse,
   WorkflowSignatureUploadResponse,
   WorkflowStarterSelectionDescriptorResponse,
   WorkflowStarterSelectionsResponse,
@@ -1139,6 +1143,8 @@ import {
   readWorkflowPositionCandidatePageResponse,
   readWorkflowRecipientCandidatePageResponse,
   readWorkflowRecoveryTaskResponse,
+  readWorkflowRouteDecisionResponse,
+  readWorkflowRouteResolutionResponse,
   readWorkflowSignatureUploadResponse,
   readWorkflowStarterSelectionsResponse,
   readWorkflowTodoCountersignChainResponse,
@@ -15872,6 +15878,25 @@ export async function workflowGetRecoveryTask(
   return readWorkflowRecoveryTaskResponse(value);
 }
 
+export interface WorkflowGetRouteDecisionParameters {
+  readonly instanceId: string;
+  readonly routeId: string;
+}
+
+export async function workflowGetRouteDecision(
+  http: HttpClient,
+  parameters: WorkflowGetRouteDecisionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRouteDecisionResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/routes/${encodeURIComponent(String(parameters.routeId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRouteDecisionResponse(value);
+}
+
 export interface WorkflowGetStarterSelectionsParameters {
   readonly versionId: string;
 }
@@ -16857,6 +16882,30 @@ export async function workflowReconcileRecoveryTask(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowReconcileRouteDecisionParameters {
+  readonly instanceId: string;
+  readonly routeId: string;
+  readonly body: ReconcileWorkflowRouteRequest;
+}
+
+export async function workflowReconcileRouteDecision(
+  http: HttpClient,
+  parameters: WorkflowReconcileRouteDecisionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRouteResolutionResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/routes/${encodeURIComponent(String(parameters.routeId))}/reconcile`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRouteResolutionResponse(value);
 }
 
 export interface WorkflowRecoverInstanceParameters {

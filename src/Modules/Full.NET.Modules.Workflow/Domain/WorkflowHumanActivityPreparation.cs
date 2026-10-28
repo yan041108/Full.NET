@@ -14,6 +14,31 @@ namespace Full.NET.Modules.Workflow.Domain;
 internal sealed class WorkflowHumanActivityPreparation(WorkflowHumanActivityAssigneeCoordinator coordinator, IQueryExecutor query,
     WorkflowStarterSelectionPreparation starter)
 {
+    /// <summary>原入队身份只恢复目标快照；正常退出工作返回空，继续走正常后继的准备协议。</summary>
+    public async Task<Result<WorkflowPreparedHumanActivities?>> PrepareReturnAsync(WorkflowInstanceRecord instance, WorkflowActivityWorkRecord work,
+        WorkflowRuntimePlan plan, WorkflowRuntimeTransition transition, CancellationToken token)
+    {
+        var round = await query.QuerySingleOrDefaultAsync<WorkflowReturnRoundRecord>(WorkflowReturnRoundSql.Find,
+            WorkflowSqlParameters.Create(("ReturnRoundId", work.ReturnRoundId), ("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey)), token).ConfigureAwait(false);
+        if (round is null || round.Id != work.ReturnRoundId || round.InstanceId != instance.Id || round.TenantScopeKey != instance.TenantScopeKey ||
+            round.DefinitionVersionId != instance.DefinitionVersionId) return ReturnFailure();
+        if (round.ExitWorkId == work.Id) return Result<WorkflowPreparedHumanActivities?>.Success(null);
+        if (round.EntryWorkId != work.Id || round.EntryNodeKey != work.NodeKey || work.ExecutionEpochId != round.Id ||
+            transition.NextHumanNodeKey != work.NodeKey || transition.AutomaticNodes.Count != 0 || transition.ParallelFork is not null ||
+            !plan.TryGetReturnNode(work.NodeKey, out var node)) return ReturnFailure();
+        var snapshot = await query.QuerySingleOrDefaultAsync<WorkflowAssigneeSnapshotRecord>(WorkflowReturnRoundSql.FindTargetSnapshot,
+            WorkflowSqlParameters.Create(("ReturnRoundId", round.Id), ("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey), ("WorkId", work.Id)), token).ConfigureAwait(false);
+        if (snapshot is null || snapshot.AssigneeSnapshotHash != round.TargetSnapshotHash) return ReturnFailure();
+        var restored = await coordinator.RestoreReturnAsync(node!.NodeTypeKey, node.Config, snapshot.AssigneeSnapshotJson, snapshot.AssigneeSnapshotHash,
+            new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), instance.StartedById, token).ConfigureAwait(false);
+        if (!restored.IsSuccess) return ReturnFailure();
+        return Result<WorkflowPreparedHumanActivities?>.Success(new(new Dictionary<string, Result<WorkflowHumanActivityAssignees>>(StringComparer.Ordinal)
+            { [work.NodeKey] = restored }));
+
+        static Result<WorkflowPreparedHumanActivities?> ReturnFailure() => Result<WorkflowPreparedHumanActivities?>.Failure(new(
+            WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, "The historical return assignees are unavailable.", ErrorType.BusinessRule));
+    }
+
     public Task<Result<WorkflowStarterSelectionResolution>> PrepareStartSelectionsAsync(WorkflowDefinitionDraft draft,
         IReadOnlyDictionary<string, IReadOnlyList<Guid>>? selections, WorkflowManagementScope scope, CancellationToken token) =>
         starter.ResolveAsync(draft.Nodes.SelectMany(WorkflowDynamicAssigneeDefinitionRules.Sources).Where(source => source.StarterSelection is not null)
@@ -22,7 +47,7 @@ internal sealed class WorkflowHumanActivityPreparation(WorkflowHumanActivityAssi
     public async Task<WorkflowPreparedHumanActivities> PrepareAsync(WorkflowRuntimeTransition transition,
         WorkflowManagementScope scope, Guid initiatorId, CancellationToken token,
         IReadOnlyDictionary<string, JsonElement>? values = null, Guid? instanceId = null, string? completingNodeKey = null,
-        WorkflowStarterSelectionResolution? starterSelections = null, IReadOnlyList<Guid>? flowAdministratorUserIds = null)
+        WorkflowStarterSelectionResolution? starterSelections = null, IReadOnlyList<Guid>? flowAdministratorUserIds = null, Guid? executionEpochId = null)
     {
         var snapshots = new Dictionary<string, Result<WorkflowHumanActivityAssignees>>(StringComparer.Ordinal);
         var ccSnapshots = new Dictionary<string, Result<WorkflowCcRecipients>>(StringComparer.Ordinal);
@@ -42,17 +67,17 @@ internal sealed class WorkflowHumanActivityPreparation(WorkflowHumanActivityAssi
                 Collect(new(branch.NextHumanNodeKey, branch.CompletesInstance,
                     branch.AutomaticNodes, branch.TimeoutPolicy, branch.ApprovalPolicy,
                     branch.AssigneePolicy, branch.ParallelFork, branch.JoinArrival, branch.TaskPolicy, branch.VotePolicy, branch.ClaimPolicy,
-                    branch.AutomaticWait));
+                    branch.AutomaticWait, branch.TerminalNodeKey));
         }
         Collect(transition);
         var allSources = waits.SelectMany(Sources).Concat(ccNodes.Values.SelectMany(node => node.RecipientPolicy!.Sources)).ToArray();
         var previousKeys = allSources.Where(source => source.ResolverKindKey == WorkflowAssigneePolicy.PreviousActors)
             .Select(source => source.PreviousNodeKey!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         IReadOnlyDictionary<string, IReadOnlyList<WorkflowPreviousActorRecord>> previous = new Dictionary<string, IReadOnlyList<WorkflowPreviousActorRecord>>();
-        if (instanceId is { } id && previousKeys.Length is > 0 and <= WorkflowDefinitionCompiler.MaximumNodes)
+        if (instanceId is { } id && executionEpochId is { } epoch && epoch != Guid.Empty && previousKeys.Length is > 0 and <= WorkflowDefinitionCompiler.MaximumNodes)
         {
             var rows = await query.QueryAsync<WorkflowPreviousActorRecord>(WorkflowDynamicAssigneeSql.ListPreviousActors,
-                WorkflowSqlParameters.Create(("InstanceId", id), ("TenantScopeKey", scope.TenantScopeKey), ("SourceNodeKeys", previousKeys)), token).ConfigureAwait(false);
+                WorkflowSqlParameters.Create(("InstanceId", id), ("TenantScopeKey", scope.TenantScopeKey), ("ExecutionEpochId", epoch), ("SourceNodeKeys", previousKeys)), token).ConfigureAwait(false);
             if (rows.Count <= WorkflowDefinitionCompiler.MaximumNodes * 20)
                 previous = rows.GroupBy(row => row.NodeKey, StringComparer.Ordinal).ToDictionary(group => group.Key,
                     group => (IReadOnlyList<WorkflowPreviousActorRecord>)group.ToArray(), StringComparer.Ordinal);

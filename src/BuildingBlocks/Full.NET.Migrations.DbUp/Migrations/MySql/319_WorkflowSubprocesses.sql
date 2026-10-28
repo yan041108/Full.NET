@@ -37,7 +37,7 @@ BEGIN
  IF NOT EXISTS (SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='fn_workflow_subprocess_call' AND CONSTRAINT_NAME='ck_fn_workflow_subprocess_call_parentinputjson') THEN
   ALTER TABLE fn_workflow_subprocess_call ADD CONSTRAINT ck_fn_workflow_subprocess_call_parentinputjson CHECK (ParentInputJson IS NULL OR JSON_VALID(ParentInputJson)=1);
  END IF;
- IF NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='fn_workflow_subprocess_call' AND INDEX_NAME='ux_fn_workflow_subprocess_call_node') THEN
+ IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='fn_workflow_subprocess_call' AND COLUMN_NAME='ExecutionEpochId') AND NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='fn_workflow_subprocess_call' AND INDEX_NAME='ux_fn_workflow_subprocess_call_node') THEN
   CREATE UNIQUE INDEX ux_fn_workflow_subprocess_call_node ON fn_workflow_subprocess_call(InstanceId,NodeKey);
  END IF;
  IF NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='fn_workflow_subprocess_call' AND INDEX_NAME='ix_fn_workflow_subprocess_call_pending') THEN

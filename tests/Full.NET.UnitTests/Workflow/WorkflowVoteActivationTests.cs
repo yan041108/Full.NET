@@ -18,7 +18,7 @@ public sealed class WorkflowVoteActivationTests
         command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         ids.NewId().Returns(_ => Guid.CreateVersion7()); var outbox = Substitute.For<IOutboxWriter>();
         var form = Guid.CreateVersion7();
-        var result = await new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)).WriteVoteAsync(Guid.CreateVersion7(), "host", "vote",
+        var result = await new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)).WriteVoteAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "vote",
             new(new(form, 100, 67, true, 60, null, null), [Guid.CreateVersion7(), Guid.CreateVersion7()]),
             new(Guid.CreateVersion7(), form, "{}", "hash", "active"), 1, DateTimeOffset.UtcNow, null, "vote", "one", null, null, "{}", "hash", default);
         Assert.AreEqual(2, result.TodoIds.Count); Assert.AreEqual(2, result.TodoIds.Distinct().Count());
@@ -36,7 +36,7 @@ public sealed class WorkflowVoteActivationTests
         var command = Substitute.For<ICommandExecutor>(); var ids = Substitute.For<IIdGenerator>(); var outbox = Substitute.For<IOutboxWriter>();
         var form = Guid.CreateVersion7(); var user = Guid.CreateVersion7();
         var writer = new WorkflowHumanActivityActivationWriter(command, ids, new(outbox));
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => writer.WriteVoteAsync(Guid.CreateVersion7(), "host", "vote",
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => writer.WriteVoteAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "vote",
             new(new(form, 100, 67, true, null, null, null), wrongForm ? [user] : [user, user]),
             new(Guid.CreateVersion7(), wrongForm ? Guid.CreateVersion7() : form, "{}", "hash", "active"),
             1, DateTimeOffset.UtcNow, null, "vote", "one", null, null, "{}", "hash", default));

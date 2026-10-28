@@ -46,7 +46,7 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
         if (nextValues is null || !initial.RuntimePlan.TryResolveAfterHuman(initial.Todo.NodeKey, nextValues,
             initial.Todo.ParallelJoinNodeKey, out var transition)) return Fail(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
         var preparedAssignees = await assignees.PrepareAsync(transition, scope, initial.Instance.StartedById, token, nextValues, initial.Instance.Id, initial.Todo.NodeKey,
-            flowAdministratorUserIds: initial.RuntimePlan.FlowAdministratorUserIds).ConfigureAwait(false);
+            flowAdministratorUserIds: initial.RuntimePlan.FlowAdministratorUserIds, executionEpochId: await WorkflowExecutionEpochScope.ReadForStepAsync(query, initial.Instance.Id, scope.TenantScopeKey, initial.Todo.StepId, token).ConfigureAwait(false)).ConfigureAwait(false);
         var files = await attachments.PrepareAsync(initial.Ballot!, initial.Instance.Id, actor, scope.TenantScopeKey,
             initial.BallotSchema, request.Values, submission!.EvidenceHash, token).ConfigureAwait(false);
         if (!files.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(files.Error!);

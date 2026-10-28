@@ -7,9 +7,9 @@ internal static class WorkflowDelaySql
 {
     public static readonly SqlStatement InsertStep = new("workflow.delay.insert_step", """
         INSERT INTO fn_workflow_step
-          (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc,
+          (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc,
            AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc, ParallelJoinId, ParallelBranchKey)
-        VALUES (@Id, @InstanceId, @NodeKey, 'timer.delay', 'active', NULL, @DueAtUtc,
+        VALUES (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'timer.delay', 'active', NULL, @DueAtUtc,
            0, 1, @ExecutionSequence, @Now, NULL, @ParallelJoinId, @ParallelBranchKey)
         """, SqlDataScope.Global);
 

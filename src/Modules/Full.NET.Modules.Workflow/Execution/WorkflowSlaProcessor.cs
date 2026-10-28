@@ -117,7 +117,8 @@ internal sealed class WorkflowSlaProcessor(IQueryExecutor query, ICommandExecuto
             await commands.ExecuteAsync(database.Value.Provider == DatabaseProvider.SqlServer ? WorkflowDelaySql.PauseRelativeSqlServer : WorkflowDelaySql.PauseRelativeMySql,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
             if (!await WorkflowWorkingDelayLifecycle.ApplyAsync(instance.Id, instance.TenantScopeKey, "pause", now, database.Value.Provider, query, commands, token).ConfigureAwait(false) ||
-                !await WorkflowSlaLifecycle.ApplyAsync(instance.Id, instance.TenantScopeKey, "pause", now, database.Value.Provider, query, commands, token).ConfigureAwait(false)) return Invalid();
+                !await WorkflowSlaLifecycle.ApplyAsync(instance.Id, instance.TenantScopeKey, "pause", now, database.Value.Provider, query, commands, token).ConfigureAwait(false) ||
+                !await WorkflowSubprocessTimeoutLifecycle.ApplyAsync(instance.Id, instance.TenantScopeKey, "pause", now, query, commands, token).ConfigureAwait(false)) return Invalid();
         }
         else if (action == "auto_reject")
         {
@@ -138,8 +139,8 @@ internal sealed class WorkflowSlaProcessor(IQueryExecutor query, ICommandExecuto
                         ("StatusKey", "completed"), ("CompletedAtUtc", now)), token).ConfigureAwait(false) != 1) return Invalid();
             var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-            await scheduler.EnqueueAsync(instance, next!, continuationValues!, continuationRevision!.Value, sequence,
-                row.ParallelJoinId, row.ParallelBranchKey, now, token).ConfigureAwait(false);
+            await scheduler.EnqueueAsync(instance, await WorkflowExecutionEpochScope.ReadForStepAsync(query, instance.Id, instance.TenantScopeKey, row.Id, token).ConfigureAwait(false) ?? Guid.Empty, next!, continuationValues!, continuationRevision!.Value, sequence,
+                row.ParallelJoinId, row.ParallelBranchKey, now, token, sourceStepId: row.Id).ConfigureAwait(false);
             if (await commands.ExecuteAsync(WorkflowSql.AdvanceInstanceWithRevision, root, token).ConfigureAwait(false) != 1) return Invalid();
         }
         var correlation = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson();

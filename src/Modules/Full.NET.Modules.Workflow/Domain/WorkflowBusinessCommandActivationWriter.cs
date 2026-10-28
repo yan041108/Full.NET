@@ -13,31 +13,32 @@ namespace Full.NET.Modules.Workflow.Domain;
 internal sealed class WorkflowBusinessCommandActivationWriter(IQueryExecutor query, ICommandExecutor commands, IIdGenerator ids,
     WorkflowBusinessActionCatalog catalog, WorkflowBusinessCommandPublisher publisher)
 {
-    public async Task<Result<bool>> ActivateAsync(WorkflowInstanceRecord instance, WorkflowManagementScope scope, WorkflowBusinessCommandWaitPlan wait,
-        long sequence, Guid? joinId, string? branchKey, DateTimeOffset now, CancellationToken token)
+    public async Task<Result<bool>> ActivateAsync(WorkflowInstanceRecord instance, WorkflowManagementScope scope, Guid executionEpochId, WorkflowBusinessCommandWaitPlan wait,
+        long sequence, Guid? joinId, string? branchKey, DateTimeOffset now, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
         var action = catalog.Find(scope.ScopeKey, wait.Policy.ActionKey, wait.Policy.ActionVersion, wait.ActionHash);
         if (joinId is not null || branchKey is not null || action is null || action.Definition.BusinessType != instance.BusinessType ||
             action.Definition.PlacementKey != "root_finalizer" || wait.ApprovalNodeKeys.Count == 0) return Invalid();
         var existing = await query.QuerySingleOrDefaultAsync<WorkflowBusinessCommandRecord>(WorkflowBusinessCommandSql.FindAtNode,
-            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey), ("NodeKey", wait.NodeKey)), token).ConfigureAwait(false);
+            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId), ("TenantScopeKey", scope.TenantScopeKey), ("NodeKey", wait.NodeKey)), token).ConfigureAwait(false);
         if (existing is not null)
             return existing.ActionHash == wait.ActionHash && existing.StatusKey is "requested" or "result_ready"
                 ? Result<bool>.Success(false) : Invalid();
         if (await query.QuerySingleOrDefaultAsync<int>(WorkflowBusinessCommandSql.ApprovedPredecessors,
-                WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey), ("NodeKeys", wait.ApprovalNodeKeys.ToArray())), token).ConfigureAwait(false) < 1)
+                WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId), ("TenantScopeKey", scope.TenantScopeKey), ("NodeKeys", wait.ApprovalNodeKeys.ToArray())), token).ConfigureAwait(false) < 1)
             return Invalid();
         var id = ids.NewId();
         var binding = new WorkflowBusinessCommandBinding(id, instance.Id, instance.DefinitionVersionId, action.Definition.OwnerKey,
             wait.Policy.ActionKey, wait.Policy.ActionVersion, wait.ActionHash, instance.BusinessType, instance.BusinessId, instance.StartedById);
         var hash = WorkflowBusinessCommandHash.Compute(binding);
         var json = JsonSerializer.Serialize(binding, WorkflowJsonSerializerContext.Default.WorkflowBusinessCommandBinding);
-        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey),
+        var parameters = WorkflowSqlParameters.Create(("Id", id), ("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId), ("TenantScopeKey", scope.TenantScopeKey),
             ("NodeKey", wait.NodeKey), ("ContinuationNodeKey", wait.ContinuationNodeKey), ("ExecutionSequence", sequence),
             ("ActionKey", wait.Policy.ActionKey), ("ActionVersion", wait.Policy.ActionVersion), ("ActionHash", wait.ActionHash),
             ("BindingJson", json), ("InputHash", hash), ("Now", now));
         if (await commands.ExecuteAsync(WorkflowBusinessCommandSql.InsertStep, parameters, token).ConfigureAwait(false) != 1 ||
             await commands.ExecuteAsync(WorkflowBusinessCommandSql.Insert, parameters, token).ConfigureAwait(false) != 1) return Invalid();
+        await WorkflowActivationBindingWriter.BindAsync(commands,instance.Id,scope.TenantScopeKey,executionEpochId,id,now,token,trace,ids).ConfigureAwait(false);
         await publisher.RequestAsync(binding, hash, "execute", 1, now, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowSql.InsertDomainAudit, WorkflowSqlParameters.Create(("Id", ids.NewId()), ("TenantId", instance.TenantId),
             ("ScopeKey", instance.ScopeKey), ("InstanceId", instance.Id), ("OperationKey", "activity.execute"), ("ActorUserId", null),

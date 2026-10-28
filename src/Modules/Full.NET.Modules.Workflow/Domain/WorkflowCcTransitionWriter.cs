@@ -24,10 +24,11 @@ internal sealed class WorkflowCcTransitionWriter(
     public async Task<long> WriteAsync(
         Guid instanceId,
         string tenantScopeKey,
+        Guid executionEpochId,
         IReadOnlyList<WorkflowCcRuntimeNode> ccNodes,
         long nextExecutionSequence,
         DateTimeOffset occurredAtUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, WorkflowActivationTrace? trace=null)
     {
         if (ccNodes.Count == 0)
         {
@@ -44,12 +45,13 @@ internal sealed class WorkflowCcTransitionWriter(
             var executionSequence = nextExecutionSequence++;
             await WriteNodeAsync(
                 instanceId,
+                executionEpochId,
                 node,
                 knownRecipients,
                 executionSequence,
                 occurredAtUtc,
                 tenantScopeKey,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, trace).ConfigureAwait(false);
         }
 
         return nextExecutionSequence;
@@ -84,12 +86,13 @@ internal sealed class WorkflowCcTransitionWriter(
     /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
     internal async Task WriteNodeAsync(
         Guid instanceId,
+        Guid executionEpochId,
         WorkflowCcRuntimeNode node,
         ISet<Guid> knownRecipients,
         long executionSequence,
         DateTimeOffset occurredAtUtc,
         string tenantScopeKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, WorkflowActivationTrace? trace=null)
     {
         var stepId = idGenerator.NewId();
         if (await commandExecutor.ExecuteAsync(
@@ -97,14 +100,16 @@ internal sealed class WorkflowCcTransitionWriter(
             WorkflowSqlParameters.Create(
                 ("Id", stepId),
                 ("InstanceId", instanceId),
+                ("ExecutionEpochId", executionEpochId),
                 ("TenantScopeKey", tenantScopeKey),
                 ("NodeKey", node.NodeKey),
                 ("ExecutionSequence", executionSequence),
                 ("StartedAtUtc", occurredAtUtc),
                 ("CompletedAtUtc", occurredAtUtc),
-                ("AssigneeSnapshotJson", node.ResolutionJson), ("AssigneeSnapshotHash", node.ResolutionHash)),
+                ("AssigneeSnapshotJson", node.ResolutionJson), ("AssigneeSnapshotHash", node.ResolutionHash),("ParallelJoinId",trace?.ParallelJoinId),("ParallelBranchKey",trace?.BranchKey)),
             cancellationToken).ConfigureAwait(false) != 1)
             throw new InvalidOperationException("workflow.cc.instance_scope_missing");
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,stepId,occurredAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
 
         var insertedCount = 0;
         foreach (var recipientUserId in node.RecipientUserIds)

@@ -22,15 +22,15 @@ public sealed class WorkflowNodeTypeCatalogTests
     {
         var catalog = WorkflowNodeTypeCatalog.Current;
 
-        Assert.AreEqual(26, catalog.CatalogVersion);
+        Assert.AreEqual(29, catalog.CatalogVersion);
         Assert.AreEqual(1, catalog.DefinitionSchemaVersion);
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
+            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "control.route", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
             catalog.NodeTypes.Select(item => item.NodeTypeKey).ToArray());
         Assert.IsTrue(catalog.NodeTypes.All(item => item.NodeSchemaVersion == 1));
         Assert.IsTrue(catalog.NodeTypes.All(item => item.Designable));
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
+            new[] { "start", "human.approval", "human.group_approval", "human.task", "human.vote", "human.claim", "notify.cc", "control.empty", "control.route", "timer.delay", "business.command", "process.subprocess", "data.modify", "data.clear", "integration.trigger", "integration.async_trigger", "gateway.exclusive", "gateway.parallel", "gateway.inclusive", "end" },
             catalog.NodeTypes.Where(item => item.Publishable && item.Executable)
                 .Select(item => item.NodeTypeKey).ToArray());
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "notify.cc")

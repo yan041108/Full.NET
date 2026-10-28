@@ -19,12 +19,13 @@ public sealed class WorkflowClaimActivationTests
         command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var result = await new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)).WriteClaimAsync(
-            Guid.CreateVersion7(), "host", "claim", new(new(true), [Guid.CreateVersion7(), Guid.CreateVersion7()]),
+            Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "claim", new(new(true), [Guid.CreateVersion7(), Guid.CreateVersion7()]),
             1, DateTimeOffset.UtcNow, new(60, 10, 3, null, null), null, null, "{}", "hash", default);
         Assert.AreNotEqual(Guid.Empty, result);
         await command.Received(1).ExecuteAsync(WorkflowClaimSql.InsertPool, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await command.Received(2).ExecuteAsync(WorkflowClaimSql.InsertCandidate, Arg.Any<object?>(), Arg.Any<CancellationToken>());
-        Assert.AreEqual(4, command.ReceivedCalls().Count());
+        await command.Received(1).ExecuteAsync(WorkflowActivationBindingSql.BindStep, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.IsFalse(command.ReceivedCalls().Any(call=>Equals(call.GetArguments()[0],WorkflowSql.InsertTodo)));
         Assert.AreEqual(0, outbox.ReceivedCalls().Count());
     }
 
@@ -38,7 +39,7 @@ public sealed class WorkflowClaimActivationTests
         var outbox = Substitute.For<IOutboxWriter>(); var user = Guid.CreateVersion7();
         var members = count == 2 ? new[] { user, user } : Enumerable.Range(0, count).Select(_ => Guid.CreateVersion7()).ToArray();
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
-            new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)).WriteClaimAsync(Guid.CreateVersion7(), "host", "claim",
+            new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)).WriteClaimAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "claim",
                 new(new(true), members), 1, DateTimeOffset.UtcNow, null, null, null, "{}", "hash", default));
         Assert.AreEqual(0, command.ReceivedCalls().Count());
     }

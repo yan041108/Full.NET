@@ -24,10 +24,11 @@ internal sealed class WorkflowAutomaticTransitionWriter(
     public async Task<long> WriteAsync(
         Guid instanceId,
         string tenantScopeKey,
+        Guid executionEpochId,
         IReadOnlyList<WorkflowAutomaticRuntimeNode> automaticNodes,
         long nextExecutionSequence,
         DateTimeOffset occurredAtUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, WorkflowActivationTrace? trace=null)
     {
         HashSet<Guid> knownRecipients = automaticNodes.Any(node => node.NodeTypeKey == "notify.cc")
             ? await ccTransitionWriter.LoadKnownRecipientsAsync(
@@ -38,14 +39,32 @@ internal sealed class WorkflowAutomaticTransitionWriter(
         foreach (var node in automaticNodes)
         {
             var executionSequence = nextExecutionSequence++;
+            if (node.NodeTypeKey == "end")
+            {
+                if (trace is null) throw new InvalidOperationException("workflow.end.source_missing");
+                var endId = idGenerator.NewId();
+                if (await commandExecutor.ExecuteAsync(WorkflowEndSql.InsertStep, WorkflowSqlParameters.Create(("Id", endId),
+                        ("InstanceId", instanceId), ("TenantScopeKey", tenantScopeKey), ("ExecutionEpochId", executionEpochId), ("NodeKey", node.NodeKey),
+                        ("ExecutionSequence", executionSequence), ("Now", occurredAtUtc), ("ParallelJoinId", trace.ParallelJoinId),
+                        ("ParallelBranchKey", trace.BranchKey)), cancellationToken).ConfigureAwait(false) != 1)
+                    throw new InvalidOperationException("workflow.end.storage_conflict");
+                await WorkflowActivationBindingWriter.BindAsync(commandExecutor, instanceId, tenantScopeKey, executionEpochId, endId,
+                    occurredAtUtc, cancellationToken, trace, idGenerator).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog, WorkflowSqlParameters.Create(("Id", idGenerator.NewId()),
+                    ("InstanceId", instanceId), ("StepId", endId), ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
+                    ("TransitionKey", "node.end"), ("FromStatusKey", null), ("ToStatusKey", "completed"), ("IdempotencyKey", null),
+                    ("Summary", null), ("CreatedAtUtc", occurredAtUtc)), cancellationToken).ConfigureAwait(false);
+                continue;
+            }
             if (node.NodeTypeKey == "control.empty")
             {
                 var emptyId = idGenerator.NewId();
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertCompletedEmptyStep,
-                    WorkflowSqlParameters.Create(("Id", emptyId), ("InstanceId", instanceId), ("NodeKey", node.NodeKey),
-                        ("ExecutionSequence", executionSequence), ("StartedAtUtc", occurredAtUtc), ("CompletedAtUtc", occurredAtUtc)), cancellationToken).ConfigureAwait(false);
+                    WorkflowSqlParameters.Create(("Id", emptyId), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("NodeKey", node.NodeKey),
+                        ("ExecutionSequence", executionSequence), ("StartedAtUtc", occurredAtUtc), ("CompletedAtUtc", occurredAtUtc), ("ParallelJoinId",trace?.ParallelJoinId),("ParallelBranchKey",trace?.BranchKey)), cancellationToken).ConfigureAwait(false);
+                await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,emptyId,occurredAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
-                    WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instanceId), ("StepId", emptyId),
+                    WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId), ("StepId", emptyId),
                         ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                         ("TransitionKey", "node.control.empty"), ("FromStatusKey", null), ("ToStatusKey", "completed"),
                         ("IdempotencyKey", null), ("Summary", null), ("CreatedAtUtc", occurredAtUtc)), cancellationToken).ConfigureAwait(false);
@@ -55,12 +74,13 @@ internal sealed class WorkflowAutomaticTransitionWriter(
             {
                 await ccTransitionWriter.WriteNodeAsync(
                     instanceId,
+                    executionEpochId,
                     new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds, node.ResolutionJson, node.ResolutionHash),
                     knownRecipients,
                     executionSequence,
                     occurredAtUtc,
                     tenantScopeKey,
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken, trace).ConfigureAwait(false);
                 continue;
             }
 
@@ -73,15 +93,16 @@ internal sealed class WorkflowAutomaticTransitionWriter(
                         WorkflowSql.InsertCompletedParallelGatewayStep,
                         WorkflowSqlParameters.Create(
                             ("Id", parallelStepId),
-                            ("InstanceId", instanceId),
+                            ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId),
                             ("NodeKey", node.NodeKey),
                             ("NodeTypeKey", node.NodeTypeKey),
                             ("ExecutionSequence", executionSequence),
-                            ("ParallelJoinId", null),
-                            ("ParallelBranchKey", node.OutcomeKey),
+                            ("ParallelJoinId", trace?.ParallelJoinId),
+                            ("ParallelBranchKey", trace?.BranchKey),
                             ("StartedAtUtc", occurredAtUtc),
                             ("CompletedAtUtc", occurredAtUtc)),
                         cancellationToken).ConfigureAwait(false);
+                await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,parallelStepId,occurredAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
                     var transitionKey = node.NodeTypeKey switch
                     {
                         "gateway.inclusive" => string.IsNullOrWhiteSpace(node.OutcomeKey) ||
@@ -98,7 +119,7 @@ internal sealed class WorkflowAutomaticTransitionWriter(
                         WorkflowSqlParameters.Create(
                     ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                             ("Id", idGenerator.NewId()),
-                            ("InstanceId", instanceId),
+                            ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId),
                             ("StepId", parallelStepId),
                             ("TransitionKey", transitionKey),
                             ("FromStatusKey", null),
@@ -118,18 +139,19 @@ internal sealed class WorkflowAutomaticTransitionWriter(
                 WorkflowSql.InsertCompletedGatewayStep,
                 WorkflowSqlParameters.Create(
                     ("Id", stepId),
-                    ("InstanceId", instanceId),
+                    ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId),
                     ("NodeKey", node.NodeKey),
                     ("ExecutionSequence", executionSequence),
                     ("StartedAtUtc", occurredAtUtc),
-                    ("CompletedAtUtc", occurredAtUtc)),
+                    ("CompletedAtUtc", occurredAtUtc), ("ParallelJoinId",trace?.ParallelJoinId),("ParallelBranchKey",trace?.BranchKey)),
                 cancellationToken).ConfigureAwait(false);
+            await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,tenantScopeKey,executionEpochId,stepId,occurredAtUtc,cancellationToken,trace,idGenerator).ConfigureAwait(false);
             await commandExecutor.ExecuteAsync(
                 WorkflowSql.InsertExecutionLog,
                 WorkflowSqlParameters.Create(
                     ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
-                    ("InstanceId", instanceId),
+                    ("InstanceId", instanceId), ("ExecutionEpochId", executionEpochId),
                     ("StepId", stepId),
                     ("TransitionKey", "node.gateway.exclusive"),
                     ("FromStatusKey", null),

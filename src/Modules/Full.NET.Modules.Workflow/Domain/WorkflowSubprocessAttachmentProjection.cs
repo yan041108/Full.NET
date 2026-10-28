@@ -24,7 +24,7 @@ internal static class WorkflowSubprocessAttachmentProjection
             WorkflowSqlParameters.Create(("Id", context.ParentInstanceId), ("TenantScopeKey", scope)), token).ConfigureAwait(false);
         if (call is null || item is null || parent?.StatusKey != "active" || call.CancellationRequested || call.ErrorCode is not null ||
             call.StatusKey is not ("requested" or "running") || call.ChildDefinitionVersionId != request.DefinitionVersionId ||
-            item.StatusKey != "pending" || item.ChildInstanceId is not null || item.StarterUserId != actor || actor != parent.StartedById ||
+            item.StatusKey != "pending" || item.ChildInstanceId is not null || item.StarterUserId != actor ||
             item.InputHash != context.InputHash || WorkflowSubprocessBindings.Hash(item.InputJson) != context.InputHash ||
             item.InputJson != request.InitialValues.GetRawText()) return null;
         var asset = await query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
@@ -39,14 +39,17 @@ internal static class WorkflowSubprocessAttachmentProjection
             if (node?.NodeTypeKey != WorkflowSubprocessPolicy.NodeType || node.Config.GetRawText() != call.PolicyJson || schema is null || original is null ||
                 !WorkflowSubprocessPolicy.TryRead(node.Config, schema, out var policy) || !policy.MatchesSchemas(schema, childSchema)) return null;
             WorkflowMultiInstanceSeed? seed = null;
-            if (policy.Multi is { } multi)
+            if (policy.ExecutionSet is { } multi)
             {
                 var set = await query.QuerySingleOrDefaultAsync<WorkflowMultiInstanceSetRecord>(WorkflowMultiInstanceSql.Find,
                     WorkflowSqlParameters.Create(("CallId", call.Id), ("InstanceId", call.InstanceId), ("TenantScopeKey", scope)), token).ConfigureAwait(false);
                 if (set?.StatusKey != "running" || !WorkflowMultiInstanceSnapshotRules.TryRead(set, multi, original, out var snapshot)) return null;
                 seed = snapshot.Source.Items.SingleOrDefault(seed => seed.ItemKey == item.ItemKey && seed.SequenceNo == item.SequenceNo);
                 if (seed is null) return null;
+                if (policy.Starter is { SourceKey: not "parent" } && (snapshot.Starters?.ByItemKey is not { } starters || !starters.TryGetValue(seed.ItemKey, out var captured) || captured != actor)) return null;
             }
+            var expectedStarter = parent.StartedById;
+            if (policy.Starter is not null && !policy.Starter.TryResolve(parent.StartedById, original, seed ?? new("single", 1, "1"), out expectedStarter) || actor != expectedStarter) return null;
             if (!policy.TryCreateInput(original, childSchema, out var expected, seed) || expected != item.InputJson) return null;
             var sources = new Dictionary<Guid, WorkflowAttachmentReuseSource>();
             var childFields = childSchema.Sections.SelectMany(section => section.Fields).ToDictionary(field => field.FieldKey, StringComparer.Ordinal);

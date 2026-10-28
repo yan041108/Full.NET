@@ -56,8 +56,8 @@ internal sealed partial class WorkflowConnectorProcessor
                         ("OutcomeKey", prepared.Output.Matched ? "applied" : "skipped"), ("Now", now)), inner).ConfigureAwait(false);
                 var sequence = await query.QuerySingleOrDefaultAsync<long>(WorkflowSql.FindNextStepExecutionSequence,
                     Parameters(("InstanceId", applying.InstanceId)), inner).ConfigureAwait(false);
-                await scheduler.EnqueueAsync(current, applying.ContinuationNodeKey, prepared.Output.Values, revision, sequence,
-                    applying.ParallelJoinId, applying.ParallelBranchKey, now, inner).ConfigureAwait(false);
+                await scheduler.EnqueueAsync(current, await WorkflowExecutionEpochScope.ReadForStepAsync(query, current.Id, current.TenantScopeKey, applying.Id, inner).ConfigureAwait(false) ?? Guid.Empty, applying.ContinuationNodeKey, prepared.Output.Values, revision, sequence,
+                    applying.ParallelJoinId, applying.ParallelBranchKey, now, inner, sourceStepId: applying.Id).ConfigureAwait(false);
                 if (await commands.ExecuteAsync(WorkflowConnectorSql.FinishApply,
                         Parameters(("Id", applying.Id), ("InstanceId", applying.InstanceId), ("TenantScopeKey", applying.TenantScopeKey),
                             ("Generation", applying.LeaseGeneration), ("Owner", owner), ("AttemptId", applying.SelectedAttemptId), ("FormRevision", revision), ("Now", now)), inner).ConfigureAwait(false) != 1 ||

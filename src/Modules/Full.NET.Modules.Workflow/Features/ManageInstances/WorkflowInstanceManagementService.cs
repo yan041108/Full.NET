@@ -162,6 +162,14 @@ internal sealed partial class WorkflowInstanceManagementService(
                         ("BusinessId", request.BusinessId.Trim()),
                         ("BusinessTitle", businessTitle),
                         ("StartedById", actorUserId), ("StartedAtUtc", now)), token).ConfigureAwait(false);
+                if (await commandExecutor.ExecuteAsync(WorkflowExecutionEpochSql.InsertRoot,
+                        Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey), ("Now", now)), token).ConfigureAwait(false) != 1)
+                    return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+                if (await commandExecutor.ExecuteAsync(WorkflowCausalitySql.InsertStart,
+                        Parameters(("InstanceId",instanceId),("TenantScopeKey",scope.TenantScopeKey),
+                            ("NodeKey",definition.Nodes.Single(node=>node.NodeTypeKey=="start").NodeKey),("Now",now)),token).ConfigureAwait(false)!=1)
+                    return Failure(WorkflowErrorCodes.InvalidTransition,ErrorType.Conflict);
+                await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,scope.TenantScopeKey,instanceId,instanceId,now,token).ConfigureAwait(false);
                 if (childReservation is not null)
                 {
                     var linked = await WorkflowSubprocessStartGuard.LinkCreatedAsync(childReservation, instanceId, scope, now, commandExecutor, token).ConfigureAwait(false);
@@ -184,8 +192,8 @@ internal sealed partial class WorkflowInstanceManagementService(
                     request.BusinessType.Trim(), request.BusinessId.Trim(), businessTitle,
                     "active", 1, actorUserId, now, null, null, null, null, null, null);
                 var execution = await transitionExecutor.ExecuteAsync(
-                    instance, scope, runtimePlan, startTransition, initialValues, 1L, now,
-                    actorUserId, cancellationToken: token, preparedAssignees: preparedAssignees).ConfigureAwait(false);
+                    instance, scope, instance.Id, runtimePlan, startTransition, initialValues, 1L, now,
+                    actorUserId, cancellationToken: token, preparedAssignees: preparedAssignees, sourceStepId: instance.Id).ConfigureAwait(false);
                 if (!execution.IsSuccess)
                     return Result<WorkflowInstanceResponse>.Failure(execution.Error!);
 
@@ -220,7 +228,7 @@ internal sealed partial class WorkflowInstanceManagementService(
                     else
                         await notificationPublisher.PublishInstanceCompletedAsync(instanceId, actorUserId, instance.BusinessType, instance.BusinessId, now, token).ConfigureAwait(false);
                 }
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+                if (childReservation is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("StepId", firstStepId), ("TodoId", firstTodoId), ("ActionKey", "start"),
                         ("ActorUserId", actorUserId), ("InstanceRevision", revision),
@@ -232,7 +240,7 @@ internal sealed partial class WorkflowInstanceManagementService(
                         ("FromStatusKey", null), ("ToStatusKey", status),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
+                if (childReservation is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
                     Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
                         ("OperationKey", "instance.start"), ("ActorUserId", actorUserId),
@@ -240,6 +248,17 @@ internal sealed partial class WorkflowInstanceManagementService(
                         ("OutcomeKey", "succeeded"),
                         ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
                         ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+                else
+                {
+                    // 子根是系统按父活动创建，业务发起人不等同于点击启动的实际用户。
+                    var detail = WorkflowJsonCanonicalizer.Compile(writer => { writer.WriteStartObject(); writer.WriteString("nodeTypeKey", WorkflowSubprocessPolicy.NodeType);
+                        writer.WriteString("phaseKey", "child_started"); writer.WriteString("sourceKey", "parent_subprocess"); writer.WriteString("childInstanceId", instanceId);
+                        writer.WriteString("itemId", childReservation.Item.Id); writer.WriteString("starterUserId", actorUserId); writer.WriteString("starterSourceKey", childReservation.StarterSourceKey); writer.WriteEndObject(); }).CanonicalJson;
+                    await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit, Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
+                        ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId), ("ScopeKey", scope.ScopeKey), ("InstanceId", childReservation.Call.InstanceId),
+                        ("OperationKey", "activity.execute"), ("ActorUserId", null), ("ResourceTypeKey", "step"), ("ResourceId", childReservation.Call.Id),
+                        ("OutcomeKey", "succeeded"), ("DetailJson", detail), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+                }
 
                 var response = new WorkflowInstanceResponse(
                     instanceId, asset.DefinitionVersionId, asset.FormVersionId,
@@ -627,6 +646,9 @@ internal sealed partial class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        if (actionKey == "resume" && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) > 0)
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         if (actionKey == "resume" && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowVoteSql.CountUnresolved,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) > 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
@@ -687,6 +709,8 @@ internal sealed partial class WorkflowInstanceManagementService(
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
         if(!await WorkflowWorkingDelayLifecycle.ApplyAsync(instanceId,scope.TenantScopeKey,actionKey,now,databaseOptions.Value.Provider,
             queryExecutor,commandExecutor,token).ConfigureAwait(false))return Failure(WorkflowErrorCodes.InvalidTransition,ErrorType.Conflict);
+        if (!await WorkflowSubprocessTimeoutLifecycle.ApplyAsync(instanceId, scope.TenantScopeKey, actionKey, now, queryExecutor, commandExecutor, token).ConfigureAwait(false))
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         if (!await WorkflowSlaLifecycle.ApplyAsync(instanceId, scope.TenantScopeKey, actionKey, now, databaseOptions.Value.Provider,
                 queryExecutor, commandExecutor, token).ConfigureAwait(false)) return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         if (actionKey == "resume")

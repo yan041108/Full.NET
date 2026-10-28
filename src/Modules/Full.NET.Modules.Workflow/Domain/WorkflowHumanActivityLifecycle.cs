@@ -32,6 +32,7 @@ internal static class WorkflowHumanActivityLifecycle
         await commands.ExecuteAsync(WorkflowSql.CancelCountersignItemsByInstance, parameters, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowSql.CancelCountersignChainsByInstance, parameters, token).ConfigureAwait(false);
         var taskParameters = WorkflowSqlParameters.Create(("InstanceId", instanceId), ("TenantScopeKey", tenantScopeKey), ("Now", now));
+        await commands.ExecuteAsync(WorkflowExecutionEpochSql.CloseInstance, taskParameters, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowSlaSql.CancelInstance, taskParameters, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowDelaySql.Cancel, taskParameters, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowConnectorSql.CancelInstance, taskParameters, token).ConfigureAwait(false);

@@ -13,6 +13,7 @@ internal static class WorkflowBusinessCommandSql
     public static readonly SqlStatement FindAtNode = new("workflow.business_command.find_at_node", "SELECT " + Projection + """
          FROM fn_workflow_business_cmd AS businessCall
          WHERE businessCall.InstanceId=@InstanceId AND businessCall.TenantScopeKey=@TenantScopeKey AND businessCall.NodeKey=@NodeKey
+           AND EXISTS (SELECT 1 FROM fn_workflow_step AS epochStep WHERE epochStep.Id=businessCall.Id AND epochStep.InstanceId=@InstanceId AND epochStep.ExecutionEpochId=@ExecutionEpochId)
         """, SqlDataScope.Global);
     public static readonly SqlStatement ApprovedPredecessors = new("workflow.business_command.approved_predecessors", """
         SELECT COUNT(*) FROM fn_workflow_step AS step
@@ -28,9 +29,9 @@ internal static class WorkflowBusinessCommandSql
           AND step.StatusKey='active' AND step.NodeTypeKey='business.command' AND step.ParallelJoinId IS NULL
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertStep = new("workflow.business_command.insert_step", """
-        INSERT INTO fn_workflow_step (Id,InstanceId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,
+        INSERT INTO fn_workflow_step (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,
             AttemptCount,Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
-        VALUES (@Id,@InstanceId,@NodeKey,'business.command','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,NULL,NULL)
+        VALUES (@Id,@InstanceId, @ExecutionEpochId,@NodeKey,'business.command','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,NULL,NULL)
         """, SqlDataScope.Global);
     public static readonly SqlStatement Insert = new("workflow.business_command.insert", """
         INSERT INTO fn_workflow_business_cmd (Id,InstanceId,TenantScopeKey,NodeKey,ContinuationNodeKey,ActionKey,ActionVersion,ActionHash,

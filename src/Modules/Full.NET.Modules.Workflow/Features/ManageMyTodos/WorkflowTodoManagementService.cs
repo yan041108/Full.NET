@@ -136,7 +136,7 @@ internal sealed partial class WorkflowTodoManagementService(
             if (values is null || !plan!.TryResolveAfterHuman(todo.NodeKey, values, todo.ParallelJoinNodeKey, out var transition))
                 return Result<WorkflowActionPreparation>.Success(empty);
             approvals = await approvalPreparation.PrepareAsync(transition, scope, instance.StartedById, token, values, instance.Id, todo.NodeKey,
-                flowAdministratorUserIds: plan.FlowAdministratorUserIds).ConfigureAwait(false);
+                flowAdministratorUserIds: plan.FlowAdministratorUserIds, executionEpochId: await WorkflowExecutionEpochScope.ReadForStepAsync(queryExecutor, instance.Id, scope.TenantScopeKey, todo.StepId, token).ConfigureAwait(false)).ConfigureAwait(false);
         }
         var previousValues = JsonSerializer.Deserialize(submission.SubmissionJson, WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
         var nextValues = JsonSerializer.Deserialize(patched, WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
@@ -429,22 +429,23 @@ internal sealed partial class WorkflowTodoManagementService(
             return ReturnTargetsFailure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         }
 
-        var statement = databaseOptions.Value.Provider switch
-        {
-            DatabaseProvider.SqlServer => WorkflowSql.ListTodoReturnTargetsSqlServer,
-            DatabaseProvider.MySql => WorkflowSql.ListTodoReturnTargetsMySql,
-            _ => throw new InvalidOperationException(
-                $"Unsupported database provider '{databaseOptions.Value.Provider}'."),
-        };
-        var rows = await queryExecutor.QueryAsync<WorkflowTodoReturnTargetRecord>(
-            statement,
-            WorkflowSqlParameters.Create(("InstanceId", todo.InstanceId),
-                ("TenantScopeKey", scope.TenantScopeKey), ("CurrentStepId", todo.StepId), ("Offset", offset),
-                ("PageSize", pageSize)),
-            cancellationToken).ConfigureAwait(false);
-        return Result<IReadOnlyList<WorkflowTodoReturnTargetResponse>>.Success(
-            rows.Select(row => new WorkflowTodoReturnTargetResponse(
-                row.StepId, row.NodeKey, row.AssigneeUserId, row.CompletedAtUtc)).ToArray());
+        var state = await new WorkflowReturnScopeReader(queryExecutor, databaseOptions).ReadAsync(instance, todo.StepId, cancellationToken).ConfigureAwait(false);
+        var asset = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
+            WorkflowSqlParameters.Create(("DefinitionVersionId", instance.DefinitionVersionId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        var definition = asset is null ? null : JsonSerializer.Deserialize(asset.CanonicalJson, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
+        var schema = asset is null ? null : JsonSerializer.Deserialize(asset.FormSchemaJson, WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        if (state is null || definition is null || schema is null || !WorkflowRuntimePlan.TryCreate(definition, schema, out var plan))
+            return Result<IReadOnlyList<WorkflowTodoReturnTargetResponse>>.Success([]);
+        var allowed = state.Bindings.Select(binding => binding.StepId).Distinct()
+            .Where(id => state.TrySelect(instance, plan!, todo.StepId, id, out _)).ToArray();
+        if (allowed.Length == 0 || offset > int.MaxValue) return Result<IReadOnlyList<WorkflowTodoReturnTargetResponse>>.Success([]);
+        var statement = databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+            ? WorkflowSql.ListTodoReturnTargetsSqlServer : WorkflowSql.ListTodoReturnTargetsMySql;
+        var rows = await queryExecutor.QueryAsync<WorkflowTodoReturnTargetRecord>(statement,
+            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey),
+                ("AncestorStepIds", allowed), ("Offset", 0L), ("PageSize", WorkflowDefinitionCompiler.MaximumNodes)), cancellationToken).ConfigureAwait(false);
+        return Result<IReadOnlyList<WorkflowTodoReturnTargetResponse>>.Success(rows.Where(row => allowed.Contains(row.StepId))
+            .Skip((int)offset).Take(pageSize).Select(row => new WorkflowTodoReturnTargetResponse(row.StepId, row.NodeKey, row.AssigneeUserId, row.CompletedAtUtc)).ToArray());
     }
 
     /// <summary>把当前待办退回到服务端复核后的历史人工审批节点。</summary>
@@ -826,6 +827,7 @@ internal sealed partial class WorkflowTodoManagementService(
             var execution = await transitionExecutor.ExecuteAsync(
                 instance,
                 scope,
+                await WorkflowExecutionEpochScope.ReadForStepAsync(queryExecutor, instance.Id, scope.TenantScopeKey, todo.StepId, token).ConfigureAwait(false) ?? Guid.Empty,
                 runtimePlan!,
                 transition,
                 patchedValues,
@@ -834,7 +836,7 @@ internal sealed partial class WorkflowTodoManagementService(
                 instance.StartedById,
                 todo.ParallelJoinId,
                 todo.ParallelBranchKey,
-                token, preparedAssignees: preparation.Approvals).ConfigureAwait(false);
+                token, preparedAssignees: preparation.Approvals, sourceStepId: todo.StepId).ConfigureAwait(false);
             if (!execution.IsSuccess)
             {
                 return Result<WorkflowInstanceResponse>.Failure(execution.Error!);
@@ -1173,13 +1175,16 @@ internal sealed partial class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
         }
 
+        // ExecutePreparedAsync已取得可信根锁；在该锁内重读真实步骤、分叉、工作及有效绑定。
+        var scopeState = await new WorkflowReturnScopeReader(queryExecutor, databaseOptions).ReadAsync(instance, todo.StepId, token).ConfigureAwait(false);
+        var ancestors = scopeState?.Bindings.Select(binding => binding.StepId).Distinct().ToArray() ?? [];
         // 服务端按实例、类型和当前有效状态复核目标，绝不信任页面曾经加载的候选列表。
         var target = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoReturnTargetRecord>(
             WorkflowSql.FindTodoReturnTarget,
             WorkflowSqlParameters.Create(("TargetStepId", request.TargetStepId),
-                ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey), ("CurrentStepId", todo.StepId)),
+                ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey), ("CurrentStepId", todo.StepId),("AncestorStepIds",ancestors.Length==0?new[]{Guid.Empty}:ancestors)),
             token).ConfigureAwait(false);
-        if (target is null)
+        if (target is null || !ancestors.Contains(target.StepId))
         {
             // 并发退回时，另一请求可能已先完成并失效目标；同幂等键应回放收据而非返回无效目标。
             var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
@@ -1199,6 +1204,8 @@ internal sealed partial class WorkflowTodoManagementService(
             WorkflowSql.FindFormSubmissionByInstance,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id),
                 ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        var mainSubmission = submission;
+        submission = await branchStates.ReadAsync(todo, submission, scope.TenantScopeKey, token).ConfigureAwait(false);
         if (request.ExpectedFormRevision < 1 ||
             (submission is not null && submission.Revision != request.ExpectedFormRevision))
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
@@ -1222,33 +1229,30 @@ internal sealed partial class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
         }
 
-        var now = clock.UtcNow;
-        if (todo.ApprovalModeKey is not null)
-        {
-            var instanceLocked = await commandExecutor.ExecuteAsync(
-                WorkflowSql.LockInstanceForMultiApproval,
-                WorkflowSqlParameters.Create(("Id", instance.Id),
-                    ("TenantScopeKey", scope.TenantScopeKey), ("Revision", instance.Revision)), token)
-                .ConfigureAwait(false);
-            if (instanceLocked != 1)
-            {
-                var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
-                    WorkflowSql.FindActionReceipt,
-                    WorkflowSqlParameters.Create(("InstanceId", instance.Id),
-                        ("IdempotencyKey", idempotencyKey)), token).ConfigureAwait(false);
-                return concurrentReceipt is null
-                    ? Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict)
-                    : ReplayReturn(todo.Id, instance, formVersionId, actorUserId, requestHash, concurrentReceipt);
-            }
-        }
+        if (scopeState is null || !scopeState.TrySelect(instance, runtimePlan!, todo.StepId, target.StepId, out var selected))
+            return Failure(WorkflowErrorCodes.TodoReturnTargetInvalid, ErrorType.BusinessRule);
+        var returnInput = await new WorkflowReturnInputCoordinator(queryExecutor, branchStates).PrepareAsync(instance, todo,
+            scopeState, selected!, mainSubmission!, submission!, patchedSubmission, token).ConfigureAwait(false);
+        if (returnInput is null) return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
 
-        // 与批准/驳回统一先争抢提交快照 CAS，避免和取消、改派的待办→实例锁顺序形成环。
+        // 原完成尝试的人员与分组才是退回依据，不能让角色名册变化悄悄改写重开的席位。
+        var targetSnapshot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowAssigneeSnapshotRecord>(WorkflowReturnRoundSql.FindCompletedSnapshot,
+            WorkflowSqlParameters.Create(("StepId", target.StepId), ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        if (targetSnapshot is null || !runtimePlan!.TryGetReturnNode(target.NodeKey, out var targetNode) ||
+            !WorkflowReturnAssigneeSnapshot.TryRestore(targetNode!.NodeTypeKey, targetNode.Config, instance.StartedById,
+                targetSnapshot.AssigneeSnapshotJson, targetSnapshot.AssigneeSnapshotHash, out _))
+            return Failure(WorkflowErrorCodes.TodoReturnTargetInvalid, ErrorType.BusinessRule);
+
+        var now = clock.UtcNow;
+        // 来源表单与可选外层投影都在同一根锁内CAS，签名仍绑定来源视图。
         if (!WorkflowHumanActionPolicy.TryResolve(asset!.CanonicalJson, todo.NodeKey, out var publishedActions))
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         var policyCheck = publishedActions!.Validate("return", request.Comment, request.SignatureFileId);
         if (!policyCheck.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(policyCheck.Error!);
 
-        var submissionUpdated = await commandExecutor.ExecuteAsync(
+        var submissionUpdated = todo.ParallelJoinId is not null
+            ? await branchStates.WriteAsync(todo, request.FieldPatch, request.ExpectedFormRevision, scope.TenantScopeKey, token).ConfigureAwait(false)
+            : await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
                 ("SubmissionJson", patchedSubmission), ("UpdatedById", actorUserId),
@@ -1262,6 +1266,17 @@ internal sealed partial class WorkflowTodoManagementService(
             return concurrentReceipt is null
                 ? Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict)
                 : ReplayReturn(todo.Id, instance, formVersionId, actorUserId, requestHash, concurrentReceipt);
+        }
+
+        if (returnInput.Parent is { } parentSubmission)
+        {
+            var parentUpdated = selected!.ParallelJoinId is not null
+                ? await branchStates.WriteAsync(instance.Id, selected.ParallelJoinId, selected.ParallelBranchKey, returnInput.Delta,
+                    parentSubmission.Revision, scope.TenantScopeKey, token).ConfigureAwait(false)
+                : await commandExecutor.ExecuteAsync(WorkflowSql.UpdateFormSubmissionWithRevision,
+                    WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId), ("SubmissionJson", returnInput.Json),
+                        ("UpdatedById", actorUserId), ("UpdatedAtUtc", now), ("Revision", parentSubmission.Revision)), token).ConfigureAwait(false);
+            if (parentUpdated != 1) return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
         var attachmentSync = await SyncSubmissionAttachmentsAsync(
@@ -1304,47 +1319,19 @@ internal sealed partial class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
-        // 候选复核已保证唯一活动前沿；退回同时关闭该前沿的加签项和暂停原待办，防止旧链恢复。
-        var returnClosure = WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey),
-            ("CompletedAtUtc", now), ("ResultActionKey", "return"));
-        await commandExecutor.ExecuteAsync(WorkflowSql.CancelAllActiveTodosByInstance, returnClosure, token).ConfigureAwait(false);
-        await commandExecutor.ExecuteAsync(WorkflowSql.CancelCountersignItemsByInstance, returnClosure, token).ConfigureAwait(false);
-        await commandExecutor.ExecuteAsync(WorkflowSql.CancelCountersignChainsByInstance, returnClosure, token).ConfigureAwait(false);
-        if (todo.ApprovalModeKey is not null)
-        {
-            // 退回终止当前活动，组事实必须随成员待办一起关闭，不能留下可继续收敛的旧组。
-            await commandExecutor.ExecuteAsync(
-                WorkflowSql.CancelPendingApprovalSlotsByStep,
-                WorkflowSqlParameters.Create(("StepId", todo.StepId), ("DecidedAtUtc", now)), token)
-                .ConfigureAwait(false);
-            if (todo.ApprovalModeKey == "group")
-                await commandExecutor.ExecuteAsync(WorkflowGroupApprovalSql.CancelActiveByStep,
-                    WorkflowSqlParameters.Create(("StepId", todo.StepId), ("InstanceId", instance.Id), ("Now", now)), token).ConfigureAwait(false);
-        }
-
-        if (todo.NodeTypeKey == WorkflowHumanActivityKinds.Task)
-        {
-            var taskParameters = WorkflowSqlParameters.Create(("TaskId", todo.StepId), ("InstanceId", instance.Id), ("Now", now));
-            await commandExecutor.ExecuteAsync(WorkflowTaskSql.CancelMemberTodos, taskParameters, token).ConfigureAwait(false);
-            await commandExecutor.ExecuteAsync(WorkflowTaskSql.CancelMembers, taskParameters, token).ConfigureAwait(false);
-            await commandExecutor.ExecuteAsync(WorkflowTaskSql.CancelByStep, taskParameters, token).ConfigureAwait(false);
-        }
+        await WorkflowReturnClosure.ApplyAsync(commandExecutor, instance, selected!, now, token).ConfigureAwait(false);
 
         var nextExecutionSequence = await queryExecutor.QuerySingleOrDefaultAsync<long>(
             WorkflowSql.FindNextStepExecutionSequence,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
 
-        // 从旧目标起的完成步骤均已失效；保留记录但不再允许与新步骤尝试同时成为候选。
-        await commandExecutor.ExecuteAsync(
-            WorkflowSql.RollBackCompletedStepsFromTarget,
-            WorkflowSqlParameters.Create(("InstanceId", instance.Id),
-                ("TargetExecutionSequence", target.ExecutionSequence)), token).ConfigureAwait(false);
-        // 退回是一次新的激活尝试，不能把多人目标压成历史代表人的单人待办。
-        // 固定补丁后的输入和版本交给既有续办协议，Worker在事务外重新解析当前身份与完整席位。
-        var returnValues = JsonSerializer.Deserialize(patchedSubmission,
+        // 新代次和原目标摘要与唯一入队收据同事务保存，Worker只复核该快照成员当前资格。
+        var returnValues = JsonSerializer.Deserialize(returnInput.Json,
             WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement)!;
-        await new WorkflowActivityScheduler(commandExecutor, idGenerator).EnqueueAsync(instance, target.NodeKey,
-            returnValues, request.ExpectedFormRevision + 1, nextExecutionSequence, null, null, now, token).ConfigureAwait(false);
+        var returnRound = await new WorkflowReturnRoundCoordinator(queryExecutor, commandExecutor, idGenerator).EnterAsync(instance,
+            runtimePlan!, todo.StepId, target.StepId, target.NodeKey, targetSnapshot.AssigneeSnapshotHash, returnValues,
+            returnInput.Revision, nextExecutionSequence, now, token, selected).ConfigureAwait(false);
+        if (!returnRound.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(returnRound.Error!);
         await commandExecutor.ExecuteAsync(
             WorkflowSql.InsertApprovalActionRecord,
             WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),

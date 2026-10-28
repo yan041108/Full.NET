@@ -6,7 +6,9 @@ namespace Full.NET.Modules.Workflow.Persistence;
 internal static partial class WorkflowConnectorSql
 {
     public static readonly SqlStatement FindInFrame = new("workflow.connector.find_frame", "SELECT " + Projection + """
-         FROM fn_workflow_connector_call AS activation WHERE activation.InstanceId=@InstanceId AND activation.TenantScopeKey=@TenantScopeKey
+         FROM fn_workflow_connector_call AS activation
+         INNER JOIN fn_workflow_activation_binding AS binding ON binding.StepId=activation.Id AND binding.InstanceId=activation.InstanceId AND binding.NodeKey=activation.NodeKey
+         WHERE activation.InstanceId=@InstanceId AND activation.TenantScopeKey=@TenantScopeKey AND binding.TenantScopeKey=@TenantScopeKey AND binding.ExecutionEpochId=@ExecutionEpochId
            AND activation.ModeKey='async' AND activation.NodeKey IN @NodeKeys
            AND (activation.ParallelJoinId=@ParallelJoinId OR (activation.ParallelJoinId IS NULL AND @ParallelJoinId IS NULL))
            AND (activation.ParallelBranchKey=@ParallelBranchKey OR (activation.ParallelBranchKey IS NULL AND @ParallelBranchKey IS NULL))

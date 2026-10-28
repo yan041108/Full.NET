@@ -45,7 +45,7 @@ public sealed class WorkflowSystemApprovalGroupTests
         var writer = new WorkflowHumanActivityActivationWriter(command, ids, new(outbox)); var user = Guid.CreateVersion7();
         var policy = new WorkflowApprovalPolicy("group", [user], 2, Groups: [
             new("automatic", null, new("system", [], 0), new("auto_pass", "empty")), new("human", null, new("single", [user], 1))]);
-        var activation = await writer.WriteAsync(Guid.CreateVersion7(), "host", "groups", policy, Guid.Empty, 1, DateTimeOffset.UtcNow, null, "test", "one", default, "{}", "hash");
+        var activation = await writer.WriteAsync(Guid.CreateVersion7(), "host", Guid.CreateVersion7(), "groups", policy, Guid.Empty, 1, DateTimeOffset.UtcNow, null, "test", "one", default, "{}", "hash");
         Assert.HasCount(1, activation.TodoIds);
         await command.Received(1).ExecuteAsync(WorkflowAssigneeHandlingSql.InsertApprovedGroup, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await command.Received(1).ExecuteAsync(WorkflowGroupApprovalSql.InsertSlot, Arg.Any<object?>(), Arg.Any<CancellationToken>());

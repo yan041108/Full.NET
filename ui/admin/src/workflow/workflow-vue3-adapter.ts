@@ -10,6 +10,7 @@ import { readWorkflowConnector } from './workflow-connector';
 import { readWorkflowBusinessCommand } from './workflow-business-command';
 import { readWorkflowSubprocess } from './workflow-subprocess';
 import { readWorkflowSlaPolicy } from './workflow-sla-policy';
+import { readWorkflowRoutePolicy } from './workflow-route';
 import { readWorkflowResultCallback } from './workflow-result-callback';
 import { readWorkflowActivityListeners } from './workflow-activity-listeners';
 import { workflowGatewayLimits } from './workflow-gateway-limits';
@@ -19,6 +20,7 @@ export interface WorkflowVue3Node {
   readonly id?: string;
   readonly type?: number;
   readonly nodeName?: string;
+  readonly endNodeKey?: string;
   childNode?: WorkflowVue3Node | null;
   readonly conditionNodes?: WorkflowVue3Node[];
   readonly [key: string]: unknown;
@@ -38,6 +40,7 @@ const sourceToTargetType = new Map<number, string>([
   [17, 'human.claim'],
   [2, 'notify.cc'],
   [22, 'control.empty'],
+  [14, 'control.route'],
   [23, 'business.command'],
   [9, 'process.subprocess'],
   [7, 'timer.delay'],
@@ -57,6 +60,7 @@ const targetToSourceType = new Map<string, number>([
   ['human.claim', 17],
   ['notify.cc', 2],
   ['control.empty', 22],
+  ['control.route', 14],
   ['business.command', 23],
   ['process.subprocess', 9],
   ['timer.delay', 7],
@@ -73,7 +77,7 @@ const userIdPattern = /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-
 /** 旧设计器里涉及脚本、远程调用或副作用的配置一律视为不可信。 */
 const unsafePropertyPattern = /(?:script|function|javascript|remote|url|header|body|webhook|sql|deleteData|modifyData)/iu;
 /** 这些字段只参与树结构，不属于节点业务配置。 */
-const structuralKeys = new Set(['id', 'type', 'childNode', 'conditionNodes', 'awaitActivityNodeKeys', 'boundaryAwaitActivityNodeKeys']);
+const structuralKeys = new Set(['id', 'type', 'childNode', 'conditionNodes', 'awaitActivityNodeKeys', 'boundaryAwaitActivityNodeKeys', 'endNodeKey']);
 
 /** 依赖引用属于图结构；禁止将无效引用静默丢弃或混入业务配置。 */
 export function readWorkflowAwaitDependencies(value: unknown): string[] | undefined {
@@ -96,6 +100,7 @@ const transientDesignerKeys = new Set([
 /** 把 Workflow-Vue3 的编辑树转换为服务端可编译的稳定节点列表。 */
 export function fromWorkflowVue3Tree(root: unknown): WorkflowDefinitionDraft {
   if (!isRecord(root)) throw new Error('client.invalid_workflow_definition_draft');
+  const endNodeKey = readStableKey(root.endNodeKey ?? 'end');
   const nodes: WorkflowNodeDraft[] = [];
   const keys = new Set<string>();
   const dependencies = new Map<string, string[]>();
@@ -273,13 +278,13 @@ export function fromWorkflowVue3Tree(root: unknown): WorkflowDefinitionDraft {
     if (next !== null) compile(next, continuationKey);
   };
 
-  compile(root as WorkflowVue3Node, 'end');
+  compile(root as WorkflowVue3Node, endNodeKey);
 
   if (nodes[0]?.nodeTypeKey !== 'start') {
     throw new Error('client.invalid_workflow_definition_draft');
   }
-  if (keys.has('end')) throw new Error('client.invalid_workflow_definition_draft');
-  nodes.push({ nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } });
+  if (keys.has(endNodeKey)) throw new Error('client.invalid_workflow_definition_draft');
+  nodes.push({ nodeKey: endNodeKey, nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } });
   if (root.boundaryAwaitActivityNodeKeys !== undefined) {
     if (!isRecord(root.boundaryAwaitActivityNodeKeys)) throw new Error('client.invalid_workflow_async_dependency');
     for (const [key, value] of Object.entries(root.boundaryAwaitActivityNodeKeys)) {
@@ -308,9 +313,13 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
   }
   const start = draft.nodes.find(node => node.nodeTypeKey === 'start');
   if (start === undefined) throw new Error('client.invalid_workflow_definition_draft');
+  const ends = draft.nodes.filter(node => node.nodeTypeKey === 'end');
+  // 树形画布隐藏一个共享终点；多个结束身份不可静默合并，否则路由引用会指向另一节点。
+  if (ends.length !== 1) throw new Error('client.unsupported_workflow_node_configuration');
+  const endNodeKey = readStableKey(ends[0]!.nodeKey);
   const visited = new Set<string>();
 
-  const build = (node: WorkflowNodeDraft | undefined, stopKey = 'end'): WorkflowVue3Node | null => {
+  const build = (node: WorkflowNodeDraft | undefined, stopKey = endNodeKey): WorkflowVue3Node | null => {
     if (node === undefined) throw new Error('client.invalid_workflow_definition_draft');
     if (node.nodeKey === stopKey || node.nodeTypeKey === 'end') return null;
     if (visited.has(node.nodeKey)) throw new Error('client.invalid_workflow_definition_draft');
@@ -468,6 +477,7 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
   if (Object.keys(boundaryDependencies).length) (tree as Record<string, unknown>).boundaryAwaitActivityNodeKeys = boundaryDependencies;
   const kind = draft.workflowKindKey ?? 'approval';
   if (kind !== 'approval' && kind !== 'automation') throw new Error('client.invalid_workflow_definition_draft');
+  if (endNodeKey !== 'end') (tree as Record<string, unknown>).endNodeKey = endNodeKey;
   return kind === 'automation' ? { ...tree, workflowKindKey: kind } : tree;
 }
 
@@ -647,6 +657,7 @@ function readClosedNodeConfig(
   nodeTypeKey: string
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  if (nodeTypeKey === 'control.route') result.routePolicy = readWorkflowRoutePolicy(node.routePolicy);
   if (nodeTypeKey === 'human.group_approval') Object.assign(result, readGroupApprovalConfiguration(node));
   if (nodeTypeKey === 'human.task') result.taskPolicy = readTaskPolicy(node.taskPolicy);
   if (nodeTypeKey === 'start' && node.withdrawalPolicy !== undefined) result.withdrawalPolicy = readWithdrawalPolicy(node.withdrawalPolicy);
@@ -659,7 +670,8 @@ function readClosedNodeConfig(
   if (nodeTypeKey === 'business.command') Object.assign(result, readWorkflowBusinessCommand(node));
   if (nodeTypeKey === 'process.subprocess') Object.assign(result, readWorkflowSubprocess(node));
   for (const [key, value] of Object.entries(node)) {
-    if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy'].includes(key)) continue;
+    if (nodeTypeKey === 'control.route' && key === 'routePolicy') continue;
+    if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
     if (nodeTypeKey === 'business.command' && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
     if ((nodeTypeKey === 'data.modify' || nodeTypeKey === 'data.clear') && (key === 'mutationPolicy' || key === 'fieldPolicies')) continue;
     if (['integration.trigger', 'integration.async_trigger'].includes(nodeTypeKey) && ['connectorPolicy', 'fieldPolicies', 'boundConnectorHash'].includes(key)) continue;
@@ -731,6 +743,7 @@ function readClosedTargetConfig(
   nodeTypeKey: string
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  if (nodeTypeKey === 'control.route') result.routePolicy = readWorkflowRoutePolicy(config.routePolicy);
   if (nodeTypeKey === 'human.group_approval') Object.assign(result, readGroupApprovalConfiguration(config));
   if (nodeTypeKey === 'human.task') result.taskPolicy = readTaskPolicy(config.taskPolicy);
   if (nodeTypeKey === 'start' && config.withdrawalPolicy !== undefined) result.withdrawalPolicy = readWithdrawalPolicy(config.withdrawalPolicy);
@@ -743,7 +756,8 @@ function readClosedTargetConfig(
   if (nodeTypeKey === 'business.command') Object.assign(result, readWorkflowBusinessCommand(config));
   if (nodeTypeKey === 'process.subprocess') Object.assign(result, readWorkflowSubprocess(config));
   for (const [key, value] of Object.entries(config)) {
-    if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy'].includes(key)) continue;
+    if (nodeTypeKey === 'control.route' && key === 'routePolicy') continue;
+    if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
     if (nodeTypeKey === 'business.command' && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
     if ((nodeTypeKey === 'data.modify' || nodeTypeKey === 'data.clear') && (key === 'mutationPolicy' || key === 'fieldPolicies')) continue;
     if (['integration.trigger', 'integration.async_trigger'].includes(nodeTypeKey) && ['connectorPolicy', 'fieldPolicies', 'boundConnectorHash'].includes(key)) continue;
@@ -1078,6 +1092,8 @@ function assertSafeConfiguration(value: unknown): void {
   const connectorNode = value.type === 6 || value.type === 11;
   const businessNode = value.type === 23;
   const subprocessNode = value.type === 9;
+  const routeNode = value.type === 14;
+  if (routeNode) readWorkflowRoutePolicy(value.routePolicy);
   if (subprocessNode) readWorkflowSubprocess(value);
   if (businessNode) readWorkflowBusinessCommand(value);
   if (connectorNode) readWorkflowConnector(value);
@@ -1087,7 +1103,8 @@ function assertSafeConfiguration(value: unknown): void {
     if (fieldNode && (key === 'mutationPolicy' || key === 'fieldPolicies')) continue;
     if (connectorNode && ['connectorPolicy', 'fieldPolicies', 'boundConnectorHash'].includes(key)) continue;
     if (businessNode && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
-    if (subprocessNode && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy'].includes(key)) continue;
+    if (subprocessNode && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
+    if (routeNode && key === 'routePolicy') continue;
     if (unsafePropertyPattern.test(key) && hasConfiguredValue(child)) {
       throw new Error('client.unsafe_workflow_configuration');
     }
@@ -1108,6 +1125,7 @@ function hasConfiguredValue(value: unknown): boolean {
 
 /** 为旧设计器缺失名称的节点补稳定默认文案，保证回显后仍可辨识。 */
 function defaultNodeName(nodeTypeKey: string): string {
+  if (nodeTypeKey === 'control.route') return '动态路由';
   if (nodeTypeKey === 'data.modify') return '修改字段';
   if (nodeTypeKey === 'data.clear') return '清空字段';
   if (nodeTypeKey === 'integration.async_trigger') return '异步连接器';

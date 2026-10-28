@@ -7,9 +7,9 @@ internal static class WorkflowFieldActivitySql
 {
     public static readonly SqlStatement InsertStep = new("workflow.field_activity.insert_step", """
         INSERT INTO fn_workflow_step
-          (Id,InstanceId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,
+          (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,Revision,
            ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
-        VALUES (@Id,@InstanceId,@NodeKey,@NodeTypeKey,'completed',NULL,NULL,0,1,
+        VALUES (@Id,@InstanceId, @ExecutionEpochId,@NodeKey,@NodeTypeKey,'completed',NULL,NULL,0,1,
            @ExecutionSequence,@Now,@Now,@ParallelJoinId,@ParallelBranchKey)
         """, SqlDataScope.Global);
 

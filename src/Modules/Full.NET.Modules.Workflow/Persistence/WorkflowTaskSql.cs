@@ -7,9 +7,9 @@ internal static class WorkflowTaskSql
 {
     public static readonly SqlStatement InsertStep = new("workflow.task.insert_step", """
         INSERT INTO fn_workflow_step
-            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc, AttemptCount, Revision,
+            (Id, InstanceId, ExecutionEpochId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId, DueAtUtc, AttemptCount, Revision,
              ExecutionSequence, ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc, AssigneeSnapshotJson, AssigneeSnapshotHash)
-        VALUES (@Id, @InstanceId, @NodeKey, 'human.task', 'active', @AssignedUserId, NULL, 0, 1,
+        VALUES (@Id, @InstanceId, @ExecutionEpochId, @NodeKey, 'human.task', 'active', @AssignedUserId, NULL, 0, 1,
             @ExecutionSequence, @ParallelJoinId, @ParallelBranchKey, @Now, NULL, @AssigneeSnapshotJson, @AssigneeSnapshotHash)
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertTask = new("workflow.task.insert", """

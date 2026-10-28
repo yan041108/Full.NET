@@ -12,6 +12,20 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <param name="resolver">办理人解析器。</param>
 internal sealed class WorkflowHumanActivityAssigneeCoordinator(WorkflowAssigneeResolver resolver)
 {
+    /// <summary>原目标的成员顺序和组边界保持不变；仅批量复核现在仍是可办理的活动身份。</summary>
+    public async Task<Result<WorkflowHumanActivityAssignees>> RestoreReturnAsync(string nodeType, System.Text.Json.JsonElement configuration,
+        string? json, string? hash, WorkflowManagementScope scope, Guid initiator, CancellationToken token)
+    {
+        if (!WorkflowReturnAssigneeSnapshot.TryRestore(nodeType, configuration, initiator, json, hash, out var restored)) return Failure();
+        var original = JsonSerializer.Deserialize(json!, WorkflowJsonSerializerContext.Default.WorkflowAssigneeResolutionSnapshot)!;
+        var sources = original.Sources.Concat(original.Groups?.SelectMany(group => group.Resolution.Sources) ?? []);
+        var containsInitiator = sources.Any(source => source?.Config?.ResolverKindKey == WorkflowAssigneePolicy.Initiator &&
+            source.UserIds is not null && source.UserIds.Contains(initiator));
+        var members = restored!.Task?.MemberUserIds ?? restored.ApprovalPolicy?.ApproverUserIds ?? [restored.FallbackAssigneeUserId];
+        return await resolver.ValidateResolvedAsync(members, scope, initiator, true, containsInitiator, token).ConfigureAwait(false)
+            ? Result<WorkflowHumanActivityAssignees>.Success(restored) : Failure();
+    }
+
     /// <summary>抄送只解析收件人：正常无人可以留空，失效身份与来源不能被忽略或替换成发起人。</summary>
     public async Task<Result<WorkflowCcRecipients>> ResolveCcAsync(WorkflowAssigneePolicy policy, WorkflowManagementScope scope,
         Guid initiator, WorkflowAssigneeRuntimeContext context, CancellationToken token)

@@ -125,6 +125,7 @@ const fullnetDelayPresentation = inject('fullnetWorkflowDelayPresentation', unde
 const fullnetFieldPresentation = inject('fullnetWorkflowFieldPresentation', undefined)
 const fullnetConnectorPresentation = inject('fullnetWorkflowConnectorPresentation', undefined)
 const fullnetSubprocessPresentation = inject('fullnetWorkflowSubprocessPresentation', undefined)
+const fullnetRoutePresentation = inject('fullnetWorkflowRoutePresentation', undefined)
 const fullnetDependencies = inject('fullnetWorkflowEditDependencies', undefined)
 const dependencyTypes = inject('fullnetWorkflowEnabledNodeTypes', computed(() => new Set()))
 const dependencyLabel = inject('fullnetWorkflowDependencyLabel', '')
@@ -762,6 +763,11 @@ const refreshNodeError = () => {
             if (cfg.placeHolder !== summary) cfg.placeHolder = summary
         }
     } else if (isDynamicRouteType(cfg.type)) {
+        if (fullnetRoutePresentation) {
+            const presentation = fullnetRoutePresentation(cfg)
+            cfg.error = presentation.error; cfg.errorTip = presentation.tip; cfg.placeHolder = presentation.text
+            return
+        }
         const { error, tip, placeHolder } = calcDynamicRouteError(cfg)
         nextError = error
         nextTip = tip

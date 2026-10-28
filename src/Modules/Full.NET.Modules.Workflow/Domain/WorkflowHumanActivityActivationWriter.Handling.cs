@@ -24,20 +24,21 @@ internal sealed partial class WorkflowHumanActivityActivationWriter
     }
 
     /// <summary>系统裁定有独立执行轨迹和审计；Actor 留空，不能冒充发起人执行人工意见。</summary>
-    public async Task<Guid> WriteHandlingAsync(WorkflowInstanceRecord instance, WorkflowManagementScope scope, string nodeKey,
+    public async Task<Guid> WriteHandlingAsync(WorkflowInstanceRecord instance, WorkflowManagementScope scope, Guid executionEpochId, string nodeKey,
         string nodeTypeKey, WorkflowHumanActivityAssignees assignees, long sequence, DateTimeOffset now,
-        Guid? joinId, string? branchKey, CancellationToken token)
+        Guid? joinId, string? branchKey, CancellationToken token, WorkflowActivationTrace? trace=null)
     {
         if (assignees.Handling is not { } handling || assignees.ResolutionJson is null || assignees.ResolutionHash is null)
             throw new InvalidOperationException("workflow.assignee_handling.snapshot_missing");
         var stepId = idGenerator.NewId();
         var transition = $"assignee.{handling.TriggerKey}.{handling.ActionKey}";
         if (await commandExecutor.ExecuteAsync(WorkflowAssigneeHandlingSql.InsertStep,
-            WorkflowSqlParameters.Create(("Id", stepId), ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey),
+            WorkflowSqlParameters.Create(("Id", stepId), ("InstanceId", instance.Id), ("ExecutionEpochId", executionEpochId), ("TenantScopeKey", scope.TenantScopeKey),
                 ("NodeKey", nodeKey), ("NodeTypeKey", nodeTypeKey), ("ExecutionSequence", sequence),
                 ("ParallelJoinId", joinId), ("ParallelBranchKey", branchKey), ("Now", now),
                 ("AssigneeSnapshotJson", assignees.ResolutionJson), ("AssigneeSnapshotHash", assignees.ResolutionHash)), token).ConfigureAwait(false) != 1)
             throw new InvalidOperationException("workflow.assignee_handling.step_missing");
+        await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instance.Id,scope.TenantScopeKey,executionEpochId,stepId,now,token,trace,idGenerator).ConfigureAwait(false);
         var status = handling.ActionKey == "suspend" ? "suspended" : handling.ActionKey == "auto_reject" ? "rejected" : "active";
         var correlation = Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson();
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,

@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>父子版本、执行预算及关联只读取Workflow自有事实；普通作用域不能引用其他租户资产。</summary>
 internal static class WorkflowSubprocessSql
 {
-    private const string CallProjection = "callState.Id,callState.InstanceId,callState.TenantScopeKey,callState.NodeKey,callState.ContinuationNodeKey,callState.ChildDefinitionVersionId,callState.ChildFormVersionId,callState.DefinitionHash,callState.FormHash,callState.PolicyJson,callState.ParentInputJson,callState.InputFormRevision,callState.ParallelJoinId,callState.ParallelBranchKey,callState.Depth,callState.ChildActivityBudget,callState.StatusKey,callState.CancellationRequested,callState.ErrorCode,callState.Revision,callState.CreatedAtUtc,callState.UpdatedAtUtc";
+    private const string CallProjection = "callState.Id,callState.InstanceId,callState.TenantScopeKey,callState.NodeKey,callState.ContinuationNodeKey,callState.ChildDefinitionVersionId,callState.ChildFormVersionId,callState.DefinitionHash,callState.FormHash,callState.PolicyJson,callState.ParentInputJson,callState.InputFormRevision,callState.ParallelJoinId,callState.ParallelBranchKey,callState.Depth,callState.ChildActivityBudget,callState.StatusKey,callState.CancellationRequested,callState.ErrorCode,callState.Revision,callState.CreatedAtUtc,callState.UpdatedAtUtc,callState.ExecutionEpochId";
     private const string ItemProjection = "Id,CallId,InstanceId,TenantScopeKey,ItemKey,SequenceNo,StarterUserId,InputJson,InputHash,ChildInstanceId,StatusKey,ResultJson,ResultHash,ChildRevision,Revision,CreatedAtUtc,UpdatedAtUtc";
     public static readonly SqlStatement FindAssets = new("workflow.subprocess.find_assets", """
         SELECT version.Id AS DefinitionVersionId,version.FormVersionId,version.CanonicalJson,formVersion.FormSchemaJson,
@@ -20,7 +20,7 @@ internal static class WorkflowSubprocessSql
          FROM fn_workflow_subprocess_call AS callState WHERE callState.Id=@Id AND callState.InstanceId=@InstanceId AND callState.TenantScopeKey=@TenantScopeKey
         """, SqlDataScope.Global);
     public static readonly SqlStatement FindAtNode = new("workflow.subprocess.find_at_node", "SELECT " + CallProjection + """
-         FROM fn_workflow_subprocess_call AS callState WHERE callState.InstanceId=@InstanceId AND callState.TenantScopeKey=@TenantScopeKey AND callState.NodeKey=@NodeKey
+         FROM fn_workflow_subprocess_call AS callState WHERE callState.InstanceId=@InstanceId AND callState.TenantScopeKey=@TenantScopeKey AND callState.NodeKey=@NodeKey AND callState.ExecutionEpochId=@ExecutionEpochId
         """, SqlDataScope.Global);
     public static readonly SqlStatement FindItem = new("workflow.subprocess_item.find", "SELECT " + ItemProjection + """
          FROM fn_workflow_subprocess_item WHERE Id=@Id AND CallId=@CallId AND InstanceId=@InstanceId AND TenantScopeKey=@TenantScopeKey
@@ -62,16 +62,16 @@ internal static class WorkflowSubprocessSql
             WHERE attempt.CallId=connector.Id AND attempt.TenantScopeKey=@TenantScopeKey AND (attempt.StatusKey='inflight' OR attempt.OutcomeKey='outcome_unknown')))
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertStep = new("workflow.subprocess.insert_step", """
-        INSERT INTO fn_workflow_step (Id,InstanceId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,
+        INSERT INTO fn_workflow_step (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,
             Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)
-        VALUES (@Id,@InstanceId,@NodeKey,'process.subprocess','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,@ParallelJoinId,@ParallelBranchKey)
+        VALUES (@Id,@InstanceId, @ExecutionEpochId,@NodeKey,'process.subprocess','active',NULL,NULL,0,1,@ExecutionSequence,@Now,NULL,@ParallelJoinId,@ParallelBranchKey)
         """, SqlDataScope.Global);
     public static readonly SqlStatement Insert = new("workflow.subprocess.insert", """
         INSERT INTO fn_workflow_subprocess_call (Id,InstanceId,TenantScopeKey,NodeKey,ContinuationNodeKey,ChildDefinitionVersionId,ChildFormVersionId,
             DefinitionHash,FormHash,PolicyJson,ParentInputJson,InputFormRevision,ParallelJoinId,ParallelBranchKey,Depth,ChildActivityBudget,StatusKey,
-            CancellationRequested,ErrorCode,Revision,CreatedAtUtc,UpdatedAtUtc)
+            CancellationRequested,ErrorCode,Revision,CreatedAtUtc,UpdatedAtUtc,ExecutionEpochId)
         VALUES (@Id,@InstanceId,@TenantScopeKey,@NodeKey,@ContinuationNodeKey,@ChildDefinitionVersionId,@ChildFormVersionId,
-            @DefinitionHash,@FormHash,@PolicyJson,@ParentInputJson,@InputFormRevision,@ParallelJoinId,@ParallelBranchKey,@Depth,@ChildActivityBudget,'requested',0,NULL,1,@Now,@Now)
+            @DefinitionHash,@FormHash,@PolicyJson,@ParentInputJson,@InputFormRevision,@ParallelJoinId,@ParallelBranchKey,@Depth,@ChildActivityBudget,'requested',0,NULL,1,@Now,@Now,@ExecutionEpochId)
         """, SqlDataScope.Global);
     public static readonly SqlStatement InsertItem = new("workflow.subprocess_item.insert", """
         INSERT INTO fn_workflow_subprocess_item (Id,CallId,InstanceId,TenantScopeKey,ItemKey,SequenceNo,StarterUserId,InputJson,InputHash,
@@ -98,11 +98,11 @@ internal static class WorkflowSubprocessSql
         """, SqlDataScope.Global);
     public static readonly SqlStatement CountRecoverable = new("workflow.subprocess.count_recoverable", """
         SELECT COUNT(*) FROM fn_workflow_subprocess_call WHERE InstanceId=@InstanceId AND TenantScopeKey=@TenantScopeKey
-        AND StatusKey IN ('requested','running','result_ready') AND CancellationRequested=0
+        AND StatusKey IN ('requested','running','result_ready') AND (CancellationRequested=0 OR EXISTS (SELECT 1 FROM fn_workflow_subprocess_timeout AS timeoutState WHERE timeoutState.CallId=fn_workflow_subprocess_call.Id AND timeoutState.InstanceId=@InstanceId AND timeoutState.TenantScopeKey=@TenantScopeKey AND timeoutState.StatusKey='ready'))
         """, SqlDataScope.Global);
     public static readonly SqlStatement CountBlocked = new("workflow.subprocess.count_blocked", """
         SELECT COUNT(*) FROM fn_workflow_subprocess_call WHERE InstanceId=@InstanceId AND TenantScopeKey=@TenantScopeKey
-        AND (StatusKey='faulted' OR CancellationRequested=1 OR ErrorCode IS NOT NULL)
+        AND (StatusKey='faulted' OR ErrorCode IS NOT NULL OR (CancellationRequested=1 AND NOT EXISTS (SELECT 1 FROM fn_workflow_subprocess_timeout AS timeoutState WHERE timeoutState.CallId=fn_workflow_subprocess_call.Id AND timeoutState.InstanceId=@InstanceId AND timeoutState.TenantScopeKey=@TenantScopeKey AND timeoutState.StatusKey='ready')))
         """, SqlDataScope.Global);
     public static readonly SqlStatement CountUnsettled = new("workflow.subprocess.count_unsettled", """
         SELECT COUNT(*) FROM fn_workflow_subprocess_call AS callState
@@ -110,7 +110,7 @@ internal static class WorkflowSubprocessSql
         WHERE callState.InstanceId=@InstanceId AND callState.TenantScopeKey=@TenantScopeKey AND
         (step.Id IS NULL OR NOT ((callState.StatusKey='applied' AND step.StatusKey='completed') OR (callState.StatusKey='cancelled' AND step.StatusKey<>'active')))
         """, SqlDataScope.Global);
-    private const string Scan = " FROM fn_workflow_subprocess_call AS callState INNER JOIN fn_workflow_instance AS parent ON parent.Id=callState.InstanceId AND parent.TenantScopeKey=callState.TenantScopeKey WHERE callState.StatusKey NOT IN ('applied','cancelled') AND (callState.StatusKey<>'faulted' OR parent.StatusKey IN ('rejected','cancelled')) AND (@HasAfter=0 OR callState.UpdatedAtUtc>@AfterUpdatedAtUtc OR (callState.UpdatedAtUtc=@AfterUpdatedAtUtc AND callState.Id>@AfterId)) ORDER BY callState.UpdatedAtUtc,callState.Id";
+    private const string Scan = " FROM fn_workflow_subprocess_call AS callState INNER JOIN fn_workflow_instance AS parent ON parent.Id=callState.InstanceId AND parent.TenantScopeKey=callState.TenantScopeKey WHERE callState.StatusKey NOT IN ('applied','cancelled') AND (callState.StatusKey<>'faulted' OR parent.StatusKey IN ('rejected','cancelled') OR EXISTS (SELECT 1 FROM fn_workflow_subprocess_timeout AS timeoutState WHERE timeoutState.CallId=callState.Id AND timeoutState.InstanceId=callState.InstanceId AND timeoutState.TenantScopeKey=callState.TenantScopeKey AND timeoutState.StatusKey IN ('closing','ready'))) AND (@HasAfter=0 OR callState.UpdatedAtUtc>@AfterUpdatedAtUtc OR (callState.UpdatedAtUtc=@AfterUpdatedAtUtc AND callState.Id>@AfterId)) ORDER BY callState.UpdatedAtUtc,callState.Id";
     public static readonly SqlStatement PendingSqlServer = new("workflow.subprocess.pending_sqlserver", "SELECT TOP (@Take) " + CallProjection + Scan, SqlDataScope.Global);
     public static readonly SqlStatement PendingMySql = new("workflow.subprocess.pending_mysql", "SELECT " + CallProjection + Scan + " LIMIT @Take", SqlDataScope.Global);
 }
@@ -119,7 +119,7 @@ internal static class WorkflowSubprocessSql
 internal sealed record WorkflowSubprocessCallRecord(Guid Id, Guid InstanceId, string TenantScopeKey, string NodeKey, string ContinuationNodeKey,
     Guid ChildDefinitionVersionId, Guid ChildFormVersionId, string DefinitionHash, string FormHash, string PolicyJson, string ParentInputJson,
     long InputFormRevision, Guid? ParallelJoinId, string? ParallelBranchKey, int Depth, int ChildActivityBudget, string StatusKey,
-    bool CancellationRequested, string? ErrorCode, long Revision, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc);
+    bool CancellationRequested, string? ErrorCode, long Revision, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, Guid ExecutionEpochId);
 
 /// <summary>每个子项拥有稳定身份与输入；创建子根时原子关联，不能依靠最近同名实例恢复。</summary>
 internal sealed record WorkflowSubprocessItemRecord(Guid Id, Guid CallId, Guid InstanceId, string TenantScopeKey, string ItemKey, int SequenceNo,

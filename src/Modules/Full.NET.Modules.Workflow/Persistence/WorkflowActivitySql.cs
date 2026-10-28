@@ -26,18 +26,22 @@ internal static class WorkflowActivitySql
         UPDATE fn_workflow_approval_slot SET DecisionKey = 'cancelled', DecidedAtUtc = @Now, Revision = Revision + 1
         WHERE DecisionKey IS NULL AND StepId IN (SELECT Id FROM fn_workflow_step WHERE InstanceId = @InstanceId)
         """, SqlDataScope.Global);
-    private const string WorkProjection = "work.Id, work.InstanceId, work.TenantScopeKey, work.NodeKey, work.InputJson, work.InputHash, work.InputFormRevision, work.ExecutionSequence, work.ParallelJoinId, work.ParallelBranchKey, work.LeaseGeneration, work.AttemptCount, work.ResumeBarrierId";
+    private const string WorkProjection = "work.Id, work.InstanceId, work.TenantScopeKey, work.NodeKey, work.InputJson, work.InputHash, work.InputFormRevision, work.ExecutionSequence, work.ParallelJoinId, work.ParallelBranchKey, work.LeaseGeneration, work.AttemptCount, work.ExecutionEpochId, work.ResumeBarrierId, work.SourceStepId, work.CauseKindKey, work.RouteDecisionId, work.ReturnRoundId";
 
     public static readonly SqlStatement InsertWork = new("workflow.activity_work.insert", """
         INSERT INTO fn_workflow_activity_work
-            (Id, InstanceId, TenantScopeKey, NodeKey, InputJson, InputHash, InputFormRevision,
-             ExecutionSequence, ParallelJoinId, ParallelBranchKey, DueAtUtc, StatusKey, LeaseGeneration, AttemptCount, ResumeBarrierId)
-        VALUES (@Id, @InstanceId, @TenantScopeKey, @NodeKey, @InputJson, @InputHash, @InputFormRevision,
-            @ExecutionSequence, @ParallelJoinId, @ParallelBranchKey, @DueAtUtc, 'pending', 0, 0, @ResumeBarrierId)
-        """, SqlDataScope.Global);
+            (Id, InstanceId, ExecutionEpochId, TenantScopeKey, NodeKey, InputJson, InputHash, InputFormRevision,
+             ExecutionSequence, ParallelJoinId, ParallelBranchKey, DueAtUtc, StatusKey, LeaseGeneration, AttemptCount, ResumeBarrierId, SourceStepId, CauseKindKey)
+        SELECT @Id, @InstanceId, @ExecutionEpochId, @TenantScopeKey, @NodeKey, @InputJson, @InputHash, @InputFormRevision,
+            @ExecutionSequence, @ParallelJoinId, @ParallelBranchKey, @DueAtUtc, 'pending', 0, 0, @ResumeBarrierId, source.Id, @CauseKindKey
+        FROM fn_workflow_execution_epoch AS epoch
+        INNER JOIN fn_workflow_step AS source ON source.Id=@SourceStepId AND source.InstanceId=epoch.InstanceId AND source.ExecutionEpochId=epoch.Id
+        WHERE epoch.Id=@ExecutionEpochId AND epoch.InstanceId=@InstanceId AND epoch.TenantScopeKey=@TenantScopeKey AND epoch.StatusKey='active'
+        """ + WorkflowCausalitySql.SourceFramePredicate, SqlDataScope.Global);
 
     private const string DueWork = """
         FROM fn_workflow_activity_work AS work
+        INNER JOIN fn_workflow_execution_epoch AS epoch ON epoch.Id=work.ExecutionEpochId AND epoch.InstanceId=work.InstanceId AND epoch.StatusKey='active'
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = work.InstanceId
           AND instance.TenantScopeKey = work.TenantScopeKey
         WHERE instance.StatusKey = 'active' AND work.DueAtUtc <= @Now
@@ -93,4 +97,4 @@ internal sealed record WorkflowStartReceiptRecord(string RequestHash, string Res
 /// <summary>续办活动的固定输入及当前领取代次；重领不得变更输入或工作标识。</summary>
 internal sealed record WorkflowActivityWorkRecord(Guid Id, Guid InstanceId, string TenantScopeKey,
     string NodeKey, string InputJson, string InputHash, long InputFormRevision, long ExecutionSequence,
-    Guid? ParallelJoinId, string? ParallelBranchKey, long LeaseGeneration, int AttemptCount, Guid? ResumeBarrierId = null);
+    Guid? ParallelJoinId, string? ParallelBranchKey, long LeaseGeneration, int AttemptCount, Guid ExecutionEpochId, Guid? ResumeBarrierId = null, Guid? SourceStepId = null, string? CauseKindKey = null, Guid? RouteDecisionId = null, Guid? ReturnRoundId = null);
