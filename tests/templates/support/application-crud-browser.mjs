@@ -10,6 +10,9 @@ const requireFromParity = createRequire(new URL('../../e2e/admin-parity/package.
 const { chromium, expect } = requireFromE2e('@playwright/test');
 const AxeBuilder = requireFromParity('@axe-core/playwright');
 const origin = 'http://localhost:25183';
+// 本地 Windows 与管理端验收一致使用系统 Edge；CI/Linux 继续使用锁定的 Playwright Chromium。
+const browserChannel = process.platform === 'win32' && !['1', 'true'].includes(process.env.CI ?? '')
+  && !process.env.GITHUB_ACTIONS ? 'msedge' : undefined;
 
 async function auditAccessibility(page, selector, evidence, surface) {
   // 弹窗刚变为可见时仍可能处在淡入过渡；在稳定画面上测量对比度。
@@ -57,7 +60,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
   let browser;
   try {
     await waitForVue(viteProcess);
-    browser = await chromium.launch();
+    browser = await chromium.launch(browserChannel ? { channel: browserChannel } : {});
   } catch (error) {
     await stopLoggedProcess(viteProcess, logStream);
     throw error;
@@ -68,10 +71,12 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
       assert.ok(['read', 'none', 'create', 'update', 'delete'].includes(mode), 'unknown browser permission mode');
       if (mode === 'update' || mode === 'delete') assert.ok(actionTargetName, 'browser action target is required');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
+        browser: { channel: browserChannel ?? 'chromium', version: browser.version() }, targetCrashed: false,
         buttons: { create: false, update: false, delete: false }, action: null, accessibility: [], authResponses: [] };
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
+        page.on('crash', () => { evidence.targetCrashed = true; });
         let tenantSwitchStarted = false;
         let activeAccessToken;
         let deleteRequests = 0;
