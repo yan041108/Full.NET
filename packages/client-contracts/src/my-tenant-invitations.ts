@@ -8,6 +8,7 @@ export interface MyTenantInvitation {
   memberRole: string;
   expiresAtUtc: string;
   createdAtUtc: string;
+  status: 'Pending' | 'Accepted';
 }
 
 export interface AcceptTenantInvitationResult {
@@ -26,7 +27,8 @@ export function isMyTenantInvitation(value: unknown): value is MyTenantInvitatio
     && typeof value.targetEmail === 'string'
     && typeof value.memberRole === 'string'
     && typeof value.expiresAtUtc === 'string'
-    && typeof value.createdAtUtc === 'string';
+    && typeof value.createdAtUtc === 'string'
+    && (value.status === 'Pending' || value.status === 'Accepted');
 }
 
 export function isAcceptTenantInvitationResult(

@@ -5,13 +5,16 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.TenantSeatOperations;
 
 /// <summary>跨模块调用只在事务外执行；成员保持 Pending，直到原席位确认和 Identity 激活事务均已提交。</summary>
 internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, ICommandExecutor commands,
     ICommandTransaction transaction, ICurrentTenantContextWriter tenant, IActiveTenantContextResolver tenants,
-    ITenantMemberSeatQuotaPort seats, IClock clock)
+    ITenantMemberSeatQuotaPort seats, IClock clock, ITenantInvitationGrantorAuthority grantors)
 {
     /// <summary>与移除成员同事务登记取消；不能先返还席位再提交成员禁用。</summary>
     internal Task CancelMemberAsync(Guid tenantId, Guid memberId, DateTimeOffset now, CancellationToken token) =>
@@ -82,15 +85,29 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
             }
             if (op.Phase == TenantSeatPhases.Confirmed)
             {
+                var activationError = "identity.seat_operation.member_changed";
                 var activated = await transaction.ExecuteAsync(async local =>
                 {
+                    if (op.InvitationId is Guid invitationId)
+                    {
+                        var invitation = await queries.QuerySingleOrDefaultAsync<TenantInvitationRecord>(TenantMembershipSql.FindInvitationByIdGlobal,
+                            IdentitySqlParameters.Create(("InvitationId", invitationId)), local).ConfigureAwait(false);
+                        if (invitation is null || invitation.TenantId != op.TenantId
+                            || !await grantors.IsAuthorizedAsync(invitation.InvitedByUserId, op.TenantId, local).ConfigureAwait(false))
+                        {
+                            activationError = "identity.seat_operation.inviter_unauthorized";
+                            return false;
+                        }
+                    }
                     if (await commands.ExecuteAsync(TenantSeatOperationSql.ActivateMember, MemberParameters(op), local).ConfigureAwait(false) != 1)
                         return false;
+                    if (op.InvitationId is not null)
+                        await commands.ExecuteAsync(RegistrationInvitationSql.MarkActivated, MemberParameters(op), local).ConfigureAwait(false);
                     await SaveAsync(op, lease, TenantSeatPhases.Activated, null, local).ConfigureAwait(false);
                     return true;
                 }, ct).ConfigureAwait(false);
                 if (activated) return Result<bool>.Success(true);
-                op = await SaveAsync(op, lease, TenantSeatPhases.Cancelling, "identity.seat_operation.member_changed", ct).ConfigureAwait(false);
+                op = await SaveAsync(op, lease, TenantSeatPhases.Cancelling, activationError, ct).ConfigureAwait(false);
             }
             if (op.Phase == TenantSeatPhases.Cancelling)
             {

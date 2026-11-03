@@ -21,13 +21,42 @@ internal static class RegistrationInvitationSql
     public static readonly SqlStatement FindById = new(
         "identity.find_registration_invitation_by_id",
         """
-        SELECT InvitationId, TenantId, NormalizedEmail, CredentialHash, RegistrationWayId,
-               Status, BoundUserId, ExpiresAtUtc, ConsumedAtUtc, RevokedAtUtc,
-               CreatedAtUtc, Version
-        FROM fn_identity_registration_invitation
-        WHERE InvitationId = @InvitationId
+        SELECT registration.InvitationId, registration.TenantId, registration.NormalizedEmail,
+               registration.CredentialHash, registration.RegistrationWayId, registration.Status,
+               registration.BoundUserId, registration.ExpiresAtUtc, registration.ConsumedAtUtc,
+               registration.RevokedAtUtc, registration.CreatedAtUtc, registration.Version
+        FROM fn_identity_registration_invitation AS registration
+        INNER JOIN fn_identity_tenant_invitation AS invitation
+          ON invitation.Id = registration.InvitationId AND invitation.TenantId = registration.TenantId
+        WHERE registration.InvitationId = @InvitationId
+          AND invitation.Status IN ('Pending', 'Accepted')
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement BindTenantInvitee = new(
+        "identity.registration_invitation.bind_tenant_invitee",
+        """
+        UPDATE fn_identity_tenant_invitation
+        SET TargetUserId = @UserId, UpdatedAtUtc = @Now, Version = Version + 1
+        WHERE Id = @InvitationId AND TenantId = @TenantId AND TargetUserId IS NULL
+          AND LOWER(TargetEmail) = @NormalizedEmail AND Status = 'Pending' AND ExpiresAtUtc > @Now
+        """, SqlDataScope.Global);
+
+    public static readonly SqlStatement RevokeRegistration = new(
+        "identity.registration_invitation.revoke",
+        """
+        UPDATE fn_identity_registration_invitation
+        SET Status = 3, RevokedAtUtc = @Now, Version = Version + 1
+        WHERE InvitationId = @InvitationId AND TenantId = @TenantId AND Status IN (0, 1)
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement MarkActivated = new(
+        "identity.registration_invitation.activate",
+        """
+        UPDATE fn_identity_registration_invitation
+        SET Status = 2, Version = Version + 1
+        WHERE InvitationId = @InvitationId AND TenantId = @TenantId AND BoundUserId = @UserId AND Status = 1
+        """, SqlDataScope.HostOnly);
 
     public static readonly SqlStatement MarkConsumed = new(
         "identity.consume_registration_invitation_credential",

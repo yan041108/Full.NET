@@ -5,6 +5,7 @@ import RegisterView from './RegisterView.vue';
 import RecoverPasswordView from './RecoverPasswordView.vue';
 import { requestEmailChallenge, recoverPassword, registerAccount, confirmRecoverPassword, verifyInvitation } from '../api/public-auth';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { forgetRegistrationInvitation, readRegistrationInvitation, rememberRegistrationInvitation } from '../auth/registration-invitation';
 
 vi.mock('../api/public-auth', () => ({
   requestEmailChallenge: vi.fn(), recoverPassword: vi.fn(), registerAccount: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock('vue-router', () => ({
 enableAutoUnmount(afterEach);
 
 const response = { challengeId: '01900000-0000-7000-8000-000000000001', expiresAtUtc: '2030-01-01T00:00:00Z' };
-beforeEach(() => { routeState.query = { registrationWayId: '01900000-0000-7000-8000-000000000002' }; });
+beforeEach(() => { forgetRegistrationInvitation(); routeState.query = { registrationWayId: '01900000-0000-7000-8000-000000000002' }; });
 
 describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode => {
   const sender = mode === 'register' ? vi.mocked(requestEmailChallenge) : vi.mocked(recoverPassword);
@@ -103,7 +104,7 @@ describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode 
 
 it('邀请注册按已验证邀请发送挑战，保留邀请用途和令牌边界', async () => {
   routeState.query = {};
-  sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'test-invitation' }));
+  rememberRegistrationInvitation({ invitationId: response.challengeId, invitationToken: 'test-invitation' });
   vi.mocked(verifyInvitation).mockResolvedValue({ email: 'invited@example.test', registrationWayId: response.challengeId } as Awaited<ReturnType<typeof verifyInvitation>>);
   vi.mocked(requestEmailChallenge).mockResolvedValue(response);
   const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
@@ -116,13 +117,33 @@ it('邀请注册按已验证邀请发送挑战，保留邀请用途和令牌边�
 it('显式注册入口不复用先前放弃的邀请', async () => {
   vi.mocked(verifyInvitation).mockClear();
   vi.mocked(requestEmailChallenge).mockResolvedValue(response);
-  sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'old-invitation' }));
+  rememberRegistrationInvitation({ invitationId: response.challengeId, invitationToken: 'old-invitation' });
   const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
   await flushPromises();
   await wrapper.get('input[type="email"]').setValue('new@example.test');
   await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
   expect(verifyInvitation).not.toHaveBeenCalled();
   expect(requestEmailChallenge).toHaveBeenLastCalledWith('new@example.test', 1, undefined, undefined);
+});
+
+it('标签页存储不可用时仍剥离邀请 URL 并使用当前页面已验证凭据', async () => {
+  routeState.query = { invitationId: response.challengeId, invitationToken: 'private-token' };
+  vi.mocked(verifyInvitation).mockResolvedValue({ email: 'invited@example.test', registrationWayId: response.challengeId } as Awaited<ReturnType<typeof verifyInvitation>>);
+  vi.mocked(requestEmailChallenge).mockResolvedValue(response);
+  sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'stale-token' }));
+  const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Storage denied'); });
+  const removal = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new DOMException('Storage denied'); });
+  try {
+    const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
+    await flushPromises();
+    expect(replaceRoute).toHaveBeenCalledWith({ path: '/register' });
+    await wrapper.findAll('button')[0]!.trigger('click');
+    await flushPromises();
+    expect(requestEmailChallenge).toHaveBeenLastCalledWith('invited@example.test', 3, response.challengeId, 'private-token');
+    expect(readRegistrationInvitation()?.invitationToken).toBe('private-token');
+    forgetRegistrationInvitation();
+    expect(readRegistrationInvitation()).toBeUndefined();
+  } finally { storage.mockRestore(); removal.mockRestore(); forgetRegistrationInvitation(); }
 });
 
 it.each([undefined, 'not-a-guid', '00000000-0000-0000-0000-000000000000', ['a', 'b']])('注册入口缺失或非法时禁止发送验证码：%s', async value => {

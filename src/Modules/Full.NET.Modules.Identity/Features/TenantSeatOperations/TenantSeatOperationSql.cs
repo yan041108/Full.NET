@@ -50,6 +50,9 @@ internal static class TenantSeatOperationSql
         UPDATE fn_identity_tenant_member SET Status='Active',UpdatedAtUtc=@Now,Version=Version+1
         WHERE Id=@MemberId AND TenantId=@TenantId AND UserId=@UserId AND Status='Pending' AND Version=@MemberVersion
           AND EXISTS (SELECT 1 FROM fn_identity_user WHERE Id=@UserId AND IsActive=1)
+          AND (@InvitationId IS NULL OR EXISTS
+            (SELECT 1 FROM fn_identity_tenant_invitation WHERE Id=@InvitationId AND TenantId=@TenantId
+             AND TargetUserId=@UserId AND Status='Accepted' AND Version=@InvitationVersion))
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement RestoreMember = new("identity.seat_operation.restore_member", """
         UPDATE fn_identity_tenant_member SET Status=@PreviousStatus,MemberRole=@PreviousRole,UpdatedAtUtc=@Now,Version=Version+1

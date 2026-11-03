@@ -52,6 +52,13 @@ internal sealed class IdentitySessionContextService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(principal);
+        if (tenant is not null)
+        {
+            if (!Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.Subject), out var actorId)) return SessionNotActive();
+            var access = await new IdentityTenantContextAccessReader(queryExecutor).ReadAsync(actorId, cancellationToken).ConfigureAwait(false);
+            if (!access.AllTenants && !access.TenantIds.Contains(tenant.Id))
+                return Failure(CommonErrorCodes.PermissionDenied, "An active membership is required for this context.", ErrorType.Forbidden);
+        }
         var issuer = principal.FindFirstValue(JwtRegisteredClaimNames.Iss);
         if (_oidcOptions.Enable
             && !string.IsNullOrWhiteSpace(_oidcOptions.Issuer)

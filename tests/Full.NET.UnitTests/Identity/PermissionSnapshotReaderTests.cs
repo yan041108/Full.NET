@@ -60,6 +60,20 @@ public sealed class PermissionSnapshotReaderTests
         CollectionAssert.AreEqual(expectedTenantCatalogCodes, snapshot.Permissions.ToArray());
     }
 
+    [TestMethod]
+    [DataRow("host", true)]
+    [DataRow("tenant:other", false)]
+    [DataRow("service", false)]
+    public async Task Roleless_canonical_user_receives_only_self_context_capabilities(string accountScope, bool eligible)
+    {
+        var catalog = AuthorizationCatalog.Create([new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+        var reader = new PermissionSnapshotReader(new StubQueryExecutor([
+            new IdentityAuthorizationRow(null, false, accountScope, null, IdentityAccountTypes.NormalUser)]), catalog);
+        var snapshot = await reader.ReadAsync(Guid.CreateVersion7(), "host", null);
+        CollectionAssert.AreEqual(eligible ? new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" } : Array.Empty<string>(), snapshot.Permissions.ToArray());
+        Assert.IsFalse(snapshot.IsSuperAdministrator);
+    }
+
     private sealed class StubQueryExecutor(
         IReadOnlyList<IdentityAuthorizationRow> authorization)
         : IQueryExecutor

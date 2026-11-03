@@ -175,7 +175,10 @@ internal sealed partial class IdentityDapperAotMaterializerContributor : IDapper
     private static IdentityAuthorizationRow ReadIdentityAuthorizationRow(DbDataReader reader) =>
         new(
             AotDataReaderExtensions.ReadNullableString(reader, 0),
-            AotDataReaderExtensions.ReadBoolean(reader, 1));
+            AotDataReaderExtensions.ReadBoolean(reader, 1),
+            AotDataReaderExtensions.ReadNullableString(reader, 2),
+            reader.IsDBNull(3) ? null : reader.GetGuid(3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4));
 
     private static IdentityProfileRecord ReadIdentityProfileRecord(DbDataReader reader) =>
         new()

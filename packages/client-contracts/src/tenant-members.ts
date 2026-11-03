@@ -49,6 +49,7 @@ export interface CreateTenantInvitationRequest {
   targetEmail: string;
   memberRole: string;
   expiresInHours?: number;
+  registrationWayId?: string;
 }
 
 export interface LeaveTenantMembershipRequest {

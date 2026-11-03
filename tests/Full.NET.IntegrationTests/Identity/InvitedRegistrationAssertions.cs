@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
+using System.Net.Http.Headers;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -10,6 +10,14 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.RegistrationInvitations;
 using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
+using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Identity.Oidc;
+using OpenIddict.Abstractions;
+using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -26,6 +34,7 @@ internal static class InvitedRegistrationAssertions
         using var scopedFactory = new FullNetApiFactory(
             factory.Provider,
             factory.ConnectionString,
+            IdentityOidcProtocolAssertions.Settings,
             configureTestServices: services =>
             {
                 services.AddSingleton<IIdentityChallengeDeliveryPort>(deliveryPort);
@@ -56,6 +65,12 @@ internal static class InvitedRegistrationAssertions
             email,
             registrationWayId,
             cancellationToken);
+        await using (var proofScope = scopedFactory.Services.CreateAsyncScope())
+        {
+            proofScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            Assert.IsTrue((await proofScope.ServiceProvider.GetRequiredService<RegistrationInvitationService>()
+                .VerifyAsync(invitationId, invitationToken, cancellationToken)).IsSuccess);
+        }
 
         using (var verifyRequest = new HttpRequestMessage(
                    HttpMethod.Post,
@@ -116,10 +131,111 @@ internal static class InvitedRegistrationAssertions
                 IdentitySqlParameters.Create(("Email", email)), cancellationToken);
             Assert.IsNotNull(user);
             Assert.AreEqual(body.UserId, user.Id);
-            Assert.AreEqual(tenantId, user.TenantId);
+            Assert.IsNull(user.TenantId);
+            Assert.AreEqual("host", user.ScopeKey);
+            var parent = await query.QuerySingleOrDefaultAsync<TenantInvitationRecord>(TenantMembershipSql.FindInvitationByIdGlobal,
+                IdentitySqlParameters.Create(("InvitationId", invitationId)), cancellationToken);
+            Assert.AreEqual(body.UserId, parent!.TargetUserId);
+            var snapshot = await scope.ServiceProvider.GetRequiredService<IPermissionSnapshotReader>().ReadAsync(body.UserId, "host", null, cancellationToken);
+            CollectionAssert.AreEqual(new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" }, snapshot.Permissions.ToArray());
         }
         using var replay = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Conflict, replay.StatusCode);
+        var unboundInvitationId = await VerifyIssuanceBoundariesAsync(scopedFactory, tenantId, registrationWayId, email, cancellationToken);
+        var accessToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(client, email, registration.Password, cancellationToken);
+        ClaimsPrincipal centerPrincipal;
+        var authorizationRequest = new OpenIddictRequest { ClientId = IdentityOidcRelyingPartyFixture.PublicClientId, Scope = "openid profile" };
+        await using (var centerScope = scopedFactory.Services.CreateAsyncScope())
+        {
+            centerScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var oidc = centerScope.ServiceProvider.GetRequiredService<IdentityOidcAuthorizationService>();
+            var login = await oidc.SignInCenterAsync(email, registration.Password, cancellationToken);
+            Assert.IsTrue(login.Succeeded);
+            centerPrincipal = login.Principal!;
+            Assert.IsNull(await oidc.ResolveTenantForConsentAsync(centerPrincipal, tenantId, cancellationToken));
+            Assert.IsNull(await oidc.CreateAuthorizationPrincipalAsync(centerPrincipal, authorizationRequest, cancellationToken, tenantId));
+        }
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var beforeActivation = await client.GetFromJsonAsync<Full.NET.Modules.Tenancy.Contracts.TenantContextSummary[]>("/api/v1/tenancy/available", cancellationToken);
+        Assert.AreEqual(0, beforeActivation!.Length);
+        using (var forbiddenSwitch = await client.PutAsJsonAsync("/api/v1/tenancy/context",
+            new ChangeTenantContextRequest(tenantId), cancellationToken))
+            Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenSwitch.StatusCode);
+        var pending = await client.GetFromJsonAsync<Full.NET.Abstractions.Results.PagedResult<MyTenantInvitationResponse>>("/api/v1/me/tenant-invitations", cancellationToken);
+        Assert.IsTrue(pending!.Items.Any(item => item.Id == invitationId && item.Status == "Pending"));
+        Assert.IsFalse(pending.Items.Any(item => item.Id == unboundInvitationId));
+        using (var unproved = await client.PostAsync($"/api/v1/me/tenant-invitations/{unboundInvitationId:D}/accept", null, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, unproved.StatusCode);
+        using var acceptedResponse = await client.PostAsync($"/api/v1/me/tenant-invitations/{invitationId:D}/accept", null, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, acceptedResponse.StatusCode, await acceptedResponse.Content.ReadAsStringAsync(cancellationToken));
+        var accepted = await acceptedResponse.Content.ReadFromJsonAsync<AcceptTenantInvitationResponse>(cancellationToken);
+        Assert.AreEqual("Active", accepted!.Status);
+        Assert.AreEqual(tenantId, accepted.TenantId);
+        await using (var activationScope = scopedFactory.Services.CreateAsyncScope())
+        {
+            activationScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var row = await activationScope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(
+                RegistrationInvitationSql.FindById, IdentitySqlParameters.Create(("InvitationId", invitationId)), cancellationToken);
+            Assert.AreEqual((byte)IdentityRegistrationInvitationStatus.Activated, row!.Status);
+            var oidc = activationScope.ServiceProvider.GetRequiredService<IdentityOidcAuthorizationService>();
+            Assert.IsNotNull(await oidc.ResolveTenantForConsentAsync(centerPrincipal, tenantId, cancellationToken));
+            Assert.IsNotNull(await oidc.CreateAuthorizationPrincipalAsync(centerPrincipal, authorizationRequest, cancellationToken, tenantId));
+        }
+        _ = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(client, accessToken, tenantId, cancellationToken);
+    }
+
+    private static async Task<Guid> VerifyIssuanceBoundariesAsync(FullNetApiFactory factory, Guid tenantId, Guid wayId, string email, CancellationToken token)
+    {
+        var revoked = await CreateInvitationAsync(factory, tenantId, email, wayId, token);
+        var limited = await factory.CreateHostIdentityAsync($"grantor-{Guid.NewGuid():N}",
+            [IdentityTenantMembershipPermissions.Invite, "tenancy.tenants.switch"], token);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var current = sp.GetRequiredService<CurrentTenantAccessor>();
+        current.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
+        var service = sp.GetRequiredService<TenantMembershipManagementService>();
+        Assert.IsTrue((await service.RevokeInvitationAsync(revoked.InvitationId, token)).IsSuccess);
+        current.SetHost();
+        var verifier = sp.GetRequiredService<RegistrationInvitationService>();
+        Assert.IsFalse((await verifier.VerifyAsync(revoked.InvitationId, revoked.Token, token)).IsSuccess);
+        var query = sp.GetRequiredService<IQueryExecutor>();
+        Assert.AreEqual(3, await query.QuerySingleOrDefaultAsync<int>(new SqlStatement("integration.invitation.child_status",
+            "SELECT Status FROM fn_identity_registration_invitation WHERE InvitationId = @Id", SqlDataScope.Global),
+            IdentitySqlParameters.Create(("Id", revoked.InvitationId)), token));
+        var count = new SqlStatement("integration.invitation.count", "SELECT COUNT(1) FROM fn_identity_tenant_invitation WHERE TenantId = @TenantId", SqlDataScope.Global);
+        var parameters = IdentitySqlParameters.Create(("TenantId", tenantId));
+        var before = await query.QuerySingleOrDefaultAsync<int>(count, parameters, token);
+        current.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
+        var invalid = await service.InviteAsync(limited.UserId, new CreateTenantInvitationRequest(email, "Member", RegistrationWayId: Guid.CreateVersion7()), token);
+        Assert.IsFalse(invalid.IsSuccess);
+        current.SetHost();
+        Assert.AreEqual(before, await query.QuerySingleOrDefaultAsync<int>(count, parameters, token));
+        var authority = sp.GetRequiredService<ITenantInvitationGrantorAuthority>();
+        Assert.IsTrue(await authority.IsAuthorizedAsync(limited.UserId, tenantId, token));
+        await sp.GetRequiredService<ICommandExecutor>().ExecuteAsync(new SqlStatement("integration.invitation.revoke_grant", """
+            DELETE FROM fn_identity_role_permission WHERE PermissionCode = @Permission
+              AND RoleId IN (SELECT RoleId FROM fn_identity_user_role WHERE UserId = @UserId)
+            """, SqlDataScope.Global), IdentitySqlParameters.Create(("Permission", IdentityTenantMembershipPermissions.Invite), ("UserId", limited.UserId)), token);
+        Assert.IsFalse(await authority.IsAuthorizedAsync(limited.UserId, tenantId, token));
+        var commands = sp.GetRequiredService<ICommandExecutor>();
+        var roleId = await query.QuerySingleOrDefaultAsync<Guid>(new SqlStatement("integration.invitation.grantor_role",
+            "SELECT RoleId FROM fn_identity_user_role WHERE UserId = @UserId", SqlDataScope.Global), IdentitySqlParameters.Create(("UserId", limited.UserId)), token);
+        await commands.ExecuteAsync(new SqlStatement("integration.invitation.revoke_platform_context", """
+            DELETE FROM fn_identity_role_permission WHERE RoleId = @RoleId AND PermissionCode = 'tenancy.tenants.switch'
+            """, SqlDataScope.Global), IdentitySqlParameters.Create(("RoleId", roleId)), token);
+        await commands.ExecuteAsync(IdentitySql.EnsureRolePermission, IdentitySqlParameters.Create(("RoleId", roleId),
+            ("PermissionCode", IdentityTenantMembershipPermissions.Invite)), token);
+        current.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
+        var memberId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        // 本夹具只准备邀请人归属，席位激活仍由本用例的新受邀账号走正式编排验证。
+        await commands.ExecuteAsync(TenantMembershipSql.InsertMember, IdentitySqlParameters.Create(("Id", memberId), ("UserId", limited.UserId),
+            ("MemberRole", "Member"), ("Status", "Active"), ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("Version", 1)), token);
+        Assert.IsTrue(await authority.IsAuthorizedAsync(limited.UserId, tenantId, token));
+        await commands.ExecuteAsync(TenantMembershipSql.UpdateMember, IdentitySqlParameters.Create(("MemberId", memberId), ("MemberRole", "Member"),
+            ("Status", "Removed"), ("UpdatedAtUtc", now), ("Version", 1)), token);
+        Assert.IsFalse(await authority.IsAuthorizedAsync(limited.UserId, tenantId, token));
+        return (await CreateInvitationAsync(factory, tenantId, email, wayId, token)).InvitationId;
     }
 
     private static async Task<(Guid InvitationId, string Token)> CreateInvitationAsync(
@@ -129,27 +245,19 @@ internal static class InvitedRegistrationAssertions
         Guid registrationWayId,
         CancellationToken cancellationToken)
     {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
-        var clock = scope.ServiceProvider.GetRequiredService<IClock>();
-        var commandExecutor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
-        var invitationId = idGenerator.NewId();
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-        var now = clock.UtcNow;
-        await commandExecutor.ExecuteAsync(
-                RegistrationInvitationSql.Insert,
-                IdentitySqlParameters.Create(
-                    ("InvitationId", invitationId),
-                    ("TenantId", tenantId),
-                    ("NormalizedEmail", email),
-                    ("CredentialHash", RegistrationInvitationCredentialHasher.Hash(invitationId, token)),
-                    ("RegistrationWayId", registrationWayId),
-                    ("Status", (byte)IdentityRegistrationInvitationStatus.Pending),
-                    ("ExpiresAtUtc", now.AddDays(7)),
-                    ("CreatedAtUtc", now)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return (invitationId, token);
+        using var host = factory.CreateClientForHost("localhost");
+        var admin = await IntegrationTestAuthHelper.LoginAsHostUserAsync(host, "admin", cancellationToken: cancellationToken);
+        var tenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, admin, tenantId, cancellationToken);
+        using var client = factory.CreateClientForHost("acme.localhost");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        var options = await client.GetFromJsonAsync<PublicRegistrationWayResponse[]>("/api/v1/identity/tenant-members/invitations/registration-ways", cancellationToken);
+        Assert.IsTrue(options!.Any(item => item.Id == registrationWayId));
+        using var response = await client.PostAsJsonAsync("/api/v1/identity/tenant-members/invitations",
+            new CreateTenantInvitationRequest(email, "Member", RegistrationWayId: registrationWayId), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+        var result = await response.Content.ReadFromJsonAsync<CreateTenantInvitationResult>(cancellationToken);
+        Assert.AreEqual(result!.Invitation.Id, result.RegistrationInvitationId);
+        return (result.Invitation.Id, result.InvitationToken);
     }
 
     private static async Task<Guid> ResolveDefaultTenantIdAsync(

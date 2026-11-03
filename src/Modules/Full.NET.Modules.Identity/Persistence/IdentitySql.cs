@@ -1524,19 +1524,17 @@ internal static class IdentitySql
         "identity.get_actor_authorization",
         """
         SELECT rolePermission.PermissionCode,
-               roleObject.IsSuperAdministrator
-        FROM fn_identity_user_role AS userRole
-        INNER JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
+               COALESCE(roleObject.IsSuperAdministrator, 0) AS IsSuperAdministrator, actor.ScopeKey AS AccountScopeKey,
+               actor.TenantId AS AccountTenantId, actor.AccountType
+        FROM fn_identity_user AS actor
+        LEFT JOIN fn_identity_user_role AS userRole ON userRole.UserId = actor.Id
+        LEFT JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
+          AND roleObject.IsActive = 1 AND roleObject.ScopeKey = @ScopeKey
+          AND ((@ScopeKey = 'host' AND roleObject.TenantId IS NULL)
+            OR (@ScopeKey <> 'host' AND roleObject.TenantId = @TenantId))
         LEFT JOIN fn_identity_role_permission AS rolePermission
             ON rolePermission.RoleId = roleObject.Id
-        WHERE userRole.UserId = @UserId
-          AND roleObject.IsActive = 1
-          AND roleObject.ScopeKey = @ScopeKey
-          AND
-          (
-              (@ScopeKey = 'host' AND roleObject.TenantId IS NULL)
-              OR (@ScopeKey <> 'host' AND roleObject.TenantId = @TenantId)
-          )
+        WHERE actor.Id = @UserId AND actor.IsActive = 1
         ORDER BY rolePermission.PermissionCode
         """,
         SqlDataScope.Global);

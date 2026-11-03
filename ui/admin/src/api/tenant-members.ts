@@ -58,10 +58,16 @@ export async function provisionTenantMember(
   return readResponse(value, isMember, 'client.invalid_tenant_member');
 }
 
+export async function listInvitationRegistrationWays(): Promise<{ id: string; name: string }[]> {
+  const value = await request<unknown>('/api/v1/identity/tenant-members/invitations/registration-ways', { method: 'GET' });
+  return readResponse(value, (v): v is { id: string; name: string }[] => Array.isArray(v)
+    && v.every(item => isRecord(item) && isGuid(item.id) && typeof item.name === 'string'), 'client.invalid_invitation_registration_ways');
+}
+
 export async function createTenantInvitation(
   body: CreateTenantInvitationRequest,
   signal?: AbortSignal
-): Promise<{ invitation: TenantInvitation; invitationToken: string }> {
+): Promise<{ invitation: TenantInvitation; invitationToken: string; registrationInvitationId?: string | null }> {
   const value = await request<unknown>(
     '/api/v1/identity/tenant-members/invitations',
     {
@@ -70,7 +76,8 @@ export async function createTenantInvitation(
       body: JSON.stringify(body)
     },
     signal
-  ); return readResponse(value, (v): v is { invitation: TenantInvitation; invitationToken: string } => isRecord(v) && isInvitation(v.invitation) && typeof v.invitationToken === 'string' && v.invitationToken.length > 0, 'client.invalid_tenant_invitation_result');
+  ); return readResponse(value, (v): v is { invitation: TenantInvitation; invitationToken: string; registrationInvitationId?: string | null } => isRecord(v) && isInvitation(v.invitation) && typeof v.invitationToken === 'string' && v.invitationToken.length > 0
+    && (v.registrationInvitationId == null || isGuid(v.registrationInvitationId)), 'client.invalid_tenant_invitation_result');
 }
 
 export async function updateTenantMember(

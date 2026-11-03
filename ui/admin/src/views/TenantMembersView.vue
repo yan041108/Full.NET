@@ -31,8 +31,10 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { invitationOnboardingText } from '../i18n/invitation-onboarding';
 import {
   createTenantInvitation,
+  listInvitationRegistrationWays,
   listTenantInvitations,
   listTenantMembers,
   provisionTenantMember,
@@ -48,6 +50,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 const session = useSessionStore();
 const { t, locale } = useAdminI18n();
+const onboarding = (key: Parameters<typeof invitationOnboardingText>[1]) => invitationOnboardingText(locale.value, key);
+const registrationWays = ref<{ id: string; name: string }[]>([]);
+const registrationLink = ref('');
 const inTenantContext = computed(() => Boolean(session.currentUser?.tenantId));
 const members = ref<TenantMember[]>([]);
 const invitations = ref<TenantInvitation[]>([]);
@@ -77,7 +82,8 @@ const activeTab = ref<'members' | 'invitations'>('members');
 const inviteForm = reactive({
   targetEmail: '',
   memberRole: 'Member',
-  expiresInHours: '72'
+  expiresInHours: '72',
+  registrationWayId: ''
 });
 const provisionForm = reactive({
   username: '',
@@ -409,15 +415,20 @@ async function submitProvision() {
   }
 }
 
-function openInvite() {
+async function openInvite() {
   inviteForm.targetEmail = '';
   inviteForm.memberRole = 'Member';
   inviteForm.expiresInHours = '72';
+  inviteForm.registrationWayId = '';
+  registrationLink.value = '';
+  registrationWays.value = [];
   inviteFieldErrors.targetEmail = '';
   inviteFieldErrors.memberRole = '';
   inviteFieldErrors.expiresInHours = '';
   invitationToken.value = '';
   inviteOpen.value = true;
+  try { registrationWays.value = await listInvitationRegistrationWays(); }
+  catch { ElMessage.warning(onboarding('waysFailed')); }
 }
 
 function openEditRole(row: TenantMember) {
@@ -464,9 +475,16 @@ async function submitInvite() {
     const result = await createTenantInvitation({
       targetEmail: inviteForm.targetEmail.trim().toLowerCase(),
       memberRole: inviteForm.memberRole,
-      expiresInHours: hours
+      expiresInHours: hours,
+      registrationWayId: inviteForm.registrationWayId || undefined
     });
     invitationToken.value = result.invitationToken;
+    if (result.registrationInvitationId) {
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.hash = `/register?${new URLSearchParams({ invitationId: result.registrationInvitationId, invitationToken: result.invitationToken })}`;
+      registrationLink.value = url.href;
+    }
     inviteOpen.value = false;
     ElMessage.success(t('tenantMembers.inviteSuccess'));
     invitationPage.value = 1;
@@ -538,8 +556,15 @@ async function copyInvitationToken() {
   if (!invitationToken.value) {
     return;
   }
-  await navigator.clipboard.writeText(invitationToken.value);
-  ElMessage.success(t('tenantMembers.copyTokenSuccess'));
+  try {
+    await navigator.clipboard.writeText(invitationToken.value);
+    ElMessage.success(t('tenantMembers.copyTokenSuccess'));
+  } catch { ElMessage.warning(onboarding('copyFailed')); }
+}
+
+async function copyRegistrationLink() {
+  try { await navigator.clipboard.writeText(registrationLink.value); ElMessage.success(t('tenantMembers.copyTokenSuccess')); }
+  catch { ElMessage.warning(onboarding('copyFailed')); }
 }
 
 function toProblem(
@@ -554,6 +579,8 @@ function toProblem(
 watch(
   () => session.currentUser?.tenantId,
   () => {
+    invitationToken.value = '';
+    registrationLink.value = '';
     void refreshAll();
   }
 );
@@ -606,10 +633,15 @@ onMounted(() => {
     <el-card v-if="invitationToken" class="art-form-card" shadow="never" data-testid="tenant-member-invitation-token">
       <h2>{{ t('tenantMembers.tokenTitle') }}</h2>
       <p role="alert">{{ t('tenantMembers.tokenWarning') }}</p>
-      <code translate="no">{{ invitationToken }}</code>
+      <el-input :model-value="invitationToken" readonly :aria-label="t('tenantMembers.tokenTitle')" />
       <el-button type="primary" plain @click="copyInvitationToken">
         {{ t('tenantMembers.copyToken') }}
       </el-button>
+      <template v-if="registrationLink">
+        <p>{{ onboarding('link') }}</p>
+        <el-input :model-value="registrationLink" readonly :aria-label="onboarding('link')" data-testid="registration-invitation-link" />
+        <el-button @click="copyRegistrationLink">{{ onboarding('copy') }}</el-button>
+      </template>
     </el-card>
 
     <template v-if="inTenantContext">
@@ -841,6 +873,13 @@ onMounted(() => {
       @confirm="submitInvite"
     >
       <el-form ref="inviteFormRef" label-position="top" @submit.prevent>
+        <el-form-item :label="onboarding('way')">
+          <el-select v-model="inviteForm.registrationWayId" data-testid="invitation-registration-way" style="width: 100%">
+            <el-option :value="''" :label="onboarding('noWay')" />
+            <el-option v-for="way in registrationWays" :key="way.id" :value="way.id" :label="way.name" />
+          </el-select>
+          <p class="field-hint">{{ onboarding('wayHint') }}</p>
+        </el-form-item>
         <el-form-item :label="t('tenantMembers.fieldEmail')" required :error="inviteFieldErrors.targetEmail">
           <el-input v-model="inviteForm.targetEmail" autocomplete="email" />
         </el-form-item>

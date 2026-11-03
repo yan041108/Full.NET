@@ -48,9 +48,11 @@ public sealed class TenantInvitationRollbackTests
         var coordinator = new RecordingDbTransactionCoordinator();
         var writer = Substitute.For<ICurrentTenantContextWriter>();
         var transaction = new DapperCommandTransaction(coordinator);
-        var processor = new TenantSeatOperationProcessor(query, command, transaction, writer, resolver, quota, clock);
+        var authority = Substitute.For<ITenantInvitationGrantorAuthority>();
+        authority.IsAuthorizedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        var processor = new TenantSeatOperationProcessor(query, command, transaction, writer, resolver, quota, clock, authority);
         var service = new AcceptTenantInvitationService(query, command,
-            transaction, writer, resolver, processor, clock, ids);
+            transaction, writer, resolver, processor, clock, ids, authority);
 
         var result = await service.AcceptAsync(userId, new AcceptTenantInvitationRequest("valid-invitation-token"));
 

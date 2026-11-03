@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9520,
+      "minimum": 9529,
       "timeout": "10m",
       "selections": {
+        "invitation-onboarding": {
+          "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests|FullyQualifiedName~PermissionSnapshotReaderTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~TenantInvitationRollbackTests|FullyQualifiedName~IdentityModuleRegistrationTests|FullyQualifiedName~IdentityTenantContextAccessTests|FullyQualifiedName~IdentitySessionContextServiceTests|FullyQualifiedName~AvailableTenantMembershipScopeTests",
+          "minimum": 48,
+          "timeout": "3m"
+        },
         "invitation-registration-boundary": {
           "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests",
           "minimum": 16,

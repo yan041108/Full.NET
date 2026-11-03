@@ -10,7 +10,6 @@ using Full.NET.Hosting.RateLimiting;
 using Full.NET.Localization;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Files.Contracts;
-using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
@@ -281,13 +280,14 @@ public sealed class IdentityModuleRegistrationTests
                 .GetAllSchemesAsync())
             .OrderBy(scheme => scheme.Name, StringComparer.Ordinal)
             .ToArray();
-        Assert.HasCount(4, schemes);
+        Assert.HasCount(5, schemes);
         AssertScheme<ApiKeyAuthenticationHandler>(
             schemes,
             ApiKeyAuthenticationDefaults.AuthenticationScheme);
         AssertScheme<JwtBearerHandler>(
             schemes,
             JwtBearerDefaults.AuthenticationScheme);
+        AssertScheme<JwtBearerHandler>(schemes, McpResourceAuthentication.Scheme);
         AssertScheme<PolicySchemeHandler>(
             schemes,
             SmartAuthenticationDefaults.AuthenticationScheme);
@@ -443,6 +443,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             IPermissionSnapshotReader,
             PermissionSnapshotReader>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIdentityTenantContextAccess, IdentityTenantContextAccessReader>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IIdentitySessionContextService,
             IdentitySessionContextService>(ServiceLifetime.Scoped),
@@ -557,6 +558,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<IdentityFeatures.ManageMfaRecoveryCodes.MfaRecoveryCodeService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IdentityFeatures.AcceptTenantInvitation.ITenantInvitationGrantorAuthority, IdentityFeatures.AcceptTenantInvitation.TenantInvitationGrantorAuthority>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.TenantSeatOperations.TenantSeatOperationProcessor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<PublicRegistrationWayQueryService>(

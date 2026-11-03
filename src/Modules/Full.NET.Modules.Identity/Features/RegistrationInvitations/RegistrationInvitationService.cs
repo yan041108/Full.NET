@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -13,25 +11,22 @@ namespace Full.NET.Modules.Identity.Features.RegistrationInvitations;
 internal sealed class RegistrationInvitationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    IClock clock,
-    IIdGenerator idGenerator)
+    IClock clock)
 {
-    private static readonly TimeSpan DefaultLifetime = TimeSpan.FromDays(7);
-
-    public async Task<Result<(Guid InvitationId, string Token)>> CreateAsync(
-        Guid tenantId,
-        string email,
-        Guid registrationWayId,
+    // 注册资格是成员邀请的可选扩展，必须与签发根在同一 Identity 事务写入。
+    public async Task<Result<bool>> CreateForTenantInvitationAsync(
+        Guid invitationId, Guid tenantId, string email, Guid registrationWayId, string token, DateTimeOffset expiresAtUtc,
         CancellationToken cancellationToken = default)
     {
         var normalizedEmail = AccountChallengeService.NormalizeEmail(email);
         if (normalizedEmail is null)
         {
-            return Result<(Guid, string)>.Failure(InvalidInvitation());
+            return Result<bool>.Failure(InvalidInvitation());
         }
-
-        var invitationId = idGenerator.NewId();
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        var way = (await queryExecutor.QueryAsync<RegistrationWayRecord>(RegistrationWaySql.InvitationWays,
+            null, cancellationToken).ConfigureAwait(false)).FirstOrDefault(item => item.Id == registrationWayId);
+        if (way is null || !way.IsEnabled || way.TenantId != tenantId)
+            return Result<bool>.Failure(InvalidInvitation());
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 RegistrationInvitationSql.Insert,
@@ -42,11 +37,11 @@ internal sealed class RegistrationInvitationService(
                     ("CredentialHash", RegistrationInvitationCredentialHasher.Hash(invitationId, token)),
                     ("RegistrationWayId", registrationWayId),
                     ("Status", (byte)IdentityRegistrationInvitationStatus.Pending),
-                    ("ExpiresAtUtc", now.Add(DefaultLifetime)),
+                    ("ExpiresAtUtc", expiresAtUtc),
                     ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<(Guid, string)>.Success((invitationId, token));
+        return Result<bool>.Success(true);
     }
 
     public async Task<Result<VerifyRegistrationInvitationResponse>> VerifyAsync(

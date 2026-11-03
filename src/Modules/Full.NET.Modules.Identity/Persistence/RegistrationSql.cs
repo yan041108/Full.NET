@@ -31,6 +31,16 @@ internal static class RegistrationPolicySql
 /// <summary>注册方式管理 SQL。</summary>
 internal static class RegistrationWaySql
 {
+    public static readonly SqlStatement InvitationWays = new(
+        "identity.registration_way.invitation_options",
+        """
+        SELECT Id, TenantId, Name, Code, IsEnabled, RoleId, OrganizationUnitId, PositionId,
+               SortOrder, Remark, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_user_registration_way
+        WHERE TenantId = @TenantId AND IsEnabled = 1
+        ORDER BY SortOrder, Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     private const string SelectColumns = """
         way.Id,
                way.TenantId,

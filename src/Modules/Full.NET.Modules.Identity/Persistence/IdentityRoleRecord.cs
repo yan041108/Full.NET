@@ -38,7 +38,13 @@ internal sealed record UpdateIdentitySystemRole(
 
 internal sealed record IdentityAuthorizationRow(
     string? PermissionCode,
-    bool IsSuperAdministrator);
+    bool IsSuperAdministrator,
+    string? AccountScopeKey = null,
+    Guid? AccountTenantId = null,
+    string? AccountType = null)
+{
+    public IdentityAuthorizationRow() : this(null, false) { }
+}
 
 internal sealed record IdentityRolePermission(
     Guid RoleId,

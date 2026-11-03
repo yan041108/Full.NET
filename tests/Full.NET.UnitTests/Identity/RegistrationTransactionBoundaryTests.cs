@@ -79,7 +79,7 @@ public sealed class RegistrationTransactionBoundaryTests
         Assert.IsFalse(fixture.AuthorityReadInsideTransaction);
         Assert.AreEqual(change == "unchanged", result.IsSuccess);
         Assert.AreEqual(change == "unchanged" ? 1 : 0, fixture.Coordinator.CommitCount);
-        Assert.AreEqual(change == "unchanged" ? 5 : 0, fixture.Writes);
+        Assert.AreEqual(change == "unchanged" ? 6 : 0, fixture.Writes);
     }
 
     [TestMethod]
@@ -101,7 +101,7 @@ public sealed class RegistrationTransactionBoundaryTests
         await fixture.Directory.Received(1).IsActiveTenantAsync(fixture.TenantId, Arg.Any<CancellationToken>());
         Assert.IsFalse(fixture.AuthorityReadInsideTransaction);
         Assert.AreEqual(change == "unchanged" ? 1 : 0, fixture.Coordinator.CommitCount);
-        if (change == "unchanged") Assert.AreEqual(fixture.TenantId, fixture.InsertedUser!.TenantId);
+        if (change == "unchanged") { Assert.IsNull(fixture.InsertedUser!.TenantId); Assert.AreEqual("host", fixture.InsertedUser.ScopeKey); }
         else Assert.AreEqual(0, fixture.Writes);
     }
 
@@ -200,7 +200,7 @@ public sealed class RegistrationTransactionBoundaryTests
             hasher.HashPassword(Arg.Any<IdentityUser>(), Arg.Any<string>()).Returns("hash");
             handler = new Handler(new RegistrationPolicyService(query, command, clock),
                 new AccountChallengeService(query, command, transaction, Substitute.For<IIdentityChallengeDeliveryPort>(), clock, ids),
-                new RegistrationInvitationService(query, command, clock, ids), query, command, transaction, hasher, Directory, clock, ids);
+                new RegistrationInvitationService(query, command, clock), query, command, transaction, hasher, Directory, clock, ids);
         }
 
         public Task<Full.NET.Abstractions.Results.Result<RegisterAccountResponse>> HandleAsync() =>

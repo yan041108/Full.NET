@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Features.TenantSeatOperations;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Features.RegistrationInvitations;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageTenantMembers;
@@ -23,20 +24,28 @@ internal sealed class TenantMembershipManagementService(
     IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
     IIdGenerator idGenerator,
-    TenantSeatOperationProcessor seatOperations)
+    TenantSeatOperationProcessor seatOperations,
+    RegistrationInvitationService registrationInvitations)
 {
-    public Task<Result<CreateTenantInvitationResult>> InviteAsync(
+    public async Task<Result<CreateTenantInvitationResult>> InviteAsync(
         Guid invitedByUserId,
         CreateTenantInvitationRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateInvitationRequest(request);
+        if (!validation.IsSuccess) return Result<CreateTenantInvitationResult>.Failure(validation.Error!);
+        // Tenancy 权威判断必须先于 Identity 本地事务；资格扩展失败则整笔签发回滚。
+        var active = await TenantMembershipActiveTenantGuard.EnsureCurrentTenantActiveAsync(currentTenant, activeTenants, cancellationToken).ConfigureAwait(false);
+        if (!active.IsSuccess) return Result<CreateTenantInvitationResult>.Failure(active.Error!);
+        return await transaction.ExecuteResultAsync(
             token => InviteCoreAsync(invitedByUserId, request, token),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<Result<TenantInvitationResponse>> RevokeInvitationAsync(
         Guid invitationId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => RevokeInvitationCoreAsync(invitationId, token),
             cancellationToken);
 
@@ -104,16 +113,6 @@ internal sealed class TenantMembershipManagementService(
             return Result<CreateTenantInvitationResult>.Failure(validation.Error!);
         }
 
-        var tenantActive = await TenantMembershipActiveTenantGuard.EnsureCurrentTenantActiveAsync(
-                currentTenant,
-                activeTenants,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!tenantActive.IsSuccess)
-        {
-            return Result<CreateTenantInvitationResult>.Failure(tenantActive.Error!);
-        }
-
         var (email, role) = validation.Value;
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var tokenHash = TokenHash.Compute(token);
@@ -136,9 +135,15 @@ internal sealed class TenantMembershipManagementService(
                     ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (request.RegistrationWayId is Guid wayId)
+        {
+            var created = await registrationInvitations.CreateForTenantInvitationAsync(invitationId, currentTenant.Id!.Value,
+                email, wayId, token, expiresAt, cancellationToken).ConfigureAwait(false);
+            if (!created.IsSuccess) return Result<CreateTenantInvitationResult>.Failure(created.Error!);
+        }
         var invitation = new TenantInvitationResponse(
             invitationId,
-            Guid.Empty,
+            currentTenant.Id!.Value,
             email,
             null,
             invitedByUserId,
@@ -149,7 +154,7 @@ internal sealed class TenantMembershipManagementService(
             now,
             1);
         return Result<CreateTenantInvitationResult>.Success(
-            new CreateTenantInvitationResult(invitation, token));
+            new CreateTenantInvitationResult(invitation, token, request.RegistrationWayId.HasValue ? invitationId : null));
     }
 
     private async Task<Result<TenantInvitationResponse>> RevokeInvitationCoreAsync(
@@ -186,6 +191,9 @@ internal sealed class TenantMembershipManagementService(
                 "The tenant invitation was not found.",
                 ErrorType.NotFound));
         }
+
+        await commandExecutor.ExecuteAsync(RegistrationInvitationSql.RevokeRegistration,
+            IdentitySqlParameters.Create(("InvitationId", invitationId), ("Now", now)), cancellationToken).ConfigureAwait(false);
 
         return Result<TenantInvitationResponse>.Success(new TenantInvitationResponse(
             existing.Id,

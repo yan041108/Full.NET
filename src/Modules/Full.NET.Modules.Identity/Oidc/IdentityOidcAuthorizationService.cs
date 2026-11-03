@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
+using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authentication;
@@ -41,10 +42,23 @@ internal sealed class IdentityOidcAuthorizationService(
     IOptions<DatabaseOptions>? databaseOptions = null)
 {
     private const string HostScope = "host";
+    private static readonly SqlStatement LockMembershipSqlServer = new("identity.oidc.lock_tenant_membership.sql_server", """
+        SELECT 1 FROM fn_identity_tenant_member AS membership WITH (UPDLOCK, HOLDLOCK)
+        INNER JOIN fn_identity_user AS actor WITH (UPDLOCK, HOLDLOCK) ON actor.Id = membership.UserId
+        WHERE membership.UserId = @UserId AND membership.TenantId = @TenantId AND membership.Status = 'Active'
+          AND actor.IsActive = 1 AND actor.ScopeKey = 'host' AND actor.TenantId IS NULL
+        """, SqlDataScope.HostOnly);
+    private static readonly SqlStatement LockMembershipMySql = new("identity.oidc.lock_tenant_membership.mysql", """
+        SELECT 1 FROM fn_identity_tenant_member AS membership
+        INNER JOIN fn_identity_user AS actor ON actor.Id = membership.UserId
+        WHERE membership.UserId = @UserId AND membership.TenantId = @TenantId AND membership.Status = 'Active'
+          AND actor.IsActive = 1 AND actor.ScopeKey = 'host' AND actor.TenantId IS NULL FOR UPDATE
+        """, SqlDataScope.HostOnly);
     private static readonly SqlStatement LockHostAuthorizationSqlServer = new(
         "identity.oidc.lock_host_authorization.sql_server",
         """
-        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator
+        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator,
+               identityUser.ScopeKey AS AccountScopeKey, identityUser.TenantId AS AccountTenantId, identityUser.AccountType
         FROM fn_identity_user_role AS userRole WITH (UPDLOCK, HOLDLOCK)
         INNER JOIN fn_identity_role AS roleObject WITH (UPDLOCK, HOLDLOCK) ON roleObject.Id = userRole.RoleId
         INNER JOIN fn_identity_user AS identityUser WITH (UPDLOCK, HOLDLOCK) ON identityUser.Id = userRole.UserId
@@ -57,7 +71,8 @@ internal sealed class IdentityOidcAuthorizationService(
     private static readonly SqlStatement LockHostAuthorizationMySql = new(
         "identity.oidc.lock_host_authorization.mysql",
         """
-        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator
+        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator,
+               identityUser.ScopeKey AS AccountScopeKey, identityUser.TenantId AS AccountTenantId, identityUser.AccountType
         FROM fn_identity_user_role AS userRole
         INNER JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = userRole.UserId
@@ -180,6 +195,7 @@ internal sealed class IdentityOidcAuthorizationService(
         var host = await permissionSnapshotReader.ReadAsync(userId, HostScope, null, cancellationToken).ConfigureAwait(false);
         if (!host.IsSuperAdministrator && !host.Permissions.Contains("tenancy.tenants.switch", StringComparer.Ordinal))
             return null;
+        if (!await CanAccessTenantAsync(userId, tenantId, cancellationToken).ConfigureAwait(false)) return null;
         return await activeTenants.ResolveActiveByIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -273,6 +289,7 @@ internal sealed class IdentityOidcAuthorizationService(
             // 目标只能来自已验证的交互同意；发行时仍须重核 Host 权限和租户活动状态。
             if (tenantId == Guid.Empty || activeTenants is null
                 || (!hostAuthorization.IsSuperAdministrator && !hostAuthorization.Permissions.Contains("tenancy.tenants.switch", StringComparer.Ordinal))
+                || !await CanAccessTenantAsync(userId, tenantId, cancellationToken).ConfigureAwait(false)
                 || await activeTenants.ResolveActiveByIdAsync(tenantId, cancellationToken).ConfigureAwait(false) is null)
                 return null;
         }
@@ -290,7 +307,13 @@ internal sealed class IdentityOidcAuthorizationService(
                     IdentitySqlParameters.Create(("UserId", userId)), token).ConfigureAwait(false);
                 if (!lockedAuthorization.Any(row => row.IsSuperAdministrator
                     || string.Equals(row.PermissionCode, "tenancy.tenants.switch", StringComparison.Ordinal)))
-                    return null;
+                {
+                    // 默认自助能力必须持有活动成员行；锁定至发行提交，避免接受同意期间成员被移除。
+                    var member = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+                        databaseOptions?.Value.Provider == DatabaseProvider.MySql ? LockMembershipMySql : LockMembershipSqlServer,
+                        IdentitySqlParameters.Create(("UserId", userId), ("TenantId", approvedTenantId.Value)), token).ConfigureAwait(false);
+                    if (member != 1) return null;
+                }
 
                 // 与中心会话撤销串行化，并在持锁后再次检查用户安全状态。
                 var lockedCenter = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcCenterSessionRow>(
@@ -605,6 +628,12 @@ internal sealed class IdentityOidcAuthorizationService(
             IdentityOidcCenterAuthenticationDefaults.UserIdClaim)?.Value;
         return Guid.TryParse(centerSessionClaim, out centerSessionId)
             && Guid.TryParse(userIdClaim, out userId);
+    }
+
+    private async Task<bool> CanAccessTenantAsync(Guid userId, Guid tenantId, CancellationToken token)
+    {
+        var access = await new IdentityTenantContextAccessReader(queryExecutor).ReadAsync(userId, token).ConfigureAwait(false);
+        return access.AllTenants || access.TenantIds.Contains(tenantId);
     }
 
     private static async Task<Guid?> TryReadAuthenticatedCenterUserAsync(

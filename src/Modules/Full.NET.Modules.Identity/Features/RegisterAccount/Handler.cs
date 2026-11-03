@@ -213,10 +213,12 @@ internal sealed class Handler(
         }
 
         var now = clock.UtcNow;
-        var scopeKey = $"tenant:{tenantId:N}";
+        // 企业邀请创建可跨企业使用的 Host 账号；方式直注册仍属于其明确选择的租户身份域。
+        var scopeKey = expectedTarget.Invitation is not null ? "host" : $"tenant:{tenantId:N}";
+        Guid? accountTenantId = expectedTarget.Invitation is not null ? null : tenantId;
         var user = new IdentityUser(
             idGenerator.NewId(),
-            tenantId,
+            accountTenantId,
             scopeKey,
             normalizedEmail,
             normalizedEmail.ToUpperInvariant(),
@@ -255,6 +257,11 @@ internal sealed class Handler(
                 // 绑定失败必须回滚账号、邮箱资料和凭据核销，不能留下无法接续入驻的半成品。
                 return Result<RegisterAccountResponse>.Failure(bound.Error!);
             }
+            var linked = await commandExecutor.ExecuteAsync(RegistrationInvitationSql.BindTenantInvitee,
+                IdentitySqlParameters.Create(("InvitationId", request.InvitationId.Value), ("TenantId", tenantId),
+                    ("UserId", user.Id), ("NormalizedEmail", normalizedEmail), ("Now", now)), cancellationToken).ConfigureAwait(false);
+            if (linked != 1) return Result<RegisterAccountResponse>.Failure(new Error(
+                IdentityErrorCodes.RegistrationInvitationInvalid, "The registration invitation is no longer available.", ErrorType.Conflict));
         }
 
         return Result<RegisterAccountResponse>.Success(new RegisterAccountResponse(user.Id, true));

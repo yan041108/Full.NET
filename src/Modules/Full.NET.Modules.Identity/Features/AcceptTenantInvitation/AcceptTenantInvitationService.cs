@@ -24,7 +24,8 @@ internal sealed class AcceptTenantInvitationService(
     IActiveTenantContextResolver tenantResolver,
     TenantSeatOperationProcessor seatOperations,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ITenantInvitationGrantorAuthority grantors)
 {
     // 先原子提交 Pending 成员及耐久工作项，再在事务外处理席位；崩溃后由 Worker 接续。
     public Task<Result<AcceptTenantInvitationResponse>> AcceptAsync(
@@ -55,7 +56,7 @@ internal sealed class AcceptTenantInvitationService(
                 IdentitySqlParameters.Create(("TokenHash", TokenHash.Compute(token))),
                 cancellationToken)
             .ConfigureAwait(false);
-        return await AcceptPreparedInvitationAsync(userId, invitation, cancellationToken)
+        return await AcceptPreparedInvitationAsync(userId, invitation, true, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -69,13 +70,14 @@ internal sealed class AcceptTenantInvitationService(
                 IdentitySqlParameters.Create(("InvitationId", invitationId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return await AcceptPreparedInvitationAsync(userId, invitation, cancellationToken)
+        return await AcceptPreparedInvitationAsync(userId, invitation, false, cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async Task<Result<AcceptTenantInvitationResponse>> AcceptPreparedInvitationAsync(
         Guid userId,
         TenantInvitationRecord? invitation,
+        bool tokenProved,
         CancellationToken cancellationToken)
     {
         if (invitation is null
@@ -92,7 +94,7 @@ internal sealed class AcceptTenantInvitationService(
             return InvalidInvitation();
         }
 
-        if (!await MatchesInviteeAsync(userId, invitation, cancellationToken).ConfigureAwait(false))
+        if (!await MatchesInviteeAsync(userId, invitation, tokenProved, cancellationToken).ConfigureAwait(false))
         {
             return InvalidInvitation();
         }
@@ -148,6 +150,9 @@ internal sealed class AcceptTenantInvitationService(
         TenantMemberRecord? existing,
         CancellationToken cancellationToken)
     {
+        if (!await grantors.IsAuthorizedAsync(invitation.InvitedByUserId, invitation.TenantId, cancellationToken).ConfigureAwait(false))
+            return Result<AcceptTenantInvitationResponse>.Failure(new Error(IdentityErrorCodes.TenantInvitationInvalid,
+                "The invitation grant is no longer authorized.", ErrorType.Forbidden));
         var now = clock.UtcNow;
         var memberId = existing?.Id ?? idGenerator.NewId();
         int memberAffected;
@@ -185,10 +190,11 @@ internal sealed class AcceptTenantInvitationService(
                 "The tenant member was updated concurrently.", ErrorType.Conflict));
 
         var affected = await commandExecutor.ExecuteAsync(
-                TenantMembershipSql.UpdateInvitationStatus,
+                TenantMembershipSql.AcceptInvitation,
                 IdentitySqlParameters.Create(
                     ("InvitationId", invitation.Id),
                     ("Status", TenantInvitationStatuses.Accepted),
+                    ("UserId", userId),
                     ("UpdatedAtUtc", now),
                     ("Version", invitation.Version)),
                 cancellationToken)
@@ -217,12 +223,16 @@ internal sealed class AcceptTenantInvitationService(
     private async Task<bool> MatchesInviteeAsync(
         Guid userId,
         TenantInvitationRecord invitation,
+        bool tokenProved,
         CancellationToken cancellationToken)
     {
         if (invitation.TargetUserId is Guid targetUserId)
         {
             return targetUserId == userId;
         }
+
+        // 资料邮箱不能代替邀请凭据；只有持有令牌的认证主体才能接受尚未绑定的邀请。
+        if (!tokenProved) return false;
 
         var profileEmail = await queryExecutor.QuerySingleOrDefaultAsync<string>(
                 AccountLifecycleSql.FindUserProfileEmailByUserId,

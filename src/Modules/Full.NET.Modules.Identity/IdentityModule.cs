@@ -256,6 +256,7 @@ public sealed class IdentityModule : IFullNetModule
         RegisterOrganizationUnitChangedTopic(services);
         services.AddIdentityOidcLogout(configuration, workerHost);
         services.TryAddScoped<Features.TenantSeatOperations.TenantSeatOperationProcessor>();
+        services.TryAddScoped<Features.AcceptTenantInvitation.ITenantInvitationGrantorAuthority, Features.AcceptTenantInvitation.TenantInvitationGrantorAuthority>();
         services.TryAddScoped<ITenantMemberSeatQuotaPort, Features.AcceptTenantInvitation.NullTenantMemberSeatQuotaPort>();
         AddOrganizationUnitProjection(services);
         // Workflow 通知事件必须按可信 Host/Tenant 作用域批量校验收件人，只注册所需目录而不装配完整 HTTP 身份域。

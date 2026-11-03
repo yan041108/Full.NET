@@ -251,34 +251,30 @@ internal static class TenantMembershipSql
         """,
         SqlDataScope.Global);
 
+    // 资料邮箱不是归属证明；已接受的邀请只在本人成员仍待激活时继续展示。
+    private const string VisibleInviteePredicate = """
+        invitation.TargetUserId = @UserId
+          AND ((invitation.Status = @PendingStatus AND invitation.ExpiresAtUtc > @NowUtc)
+            OR (invitation.Status = 'Accepted' AND EXISTS
+              (SELECT 1 FROM fn_identity_tenant_member AS membership
+               WHERE membership.TenantId = invitation.TenantId AND membership.UserId = @UserId AND membership.Status = 'Pending')))
+        """;
+
     public static readonly SqlStatement ListPendingInvitationsForInvitee = new(
         "identity.tenant_invitations.list_pending_for_invitee",
-        """
-        SELECT Id, TenantId, TargetEmail, TargetUserId, InvitedByUserId,
-               MemberRole, TokenHash, Status, ExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_identity_tenant_invitation
-        WHERE Status = @PendingStatus
-          AND ExpiresAtUtc > @NowUtc
-          AND (
-            TargetUserId = @UserId
-            OR (
-              @NormalizedEmail IS NOT NULL
-              AND TargetUserId IS NULL
-              AND LOWER(TargetEmail) = @NormalizedEmail
-            )
-          )
-        ORDER BY CreatedAtUtc DESC, Id
+        $"""
+        SELECT invitation.Id, invitation.TenantId, invitation.TargetEmail, invitation.TargetUserId, invitation.InvitedByUserId,
+               invitation.MemberRole, invitation.TokenHash, invitation.Status, invitation.ExpiresAtUtc,
+               invitation.CreatedAtUtc, invitation.UpdatedAtUtc, invitation.Version
+        FROM fn_identity_tenant_invitation AS invitation
+        WHERE {VisibleInviteePredicate}
+        ORDER BY invitation.CreatedAtUtc DESC, invitation.Id
         """,
         SqlDataScope.Global);
 
     public static readonly SqlStatement CountPendingInvitationsForInvitee = new(
         "identity.tenant_invitations.count_pending_for_invitee",
-        """
-        SELECT COUNT(1) FROM fn_identity_tenant_invitation
-        WHERE Status = @PendingStatus AND ExpiresAtUtc > @NowUtc
-          AND (TargetUserId = @UserId OR (@NormalizedEmail IS NOT NULL AND TargetUserId IS NULL
-               AND LOWER(TargetEmail) = @NormalizedEmail))
-        """, SqlDataScope.Global);
+        $"SELECT COUNT(1) FROM fn_identity_tenant_invitation AS invitation WHERE {VisibleInviteePredicate}", SqlDataScope.Global);
 
     public static readonly SqlStatement ListPendingInvitationsPageSqlServer = new(
         "identity.tenant_invitations.list_pending_page.sql_server",
@@ -397,4 +393,14 @@ internal static class TenantMembershipSql
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement AcceptInvitation = new(
+        "identity.tenant_invitations.accept",
+        """
+        UPDATE fn_identity_tenant_invitation
+        SET Status = @Status, TargetUserId = @UserId, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id = @InvitationId AND TenantId = @TenantId AND Version = @Version
+          AND Status = 'Pending' AND ExpiresAtUtc > @UpdatedAtUtc
+          AND (TargetUserId IS NULL OR TargetUserId = @UserId)
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

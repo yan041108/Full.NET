@@ -42,8 +42,9 @@ internal static class Endpoint
                         httpContext);
                 }
 
+                if (!Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.Subject), out var userId)) return Results.Unauthorized();
                 var result = await dispatcher.SendAsync<Query, TenantContextSummary[]>(
-                        new Query(),
+                        new Query(userId),
                         cancellationToken)
                     .ConfigureAwait(false);
                 return mapper.Map(result, httpContext);

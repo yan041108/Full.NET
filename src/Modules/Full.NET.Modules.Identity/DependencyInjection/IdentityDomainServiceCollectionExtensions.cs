@@ -111,6 +111,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<MfaRecoveryCodeService>();
         services.TryAddScoped<TenantMemberProvisionService>();
         services.TryAddScoped<AcceptTenantInvitationService>();
+        services.TryAddScoped<ITenantInvitationGrantorAuthority, TenantInvitationGrantorAuthority>();
         services.TryAddScoped<Features.TenantSeatOperations.TenantSeatOperationProcessor>();
         services.TryAddScoped<Features.ManageMyTenantInvitations.MyTenantInvitationQueryService>();
         services.TryAddScoped<PublicRegistrationWayQueryService>();

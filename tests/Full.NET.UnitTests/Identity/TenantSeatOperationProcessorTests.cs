@@ -5,6 +5,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.TenantSeatOperations;
+using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -112,6 +114,20 @@ public sealed class TenantSeatOperationProcessorTests
         await f.Seats.DidNotReceiveWithAnyArgs().TryReserveAsync(default, default!, default);
     }
 
+    [TestMethod]
+    public async Task Revoked_grantor_cancels_confirmed_activation_before_member_write()
+    {
+        var f = new Fixture();
+        f.Op = f.Op with { InvitationId = Guid.CreateVersion7(), Phase = TenantSeatPhases.Confirmed };
+        f.Grantors.IsAuthorizedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(false);
+        var result = await f.Processor().ProcessAsync(f.Op.Id, default);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(TenantSeatPhases.Cancelled, f.Op.Phase);
+        Assert.AreEqual("identity.seat_operation.inviter_unauthorized", f.Op.ErrorCode);
+        Assert.AreEqual(0, f.Activations);
+        await f.Seats.DidNotReceiveWithAnyArgs().TryReserveAsync(default, default!, default);
+    }
+
     private static Result<bool> Failure(string code, ErrorType type = ErrorType.Conflict) =>
         Result<bool>.Failure(new Error(code, "Test failure", type));
 
@@ -122,6 +138,7 @@ public sealed class TenantSeatOperationProcessorTests
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null, 1, 1);
         internal readonly ITenantMemberSeatQuotaPort Seats = Substitute.For<ITenantMemberSeatQuotaPort>();
         internal readonly IActiveTenantContextResolver Tenants = Substitute.For<IActiveTenantContextResolver>();
+        internal readonly ITenantInvitationGrantorAuthority Grantors = Substitute.For<ITenantInvitationGrantorAuthority>();
         private readonly IQueryExecutor queries = Substitute.For<IQueryExecutor>();
         private readonly ICommandExecutor commands = Substitute.For<ICommandExecutor>();
         private readonly IClock clock = Substitute.For<IClock>();
@@ -131,6 +148,11 @@ public sealed class TenantSeatOperationProcessorTests
 
         internal Fixture()
         {
+            Grantors.IsAuthorizedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+            queries.QuerySingleOrDefaultAsync<TenantInvitationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(_ => new TenantInvitationRecord(Op.InvitationId ?? Guid.CreateVersion7(), Op.TenantId,
+                    "invitee@example.test", Op.UserId, Guid.CreateVersion7(), "Member", "hash", "Accepted",
+                    DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, Op.InvitationVersion ?? 1));
             clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             Tenants.ResolveActiveByIdAsync(Op.TenantId, Arg.Any<CancellationToken>()).Returns(new TenantContext(Op.TenantId, "tenant", "Tenant"));
             queries.QuerySingleOrDefaultAsync<TenantSeatOperation>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -166,6 +188,6 @@ public sealed class TenantSeatOperationProcessorTests
         }
 
         internal TenantSeatOperationProcessor Processor() => new(queries, commands,
-            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), Substitute.For<ICurrentTenantContextWriter>(), Tenants, Seats, clock);
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), Substitute.For<ICurrentTenantContextWriter>(), Tenants, Seats, clock, Grantors);
     }
 }

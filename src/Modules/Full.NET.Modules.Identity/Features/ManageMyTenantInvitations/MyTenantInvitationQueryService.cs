@@ -21,16 +21,10 @@ internal sealed class MyTenantInvitationQueryService(
         Guid userId,
         CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
     {
-        var profileEmail = await queryExecutor.QuerySingleOrDefaultAsync<string>(
-                AccountLifecycleSql.FindUserProfileEmailByUserId,
-                IdentitySqlParameters.Create(("UserId", userId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        var normalizedEmail = AccountChallengeService.NormalizeEmail(profileEmail);
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var parameters = IdentitySqlParameters.Create(
-            ("UserId", userId), ("NormalizedEmail", normalizedEmail), ("PendingStatus", TenantInvitationStatuses.Pending),
+            ("UserId", userId), ("PendingStatus", TenantInvitationStatuses.Pending),
             ("NowUtc", clock.UtcNow), ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize));
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
             TenantMembershipSql.CountPendingInvitationsForInvitee, parameters, cancellationToken).ConfigureAwait(false);
@@ -60,7 +54,7 @@ internal sealed class MyTenantInvitationQueryService(
                 row.TargetEmail,
                 row.MemberRole,
                 row.ExpiresAtUtc,
-                row.CreatedAtUtc));
+                row.CreatedAtUtc, row.Status));
         }
 
         return Result<PagedResult<MyTenantInvitationResponse>>.Success(new PagedResult<MyTenantInvitationResponse>(responses, page, pageSize, total));

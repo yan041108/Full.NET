@@ -30,9 +30,9 @@ public enum IdentityRegistrationInvitationStatus : byte
 {
     /// <summary>待处理；邀请已发出但尚未完成账号创建。</summary>
     Pending = 0,
-    /// <summary>账号已创建但尚未完成首次激活；等待用户完成首登或挑战。</summary>
+    /// <summary>账号已创建；等待本人登录并接受企业成员邀请、完成席位激活。</summary>
     AccountCreatedPendingOnboarding = 1,
-    /// <summary>已激活；用户已可正常登录。</summary>
+    /// <summary>企业成员已激活；账号登录资格仍由账号和会话状态控制。</summary>
     Activated = 2,
     /// <summary>已撤销；邀请失效，不可再据此创建账号。</summary>
     Revoked = 3,

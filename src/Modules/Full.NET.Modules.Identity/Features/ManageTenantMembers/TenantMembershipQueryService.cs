@@ -11,6 +11,14 @@ internal sealed class TenantMembershipQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>仅返回当前可信租户的启用方式，供成员邀请选择，无需授予 Host 注册配置权限。</summary>
+    public async Task<PublicRegistrationWayResponse[]> ListInvitationWaysAsync(CancellationToken cancellationToken)
+    {
+        var rows = await queryExecutor.QueryAsync<Identity.Persistence.RegistrationWayRecord>(
+            Identity.Persistence.RegistrationWaySql.InvitationWays, null, cancellationToken).ConfigureAwait(false);
+        return rows.Select(row => new PublicRegistrationWayResponse(row.Id, row.Name, row.Code, row.SortOrder)).ToArray();
+    }
+
     public async Task<Result<PagedResult<TenantMemberResponse>>> ListMembersAsync(
         int page,
         int pageSize,

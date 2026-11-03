@@ -7,6 +7,8 @@ import { registerAccount, requestEmailChallenge, verifyInvitation } from '../api
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { accountSelfServiceText } from '../i18n/account-self-service';
+import { invitationOnboardingText } from '../i18n/invitation-onboarding';
+import { rememberRegistrationInvitation, readRegistrationInvitation, forgetRegistrationInvitation } from '../auth/registration-invitation';
 
 const RegistrationEmailVerification = 1;
 const InvitationEmailVerification = 3;
@@ -29,7 +31,6 @@ const submitting = ref(false);
 const sending = ref(false);
 const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof accountSelfServiceText>[1]) => accountSelfServiceText(locale.value, key);
-const invitationSessionKey = 'fullnet.registration.invitation';
 
 watch(email, () => { challengeId.value = ''; challengeCode.value = ''; }, { flush: 'sync' });
 
@@ -46,29 +47,18 @@ onMounted(async () => {
     return;
   }
   if (queryToken && queryId) {
-    sessionStorage.setItem(
-      invitationSessionKey,
-      JSON.stringify({ invitationId: queryId, invitationToken: queryToken })
-    );
+    rememberRegistrationInvitation({ invitationId: queryId, invitationToken: queryToken });
     await router.replace({ path: route.path });
   }
 
   // 明确的方式链接不得复用先前放弃的邀请；无参数页面仍可恢复已剥离 URL 凭据的邀请。
-  if (!queryToken && !queryId && route.query.registrationWayId !== undefined) return;
-  const stored = sessionStorage.getItem(invitationSessionKey);
-  if (!stored) {
+  if (!queryToken && !queryId && route.query.registrationWayId !== undefined) {
+    forgetRegistrationInvitation();
     return;
   }
+  const parsed = queryId && queryToken ? { invitationId: queryId, invitationToken: queryToken } : readRegistrationInvitation();
 
-  let parsed: { invitationId?: string; invitationToken?: string };
-  try {
-    parsed = JSON.parse(stored) as { invitationId?: string; invitationToken?: string };
-  } catch {
-    sessionStorage.removeItem(invitationSessionKey);
-    return;
-  }
-
-  if (!parsed.invitationId || !parsed.invitationToken) {
+  if (!parsed?.invitationId || !parsed.invitationToken) {
     return;
   }
 
@@ -128,7 +118,7 @@ async function submit(): Promise<void> {
       invitationId: invitationId.value || undefined,
       invitationToken: invitationToken.value || undefined
     });
-    sessionStorage.removeItem(invitationSessionKey);
+    forgetRegistrationInvitation();
     ElMessage.success(text('registered'));
     await router.replace('/login');
   } catch (error: unknown) {
@@ -156,6 +146,7 @@ async function submit(): Promise<void> {
         <ElButton :loading="sending" :disabled="submitting || !email.trim() || !entryReady" @click="sendChallenge">{{ text('send') }}</ElButton>
         <ElButton type="primary" :loading="submitting" :disabled="sending || !entryReady || !challengeId || !challengeCode" @click="submit">{{ text('register') }}</ElButton>
         <ElButton link @click="router.replace('/login')">{{ text('back') }}</ElButton>
+        <ElButton v-if="invitationVerified" link data-testid="invitation-existing-account" @click="router.replace('/login?redirect=/tenant-context')">{{ invitationOnboardingText(locale, 'existing') }}</ElButton>
       </div>
     </section>
       </div>

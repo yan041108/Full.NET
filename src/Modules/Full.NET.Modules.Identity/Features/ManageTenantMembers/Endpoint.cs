@@ -97,6 +97,13 @@ internal static class Endpoint
         .Produces<PagedResult<TenantInvitationResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityTenantMembershipPermissions.Read);
 
+        group.MapGet("/invitations/registration-ways", async (
+            TenantMembershipQueryService queries, CancellationToken cancellationToken) =>
+            await queries.ListInvitationWaysAsync(cancellationToken).ConfigureAwait(false))
+            .WithName("identityListInvitationRegistrationWays")
+            .Produces<PublicRegistrationWayResponse[]>(StatusCodes.Status200OK)
+            .RequireFullNetPermission(IdentityTenantMembershipPermissions.Invite);
+
         group.MapPost("/invitations", async (
             CreateTenantInvitationRequest request,
             TenantMembershipManagementService service,

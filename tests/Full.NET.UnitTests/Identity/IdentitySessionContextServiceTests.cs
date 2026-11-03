@@ -59,6 +59,18 @@ public sealed class IdentitySessionContextServiceTests
     }
 
     [TestMethod]
+    public async Task Roleless_account_cannot_switch_before_membership_activation()
+    {
+        var fixture = new Fixture();
+        fixture.QueryExecutor.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+        fixture.QueryExecutor.QueryAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<Guid>());
+        var result = await fixture.Service.ChangeAsync(CreatePrincipal(), new VerifiedTenantContext(TenantId, "acme", "Acme", "acme.localhost"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual("authorization.permission_denied", result.Error?.Code);
+        await fixture.CommandExecutor.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+    }
+
+    [TestMethod]
     public async Task Active_version_race_returns_stable_conflict()
     {
         var fixture = new Fixture();
@@ -257,6 +269,7 @@ public sealed class IdentitySessionContextServiceTests
         public OidcFixture()
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
+            QueryExecutor.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             QueryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
                     IdentityOidcSessionSql.FindApplicationSessionValidationById,
                     Arg.Any<object?>(),
@@ -324,6 +337,7 @@ public sealed class IdentitySessionContextServiceTests
         public Fixture()
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
+            QueryExecutor.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             QueryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
                     IdentitySql.FindRefreshSessionById,
                     Arg.Any<object?>(),

@@ -29,6 +29,8 @@ import {
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { invitationOnboardingText } from '../i18n/invitation-onboarding';
+import { readRegistrationInvitation, forgetRegistrationInvitation } from '../auth/registration-invitation';
 
 defineOptions({ name: 'TenantContextView' });
 
@@ -38,7 +40,8 @@ interface AppliedFilters {
 
 const session = useSessionStore();
 const router = useRouter();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const onboarding = (key: Parameters<typeof invitationOnboardingText>[1]) => invitationOnboardingText(locale.value, key);
 const problem = ref<FullNetProblemDetails>();
 const pendingTenantId = ref<string | null>();
 const myInvitations = ref<MyTenantInvitation[]>([]);
@@ -106,6 +109,11 @@ async function loadMyInvitations(): Promise<void> {
   }
 }
 
+async function refreshInvitationContext(): Promise<void> {
+  try { await session.reloadContext(); await loadMyInvitations(); }
+  catch (error: unknown) { showProblem(error, t('tenant.acceptInvitationFailed')); }
+}
+
 async function acceptInvitation(invitation: MyTenantInvitation): Promise<void> {
   if (acceptingInvitationId.value) {
     return;
@@ -113,8 +121,9 @@ async function acceptInvitation(invitation: MyTenantInvitation): Promise<void> {
 
   acceptingInvitationId.value = invitation.id;
   try {
-    await acceptMyTenantInvitation(invitation.id);
-    showSuccess(t('tenant.acceptInvitationSuccess'));
+    const result = await acceptMyTenantInvitation(invitation.id);
+    if (result.status === 'Active') showSuccess(t('tenant.acceptInvitationSuccess'));
+    else showWarning(onboarding('processing'));
     await session.reloadContext();
     await loadMyInvitations();
   } catch (error: unknown) {
@@ -125,6 +134,7 @@ async function acceptInvitation(invitation: MyTenantInvitation): Promise<void> {
 }
 
 async function acceptByToken(): Promise<void> {
+  if (acceptingByToken.value) return;
   const token = invitationToken.value.trim();
   if (token.length < 16) {
     showWarning(t('tenant.invitationTokenPlaceholder'));
@@ -133,9 +143,11 @@ async function acceptByToken(): Promise<void> {
 
   acceptingByToken.value = true;
   try {
-    await acceptTenantInvitationByToken(token);
+    const result = await acceptTenantInvitationByToken(token);
     invitationToken.value = '';
-    showSuccess(t('tenant.acceptInvitationSuccess'));
+    forgetRegistrationInvitation();
+    if (result.status === 'Active') showSuccess(t('tenant.acceptInvitationSuccess'));
+    else showWarning(onboarding('processing'));
     await session.reloadContext();
     await loadMyInvitations();
   } catch (error: unknown) {
@@ -194,6 +206,7 @@ function formatDateTime(value: string): string {
 }
 
 onMounted(() => {
+  invitationToken.value = readRegistrationInvitation()?.invitationToken ?? '';
   void nextTick(updateTableHeight);
   void loadMyInvitations();
 });
@@ -307,7 +320,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
       <p v-if="myInvitations.length === 0" class="tenant-context-view__hint">
         {{ t('tenant.myInvitationsEmpty') }}
-        {{ t('tenant.myInvitationsEmailHint') }}
+        {{ onboarding('tokenHint') }}
       </p>
 
       <el-table
@@ -332,19 +345,21 @@ function toProblem(error: unknown): FullNetProblemDetails {
               data-testid="accept-tenant-invitation"
               @click="acceptInvitation(row as MyTenantInvitation)"
             >
-              {{ t('tenant.acceptInvitation') }}
+              {{ row.status === 'Accepted' ? onboarding('retry') : t('tenant.acceptInvitation') }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
       <el-pagination v-model:current-page="invitationPage" :page-size="20" :total="invitationTotal"
         layout="prev, pager, next, total" @current-change="loadMyInvitations" />
+      <el-button :loading="loadingInvitations" data-testid="refresh-my-invitations" @click="refreshInvitationContext">{{ onboarding('refresh') }}</el-button>
 
 
       <div class="tenant-context-view__token-row">
         <span>{{ t('tenant.invitationTokenTitle') }}</span>
         <el-input
           v-model="invitationToken"
+          :aria-label="t('tenant.invitationTokenTitle')"
           :placeholder="t('tenant.invitationTokenPlaceholder')"
           maxlength="256"
           show-password
@@ -460,6 +475,14 @@ function toProblem(error: unknown): FullNetProblemDetails {
   overflow-y: auto;
 }
 
+.tenant-context-view__invitations {
+  flex: 0 0 auto;
+}
+
+.tenant-context-view .art-context-banner {
+  flex-shrink: 0;
+}
+
 .tenant-context-view__toolbar {
   display: flex;
   align-items: center;
@@ -502,6 +525,13 @@ function toProblem(error: unknown): FullNetProblemDetails {
 }
 
 @media (max-width: 768px) {
+  .tenant-context-view .art-context-banner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tenant-context-view .art-context-banner strong,
+  .tenant-context-view .art-context-banner code {
+    overflow-wrap: anywhere;
+  }
   .tenant-context-view__token-row {
     grid-template-columns: 1fr;
   }

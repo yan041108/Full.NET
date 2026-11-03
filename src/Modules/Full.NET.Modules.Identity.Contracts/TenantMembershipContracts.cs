@@ -115,10 +115,12 @@ public sealed record TenantInvitationResponse(
 /// <param name="TargetEmail">被邀请邮箱；服务端据此发送邀请邮件。</param>
 /// <param name="MemberRole">接受后授予的角色机器码；取值必须为 <c>TenantMemberRoles</c> 中的有效值。</param>
 /// <param name="ExpiresInHours">有效期小时数；默认 72 小时，调用方可显式覆盖。</param>
+/// <param name="RegistrationWayId">可选注册方式；提供时同一邀请允许未注册者先验证邮箱、创建账号，再登录接受。</param>
 public sealed record CreateTenantInvitationRequest(
     string TargetEmail,
     string MemberRole,
-    int ExpiresInHours = 72);
+    int ExpiresInHours = 72,
+    Guid? RegistrationWayId = null);
 
 /// <summary>在当前租户内创建 Host 用户并立即加入为活动成员。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
@@ -138,9 +140,11 @@ public sealed record ProvisionTenantMemberRequest(
 /// <remarks>InvitationToken 仅返回一次，调用方必须立即投递给被邀请方；Token 撤销或过期后不可再用。</remarks>
 /// <param name="Invitation">邀请投影。</param>
 /// <param name="InvitationToken">用于接受邀请的一次性 Token；只允许出现在当前响应边界，禁止写日志或缓存。</param>
+/// <param name="RegistrationInvitationId">存在注册资格时为同一签发标识，否则为空。</param>
 public sealed record CreateTenantInvitationResult(
     TenantInvitationResponse Invitation,
-    string InvitationToken);
+    string InvitationToken,
+    Guid? RegistrationInvitationId = null);
 
 /// <summary>更新租户成员角色请求；支持乐观并发。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
@@ -165,7 +169,7 @@ public sealed record AcceptTenantInvitationRequest(string InvitationToken);
 /// <param name="TenantId">所属租户标识。</param>
 /// <param name="UserId">接受方用户标识。</param>
 /// <param name="MemberRole">实际授予的角色机器码。</param>
-/// <param name="Status">成员状态机器码；正常流程为 <c>Active</c>。</param>
+/// <param name="Status">成员状态机器码；Active 表示已激活，Pending 表示已接受且耐久激活意图等待接续。</param>
 public sealed record AcceptTenantInvitationResponse(
     Guid MemberId,
     Guid TenantId,
@@ -182,6 +186,7 @@ public sealed record AcceptTenantInvitationResponse(
 /// <param name="MemberRole">接受后授予的角色机器码。</param>
 /// <param name="ExpiresAtUtc">邀请过期时间（UTC）。</param>
 /// <param name="CreatedAtUtc">邀请创建时间（UTC）。</param>
+/// <param name="Status">Pending 表示待接受，Accepted 表示已接受但成员激活尚未完成。</param>
 public sealed record MyTenantInvitationResponse(
     Guid Id,
     Guid TenantId,
@@ -189,4 +194,5 @@ public sealed record MyTenantInvitationResponse(
     string TargetEmail,
     string MemberRole,
     DateTimeOffset ExpiresAtUtc,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    string Status);

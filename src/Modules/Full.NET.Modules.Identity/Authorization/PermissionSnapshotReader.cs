@@ -40,7 +40,7 @@ internal sealed class PermissionSnapshotReader(
             .Where(permission => (permission.Scope & requiredScope) != 0)
             .ToArray();
         var isSuperAdministrator = authorization.Any(item =>
-            item.IsSuperAdministrator);
+            item.IsSuperAdministrator == true);
         var knownCodes = knownPermissions
             .Select(permission => permission.Code)
             .ToHashSet(StringComparer.Ordinal);
@@ -50,6 +50,11 @@ internal sealed class PermissionSnapshotReader(
                 .Select(item => item.PermissionCode)
                 .Where(code => code is not null && knownCodes.Contains(code))
                 .Select(code => code!);
+
+        // 统一账号可管理本人已授权的上下文；Host 租户目录与业务操作仍独立授权。
+        if (authorization.Any(item => item.AccountScopeKey == "host" && item.AccountTenantId is null
+            && item.AccountType is IdentityAccountTypes.NormalUser or IdentityAccountTypes.SysAdmin or IdentityAccountTypes.SuperAdmin))
+            permissions = permissions.Concat(new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" }.Where(knownCodes.Contains));
 
         return new PermissionSnapshot(
             permissions
