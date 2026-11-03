@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -218,8 +218,23 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
   let apiProcess;
   let apiLogStream;
   let browserRuntime;
+  let originalError;
   try {
-    const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
+    let templateRoot;
+    if (process.env.FULLNET_CREATED_APP_PACKAGE) {
+      templateRoot = resolve(process.env.FULLNET_CREATED_APP_PACKAGE);
+      const packageManifest = JSON.parse(readFileSync(join(templateRoot, 'framework-manifest.json'), 'utf8'));
+      assert.match(packageManifest.sourceCommit, /^[0-9a-f]{40}$/u, 'cached template source commit is invalid');
+      const changes = spawnSync('git', ['diff', '--name-only', packageManifest.sourceCommit, 'HEAD', '--'],
+        { cwd: repoRoot, encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+      assert.equal(changes.status, 0, 'cannot compare cached template source');
+      assert.ok(!changes.stdout.split(/\r?\n/u).some(path => packageManifest.managedFiles?.[path]), 'cached template framework source is stale');
+      // 外层创建工具不在受管框架清单中，复用前另核对其原文；createApp 随后仍检查包内所有摘要。
+      for (const name of readdirSync(join(templateRoot, '.fullnet-tools')).filter(name => name.endsWith('.mjs'))) {
+        assert.deepEqual(readFileSync(join(templateRoot, '.fullnet-tools', name)), readFileSync(join(repoRoot, 'scripts/templates', name)),
+          'cached template creator differs: ' + name);
+      }
+    } else ({ templateRoot } = buildAppTemplate({ output: join(workspace, 'package') }));
     const appRoot = join(workspace, 'app');
     createApp({
       packageRoot: templateRoot,
@@ -367,11 +382,10 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
+  } catch (error) {
+    originalError = error;
+    throw error;
   } finally {
-    try {
-      await browserRuntime?.close();
-    } finally {
-      await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
-    }
+    await cleanupCreatedApp({ browserRuntime, apiProcess, apiLogStream, dbContainer, redisContainer, workspace, originalError });
   }
 }

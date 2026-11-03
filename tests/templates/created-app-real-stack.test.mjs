@@ -26,6 +26,6 @@ for (const database of ['sqlserver', 'mysql']) {
   }
   test(`created minimal application ${scope === 'complete' ? 'real-stack' : scope} (${database})`, { timeout: concentratedAcceptanceTimeout, skip }, async context => {
     await runConcentratedAcceptance(context, () => verifyCreatedAppRealStack(database, { scope }),
-      scope === 'generated-client' ? { heavy: false, build: true, buildBudget: { cpu: 4, memoryGiB: 6 } } : {});
+      scope === 'generated-client' ? { heavy: false, build: true, buildBudget: { cpu: 2, memoryGiB: 6 } } : {});
   });
 }

@@ -1,14 +1,23 @@
 import { rmSync } from 'node:fs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
-// 进程和日志先排空；停机失败仍必须释放依赖与临时目录，并向验收调用方传播。
-export async function cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace }) {
-  try {
-    await stopLoggedProcess(apiProcess, apiLogStream);
-  } finally {
-    // 容器停止保持既有尽力清理语义，避免一项失败阻断其他资源释放。
-    await dbContainer?.stop().catch(() => {});
-    await redisContainer?.stop().catch(() => {});
-    rmSync(workspace, { recursive: true, force: true });
+// 清理逐项尝试并保留原始失败，不能由后续文件占用掩盖实际构建或业务错误。
+export async function cleanupCreatedApp({ browserRuntime, apiProcess, apiLogStream, dbContainer, redisContainer, workspace, originalError },
+  { removeWorkspace = rmSync } = {}) {
+  const errors = [];
+  const attempt = async action => { try { await action(); } catch (error) { errors.push(error); } };
+  await attempt(() => browserRuntime?.close());
+  await attempt(() => stopLoggedProcess(apiProcess, apiLogStream));
+  await attempt(() => dbContainer?.stop());
+  await attempt(() => redisContainer?.stop());
+  if (apiProcess?.pid && apiProcess.exitCode === null && apiProcess.signalCode === null) {
+    errors.push(new Error('Application process is still running; its workspace is retained.'));
+  } else {
+    // Windows 的编译文件句柄可能延迟释放；只在本次工作区内做有界重试。
+    await attempt(() => removeWorkspace(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
+  }
+  if (errors.length) {
+    if (originalError) errors.unshift(originalError);
+    throw errors.length === 1 ? errors[0] : new AggregateError(errors, 'Created application failed or cleanup did not complete.');
   }
 }
