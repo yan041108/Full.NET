@@ -7,7 +7,7 @@ import {
 
 test('Vue 生产 API 模块与 manifest 一一对应', async () => {
   const modules = await collectProductionApiModules();
-  assert.equal(modules.length, 156);
+  assert.equal(modules.length, 157);
   assert.ok(modules.includes('ui/admin/src/api/log-timeline.ts'));
   assert.ok(modules.includes('ui/admin/src/api/ai-index-grants.ts'));
   assert.ok(modules.includes('ui/admin/src/api/ai-feedback-evaluation.ts'));
@@ -74,6 +74,13 @@ async function cleanupSharedConsumerFixture(root) {
 // 本批只断言本人注册适配器，其他历史目录缺口不由该用例放行。
 test('本人注册入驻 API 的契约与调用点均已登记', async () => {
   const module = 'ui/admin/src/api/my-tenant-registrations.ts';
+  const { validateVueApiCallSiteCoverage } = await import('../../scripts/openapi/validate-vue-api-call-site-coverage.mjs');
+  const violations = [...await validateVueClientContractCoverage(), ...await validateVueApiCallSiteCoverage()];
+  assert.deepEqual(violations.filter(value => value.includes(module)), []);
+});
+
+test('企业生命周期 API 的契约与调用点均已登记', async () => {
+  const module = 'ui/admin/src/api/tenant-lifecycle.ts';
   const { validateVueApiCallSiteCoverage } = await import('../../scripts/openapi/validate-vue-api-call-site-coverage.mjs');
   const violations = [...await validateVueClientContractCoverage(), ...await validateVueApiCallSiteCoverage()];
   assert.deepEqual(violations.filter(value => value.includes(module)), []);

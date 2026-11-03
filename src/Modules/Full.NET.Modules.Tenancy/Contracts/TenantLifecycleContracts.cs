@@ -90,9 +90,10 @@ public sealed record SuspendTenantRequest(int Version);
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record ReactivateTenantRequest(int Version);
 
-/// <summary>关闭租户的请求；进入 Closing 中间态后转入 Closed 终态，不可逆。</summary>
+/// <summary>关闭租户访问并保留历史数据，直接进入不可逆的 Closed 终态。</summary>
 /// <remarks>
-/// Close 为不可逆终态迁移；调用方须先确认无活动订阅与未结清账单。迁移幂等：对 Closing 或 Closed 状态再次调用视为成功。最后一名保护：关闭租户前若仅剩一名所有者，须先转移所有权或确认保留策略。
+/// 本操作不执行退款、数据清理或全局账号删除；商业结算仍由原模块和其明确流程处理。
+/// 同版本的已关闭状态幂等返回，陈旧版本拒绝；不得停止最后一家活动租户，其他已停用租户仍可关闭。
 /// </remarks>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record CloseTenantRequest(int Version);

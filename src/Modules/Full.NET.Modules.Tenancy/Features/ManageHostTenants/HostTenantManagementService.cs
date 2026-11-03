@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
+using Full.NET.Modules.Tenancy.Features.ManageTenantLifecycle;
 
 namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
@@ -25,7 +26,8 @@ internal sealed class HostTenantManagementService(
     HostTenantQueryService tenantQueries,
     TenantHostPackageBinder packageBinder,
     IClock clock,
-    ITransactionalDomainAuditWriter<TenancyDomainAuditWrite> domainAuditWriter)
+    ITransactionalDomainAuditWriter<TenancyDomainAuditWrite> domainAuditWriter,
+    TenantLifecycleWriteGuard lifecycleGuard)
 {
     /// <summary>
     /// 更新租户展示名称；要求输入 1~128 长度，按 Version 做乐观并发。准入路径直接观察已提交状态。
@@ -35,7 +37,7 @@ internal sealed class HostTenantManagementService(
         UpdateHostTenantRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await transaction.ExecuteAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => UpdateCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -51,7 +53,7 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var result = await transaction.ExecuteAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => DisableCoreAsync(tenantId, token),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -66,7 +68,7 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var result = await transaction.ExecuteAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => EnableCoreAsync(tenantId, token),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -82,7 +84,7 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         AssignHostTenantPackageRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => AssignPackageCoreAsync(tenantId, request, token),
             cancellationToken);
 
@@ -204,6 +206,7 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         CancellationToken cancellationToken)
     {
+        await lifecycleGuard.EnterAsync(cancellationToken).ConfigureAwait(false);
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
                 TenancySqlParameters.Create(("TenantId", tenantId)),
@@ -267,6 +270,14 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         CancellationToken cancellationToken)
     {
+        await lifecycleGuard.EnterAsync(cancellationToken).ConfigureAwait(false);
+        var lifecycle = await tenantQueries.GetByIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        if (!lifecycle.IsSuccess) return lifecycle;
+        // 运营启用只恢复 Active 的开关；暂停必须通过商业恢复门槛，终态永不由该入口复活。
+        if (lifecycle.Value!.LifecycleStatus != TenantLifecycleStatuses.Active
+            || lifecycle.Value.ProvisioningStatus != TenantProvisioningStatuses.Completed)
+            return Result<TenantSummary>.Failure(new Error(TenancyErrorCodes.LifecycleStatusInvalid,
+                "The lifecycle status does not allow enabling this tenant.", ErrorType.BusinessRule));
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
                 TenancySqlParameters.Create(("TenantId", tenantId)),

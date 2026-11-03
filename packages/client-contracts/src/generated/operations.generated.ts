@@ -205,6 +205,7 @@ import type {
   ChangeSerialNumberRuleStatusRequest,
   ClaimWorkflowPoolRequest,
   CloseShadowCaptureRequest,
+  CloseTenantRequest,
   CodeGenerationApplyPlanFileResponse,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
@@ -679,6 +680,7 @@ import type {
   QuerySchemeFilter,
   QuerySchemeFilterDefinition,
   QuerySchemeSummary,
+  ReactivateTenantRequest,
   ReadAiKnowledgeSearchContextRequest,
   ReadAiKnowledgeSearchRelationsRequest,
   ReassignWorkflowInstanceRequest,
@@ -807,6 +809,7 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  SuspendTenantRequest,
   TenantBrandingResponse,
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
@@ -18089,6 +18092,29 @@ export async function tenancyAssignHostTenantPackage(
   return readTenantSummary(value);
 }
 
+export interface TenancyCloseTenantParameters {
+  readonly tenantId: string;
+  readonly body: CloseTenantRequest;
+}
+
+export async function tenancyCloseTenant(
+  http: HttpClient,
+  parameters: TenancyCloseTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/close`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
 export interface TenancyCreateHostTenantParameters {
   readonly body: ProvisionTenantRequest;
 }
@@ -18394,6 +18420,24 @@ export async function tenancyGetRuntimeBranding(
   return readTenantRuntimeBrandingResponse(value);
 }
 
+export interface TenancyGetTenantLifecycleParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyGetTenantLifecycle(
+  http: HttpClient,
+  parameters: TenancyGetTenantLifecycleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/lifecycle`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
 export interface TenancyListEntitlementCatalogParameters {
 
 }
@@ -18546,6 +18590,29 @@ export async function tenancyListHostTenants(
   return readPagedResultOfTenantSummary(value);
 }
 
+export interface TenancyReactivateTenantParameters {
+  readonly tenantId: string;
+  readonly body: ReactivateTenantRequest;
+}
+
+export async function tenancyReactivateTenant(
+  http: HttpClient,
+  parameters: TenancyReactivateTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/reactivate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
 export interface TenancySavePackageOfferParameters {
   readonly packageId: string;
   readonly body: UpsertTenantPackageOfferRequest;
@@ -18567,6 +18634,29 @@ export async function tenancySavePackageOffer(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantPackageOfferResponse(value);
+}
+
+export interface TenancySuspendTenantParameters {
+  readonly tenantId: string;
+  readonly body: SuspendTenantRequest;
+}
+
+export async function tenancySuspendTenant(
+  http: HttpClient,
+  parameters: TenancySuspendTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/suspend`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
 }
 
 export interface TenancyUpdateCurrentBrandingParameters {

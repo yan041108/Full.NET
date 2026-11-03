@@ -216,6 +216,10 @@ Identity/
 `ICurrentTenantContextWriter` 单独暴露，并由 Architecture Tests 对生产使用点做精确登记；
 普通 Endpoint、Handler 和领域服务不得根据请求输入直接切换租户上下文。
 
+Host 企业目录的“企业生命周期”入口使用独立的读取、暂停、恢复和关闭权限。暂停保留数据，恢复重新校验商业条件；关闭仅终止企业访问并保留历史数据，不自动退款、删除账号或清理存储。关闭必须输入企业编码确认，版本冲突后先刷新状态再由用户重新确认。所有者交接仍是独立流程。
+
+旧运营启用只允许恢复已完成开通且生命周期为 Active 的企业；Suspended 必须走恢复操作，Closing/Closed 不可重新启用。暂停、关闭和运营禁用共享 Tenancy 本地事务门闩，保留最后一家活动企业；关闭其他已停用企业不受该数量保护阻断。门闩由双库 362 迁移创建，`tenancy.lifecycle.guard_missing` 表示应修复迁移固定行后再试，不能跳过保护。企业关闭不等于禁用全局账号，在其他企业的成员资格仍由各自权威状态决定。
+
 **`Full.NET.Modules.Organization` + `Organization.Contracts`**
 机构 / 部门树管理。Contracts 项目供其他需要"机构"概念的模块引用，
 避免这些模块直接依赖 Organization 主项目。
@@ -368,7 +372,7 @@ Vue 端和 Layui 端共享此包，确保两端 API 调用逻辑一致，
 | “有状态矩阵行 = 生产可用” | 只有 `Verified` 且证据齐全才接近发布表述 |
 | “有测试文件 = Build-verified” | 必须有可定位的新鲜通过记录 |
 | “Integration 在 PR 绿了 = 双库全矩阵绿了” | PR 默认只跑冒烟；全量在 `main`/发布档 |
-| “Vue 做完 = 管理端完成” | 必须 Vue + Layui 同模块同步（除非所有者改定规则） |
+| “Vue 做完 = 管理端完成” | Vue 为唯一持续交付后台；仍须验证真实交互、权限及接口，Layui 已冻结 |
 | “specs 日期更新 = 规则已改” | 规则变更必须进 `rules/` 并接受审查 |
 
 ## 7. 下一步

@@ -1825,6 +1825,10 @@ export interface CloseShadowCaptureRequest {
   readonly reason: string;
 }
 
+export interface CloseTenantRequest {
+  readonly version: number;
+}
+
 export interface CodeGenerationApplyPlanFileResponse {
   readonly afterSha256: null | string;
   readonly beforeSha256: null | string;
@@ -5808,6 +5812,10 @@ export interface QuerySchemeSummary {
   readonly version: number;
 }
 
+export interface ReactivateTenantRequest {
+  readonly version: number;
+}
+
 export interface ReadAiKnowledgeSearchContextRequest {
   readonly anchorSequence: number;
   readonly embeddingModelConfigId: string;
@@ -6784,6 +6792,10 @@ export interface SuperAdministratorResponse {
   readonly isActive: boolean;
   readonly userId: string;
   readonly username: string;
+}
+
+export interface SuspendTenantRequest {
+  readonly version: number;
 }
 
 export interface TenantBrandingResponse {

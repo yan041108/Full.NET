@@ -69,6 +69,10 @@ internal sealed class TenancyAuthorizationContributor
             "更新租户品牌信息",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
+            TenancyTenantLifecyclePermissions.Read,
+            "读取租户生命周期",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenancyTenantLifecyclePermissions.Suspend,
             "暂停租户",
             AuthorizationScope.Host),

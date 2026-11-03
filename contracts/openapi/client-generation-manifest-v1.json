@@ -18,6 +18,30 @@
   ],
   "entries": [
     {
+      "operationId": "tenancyGetTenantLifecycle",
+      "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
+      "generatedGroup": "tenant-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancySuspendTenant",
+      "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
+      "generatedGroup": "tenant-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyReactivateTenant",
+      "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
+      "generatedGroup": "tenant-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyCloseTenant",
+      "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
+      "generatedGroup": "tenant-lifecycle",
+      "status": "generated"
+    },
+    {
       "operationId": "identityListMyTenantRegistrations",
       "apiModule": "ui/admin/src/api/my-tenant-registrations.ts",
       "generatedGroup": "my-tenant-registrations",
