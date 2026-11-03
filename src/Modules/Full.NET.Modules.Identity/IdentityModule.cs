@@ -95,6 +95,9 @@ public sealed class IdentityModule : IFullNetModule
         Persistence.IdentityDapperAotMaterializerContributor.RegisterMigrationMaterializers(new DapperAotMaterializerRegistrar());
 #endif
         services.AddIdentityOidcPersistence(configuration);
+        // 种子贡献者在模块迁移入口显式登记，分发清单无需推测持久化辅助方法的调用图。
+        if (configuration.GetValue<bool>("Identity:Oidc:Enable"))
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataSeedContributor, IdentityOidcClientSeedContributor>());
         services.AddOptions<IdentityOptions>()
             .Bind(configuration.GetSection(IdentityOptions.SectionName))
             .ValidateOnStart();

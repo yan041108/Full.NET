@@ -1,8 +1,6 @@
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Oidc.Stores;
 using Full.NET.Modules.Identity.Persistence;
-using Full.NET.Modules.Identity.Seeding;
-using Full.NET.Seeding.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -31,6 +29,5 @@ internal static class IdentityOidcPersistenceServiceCollectionExtensions
             options.ReplaceScopeStore<IdentityOidcScope, IdentityOidcScopeStore>();
             options.ReplaceTokenStore<IdentityOidcToken, IdentityOidcTokenStore>();
         });
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<IDataSeedContributor, IdentityOidcClientSeedContributor>());
     }
 }
