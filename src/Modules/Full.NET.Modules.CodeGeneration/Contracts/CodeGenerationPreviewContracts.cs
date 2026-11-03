@@ -84,6 +84,7 @@ public sealed record CodeGenerationPreviewRequest(
 /// <param name="HasDeletedAudit">是否记录软删除审计（删除者、删除时间）。</param>
 /// <param name="HasVersion">是否启用乐观并发 Version 列；启用后所有变更请求必须携带 Version 参数。</param>
 /// <param name="OwnershipMode">归属模式稳定机器码，如 host/tenant/user/none；决定查询时的默认数据范围过滤。</param>
+/// <param name="HasMutationPolicy">是否要求应用实现并注册业务写入策略；必须同时启用 Version。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationEntityCapabilitiesRequest(
     string DeleteMode,
@@ -91,7 +92,9 @@ public sealed record CodeGenerationEntityCapabilitiesRequest(
     bool HasUpdatedAudit,
     bool HasDeletedAudit,
     bool HasVersion,
-    string OwnershipMode);
+    string OwnershipMode,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    bool HasMutationPolicy = false);
 
 /// <summary>
 /// 保存跨实体关系两端已经显式确认的语义键、列名与数据作用域。

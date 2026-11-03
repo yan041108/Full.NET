@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { areBundleInputsClean } from '../../scripts/templates/build-source-bundle.mjs';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
+import { createApp } from '../../scripts/templates/create-app.mjs';
 import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
 import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
@@ -19,6 +20,22 @@ import { verifyApplicationCrudAuthorization } from './support/application-crud-a
 const skipBundleIntegration = areBundleInputsClean()
   ? false
   : 'source bundle inputs have uncommitted changes';
+
+test('application template preserves the workflow frontend contract in created applications', { skip: skipBundleIntegration }, () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'fullnet-workflow-contract-'));
+  try {
+    const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
+    const appRoot = join(workspace, 'application');
+    createApp({ packageRoot: templateRoot, output: appRoot, name: 'Demo', ownerKey: 'acme' });
+    const relative = 'contracts/workflow/gateway-limits.json';
+    const original = readFileSync(new URL('../../' + relative, import.meta.url));
+    const manifest = JSON.parse(readFileSync(join(appRoot, 'framework-manifest.json'), 'utf8'));
+    assert.equal(manifest.managedFiles[relative], createHash('sha256').update(original).digest('hex'));
+    for (const root of [templateRoot, appRoot]) assert.deepEqual(readFileSync(join(root, relative)), original);
+    assert.match(readFileSync(join(appRoot, 'ui/admin/src/workflow/workflow-gateway-limits.ts'), 'utf8'),
+      /contracts\/workflow\/gateway-limits\.json/u);
+  } finally { rmSync(workspace, { recursive: true, force: true }); }
+});
 
 test('application template package includes framework sources and root manifest', { skip: skipBundleIntegration }, () => {
   const workspace = mkdtempSync(join(tmpdir(), 'fullnet-app-template-'));
@@ -66,6 +83,8 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
     assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
+    assert.deepEqual(readFileSync(join(appRoot, 'contracts/workflow/gateway-limits.json')),
+      readFileSync(join(templateRoot, 'framework/fullnet/contracts/workflow/gateway-limits.json')));
     assert.match(readFileSync(join(appRoot, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
     assert.equal(existsSync(join(appRoot, '.fullnet-tools/create-app.mjs')), false);

@@ -12,7 +12,7 @@
       "source": "./",
       "target": "./",
       "exclude": [".template.config/**/*", ".fullnet-tools/*.mjs"],
-      "copyOnly": ["framework/**/*", "framework-manifest.json", ".fullnet-tools/openapi/**/*", "contracts/openapi/**/*", "ui/**/*", "packages/**/*", "patches/**/*", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+      "copyOnly": ["framework/**/*", "framework-manifest.json", ".fullnet-tools/openapi/**/*", "contracts/openapi/**/*", "contracts/workflow/**/*", "ui/**/*", "packages/**/*", "patches/**/*", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
     }
   ],
   "symbols": {

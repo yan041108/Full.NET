@@ -125,6 +125,7 @@ export interface CodeGenerationEntityCapabilitiesRequest {
   hasDeletedAudit: boolean;
   hasVersion: boolean;
   ownershipMode: CodeGenerationOwnershipMode;
+  hasMutationPolicy?: boolean;
 }
 
 export interface CodeGenerationRelationshipRequest {
@@ -358,6 +359,8 @@ function isEntityCapabilities(
     && typeof value.hasUpdatedAudit === 'boolean'
     && typeof value.hasDeletedAudit === 'boolean'
     && typeof value.hasVersion === 'boolean'
+    && (value.hasMutationPolicy === undefined || typeof value.hasMutationPolicy === 'boolean')
+    && (value.hasMutationPolicy !== true || value.hasVersion === true)
     && ownershipModes.has(value.ownershipMode as CodeGenerationOwnershipMode);
 }
 

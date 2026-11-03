@@ -94,6 +94,7 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
   if (verifyFrontendSkeleton) {
     const isFrontendPath = (relativePath) =>
       relativePath.startsWith('ui/admin/') || relativePath.startsWith('packages/') || relativePath.startsWith('patches/')
+      || relativePath === 'contracts/workflow/gateway-limits.json'
       || ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(relativePath);
     const copiedPaths = new Set(Object.keys(manifest.managedFiles).filter(isFrontendPath));
     for (const relativePath of copiedPaths) {

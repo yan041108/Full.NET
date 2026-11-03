@@ -23,6 +23,7 @@ internal static class CodeGenerationPreviewAssertions
         await VerifyPermissionAsync(factory, client, cancellationToken);
         await VerifyPreviewAsync(factory, client, cancellationToken);
         await VerifyDeterministicPreviewAsync(factory, client, cancellationToken);
+        await VerifyMutationPolicyPreviewAsync(factory, client, cancellationToken);
         await VerifyOrganizationOwnedPreviewAsync(factory, client, cancellationToken);
         await VerifyHostScopeOrganizationOwnershipRejectedAsync(
             factory,
@@ -88,6 +89,27 @@ internal static class CodeGenerationPreviewAssertions
         // Layui 客户端已冻结，Host 预览默认不再发出 layui_client。
         Assert.IsFalse(preview.Artifacts.Any(artifact =>
             artifact.Kind == "layui_client"));
+    }
+
+    private static async Task VerifyMutationPolicyPreviewAsync(
+        FullNetApiFactory factory, HttpClient client, CancellationToken cancellationToken)
+    {
+        var token = await factory.CreateHostAccessTokenAsync([CodeGenerationPreviewPermissions.Read], cancellationToken);
+        var legacy = CreatePreviewRequest();
+        var schema = legacy with { HasVersion = null, EntityCapabilities = new("hard.delete", false, false, false, true, "none", true),
+            Scene = "single", Relationships = [] };
+        using var request = CreateRequest(token, schema);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var preview = await response.Content.ReadFromJsonAsync<CodeGenerationPreviewResponse>(cancellationToken);
+        var feature = preview!.Artifacts.Single(item => item.Path == "backend/ProductFeature.g.cs").Content;
+        StringAssert.Contains(feature, "IProductMutationPolicy mutationPolicy");
+        foreach (var operation in new[] { "Create", "Update", "Delete" })
+            StringAssert.Contains(feature, $"mutationPolicy.Validate{operation}Async");
+        using var invalidRequest = CreateRequest(token, schema with { EntityCapabilities = schema.EntityCapabilities! with { HasVersion = false },
+            Columns = schema.Columns.Where(column => column.DatabaseName != "Version").ToArray() });
+        using var invalid = await client.SendAsync(invalidRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode);
     }
 
     private static async Task VerifyDeterministicPreviewAsync(

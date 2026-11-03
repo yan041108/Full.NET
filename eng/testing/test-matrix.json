@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9539,
+      "minimum": 9542,
       "timeout": "10m",
       "selections": {
+        "codegen-mutation-policy-workbench": {
+          "filter": "FullyQualifiedName~Mutation_policy_survives_normalization_and_generates_required_command_policy|FullyQualifiedName~Mutation_policy_without_version_is_rejected|FullyQualifiedName~Disabled_mutation_policy_preserves_canonical_schema_hash|FullyQualifiedName~Schema_contract_rejects_unknown_fields_at_every_nested_level|FullyQualifiedName~Schema_normalizer_accepts_explicit_capabilities_and_emits_canonical_json|FullyQualifiedName~Preview_accepts_explicit_capabilities_through_shared_normalizer",
+          "minimum": 6,
+          "timeout": "3m"
+        },
         "identity-challenge-mail": {
           "filter": "FullyQualifiedName~IdentityChallengeMailTests|FullyQualifiedName~AccountChallengeDeliveryContractTests|FullyQualifiedName~RegistrationTransactionBoundaryTests",
           "minimum": 24,
@@ -662,6 +667,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "code-generation-http-preview": {
+          "filter": "Name~Host_preview_follows_contract_with_",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "identity-challenge-resend-race": {
           "filter": "FullyQualifiedName~AccountChallengeResendRaceTests",
           "minimum": 2,

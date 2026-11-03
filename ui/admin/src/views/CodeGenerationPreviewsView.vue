@@ -2,6 +2,7 @@
 import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElButton, ElCard, ElInput, ElMessageBox, ElSwitch, ElTag } from 'element-plus';
+import 'element-plus/theme-chalk/el-switch.css';
 import {
   isCodeGenerationPreviewRequest,
   isCodeGenerationRunApplyPlanResponse,
@@ -24,6 +25,7 @@ import {
 } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { codegenMutationPolicyText } from '../i18n/codegen-mutation-policy';
 import PermissionGate from '../components/PermissionGate.vue';
 import {
   applyTrackedCodeGeneration,
@@ -45,7 +47,8 @@ import type { CodeGenerationCatalogColumnSyncResponse } from '@fullnet/client-co
 
 const session = useSessionStore();
 const route = useRoute();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const mutationText = (key: Parameters<typeof codegenMutationPolicyText>[1]) => codegenMutationPolicyText(locale.value, key);
 const schemaText = ref(JSON.stringify({
   ownerKey: 'acme',
   moduleKey: 'catalog',
@@ -56,8 +59,15 @@ const schemaText = ref(JSON.stringify({
   apiResourceName: 'products',
   permissionResourceName: 'products',
   dataScope: 'TenantRequired',
-  hasVersion: true,
+  entityCapabilities: { deleteMode: 'hard.delete', hasCreatedAudit: true, hasUpdatedAudit: false,
+    hasDeletedAudit: false, hasVersion: true, ownershipMode: 'none', hasMutationPolicy: false },
+  scene: 'single',
+  relationships: [],
   columns: [
+    { databaseName: 'CreatedAtUtc', clrPropertyName: 'CreatedAtUtc', jsonPropertyName: 'createdAtUtc',
+      scalarType: 'DateTimeUtc', isNullable: false, maxLength: null, numericPrecision: null, numericScale: null },
+    { databaseName: 'CreatedById', clrPropertyName: 'CreatedById', jsonPropertyName: 'createdById',
+      scalarType: 'Uuid', isNullable: false, maxLength: null, numericPrecision: null, numericScale: null },
     {
       databaseName: 'Id',
       clrPropertyName: 'Id',
@@ -110,6 +120,22 @@ const schemaText = ref(JSON.stringify({
     }
   ]
 }, null, 2));
+const editableSchema = computed(() => {
+  try {
+    const value: unknown = JSON.parse(schemaText.value);
+    return isCodeGenerationPreviewRequest(value) ? value : undefined;
+  } catch { return undefined; }
+});
+const canSetMutationPolicy = computed(() => editableSchema.value?.entityCapabilities?.hasVersion === true);
+const mutationPolicyEnabled = computed(() => editableSchema.value?.entityCapabilities?.hasMutationPolicy === true);
+
+/** 只改显式能力标志并撤销旧预览确认，不替用户猜测删除、审计或所有权语义。 */
+function setMutationPolicy(value: string | number | boolean): void {
+  const schema = editableSchema.value;
+  if (typeof value !== 'boolean' || !schema?.entityCapabilities || !canSetMutationPolicy.value) return;
+  schemaText.value = JSON.stringify({ ...schema, entityCapabilities: { ...schema.entityCapabilities, hasMutationPolicy: value } }, null, 2);
+  invalidateReviewedPreview();
+}
 const preview = ref<CodeGenerationPreviewResponse>();
 const selectedPath = ref('');
 const loading = ref(false);
@@ -727,6 +753,13 @@ function readProblem(
             <ElTag effect="plain">JSON · ≤128</ElTag>
           </div>
         </template>
+        <div class="codegen-workbench__mutation-policy">
+          <ElSwitch :model-value="mutationPolicyEnabled" :disabled="!canSetMutationPolicy"
+            :aria-label="mutationText('title')" data-testid="codegen-mutation-policy" @change="setMutationPolicy"
+            @keydown.space.prevent="setMutationPolicy(!mutationPolicyEnabled)" />
+          <strong>{{ mutationText('title') }}</strong>
+          <p>{{ mutationText(canSetMutationPolicy ? 'hint' : 'disabled') }}</p>
+        </div>
         <ElInput
           v-model="schemaText"
           data-testid="codegen-schema"
@@ -1284,6 +1317,21 @@ function readProblem(
   background: var(--codegen-ink);
   color: white;
   font-weight: 800;
+}
+
+.codegen-workbench__mutation-policy {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 16px;
+}
+
+.codegen-workbench__mutation-policy p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fullnet-color-ink-muted);
+  overflow-wrap: anywhere;
 }
 
 .codegen-workbench__contract {

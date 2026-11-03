@@ -43,7 +43,8 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   ]) {
     cpSync(join(bundleRoot, relative), join(templateRoot, relative), { recursive: true, force: false });
   }
-  for (const relative of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']) {
+  for (const relative of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'contracts/workflow/gateway-limits.json']) {
+    mkdirSync(dirname(join(templateRoot, relative)), { recursive: true });
     copyFileSync(join(bundleRoot, relative), join(templateRoot, relative));
   }
   writeFileSync(join(templateRoot, 'package.json'), JSON.stringify(createApplicationPackage(

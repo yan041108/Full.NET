@@ -264,6 +264,53 @@ public sealed class CodeGenerationPreviewServiceTests
     }
 
     [TestMethod]
+    public void Mutation_policy_survives_normalization_and_generates_required_command_policy()
+    {
+        var original = CreateExplicitRequest();
+        var request = original with { EntityCapabilities = original.EntityCapabilities! with { HasMutationPolicy = true } };
+        request = JsonSerializer.Deserialize(JsonSerializer.Serialize(request,
+            CodeGenerationJsonSerializerContext.Default.CodeGenerationPreviewRequest),
+            CodeGenerationJsonSerializerContext.Default.CodeGenerationPreviewRequest)!;
+        var normalized = new CodeGenerationSchemaNormalizer().Normalize(request);
+        Assert.IsTrue(normalized.IsSuccess);
+        Assert.IsTrue(normalized.Value!.Schema.EntityCapabilities.HasMutationPolicy);
+        StringAssert.Contains(normalized.Value.CanonicalJson, "\"hasMutationPolicy\":true");
+        var preview = new CodeGenerationPreviewService().Preview(normalized.Value.CanonicalRequest);
+        Assert.IsTrue(preview.IsSuccess);
+        var feature = preview.Value!.Artifacts.Single(item => item.Path == "backend/ProductFeature.g.cs").Content;
+        StringAssert.Contains(feature, "IProductMutationPolicy mutationPolicy");
+        foreach (var operation in new[] { "Create", "Update", "Delete" })
+            StringAssert.Contains(feature, $"mutationPolicy.Validate{operation}Async");
+    }
+
+    [TestMethod]
+    public void Mutation_policy_without_version_is_rejected()
+    {
+        var original = CreateExplicitRequest();
+        var request = original with { EntityCapabilities = original.EntityCapabilities! with { HasMutationPolicy = true, HasVersion = false },
+            Columns = original.Columns.Where(column => column.DatabaseName != "Version").ToArray() };
+        var result = new CodeGenerationSchemaNormalizer().Normalize(request);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(CodeGenerationErrorCodes.InvalidPreviewSchema, result.Error!.Code);
+    }
+
+    [TestMethod]
+    public void Disabled_mutation_policy_preserves_canonical_schema_hash()
+    {
+        var request = CreateExplicitRequest();
+        var result = new CodeGenerationSchemaNormalizer().Normalize(request);
+        var json = JsonSerializer.Serialize(request, CodeGenerationJsonSerializerContext.Default.CodeGenerationPreviewRequest);
+        var node = JsonNode.Parse(json)!;
+        node["entityCapabilities"]!["hasMutationPolicy"] = false;
+        var roundtrip = JsonSerializer.Deserialize(node.ToJsonString(), CodeGenerationJsonSerializerContext.Default.CodeGenerationPreviewRequest)!;
+        var explicitFalse = new CodeGenerationSchemaNormalizer().Normalize(roundtrip);
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsTrue(explicitFalse.IsSuccess);
+        Assert.AreEqual(result.Value!.SchemaSha256, explicitFalse.Value!.SchemaSha256);
+        Assert.IsFalse(result.Value.CanonicalJson.Contains("hasMutationPolicy", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void Schema_normalizer_requires_exactly_one_capability_shape()
     {
         var mixed = CreateExplicitRequest() with { HasVersion = true };

@@ -2842,7 +2842,7 @@ export function readCodeGenerationEntityCapabilitiesRequest(value: unknown): Cod
 }
 
 function isCodeGenerationEntityCapabilitiesRequest(value: unknown): value is CodeGenerationEntityCapabilitiesRequest {
-  return isRecord(value) && (typeof value["deleteMode"] === 'string') && (typeof value["hasCreatedAudit"] === 'boolean') && (typeof value["hasDeletedAudit"] === 'boolean') && (typeof value["hasUpdatedAudit"] === 'boolean') && (typeof value["hasVersion"] === 'boolean') && (typeof value["ownershipMode"] === 'string');
+  return isRecord(value) && (typeof value["deleteMode"] === 'string') && (typeof value["hasCreatedAudit"] === 'boolean') && (typeof value["hasDeletedAudit"] === 'boolean') && (value["hasMutationPolicy"] === undefined || (typeof value["hasMutationPolicy"] === 'boolean')) && (typeof value["hasUpdatedAudit"] === 'boolean') && (typeof value["hasVersion"] === 'boolean') && (typeof value["ownershipMode"] === 'string');
 }
 
 export function readCodeGenerationIntegrationTargetRequest(value: unknown): CodeGenerationIntegrationTargetRequest {

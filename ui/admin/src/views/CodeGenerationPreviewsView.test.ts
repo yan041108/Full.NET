@@ -269,6 +269,38 @@ describe('Vue 代码生成预览页', () => {
     expect(wrapper.text()).toContain('acme_catalog_product');
   });
 
+  it('业务写入策略开关进入预览请求并撤销旧应用审查', async () => {
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="codegen-apply-plan"]').exists()).toBe(true);
+    wrapper.findComponent({ name: 'ElSwitch' }).vm.$emit('change', true);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="codegen-apply-plan"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    expect(trackedPreviewMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      schema: expect.objectContaining({ entityCapabilities: expect.objectContaining({ hasMutationPolicy: true }) })
+    }));
+    wrapper.unmount();
+  });
+
+  it('业务写入策略不猜测旧模型及无版本模型的能力', async () => {
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    const editor = wrapper.get('textarea[data-testid="codegen-schema"]');
+    const explicit = JSON.parse((editor.element as HTMLTextAreaElement).value);
+    await editor.setValue(JSON.stringify({ ...explicit, entityCapabilities: { ...explicit.entityCapabilities, hasVersion: false } }));
+    expect(wrapper.findComponent({ name: 'ElSwitch' }).props('disabled')).toBe(true);
+    await editor.setValue(JSON.stringify(template.schema));
+    expect(wrapper.findComponent({ name: 'ElSwitch' }).props('disabled')).toBe(true);
+    expect(JSON.parse((editor.element as HTMLTextAreaElement).value)).toEqual(template.schema);
+    wrapper.unmount();
+  });
+
   it('直接 Schema 预览可审查应用计划，历史下载明确显示归档到期', async () => {
     const wrapper = mount(CodeGenerationPreviewsView);
     await flushPromises();

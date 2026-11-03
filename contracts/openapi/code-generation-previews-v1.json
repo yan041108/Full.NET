@@ -24,7 +24,8 @@
       "hasUpdatedAudit",
       "hasDeletedAudit",
       "hasVersion",
-      "ownershipMode"
+      "ownershipMode",
+      "hasMutationPolicy"
     ],
     "CodeGenerationRelationshipRequest": [
       "principalEntityKey",

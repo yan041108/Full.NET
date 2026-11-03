@@ -150,7 +150,8 @@ internal sealed class CodeGenerationSchemaNormalizer
             input.HasUpdatedAudit,
             input.HasDeletedAudit,
             input.HasVersion,
-            ownershipMode);
+            ownershipMode,
+            input.HasMutationPolicy);
         if (request.Relationships!.Count > 2) return Failure();
         var relationships =
             new FullNetCrudRelationship[request.Relationships!.Count];

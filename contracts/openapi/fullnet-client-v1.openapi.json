@@ -77903,6 +77903,10 @@
           "hasDeletedAudit": {
             "type": "boolean"
           },
+          "hasMutationPolicy": {
+            "default": false,
+            "type": "boolean"
+          },
           "hasUpdatedAudit": {
             "type": "boolean"
           },

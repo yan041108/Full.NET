@@ -58,6 +58,7 @@ const INCLUDE_FILES = [
   'scripts/openapi/validate-client-generation-readiness.mjs',
   'contracts/openapi/fullnet-client-v1.openapi.json',
   'contracts/openapi/client-generation-manifest-v1.json',
+  'contracts/workflow/gateway-limits.json',
 ];
 
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);

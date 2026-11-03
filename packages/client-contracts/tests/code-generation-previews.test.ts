@@ -138,6 +138,18 @@ describe('code-generation preview contracts', () => {
     })).toBe(false);
   });
 
+  it('validates the optional mutation policy and requires a version when enabled', () => {
+    const { hasVersion: _, ...schema } = request;
+    const input = { ...schema, entityCapabilities: {
+      deleteMode: 'hard.delete', hasCreatedAudit: false, hasUpdatedAudit: false,
+      hasDeletedAudit: false, hasVersion: true, ownershipMode: 'none', hasMutationPolicy: true
+    }, scene: 'single', relationships: [] };
+    expect(isCodeGenerationPreviewRequest(input)).toBe(true);
+    expect(isCodeGenerationPreviewRequest({ ...input, entityCapabilities: { ...input.entityCapabilities, hasMutationPolicy: false } })).toBe(true);
+    expect(isCodeGenerationPreviewRequest({ ...input, entityCapabilities: { ...input.entityCapabilities, hasMutationPolicy: 'true' } })).toBe(false);
+    expect(isCodeGenerationPreviewRequest({ ...input, entityCapabilities: { ...input.entityCapabilities, hasVersion: false } })).toBe(false);
+  });
+
   it('requires exactly one lifecycle capability shape', () => {
     expect(isCodeGenerationPreviewRequest({
       ...request,

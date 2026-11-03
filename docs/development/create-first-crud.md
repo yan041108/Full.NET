@@ -30,7 +30,7 @@ node --test --test-concurrency=1 --test-name-pattern '\(mysql\)$' tests/template
 
 对于审批单据等带业务状态机的模块，可在 CLI Schema 的显式 `entityCapabilities` 中设置 `"hasMutationPolicy": true`，并同时启用 `hasVersion`、声明数据作用域。生成器为写入服务增加必需的 `I<ClrTypeName>MutationPolicy` 依赖，在创建、更新、删除的本地命令事务内调用；应用在同项目的开发者自有文件中实现并显式注册该接口。未注册时写入服务不能构造，不会静默放行。策略只访问本模块数据，不能在事务内调用其他模块或外部服务。
 
-`samples/enterprise-request` 演示主单和明细分别启用：普通 CRUD 只允许草稿，明细写入锁定所属主单并拒绝改挂，审批状态由提交/回写操作推进。聚合写入复用相同业务服务，不能绕过策略。该能力目前由 CLI/core Schema 接入，HTTP 生成工作台尚未提供开关；不要手工修改 `.g.cs` 保存业务规则。
+`samples/enterprise-request` 演示主单和明细分别启用：普通 CRUD 只允许草稿，明细写入锁定所属主单并拒绝改挂，审批状态由提交/回写操作推进。聚合写入复用相同业务服务，不能绕过策略。HTTP 生成工作台提供“业务写入策略”开关，并传递同一 `entityCapabilities.hasMutationPolicy` 标志；只在显式能力模型且启用 Version 时可用，切换后需重新预览并审查应用计划。不要手工修改 `.g.cs` 保存业务规则。
 
 - 已安装 .NET 10 SDK（`dotnet --version` 可执行）
 - 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Worker`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局

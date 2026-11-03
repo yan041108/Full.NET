@@ -41,6 +41,8 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
     assert.ok(existsSync(join(bundleRoot, 'packages/admin-form-designer/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
+    assert.deepEqual(readFileSync(join(bundleRoot, 'contracts/workflow/gateway-limits.json')),
+      readFileSync(resolve('contracts/workflow/gateway-limits.json')));
     assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
     const publishedSqlServerScripts = readdirSync(resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer'))
       .filter((name) => /^\d+_.+\.sql$/.test(name)).sort();

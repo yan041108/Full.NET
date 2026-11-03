@@ -1900,6 +1900,7 @@ export interface CodeGenerationEntityCapabilitiesRequest {
   readonly deleteMode: string;
   readonly hasCreatedAudit: boolean;
   readonly hasDeletedAudit: boolean;
+  readonly hasMutationPolicy?: boolean;
   readonly hasUpdatedAudit: boolean;
   readonly hasVersion: boolean;
   readonly ownershipMode: string;
