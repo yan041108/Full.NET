@@ -2,13 +2,14 @@ import type { RegisterAccountRequest, RecoverPasswordConfirmRequest, VerifyRegis
 import { resolveFullNetApiUrl } from '@fullnet/client-contracts';
 import { isRecord, isGuid, isDate } from '@fullnet/client-contracts';
 import { apiBaseUrl } from './http';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(resolveFullNetApiUrl(apiBaseUrl, path), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept-Language': navigator.language || 'zh-CN'
+      'Accept-Language': useAdminI18n().locale.value
     },
     body: JSON.stringify(body)
   });

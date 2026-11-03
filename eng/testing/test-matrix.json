@@ -642,6 +642,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "identity-challenge-resend-race": {
+          "filter": "FullyQualifiedName~AccountChallengeResendRaceTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "enterprise-request-foundation-browser": {
           "filter": "FullyQualifiedName~EnterpriseRequestFoundationBrowserUiTests.Real_browser_aggregate_submit_and_xlsx_import_with_sql_server",
           "minimum": 1,

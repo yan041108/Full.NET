@@ -74,11 +74,11 @@ internal sealed class AccountChallengeService(
         var delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
         if (!delivered.IsSuccess)
         {
+            // 较早投递可能晚于重发返回失败，只撤销它自己的挑战，不能误伤已送达的新验证码。
             await commandExecutor.ExecuteAsync(
-                    AccountChallengeSql.InvalidateActive,
+                    AccountChallengeSql.InvalidateById,
                     IdentitySqlParameters.Create(
-                        ("Purpose", (byte)purpose),
-                        ("NormalizedEmail", normalizedEmail),
+                        ("ChallengeId", challengeId),
                         ("ConsumedAtUtc", clock.UtcNow)),
                     cancellationToken)
                 .ConfigureAwait(false);

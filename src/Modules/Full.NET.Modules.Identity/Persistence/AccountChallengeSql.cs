@@ -40,6 +40,17 @@ internal static class AccountChallengeSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement InvalidateById = new(
+        "identity.invalidate_account_challenge_by_id",
+        """
+        UPDATE fn_identity_account_challenge
+        SET ConsumedAtUtc = @ConsumedAtUtc,
+            Version = Version + 1
+        WHERE ChallengeId = @ChallengeId
+          AND ConsumedAtUtc IS NULL
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement IncrementAttempt = new(
         "identity.increment_account_challenge_attempt",
         """
