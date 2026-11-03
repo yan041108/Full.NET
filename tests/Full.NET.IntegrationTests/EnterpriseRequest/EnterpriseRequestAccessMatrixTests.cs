@@ -17,7 +17,7 @@ namespace Full.NET.IntegrationTests.EnterpriseRequest;
 
 /// <summary>普通活动成员通过真实邀请和角色授权操作样例，核对部门、租户、明细与文档金额边界。</summary>
 [TestClass]
-public sealed class EnterpriseRequestAccessMatrixTests
+public sealed partial class EnterpriseRequestAccessMatrixTests
 {
     private const string Root = "/api/v1/enterprise_request/enterprise-requests";
 

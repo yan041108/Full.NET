@@ -652,6 +652,11 @@
             "minimum": 2,
             "timeout": "8m"
           },
+          "enterprise-request-live-approval-revocation": {
+            "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Live_approval_revocation_keeps_business_pending_until_authorized_retry",
+            "minimum": 2,
+            "timeout": "8m"
+          },
           "reporting-template-configuration-browser": {
             "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_edits_draft_recovers_conflict_and_explicitly_publishes_report",
             "minimum": 1,
@@ -708,7 +713,7 @@
           "timeout": "5m"
         },
         "enterprise-request-member-access": {
-          "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests",
+          "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Active_members_respect_department_tenant_detail_and_document_permissions",
           "minimum": 2,
           "timeout": "5m"
         },
@@ -1277,7 +1282,7 @@
           "timeout": "7m"
         },
         "object-search": {
-          "filter": "FullyQualifiedName~ObjectSearchApiTests|FullyQualifiedName~EnterpriseRequestAccessMatrixTests",
+          "filter": "FullyQualifiedName~ObjectSearchApiTests|FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Active_members_respect_department_tenant_detail_and_document_permissions",
           "minimum": 4,
           "timeout": "8m"
         },
