@@ -50,6 +50,43 @@ export function buildMigrationInventory(managedFiles) {
   return { selectionStatus: 'unscoped', scripts: paired };
 }
 
+/** 枚举有限的编译分支；不推测符号取值，所有可能分支都必须具有相同种子清单。 */
+function seedSourceVariants(source, modulePath) {
+  const lines = source.split(/\r?\n/u);
+  let index = 0;
+  const reject = () => new Error(`Conditional seed registration requires explicit review: ${modulePath}`);
+  function read(depth) {
+    if (depth > 16) throw reject();
+    let variants = [''];
+    while (index < lines.length) {
+      const directive = /^\s*#(if|elif|else|endif)\b/u.exec(lines[index])?.[1];
+      if (directive && directive !== 'if') return { variants, stop: directive };
+      if (!directive) {
+        const line = lines[index++] + '\n';
+        variants = variants.map(value => value + line);
+        continue;
+      }
+      index++;
+      let branch = read(depth + 1);
+      const choices = [...branch.variants];
+      while (branch.stop === 'elif') {
+        index++; branch = read(depth + 1); choices.push(...branch.variants);
+        if (choices.length > 64) throw reject();
+      }
+      if (branch.stop === 'else') {
+        index++; branch = read(depth + 1); choices.push(...branch.variants);
+      } else choices.push('');
+      if (branch.stop !== 'endif' || variants.length * choices.length > 64) throw reject();
+      index++;
+      variants = variants.flatMap(prefix => choices.map(choice => prefix + choice));
+    }
+    return { variants, stop: undefined };
+  }
+  const result = read(0);
+  if (result.stop) throw reject();
+  return result.variants;
+}
+
 /** 从受管源码和 Migrator 注册点建立种子闭包；未注册或缺文件时拒绝发布。 */
 export function buildSeedInventory(managedFiles, readSource, presetModules) {
   const prefix = 'src/Modules/Full.NET.Modules.';
@@ -66,11 +103,13 @@ export function buildSeedInventory(managedFiles, readSource, presetModules) {
     }
     if (depth !== 0) throw new Error(`Module migration registration method is incomplete: ${modulePath}`);
     const body = source.slice(method.index + method[0].length, end - 1);
-    if (/^\s*#(?:if|elif|else|endif)\b/m.test(body)) {
+    const registrations = seedSourceVariants(body, modulePath).map(variant =>
+      [...variant.matchAll(/\bIDataSeedContributor\s*,\s*([A-Za-z0-9]+SeedContributor)\s*>/g)].map(match => match[1]));
+    const expected = JSON.stringify(registrations[0]);
+    if (registrations.some(value => JSON.stringify(value) !== expected)) {
       throw new Error(`Conditional seed registration requires explicit review: ${modulePath}`);
     }
-    return [...body.matchAll(/\bIDataSeedContributor\s*,\s*([A-Za-z0-9]+SeedContributor)\s*>/g)]
-      .map((match) => match[1]);
+    return registrations[0];
   };
   const contributors = [];
   const byModule = new Map();

@@ -23,6 +23,7 @@ import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verify
 import { verifyApplicationCrudVue } from './application-crud-vue.mjs';
 import { startApplicationCrudBrowser } from './application-crud-browser.mjs';
 import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
+import { enterHeavyTestPhase, testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -94,7 +95,7 @@ function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
     cwd,
     encoding: 'utf8',
     timeout: timeoutMs,
-    env: { ...process.env, ...env },
+    env: { ...testRunEnvironment(), ...env },
     windowsHide: true,
   });
   if (logPath) writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`);
@@ -153,7 +154,7 @@ function patchAppSettings(appRoot, provider, connectionString) {
   }
 }
 
-async function loginAndReadSettings(baseUrl) {
+async function loginAndReadSettings(baseUrl, verifySettings = true) {
   const loginResponse = await fetch(`${baseUrl}/api/v1/auth/login`, {
     method: 'POST',
     headers: {
@@ -170,6 +171,7 @@ async function loginAndReadSettings(baseUrl) {
   if (!accessToken) {
     throw new Error('login response missing accessToken');
   }
+  if (!verifySettings) return accessToken;
   const settingsResponse = await fetch(`${baseUrl}/api/v1/settings/dict-types?page=1&pageSize=5`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -206,7 +208,10 @@ async function loginAndReadSettings(baseUrl) {
 /**
  * @param {'sqlserver'|'mysql'} databaseProviderKey
  */
-export async function verifyCreatedAppRealStack(databaseProviderKey) {
+export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = 'complete' } = {}) {
+  assert.ok(['complete', 'generated-client'].includes(scope), 'unsupported created application verification scope');
+  const generatedClientOnly = scope === 'generated-client';
+  const started = Date.now();
   const workspace = mkdtempSync(join(tmpdir(), 'fullnet-created-app-rs-'));
   let dbContainer;
   let redisContainer;
@@ -231,8 +236,13 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       throw new Error('expected preset-minimal migration inventory');
     }
 
-    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
+    // CI 的既有上传范围保持明确，本地报告独立于会被清理的应用工作区及仓库目录。
+    const reportRoot = process.env.FULLNET_CREATED_APP_EVIDENCE
+      ?? ((process.env.CI === 'true' || process.env.CI === '1') ? join(repoRoot, '.tmp/template-real-stack')
+        : mkdtempSync(join(tmpdir(), 'fullnet-created-app-evidence-')));
+    const logRoot = join(reportRoot, databaseProviderKey);
     mkdirSync(logRoot, { recursive: true });
+    console.log(`独立应用验收：scope=${scope} provider=${databaseProviderKey} reports=${logRoot}`);
     // 运行应用自带客户端工具；仅验证冻结基线零漂移，不冒充业务 Vue 接入或页面编译。
     const clientCheck = spawnSync(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
       { cwd: workspace, encoding: 'utf8', timeout: 60_000, windowsHide: true });
@@ -256,12 +266,20 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     }
 
     prepareApplicationCompositionProbe(appRoot);
-    verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });
-    verifyApplicationCrudModule(appRoot, { reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
-    verifyApplicationCrudHostWiring(appRoot, { reportDirectory: join(logRoot, 'application-crud-host-wiring') });
-    verifyApplicationCrudAuthorization(appRoot, { reportDirectory: join(logRoot, 'application-crud-authorization') });
+    const run = (command, args, options) => spawnSync(command, args, { ...options, env: { ...testRunEnvironment(), ...options?.env } });
+    verifyApplicationCrudGeneration(appRoot, { run, reportDirectory: join(logRoot, 'application-crud') });
+    verifyApplicationCrudModule(appRoot, { run, reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot, { run, reportDirectory: join(logRoot, 'application-crud-host-wiring') });
+    if (!generatedClientOnly) verifyApplicationCrudAuthorization(appRoot, { reportDirectory: join(logRoot, 'application-crud-authorization') });
     const adoption = prepareApplicationBusinessMigrations(appRoot);
     writeFileSync(join(logRoot, 'application-migration-adoption.json'), JSON.stringify(adoption, null, 2));
+    const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
+    const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
+    if (generatedClientOnly) {
+      // 编译均在资源预算内完成，真实数据库阶段只运行已有输出，避免持重型锁再等待编译名额。
+      runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, {});
+      await enterHeavyTestPhase();
+    }
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
     const redis = await startRedisContainer();
@@ -269,19 +287,18 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     patchAppSettings(appRoot, database.databaseProvider, database.connectionString);
     const env = buildSharedEnv(database.connectionString, database.databaseProvider, redis.connectionString);
 
-    const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
-    const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
-    runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
+    if (!generatedClientOnly) runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
+    // 聚焦场景直接复用 HostWiring 已完成的同源 API 构建，数据库配置由运行时环境注入。
+    if (!generatedClientOnly) runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     const firstMigration = runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
     ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
     const firstResult = verifyApplicationMigrationResult(firstMigration.stdout, true);
-    const repeatMigration = runDotnet([
+    const repeatMigration = generatedClientOnly ? undefined : runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build',
     ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
-    const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
+    const repeatResult = repeatMigration ? verifyApplicationMigrationResult(repeatMigration.stdout, false) : undefined;
     writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
 
     const apiLogPath = join(logRoot, 'api.log');
@@ -289,12 +306,31 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
     apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
       cwd: appRoot,
-      env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl },
+      env: { ...testRunEnvironment(), ...env, ASPNETCORE_URLS: apiUrl },
       stdio: 'pipe',
     });
     apiProcess.stdout?.pipe(apiLogStream, { end: false });
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
+    if (generatedClientOnly) {
+      await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json'),
+        logPath: join(logRoot, 'application-crud-openapi.json') });
+      verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
+      const accessToken = await loginAndReadSettings(apiUrl, false);
+      const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken: accessToken,
+        logPath: join(logRoot, 'application-crud-tenant-http.json'),
+        onCreatedProduct: async ({ tenantAccessToken, product }) => {
+          await verifyApplicationCrudClientProductRead(appRoot, apiUrl, { tenantAccessToken, expectedProduct: product,
+            logPath: join(logRoot, 'application-crud-client/product-read.json') });
+          await verifyApplicationCrudClientProductList(appRoot, apiUrl, { tenantAccessToken, expectedProduct: product,
+            logPath: join(logRoot, 'application-crud-client/product-list.json') });
+        } });
+      const writes = await verifyApplicationCrudClientTenantWrites(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
+        expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
+      writeFileSync(join(logRoot, 'focused-result.json'), JSON.stringify({ scope, provider: databaseProviderKey, completed: true,
+        elapsedMs: Date.now() - started, ...writes }, null, 2));
+      return;
+    }
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
     await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json'),
       logPath: join(logRoot, 'application-crud-openapi.json') });
