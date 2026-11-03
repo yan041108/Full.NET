@@ -7,7 +7,8 @@ const zh = {
   sendFailed: '验证码发送未完成，请重新获取验证码后再试。',
   registerFailed: '注册失败，请检查输入后重试。', recoverFailed: '密码更新失败，请检查验证码后重试。',
   registered: '账号已创建，请登录。', recovered: '密码已更新，请使用新密码登录。',
-  invalidInvitation: '邀请无效或已过期。'
+  invalidInvitation: '邀请无效或已过期。', entryRequired: '请使用企业提供的有效注册链接，或重新打开邀请链接。',
+  checkingInvitation: '正在核对邀请，请稍候。'
 } as const;
 const en: Record<keyof typeof zh, string> = {
   registerTitle: 'Create account', recoverTitle: 'Recover password', displayName: 'Display name', email: 'Email',
@@ -18,6 +19,7 @@ const en: Record<keyof typeof zh, string> = {
   sendFailed: 'The code request did not complete. Request a new code before trying again.',
   registerFailed: 'Registration failed. Check your input and try again.', recoverFailed: 'Password update failed. Check the code and try again.',
   registered: 'Account created. You can sign in now.', recovered: 'Password updated. Sign in with the new password.',
-  invalidInvitation: 'Invitation is invalid or expired.'
+  invalidInvitation: 'Invitation is invalid or expired.', entryRequired: 'Use a valid registration link provided by the organization, or reopen your invitation.',
+  checkingInvitation: 'Checking the invitation. Please wait.'
 };
 export function accountSelfServiceText(locale: string, key: keyof typeof zh) { return (locale === 'en-US' ? en : zh)[key]; }

@@ -10,12 +10,15 @@ vi.mock('../api/public-auth', () => ({
   requestEmailChallenge: vi.fn(), recoverPassword: vi.fn(), registerAccount: vi.fn(),
   confirmRecoverPassword: vi.fn(), verifyInvitation: vi.fn()
 }));
+const routeState = vi.hoisted(() => ({ query: {} as Record<string, string | string[]>, path: '/register' }));
+const replaceRoute = vi.hoisted(() => vi.fn());
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: {}, path: '/register' }), useRouter: () => ({ replace: vi.fn() })
+  useRoute: () => routeState, useRouter: () => ({ replace: replaceRoute })
 }));
 enableAutoUnmount(afterEach);
 
 const response = { challengeId: '01900000-0000-7000-8000-000000000001', expiresAtUtc: '2030-01-01T00:00:00Z' };
+beforeEach(() => { routeState.query = { registrationWayId: '01900000-0000-7000-8000-000000000002' }; });
 
 describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode => {
   const sender = mode === 'register' ? vi.mocked(requestEmailChallenge) : vi.mocked(recoverPassword);
@@ -52,6 +55,7 @@ describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode 
     await flushPromises();
     const submitter = mode === 'register' ? registerAccount : confirmRecoverPassword;
     expect(submitter).toHaveBeenCalledWith(expect.objectContaining({ challengeId: response.challengeId, challengeCode: '123456' }));
+    if (mode === 'register') expect(registerAccount).toHaveBeenCalledWith(expect.objectContaining({ registrationWayId: routeState.query.registrationWayId }));
   });
 
   it('邮箱变化后丢弃旧请求响应并清空旧验证码', async () => {
@@ -98,6 +102,7 @@ describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode 
 });
 
 it('邀请注册按已验证邀请发送挑战，保留邀请用途和令牌边界', async () => {
+  routeState.query = {};
   sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'test-invitation' }));
   vi.mocked(verifyInvitation).mockResolvedValue({ email: 'invited@example.test', registrationWayId: response.challengeId } as Awaited<ReturnType<typeof verifyInvitation>>);
   vi.mocked(requestEmailChallenge).mockResolvedValue(response);
@@ -106,4 +111,42 @@ it('邀请注册按已验证邀请发送挑战，保留邀请用途和令牌边�
   await wrapper.findAll('button')[0]!.trigger('click');
   await flushPromises();
   expect(requestEmailChallenge).toHaveBeenCalledWith('invited@example.test', 3, response.challengeId, 'test-invitation');
+});
+
+it('显式注册入口不复用先前放弃的邀请', async () => {
+  vi.mocked(verifyInvitation).mockClear();
+  vi.mocked(requestEmailChallenge).mockResolvedValue(response);
+  sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'old-invitation' }));
+  const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
+  await flushPromises();
+  await wrapper.get('input[type="email"]').setValue('new@example.test');
+  await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
+  expect(verifyInvitation).not.toHaveBeenCalled();
+  expect(requestEmailChallenge).toHaveBeenLastCalledWith('new@example.test', 1, undefined, undefined);
+});
+
+it.each([undefined, 'not-a-guid', '00000000-0000-0000-0000-000000000000', ['a', 'b']])('注册入口缺失或非法时禁止发送验证码：%s', async value => {
+  vi.mocked(requestEmailChallenge).mockClear();
+  routeState.query = value === undefined ? {} : { registrationWayId: value };
+  const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
+  await flushPromises();
+  await wrapper.get('input[type="email"]').setValue('member@example.test');
+  expect(wrapper.text()).toContain('请使用企业提供的有效注册链接');
+  expect(wrapper.findAll('button')[0]!.attributes('disabled')).toBeDefined();
+  await wrapper.findAll('button')[0]!.trigger('click');
+  expect(requestEmailChallenge).not.toHaveBeenCalled();
+});
+
+it.each(['invitationId', 'invitationToken'])('不完整邀请 %s 不会回落普通注册入口', async field => {
+  vi.mocked(requestEmailChallenge).mockClear();
+  vi.mocked(verifyInvitation).mockClear();
+  routeState.query[field] = field === 'invitationId' ? response.challengeId : 'test-invitation';
+  const wrapper = mount(RegisterView, { global: { stubs: { ArtLoginLeftPanel: true } } });
+  await flushPromises();
+  await wrapper.get('input[type="email"]').setValue('member@example.test');
+  expect(wrapper.text()).toContain('邀请无效或已过期');
+  expect(wrapper.findAll('button')[0]!.attributes('disabled')).toBeDefined();
+  expect(verifyInvitation).not.toHaveBeenCalled();
+  expect(requestEmailChallenge).not.toHaveBeenCalled();
+  expect(replaceRoute).toHaveBeenCalledWith({ path: '/register' });
 });

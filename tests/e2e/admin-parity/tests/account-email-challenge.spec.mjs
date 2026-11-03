@@ -31,7 +31,7 @@ for (const mode of ['register', 'recover']) {
         }
         return json(route, { type: 'about:blank', status: 401, title: 'Anonymous', code: 'identity.session_not_active' }, 401);
       });
-      await page.goto(mode === 'register' ? '/#/register' : '/#/recover-password');
+      await page.goto(mode === 'register' ? `/#/register?registrationWayId=${challengeId}` : '/#/recover-password');
       const form = page.locator(mode === 'register' ? '.register-form' : '.recover-form');
       const send = form.getByRole('button', { name: '发送验证码', exact: true });
       const submit = form.getByRole('button', { name: mode === 'register' ? '注册' : '更新密码', exact: true });

@@ -54,6 +54,9 @@ const policyLoading = ref(false);
 const policyMode = ref<RegistrationMode>(0);
 const policyError = ref('');
 const policyUnconfirmed = ref(false);
+const registrationLink = ref('');
+const registrationLinkOpen = ref(false);
+const copyingLink = ref(false);
 const items = ref<RegistrationWay[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -100,6 +103,30 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 
 function rowIndex(index: number) {
   return (page.value - 1) * pageSize.value + index + 1;
+}
+
+function openRegistrationLink(way: RegistrationWay) {
+  if (!can('identity.registration_ways.read') || !way.isEnabled) return;
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = `/register?registrationWayId=${encodeURIComponent(way.id)}`;
+  registrationLink.value = url.href;
+  registrationLinkOpen.value = true;
+}
+
+async function copyRegistrationLink() {
+  if (!registrationLink.value || copyingLink.value) return;
+  copyingLink.value = true;
+  try {
+    await navigator.clipboard.writeText(registrationLink.value);
+    ElMessage.success(policyText('copied'));
+  } catch {
+    ElMessage.error(policyText('copyFailed'));
+  } finally { copyingLink.value = false; }
+}
+
+function selectRegistrationLink(event: Event) {
+  if (event.target instanceof HTMLInputElement) event.target.select();
 }
 
 async function loadPolicy() {
@@ -341,6 +368,10 @@ onMounted(async () => {
           <ElTableColumn fixed="right" width="180">
           <template #default="{ row }">
             <ArtTableActionGroup>
+              <PermissionGate v-if="row.isEnabled" code="identity.registration_ways.read">
+                <ArtTableActionButton type="view" :title="policyText('link')" test-id="registration-way-link"
+                  @click="openRegistrationLink(row)" />
+              </PermissionGate>
               <PermissionGate code="identity.registration_ways.update">
                 <ArtTableActionButton type="edit"
                   :title="t('registrationWays.edit')"
@@ -369,6 +400,12 @@ onMounted(async () => {
         @change="load"
       />
     </ElCard>
+
+    <ArtFormDialog v-model:open="registrationLinkOpen" :title="policyText('link')" :show-confirm="false" :cancel-label="policyText('close')">
+      <ElAlert :title="policyText('linkHelp')" type="info" :closable="false" show-icon />
+      <ElInput :model-value="registrationLink" :aria-label="policyText('link')" readonly @focus="selectRegistrationLink" />
+      <ElButton data-testid="registration-link-copy" :loading="copyingLink" @click="copyRegistrationLink">{{ policyText('copy') }}</ElButton>
+    </ArtFormDialog>
 
     <ArtFormDialog
       v-model:open="editorOpen"
