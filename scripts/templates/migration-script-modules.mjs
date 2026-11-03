@@ -1,5 +1,5 @@
 /**
- * 迁移脚本与模块归属推断（F01 preset 闭包）。Shared 脚本对所有预设执行。
+ * 迁移脚本与模块归属推断（F01 preset 闭包）。Shared 默认对所有预设执行，跨模块脚本还须满足声明的前置模块。
  */
 import { PRESET_MODULE_CLOSURE } from './preset-modules.mjs';
 
@@ -33,6 +33,12 @@ const SHARED_STEMS = new Set([
   'HostNavigationMenuPermissionScope',
   'AuthenticationAuditContext',
   'SuperAdministratorGrantRevokePermissions',
+  'OwnTaskCursorIndexes',
+]);
+
+/** 两种本人任务索引共用一份脚本；两张权威表都存在时才能执行，不由任一模块单独带入。 */
+const SHARED_MODULE_REQUIREMENTS = new Map([
+  ['OwnTaskCursorIndexes', ['ImportExport', 'Reporting']],
 ]);
 
 const STEM_MODULE_OVERRIDES = new Map([
@@ -107,6 +113,10 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['AiAgentApproval', 'Ai'],
   ['AiMcpRemoteConnection', 'Ai'],
   ['AiAgentRunSessionKind', 'Ai'],
+  ['PersonalScheduleCompletion', 'Calendar'],
+  ['DocumentRecentSearchIndex', 'Platform'],
+  ['ImportProfilesAndInputSnapshots', 'ImportExport'],
+  ['ImportTaskCancellation', 'ImportExport'],
 ]);
 
 export function migrationScriptStem(scriptName) {
@@ -118,7 +128,7 @@ export function migrationScriptStem(scriptName) {
 }
 
 /**
- * @returns {'Shared'|string} 模块名；Shared 表示跨预设基础设施。
+ * @returns {'Shared'|string} 模块名；Shared 表示基础设施，跨模块脚本仍受显式前置条件约束。
  */
 export function inferMigrationModuleOwner(scriptName) {
   const stem = migrationScriptStem(scriptName);
@@ -163,7 +173,8 @@ export function buildPresetMigrationInventory(fullInventory, preset, modules) {
   const moduleSet = new Set(modules);
   const selected = fullInventory.scripts.filter(({ name }) => {
     const owner = inferMigrationModuleOwner(name);
-    if (owner === 'Shared') return true;
+    if (owner === 'Shared') return (SHARED_MODULE_REQUIREMENTS.get(migrationScriptStem(name)) ?? [])
+      .every(module => moduleSet.has(module));
     if (owner === 'Ai') return false;
     return moduleSet.has(owner);
   });

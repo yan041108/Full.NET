@@ -15,6 +15,22 @@ test('inferMigrationModuleOwner resolves every published script', () => {
   }
 });
 
+test('new delivery migrations follow preset closure and cross-module index prerequisites', () => {
+  const names = ['001_Foundation.sql', '351_PersonalScheduleCompletion.sql', '352_MessagingCdcHeartbeat.sql',
+    '354_OwnTaskCursorIndexes.sql', '355_SettingsQuerySchemes.sql', '356_DocumentRecentSearchIndex.sql',
+    '357_ImportProfilesAndInputSnapshots.sql', '358_ImportTaskCancellation.sql', '359_ReportingExportTaskCancellation.sql'];
+  const full = { scripts: names.map(name => ({ name })) };
+  const selected = modules => buildPresetMigrationInventory(full, 'focused', modules).scripts.map(item => item.name);
+  assert.deepEqual(selected(resolvePresetModules('minimal')), ['001_Foundation.sql', '355_SettingsQuerySchemes.sql']);
+  const platform = ['001_Foundation.sql', '351_PersonalScheduleCompletion.sql', '352_MessagingCdcHeartbeat.sql',
+    '355_SettingsQuerySchemes.sql', '356_DocumentRecentSearchIndex.sql'];
+  assert.deepEqual(selected(resolvePresetModules('platform')), platform);
+  assert.deepEqual(selected(resolvePresetModules('saas')), platform);
+  assert.deepEqual(selected(resolvePresetModules('enterprise')), names);
+  for (const modules of [['ImportExport'], ['Reporting']]) assert.ok(!selected(modules).includes('354_OwnTaskCursorIndexes.sql'));
+  assert.ok(selected(['ImportExport', 'Reporting']).includes('354_OwnTaskCursorIndexes.sql'));
+});
+
 test('knowledge migrations retain Ai ownership and stay outside generated presets for both providers', () => {
   for (const provider of ['SqlServer', 'MySql']) {
     const migrationDirectory = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations', provider);
